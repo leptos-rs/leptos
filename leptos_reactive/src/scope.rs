@@ -52,13 +52,13 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
         self.inner.create_ref(value)
     }
 
-    pub fn signal<T>(self, value: T) -> (&'a ReadSignal<T>, &'a WriteSignal<T>) {
-        self.inner.signal(value)
+    pub fn create_signal<T>(self, value: T) -> (&'a ReadSignal<T>, &'a WriteSignal<T>) {
+        let (read, write) = self.inner.signal(value);
+        (self.create_ref(read), self.create_ref(write))
     }
 
-    pub fn signal_cloned<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
-        let (read, write) = self.inner.signal(value);
-        (read.clone(), write.clone())
+    pub fn create_signal_owned<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
+        self.inner.signal(value)
     }
 
     /// An effect is an observer that runs a side effect that depends Signals.
@@ -72,8 +72,8 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
         self.inner.root_context.untrack(f)
     }
 
-    pub fn memo<T>(self, f: impl Fn() -> T) -> &'a ReadSignal<T> {
-        self.inner.memo(f)
+    pub fn create_memo<T>(self, f: impl Fn() -> T) -> &'a ReadSignal<T> {
+        self.inner.create_memo(f)
     }
 
     pub fn provide_context<T: 'static>(self, value: T) {
@@ -149,20 +149,20 @@ impl<'a> ScopeInner<'a> {
         self.arena.alloc(value)
     }
 
-    pub fn signal<T>(&self, value: T) -> (&ReadSignal<T>, &WriteSignal<T>) {
+    pub fn signal<T>(&self, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
         let state = Rc::new(SignalState {
             value: RefCell::new(value),
             subscriptions: RefCell::new(HashSet::new()),
         });
 
-        let writer = self.create_ref(WriteSignal {
+        let writer = WriteSignal {
             inner: Rc::downgrade(&state),
-        });
+        };
 
-        let reader = self.create_ref(ReadSignal {
+        let reader = ReadSignal {
             stack: self.root_context,
             inner: state,
-        });
+        };
 
         (reader, writer)
     }
@@ -171,7 +171,7 @@ impl<'a> ScopeInner<'a> {
         self.root_context.untrack(f)
     }
 
-    pub fn memo<T>(&self, f: impl Fn() -> T) -> &ReadSignal<T> {
+    pub fn create_memo<T>(&self, f: impl Fn() -> T) -> &ReadSignal<T> {
         // the initial value should simply be an untracked call, based on initial Signal values
         // we need this initial call because the Signal must always have a value
         // (otherwise every computed Signal would be typed Signal<Option<T>>)
@@ -185,7 +185,7 @@ impl<'a> ScopeInner<'a> {
 
         // and start tracking based on whatever Signals are inside the computed fn
         self.create_effect(move || write(|n| *n = f()));
-        read
+        self.create_ref(read)
     }
 
     /// An effect is an observer that runs a side effect that depends Signals.

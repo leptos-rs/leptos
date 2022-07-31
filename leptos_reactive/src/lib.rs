@@ -23,10 +23,10 @@ mod tests {
     fn compute_signal() {
         let stack = Box::leak(Box::new(RootContext::new()));
         let _ = create_scope(stack, |cx| {
-            let (a, set_a) = cx.signal(0);
-            let (b, set_b) = cx.signal(0);
+            let (a, set_a) = cx.create_signal(0);
+            let (b, set_b) = cx.create_signal(0);
 
-            let c = cx.memo(|| *(&a)() + *(&b)());
+            let c = cx.create_memo(|| *(&a)() + *(&b)());
 
             assert_eq!(*c.get_untracked(), 0);
 
@@ -44,11 +44,11 @@ mod tests {
     fn memo_with_conditional_branches() {
         let stack = Box::leak(Box::new(RootContext::new()));
         let _ = create_scope(stack, |cx| {
-            let (first_name, set_first_name) = cx.signal("Greg");
-            let (last_name, set_last_name) = cx.signal("Johnston");
-            let (show_last_name, set_show_last_name) = cx.signal(true);
+            let (first_name, set_first_name) = cx.create_signal("Greg");
+            let (last_name, set_last_name) = cx.create_signal("Johnston");
+            let (show_last_name, set_show_last_name) = cx.create_signal(true);
 
-            let out = cx.memo(move || {
+            let out = cx.create_memo(move || {
                 if *(&show_last_name)() {
                     format!("{} {}", *(&first_name)(), *(&last_name)())
                 } else {

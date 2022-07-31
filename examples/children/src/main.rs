@@ -19,7 +19,7 @@ struct CounterUpdater {
 
 #[component]
 fn Parent(cx: Scope) -> web_sys::Element {
-    let (value, _) = cx.signal(0);
+    let (value, _) = cx.create_signal(0);
 
     view! {
         <div>

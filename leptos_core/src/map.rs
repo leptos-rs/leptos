@@ -31,7 +31,7 @@ where
     let mut mapped: Vec<U> = Vec::new();
     let mut disposers: Vec<Option<ScopeDisposer<'a>>> = Vec::new();
 
-    let (item_signal, set_item_signal) = cx.signal(Vec::new());
+    let (item_signal, set_item_signal) = cx.create_signal(Vec::new());
 
     // Diff and update signal each time list is updated.
     cx.create_effect(move || {

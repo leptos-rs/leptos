@@ -30,7 +30,7 @@ impl Todos {
         } else {
             Vec::new()
         };
-        let (todos, set_todos) = cx.signal_cloned(starting_todos);
+        let (todos, set_todos) = cx.create_signal_owned(starting_todos);
         Self { todos, set_todos }
     }
 
@@ -99,8 +99,8 @@ impl Todo {
     }
 
     pub fn new_with_completed(cx: Scope, id: usize, title: String, completed: bool) -> Self {
-        let (title, set_title) = cx.signal_cloned(title);
-        let (completed, set_completed) = cx.signal_cloned(completed);
+        let (title, set_title) = cx.create_signal_owned(title);
+        let (completed, set_completed) = cx.create_signal_owned(completed);
         Self {
             id,
             title,
@@ -128,7 +128,7 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
     cx.provide_context(todos.clone());
     let todos = cx.create_ref(todos);
 
-    let (mode, set_mode) = cx.signal(Mode::All);
+    let (mode, set_mode) = cx.create_signal(Mode::All);
     window_event_listener("hashchange", move |_| {
         let new_mode = location_hash().map(|hash| route(&hash)).unwrap_or_default();
         set_mode(|mode| *mode = new_mode);
@@ -150,7 +150,7 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
         }
     };
 
-    let filtered_todos = cx.memo::<Vec<Todo>>(move || {
+    let filtered_todos = cx.create_memo::<Vec<Todo>>(move || {
         let todos = todos.todos.get();
         match *mode.get() {
             Mode::All => todos.iter().cloned().collect(),
@@ -239,7 +239,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
     // creates a scope-bound reference to the Todo
     // this allows us to move the reference into closures below without cloning it
     let todo = cx.create_ref(todo);
-    let (editing, set_editing) = cx.signal(false);
+    let (editing, set_editing) = cx.create_signal(false);
     let todos = cx.use_context::<Todos>().unwrap();
     let input: web_sys::Element;
 

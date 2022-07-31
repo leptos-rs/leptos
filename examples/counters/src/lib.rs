@@ -9,15 +9,15 @@ struct CounterUpdater {
 
 #[component]
 pub fn Counters(cx: Scope) -> web_sys::Element {
-    let (next_counter_id, set_next_counter_id) = cx.signal(0);
-    let (counters, set_counters) = cx.signal::<CounterHolder>(Vec::new());
+    let (next_counter_id, set_next_counter_id) = cx.create_signal(0);
+    let (counters, set_counters) = cx.create_signal::<CounterHolder>(Vec::new());
     cx.provide_context(CounterUpdater {
         set_counters: (*set_counters).clone(),
     });
 
     let add_counter = move |_| {
         let id = *next_counter_id.get_untracked();
-        let (read, write) = cx.signal(0);
+        let (read, write) = cx.create_signal(0);
         set_counters(|counters| counters.push((id, (read.clone(), write.clone()))));
         set_next_counter_id(|id| *id += 1);
     };
@@ -25,7 +25,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
     let add_many_counters = move |_| {
         let mut new_counters = vec![];
         for next_id in 0..1000 {
-            let signal = cx.signal(0);
+            let signal = cx.create_signal(0);
             new_counters.push((next_id, (signal.0.clone(), signal.1.clone())));
         }
         set_counters(move |n| *n = new_counters.clone());
