@@ -1,0 +1,16 @@
+[package]
+name = "counter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../../leptos" }
+wee_alloc = "0.4"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'

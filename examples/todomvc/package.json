@@ -1,0 +1,11 @@
+{
+  "name": "todomvc",
+  "version": "0.1.0",
+  "description": "TodoMVC implemented in the Leptos framework for Rust",
+  "author": "Greg Johnston <greg.johnston@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "todomvc-app-css": "^2.4.2",
+    "todomvc-common": "^1.0.5"
+  }
+}

@@ -1,0 +1,29 @@
+- [ ] Async
+  - [ ] Resource
+  - [ ] Suspense
+- [ ] Docs (and clippy warning to insist on docs)
+- [ ] Read through + understand...
+  - [ ] `Props` macro
+  - [ ] `component` macro
+  - [ ] renderer
+  - [ ] array reconciliation (bundle size?)
+  - [ ] memory management of scopes
+- Reactive system improvements
+  - [ ] Dispose of scopes properly
+  - [ ] Effects should take `Option<T>` and return `T`
+  - [ ] Better `create_memo` implementation
+  - [ ] `create_signal` return actual closures?
+  - [ ] Scheduling effets/run effects at end of render
+  - [ ] `batch()`
+- [ ] Examples
+  - [ ] API fetch w/ Suspense
+- [ ] Router
+- [ ] Portals
+- [ ] SSR
+  - [ ] Macro
+  - [ ] Streaming HTML from server
+  - [ ] Streaming `Resource`s
+- [ ] Loaders
+- [ ] Transitions
+- [ ] Tutorials + website
+- [ ] Scoped CSS
