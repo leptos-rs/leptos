@@ -98,15 +98,12 @@ pub fn insert<'a>(
                     value = f();
                 }
 
-                insert_expression(
+                current = Some(insert_expression(
                     parent.clone().unchecked_into(),
                     &f(),
                     current.clone().unwrap_or(Child::Null),
-                    //current.get_untracked().clone(), // get untracked to avoid infinite loop when we set current, below
                     before.as_ref(),
-                );
-
-                current = Some(value);
+                ));
             });
         }
         _ => {
@@ -132,6 +129,12 @@ pub fn insert_expression<'a>(
         parent.node_name(),
         current
     );
+    if let Child::Node(node) = &current {
+        crate::log!(
+            "current's parent = {}",
+            node.parent_node().unwrap().node_name()
+        );
+    }
 
     if new_value == &current {
         current
