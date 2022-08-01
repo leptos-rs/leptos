@@ -46,7 +46,7 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
                     }
                 />
             </label>
-            {match &**(cats.data.get().guard()) {
+            {move || match &*cats.data.get() {
                 None => view! { <p>"Loading..."</p> },
                 Some(Err(e)) => view! { <pre>"Error: " {e.to_string()}</pre> },
                 Some(Ok(cats)) => view! {
