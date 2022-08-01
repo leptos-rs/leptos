@@ -1,9 +1,7 @@
 mod for_component;
 mod map;
-mod show;
 
 pub use for_component::*;
-pub use show::*;
 
 pub trait Prop {
     type Builder;
