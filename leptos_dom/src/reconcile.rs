@@ -64,6 +64,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
         } else if b_end == b_start {
             // Remove.
             for node in &a[a_start..a_end] {
+                crate::debug_warn!("unwrap at 68");
                 if map.is_none() || !map.as_ref().unwrap().contains_key(&NodeWrapper(&node)) {
                     parent.remove_child(node);
                 }
@@ -97,6 +98,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
                     .collect();
                 map = Some(tmp);
             }
+            crate::debug_warn!("unwrap at 102");
             let map = map.as_ref().unwrap();
 
             if let Some(&index) = map.get(&NodeWrapper(&a[a_start])) {

@@ -294,23 +294,6 @@ pub fn pick_up_text_node(parent: &web_sys::HtmlElement, node_idx: usize) -> Opti
     None
 }
 
-#[cfg(target_arch = "wasm32")]
-pub fn spawn_local<F>(fut: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    wasm_bindgen_futures::spawn_local(fut)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn spawn_local<F>(_fut: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    // noop for now; useful for ignoring any async tasks on the server side
-    // could be replaced with a Tokio dependency
-}
-
 pub fn remove_event_listeners(el: &web_sys::Element) {
     let clone = el.clone_node().unwrap_throw();
     replace_with(el, clone.unchecked_ref());

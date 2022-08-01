@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     cell::{Ref, RefCell},
     collections::HashSet,
     rc::{Rc, Weak},
@@ -74,6 +75,12 @@ use std::ops::Deref;
 
 pub struct ReadSignalRef<'a, T> {
     guard: Ref<'a, T>,
+}
+
+impl<'a, T> ReadSignalRef<'a, T> {
+    pub fn guard(&self) -> &Ref<'a, T> {
+        &self.guard
+    }
 }
 
 impl<'a, T> Deref for ReadSignalRef<'a, T> {

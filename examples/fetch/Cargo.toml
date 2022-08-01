@@ -1,0 +1,19 @@
+[package]
+name = "fetch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.58"
+leptos = { path = "../../leptos" }
+reqwasm = "0.5.0"
+serde = { version = "1", features = ["derive"] }
+wee_alloc = "0.4"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'

@@ -5,15 +5,19 @@
 #![feature(unboxed_closures)]
 
 mod effect;
+mod resource;
 mod root_context;
 mod scope;
 mod scope_arena;
 mod signal;
+mod spawn;
 
 pub use effect::*;
+pub use resource::*;
 pub use root_context::*;
 pub use scope::*;
 pub use signal::*;
+pub use spawn::*;
 
 #[cfg(test)]
 mod tests {

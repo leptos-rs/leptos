@@ -1,5 +1,7 @@
 - [ ] Async
-  - [ ] Resource
+  - [x] Resource
+    - [ ] Render bug: when doing e.g., a `match` and having multiple branches with separate `template`s, all exist as separate document fragment and replace the fragment, not one another -- find a way to make sure that `Child<'a>` returned from `insert` is _actually_ attached to the DOM
+    - [ ] Render bug with list reconciliation
   - [ ] Suspense
 - [ ] Docs (and clippy warning to insist on docs)
 - [ ] Read through + understand...

@@ -1,7 +1,8 @@
 use crate::scope_arena::ScopeArena;
-use crate::{EffectInner, SignalState};
+use crate::{EffectInner, Resource, SignalState};
 
 use super::{root_context::RootContext, Effect, ReadSignal, WriteSignal};
+use std::future::Future;
 use std::{
     any::{Any, TypeId},
     cell::RefCell,
@@ -82,6 +83,19 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
 
     pub fn use_context<T: 'static>(self) -> Option<&'a T> {
         self.inner.use_context()
+    }
+
+    pub fn create_resource<S, T, Fu>(
+        self,
+        source: ReadSignal<S>,
+        fetcher: impl Fn(&S) -> Fu + 'static,
+    ) -> &'a Resource<S, T, Fu>
+    where
+        S: 'static,
+        T: 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        self.create_ref(Resource::new(self, source, fetcher))
     }
 
     pub fn child_scope<F>(self, f: F) -> ScopeDisposer<'a>
