@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use std::future::Future;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
 use crate::{event_delegation, is_server};
