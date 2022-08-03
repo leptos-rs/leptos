@@ -1,7 +1,9 @@
 mod for_component;
 mod map;
+mod suspense;
 
 pub use for_component::*;
+pub use suspense::*;
 
 pub trait Prop {
     type Builder;

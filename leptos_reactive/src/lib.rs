@@ -11,6 +11,7 @@ mod scope;
 mod scope_arena;
 mod signal;
 mod spawn;
+mod suspense;
 
 pub use effect::*;
 pub use resource::*;
@@ -18,6 +19,7 @@ pub use root_context::*;
 pub use scope::*;
 pub use signal::*;
 pub use spawn::*;
+pub use suspense::*;
 
 #[cfg(test)]
 mod tests {
@@ -74,5 +76,19 @@ mod tests {
             set_show_last_name(|n| *n = true);
             assert_eq!(*out.get_untracked(), "Murray Kenney");
         });
+    }
+}
+
+#[macro_export]
+macro_rules! debug_warn {
+    ($($x:tt)*) => {
+        {
+            #[cfg(debug_assertions)]
+            {
+                log::warn!($($x)*)
+            }
+            #[cfg(not(debug_assertions))]
+            { }
+        }
     }
 }

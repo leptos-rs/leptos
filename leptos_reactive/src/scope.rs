@@ -89,13 +89,13 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
         self,
         source: ReadSignal<S>,
         fetcher: impl Fn(&S) -> Fu + 'static,
-    ) -> &'a Resource<S, T, Fu>
+    ) -> Resource<'a, S, T, Fu>
     where
-        S: 'static,
+        S: 'static + Clone + PartialEq,
         T: 'static,
         Fu: Future<Output = T> + 'static,
     {
-        self.create_ref(Resource::new(self, source, fetcher))
+        Resource::new(self, source, fetcher)
     }
 
     pub fn child_scope<F>(self, f: F) -> ScopeDisposer<'a>

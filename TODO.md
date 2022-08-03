@@ -1,6 +1,6 @@
 - [ ] Async
   - [x] Resource
-  - [ ] Suspense
+  - [x] Suspense
   - [ ] Transitions
 - [ ] Router
 - [ ] Docs (and clippy warning to insist on docs)

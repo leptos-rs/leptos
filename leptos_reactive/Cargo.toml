@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 bumpalo = "3"
+futures = "0.3"
+log = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"

@@ -1,5 +1,5 @@
+//use debug_cell::{Ref, RefCell};
 use std::{
-    borrow::Borrow,
     cell::{Ref, RefCell},
     collections::HashSet,
     rc::{Rc, Weak},
@@ -61,13 +61,28 @@ impl<T: 'static> ReadSignal<T> {
     }
 
     fn add_subscriber(&self, subscriber: Rc<EffectInner>) {
-        self.inner.subscriptions.borrow_mut().insert(subscriber);
+        match self.inner.subscriptions.try_borrow_mut() {
+            Ok(mut subs) => {
+                subs.insert(subscriber);
+            }
+            Err(e) => crate::debug_warn!(
+                "failed to BorrowMut while adding subscriber to Signal: {}",
+                e
+            ),
+        }
+        //self.inner.subscriptions.borrow_mut().insert(subscriber);
     }
 }
 
 impl<T> EffectDependency for SignalState<T> {
     fn unsubscribe(&self, effect: Rc<EffectInner>) {
-        self.subscriptions.borrow_mut().remove(&effect);
+        match self.subscriptions.try_borrow_mut() {
+            Ok(mut subs) => {
+                subs.remove(&effect);
+            }
+            Err(e) => crate::debug_warn!("failed to unsubscribing Signal from Effect: {}", e),
+        }
+        //self.subscriptions.borrow_mut().remove(&effect);
     }
 }
 
@@ -145,11 +160,41 @@ where
 impl<T> WriteSignal<T> {
     pub fn update(&self, update_fn: impl FnOnce(&mut T)) {
         if let Some(inner) = self.inner.upgrade() {
-            (update_fn)(&mut inner.value.borrow_mut());
-            for subscription in inner.subscriptions.take().iter() {
-                subscription.execute(Rc::downgrade(&subscription))
+            match inner.value.try_borrow_mut() {
+                Ok(mut value) => (update_fn)(&mut value),
+                Err(e) => crate::debug_warn!("failed to BorrowMut while updating Signal: {}", e),
             }
-        } else {
+            //(update_fn)(&mut inner.value.borrow_mut());
+
+            match inner.subscriptions.try_borrow() {
+                Ok(subs) => {
+                    for subscription in subs.iter() {
+                        subscription.execute(Rc::downgrade(&subscription));
+                    }
+                }
+                Err(e) => crate::debug_warn!(
+                    "failed to BorrowMut while running dependencies for Signal: {}",
+                    e
+                ),
+            }
+            /* for subscription in inner.subscriptions.borrow_mut().iter() {
+                subscription.execute(Rc::downgrade(&subscription));
+            } */
+            /* for subscription in inner.subscriptions.take().iter() {
+                subscription.execute(Rc::downgrade(&subscription))
+            } */
+        }
+    }
+
+    pub fn update_untracked(&self, update_fn: impl FnOnce(&mut T)) {
+        if let Some(inner) = self.inner.upgrade() {
+            match inner.value.try_borrow_mut() {
+                Ok(mut value) => (update_fn)(&mut value),
+                Err(e) => crate::debug_warn!(
+                    "failed to BorrowMut while calling WriteSignal::update_untracked {}",
+                    e
+                ),
+            }
         }
     }
 }

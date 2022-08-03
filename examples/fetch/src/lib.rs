@@ -1,4 +1,3 @@
-use anyhow::Result;
 use leptos::*;
 use serde::{Deserialize, Serialize};
 
@@ -7,7 +6,7 @@ pub struct Cat {
     url: String,
 }
 
-async fn fetch_cats(count: u32) -> Result<Vec<String>> {
+async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
     if count > 0 {
         log!("fetching cats");
         let res = reqwasm::http::Request::get(&format!(
@@ -15,9 +14,11 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>> {
             count
         ))
         .send()
-        .await?
+        .await
+        .map_err(|_| ())?
         .json::<Vec<Cat>>()
-        .await?
+        .await
+        .map_err(|_| ())?
         .into_iter()
         .map(|cat| cat.url)
         .collect::<Vec<_>>();
@@ -29,16 +30,15 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>> {
 }
 
 pub fn fetch_example(cx: Scope) -> web_sys::Element {
-    let (cat_count, set_cat_count) = cx.create_signal::<u32>(0);
-    let cats = cx.create_resource(cat_count.clone(), |count| fetch_cats(*count));
-
-    cx.create_effect(move || log!("cats data = {:?}", cats.data.get()));
+    let (cat_count, set_cat_count) = cx.create_signal::<u32>(3);
+    let cats = cx.create_ref(cx.create_resource(cat_count.clone(), |count| fetch_cats(*count)));
 
     view! {
         <div>
             <label>
                 "How many cats would you like?"
                 <input type="number"
+                    value={move || cat_count.get().to_string()}
                     on:input=move |ev| {
                         let val = event_target_value(&ev).parse::<u32>().unwrap_or(0);
                         log!("set_cat_count {val}");
@@ -46,21 +46,26 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
                     }
                 />
             </label>
-            {move || match &*cats.data.get() {
-                None => view! { <p>"Loading..."</p> },
-                Some(Err(e)) => view! { <pre>"Error: " {e.to_string()}</pre> },
-                Some(Ok(cats)) => view! {
-                    <div>{
-                        cats.iter()
-                            .map(|src| {
-                                view! {
-                                    <img src={src}/>
-                                }
-                            })
-                            .collect::<Vec<_>>()
-                    }</div>
-                },
-            }}
+            <div>
+                //<Suspense fallback={"Loading (Suspense Fallback)...".to_string()}>
+                    {move || match &*cats.read() {
+                        ResourceState::Idle => view! { <p>"(no data)"</p> },
+                        ResourceState::Pending { .. } => view! { <p>"Loading..."</p> },
+                        ResourceState::Ready { data: Err(_) } => view! { <pre>"Error"</pre> },
+                        ResourceState::Ready { data: Ok(cats) } => view! {
+                            <div>{
+                                cats.iter()
+                                    .map(|src| {
+                                        view! {
+                                            <img src={src}/>
+                                        }
+                                    })
+                                    .collect::<Vec<_>>()
+                            }</div>
+                        }
+                    }}
+                //</Suspense>
+            </div>
         </div>
     }
 }
