@@ -12,6 +12,7 @@ mod scope_arena;
 mod signal;
 mod spawn;
 mod suspense;
+mod transition;
 
 pub use effect::*;
 pub use resource::*;
@@ -20,6 +21,7 @@ pub use scope::*;
 pub use signal::*;
 pub use spawn::*;
 pub use suspense::*;
+pub use transition::*;
 
 #[cfg(test)]
 mod tests {

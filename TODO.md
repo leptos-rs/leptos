@@ -2,6 +2,10 @@
   - [x] Resource
   - [x] Suspense
   - [ ] Transitions
+  - [ ] Tests for Suspense/Transitions
+  - [ ] Bugs in Suspense/Transitions
+    - [ ] infinite loop if reading resource in effect
+    - [ ] rendering bugs if `Suspense` doesn't have a parent
 - [ ] Router
 - [ ] Docs (and clippy warning to insist on docs)
 - [ ] Read through + understand...

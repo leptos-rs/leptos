@@ -1,15 +1,19 @@
 use std::{cell::RefCell, rc::Weak};
 
-use crate::EffectInner;
+use crate::{EffectInner, ReadSignal, TransitionState, WriteSignal};
 
 pub struct RootContext {
     pub(crate) stack: RefCell<Vec<Weak<EffectInner>>>,
+    pub(crate) transition_pending: RefCell<Option<(ReadSignal<bool>, WriteSignal<bool>)>>,
+    pub(crate) transition: RefCell<Option<TransitionState>>,
 }
 
 impl RootContext {
     pub fn new() -> Self {
         Self {
-            stack: RefCell::new(Vec::new()),
+            stack: Default::default(),
+            transition_pending: Default::default(),
+            transition: Default::default(),
         }
     }
 

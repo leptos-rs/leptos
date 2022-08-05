@@ -1,12 +1,12 @@
 use crate::scope_arena::ScopeArena;
-use crate::{EffectInner, Resource, SignalState};
+use crate::{signal_from_root_context, EffectInner, Resource};
 
 use super::{root_context::RootContext, Effect, ReadSignal, WriteSignal};
 use std::future::Future;
 use std::{
     any::{Any, TypeId},
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     marker::PhantomData,
     rc::Rc,
 };
@@ -18,6 +18,14 @@ pub fn create_scope<'disposer>(
     root_context: &'static RootContext,
     f: impl for<'a> FnOnce(Scope<'a>),
 ) -> ScopeDisposer<'disposer> {
+    // create global transition tracking if this is the first scope
+    {
+        let mut transition = root_context.transition_pending.borrow_mut();
+        if transition.is_none() {
+            *transition = Some(signal_from_root_context(root_context, false));
+        }
+    }
+
     let inner = ScopeInner::new(&root_context);
     let boxed_inner = Box::new(inner);
     let inner_ptr = Box::into_raw(boxed_inner);
@@ -36,7 +44,7 @@ pub fn create_scope<'disposer>(
 
 #[derive(Clone, Copy)]
 pub struct BoundedScope<'a, 'b: 'a> {
-    inner: &'a ScopeInner<'a>,
+    pub(crate) inner: &'a ScopeInner<'a>,
     /// `&'b` for covariance!
     _phantom: PhantomData<&'b ()>,
 }
@@ -87,7 +95,7 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
 
     pub fn create_resource<S, T, Fu>(
         self,
-        source: ReadSignal<S>,
+        source: &ReadSignal<S>,
         fetcher: impl Fn(&S) -> Fu + 'static,
     ) -> Resource<'a, S, T, Fu>
     where
@@ -95,7 +103,7 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
         T: 'static,
         Fu: Future<Output = T> + 'static,
     {
-        Resource::new(self, source, fetcher)
+        Resource::new(self, source.clone(), fetcher)
     }
 
     pub fn child_scope<F>(self, f: F) -> ScopeDisposer<'a>
@@ -134,7 +142,7 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
     }
 }
 
-struct ScopeInner<'a> {
+pub(crate) struct ScopeInner<'a> {
     pub(crate) root_context: &'static RootContext,
 
     pub(crate) parent: Option<&'a ScopeInner<'a>>,
@@ -164,21 +172,7 @@ impl<'a> ScopeInner<'a> {
     }
 
     pub fn signal<T>(&self, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
-        let state = Rc::new(SignalState {
-            value: RefCell::new(value),
-            subscriptions: RefCell::new(HashSet::new()),
-        });
-
-        let writer = WriteSignal {
-            inner: Rc::downgrade(&state),
-        };
-
-        let reader = ReadSignal {
-            stack: self.root_context,
-            inner: state,
-        };
-
-        (reader, writer)
+        signal_from_root_context(self.root_context, value)
     }
 
     pub fn untrack<T>(&self, f: impl Fn() -> T) -> T {

@@ -123,19 +123,6 @@ pub fn insert_expression<'a>(
     mut current: Child<'a>,
     before: Option<&web_sys::Node>,
 ) -> Child<'a> {
-    crate::warn!(
-        "insert {:?} on {} to replace {:?}",
-        new_value,
-        parent.node_name(),
-        current
-    );
-    if let Child::Node(node) = &current {
-        crate::log!(
-            "current's parent = {}",
-            node.parent_node().unwrap().node_name()
-        );
-    }
-
     if new_value == &current {
         current
     } else {
@@ -180,11 +167,11 @@ pub fn insert_expression<'a>(
                     }
                 }
                 Child::Node(old_node) => {
-                    crate::warn!(
+                    /* crate::warn!(
                         "replacing old node with new node\n\nparents are {} and {}",
                         old_node.parent_node().unwrap().node_name(),
                         node.parent_node().unwrap().node_name()
-                    );
+                    ); */
                     replace_with(old_node.unchecked_ref(), node);
                     Child::Node(node.clone())
                 }

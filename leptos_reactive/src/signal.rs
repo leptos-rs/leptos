@@ -9,6 +9,27 @@ use crate::EffectInner;
 
 use super::{root_context::RootContext, EffectDependency};
 
+pub(crate) fn signal_from_root_context<T>(
+    root_context: &'static RootContext,
+    value: T,
+) -> (ReadSignal<T>, WriteSignal<T>) {
+    let state = Rc::new(SignalState {
+        value: RefCell::new(value),
+        subscriptions: RefCell::new(HashSet::new()),
+    });
+
+    let writer = WriteSignal {
+        inner: Rc::downgrade(&state),
+    };
+
+    let reader = ReadSignal {
+        stack: root_context,
+        inner: state,
+    };
+
+    (reader, writer)
+}
+
 pub struct ReadSignal<T: 'static> {
     pub(crate) stack: &'static RootContext,
     pub(crate) inner: Rc<SignalState<T>>,

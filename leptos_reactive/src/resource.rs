@@ -10,6 +10,22 @@ pub enum ResourceState<T> {
     Ready { data: T },
 }
 
+impl<T> std::fmt::Debug for ResourceState<T>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Idle => write!(f, "Idle"),
+            Self::Pending { abort_handle } => f
+                .debug_struct("Pending")
+                .field("abort_handle", abort_handle)
+                .finish(),
+            Self::Ready { data } => f.debug_struct("Ready").field("data", data).finish(),
+        }
+    }
+}
+
 pub struct Resource<'a, S, T, Fu>
 where
     S: 'static + Clone,
