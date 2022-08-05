@@ -8,6 +8,7 @@ use leptos::*;
 
 pub fn transition_tabs(cx: Scope) -> web_sys::Element {
     let (tab, set_tab) = cx.create_signal(0);
+    let transition = cx.use_transition();
 
     view! {
         <div>
