@@ -182,8 +182,8 @@ pub fn request_idle_callback(cb: impl Fn() + 'static) {
         .unwrap_throw();
 }
 
-pub fn set_timeout(cb: impl Fn() + 'static, duration: Duration) {
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
+pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
+    let cb = Closure::once_into_js(Box::new(cb) as Box<dyn FnOnce()>);
     window()
         .set_timeout_with_callback_and_timeout_and_arguments_0(
             cb.as_ref().unchecked_ref(),
