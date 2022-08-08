@@ -1,0 +1,11 @@
+- Render Effect
+- [ ] Minimal Counter example (to see WASM bundle size)
+- Suspense
+  - [ ] Read sections Solid code that deal w/ this
+  - [ ] Tests
+  - [ ] Fill out todos
+- Transition
+  - [ ] Tests
+  - [ ] Fill out todos
+- Integrate this back into reactive system
+- Clean up/refactor and make sure tests still work
