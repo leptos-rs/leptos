@@ -98,16 +98,6 @@ impl<'a> IntoChild<'a> for Vec<web_sys::Element> {
     }
 }
 
-impl<'a, T> IntoChild<'a> for ReadSignal<T>
-where
-    T: Clone + IntoChild<'a>,
-{
-    fn into_child(self, cx: Scope<'a>) -> Child<'a> {
-        let modified_fn = cx.create_ref(move || self.get().clone().into_child(cx));
-        Child::Fn(modified_fn)
-    }
-}
-
 impl<'a, T, U> IntoChild<'a> for T
 where
     T: Fn() -> U + 'a,

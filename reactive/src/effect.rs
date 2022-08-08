@@ -7,13 +7,23 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
     where
         T: 'static,
     {
+        self.create_effect_with_init(effect_fn, None)
+    }
+
+    pub fn create_effect_with_init<T>(
+        self,
+        effect_fn: impl FnMut(Option<&T>) -> T + 'a,
+        init: Option<T>,
+    ) where
+        T: 'static,
+    {
         let f: Box<dyn FnMut(Option<&T>) -> T + 'a> = Box::new(effect_fn);
         // SAFETY: Memo will be cleaned up when the Scope lifetime 'a is over,
         // and will no longer be accessible; for its purposes, 'a: 'static
         // This is necessary to allow &'a Signal<_> etc. to be moved into F
         let f: Box<dyn FnMut(Option<&T>) -> T + 'static> = unsafe { std::mem::transmute(f) };
 
-        let c = Computation::new(self, f, None, false);
+        let c = Computation::new(self, f, init, false);
         // TODO suspense piece here
         c.set_user(true);
         let root = self.root_context();

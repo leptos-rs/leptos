@@ -324,3 +324,19 @@ where
         WeakSignalState(self.state.clone())
     }
 }
+
+impl<T> PartialEq for ReadSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.state, &other.state)
+    }
+}
+
+impl<T> Eq for ReadSignal<T> {}
+
+impl<T> PartialEq for WriteSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Weak::ptr_eq(&self.state, &other.state)
+    }
+}
+
+impl<T> Eq for WriteSignal<T> {}

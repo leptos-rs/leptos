@@ -16,7 +16,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
     });
 
     let add_counter = move |_| {
-        let id = *next_counter_id.get_untracked();
+        let id = next_counter_id();
         let (read, write) = cx.create_signal(0);
         set_counters(|counters| counters.push((id, (read.clone(), write.clone()))));
         set_next_counter_id(|id| *id += 1);

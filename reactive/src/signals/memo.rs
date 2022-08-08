@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     Accessor, AnyComputation, AnySignalState, Observer, Pending, ReadSignalRef, RootContext,
-    Source, State, SuspenseContextType, Update, WeakSignalState,
+    Source, State, SuspenseContext, Update, WeakSignalState,
 };
 
 pub struct Memo<T>
@@ -236,7 +236,7 @@ where
         self.t_state.set(state);
     }
 
-    fn suspense(&self) -> Option<&SuspenseContextType> {
+    fn suspense(&self) -> Option<&SuspenseContext> {
         None
     }
 

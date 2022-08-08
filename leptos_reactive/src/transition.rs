@@ -8,14 +8,12 @@ use futures::{
 use crate::{BoundedScope, Effect, EffectDependency, ReadSignal, SuspenseContext};
 
 impl<'a, 'b> BoundedScope<'a, 'b> {
-    pub fn use_transition<F>(self) -> (ReadSignal<bool>, impl Fn())
-    where
-        F: Fn(),
-    {
-        if let Some(transition) = self.inner.root_context.transition {
+    /* pub fn use_transition(self) -> (ReadSignal<bool>, impl Fn()) {
+        todo!()
+        /* if let Some(transition) = self.inner.root_context.transition {
             transition
-        }
-    }
+        } */
+    } */
 
     /*     pub fn start_transition(self, f: impl Fn()) {
         // If a transition is already running, run this function
@@ -77,9 +75,10 @@ impl TransitionState {
     }
 
     pub fn complete(&self) -> bool {
-        match &self.pending_resources {
+        todo!()
+        /* match &self.pending_resources {
             Some(_) => !self.pending(),
             None => false,
-        }
+        } */
     }
 }

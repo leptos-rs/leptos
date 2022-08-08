@@ -14,6 +14,12 @@ use std::{
 pub type Scope<'a> = BoundedScope<'a, 'a>;
 
 #[must_use = "Creating a Scope without calling its disposer will leak memory."]
+pub fn with_root_scope<'a>(f: impl FnOnce(Scope)) -> ScopeDisposer<'a> {
+    let root = Box::leak(Box::new(RootContext::new()));
+    create_scope(root, |cx| f(cx))
+}
+
+#[must_use = "Creating a Scope without calling its disposer will leak memory."]
 pub fn create_scope<'disposer>(
     root_context: &'static RootContext,
     f: impl for<'a> FnOnce(Scope<'a>),

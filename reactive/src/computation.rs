@@ -3,7 +3,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::{Observer, RootContext, Scope, State, SuspenseContextType, Update, WeakSignalState};
+use crate::{Observer, RootContext, Scope, State, SuspenseContext, Update, WeakSignalState};
 
 pub(crate) type Source = WeakSignalState;
 
@@ -30,7 +30,7 @@ pub(crate) trait AnyComputation {
 
     fn pure(&self) -> bool;
 
-    fn suspense(&self) -> Option<&SuspenseContextType>;
+    fn suspense(&self) -> Option<&SuspenseContext>;
 
     fn updated_at(&self) -> Option<Update>;
 
@@ -104,7 +104,7 @@ pub struct ComputationInner<T> {
     updated_at: Cell<Update>,
     pure: Cell<bool>,
     user: Cell<bool>,
-    suspense: RefCell<Option<SuspenseContextType>>,
+    suspense: RefCell<Option<SuspenseContext>>,
 }
 
 impl<T> AnyComputation for Computation<T> {
@@ -152,7 +152,7 @@ impl<T> AnyComputation for Computation<T> {
         *self.inner.t_state.borrow_mut() = state;
     }
 
-    fn suspense(&self) -> Option<&SuspenseContextType> {
+    fn suspense(&self) -> Option<&SuspenseContext> {
         todo!() //self.inner.suspense.borrow().as_ref()
     }
 

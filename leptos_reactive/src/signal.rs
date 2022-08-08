@@ -71,7 +71,7 @@ impl<T: 'static> ReadSignal<T> {
         self.value()
     }
 
-    pub fn get_untracked(&self) -> ReadSignalRef<T> {
+    pub(crate) fn get_untracked(&self) -> ReadSignalRef<T> {
         self.value()
     }
 
@@ -138,28 +138,38 @@ where
     }
 }
 
-impl<'a, T> FnOnce<()> for &'a ReadSignal<T> {
-    type Output = ReadSignalRef<'a, T>;
+impl<T> FnOnce<()> for ReadSignal<T>
+where
+    T: Clone,
+{
+    type Output = T;
 
     extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get()
+        self.get().clone()
     }
 }
 
-impl<'a, T> FnMut<()> for &'a ReadSignal<T> {
+impl<T> FnMut<()> for ReadSignal<T>
+where
+    T: Clone,
+{
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get()
+        self.get().clone()
     }
 }
 
-impl<'a, T> Fn<()> for &'a ReadSignal<T> {
+impl<T> Fn<()> for ReadSignal<T>
+where
+    T: Clone,
+{
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get()
+        self.get().clone()
     }
 }
 
 pub struct SignalState<T> {
     pub(crate) value: RefCell<T>,
+    pub(crate) t_value: RefCell<Option<T>>,
     pub(crate) subscriptions: RefCell<HashSet<Rc<EffectInner>>>,
 }
 

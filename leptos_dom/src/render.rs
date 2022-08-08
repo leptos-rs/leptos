@@ -73,7 +73,7 @@ fn class_expression(el: &web_sys::Element, class_name: &str, value: bool) {
 }
 
 pub fn insert<'a>(
-    cx: Scope,
+    cx: Scope<'a>,
     parent: web_sys::Node,
     value: Child<'a>,
     before: Option<web_sys::Node>,

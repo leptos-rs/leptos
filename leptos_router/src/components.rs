@@ -1,7 +1,7 @@
 use leptos_core as leptos;
 use leptos_dom::IntoChild;
+use leptos_leptos_reactive::Scope;
 use leptos_macro::{component, Props};
-use leptos_reactive::Scope;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct RouterProps<C, D>

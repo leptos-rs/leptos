@@ -20,7 +20,7 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
     /// `([ReadSignal](crate::ReadSignal), [WriteSignal](crate::WriteSignal)`
     /// pair. This is the basic building block of reactivity.
     /// ```
-    /// # use reactive::{create_scope, RootContext, Scope};
+    /// # use leptos_reactive::{create_scope, RootContext, Scope};
     /// # let root = Box::leak(Box::new(RootContext::new()));
     /// # let _ = create_scope(root, |cx| {
     /// let (a, set_a) = cx.create_signal(0);
@@ -63,7 +63,7 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
     /// takes the previous value of the memo as its argument (as `Option<T>`, as it is `None`
     /// the first time the memo is read.)
     /// ```
-    /// # use reactive::{create_scope, RootContext, Scope};
+    /// # use leptos_reactive::{create_scope, RootContext, Scope};
     /// # let root = Box::leak(Box::new(RootContext::new()));
     /// # let _ = create_scope(root, |cx| {
     /// let (a, set_a) = cx.create_signal(0);

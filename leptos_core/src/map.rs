@@ -24,7 +24,7 @@ pub fn map_keyed<'a, T, U, K>(
 where
     T: PartialEq + Clone + 'a,
     K: Eq + Hash,
-    U: Clone,
+    U: PartialEq + Clone,
 {
     // Previous state used for diffing.
     let mut items = Vec::new();

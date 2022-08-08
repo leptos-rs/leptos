@@ -34,17 +34,17 @@ mod tests {
             let (a, set_a) = cx.create_signal(0);
             let (b, set_b) = cx.create_signal(0);
 
-            let c = cx.create_memo(|| *(&a)() + *(&b)());
+            let c = cx.create_memo(|| a() + b());
 
-            assert_eq!(*c.get_untracked(), 0);
+            assert_eq!(c(), 0);
 
             set_a(|n| *n = 2);
 
-            assert_eq!(*c.get_untracked(), 2);
+            assert_eq!(c(), 2);
 
             set_b(|n| *n = 2);
 
-            assert_eq!(*c.get_untracked(), 4);
+            assert_eq!(c(), 4);
         });
     }
 
@@ -57,8 +57,8 @@ mod tests {
             let (show_last_name, set_show_last_name) = cx.create_signal(true);
 
             let out = cx.create_memo(move || {
-                if *(&show_last_name)() {
-                    format!("{} {}", *(&first_name)(), *(&last_name)())
+                if show_last_name() {
+                    format!("{} {}", first_name(), last_name())
                 } else {
                     (*(&first_name)()).to_string()
                 }

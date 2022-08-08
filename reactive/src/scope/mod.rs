@@ -63,6 +63,41 @@ impl<'a, 'b> BoundedScope<'a, 'b> {
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         self.inner.root_context.untrack(f)
     }
+
+    pub fn child_scope<F>(self, f: F) -> ScopeDisposer<'a>
+    where
+        F: for<'child_lifetime> FnOnce(BoundedScope<'child_lifetime, 'a>),
+    {
+        let mut child = ScopeInner::new(self.inner.root_context);
+        // SAFETY: The only fields that are accessed on self from child is `context` which does not
+        // have any lifetime annotations.
+        child.parent = Some(unsafe { &*(self.inner as *const _) });
+        let boxed = Box::new(child);
+        let ptr = Box::into_raw(boxed);
+
+        let key = self
+            .inner
+            .children
+            .borrow_mut()
+            // SAFETY: None of the fields of ptr are accessed through child_scopes therefore we can
+            // safely transmute the lifetime.
+            .insert(unsafe { std::mem::transmute(ptr) });
+
+        // SAFETY: the address of the cx lives as long as 'a because:
+        // - It is allocated on the heap and therefore has a stable address.
+        // - self.child_cx is append only. That means that the Box<cx> will not be dropped until Self is
+        //   dropped.
+        f(unsafe { Scope::new(&*ptr) });
+        //                      ^^^ -> `ptr` is still accessible here after call to f.
+        ScopeDisposer::new(move || unsafe {
+            let cx = self.inner.children.borrow_mut().remove(key).unwrap();
+            // SAFETY: Safe because ptr created using Box::into_raw and closure cannot live longer
+            // than 'a.
+            let cx = Box::from_raw(cx);
+            // SAFETY: Outside of call to f.
+            cx.dispose();
+        })
+    }
 }
 
 pub(crate) struct ScopeInner<'a> {
