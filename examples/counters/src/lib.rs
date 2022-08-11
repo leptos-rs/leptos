@@ -8,6 +8,7 @@ struct CounterUpdater {
     set_counters: WriteSignal<CounterHolder>,
 }
 
+#[component]
 pub fn Counters(cx: Scope) -> web_sys::Element {
     let (next_counter_id, set_next_counter_id) = cx.create_signal(0);
     let (counters, set_counters) = cx.create_signal::<CounterHolder>(vec![]);
