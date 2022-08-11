@@ -113,31 +113,20 @@ where
         // clear previous dependencies
         // at this point, Effect dependencies have been added to Signal
         // and any Signal changes will call Effect dependency automatically
-        log::debug!("A");
         self.cleanup(id);
-
-        log::debug!("B");
 
         // add it to the Scope stack, which means any signals called
         // in the effect fn immediately below will add this Effect as a dependency
         self.runtime.push_stack(Subscriber::Effect(id));
 
-        log::debug!("C");
-
         // actually run the effect
         let curr = { self.value.borrow_mut().take() };
-        log::debug!("D");
 
         let v = { (self.f.borrow_mut())(curr) };
-        log::debug!("E");
-
         *self.value.borrow_mut() = Some(v);
-
-        log::debug!("F");
 
         // pop it back off the stack
         self.runtime.pop_stack();
-        log::debug!("G");
     }
 
     fn subscribe_to(&self, source: Source) {
