@@ -90,10 +90,16 @@ where
         if let Some(transition) = self.runtime.running_transition() {
             todo!()
         } else {
-            self.runtime
-                .memo((self.scope, self.id), |memo_state: &MemoState<T>| {
-                    f(&memo_state.value.borrow())
-                })
+            self.runtime.memo(
+                (self.scope, self.id),
+                |memo_state: &MemoState<T>| match &*memo_state.value.borrow() {
+                    Some(v) => f(v),
+                    None => {
+                        memo_state.run((self.scope, self.id));
+                        f(memo_state.value.borrow().as_ref().unwrap())
+                    }
+                },
+            )
         }
     }
 
@@ -114,7 +120,7 @@ where
 {
     runtime: &'static Runtime,
     f: Box<RefCell<dyn FnMut(Option<&T>) -> T>>,
-    value: RefCell<T>,
+    value: RefCell<Option<T>>,
     t_value: RefCell<Option<T>>,
     sources: RefCell<HashSet<Source>>,
     subscribers: RefCell<HashSet<Subscriber>>,
@@ -148,12 +154,11 @@ where
 {
     pub fn new(runtime: &'static Runtime, f: impl FnMut(Option<&T>) -> T + 'static) -> Self {
         let f = Box::new(RefCell::new(f));
-        let value = (f.borrow_mut())(None);
 
         Self {
             runtime,
             f,
-            value: RefCell::new(value),
+            value: RefCell::new(None),
             sources: Default::default(),
             t_value: Default::default(),
             subscribers: Default::default(),
@@ -196,8 +201,8 @@ where
         self.runtime.push_stack(Subscriber::Memo(id));
 
         // actually run the effect
-        let v = { (self.f.borrow_mut())(Some(&self.value.borrow())) };
-        *self.value.borrow_mut() = v;
+        let v = { (self.f.borrow_mut())(self.value.borrow().as_ref()) };
+        *self.value.borrow_mut() = Some(v);
 
         // notify subscribers
         let subs = { self.subscribers.borrow().clone() };
