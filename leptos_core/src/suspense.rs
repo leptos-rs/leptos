@@ -6,8 +6,8 @@ use leptos_reactive::{Scope, SuspenseContext};
 #[derive(Props)]
 pub struct SuspenseProps<F, C, G>
 where
-    F: for<'a> IntoChild<'a> + Clone,
-    C: for<'a> IntoChild<'a> + Clone,
+    F: IntoChild + Clone,
+    C: IntoChild + Clone,
     G: Fn() -> C,
 {
     fallback: F,
@@ -15,10 +15,10 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn Suspense<'a, F, C, G>(cx: Scope<'a>, props: SuspenseProps<F, C, G>) -> impl Fn() -> Child<'a>
+pub fn Suspense<'a, F, C, G>(cx: Scope, props: SuspenseProps<F, C, G>) -> impl Fn() -> Child
 where
-    F: for<'b> IntoChild<'b> + Clone,
-    C: for<'b> IntoChild<'b> + Clone,
+    F: IntoChild + Clone,
+    C: IntoChild + Clone,
     G: Fn() -> C,
 {
     let context = SuspenseContext::new(cx);

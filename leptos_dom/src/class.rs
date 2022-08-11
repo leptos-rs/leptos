@@ -1,26 +1,26 @@
 use leptos_reactive::Scope;
 
-pub enum Class<'a> {
+pub enum Class {
     Value(bool),
-    Fn(&'a dyn Fn() -> bool),
+    Fn(Box<dyn Fn() -> bool>),
 }
 
-pub trait IntoClass<'a> {
-    fn into_class(self, cx: Scope<'a>) -> Class<'a>;
+pub trait IntoClass {
+    fn into_class(self, cx: Scope) -> Class;
 }
 
-impl<'a> IntoClass<'a> for bool {
-    fn into_class(self, _cx: Scope<'a>) -> Class<'a> {
+impl IntoClass for bool {
+    fn into_class(self, _cx: Scope) -> Class {
         Class::Value(self)
     }
 }
 
-impl<'a, T> IntoClass<'a> for T
+impl<'a, T> IntoClass for T
 where
-    T: Fn() -> bool + 'a,
+    T: Fn() -> bool + 'static,
 {
-    fn into_class(self, cx: Scope<'a>) -> Class<'a> {
-        let modified_fn = cx.create_ref(self);
+    fn into_class(self, cx: Scope) -> Class {
+        let modified_fn = Box::new(self);
         Class::Fn(modified_fn)
     }
 }

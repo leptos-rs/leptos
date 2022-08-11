@@ -152,7 +152,7 @@ impl ToTokens for InlinePropsBody {
 
             #[allow(non_snake_case)]
             #(#attrs)*
-            #vis fn #ident #fn_generics (#cx_token: Scope<#scope_lifetime>, props: #struct_name) #output
+            #vis fn #ident #fn_generics (#cx_token: Scope, props: #struct_name) #output
             #where_clause
             {
                 let #struct_name { #(#field_names),* } = props;

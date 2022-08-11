@@ -1,9 +1,11 @@
-use counters::{Counters, CountersProps};
+use counters::Counters;
 use leptos::*;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 fn main() {
-    mount_to_body(|cx| view! { <Counters/> })
+    console_log::init_with_level(log::Level::Debug);
+
+    mount_to_body(|cx| Counters(cx))
 }

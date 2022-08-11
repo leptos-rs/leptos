@@ -1,5 +1,5 @@
-use leptos_reactive::{BoundedScope, ReadSignal, Scope, ScopeDisposer};
-use std::{collections::HashMap, hash::Hash};
+use leptos_reactive::{ReadSignal, Scope, ScopeDisposer};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
 /// computed; its value will only be updated when requested. Modifications to the
@@ -15,52 +15,48 @@ use std::{collections::HashMap, hash::Hash};
 ///
 ///  _Credits: Based on implementation for [Sycamore](https://github.com/sycamore-rs/sycamore/blob/53735aab9ef72b98439b4d2eaeb85a97f7f32775/packages/sycamore-reactive/src/iter.rs),
 /// which is in turned based on on the TypeScript implementation in <https://github.com/solidjs/solid>_
-pub fn map_keyed<'a, T, U, K>(
-    cx: Scope<'a>,
-    list: &'a ReadSignal<Vec<T>>,
-    map_fn: impl for<'child_lifetime> Fn(BoundedScope<'child_lifetime, 'a>, T) -> U + 'a,
-    key_fn: impl Fn(&T) -> K + 'a,
-) -> &'a ReadSignal<Vec<U>>
+pub fn map_keyed<T, U, K>(
+    cx: Scope,
+    list: ReadSignal<Vec<T>>,
+    map_fn: impl Fn(Scope, &T) -> U + 'static,
+    key_fn: impl Fn(&T) -> K + 'static,
+) -> ReadSignal<Vec<U>>
 where
-    T: PartialEq + Clone + 'a,
+    T: PartialEq + Debug + Clone,
     K: Eq + Hash,
-    U: PartialEq + Clone,
+    U: PartialEq + Debug + Clone,
 {
     // Previous state used for diffing.
-    let mut items = Vec::new();
     let mut mapped: Vec<U> = Vec::new();
-    let mut disposers: Vec<Option<ScopeDisposer<'a>>> = Vec::new();
+    let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
 
     let (item_signal, set_item_signal) = cx.create_signal(Vec::new());
 
     // Diff and update signal each time list is updated.
-    cx.create_effect(move || {
+    cx.create_effect(move |items| {
+        let items: Vec<T> = items.unwrap_or_default();
         let new_items = list.get();
+        let new_items_len = new_items.len();
+
         if new_items.is_empty() {
             // Fast path for removing all items.
             for disposer in std::mem::take(&mut disposers) {
-                unsafe {
-                    disposer.unwrap().dispose();
-                }
+                disposer.unwrap().dispose();
             }
             mapped = Vec::new();
         } else if items.is_empty() {
             // Fast path for creating items when the existing list is empty.
             for new_item in new_items.iter() {
-                let mut value = None;
+                let mut value: Option<U> = None;
                 let new_disposer = cx.child_scope(|cx| {
-                    // SAFETY: f takes the same parameter as the argument to create_child_scope.
-                    value = Some(map_fn(
-                        unsafe { std::mem::transmute(cx) },
-                        (*new_item).clone(),
-                    ));
+                    value = Some(map_fn(cx, new_item));
                 });
                 mapped.push(value.unwrap());
                 disposers.push(Some(new_disposer));
             }
         } else {
             let mut temp = vec![None; new_items.len()];
-            let mut temp_disposers: Vec<Option<ScopeDisposer<'a>>> =
+            let mut temp_disposers: Vec<Option<ScopeDisposer>> =
                 (0..new_items.len()).map(|_| None).collect();
 
             // Skip common prefix.
@@ -108,9 +104,7 @@ where
                     new_indices_next[j - start].and_then(|j| new_indices.insert(key_fn(item), j));
                 } else {
                     // Create new.
-                    unsafe {
-                        disposers[i].take().unwrap().dispose();
-                    }
+                    disposers[i].take().unwrap().dispose();
                 }
             }
 
@@ -130,10 +124,9 @@ where
                 } else {
                     // Create new value.
                     let mut tmp = None;
-                    let new_item = new_items[j].clone();
+                    let new_item = &new_items[j];
                     let new_disposer = cx.child_scope(|cx| {
-                        // SAFETY: f takes the same parameter as the argument to create_child_scope.
-                        tmp = Some(map_fn(unsafe { std::mem::transmute(cx) }, new_item.clone()));
+                        tmp = Some(map_fn(cx, new_item));
                     });
                     if mapped.len() > j {
                         mapped[j] = tmp.unwrap();
@@ -145,16 +138,15 @@ where
                 }
             }
         }
-
         // 3) In case the new set is shorter than the old, set the length of the mapped array.
-        mapped.truncate(new_items.len());
-        disposers.truncate(new_items.len());
+        mapped.truncate(new_items_len);
+        disposers.truncate(new_items_len);
 
-        // 4) Save a copy of the mapped items for the next update.
-        items = new_items.to_vec();
-
-        // 5) Update signal to trigger updates.
+        // 4) Update signal to trigger updates.
         set_item_signal(|n| *n = mapped.clone());
+
+        // 5) Return the new items, for use in next iteration
+        new_items.to_vec()
     });
 
     item_signal

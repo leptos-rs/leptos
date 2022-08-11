@@ -1,140 +1,145 @@
-use std::{
-    cell::RefCell,
-    fmt::Debug,
-    hash::Hash,
-    rc::{Rc, Weak},
-};
+use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
+use serde::{Deserialize, Serialize};
+use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
-use super::root_context::RootContext;
+impl Scope {
+    pub fn create_effect<T>(self, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
+    where
+        T: Debug + 'static,
+    {
+        let state = EffectState::new(self.runtime, f);
 
-#[derive(Clone)]
-pub struct Effect {
-    pub(crate) inner: Rc<EffectInner>,
+        let id = self.push_effect(state);
+
+        let eff = Effect {
+            scope: self.id,
+            id,
+            ty: PhantomData,
+        };
+
+        self.runtime
+            .any_effect((self.id, id), |effect| effect.run((self.id, id)));
+
+        eff
+    }
 }
 
-pub(crate) struct EffectInner {
-    pub(crate) stack: &'static RootContext,
-    pub(crate) f: RefCell<Box<dyn FnMut()>>,
-    pub(crate) dependencies: RefCell<Vec<Weak<dyn EffectDependency>>>,
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Effect<T>
+where
+    T: 'static,
+{
+    pub(crate) scope: ScopeId,
+    pub(crate) id: EffectId,
+    pub(crate) ty: PhantomData<T>,
 }
 
-pub(crate) trait EffectDependency {
-    fn unsubscribe(&self, effect: Rc<EffectInner>);
+impl<T> Clone for Effect<T> {
+    fn clone(&self) -> Self {
+        Self {
+            scope: self.scope,
+            id: self.id,
+            ty: PhantomData,
+        }
+    }
 }
 
-impl std::fmt::Debug for Effect {
+impl<T> Copy for Effect<T> {}
+
+slotmap::new_key_type! { pub(crate) struct EffectId; }
+
+pub(crate) struct EffectState<T> {
+    runtime: &'static Runtime,
+    f: Box<RefCell<dyn FnMut(Option<T>) -> T>>,
+    value: RefCell<Option<T>>,
+    sources: RefCell<HashSet<Source>>,
+}
+
+impl<T> EffectState<T> {
+    pub fn new(runtime: &'static Runtime, f: impl FnMut(Option<T>) -> T + 'static) -> Self {
+        Self {
+            runtime,
+            f: Box::new(RefCell::new(f)),
+            value: Default::default(),
+            sources: Default::default(),
+        }
+    }
+}
+
+impl<T> EffectState<T> {
+    pub(crate) fn add_source(&self, source: Source) {
+        self.sources.borrow_mut().insert(source);
+    }
+
+    fn cleanup(&self, id: (ScopeId, EffectId)) {
+        for source in self.sources.borrow().iter() {
+            source.unsubscribe(self.runtime, Subscriber::Effect(id))
+        }
+    }
+}
+
+impl<T> Debug for EffectState<T>
+where
+    T: Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Effect").finish()
+        f.debug_struct("EffectState")
+            .field(
+                "f",
+                &format!(
+                    "FnMut<Option<&{}>> -> {}",
+                    type_name::<T>(),
+                    type_name::<T>()
+                ),
+            )
+            .field("value", &self.value)
+            .field("sources", &self.sources)
+            .finish()
     }
 }
 
-impl Effect {
-    pub(crate) fn execute(&self) {
-        self.inner.execute(Rc::downgrade(&self.inner));
-    }
+pub(crate) trait AnyEffect: Debug {
+    fn run(&self, id: (ScopeId, EffectId));
+
+    fn subscribe_to(&self, source: Source);
 }
 
-impl EffectInner {
-    pub(crate) fn execute(&self, for_stack: Weak<EffectInner>) {
-        crate::debug_warn!("executing Effect: cleanup");
-
+impl<T> AnyEffect for EffectState<T>
+where
+    T: Debug + 'static,
+{
+    fn run(&self, id: (ScopeId, EffectId)) {
         // clear previous dependencies
         // at this point, Effect dependencies have been added to Signal
         // and any Signal changes will call Effect dependency automatically
-        if let Some(upgraded) = for_stack.upgrade() {
-            self.cleanup(upgraded);
-        }
+        log::debug!("A");
+        self.cleanup(id);
 
-        crate::debug_warn!("executing Effect: pushing to stack");
+        log::debug!("B");
 
         // add it to the Scope stack, which means any signals called
         // in the effect fn immediately below will add this Effect as a dependency
-        self.stack.push(for_stack);
+        self.runtime.push_stack(Subscriber::Effect(id));
 
-        // actually run the effect, which will re-add Signal dependencies as they're called
-        crate::debug_warn!(
-            "about to run effect — stack is {:?}",
-            self.stack.stack.borrow()
-        );
-        match self.f.try_borrow_mut() {
-            Ok(mut f) => (f)(),
-            Err(e) => crate::debug_warn!("failed to BorrowMut while executing Effect: {}", e),
-        }
+        log::debug!("C");
 
-        crate::debug_warn!("executing Effect: popping from stack");
+        // actually run the effect
+        let curr = { self.value.borrow_mut().take() };
+        log::debug!("D");
+
+        let v = { (self.f.borrow_mut())(curr) };
+        log::debug!("E");
+
+        *self.value.borrow_mut() = Some(v);
+
+        log::debug!("F");
 
         // pop it back off the stack
-        self.stack.pop();
+        self.runtime.pop_stack();
+        log::debug!("G");
     }
 
-    pub(crate) fn cleanup(&self, for_subscriber: Rc<EffectInner>) {
-        // remove the Effect from the subscripts of each Signal to which it is subscribed
-        // these were called during a previous execution of the Effect
-        // they will be resubscribed, if necessary, during the coming execution
-        // this kind of dynamic dependency graph reconstruction may seem silly,
-        // but is actually more efficient because it avoids resubscribing with Signals
-        // if they are excluded by some kind of conditional logic within the Effect fn
-        match self.dependencies.try_borrow() {
-            Ok(dependencies) => {
-                for dep in dependencies.iter() {
-                    if let Some(dep) = dep.upgrade() {
-                        dep.unsubscribe(for_subscriber.clone());
-                    }
-                }
-            }
-            Err(e) => crate::debug_warn!("failed to BorrowMut while unsubscribing: {}", e),
-        }
-        /* for dep in self.dependencies.borrow().iter() {
-            if let Some(dep) = dep.upgrade() {
-                dep.unsubscribe(for_subscriber.clone());
-            }
-        } */
-        // and clear all our dependencies on Signals; these will be built back up
-        // by the Signals if/when they are called again
-        match self.dependencies.try_borrow_mut() {
-            Ok(mut deps) => deps.clear(),
-            Err(e) => crate::debug_warn!(
-                "failed to BorrowMut while clearing dependencies from Effect: {}",
-                e
-            ),
-        }
-    }
-
-    pub(crate) fn add_dependency(&self, dep: Weak<dyn EffectDependency>) {
-        match self.dependencies.try_borrow_mut() {
-            Ok(mut deps) => deps.push(dep),
-            Err(e) => crate::debug_warn!(
-                "failed to BorrowMut while clearing dependencies from Effect: {}",
-                e
-            ),
-        } // self.dependencies.borrow_mut().push(dep);
-    }
-}
-
-impl PartialEq for Effect {
-    fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner
-    }
-}
-
-impl PartialEq for EffectInner {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(&self.f, &other.f) && std::ptr::eq(&self.dependencies, &other.dependencies)
-    }
-}
-impl Eq for EffectInner {}
-
-impl Hash for EffectInner {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&self.f, state);
-        std::ptr::hash(&self.dependencies, state);
-    }
-}
-
-impl Debug for EffectInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EffectInner")
-            .field("dependencies", &self.dependencies.borrow().len())
-            .finish()
+    fn subscribe_to(&self, source: Source) {
+        self.add_source(source);
     }
 }

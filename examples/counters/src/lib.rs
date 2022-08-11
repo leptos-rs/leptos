@@ -3,22 +3,20 @@ use leptos::{For, ForProps};
 
 type CounterHolder = Vec<(usize, (ReadSignal<i32>, WriteSignal<i32>))>;
 
+#[derive(Copy, Clone)]
 struct CounterUpdater {
     set_counters: WriteSignal<CounterHolder>,
 }
 
-#[component]
 pub fn Counters(cx: Scope) -> web_sys::Element {
     let (next_counter_id, set_next_counter_id) = cx.create_signal(0);
-    let (counters, set_counters) = cx.create_signal::<CounterHolder>(Vec::new());
-    cx.provide_context(CounterUpdater {
-        set_counters: (*set_counters).clone(),
-    });
+    let (counters, set_counters) = cx.create_signal::<CounterHolder>(vec![]);
+    cx.provide_context(CounterUpdater { set_counters });
 
     let add_counter = move |_| {
         let id = next_counter_id();
-        let (read, write) = cx.create_signal(0);
-        set_counters(|counters| counters.push((id, (read.clone(), write.clone()))));
+        let sig = cx.create_signal(0);
+        set_counters(|counters| counters.push((id, sig)));
         set_next_counter_id(|id| *id += 1);
     };
 
@@ -26,7 +24,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
         let mut new_counters = vec![];
         for next_id in 0..1000 {
             let signal = cx.create_signal(0);
-            new_counters.push((next_id, (signal.0.clone(), signal.1.clone())));
+            new_counters.push((next_id, signal));
         }
         set_counters(move |n| *n = new_counters.clone());
     };
@@ -51,19 +49,19 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
                 <span>{move ||
                     counters.get()
                         .iter()
-                        .map(|(_, (count, _))| *count.get())
+                        .map(|(_, (count, _))| count())
                         .sum::<i32>()
                         .to_string()
                 }</span>
                 " from "
-                <span>{move || counters.get().len().to_string()}</span>
+                <span>{move || counters().len().to_string()}</span>
                 " counters."
             </p>
             <ul>
                 <For each={counters} key={|counter| counter.0}>{
                     |cx, (id, (value, set_value))| {
                         view! {
-                            <Counter id=id value=value.clone() set_value=set_value.clone()/>
+                            <Counter id=*id value=*value set_value=*set_value/>
                         }
                     }
                 }</For>
@@ -81,21 +79,18 @@ fn Counter(
 ) -> web_sys::Element {
     let CounterUpdater { set_counters } = cx.use_context().unwrap_throw();
 
-    let input = {
-        let set_value = set_value.clone();
-        move |ev| {
-            set_value(|value| *value = event_target_value(&ev).parse::<i32>().unwrap_or_default())
-        }
+    let input = move |ev| {
+        set_value(|value| *value = event_target_value(&ev).parse::<i32>().unwrap_or_default())
     };
 
     view! {
         <li>
-            <button on:click={let set_value = set_value.clone(); move |_| set_value(|value| *value -= 1)}>"-1"</button>
-            <input type="text"
-                prop:value={let value = value.clone(); move || value.get().to_string()}
+            <button on:click={move |_| set_value(|value| *value -= 1)}>"-1"</button>
+            /* <input type="text"
+                prop:value={let value = value.clone(); move || value().to_string()}
                 on:input=input
-            />
-            <span>{move || value.get().to_string()}</span>
+            /> */
+            //<span>{move || value().to_string()}</span>
             <button on:click=move |_| set_value(|value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters(|counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>

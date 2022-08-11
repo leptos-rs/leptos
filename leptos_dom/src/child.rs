@@ -1,18 +1,20 @@
-use leptos_reactive::{ReadSignal, Scope};
+use std::rc::Rc;
+
+use leptos_reactive::Scope;
 use wasm_bindgen::JsCast;
 
 type Node = web_sys::Node;
 
 #[derive(Clone)]
-pub enum Child<'a> {
+pub enum Child {
     Null,
     Text(String),
-    Fn(&'a dyn Fn() -> Child<'a>),
+    Fn(Rc<dyn Fn() -> Child>),
     Node(Node),
     Nodes(Vec<Node>),
 }
 
-impl<'a> std::fmt::Debug for Child<'a> {
+impl std::fmt::Debug for Child {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Null => write!(f, "Null"),
@@ -24,7 +26,7 @@ impl<'a> std::fmt::Debug for Child<'a> {
     }
 }
 
-impl<'a> PartialEq for Child<'a> {
+impl PartialEq for Child {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Text(l0), Self::Text(r0)) => l0 == r0,
@@ -36,45 +38,45 @@ impl<'a> PartialEq for Child<'a> {
     }
 }
 
-pub trait IntoChild<'a> {
-    fn into_child(self, cx: Scope<'a>) -> Child<'a>;
+pub trait IntoChild {
+    fn into_child(self, cx: Scope) -> Child;
 }
 
-impl<'a> IntoChild<'a> for Child<'a> {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for Child {
+    fn into_child(self, _cx: Scope) -> Child {
         self
     }
 }
 
-impl<'a> IntoChild<'a> for String {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for String {
+    fn into_child(self, _cx: Scope) -> Child {
         Child::Text(self)
     }
 }
 
-impl<'a> IntoChild<'a> for web_sys::Node {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for web_sys::Node {
+    fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self)
     }
 }
 
-impl<'a> IntoChild<'a> for web_sys::Text {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for web_sys::Text {
+    fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
     }
 }
 
-impl<'a> IntoChild<'a> for web_sys::Element {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for web_sys::Element {
+    fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
     }
 }
 
-impl<'a, T> IntoChild<'a> for Option<T>
+impl<'a, T> IntoChild for Option<T>
 where
-    T: IntoChild<'a>,
+    T: IntoChild,
 {
-    fn into_child(self, cx: Scope<'a>) -> Child<'a> {
+    fn into_child(self, cx: Scope) -> Child {
         match self {
             Some(val) => val.into_child(cx),
             None => Child::Null,
@@ -82,14 +84,14 @@ where
     }
 }
 
-impl<'a> IntoChild<'a> for Vec<web_sys::Node> {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for Vec<web_sys::Node> {
+    fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(self)
     }
 }
 
-impl<'a> IntoChild<'a> for Vec<web_sys::Element> {
-    fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+impl IntoChild for Vec<web_sys::Element> {
+    fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(
             self.into_iter()
                 .map(|el| el.unchecked_into::<web_sys::Node>())
@@ -98,21 +100,21 @@ impl<'a> IntoChild<'a> for Vec<web_sys::Element> {
     }
 }
 
-impl<'a, T, U> IntoChild<'a> for T
+impl<'a, T, U> IntoChild for T
 where
-    T: Fn() -> U + 'a,
-    U: IntoChild<'a>,
+    T: Fn() -> U + 'static,
+    U: IntoChild,
 {
-    fn into_child(self, cx: Scope<'a>) -> Child<'a> {
-        let modified_fn = cx.create_ref(move || (self)().into_child(cx));
+    fn into_child(self, cx: Scope) -> Child {
+        let modified_fn = Rc::new(move || (self)().into_child(cx));
         Child::Fn(modified_fn)
     }
 }
 
 macro_rules! child_type {
     ($child_type:ty) => {
-        impl<'a> IntoChild<'a> for $child_type {
-            fn into_child(self, _cx: Scope<'a>) -> Child<'a> {
+        impl IntoChild for $child_type {
+            fn into_child(self, _cx: Scope) -> Child {
                 Child::Text(self.to_string())
             }
         }

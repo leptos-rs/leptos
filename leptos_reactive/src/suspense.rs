@@ -8,7 +8,7 @@ pub struct SuspenseContext {
 
 impl SuspenseContext {
     pub fn new(cx: Scope) -> Self {
-        let (pending_resources, set_pending_resources) = cx.create_signal_owned(0);
+        let (pending_resources, set_pending_resources) = cx.create_signal(0);
         Self {
             pending_resources,
             set_pending_resources,
@@ -24,6 +24,6 @@ impl SuspenseContext {
     }
 
     pub fn ready(&self) -> bool {
-        *self.pending_resources.get() == 0
+        self.pending_resources.get() == 0
     }
 }

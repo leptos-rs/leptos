@@ -7,3 +7,4 @@ edition = "2021"
 leptos_dom = { path = "../leptos_dom" }
 leptos_macro = { path = "../leptos_macro" }
 leptos_reactive = { path = "../leptos_reactive" }
+log = "0.4"

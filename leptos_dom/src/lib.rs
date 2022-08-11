@@ -22,7 +22,7 @@ pub use web_sys;
 
 pub type Element = web_sys::Element;
 
-use leptos_reactive::{create_scope, RootContext, Scope};
+use leptos_reactive::{create_scope, Scope};
 pub use wasm_bindgen::UnwrapThrowExt;
 
 pub trait Mountable {
@@ -31,44 +31,42 @@ pub trait Mountable {
 
 impl Mountable for Element {
     fn mount(&self, parent: &web_sys::Element) {
-        parent.append_child(&self).unwrap_throw();
+        parent.append_child(self).unwrap_throw();
     }
 }
 
 impl Mountable for Vec<Element> {
     fn mount(&self, parent: &web_sys::Element) {
         for element in self {
-            parent.append_child(&element).unwrap_throw();
+            parent.append_child(element).unwrap_throw();
         }
     }
 }
 
 pub fn mount_to_body<T, F>(f: F)
 where
-    F: Fn(Scope) -> T,
+    F: Fn(Scope) -> T + 'static,
     T: Mountable,
 {
-    mount(&document().body().unwrap_throw(), f)
+    mount(document().body().unwrap_throw(), f)
 }
 
-pub fn mount<T, F>(parent: &web_sys::Element, f: F)
+pub fn mount<T, F>(parent: web_sys::HtmlElement, f: F)
 where
-    F: Fn(Scope) -> T,
+    F: Fn(Scope) -> T + 'static,
     T: Mountable,
 {
-    let stack = Box::leak(Box::new(RootContext::new()));
-
     // running "mount" intentionally leaks the memory,
     // as the "mount" has no parent that can clean it up
-    let _ = create_scope(stack, |cx| {
-        (f(cx)).mount(parent);
+    let _ = create_scope(move |cx| {
+        (f(cx)).mount(&parent);
     });
 }
 
-pub fn create_component<'a, F, T>(cx: Scope<'a>, f: F) -> T
+pub fn create_component<'a, F, T>(cx: Scope, f: F) -> T
 where
     F: Fn() -> T,
-    T: IntoChild<'a>,
+    T: IntoChild,
 {
     // TODO hydration logic here
     cx.untrack(f)

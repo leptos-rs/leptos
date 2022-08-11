@@ -7,22 +7,17 @@ use crate::{
     Class, Property,
 };
 
-pub fn attribute<'a>(
-    cx: Scope<'a>,
-    el: &web_sys::Element,
-    attr_name: &'static str,
-    value: Attribute<'a>,
-) {
+pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, value: Attribute) {
     match value {
         Attribute::Fn(f) => {
             let el = el.clone();
-            cx.create_effect(move || attribute_expression(&el, attr_name, f()))
+            cx.create_effect(move |_| attribute_expression(&el, attr_name, f()));
         }
         _ => attribute_expression(el, attr_name, value),
     }
 }
 
-fn attribute_expression<'a>(el: &web_sys::Element, attr_name: &str, value: Attribute<'a>) {
+fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute) {
     match value {
         Attribute::String(value) => set_attribute(el, attr_name, &value),
         Attribute::Option(value) => match value {
@@ -34,16 +29,11 @@ fn attribute_expression<'a>(el: &web_sys::Element, attr_name: &str, value: Attri
     }
 }
 
-pub fn property<'a>(
-    cx: Scope<'a>,
-    el: &web_sys::Element,
-    prop_name: &'static str,
-    value: Property<'a>,
-) {
+pub fn property(cx: Scope, el: &web_sys::Element, prop_name: &'static str, value: Property) {
     match value {
         Property::Fn(f) => {
             let el = el.clone();
-            cx.create_effect(move || property_expression(&el, prop_name, f()))
+            cx.create_effect(move |_| property_expression(&el, prop_name, f()));
         }
         Property::Value(value) => property_expression(el, prop_name, value),
     }
@@ -53,11 +43,11 @@ fn property_expression(el: &web_sys::Element, prop_name: &str, value: JsValue) {
     js_sys::Reflect::set(el, &JsValue::from_str(prop_name), &value).unwrap_throw();
 }
 
-pub fn class<'a>(cx: Scope<'a>, el: &web_sys::Element, class_name: &'static str, value: Class<'a>) {
+pub fn class(cx: Scope, el: &web_sys::Element, class_name: &'static str, value: Class) {
     match value {
         Class::Fn(f) => {
             let el = el.clone();
-            cx.create_effect(move || class_expression(&el, class_name, f()))
+            cx.create_effect(move |_| class_expression(&el, class_name, f()));
         }
         Class::Value(value) => class_expression(el, class_name, value),
     }
@@ -72,12 +62,12 @@ fn class_expression(el: &web_sys::Element, class_name: &str, value: bool) {
     }
 }
 
-pub fn insert<'a>(
-    cx: Scope<'a>,
+pub fn insert(
+    cx: Scope,
     parent: web_sys::Node,
-    value: Child<'a>,
+    value: Child,
     before: Option<web_sys::Node>,
-    initial: Option<Child<'a>>,
+    initial: Option<Child>,
 ) {
     /* let initial = if before.is_some() && initial.is_none() {
         Some(Child::Nodes(vec![]))
@@ -92,18 +82,18 @@ pub fn insert<'a>(
     match value {
         Child::Fn(f) => {
             let mut current = initial.clone();
-            cx.create_effect(move || {
+            cx.create_effect(move |_| {
                 let mut value = f();
                 while let Child::Fn(f) = value {
                     value = f();
                 }
 
-                current = Some(insert_expression(
+                Some(insert_expression(
                     parent.clone().unchecked_into(),
                     &f(),
                     current.clone().unwrap_or(Child::Null),
                     before.as_ref(),
-                ));
+                ))
             });
         }
         _ => {
@@ -117,12 +107,12 @@ pub fn insert<'a>(
     }
 }
 
-pub fn insert_expression<'a>(
+pub fn insert_expression(
     parent: web_sys::Element,
-    new_value: &Child<'a>,
-    mut current: Child<'a>,
+    new_value: &Child,
+    mut current: Child,
     before: Option<&web_sys::Node>,
-) -> Child<'a> {
+) -> Child {
     if new_value == &current {
         current
     } else {
@@ -223,13 +213,13 @@ fn node_list_to_vec(node_list: web_sys::NodeList) -> Vec<web_sys::Node> {
     vec
 }
 
-pub fn insert_str<'a>(
+pub fn insert_str(
     parent: &web_sys::Element,
     data: &str,
     before: Option<&web_sys::Node>,
     multi: bool,
     current: Child,
-) -> Child<'a> {
+) -> Child {
     if multi {
         let node = if let Child::Nodes(nodes) = &current {
             if let Some(node) = nodes.get(0) {
@@ -258,25 +248,16 @@ pub fn insert_str<'a>(
                 Some(marker) => {
                     let prev = marker.previous_sibling().unwrap_throw();
                     if let Some(text_node) = prev.dyn_ref::<web_sys::Text>() {
-                        crate::log!("branch A");
                         text_node.set_data(data)
                     } else {
-                        crate::log!("branch B");
-
                         prev.set_text_content(Some(data))
                     }
                 }
                 None => match parent.first_child() {
                     Some(child) => {
-                        crate::log!("branch C");
-
                         child.unchecked_ref::<web_sys::Text>().set_data(data);
                     }
-                    None => {
-                        crate::log!("branch D");
-
-                        parent.set_text_content(Some(data))
-                    }
+                    None => parent.set_text_content(Some(data)),
                 },
             },
 
@@ -308,12 +289,12 @@ fn append_nodes(
     result
 }
 
-fn clean_children<'a>(
+fn clean_children(
     parent: &web_sys::Element,
     current: Child,
     marker: Option<&web_sys::Node>,
     replacement: Option<web_sys::Node>,
-) -> Child<'a> {
+) -> Child {
     match marker {
         None => {
             parent.set_text_content(Some(""));

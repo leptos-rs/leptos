@@ -1,36 +1,36 @@
 use leptos_reactive::Scope;
 use wasm_bindgen::JsValue;
 
-pub enum Property<'a> {
+pub enum Property {
     Value(JsValue),
-    Fn(&'a dyn Fn() -> JsValue),
+    Fn(Box<dyn Fn() -> JsValue>),
 }
 
-pub trait IntoProperty<'a> {
-    fn into_property(self, cx: Scope<'a>) -> Property<'a>;
+pub trait IntoProperty {
+    fn into_property(self, cx: Scope) -> Property;
 }
 
-impl<'a, T, U> IntoProperty<'a> for T
+impl<T, U> IntoProperty for T
 where
-    T: Fn() -> U + 'a,
+    T: Fn() -> U + 'static,
     U: Into<JsValue>,
 {
-    fn into_property(self, cx: Scope<'a>) -> Property<'a> {
-        let modified_fn = cx.create_ref(move || self().into());
+    fn into_property(self, cx: Scope) -> Property {
+        let modified_fn = Box::new(move || self().into());
         Property::Fn(modified_fn)
     }
 }
 
 macro_rules! prop_type {
     ($prop_type:ty) => {
-        impl<'a> IntoProperty<'a> for $prop_type {
-            fn into_property(self, _cx: Scope<'a>) -> Property<'a> {
+        impl IntoProperty for $prop_type {
+            fn into_property(self, _cx: Scope) -> Property {
                 Property::Value(self.into())
             }
         }
 
-        impl<'a> IntoProperty<'a> for Option<$prop_type> {
-            fn into_property(self, _cx: Scope<'a>) -> Property<'a> {
+        impl IntoProperty for Option<$prop_type> {
+            fn into_property(self, _cx: Scope) -> Property {
                 Property::Value(self.into())
             }
         }

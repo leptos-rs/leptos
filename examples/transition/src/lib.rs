@@ -10,16 +10,20 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
     let (tab, set_tab) = cx.create_signal(0);
     let transition = cx.use_transition();
 
+    cx.create_effect(move || {
+        log::debug!("transition.pending = {}", transition.pending());
+    });
+
     view! {
         <div>
-            <nav class="tabs">
-                <button class:selected={move || *tab.get() == 0} on:click=move |_| set_tab(|n| *n = 0)>
+            <nav class="tabs" class:pending={move || transition.pending()}>
+                <button class:selected={move || *tab.get() == 0} on:click=move |_| transition.start(move || set_tab(|n| *n = 0))>
                     "One"
                 </button>
-                <button class:selected={move || *tab.get() == 1} on:click=move |_| set_tab(|n| *n = 1)>
+                <button class:selected={move || *tab.get() == 1} on:click=move |_| transition.start(move || set_tab(|n| *n = 0))>
                     "Two"
                 </button>
-                <button class:selected={move || *tab.get() == 2} on:click=move |_| set_tab(|n| *n = 2)>
+                <button class:selected={move || *tab.get() == 2} on:click=move |_| transition.start(move || set_tab(|n| *n = 0))>
                     "Three"
                 </button>
             </nav>

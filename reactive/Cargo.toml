@@ -1,8 +1,0 @@
-[package]
-name = "reactive"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-bumpalo = { version = "3", features = ["boxed"] }
-log = "0.4"

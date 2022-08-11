@@ -1,142 +1,107 @@
-//use debug_cell::{Ref, RefCell};
-use std::{
-    cell::{Ref, RefCell},
-    collections::HashSet,
-    rc::{Rc, Weak},
-};
+use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
+use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
-use crate::EffectInner;
+impl Scope {
+    pub fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
+    where
+        T: Debug,
+    {
+        let state = SignalState::new(value);
+        let id = self.push_signal(state);
 
-use super::{root_context::RootContext, EffectDependency};
+        let read = ReadSignal {
+            runtime: self.runtime,
+            scope: self.id,
+            id,
+            ty: PhantomData,
+        };
 
-pub(crate) fn signal_from_root_context<T>(
-    root_context: &'static RootContext,
-    value: T,
-) -> (ReadSignal<T>, WriteSignal<T>) {
-    let state = Rc::new(SignalState {
-        value: RefCell::new(value),
-        subscriptions: RefCell::new(HashSet::new()),
-    });
+        let write = WriteSignal {
+            runtime: self.runtime,
+            scope: self.id,
+            id,
+            ty: PhantomData,
+        };
 
-    let writer = WriteSignal {
-        inner: Rc::downgrade(&state),
-    };
-
-    let reader = ReadSignal {
-        stack: root_context,
-        inner: state,
-    };
-
-    (reader, writer)
+        (read, write)
+    }
 }
 
-pub struct ReadSignal<T: 'static> {
-    pub(crate) stack: &'static RootContext,
-    pub(crate) inner: Rc<SignalState<T>>,
-}
-
-impl<T> Clone for ReadSignal<T>
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct ReadSignal<T>
 where
     T: 'static,
 {
+    runtime: &'static Runtime,
+    pub(crate) scope: ScopeId,
+    pub(crate) id: SignalId,
+    pub(crate) ty: PhantomData<T>,
+}
+
+impl<T> ReadSignal<T> {
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.with(T::clone)
+    }
+
+    pub fn with<U>(&self, f: impl Fn(&T) -> U) -> U {
+        if let Some(running_subscriber) = self.runtime.running_effect() {
+            match running_subscriber {
+                Subscriber::Memo(running_memo_id) => {
+                    self.runtime.any_memo(running_memo_id, |running_memo| {
+                        self.add_subscriber(Subscriber::Memo(running_memo_id));
+                        running_memo.subscribe_to(Source::Signal((self.scope, self.id)));
+                    });
+                }
+                Subscriber::Effect(running_effect_id) => {
+                    self.runtime
+                        .any_effect(running_effect_id, |running_effect| {
+                            self.add_subscriber(Subscriber::Effect(running_effect_id));
+                            running_effect.subscribe_to(Source::Signal((self.scope, self.id)));
+                        });
+                }
+            }
+        }
+
+        // If transition is running, or contains this as a source, write to t_value
+        if let Some(transition) = self.runtime.running_transition() {
+            todo!()
+            /* let source = Rc::clone(&self.inner).as_source();
+            if transition.running() && transition.contains_source(&source) {
+                self.t_value_unchecked()
+            } else {
+                self.value()
+            } */
+        } else {
+            self.runtime
+                .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
+                    (f)(&signal_state.value.borrow())
+                })
+        }
+    }
+
+    fn add_subscriber(&self, subscriber: Subscriber) {
+        self.runtime
+            .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
+                signal_state.subscribers.borrow_mut().insert(subscriber);
+            })
+    }
+}
+
+impl<T> Clone for ReadSignal<T> {
     fn clone(&self) -> Self {
         Self {
-            stack: self.stack,
-            inner: Rc::clone(&self.inner),
+            runtime: self.runtime,
+            scope: self.scope,
+            id: self.id,
+            ty: PhantomData,
         }
     }
 }
 
-impl<T> PartialEq for ReadSignal<T> {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.inner, &other.inner)
-    }
-}
-
-impl<T> Eq for ReadSignal<T> {}
-
-impl<T: 'static> ReadSignal<T> {
-    pub fn get(&self) -> ReadSignalRef<T> {
-        if let Some(running_effect) = self.stack.stack.borrow().last() {
-            if let Some(running_effect) = running_effect.upgrade() {
-                // add the Effect to the Signal's subscriptions
-                self.add_subscriber(running_effect.clone());
-
-                // add the Signal to the Effect's dependencies
-                running_effect
-                    .add_dependency(Rc::downgrade(&self.inner) as Weak<dyn EffectDependency>);
-            }
-        }
-
-        self.value()
-    }
-
-    pub(crate) fn get_untracked(&self) -> ReadSignalRef<T> {
-        self.value()
-    }
-
-    fn value(&self) -> ReadSignalRef<T> {
-        ReadSignalRef {
-            guard: self.inner.value.borrow(),
-        }
-    }
-
-    fn add_subscriber(&self, subscriber: Rc<EffectInner>) {
-        match self.inner.subscriptions.try_borrow_mut() {
-            Ok(mut subs) => {
-                subs.insert(subscriber);
-            }
-            Err(e) => crate::debug_warn!(
-                "failed to BorrowMut while adding subscriber to Signal: {}",
-                e
-            ),
-        }
-        //self.inner.subscriptions.borrow_mut().insert(subscriber);
-    }
-}
-
-impl<T> EffectDependency for SignalState<T> {
-    fn unsubscribe(&self, effect: Rc<EffectInner>) {
-        match self.subscriptions.try_borrow_mut() {
-            Ok(mut subs) => {
-                subs.remove(&effect);
-            }
-            Err(e) => crate::debug_warn!("failed to unsubscribing Signal from Effect: {}", e),
-        }
-        //self.subscriptions.borrow_mut().remove(&effect);
-    }
-}
-
-use std::ops::Deref;
-
-pub struct ReadSignalRef<'a, T> {
-    guard: Ref<'a, T>,
-}
-
-impl<'a, T> ReadSignalRef<'a, T> {
-    pub fn guard(&self) -> &Ref<'a, T> {
-        &self.guard
-    }
-}
-
-impl<'a, T> Deref for ReadSignalRef<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        &self.guard
-    }
-}
-
-impl<T> std::fmt::Debug for ReadSignal<T>
-where
-    T: std::fmt::Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Signal")
-            .field("value", &self.value())
-            .finish()
-    }
-}
+impl<T> Copy for ReadSignal<T> {}
 
 impl<T> FnOnce<()> for ReadSignal<T>
 where
@@ -145,7 +110,7 @@ where
     type Output = T;
 
     extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get().clone()
+        self.get()
     }
 }
 
@@ -154,7 +119,7 @@ where
     T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get().clone()
+        self.get()
     }
 }
 
@@ -163,76 +128,60 @@ where
     T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get().clone()
+        self.get()
     }
 }
 
-pub struct SignalState<T> {
-    pub(crate) value: RefCell<T>,
-    pub(crate) t_value: RefCell<Option<T>>,
-    pub(crate) subscriptions: RefCell<HashSet<Rc<EffectInner>>>,
-}
-
-pub struct WriteSignal<T> {
-    pub(crate) inner: Weak<SignalState<T>>,
-}
-
-impl<T> Clone for WriteSignal<T>
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct WriteSignal<T>
 where
     T: 'static,
 {
+    runtime: &'static Runtime,
+    pub(crate) scope: ScopeId,
+    pub(crate) id: SignalId,
+    pub(crate) ty: PhantomData<T>,
+}
+
+impl<T> WriteSignal<T>
+where
+    T: 'static,
+{
+    pub fn update(&self, f: impl Fn(&mut T)) {
+        self.runtime.signal((self.scope, self.id), |signal_state| {
+            // update value
+            if let Some(transition) = self.runtime.transition() {
+                todo!()
+            } else {
+                (f)(&mut *signal_state.value.borrow_mut());
+            }
+
+            // notify subscribers
+            let subs = { signal_state.subscribers.borrow().clone() };
+            for subscriber in subs.iter() {
+                subscriber.run(self.runtime);
+            }
+        })
+    }
+}
+
+impl<T> Clone for WriteSignal<T> {
     fn clone(&self) -> Self {
         Self {
-            inner: Weak::clone(&self.inner),
+            runtime: self.runtime,
+            scope: self.scope,
+            id: self.id,
+            ty: PhantomData,
         }
     }
 }
 
-impl<T> WriteSignal<T> {
-    pub fn update(&self, update_fn: impl FnOnce(&mut T)) {
-        if let Some(inner) = self.inner.upgrade() {
-            match inner.value.try_borrow_mut() {
-                Ok(mut value) => (update_fn)(&mut value),
-                Err(e) => crate::debug_warn!("failed to BorrowMut while updating Signal: {}", e),
-            }
-            //(update_fn)(&mut inner.value.borrow_mut());
-
-            match inner.subscriptions.try_borrow() {
-                Ok(subs) => {
-                    for subscription in subs.iter() {
-                        subscription.execute(Rc::downgrade(&subscription));
-                    }
-                }
-                Err(e) => crate::debug_warn!(
-                    "failed to BorrowMut while running dependencies for Signal: {}",
-                    e
-                ),
-            }
-            /* for subscription in inner.subscriptions.borrow_mut().iter() {
-                subscription.execute(Rc::downgrade(&subscription));
-            } */
-            /* for subscription in inner.subscriptions.take().iter() {
-                subscription.execute(Rc::downgrade(&subscription))
-            } */
-        }
-    }
-
-    pub fn update_untracked(&self, update_fn: impl FnOnce(&mut T)) {
-        if let Some(inner) = self.inner.upgrade() {
-            match inner.value.try_borrow_mut() {
-                Ok(mut value) => (update_fn)(&mut value),
-                Err(e) => crate::debug_warn!(
-                    "failed to BorrowMut while calling WriteSignal::update_untracked {}",
-                    e
-                ),
-            }
-        }
-    }
-}
+impl<T> Copy for WriteSignal<T> {}
 
 impl<T, F> FnOnce<(F,)> for WriteSignal<T>
 where
     F: Fn(&mut T),
+    T: Clone + 'static,
 {
     type Output = ();
 
@@ -244,6 +193,7 @@ where
 impl<T, F> FnMut<(F,)> for WriteSignal<T>
 where
     F: Fn(&mut T),
+    T: Clone + 'static,
 {
     extern "rust-call" fn call_mut(&mut self, args: (F,)) -> Self::Output {
         self.update(args.0)
@@ -253,34 +203,47 @@ where
 impl<T, F> Fn<(F,)> for WriteSignal<T>
 where
     F: Fn(&mut T),
+    T: Clone + 'static,
 {
     extern "rust-call" fn call(&self, args: (F,)) -> Self::Output {
         self.update(args.0)
     }
 }
 
-impl<T> PartialEq for WriteSignal<T> {
-    fn eq(&self, other: &Self) -> bool {
-        Weak::ptr_eq(&self.inner, &other.inner)
+slotmap::new_key_type! { pub(crate) struct SignalId; }
+
+#[derive(Debug)]
+pub(crate) struct SignalState<T> {
+    value: RefCell<T>,
+    t_value: RefCell<Option<T>>,
+    subscribers: RefCell<HashSet<Subscriber>>,
+}
+
+impl<T> SignalState<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            value: RefCell::new(value),
+            t_value: Default::default(),
+            subscribers: Default::default(),
+        }
     }
 }
 
-impl<T> Eq for WriteSignal<T> {}
+pub(crate) trait AnySignal: Debug {
+    fn unsubscribe(&self, subscriber: Subscriber);
 
-impl<'a, T> std::fmt::Display for ReadSignalRef<'a, T>
-where
-    T: std::fmt::Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.guard.fmt(f)
-    }
+    fn as_any(&self) -> &dyn Any;
 }
 
-impl<'a, T> std::fmt::Debug for ReadSignalRef<'a, T>
+impl<T> AnySignal for SignalState<T>
 where
-    T: std::fmt::Debug,
+    T: Debug + 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.guard.fmt(f)
+    fn unsubscribe(&self, subscriber: Subscriber) {
+        self.subscribers.borrow_mut().remove(&subscriber);
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
