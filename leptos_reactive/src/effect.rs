@@ -1,9 +1,6 @@
 use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
-use debug_cell::RefCell;
 use serde::{Deserialize, Serialize};
-use std::{
-    any::type_name, /* cell::RefCell, */ collections::HashSet, fmt::Debug, marker::PhantomData,
-};
+use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
 impl Scope {
     pub fn create_effect<T>(self, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
@@ -20,9 +17,9 @@ impl Scope {
             ty: PhantomData,
         };
 
-        /*  self.runtime
-                   .any_effect((self.id, id), |effect| effect.run((self.id, id)));
-        */
+        self.runtime
+            .any_effect((self.id, id), |effect| effect.run((self.id, id)));
+
         eff
     }
 }
@@ -49,7 +46,8 @@ impl<T> Clone for Effect<T> {
 
 impl<T> Copy for Effect<T> {}
 
-slotmap::new_key_type! { pub(crate) struct EffectId; }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) struct EffectId(pub(crate) usize);
 
 pub(crate) struct EffectState<T> {
     runtime: &'static Runtime,

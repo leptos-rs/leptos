@@ -25,13 +25,9 @@ impl Runtime {
         }
     }
 
-    pub fn any_effect<T>(
-        &self,
-        id: (ScopeId, EffectId),
-        f: impl FnOnce(&Box<dyn AnyEffect>) -> T,
-    ) -> T {
+    pub fn any_effect<T>(&self, id: (ScopeId, EffectId), f: impl FnOnce(&dyn AnyEffect) -> T) -> T {
         self.scope(id.0, |scope| {
-            if let Some(n) = scope.effects.borrow().get(id.1) {
+            if let Some(n) = scope.effects.get(id.1 .0) {
                 (f)(n)
             } else {
                 panic!("couldn't locate {id:?}");
@@ -39,9 +35,9 @@ impl Runtime {
         })
     }
 
-    pub fn any_memo<T>(&self, id: (ScopeId, MemoId), f: impl FnOnce(&Box<dyn AnyMemo>) -> T) -> T {
+    pub fn any_memo<T>(&self, id: (ScopeId, MemoId), f: impl FnOnce(&dyn AnyMemo) -> T) -> T {
         self.scope(id.0, |scope| {
-            if let Some(n) = scope.memos.borrow().get(id.1) {
+            if let Some(n) = scope.memos.get(id.1 .0) {
                 (f)(n)
             } else {
                 panic!("couldn't locate {id:?}");
@@ -65,13 +61,9 @@ impl Runtime {
         })
     }
 
-    pub fn any_signal<T>(
-        &self,
-        id: (ScopeId, SignalId),
-        f: impl FnOnce(&Box<dyn AnySignal>) -> T,
-    ) -> T {
+    pub fn any_signal<T>(&self, id: (ScopeId, SignalId), f: impl FnOnce(&dyn AnySignal) -> T) -> T {
         self.scope(id.0, |scope| {
-            if let Some(n) = scope.signals.borrow().get(id.1) {
+            if let Some(n) = scope.signals.get(id.1 .0) {
                 (f)(n)
             } else {
                 panic!("couldn't locate {id:?}");

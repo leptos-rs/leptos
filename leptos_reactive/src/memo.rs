@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
 use std::{
     any::{type_name, Any},
@@ -103,7 +105,8 @@ where
     }
 }
 
-slotmap::new_key_type! { pub(crate) struct MemoId; }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) struct MemoId(pub(crate) usize);
 
 pub(crate) struct MemoState<T>
 where

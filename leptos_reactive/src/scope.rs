@@ -2,11 +2,10 @@ use crate::{
     AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, Runtime, SignalId,
     SignalState,
 };
-use debug_cell::RefCell;
-use slotmap::SlotMap;
+use elsa::FrozenVec;
 use std::{
     any::{Any, TypeId},
-    /* cell::RefCell, */
+    cell::RefCell,
     collections::HashMap,
     fmt::Debug,
 };
@@ -42,7 +41,8 @@ impl Scope {
         T: Debug + 'static,
     {
         self.runtime.scope(self.id, |scope| {
-            scope.signals.borrow_mut().insert(Box::new(state))
+            scope.signals.push(Box::new(state));
+            SignalId(scope.signals.len() - 1)
         })
     }
 
@@ -51,7 +51,8 @@ impl Scope {
         T: Debug + 'static,
     {
         self.runtime.scope(self.id, |scope| {
-            scope.effects.borrow_mut().insert(Box::new(state))
+            scope.effects.push(Box::new(state));
+            EffectId(scope.effects.len() - 1)
         })
     }
 
@@ -60,7 +61,8 @@ impl Scope {
         T: Debug + 'static,
     {
         self.runtime.scope(self.id, |scope| {
-            scope.memos.borrow_mut().insert(Box::new(state))
+            scope.memos.push(Box::new(state));
+            MemoId(scope.memos.len() - 1)
         })
     }
 
@@ -95,9 +97,9 @@ pub(crate) struct ScopeState {
     pub(crate) parent: Option<Scope>,
     pub(crate) contexts: RefCell<HashMap<TypeId, Box<dyn Any>>>,
     pub(crate) children: RefCell<Vec<ScopeId>>,
-    pub(crate) signals: RefCell<SlotMap<SignalId, Box<dyn AnySignal>>>,
-    pub(crate) memos: RefCell<SlotMap<MemoId, Box<dyn AnyMemo>>>,
-    pub(crate) effects: RefCell<SlotMap<EffectId, Box<dyn AnyEffect>>>,
+    pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
+    pub(crate) memos: FrozenVec<Box<dyn AnyMemo>>,
+    pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
 }
 
 impl Debug for ScopeState {

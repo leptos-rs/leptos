@@ -1,6 +1,6 @@
 use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
-use debug_cell::RefCell;
-use std::{any::Any, /* cell::RefCell,  */ collections::HashSet, fmt::Debug, marker::PhantomData,};
+use serde::{Deserialize, Serialize};
+use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
 impl Scope {
     pub fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
@@ -211,7 +211,8 @@ where
     }
 }
 
-slotmap::new_key_type! { pub(crate) struct SignalId; }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) struct SignalId(pub(crate) usize);
 
 //#[derive(Debug)]
 pub(crate) struct SignalState<T> {

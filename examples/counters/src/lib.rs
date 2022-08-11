@@ -86,10 +86,10 @@ fn Counter(
     view! {
         <li>
             <button on:click={move |_| set_value(|value| *value -= 1)}>"-1"</button>
-            /* <input type="text"
-                prop:value={let value = value.clone(); move || value().to_string()}
+            <input type="text"
+                prop:value={move || value().to_string()}
                 on:input=input
-            /> */
+            />
             <span>{move || value().to_string()}</span>
             <button on:click=move |_| set_value(|value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters(|counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
