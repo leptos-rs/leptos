@@ -2,10 +2,11 @@ use crate::{
     AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, Runtime, SignalId,
     SignalState,
 };
+use debug_cell::RefCell;
 use slotmap::SlotMap;
 use std::{
     any::{Any, TypeId},
-    cell::RefCell,
+    /* cell::RefCell, */
     collections::HashMap,
     fmt::Debug,
 };
@@ -90,7 +91,6 @@ impl Debug for ScopeDisposer {
 
 slotmap::new_key_type! { pub(crate) struct ScopeId; }
 
-#[derive(Debug)]
 pub(crate) struct ScopeState {
     pub(crate) parent: Option<Scope>,
     pub(crate) contexts: RefCell<HashMap<TypeId, Box<dyn Any>>>,
@@ -98,6 +98,12 @@ pub(crate) struct ScopeState {
     pub(crate) signals: RefCell<SlotMap<SignalId, Box<dyn AnySignal>>>,
     pub(crate) memos: RefCell<SlotMap<MemoId, Box<dyn AnyMemo>>>,
     pub(crate) effects: RefCell<SlotMap<EffectId, Box<dyn AnyEffect>>>,
+}
+
+impl Debug for ScopeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScopeState").finish()
+    }
 }
 
 impl ScopeState {

@@ -1,5 +1,6 @@
 use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
-use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
+use debug_cell::RefCell;
+use std::{any::Any, /* cell::RefCell,  */ collections::HashSet, fmt::Debug, marker::PhantomData,};
 
 impl Scope {
     pub fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
@@ -212,11 +213,24 @@ where
 
 slotmap::new_key_type! { pub(crate) struct SignalId; }
 
-#[derive(Debug)]
+//#[derive(Debug)]
 pub(crate) struct SignalState<T> {
     value: RefCell<T>,
     t_value: RefCell<Option<T>>,
     subscribers: RefCell<HashSet<Subscriber>>,
+}
+
+impl<T> Debug for SignalState<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignalState")
+            .field("value", &*self.value.borrow())
+            .field("t_value", &*self.t_value.borrow())
+            .field("subscribers", &*self.subscribers.borrow())
+            .finish()
+    }
 }
 
 impl<T> SignalState<T> {

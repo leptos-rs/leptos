@@ -1,6 +1,9 @@
 use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
+use debug_cell::RefCell;
 use serde::{Deserialize, Serialize};
-use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
+use std::{
+    any::type_name, /* cell::RefCell, */ collections::HashSet, fmt::Debug, marker::PhantomData,
+};
 
 impl Scope {
     pub fn create_effect<T>(self, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
@@ -17,9 +20,9 @@ impl Scope {
             ty: PhantomData,
         };
 
-        self.runtime
-            .any_effect((self.id, id), |effect| effect.run((self.id, id)));
-
+        /*  self.runtime
+                   .any_effect((self.id, id), |effect| effect.run((self.id, id)));
+        */
         eff
     }
 }
@@ -92,8 +95,8 @@ where
                     type_name::<T>()
                 ),
             )
-            .field("value", &self.value)
-            .field("sources", &self.sources)
+            //.field("value", &self.value)
+            //.field("sources", &self.sources)
             .finish()
     }
 }

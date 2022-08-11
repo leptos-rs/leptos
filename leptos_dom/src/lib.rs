@@ -63,7 +63,7 @@ where
     });
 }
 
-pub fn create_component<'a, F, T>(cx: Scope, f: F) -> T
+pub fn create_component<F, T>(cx: Scope, f: F) -> T
 where
     F: Fn() -> T,
     T: IntoChild,
