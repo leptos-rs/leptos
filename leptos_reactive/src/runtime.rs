@@ -5,11 +5,12 @@ use crate::{
 use slotmap::SlotMap;
 use std::cell::RefCell;
 use std::fmt::Debug;
+use std::rc::Rc;
 
 #[derive(Default, Debug)]
 pub(crate) struct Runtime {
     pub(crate) stack: RefCell<Vec<Subscriber>>,
-    pub(crate) scopes: RefCell<SlotMap<ScopeId, ScopeState>>,
+    pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
 }
 
 impl Runtime {
@@ -18,8 +19,9 @@ impl Runtime {
     }
 
     pub fn scope<T>(&self, id: ScopeId, f: impl FnOnce(&ScopeState) -> T) -> T {
-        if let Some(scope) = self.scopes.borrow().get(id) {
-            (f)(scope)
+        let scope = { self.scopes.borrow().get(id).cloned() };
+        if let Some(scope) = scope {
+            (f)(&scope)
         } else {
             panic!("couldn't locate {id:?}");
         }
@@ -104,7 +106,11 @@ impl Runtime {
         f: impl FnOnce(Scope),
         parent: Option<Scope>,
     ) -> ScopeDisposer {
-        let id = { self.scopes.borrow_mut().insert(ScopeState::new(parent)) };
+        let id = {
+            self.scopes
+                .borrow_mut()
+                .insert(Rc::new(ScopeState::new(parent)))
+        };
         let scope = Scope { runtime: self, id };
         f(scope);
 

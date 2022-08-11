@@ -24,9 +24,7 @@ pub struct Scope {
 
 impl Scope {
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
-        //self.runtime.create_scope(f, Some(self))
-        f(self);
-        ScopeDisposer(Box::new(move || {}))
+        self.runtime.create_scope(f, Some(self))
     }
 
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
