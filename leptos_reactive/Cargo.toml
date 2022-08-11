@@ -7,7 +7,7 @@ edition = "2021"
 log = "0.4"
 slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
-elsa = "1.7.0"
+elsa = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
