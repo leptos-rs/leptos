@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use leptos::*;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +10,6 @@ pub struct Cat {
 
 async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
     if count > 0 {
-        log!("fetching cats");
         let res = reqwasm::http::Request::get(&format!(
             "https://api.thecatapi.com/v1/images/search?limit={}",
             count
@@ -22,7 +23,6 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
         .into_iter()
         .map(|cat| cat.url)
         .collect::<Vec<_>>();
-        log!("got cats {res:?}");
         Ok(res)
     } else {
         Ok(vec![])
@@ -48,21 +48,23 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
             </label>
             <div>
                 <Suspense fallback={"Loading (Suspense Fallback)...".to_string()}>
-                    {let cats = cats.clone(); move || match cats.read() {
-                        None => view! { <p>"Loading your cats..."</p> },
-                        Some(Err(_)) => view! { <pre>"Error"</pre> },
-                        Some(Ok(cats)) => view! {
-                            <div>{
-                                cats.iter()
-                                    .map(|src| {
-                                        view! {
-                                            <img src={src}/>
-                                        }
-                                    })
-                                    .collect::<Vec<_>>()
-                            }</div>
+                    {move || {
+                            cats.read().map(|data| match data {
+                                Err(_) => view! { <pre>"Error"</pre> },
+                                Ok(cats) => view! {
+                                    <div>{
+                                        cats.iter()
+                                            .map(|src| {
+                                                view! {
+                                                    <img src={src}/>
+                                                }
+                                            })
+                                            .collect::<Vec<_>>()
+                                    }</div>
+                                },
+                            })
                         }
-                    }}
+                    }
                 </Suspense>
             </div>
         </div>

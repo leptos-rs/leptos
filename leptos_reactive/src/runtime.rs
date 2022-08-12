@@ -1,10 +1,11 @@
 use crate::{
-    AnyEffect, AnyMemo, AnySignal, EffectId, MemoId, MemoState, Scope, ScopeDisposer, ScopeId,
-    ScopeState, SignalId, SignalState, Subscriber, TransitionState,
+    AnyEffect, AnyMemo, AnySignal, EffectId, MemoId, MemoState, ResourceId, ResourceState, Scope,
+    ScopeDisposer, ScopeId, ScopeState, SignalId, SignalState, Subscriber, TransitionState,
 };
 use slotmap::SlotMap;
 use std::cell::RefCell;
 use std::fmt::Debug;
+use std::future::Future;
 use std::rc::Rc;
 
 #[derive(Default, Debug)]
@@ -85,6 +86,34 @@ impl Runtime {
                     "couldn't convert {id:?} to SignalState<{}>",
                     std::any::type_name::<T>()
                 );
+            }
+        })
+    }
+
+    pub fn resource<S, T, Fu, U>(
+        &self,
+        id: (ScopeId, ResourceId),
+        f: impl FnOnce(&ResourceState<S, T, Fu>) -> U,
+    ) -> U
+    where
+        S: Debug + Clone + 'static,
+        T: Debug + Clone + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        self.scope(id.0, |scope| {
+            if let Some(n) = scope.resources.get(id.1 .0) {
+                if let Some(n) = n.downcast_ref::<ResourceState<S, T, Fu>>() {
+                    f(n)
+                } else {
+                    panic!(
+                        "couldn't convert {id:?} to ResourceState<{}, {}, {}>",
+                        std::any::type_name::<S>(),
+                        std::any::type_name::<T>(),
+                        std::any::type_name::<Fu>()
+                    );
+                }
+            } else {
+                panic!("couldn't locate {id:?}");
             }
         })
     }

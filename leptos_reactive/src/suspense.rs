@@ -34,7 +34,6 @@ impl SuspenseContext {
     pub fn increment(&self) {
         let setter = self.set_pending_resources;
         queue_microtask(move || setter.update(|n| *n += 1));
-        //self.set_pending_resources.update(|n| *n += 1);
     }
 
     pub fn decrement(&self) {
@@ -46,7 +45,6 @@ impl SuspenseContext {
                 }
             })
         });
-        //self.set_pending_resources.update(|n| *n -= 1);
     }
 
     pub fn ready(&self) -> bool {

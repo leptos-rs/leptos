@@ -24,7 +24,7 @@ where
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
-    cx.provide_context(context.clone());
+    cx.provide_context(context);
 
     move || {
         if context.ready() {

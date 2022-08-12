@@ -3,11 +3,15 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     future::Future,
+    marker::PhantomData,
     rc::Rc,
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
-    queue_microtask, spawn::spawn_local, Memo, ReadSignal, Scope, SuspenseContext, WriteSignal,
+    queue_microtask, runtime::Runtime, spawn::spawn_local, Memo, ReadSignal, Scope, ScopeId,
+    SignalId, SuspenseContext, WriteSignal,
 };
 
 impl Scope {
@@ -15,7 +19,7 @@ impl Scope {
         self,
         source: ReadSignal<S>,
         fetcher: impl Fn(&S) -> Fu + 'static,
-    ) -> Rc<Resource<S, T, Fu>>
+    ) -> Resource<S, T, Fu>
     where
         S: Debug + Clone + 'static,
         T: Debug + Clone + 'static,
@@ -29,7 +33,7 @@ impl Scope {
         source: ReadSignal<S>,
         fetcher: impl Fn(&S) -> Fu + 'static,
         initial_value: Option<T>,
-    ) -> Rc<Resource<S, T, Fu>>
+    ) -> Resource<S, T, Fu>
     where
         S: Debug + Clone + 'static,
         T: Debug + Clone + 'static,
@@ -44,7 +48,7 @@ impl Scope {
 
         // TODO hydration/streaming logic
 
-        let r = Rc::new(Resource {
+        let r = Rc::new(ResourceState {
             scope: self,
             value,
             set_value,
@@ -65,12 +69,93 @@ impl Scope {
             move |_| r.load(false)
         });
 
-        r
+        let id = self.push_resource(r);
+
+        Resource {
+            runtime: self.runtime,
+            scope: self.id,
+            id,
+            source_ty: PhantomData,
+            out_ty: PhantomData,
+            fut_ty: PhantomData,
+        }
     }
 }
 
-#[derive(Clone)]
+impl<S, T, Fu> Resource<S, T, Fu>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    pub fn read(&self) -> Option<T> {
+        self.runtime.resource(
+            (self.scope, self.id),
+            |resource: &ResourceState<S, T, Fu>| resource.read(),
+        )
+    }
+
+    pub fn loading(&self) -> bool {
+        self.runtime.resource(
+            (self.scope, self.id),
+            |resource: &ResourceState<S, T, Fu>| resource.loading.get(),
+        )
+    }
+
+    pub fn refetch(&self) {
+        self.runtime.resource(
+            (self.scope, self.id),
+            |resource: &ResourceState<S, T, Fu>| resource.refetch(),
+        )
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T, Fu>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    runtime: &'static Runtime,
+    pub(crate) scope: ScopeId,
+    pub(crate) id: ResourceId,
+    pub(crate) source_ty: PhantomData<S>,
+    pub(crate) out_ty: PhantomData<T>,
+    pub(crate) fut_ty: PhantomData<Fu>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) struct ResourceId(pub(crate) usize);
+
+impl<S, T, Fu> Clone for Resource<S, T, Fu>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            runtime: self.runtime,
+            scope: self.scope,
+            id: self.id,
+            source_ty: PhantomData,
+            out_ty: PhantomData,
+            fut_ty: PhantomData,
+        }
+    }
+}
+
+impl<S, T, Fu> Copy for Resource<S, T, Fu>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+}
+
+#[derive(Clone)]
+pub struct ResourceState<S, T, Fu>
 where
     S: 'static,
     T: Debug + 'static,
@@ -90,7 +175,7 @@ where
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
 }
 
-impl<S, T, Fu> Resource<S, T, Fu>
+impl<S, T, Fu> ResourceState<S, T, Fu>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
@@ -126,7 +211,7 @@ where
 
         let loaded_under_transition = self.scope.runtime.running_transition().is_some();
 
-        let fut = /* self.scope.untrack(||  */(self.fetcher)(&self.source.get())/* ) */;
+        let fut = (self.fetcher)(&self.source.get());
 
         // `scheduled` is true for the rest of this code only
         self.scheduled.set(true);

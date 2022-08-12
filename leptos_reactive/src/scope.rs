@@ -1,6 +1,6 @@
 use crate::{
-    AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, Runtime, SignalId,
-    SignalState,
+    AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, ResourceId,
+    ResourceState, Runtime, SignalId, SignalState,
 };
 use elsa::FrozenVec;
 use serde::Serialize;
@@ -9,6 +9,8 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     fmt::Debug,
+    future::Future,
+    rc::Rc,
 };
 
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -65,6 +67,18 @@ impl Scope {
         })
     }
 
+    pub(crate) fn push_resource<S, T, Fu>(&self, state: Rc<ResourceState<S, T, Fu>>) -> ResourceId
+    where
+        S: Debug + Clone + 'static,
+        T: Debug + Clone + 'static,
+        Fu: Future<Output = T> + 'static,
+    {
+        self.runtime.scope(self.id, |scope| {
+            scope.resources.push(state);
+            ResourceId(scope.resources.len() - 1)
+        })
+    }
+
     pub fn dispose(self) {
         // first, drop child scopes
         self.runtime.scope(self.id, |scope| {
@@ -99,6 +113,7 @@ pub(crate) struct ScopeState {
     pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
     pub(crate) memos: FrozenVec<Box<dyn AnyMemo>>,
     pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
+    pub(crate) resources: FrozenVec<Rc<dyn Any>>,
 }
 
 impl Debug for ScopeState {
@@ -116,6 +131,7 @@ impl ScopeState {
             signals: Default::default(),
             memos: Default::default(),
             effects: Default::default(),
+            resources: Default::default(),
         }
     }
 }
