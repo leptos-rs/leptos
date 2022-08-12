@@ -186,13 +186,23 @@ where
 
         let v = self.value.get();
 
-        if let Some(s) = &suspense_cx {
-            let mut contexts = self.suspense_contexts.borrow_mut();
-            if !contexts.contains(s) {
-                contexts.insert(*s);
-                s.increment();
+        let suspense_contexts = self.suspense_contexts.clone();
+        let has_value = v.is_some();
+        self.scope.create_effect(move |_| {
+            if let Some(s) = &suspense_cx {
+                let mut contexts = suspense_contexts.borrow_mut();
+                if !contexts.contains(s) {
+                    contexts.insert(*s);
+
+                    // on subsequent reads, increment will be triggered in load()
+                    // because the context has been tracked here
+                    // on the first read, resource is already loading without having incremented
+                    if !has_value {
+                        s.increment();
+                    }
+                }
             }
-        }
+        });
 
         v
     }
@@ -212,6 +222,7 @@ where
         let loaded_under_transition = self.scope.runtime.running_transition().is_some();
 
         let fut = (self.fetcher)(&self.source.get());
+        log::debug!("loading resource");
 
         // `scheduled` is true for the rest of this code only
         self.scheduled.set(true);
@@ -225,13 +236,18 @@ where
         self.set_loading.update(|n| *n = true);
         self.trigger.update(|n| *n += 1);
 
+        // increment counter everywhere it's read
+        let suspense_contexts = self.suspense_contexts.clone();
+        for suspense_context in suspense_contexts.borrow().iter() {
+            suspense_context.increment();
+        }
+
         // run the Future
         spawn_local({
             let resolved = self.resolved.clone();
             let scope = self.scope;
             let set_value = self.set_value;
             let set_loading = self.set_loading;
-            let suspense_contexts = self.suspense_contexts.clone();
             async move {
                 let res = fut.await;
                 resolved.set(true);
