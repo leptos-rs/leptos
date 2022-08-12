@@ -51,16 +51,16 @@ pub(crate) struct EffectId(pub(crate) usize);
 
 pub(crate) struct EffectState<T> {
     runtime: &'static Runtime,
-    f: Box<RefCell<dyn FnMut(Option<T>) -> T>>,
-    value: RefCell<Option<T>>,
-    sources: RefCell<HashSet<Source>>,
+    f: Box<debug_cell::RefCell<dyn FnMut(Option<T>) -> T>>,
+    value: debug_cell::RefCell<Option<T>>,
+    sources: debug_cell::RefCell<HashSet<Source>>,
 }
 
 impl<T> EffectState<T> {
     pub fn new(runtime: &'static Runtime, f: impl FnMut(Option<T>) -> T + 'static) -> Self {
         Self {
             runtime,
-            f: Box::new(RefCell::new(f)),
+            f: Box::new(debug_cell::RefCell::new(f)),
             value: Default::default(),
             sources: Default::default(),
         }
@@ -118,11 +118,11 @@ where
         // add it to the Scope stack, which means any signals called
         // in the effect fn immediately below will add this Effect as a dependency
         self.runtime.push_stack(Subscriber::Effect(id));
-
         // actually run the effect
         let curr = { self.value.borrow_mut().take() };
 
         let v = { (self.f.borrow_mut())(curr) };
+
         *self.value.borrow_mut() = Some(v);
 
         // pop it back off the stack

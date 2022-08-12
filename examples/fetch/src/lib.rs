@@ -30,8 +30,8 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
 }
 
 pub fn fetch_example(cx: Scope) -> web_sys::Element {
-    let (cat_count, set_cat_count) = cx.create_signal::<u32>(3);
-    let cats = cx.create_ref(cx.create_resource(cat_count, |count| fetch_cats(*count)));
+    let (cat_count, set_cat_count) = cx.create_signal::<u32>(1);
+    let cats = cx.create_resource(cat_count, |count| fetch_cats(*count));
 
     view! {
         <div>
@@ -48,11 +48,10 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
             </label>
             <div>
                 <Suspense fallback={"Loading (Suspense Fallback)...".to_string()}>
-                    {move || match &*cats.read() {
-                        ResourceState::Idle => view! { <p>"(no data)"</p> },
-                        ResourceState::Pending { .. } => view! { <p>"Loading..."</p> },
-                        ResourceState::Ready { data: Err(_) } => view! { <pre>"Error"</pre> },
-                        ResourceState::Ready { data: Ok(cats) } => view! {
+                    {let cats = cats.clone(); move || match cats.read() {
+                        None => view! { <p>"Loading your cats..."</p> },
+                        Some(Err(_)) => view! { <pre>"Error"</pre> },
+                        Some(Ok(cats)) => view! {
                             <div>{
                                 cats.iter()
                                     .map(|src| {

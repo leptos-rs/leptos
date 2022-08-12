@@ -1,10 +1,26 @@
-use crate::{ReadSignal, Scope, WriteSignal};
+use crate::{spawn::queue_microtask, ReadSignal, Scope, WriteSignal};
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SuspenseContext {
-    pending_resources: ReadSignal<usize>,
+    pub pending_resources: ReadSignal<usize>,
     set_pending_resources: WriteSignal<usize>,
 }
+
+impl std::hash::Hash for SuspenseContext {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.pending_resources.scope.hash(state);
+        self.pending_resources.id.hash(state);
+    }
+}
+
+impl PartialEq for SuspenseContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.pending_resources.scope == other.pending_resources.scope
+            && self.pending_resources.id == other.pending_resources.id
+    }
+}
+
+impl Eq for SuspenseContext {}
 
 impl SuspenseContext {
     pub fn new(cx: Scope) -> Self {
@@ -16,11 +32,21 @@ impl SuspenseContext {
     }
 
     pub fn increment(&self) {
-        self.set_pending_resources.update(|n| *n += 1);
+        let setter = self.set_pending_resources;
+        queue_microtask(move || setter.update(|n| *n += 1));
+        //self.set_pending_resources.update(|n| *n += 1);
     }
 
     pub fn decrement(&self) {
-        self.set_pending_resources.update(|n| *n -= 1);
+        let setter = self.set_pending_resources;
+        queue_microtask(move || {
+            setter.update(|n| {
+                if *n > 0 {
+                    *n -= 1
+                }
+            })
+        });
+        //self.set_pending_resources.update(|n| *n -= 1);
     }
 
     pub fn ready(&self) -> bool {

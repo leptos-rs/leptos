@@ -15,7 +15,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn Suspense<'a, F, C, G>(cx: Scope, props: SuspenseProps<F, C, G>) -> impl Fn() -> Child
+pub fn Suspense<F, C, G>(cx: Scope, props: SuspenseProps<F, C, G>) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
     C: IntoChild + Clone,
@@ -26,14 +26,15 @@ where
     // provide this SuspenseContext to any resources below it
     cx.provide_context(context.clone());
 
-    leptos_dom::log!("point A");
     move || {
         if context.ready() {
-            leptos_dom::log!("point B");
-
+            leptos_dom::log!("suspense ready");
             (props.children)().into_child(cx)
         } else {
-            leptos_dom::log!("point C");
+            leptos_dom::log!(
+                "suspense in fallback with {} children pending",
+                context.pending_resources.get()
+            );
             props.fallback.clone().into_child(cx)
         }
     }

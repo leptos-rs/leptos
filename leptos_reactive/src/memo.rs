@@ -119,11 +119,11 @@ where
     T: Debug,
 {
     runtime: &'static Runtime,
-    f: Box<RefCell<dyn FnMut(Option<&T>) -> T>>,
-    value: RefCell<Option<T>>,
-    t_value: RefCell<Option<T>>,
-    sources: RefCell<HashSet<Source>>,
-    subscribers: RefCell<HashSet<Subscriber>>,
+    f: Box<debug_cell::RefCell<dyn FnMut(Option<&T>) -> T>>,
+    value: debug_cell::RefCell<Option<T>>,
+    t_value: debug_cell::RefCell<Option<T>>,
+    sources: debug_cell::RefCell<HashSet<Source>>,
+    subscribers: debug_cell::RefCell<HashSet<Subscriber>>,
 }
 
 impl<T> Debug for MemoState<T>
@@ -140,10 +140,10 @@ where
                     type_name::<T>()
                 ),
             )
-            .field("value", &self.value)
-            .field("t_value", &self.t_value)
-            .field("sources", &self.sources)
-            .field("subscribers", &self.subscribers)
+            .field("value", &*self.value.borrow())
+            .field("t_value", &*self.t_value.borrow())
+            .field("sources", &*self.sources.borrow())
+            .field("subscribers", &*self.subscribers.borrow())
             .finish()
     }
 }
@@ -153,12 +153,12 @@ where
     T: Debug,
 {
     pub fn new(runtime: &'static Runtime, f: impl FnMut(Option<&T>) -> T + 'static) -> Self {
-        let f = Box::new(RefCell::new(f));
+        let f = Box::new(debug_cell::RefCell::new(f));
 
         Self {
             runtime,
             f,
-            value: RefCell::new(None),
+            value: debug_cell::RefCell::new(None),
             sources: Default::default(),
             t_value: Default::default(),
             subscribers: Default::default(),

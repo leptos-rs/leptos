@@ -52,8 +52,8 @@ fn memo_runs_only_when_inputs_change() {
     create_scope(|cx| {
         let call_count = Rc::new(Cell::new(0));
         let (a, set_a) = cx.create_signal(0);
-        let (b, set_b) = cx.create_signal(0);
-        let (c, set_c) = cx.create_signal(0);
+        let (b, _) = cx.create_signal(0);
+        let (c, _) = cx.create_signal(0);
 
         // pretend that this is some kind of expensive computation and we need to access its its value often
         // we could do this with a derived signal, but that would re-run the computation

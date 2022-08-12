@@ -148,7 +148,7 @@ impl<T> WriteSignal<T>
 where
     T: 'static,
 {
-    pub fn update(&self, f: impl Fn(&mut T)) {
+    pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.runtime.signal((self.scope, self.id), |signal_state| {
             // update value
             if let Some(transition) = self.runtime.transition() {
@@ -216,9 +216,9 @@ pub(crate) struct SignalId(pub(crate) usize);
 
 //#[derive(Debug)]
 pub(crate) struct SignalState<T> {
-    value: RefCell<T>,
-    t_value: RefCell<Option<T>>,
-    subscribers: RefCell<HashSet<Subscriber>>,
+    value: debug_cell::RefCell<T>,
+    t_value: debug_cell::RefCell<Option<T>>,
+    subscribers: debug_cell::RefCell<HashSet<Subscriber>>,
 }
 
 impl<T> Debug for SignalState<T>
@@ -237,7 +237,7 @@ where
 impl<T> SignalState<T> {
     pub fn new(value: T) -> Self {
         Self {
-            value: RefCell::new(value),
+            value: debug_cell::RefCell::new(value),
             t_value: Default::default(),
             subscribers: Default::default(),
         }

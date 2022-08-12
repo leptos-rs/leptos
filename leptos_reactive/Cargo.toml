@@ -6,9 +6,10 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 slotmap = { version = "1", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 elsa = "1"
+debug-cell = "0.1"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+#[target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

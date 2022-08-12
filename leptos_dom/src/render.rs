@@ -81,8 +81,10 @@ pub fn insert(
 
     match value {
         Child::Fn(f) => {
-            let mut current = initial.clone();
-            cx.create_effect(move |_| {
+            cx.create_effect(move |current| {
+                let current = current
+                    .unwrap_or_else(|| initial.clone())
+                    .unwrap_or(Child::Null);
                 let mut value = f();
                 while let Child::Fn(f) = value {
                     value = f();
@@ -91,7 +93,7 @@ pub fn insert(
                 Some(insert_expression(
                     parent.clone().unchecked_into(),
                     &f(),
-                    current.clone().unwrap_or(Child::Null),
+                    current,
                     before.as_ref(),
                 ))
             });
@@ -100,7 +102,7 @@ pub fn insert(
             insert_expression(
                 parent.unchecked_into(),
                 &value,
-                initial.clone().unwrap_or(Child::Null),
+                initial.unwrap_or(Child::Null),
                 before.as_ref(),
             );
         }
@@ -113,6 +115,8 @@ pub fn insert_expression(
     mut current: Child,
     before: Option<&web_sys::Node>,
 ) -> Child {
+    log::debug!("replacing {current:?} with {new_value:?}");
+
     if new_value == &current {
         current
     } else {
@@ -201,16 +205,6 @@ pub fn insert_expression(
             }
         }
     }
-}
-
-fn node_list_to_vec(node_list: web_sys::NodeList) -> Vec<web_sys::Node> {
-    let mut vec = Vec::new();
-    for idx in 0..node_list.length() {
-        if let Some(node) = node_list.item(idx) {
-            vec.push(node);
-        }
-    }
-    vec
 }
 
 pub fn insert_str(

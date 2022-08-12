@@ -3,6 +3,7 @@ use crate::{
     SignalState,
 };
 use elsa::FrozenVec;
+use serde::Serialize;
 use std::{
     any::{Any, TypeId},
     cell::RefCell,
@@ -93,8 +94,8 @@ slotmap::new_key_type! { pub(crate) struct ScopeId; }
 
 pub(crate) struct ScopeState {
     pub(crate) parent: Option<Scope>,
-    pub(crate) contexts: RefCell<HashMap<TypeId, Box<dyn Any>>>,
-    pub(crate) children: RefCell<Vec<ScopeId>>,
+    pub(crate) contexts: debug_cell::RefCell<HashMap<TypeId, Box<dyn Any>>>,
+    pub(crate) children: debug_cell::RefCell<Vec<ScopeId>>,
     pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
     pub(crate) memos: FrozenVec<Box<dyn AnyMemo>>,
     pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
