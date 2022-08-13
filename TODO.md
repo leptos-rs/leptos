@@ -12,12 +12,8 @@
   - [ ] `component` macro
   - [ ] renderer
   - [ ] array reconciliation (bundle size?)
-  - [ ] memory management/disposal of scopes
 - Reactive system improvements
-  - [ ] Effects should take `Option<T>` and return `T`
-  - [ ] Better `create_memo` implementation
-  - [ ] `create_signal` return actual closures?
-  - [ ] Scheduling effets/run effects at end of render
+  - [ ] Scheduling effects/run effects at end of render
   - [ ] `batch()`
 - [ ] Portals
 - [ ] SSR
