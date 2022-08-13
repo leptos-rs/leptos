@@ -12,6 +12,7 @@ use std::rc::Rc;
 pub(crate) struct Runtime {
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
+    pub(crate) transition: RefCell<Option<Rc<TransitionState>>>,
 }
 
 impl Runtime {
@@ -122,12 +123,18 @@ impl Runtime {
         self.stack.borrow().last().cloned()
     }
 
-    pub fn running_transition(&self) -> Option<TransitionState> {
-        None // TODO
+    pub fn running_transition(&self) -> Option<Rc<TransitionState>> {
+        self.transition.borrow().as_ref().and_then(|t| {
+            if t.running.get() {
+                Some(Rc::clone(t))
+            } else {
+                None
+            }
+        })
     }
 
-    pub fn transition(&self) -> Option<TransitionState> {
-        None // TODO
+    pub fn transition(&self) -> Option<Rc<TransitionState>> {
+        self.transition.borrow().as_ref().map(Rc::clone)
     }
 
     pub fn create_scope(

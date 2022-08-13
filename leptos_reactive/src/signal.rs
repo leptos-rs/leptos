@@ -5,7 +5,7 @@ use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::Pha
 impl Scope {
     pub fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
     where
-        T: Debug,
+        T: Clone + Debug,
     {
         let state = SignalState::new(value);
         let id = self.push_signal(state);
@@ -39,7 +39,10 @@ where
     pub(crate) ty: PhantomData<T>,
 }
 
-impl<T> ReadSignal<T> {
+impl<T> ReadSignal<T>
+where
+    T: Debug,
+{
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -66,15 +69,22 @@ impl<T> ReadSignal<T> {
             }
         }
 
-        // If transition is running, or contains this as a source, write to t_value
-        if let Some(transition) = self.runtime.running_transition() {
-            todo!()
-            /* let source = Rc::clone(&self.inner).as_source();
-            if transition.running() && transition.contains_source(&source) {
-                self.t_value_unchecked()
-            } else {
-                self.value()
-            } */
+        // If transition is running, or contains this as a source, take from t_value
+        if let Some(transition) = self.runtime.transition() {
+            self.runtime
+                .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
+                    if transition.running.get()
+                        && transition.signals.borrow().contains(&(self.scope, self.id))
+                    {
+                        f(signal_state
+                            .t_value
+                            .borrow()
+                            .as_ref()
+                            .expect("read ReadSignal under transition, without any t_value"))
+                    } else {
+                        f(&signal_state.value.borrow())
+                    }
+                })
         } else {
             self.runtime
                 .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
@@ -106,7 +116,7 @@ impl<T> Copy for ReadSignal<T> {}
 
 impl<T> FnOnce<()> for ReadSignal<T>
 where
-    T: Clone,
+    T: Debug + Clone,
 {
     type Output = T;
 
@@ -117,7 +127,7 @@ where
 
 impl<T> FnMut<()> for ReadSignal<T>
 where
-    T: Clone,
+    T: Debug + Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -126,7 +136,7 @@ where
 
 impl<T> Fn<()> for ReadSignal<T>
 where
-    T: Clone,
+    T: Debug + Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
@@ -136,7 +146,7 @@ where
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct WriteSignal<T>
 where
-    T: 'static,
+    T: Clone + 'static,
 {
     runtime: &'static Runtime,
     pub(crate) scope: ScopeId,
@@ -146,27 +156,47 @@ where
 
 impl<T> WriteSignal<T>
 where
-    T: 'static,
+    T: Clone + 'static,
 {
     pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.runtime.signal((self.scope, self.id), |signal_state| {
-            // update value
-            if let Some(transition) = self.runtime.transition() {
-                todo!()
-            } else {
-                (f)(&mut *signal_state.value.borrow_mut());
-            }
+        self.runtime
+            .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
+                // update value
+                if let Some(transition) = self.runtime.running_transition() {
+                    let mut t_value = signal_state.t_value.borrow_mut();
+                    if let Some(t_value) = &mut *t_value {
+                        log::debug!("setting forked value of signal");
+                        (f)(t_value);
+                    } else {
+                        log::debug!("forking signal");
+                        // fork reality, using the old value as the basis for the transitional value
+                        let mut forked = (*signal_state.value.borrow()).clone();
+                        (f)(&mut forked);
+                        *t_value = Some(forked);
 
-            // notify subscribers
-            let subs = { signal_state.subscribers.borrow().clone() };
-            for subscriber in subs.iter() {
-                subscriber.run(self.runtime);
-            }
-        })
+                        // track this signal
+                        transition
+                            .signals
+                            .borrow_mut()
+                            .insert((self.scope, self.id));
+                    }
+                } else {
+                    (f)(&mut *signal_state.value.borrow_mut());
+                }
+
+                // notify subscribers
+                let subs = { signal_state.subscribers.borrow().clone() };
+                for subscriber in subs.iter() {
+                    subscriber.run(self.runtime);
+                }
+            })
     }
 }
 
-impl<T> Clone for WriteSignal<T> {
+impl<T> Clone for WriteSignal<T>
+where
+    T: Clone,
+{
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
@@ -177,7 +207,7 @@ impl<T> Clone for WriteSignal<T> {
     }
 }
 
-impl<T> Copy for WriteSignal<T> {}
+impl<T> Copy for WriteSignal<T> where T: Clone {}
 
 impl<T, F> FnOnce<(F,)> for WriteSignal<T>
 where
@@ -234,7 +264,10 @@ where
     }
 }
 
-impl<T> SignalState<T> {
+impl<T> SignalState<T>
+where
+    T: Debug,
+{
     pub fn new(value: T) -> Self {
         Self {
             value: debug_cell::RefCell::new(value),
@@ -248,6 +281,8 @@ pub(crate) trait AnySignal: Debug {
     fn unsubscribe(&self, subscriber: Subscriber);
 
     fn as_any(&self) -> &dyn Any;
+
+    fn end_transition(&self, runtime: &'static Runtime);
 }
 
 impl<T> AnySignal for SignalState<T>
@@ -260,5 +295,22 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn end_transition(&self, runtime: &'static Runtime) {
+        log::debug!("SignalState::end_transition");
+        let t_value = self.t_value.borrow_mut().take();
+        log::debug!(
+            "committing value {t_value:?} on Signal<{}>",
+            std::any::type_name::<T>()
+        );
+        if let Some(value) = t_value {
+            *self.value.borrow_mut() = value;
+
+            let subs = { self.subscribers.borrow().clone() };
+            for subscriber in subs.iter() {
+                subscriber.run(runtime);
+            }
+        }
     }
 }

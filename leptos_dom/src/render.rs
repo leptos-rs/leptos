@@ -11,7 +11,7 @@ pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, valu
     match value {
         Attribute::Fn(f) => {
             let el = el.clone();
-            cx.create_effect(move |_| attribute_expression(&el, attr_name, f()));
+            cx.create_render_effect(move |_| attribute_expression(&el, attr_name, f()));
         }
         _ => attribute_expression(el, attr_name, value),
     }
@@ -33,7 +33,7 @@ pub fn property(cx: Scope, el: &web_sys::Element, prop_name: &'static str, value
     match value {
         Property::Fn(f) => {
             let el = el.clone();
-            cx.create_effect(move |_| property_expression(&el, prop_name, f()));
+            cx.create_render_effect(move |_| property_expression(&el, prop_name, f()));
         }
         Property::Value(value) => property_expression(el, prop_name, value),
     }
@@ -47,7 +47,7 @@ pub fn class(cx: Scope, el: &web_sys::Element, class_name: &'static str, value: 
     match value {
         Class::Fn(f) => {
             let el = el.clone();
-            cx.create_effect(move |_| class_expression(&el, class_name, f()));
+            cx.create_render_effect(move |_| class_expression(&el, class_name, f()));
         }
         Class::Value(value) => class_expression(el, class_name, value),
     }
@@ -81,7 +81,7 @@ pub fn insert(
 
     match value {
         Child::Fn(f) => {
-            cx.create_effect(move |current| {
+            cx.create_render_effect(move |current| {
                 let current = current
                     .unwrap_or_else(|| initial.clone())
                     .unwrap_or(Child::Null);
@@ -115,8 +115,6 @@ pub fn insert_expression(
     mut current: Child,
     before: Option<&web_sys::Node>,
 ) -> Child {
-    log::debug!("replacing {current:?} with {new_value:?}");
-
     if new_value == &current {
         current
     } else {

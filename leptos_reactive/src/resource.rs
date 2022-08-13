@@ -158,7 +158,7 @@ where
 pub struct ResourceState<S, T, Fu>
 where
     S: 'static,
-    T: Debug + 'static,
+    T: Clone + Debug + 'static,
     Fu: Future<Output = T>,
 {
     scope: Scope,
@@ -222,7 +222,10 @@ where
         let loaded_under_transition = self.scope.runtime.running_transition().is_some();
 
         let fut = (self.fetcher)(&self.source.get());
-        log::debug!("loading resource");
+        log::debug!(
+            "loading resource — under transition? {}",
+            loaded_under_transition
+        );
 
         // `scheduled` is true for the rest of this code only
         self.scheduled.set(true);
@@ -238,8 +241,19 @@ where
 
         // increment counter everywhere it's read
         let suspense_contexts = self.suspense_contexts.clone();
+        let running_transition = self.scope.runtime.running_transition();
         for suspense_context in suspense_contexts.borrow().iter() {
             suspense_context.increment();
+            if let Some(transition) = &running_transition {
+                transition
+                    .resources
+                    .borrow_mut()
+                    .insert(suspense_context.pending_resources);
+                log::debug!(
+                    "inserted resource to transition: now {} resources",
+                    transition.resources.borrow().len()
+                );
+            }
         }
 
         // run the Future
@@ -255,7 +269,7 @@ where
                 // TODO hydration
 
                 if let Some(transition) = scope.runtime.transition() {
-                    todo!()
+                    // TODO transition
                 }
 
                 set_value.update(|n| *n = Some(res));

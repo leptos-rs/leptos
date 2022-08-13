@@ -1,4 +1,5 @@
 #![feature(fn_traits)]
+#![feature(let_chains)]
 #![feature(unboxed_closures)]
 
 mod context;

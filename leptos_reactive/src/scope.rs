@@ -1,6 +1,6 @@
 use crate::{
-    AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, ResourceId,
-    ResourceState, Runtime, SignalId, SignalState,
+    AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, ReadSignal,
+    ResourceId, ResourceState, Runtime, SignalId, SignalState, Transition,
 };
 use elsa::FrozenVec;
 use serde::Serialize;
@@ -28,6 +28,10 @@ pub struct Scope {
 impl Scope {
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         self.runtime.create_scope(f, Some(self))
+    }
+
+    pub fn transition_pending(&self) -> bool {
+        self.runtime.transition().is_some()
     }
 
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {

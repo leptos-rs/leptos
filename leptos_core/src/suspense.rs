@@ -27,14 +27,9 @@ where
     cx.provide_context(context);
 
     move || {
-        if context.ready() {
-            leptos_dom::log!("suspense ready");
+        if context.ready() || cx.transition_pending() {
             (props.children)().into_child(cx)
         } else {
-            leptos_dom::log!(
-                "suspense in fallback with {} children pending",
-                context.pending_resources.get()
-            );
             props.fallback.clone().into_child(cx)
         }
     }

@@ -86,9 +86,22 @@ where
             }
         }
 
-        // If transition is running, or contains this as a source, write to t_value
+        // If transition is running, or contains this as a source, read from t_value
         if let Some(transition) = self.runtime.running_transition() {
-            todo!()
+            self.runtime
+                .memo((self.scope, self.id), |state: &MemoState<T>| {
+                    if transition.running.get()
+                        && transition.memos.borrow().contains(&(self.scope, self.id))
+                    {
+                        f(state
+                            .t_value
+                            .borrow()
+                            .as_ref()
+                            .expect("read ReadSignal under transition, without any t_value"))
+                    } else {
+                        f(state.value.borrow().as_ref().unwrap())
+                    }
+                })
         } else {
             self.runtime.memo(
                 (self.scope, self.id),
@@ -184,6 +197,8 @@ pub(crate) trait AnyMemo: Debug {
     fn as_any(&self) -> &dyn Any;
 
     fn subscribe_to(&self, source: Source);
+
+    fn end_transition(&self, runtime: &'static Runtime);
 }
 
 impl<T> AnyMemo for MemoState<T>
@@ -201,8 +216,26 @@ where
         self.runtime.push_stack(Subscriber::Memo(id));
 
         // actually run the effect
-        let v = { (self.f.borrow_mut())(self.value.borrow().as_ref()) };
-        *self.value.borrow_mut() = Some(v);
+
+        if let Some(transition) = self.runtime.running_transition() {
+            let mut t_value = self.t_value.borrow_mut();
+            if let Some(t_value) = &mut *t_value {
+                log::debug!("setting forked value of memo");
+                let v = { (self.f.borrow_mut())(Some(t_value)) };
+                *t_value = v;
+            } else {
+                log::debug!("forking memo");
+                // fork reality, using the old value as the basis for the transitional value
+                let v = { (self.f.borrow_mut())(self.value.borrow().as_ref()) };
+                *t_value = Some(v);
+
+                // track this memo
+                transition.memos.borrow_mut().insert(id);
+            }
+        } else {
+            let v = { (self.f.borrow_mut())(self.value.borrow().as_ref()) };
+            *self.value.borrow_mut() = Some(v);
+        }
 
         // notify subscribers
         let subs = { self.subscribers.borrow().clone() };
@@ -224,6 +257,22 @@ where
 
     fn unsubscribe(&self, subscriber: Subscriber) {
         self.subscribers.borrow_mut().remove(&subscriber);
+    }
+
+    fn end_transition(&self, runtime: &'static Runtime) {
+        let t_value = self.t_value.borrow_mut().take();
+        log::debug!(
+            "committing value {t_value:?} on Memo<{}>",
+            std::any::type_name::<T>()
+        );
+        if let Some(value) = t_value {
+            *self.value.borrow_mut() = Some(value);
+
+            let subs = { self.subscribers.borrow().clone() };
+            for subscriber in subs.iter() {
+                subscriber.run(runtime);
+            }
+        }
     }
 }
 
