@@ -1,11 +1,10 @@
 - [ ] Async
   - [x] Resource
   - [x] Suspense
-  - [ ] Transitions
+  - [x] Transitions
   - [ ] Tests for Suspense/Transitions
   - [ ] Bugs in Suspense/Transitions
-    - [ ] infinite loop if reading resource in effect
-    - [ ] rendering bugs if `Suspense` doesn't have a parent
+    - [ ] let render effects that _aren't_ under the transition continue running
 - [ ] Router
 - [ ] Docs (and clippy warning to insist on docs)
 - [ ] Read through + understand...

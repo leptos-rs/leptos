@@ -165,10 +165,8 @@ where
                 if let Some(transition) = self.runtime.running_transition() {
                     let mut t_value = signal_state.t_value.borrow_mut();
                     if let Some(t_value) = &mut *t_value {
-                        log::debug!("setting forked value of signal");
                         (f)(t_value);
                     } else {
-                        log::debug!("forking signal");
                         // fork reality, using the old value as the basis for the transitional value
                         let mut forked = (*signal_state.value.borrow()).clone();
                         (f)(&mut forked);
@@ -298,12 +296,8 @@ where
     }
 
     fn end_transition(&self, runtime: &'static Runtime) {
-        log::debug!("SignalState::end_transition");
         let t_value = self.t_value.borrow_mut().take();
-        log::debug!(
-            "committing value {t_value:?} on Signal<{}>",
-            std::any::type_name::<T>()
-        );
+
         if let Some(value) = t_value {
             *self.value.borrow_mut() = value;
 

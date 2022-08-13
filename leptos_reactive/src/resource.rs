@@ -222,10 +222,6 @@ where
         let loaded_under_transition = self.scope.runtime.running_transition().is_some();
 
         let fut = (self.fetcher)(&self.source.get());
-        log::debug!(
-            "loading resource — under transition? {}",
-            loaded_under_transition
-        );
 
         // `scheduled` is true for the rest of this code only
         self.scheduled.set(true);
@@ -249,10 +245,6 @@ where
                     .resources
                     .borrow_mut()
                     .insert(suspense_context.pending_resources);
-                log::debug!(
-                    "inserted resource to transition: now {} resources",
-                    transition.resources.borrow().len()
-                );
             }
         }
 

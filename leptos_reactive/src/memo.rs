@@ -220,11 +220,9 @@ where
         if let Some(transition) = self.runtime.running_transition() {
             let mut t_value = self.t_value.borrow_mut();
             if let Some(t_value) = &mut *t_value {
-                log::debug!("setting forked value of memo");
                 let v = { (self.f.borrow_mut())(Some(t_value)) };
                 *t_value = v;
             } else {
-                log::debug!("forking memo");
                 // fork reality, using the old value as the basis for the transitional value
                 let v = { (self.f.borrow_mut())(self.value.borrow().as_ref()) };
                 *t_value = Some(v);
@@ -261,10 +259,7 @@ where
 
     fn end_transition(&self, runtime: &'static Runtime) {
         let t_value = self.t_value.borrow_mut().take();
-        log::debug!(
-            "committing value {t_value:?} on Memo<{}>",
-            std::any::type_name::<T>()
-        );
+
         if let Some(value) = t_value {
             *self.value.borrow_mut() = Some(value);
 

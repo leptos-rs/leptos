@@ -34,9 +34,7 @@ impl Transition {
         if self.runtime.running_transition().is_some() {
             f();
         } else {
-            log::debug!("[Transition] starting a transition");
             {
-                log::debug!("[Transition] running => true");
                 self.set_pending.update(|n| *n = true);
                 *self.runtime.transition.borrow_mut() = Some(Rc::new(TransitionState {
                     running: Cell::new(true),
@@ -47,11 +45,9 @@ impl Transition {
                 }));
             }
 
-            log::debug!("[Transition] running start_transition f()");
             f();
 
             if let Some(running_transition) = self.runtime.running_transition() {
-                log::debug!("[Transition] running => false");
                 running_transition.running.set(false);
 
                 let runtime = self.runtime;
@@ -65,10 +61,8 @@ impl Transition {
                 queue_microtask(move || {
                     scope.create_effect(move |_| {
                         let pending = resources.borrow().iter().map(|p| p.get()).sum::<usize>();
-                        log::debug!("[Transition] pending: {pending}");
 
                         if pending == 0 {
-                            log::debug!("[Transition] Committing changes.");
                             for signal in signals.borrow().iter() {
                                 runtime.any_signal(*signal, |signal| {
                                     signal.end_transition(runtime);
@@ -80,7 +74,6 @@ impl Transition {
                                 });
                             }
                             for effect in effects.borrow().iter() {
-                                log::debug!("running deferred effect");
                                 runtime.any_effect(*effect, |any_effect| {
                                     any_effect.run(*effect);
                                 });

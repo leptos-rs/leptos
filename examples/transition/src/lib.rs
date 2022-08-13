@@ -56,7 +56,7 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
 
     view! {
         <div>
-            <progress class:visible={move || transition.pending()} value={move || progress().to_string()} max="100"></progress>
+            <progress class:visible={move || transition.pending()} value={move || progress().to_string()} max="40"></progress>
             <nav class="tabs" class:pending={move || transition.pending()}>
                 <button class:selected={move || tab() == Tab::A} on:click=move |_| transition.start(move || set_tab(|n| *n = Tab::A))>
                     "One"
@@ -84,7 +84,7 @@ pub fn Child(cx: Scope, page: ReadSignal<Tab>) -> Element {
 
     let (counter, set_counter) = cx.create_signal(0);
 
-    /* cx.create_effect(move |prev_handle: Option<IntervalHandle>| {
+    cx.create_effect(move |prev_handle: Option<IntervalHandle>| {
         log::debug!("resetting counter for Child #{}", page());
         set_counter(|n| *n = 0);
         if let Some(handle) = prev_handle {
@@ -93,16 +93,15 @@ pub fn Child(cx: Scope, page: ReadSignal<Tab>) -> Element {
         set_interval(
             move || {
                 set_counter(|n| *n += 1);
-                log::debug!("increment to {}", counter());
             },
-            Duration::from_millis(10),
+            Duration::from_millis(100),
         )
         .unwrap()
-    }); */
+    });
 
     view! {
         <div class="tab-content">
-            //<span>{move || counter().to_string()}</span>
+            <span>{move || counter().to_string()}</span>
             <p>
                 <Suspense fallback=view! { <div class="loader">"Lower suspense..."</div> }>
                     {move || data.read().map(|data| view! {
@@ -117,7 +116,7 @@ pub fn Child(cx: Scope, page: ReadSignal<Tab>) -> Element {
 }
 
 async fn fake_data_load(page: Tab) -> String {
-    delay(Duration::from_secs(1)).await;
+    delay(Duration::from_millis(400)).await;
     let page_data = vec![
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Nec dui nunc mattis enim ut tellus elementum sagittis vitae. Quam elementum pulvinar etiam non. Sed faucibus turpis in eu mi. Convallis a cras semper auctor neque vitae tempus quam pellentesque. Duis tristique sollicitudin nibh sit amet. Elementum curabitur vitae nunc sed velit dignissim sodales. Nibh venenatis cras sed felis eget velit aliquet sagittis. In pellentesque massa placerat duis. Integer quis auctor elit sed vulputate mi sit amet mauris. Luctus accumsan tortor posuere ac ut consequat semper. Lorem ipsum dolor sit amet consectetur adipiscing elit. Sed faucibus turpis in eu mi bibendum neque egestas. Dictumst vestibulum rhoncus est pellentesque elit.",
         "Placerat orci nulla pellentesque dignissim. Non curabitur gravida arcu ac. Sed odio morbi quis commodo odio aenean sed. Quam elementum pulvinar etiam non quam lacus. Est lorem ipsum dolor sit. Turpis massa sed elementum tempus egestas sed sed. Quam nulla porttitor massa id neque aliquam vestibulum morbi blandit. Aenean pharetra magna ac placerat. Donec et odio pellentesque diam volutpat commodo sed. Eget duis at tellus at urna condimentum. Rhoncus dolor purus non enim praesent elementum facilisis leo vel. Velit laoreet id donec ultrices. Aliquet eget sit amet tellus cras adipiscing enim eu.",
