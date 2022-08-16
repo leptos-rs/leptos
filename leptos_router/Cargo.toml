@@ -3,11 +3,20 @@ name = "leptos_router"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 leptos_core = { path = "../leptos_core" }
 leptos_dom = { path = "../leptos_dom"}
 leptos_macro = { path = "../leptos_macro"}
 leptos_reactive = { path = "../leptos_reactive"}
-serde = "1"
+common_macros = "0.1"
+lazy_static = "1"
+linear-map = "1"
+log = "0.4"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
+web-sys = { version = "0.3", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[features]
+browser = ["dep:web-sys", "dep:js-sys"]

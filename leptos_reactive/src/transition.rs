@@ -30,7 +30,7 @@ pub struct Transition {
 }
 
 impl Transition {
-    pub fn start(&self, f: impl Fn()) {
+    pub fn start(&self, f: impl FnOnce()) {
         if self.runtime.running_transition().is_some() {
             f();
         } else {
