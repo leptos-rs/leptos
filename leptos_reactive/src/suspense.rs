@@ -1,4 +1,4 @@
-use crate::{spawn::queue_microtask, ReadSignal, Scope, WriteSignal};
+use crate::{create_signal, spawn::queue_microtask, ReadSignal, Scope, WriteSignal};
 
 #[derive(Copy, Clone, Debug)]
 pub struct SuspenseContext {
@@ -24,7 +24,7 @@ impl Eq for SuspenseContext {}
 
 impl SuspenseContext {
     pub fn new(cx: Scope) -> Self {
-        let (pending_resources, set_pending_resources) = cx.create_signal(0);
+        let (pending_resources, set_pending_resources) = create_signal(cx, 0);
         Self {
             pending_resources,
             set_pending_resources,

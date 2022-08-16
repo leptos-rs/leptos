@@ -1,4 +1,4 @@
-use leptos_reactive::create_scope;
+use leptos_reactive::{create_effect, create_memo, create_scope, create_signal};
 
 #[test]
 fn effect_runs() {
@@ -6,12 +6,12 @@ fn effect_runs() {
     use std::rc::Rc;
 
     create_scope(|cx| {
-        let (a, set_a) = cx.create_signal(-1);
+        let (a, set_a) = create_signal(cx, -1);
 
         // simulate an arbitrary side effect
         let b = Rc::new(RefCell::new(String::new()));
 
-        cx.create_effect({
+        create_effect(cx, {
             let b = b.clone();
             move |_| {
                 let formatted = format!("Value is {}", a());
@@ -34,13 +34,13 @@ fn effect_tracks_memo() {
     use std::rc::Rc;
 
     create_scope(|cx| {
-        let (a, set_a) = cx.create_signal(-1);
-        let b = cx.create_memo(move |_| format!("Value is {}", a()));
+        let (a, set_a) = create_signal(cx, -1);
+        let b = create_memo(cx, move |_| format!("Value is {}", a()));
 
         // simulate an arbitrary side effect
         let c = Rc::new(RefCell::new(String::new()));
 
-        cx.create_effect({
+        create_effect(cx, {
             let c = c.clone();
             move |_| {
                 *c.borrow_mut() = b();
@@ -64,12 +64,12 @@ fn untrack_mutes_effect() {
     use std::rc::Rc;
 
     create_scope(|cx| {
-        let (a, set_a) = cx.create_signal(-1);
+        let (a, set_a) = create_signal(cx, -1);
 
         // simulate an arbitrary side effect
         let b = Rc::new(RefCell::new(String::new()));
 
-        cx.create_effect({
+        create_effect(cx, {
             let b = b.clone();
             move |_| {
                 let formatted = format!("Value is {}", cx.untrack(a));

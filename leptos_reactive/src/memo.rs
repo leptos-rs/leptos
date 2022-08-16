@@ -9,27 +9,25 @@ use std::{
     marker::PhantomData,
 };
 
-impl Scope {
-    pub fn create_memo<T>(self, f: impl FnMut(Option<&T>) -> T + 'static) -> Memo<T>
-    where
-        T: Debug + 'static,
-    {
-        let state = MemoState::new(self.runtime, f);
+pub fn create_memo<T>(cx: Scope, f: impl FnMut(Option<&T>) -> T + 'static) -> Memo<T>
+where
+    T: Debug + 'static,
+{
+    let state = MemoState::new(cx.runtime, f);
 
-        let id = self.push_memo(state);
+    let id = cx.push_memo(state);
 
-        let eff = Memo {
-            runtime: self.runtime,
-            scope: self.id,
-            id,
-            ty: PhantomData,
-        };
+    let eff = Memo {
+        runtime: cx.runtime,
+        scope: cx.id,
+        id,
+        ty: PhantomData,
+    };
 
-        self.runtime
-            .any_memo((self.id, id), |memo| memo.run((self.id, id)));
+    cx.runtime
+        .any_memo((cx.id, id), |memo| memo.run((cx.id, id)));
 
-        eff
-    }
+    eff
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]

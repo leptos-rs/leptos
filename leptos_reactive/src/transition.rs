@@ -5,19 +5,17 @@ use std::{
 };
 
 use crate::{
-    runtime::Runtime, spawn::queue_microtask, EffectId, MemoId, ReadSignal, Scope, ScopeId,
-    SignalId, WriteSignal,
+    create_effect, create_signal, runtime::Runtime, spawn::queue_microtask, EffectId, MemoId,
+    ReadSignal, Scope, ScopeId, SignalId, WriteSignal,
 };
 
-impl Scope {
-    pub fn use_transition(self) -> Transition {
-        let (pending, set_pending) = self.create_signal(false);
-        Transition {
-            runtime: self.runtime,
-            scope: self,
-            pending,
-            set_pending,
-        }
+pub fn use_transition(cx: Scope) -> Transition {
+    let (pending, set_pending) = create_signal(cx, false);
+    Transition {
+        runtime: cx.runtime,
+        scope: cx,
+        pending,
+        set_pending,
     }
 }
 
@@ -59,7 +57,7 @@ impl Transition {
                 let set_pending = self.set_pending;
                 // place this at end of task queue so it doesn't start at 0
                 queue_microtask(move || {
-                    scope.create_effect(move |_| {
+                    create_effect(scope, move |_| {
                         let pending = resources.borrow().iter().map(|p| p.get()).sum::<usize>();
 
                         if pending == 0 {

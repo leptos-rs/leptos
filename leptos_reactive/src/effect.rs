@@ -2,22 +2,22 @@ use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
 use serde::{Deserialize, Serialize};
 use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
+pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
+where
+    T: Debug + 'static,
+{
+    cx.create_eff(true, f)
+}
+
+pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
+where
+    T: Debug + 'static,
+{
+    cx.create_eff(false, f)
+}
+
 impl Scope {
-    pub fn create_render_effect<T>(self, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
-    where
-        T: Debug + 'static,
-    {
-        self.create_eff(true, f)
-    }
-
-    pub fn create_effect<T>(self, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
-    where
-        T: Debug + 'static,
-    {
-        self.create_eff(false, f)
-    }
-
-    fn create_eff<T>(
+    pub(crate) fn create_eff<T>(
         self,
         render_effect: bool,
         f: impl FnMut(Option<T>) -> T + 'static,

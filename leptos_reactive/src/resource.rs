@@ -10,75 +10,73 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    queue_microtask, runtime::Runtime, spawn::spawn_local, Memo, ReadSignal, Scope, ScopeId,
-    SignalId, SuspenseContext, WriteSignal,
+    create_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
+    spawn::spawn_local, Memo, ReadSignal, Scope, ScopeId, SuspenseContext, WriteSignal,
 };
 
-impl Scope {
-    pub fn create_resource<S, T, Fu>(
-        self,
-        source: ReadSignal<S>,
-        fetcher: impl Fn(&S) -> Fu + 'static,
-    ) -> Resource<S, T, Fu>
-    where
-        S: Debug + Clone + 'static,
-        T: Debug + Clone + 'static,
-        Fu: Future<Output = T> + 'static,
-    {
-        self.create_resource_with_initial_value(source, fetcher, None)
-    }
+pub fn create_resource<S, T, Fu>(
+    cx: Scope,
+    source: ReadSignal<S>,
+    fetcher: impl Fn(&S) -> Fu + 'static,
+) -> Resource<S, T, Fu>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    create_resource_with_initial_value(cx, source, fetcher, None)
+}
 
-    pub fn create_resource_with_initial_value<S, T, Fu>(
-        self,
-        source: ReadSignal<S>,
-        fetcher: impl Fn(&S) -> Fu + 'static,
-        initial_value: Option<T>,
-    ) -> Resource<S, T, Fu>
-    where
-        S: Debug + Clone + 'static,
-        T: Debug + Clone + 'static,
-        Fu: Future<Output = T> + 'static,
-    {
-        let resolved = initial_value.is_some();
-        let (value, set_value) = self.create_signal(initial_value);
-        let (loading, set_loading) = self.create_signal(false);
-        let (track, trigger) = self.create_signal(0);
-        let fetcher = Rc::new(fetcher);
-        let source = self.create_memo(move |_| source());
+pub fn create_resource_with_initial_value<S, T, Fu>(
+    cx: Scope,
+    source: ReadSignal<S>,
+    fetcher: impl Fn(&S) -> Fu + 'static,
+    initial_value: Option<T>,
+) -> Resource<S, T, Fu>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    let resolved = initial_value.is_some();
+    let (value, set_value) = create_signal(cx, initial_value);
+    let (loading, set_loading) = create_signal(cx, false);
+    let (track, trigger) = create_signal(cx, 0);
+    let fetcher = Rc::new(fetcher);
+    let source = create_memo(cx, move |_| source());
 
-        // TODO hydration/streaming logic
+    // TODO hydration/streaming logic
 
-        let r = Rc::new(ResourceState {
-            scope: self,
-            value,
-            set_value,
-            loading,
-            set_loading,
-            track,
-            trigger,
-            source,
-            fetcher,
-            resolved: Rc::new(Cell::new(resolved)),
-            scheduled: Rc::new(Cell::new(false)),
-            suspense_contexts: Default::default(),
-        });
+    let r = Rc::new(ResourceState {
+        scope: cx,
+        value,
+        set_value,
+        loading,
+        set_loading,
+        track,
+        trigger,
+        source,
+        fetcher,
+        resolved: Rc::new(Cell::new(resolved)),
+        scheduled: Rc::new(Cell::new(false)),
+        suspense_contexts: Default::default(),
+    });
 
-        // initial load fires immediately
-        self.create_effect({
-            let r = Rc::clone(&r);
-            move |_| r.load(false)
-        });
+    // initial load fires immediately
+    create_effect(cx, {
+        let r = Rc::clone(&r);
+        move |_| r.load(false)
+    });
 
-        let id = self.push_resource(r);
+    let id = cx.push_resource(r);
 
-        Resource {
-            runtime: self.runtime,
-            scope: self.id,
-            id,
-            source_ty: PhantomData,
-            out_ty: PhantomData,
-            fut_ty: PhantomData,
-        }
+    Resource {
+        runtime: cx.runtime,
+        scope: cx.id,
+        id,
+        source_ty: PhantomData,
+        out_ty: PhantomData,
+        fut_ty: PhantomData,
     }
 }
 
@@ -188,7 +186,7 @@ where
 
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
-        self.scope.create_effect(move |_| {
+        create_effect(self.scope, move |_| {
             if let Some(s) = &suspense_cx {
                 let mut contexts = suspense_contexts.borrow_mut();
                 if !contexts.contains(s) {

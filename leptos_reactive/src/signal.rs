@@ -2,30 +2,28 @@ use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
-impl Scope {
-    pub fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
-    where
-        T: Clone + Debug,
-    {
-        let state = SignalState::new(value);
-        let id = self.push_signal(state);
+pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>)
+where
+    T: Clone + Debug,
+{
+    let state = SignalState::new(value);
+    let id = cx.push_signal(state);
 
-        let read = ReadSignal {
-            runtime: self.runtime,
-            scope: self.id,
-            id,
-            ty: PhantomData,
-        };
+    let read = ReadSignal {
+        runtime: cx.runtime,
+        scope: cx.id,
+        id,
+        ty: PhantomData,
+    };
 
-        let write = WriteSignal {
-            runtime: self.runtime,
-            scope: self.id,
-            id,
-            ty: PhantomData,
-        };
+    let write = WriteSignal {
+        runtime: cx.runtime,
+        scope: cx.id,
+        id,
+        ty: PhantomData,
+    };
 
-        (read, write)
-    }
+    (read, write)
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
