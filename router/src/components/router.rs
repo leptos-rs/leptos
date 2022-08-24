@@ -230,8 +230,8 @@ impl RouterContext {
             cx.untrack(move || {
                 if value != reference() {
                     transition.start(move || {
-                        set_reference(|r| *r = value.clone());
-                        set_state(|s| *s = state.clone());
+                        set_reference(move |r| *r = value.clone());
+                        set_state(move |s| *s = state.clone());
                     });
                 }
             });

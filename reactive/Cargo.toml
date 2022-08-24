@@ -1,0 +1,18 @@
+[package]
+name = "leptos_reactive"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+append-only-vec = "0.1"
+log = "0.4"
+slotmap = "1"
+serde = { version = "1", features = ["derive"] }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+
+[features]
+default = []
+browser = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures"]

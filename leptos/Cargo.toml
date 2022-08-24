@@ -7,8 +7,8 @@ edition = "2021"
 leptos_core = { path = "../leptos_core" }
 leptos_dom = { path = "../leptos_dom" }
 leptos_macro = { path = "../leptos_macro" }
-leptos_reactive = { path = "../leptos_reactive" }
+leptos_reactive = { path = "../reactive" }
 leptos_router = { path = "../router" }
 
 [features]
-browser = ["leptos_router/browser"]
+browser = ["leptos_router/browser", "leptos_reactive/browser"]

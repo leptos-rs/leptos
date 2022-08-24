@@ -9,7 +9,7 @@ where
     cx.create_eff(true, f)
 }
 
-pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
+pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T) -> Effect<T>
 where
     T: Debug + 'static,
 {

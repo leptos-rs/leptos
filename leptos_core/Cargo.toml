@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 leptos_dom = { path = "../leptos_dom" }
 leptos_macro = { path = "../leptos_macro" }
-leptos_reactive = { path = "../leptos_reactive" }
+leptos_reactive = { path = "../reactive" }
 log = "0.4"
