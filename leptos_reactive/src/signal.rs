@@ -50,21 +50,11 @@ where
 
     pub fn with<U>(&self, f: impl Fn(&T) -> U) -> U {
         if let Some(running_subscriber) = self.runtime.running_effect() {
-            match running_subscriber {
-                Subscriber::Memo(running_memo_id) => {
-                    self.runtime.any_memo(running_memo_id, |running_memo| {
-                        self.add_subscriber(Subscriber::Memo(running_memo_id));
-                        running_memo.subscribe_to(Source::Signal((self.scope, self.id)));
-                    });
-                }
-                Subscriber::Effect(running_effect_id) => {
-                    self.runtime
-                        .any_effect(running_effect_id, |running_effect| {
-                            self.add_subscriber(Subscriber::Effect(running_effect_id));
-                            running_effect.subscribe_to(Source::Signal((self.scope, self.id)));
-                        });
-                }
-            }
+            self.runtime
+                .any_effect(running_subscriber.0, |running_effect| {
+                    self.add_subscriber(Subscriber(running_subscriber.0));
+                    running_effect.subscribe_to(Source((self.scope, self.id)));
+                });
         }
 
         // If transition is running, or contains this as a source, take from t_value

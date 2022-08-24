@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate::{
-    create_effect, create_signal, runtime::Runtime, spawn::queue_microtask, EffectId, MemoId,
-    ReadSignal, Scope, ScopeId, SignalId, WriteSignal,
+    create_effect, create_signal, runtime::Runtime, spawn::queue_microtask, EffectId, ReadSignal,
+    Scope, ScopeId, SignalId, WriteSignal,
 };
 
 pub fn use_transition(cx: Scope) -> Transition {
@@ -38,7 +38,6 @@ impl Transition {
                     running: Cell::new(true),
                     resources: Default::default(),
                     signals: Default::default(),
-                    memos: Default::default(),
                     effects: Default::default(),
                 }));
             }
@@ -52,7 +51,6 @@ impl Transition {
                 let scope = self.scope;
                 let resources = running_transition.resources.clone();
                 let signals = running_transition.signals.clone();
-                let memos = running_transition.memos.clone();
                 let effects = running_transition.effects.clone();
                 let set_pending = self.set_pending;
                 // place this at end of task queue so it doesn't start at 0
@@ -64,11 +62,6 @@ impl Transition {
                             for signal in signals.borrow().iter() {
                                 runtime.any_signal(*signal, |signal| {
                                     signal.end_transition(runtime);
-                                });
-                            }
-                            for memo in memos.borrow().iter() {
-                                runtime.any_memo(*memo, |memo| {
-                                    memo.end_transition(runtime);
                                 });
                             }
                             for effect in effects.borrow().iter() {
@@ -94,6 +87,5 @@ pub(crate) struct TransitionState {
     pub running: Cell<bool>,
     pub resources: Rc<RefCell<HashSet<ReadSignal<usize>>>>,
     pub signals: Rc<RefCell<HashSet<(ScopeId, SignalId)>>>,
-    pub memos: Rc<RefCell<HashSet<(ScopeId, MemoId)>>>,
     pub effects: Rc<RefCell<Vec<(ScopeId, EffectId)>>>,
 }

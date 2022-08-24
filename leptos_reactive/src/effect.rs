@@ -98,7 +98,7 @@ impl<T> EffectState<T> {
 
     fn cleanup(&self, id: (ScopeId, EffectId)) {
         for source in self.sources.borrow().iter() {
-            source.unsubscribe(self.runtime, Subscriber::Effect(id))
+            source.unsubscribe(self.runtime, Subscriber(id))
         }
     }
 }
@@ -141,7 +141,7 @@ where
 
         // add it to the Scope stack, which means any signals called
         // in the effect fn immediately below will add this Effect as a dependency
-        self.runtime.push_stack(Subscriber::Effect(id));
+        self.runtime.push_stack(Subscriber(id));
 
         // actually run the effect
         if let Some(transition) = self.runtime.running_transition() && self.render_effect {

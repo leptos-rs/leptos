@@ -1,6 +1,6 @@
 use crate::{
-    AnyEffect, AnyMemo, AnySignal, EffectId, MemoId, MemoState, ResourceId, ResourceState, Scope,
-    ScopeDisposer, ScopeId, ScopeState, SignalId, SignalState, Subscriber, TransitionState,
+    AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer, ScopeId,
+    ScopeState, SignalId, SignalState, Subscriber, TransitionState,
 };
 use slotmap::SlotMap;
 use std::cell::RefCell;
@@ -39,32 +39,6 @@ impl Runtime {
                 (f)(n)
             } else {
                 panic!("couldn't locate {id:?}");
-            }
-        })
-    }
-
-    pub fn any_memo<T>(&self, id: (ScopeId, MemoId), f: impl FnOnce(&dyn AnyMemo) -> T) -> T {
-        self.scope(id.0, |scope| {
-            if let Some(n) = scope.memos.get(id.1 .0) {
-                (f)(n)
-            } else {
-                panic!("couldn't locate {id:?}");
-            }
-        })
-    }
-
-    pub fn memo<T, U>(&self, id: (ScopeId, MemoId), f: impl FnOnce(&MemoState<T>) -> U) -> U
-    where
-        T: Debug + 'static,
-    {
-        self.any_memo(id, |n| {
-            if let Some(n) = n.as_any().downcast_ref::<MemoState<T>>() {
-                f(n)
-            } else {
-                panic!(
-                    "couldn't convert {id:?} to MemoState<{}>",
-                    std::any::type_name::<T>()
-                );
             }
         })
     }

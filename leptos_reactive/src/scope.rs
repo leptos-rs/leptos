@@ -1,6 +1,6 @@
 use crate::{
-    AnyEffect, AnyMemo, AnySignal, EffectId, EffectState, MemoId, MemoState, ReadSignal,
-    ResourceId, ResourceState, Runtime, SignalId, SignalState, Transition,
+    AnyEffect, AnySignal, EffectId, EffectState, ReadSignal, ResourceId, ResourceState, Runtime,
+    SignalId, SignalState, Transition,
 };
 use elsa::FrozenVec;
 use serde::Serialize;
@@ -61,16 +61,6 @@ impl Scope {
         })
     }
 
-    pub(crate) fn push_memo<T>(&self, state: MemoState<T>) -> MemoId
-    where
-        T: Debug + 'static,
-    {
-        self.runtime.scope(self.id, |scope| {
-            scope.memos.push(Box::new(state));
-            MemoId(scope.memos.len() - 1)
-        })
-    }
-
     pub(crate) fn push_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
     where
         S: Debug + Clone + 'static,
@@ -114,7 +104,6 @@ pub(crate) struct ScopeState {
     pub(crate) contexts: debug_cell::RefCell<HashMap<TypeId, Box<dyn Any>>>,
     pub(crate) children: debug_cell::RefCell<Vec<ScopeId>>,
     pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
-    pub(crate) memos: FrozenVec<Box<dyn AnyMemo>>,
     pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
     pub(crate) resources: FrozenVec<Rc<dyn Any>>,
 }
@@ -132,7 +121,6 @@ impl ScopeState {
             contexts: Default::default(),
             children: Default::default(),
             signals: Default::default(),
-            memos: Default::default(),
             effects: Default::default(),
             resources: Default::default(),
         }

@@ -51,10 +51,10 @@ where
     // Rebuild the list of nested routes conservatively, and show the root route here
     let mut disposers = Vec::<ScopeDisposer>::new();
 
-    let route_states: Memo<RouterState> = create_memo(cx, move |prev: Option<&RouterState>| {
+    let route_states: Memo<RouterState> = create_memo(cx, move |prev: Option<RouterState>| {
         let next_matches = matches();
-        let prev_matches = prev.map(|p| &p.matches);
-        let prev_routes = prev.map(|p| &p.routes);
+        let prev_matches = prev.as_ref().map(|p| &p.matches);
+        let prev_routes = prev.as_ref().map(|p| &p.routes);
 
         // are the new route matches the same as the previous route matches so far?
         let mut equal = prev_matches
@@ -107,7 +107,7 @@ where
 
         // TODO dispose of extra routes from previous matches if they're longer than new ones
 
-        if let Some(prev) = prev && equal {
+        if let Some(prev) = &prev && equal {
             RouterState {
                 matches: next_matches.to_vec(),
                 routes: prev_routes.cloned().unwrap_or_default(),
@@ -139,7 +139,7 @@ where
     view! { <div>{root_outlet}</div> }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct RouterState {
     matches: Vec<RouteMatch>,
     routes: Rc<RefCell<Vec<RouteContext>>>,
