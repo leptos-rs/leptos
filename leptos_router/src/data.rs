@@ -1,20 +1,21 @@
-use std::{any::Any, future::Future, pin::Pin};
+use std::{any::Any, future::Future, pin::Pin, rc::Rc};
 
-use crate::{Location, Params};
+use crate::{Location, ParamsMap};
 
+#[derive(Clone)]
 pub struct DataFunction {
-    data: Box<dyn Fn(Params, Location) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
+    data: Rc<dyn Fn(ParamsMap, Location) -> Pin<Box<dyn Future<Output = Box<dyn Any>>>>>,
 }
 
 impl<F, Fu, T> From<F> for DataFunction
 where
-    F: Fn(Params, Location) -> Fu + Clone + 'static,
+    F: Fn(ParamsMap, Location) -> Fu + Clone + 'static,
     Fu: Future<Output = T>,
     T: Any + 'static,
 {
     fn from(f: F) -> Self {
         Self {
-            data: Box::new(move |params, location| {
+            data: Rc::new(move |params, location| {
                 Box::pin({
                     let f = f.clone();
                     async move {
@@ -24,5 +25,11 @@ where
                 })
             }),
         }
+    }
+}
+
+impl std::fmt::Debug for DataFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DataFunction").finish()
     }
 }

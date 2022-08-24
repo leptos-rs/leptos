@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{any::Any, rc::Rc};
 
 use leptos_reactive::Scope;
 use wasm_bindgen::JsCast;

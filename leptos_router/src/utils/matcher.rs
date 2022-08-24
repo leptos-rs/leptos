@@ -3,38 +3,40 @@
 
 use std::borrow::Cow;
 
-use crate::Params;
+use crate::ParamsMap;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
-pub struct PathMatch<'a> {
-    pub path: Cow<'a, str>,
-    pub params: Params,
+pub struct PathMatch {
+    pub path: String,
+    pub params: ParamsMap,
 }
 
 #[doc(hidden)]
-pub struct Matcher<'a> {
-    splat: Option<&'a str>,
-    segments: Vec<&'a str>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Matcher {
+    splat: Option<String>,
+    segments: Vec<String>,
     len: usize,
     partial: bool,
 }
 
-impl<'a> Matcher<'a> {
+impl Matcher {
     #[doc(hidden)]
-    pub fn new(path: &'a str) -> Self {
+    pub fn new(path: &str) -> Self {
         Self::new_with_partial(path, false)
     }
 
     #[doc(hidden)]
-    pub fn new_with_partial(path: &'a str, partial: bool) -> Self {
+    pub fn new_with_partial(path: &str, partial: bool) -> Self {
         let (pattern, splat) = match path.split_once("/*") {
-            Some((p, s)) => (p, Some(s)),
+            Some((p, s)) => (p, Some(s.to_string())),
             None => (path, None),
         };
         let segments = pattern
             .split('/')
             .filter(|n| !n.is_empty())
+            .map(|n| n.to_string())
             .collect::<Vec<_>>();
 
         let len = segments.len();
@@ -48,16 +50,14 @@ impl<'a> Matcher<'a> {
     }
 
     #[doc(hidden)]
-    pub fn test<'b>(&self, location: &'b str) -> Option<PathMatch<'b>>
-    where
-        'a: 'b,
-    {
+    pub fn test(&self, location: &str) -> Option<PathMatch> {
         let loc_segments = location
             .split('/')
             .filter(|n| !n.is_empty())
             .collect::<Vec<_>>();
+
         let loc_len = loc_segments.len();
-        let len_diff = loc_len - self.len;
+        let len_diff: i32 = loc_len as i32 - self.len as i32;
 
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
@@ -67,17 +67,9 @@ impl<'a> Matcher<'a> {
         }
         // otherwise, start building a match
         else {
-            /* let matched = PathMatch {
-                path: if self.len > 0 {
-                    "".into()
-                } else {
-                    "/".into()
-                },
-                params: Params::new()
-            }; */
-
             let mut path = String::new();
-            let mut params = Params::new();
+            let mut params = ParamsMap::new();
+
             for (segment, loc_segment) in self.segments.iter().zip(loc_segments.iter()) {
                 if let Some(param_name) = segment.strip_prefix(':') {
                     params.insert(param_name.into(), (*loc_segment).into());
@@ -90,9 +82,9 @@ impl<'a> Matcher<'a> {
                 path.push_str(loc_segment);
             }
 
-            if let Some(splat) = self.splat && !splat.is_empty() {
+            if let Some(splat) = &self.splat && !splat.is_empty() {
                 let value = if len_diff > 0 {
-                    loc_segments[self.len..].join("/").into()
+                    loc_segments[self.len..].join("/")
                 } else {
                     "".into()
                 };

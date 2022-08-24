@@ -71,11 +71,10 @@ impl Scope {
         })
     }
 
-    pub(crate) fn push_resource<S, T, Fu>(&self, state: Rc<ResourceState<S, T, Fu>>) -> ResourceId
+    pub(crate) fn push_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
     where
         S: Debug + Clone + 'static,
         T: Debug + Clone + 'static,
-        Fu: Future<Output = T> + 'static,
     {
         self.runtime.scope(self.id, |scope| {
             scope.resources.push(state);

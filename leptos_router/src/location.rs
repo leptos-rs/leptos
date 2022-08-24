@@ -1,12 +1,13 @@
 use std::{any::Any, rc::Rc};
 
+use leptos_dom::wasm_bindgen::JsValue;
 use leptos_reactive::Memo;
 
-use crate::Params;
+use crate::ParamsMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location {
-    pub query: Memo<Params>,
+    pub query: Memo<ParamsMap>,
     pub path_name: Memo<String>,
     pub search: Memo<String>,
     pub hash: Memo<String>,
@@ -20,8 +21,15 @@ pub struct LocationChange {
     pub state: State,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct State(pub Option<Rc<dyn Any>>);
+
+impl State {
+    pub fn to_js_value(&self) -> JsValue {
+        // TODO
+        JsValue::UNDEFINED
+    }
+}
 
 impl PartialEq for State {
     fn eq(&self, other: &Self) -> bool {
@@ -31,7 +39,13 @@ impl PartialEq for State {
 
 impl Eq for State {}
 
-/* pub trait State {}
-
-impl<T> State for T where T: Any + std::fmt::Debug + PartialEq + Eq + Clone {}
- */
+impl Default for LocationChange {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            replace: true,
+            scroll: true,
+            state: Default::default(),
+        }
+    }
+}

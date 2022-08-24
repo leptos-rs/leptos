@@ -25,6 +25,10 @@ impl Runtime {
         if let Some(scope) = scope {
             (f)(&scope)
         } else {
+            log::error!(
+                "couldn't locate {id:?} in scopes {:#?}",
+                self.scopes.borrow()
+            );
             panic!("couldn't locate {id:?}");
         }
     }
@@ -91,26 +95,24 @@ impl Runtime {
         })
     }
 
-    pub fn resource<S, T, Fu, U>(
+    pub fn resource<S, T, U>(
         &self,
         id: (ScopeId, ResourceId),
-        f: impl FnOnce(&ResourceState<S, T, Fu>) -> U,
+        f: impl FnOnce(&ResourceState<S, T>) -> U,
     ) -> U
     where
         S: Debug + Clone + 'static,
         T: Debug + Clone + 'static,
-        Fu: Future<Output = T> + 'static,
     {
         self.scope(id.0, |scope| {
             if let Some(n) = scope.resources.get(id.1 .0) {
-                if let Some(n) = n.downcast_ref::<ResourceState<S, T, Fu>>() {
+                if let Some(n) = n.downcast_ref::<ResourceState<S, T>>() {
                     f(n)
                 } else {
                     panic!(
-                        "couldn't convert {id:?} to ResourceState<{}, {}, {}>",
+                        "couldn't convert {id:?} to ResourceState<{}, {}>",
                         std::any::type_name::<S>(),
                         std::any::type_name::<T>(),
-                        std::any::type_name::<Fu>()
                     );
                 }
             } else {

@@ -1,4 +1,4 @@
-use leptos_reactive::{ReadSignal, Scope, ScopeDisposer};
+use leptos_reactive::{create_effect, create_signal, ReadSignal, Scope, ScopeDisposer};
 use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
@@ -17,12 +17,12 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash};
 /// which is in turned based on on the TypeScript implementation in <https://github.com/solidjs/solid>_
 pub fn map_keyed<T, U, K>(
     cx: Scope,
-    list: ReadSignal<Vec<T>>,
+    list: impl Fn() -> Vec<T> + 'static,
     map_fn: impl Fn(Scope, &T) -> U + 'static,
     key_fn: impl Fn(&T) -> K + 'static,
 ) -> ReadSignal<Vec<U>>
 where
-    T: PartialEq + Debug + Clone,
+    T: PartialEq + Debug + Clone + 'static,
     K: Eq + Hash,
     U: PartialEq + Debug + Clone,
 {
@@ -30,12 +30,12 @@ where
     let mut mapped: Vec<U> = Vec::new();
     let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
 
-    let (item_signal, set_item_signal) = cx.create_signal(Vec::new());
+    let (item_signal, set_item_signal) = create_signal(cx, Vec::new());
 
     // Diff and update signal each time list is updated.
-    cx.create_effect(move |items| {
+    create_effect(cx, move |items| {
         let items: Vec<T> = items.unwrap_or_default();
-        let new_items = list.get();
+        let new_items = list();
         let new_items_len = new_items.len();
 
         if new_items.is_empty() {

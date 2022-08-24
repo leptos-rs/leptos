@@ -1,7 +1,7 @@
 // Test cases drawn from Solid Router
 // see https://github.com/solidjs/solid-router/blob/main/test/utils.spec.ts
 
-use leptos_router::{params, Matcher, PathMatch};
+use leptos_router::{params_map, Matcher, PathMatch};
 
 #[test]
 fn create_matcher_should_return_no_params_when_location_matches_exactly() {
@@ -11,7 +11,7 @@ fn create_matcher_should_return_no_params_when_location_matches_exactly() {
         matched,
         Some(PathMatch {
             path: "/foo/bar".into(),
-            params: params!()
+            params: params_map!()
         })
     );
 }
@@ -31,7 +31,7 @@ fn create_matcher_should_build_params_collection() {
         matched,
         Some(PathMatch {
             path: "/foo/abc-123".into(),
-            params: params!(
+            params: params_map!(
                 "id".into() => "abc-123".into()
             )
         })
@@ -46,7 +46,7 @@ fn create_matcher_should_match_past_end_when_ending_in_asterisk() {
         matched,
         Some(PathMatch {
             path: "/foo/bar".into(),
-            params: params!()
+            params: params_map!()
         })
     );
 }
@@ -67,7 +67,7 @@ fn create_matcher_should_include_remaining_unmatched_location_as_param_when_endi
         matched,
         Some(PathMatch {
             path: "/foo/bar".into(),
-            params: params!(
+            params: params_map!(
                 "something".into() => "baz/qux".into()
             )
         })
@@ -82,7 +82,7 @@ fn create_matcher_should_include_empty_param_when_perfect_match_ends_in_asterisk
         matched,
         Some(PathMatch {
             path: "/foo/bar".into(),
-            params: params!(
+            params: params_map!(
                 "something".into() => "".into()
             )
         })

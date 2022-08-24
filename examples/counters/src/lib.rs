@@ -10,13 +10,13 @@ struct CounterUpdater {
 
 #[component]
 pub fn Counters(cx: Scope) -> web_sys::Element {
-    let (next_counter_id, set_next_counter_id) = cx.create_signal(0);
-    let (counters, set_counters) = cx.create_signal::<CounterHolder>(vec![]);
-    cx.provide_context(CounterUpdater { set_counters });
+    let (next_counter_id, set_next_counter_id) = create_signal(cx, 0);
+    let (counters, set_counters) = create_signal::<CounterHolder>(cx, vec![]);
+    provide_context(cx, CounterUpdater { set_counters });
 
     let add_counter = move |_| {
         let id = next_counter_id();
-        let sig = cx.create_signal(0);
+        let sig = create_signal(cx, 0);
         set_counters(|counters| counters.push((id, sig)));
         set_next_counter_id(|id| *id += 1);
     };
@@ -24,7 +24,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
     let add_many_counters = move |_| {
         let mut new_counters = vec![];
         for next_id in 0..1000 {
-            let signal = cx.create_signal(0);
+            let signal = create_signal(cx, 0);
             new_counters.push((next_id, signal));
         }
         set_counters(move |n| *n = new_counters.clone());
@@ -78,7 +78,7 @@ fn Counter(
     value: ReadSignal<i32>,
     set_value: WriteSignal<i32>,
 ) -> web_sys::Element {
-    let CounterUpdater { set_counters } = cx.use_context().unwrap_throw();
+    let CounterUpdater { set_counters } = use_context(cx).unwrap_throw();
 
     let input = move |ev| {
         set_value(|value| *value = event_target_value(&ev).parse::<i32>().unwrap_or_default())

@@ -12,3 +12,4 @@ proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 syn-rsx = "0.8.1"
+uuid = { version = "1", features = ["v4"] }

@@ -2,14 +2,22 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
 use syn_rsx::{Node, NodeName, NodeType};
+use uuid::Uuid;
 
 use crate::is_component_node;
 
 pub fn client_side_rendering(nodes: &[Node]) -> TokenStream {
+    let template_uid = Ident::new(
+        &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
+        Span::call_site(),
+    );
+
     if nodes.len() == 1 {
-        first_node_to_tokens(&nodes[0])
+        first_node_to_tokens(&template_uid, &nodes[0])
     } else {
-        let nodes = nodes.iter().map(first_node_to_tokens);
+        let nodes = nodes
+            .iter()
+            .map(|node| first_node_to_tokens(&template_uid, node));
         quote! {
             {
                 vec![
@@ -20,11 +28,14 @@ pub fn client_side_rendering(nodes: &[Node]) -> TokenStream {
     }
 }
 
-fn first_node_to_tokens(node: &Node) -> TokenStream {
+fn first_node_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
     match node.node_type {
         NodeType::Doctype | NodeType::Comment => quote! {},
         NodeType::Fragment => {
-            let nodes = node.children.iter().map(first_node_to_tokens);
+            let nodes = node
+                .children
+                .iter()
+                .map(|node| first_node_to_tokens(template_uid, node));
             quote! {
                 {
                     vec![
@@ -33,7 +44,7 @@ fn first_node_to_tokens(node: &Node) -> TokenStream {
                 }
             }
         }
-        NodeType::Element => root_element_to_tokens(node),
+        NodeType::Element => root_element_to_tokens(template_uid, node),
         NodeType::Block => node
             .value
             .as_ref()
@@ -43,7 +54,7 @@ fn first_node_to_tokens(node: &Node) -> TokenStream {
     }
 }
 
-fn root_element_to_tokens(node: &Node) -> TokenStream {
+fn root_element_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
     let mut template = String::new();
     let mut navigations = Vec::new();
     let mut expressions = Vec::new();
@@ -63,8 +74,10 @@ fn root_element_to_tokens(node: &Node) -> TokenStream {
 
         quote! {
             {
-                let template = #template;
-                let root = leptos_dom::clone_template(&leptos_dom::create_template(template));
+                thread_local! {
+                    static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
+                };
+                let root = #template_uid.with(|template| leptos_dom::clone_template(template));
 
                 #(#navigations);*
                 #(#expressions);*;
@@ -150,6 +163,7 @@ fn element_to_tokens(
 
     // iterate over children
     let mut prev_sib = prev_sib;
+    let multi = node.children.len() >= 2;
     for (idx, child) in node.children.iter().enumerate() {
         // set next sib (for any insertions)
         let next_sib = node.children.get(idx + 1).and_then(|next_sib| {
@@ -169,6 +183,7 @@ fn element_to_tokens(
             template,
             navigations,
             expressions,
+            multi,
         );
 
         prev_sib = match curr_id {
@@ -302,11 +317,12 @@ fn child_to_tokens(
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
     expressions: &mut Vec<TokenStream>,
+    multi: bool,
 ) -> PrevSibChange {
     match node.node_type {
         NodeType::Element => {
             if is_component_node(node) {
-                component_to_tokens(node, Some(parent), next_sib, expressions)
+                component_to_tokens(node, Some(parent), next_sib, expressions, multi)
             } else {
                 PrevSibChange::Sib(element_to_tokens(
                     node,
@@ -370,6 +386,7 @@ fn child_to_tokens(
                         #value.into_child(cx),
                         #before,
                         None,
+                        #multi,
                     );
                 });
 
@@ -386,6 +403,7 @@ fn component_to_tokens(
     parent: Option<&Ident>,
     next_sib: Option<Ident>,
     expressions: &mut Vec<TokenStream>,
+    multi: bool,
 ) -> PrevSibChange {
     let create_component = create_component(node);
 
@@ -402,6 +420,7 @@ fn component_to_tokens(
                 #create_component.into_child(cx),
                 #before,
                 None,
+                #multi
             );
         });
     } else {
@@ -416,34 +435,74 @@ fn create_component(node: &Node) -> TokenStream {
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
 
-    let children = if !node.children.is_empty() {
+    let children = if node.children.is_empty() {
+        quote! {}
+    } else if node.children.len() == 1 {
+        let child = client_side_rendering(&node.children);
+        quote! { .children(vec![#child]) }
+    } else {
         let children = client_side_rendering(&node.children);
         quote! { .children(#children) }
-    } else {
-        quote! {}
     };
 
-    let props = node.attributes.iter().map(|attr| {
-        let name = ident_from_tag_name(attr.name.as_ref().unwrap());
-        let value = attr.value.as_ref().expect("component props need values");
-        let span = attr.name_span().unwrap();
-        quote_spanned! {
-            span => .#name(#value)
+    let props = node.attributes.iter().filter_map(|attr| {
+        let attr_name = attr.name_as_string().unwrap_or_default();
+        if attr_name.strip_prefix("on:").is_some() {
+            None
+        } else {
+            let name = ident_from_tag_name(attr.name.as_ref().unwrap());
+            let value = attr.value.as_ref().expect("component props need values");
+            let span = attr.name_span().unwrap();
+            Some(quote_spanned! {
+                span => .#name(#value)
+            })
         }
     });
 
+    let mut events = node.attributes.iter().filter_map(|attr| {
+        let attr_name = attr.name_as_string().unwrap_or_default();
+        if let Some(event_name) = attr_name.strip_prefix("on:") {
+            let span = attr.name_span().unwrap();
+            let handler = attr
+                .value
+                .as_ref()
+                .expect("event listener attributes need a value");
+            Some(quote_spanned! {
+                span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+            })
+        } else {
+            None
+        }
+    }).peekable();
+
     // TODO children
 
-    quote_spanned! {
-        span => create_component(cx, || {
-            #component_name(
-                cx,
-                #component_props_name::builder()
-                    #(#props)*
-                    #children
-                    .build(),
-            )
-        })
+    if events.peek().is_none() {
+        quote_spanned! {
+            span => create_component(cx, move || {
+                #component_name(
+                    cx,
+                    #component_props_name::builder()
+                        #(#props)*
+                        #children
+                        .build(),
+                )
+            })
+        }
+    } else {
+        quote_spanned! {
+            span => create_component(cx, move || {
+                let #component_name = #component_name(
+                    cx,
+                    #component_props_name::builder()
+                        #(#props)*
+                        #children
+                        .build(),
+                );
+                #(#events);*;
+                #component_name
+            })
+        }
     }
 }
 

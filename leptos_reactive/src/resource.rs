@@ -4,6 +4,7 @@ use std::{
     fmt::Debug,
     future::Future,
     marker::PhantomData,
+    pin::Pin,
     rc::Rc,
 };
 
@@ -11,14 +12,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     create_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
-    spawn::spawn_local, Memo, ReadSignal, Scope, ScopeId, SuspenseContext, WriteSignal,
+    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId, SuspenseContext,
+    WriteSignal,
 };
 
 pub fn create_resource<S, T, Fu>(
     cx: Scope,
-    source: ReadSignal<S>,
-    fetcher: impl Fn(&S) -> Fu + 'static,
-) -> Resource<S, T, Fu>
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+) -> Resource<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
@@ -29,10 +31,10 @@ where
 
 pub fn create_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
-    source: ReadSignal<S>,
-    fetcher: impl Fn(&S) -> Fu + 'static,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
-) -> Resource<S, T, Fu>
+) -> Resource<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
@@ -42,7 +44,7 @@ where
     let (value, set_value) = create_signal(cx, initial_value);
     let (loading, set_loading) = create_signal(cx, false);
     let (track, trigger) = create_signal(cx, 0);
-    let fetcher = Rc::new(fetcher);
+    let fetcher = Rc::new(move |s| Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>);
     let source = create_memo(cx, move |_| source());
 
     // TODO hydration/streaming logic
@@ -76,61 +78,56 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
-        fut_ty: PhantomData,
     }
 }
 
-impl<S, T, Fu> Resource<S, T, Fu>
+impl<S, T> Resource<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
-    Fu: Future<Output = T> + 'static,
 {
     pub fn read(&self) -> Option<T> {
-        self.runtime.resource(
-            (self.scope, self.id),
-            |resource: &ResourceState<S, T, Fu>| resource.read(),
-        )
+        self.runtime
+            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
+                resource.read()
+            })
     }
 
     pub fn loading(&self) -> bool {
-        self.runtime.resource(
-            (self.scope, self.id),
-            |resource: &ResourceState<S, T, Fu>| resource.loading.get(),
-        )
+        self.runtime
+            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
+                resource.loading.get()
+            })
     }
 
     pub fn refetch(&self) {
-        self.runtime.resource(
-            (self.scope, self.id),
-            |resource: &ResourceState<S, T, Fu>| resource.refetch(),
-        )
+        self.runtime
+            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
+                resource.refetch()
+            })
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Resource<S, T, Fu>
+pub struct Resource<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
-    Fu: Future<Output = T> + 'static,
 {
     runtime: &'static Runtime,
     pub(crate) scope: ScopeId,
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
-    pub(crate) fut_ty: PhantomData<Fu>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct ResourceId(pub(crate) usize);
 
-impl<S, T, Fu> Clone for Resource<S, T, Fu>
+impl<S, T> Clone for Resource<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
-    Fu: Future<Output = T> + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -139,25 +136,22 @@ where
             id: self.id,
             source_ty: PhantomData,
             out_ty: PhantomData,
-            fut_ty: PhantomData,
         }
     }
 }
 
-impl<S, T, Fu> Copy for Resource<S, T, Fu>
+impl<S, T> Copy for Resource<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
-    Fu: Future<Output = T> + 'static,
 {
 }
 
 #[derive(Clone)]
-pub struct ResourceState<S, T, Fu>
+pub struct ResourceState<S, T>
 where
     S: 'static,
     T: Clone + Debug + 'static,
-    Fu: Future<Output = T>,
 {
     scope: Scope,
     value: ReadSignal<Option<T>>,
@@ -167,20 +161,19 @@ where
     track: ReadSignal<usize>,
     trigger: WriteSignal<usize>,
     source: Memo<S>,
-    fetcher: Rc<dyn Fn(&S) -> Fu>,
+    fetcher: Rc<dyn Fn(S) -> Pin<Box<dyn Future<Output = T>>>>,
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
 }
 
-impl<S, T, Fu> ResourceState<S, T, Fu>
+impl<S, T> ResourceState<S, T>
 where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
-    Fu: Future<Output = T> + 'static,
 {
     pub fn read(&self) -> Option<T> {
-        let suspense_cx = self.scope.use_context::<SuspenseContext>();
+        let suspense_cx = use_context::<SuspenseContext>(self.scope);
 
         let v = self.value.get();
 
@@ -219,7 +212,7 @@ where
 
         let loaded_under_transition = self.scope.runtime.running_transition().is_some();
 
-        let fut = (self.fetcher)(&self.source.get());
+        let fut = (self.fetcher)(self.source.get());
 
         // `scheduled` is true for the rest of this code only
         self.scheduled.set(true);

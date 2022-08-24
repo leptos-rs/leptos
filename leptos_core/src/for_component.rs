@@ -9,16 +9,17 @@ use crate::map::map_keyed;
 
 /// Properties for the [For](crate::For) component.
 #[derive(Props)]
-pub struct ForProps<T, G, I, K>
+pub struct ForProps<E, T, G, I, K>
 where
+    E: Fn() -> Vec<T>,
     G: Fn(Scope, &T) -> Element,
     I: Fn(&T) -> K,
     K: Eq + Hash,
     T: Eq + Clone + 'static,
 {
-    pub each: ReadSignal<Vec<T>>,
+    pub each: E,
     pub key: I,
-    pub children: G,
+    pub children: Vec<G>,
 }
 
 /// Iterates over children and displays them, keyed by `PartialEq`. If you want to provide your
@@ -27,12 +28,14 @@ where
 /// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.
 #[allow(non_snake_case)]
-pub fn For<T, G, I, K>(cx: Scope, props: ForProps<T, G, I, K>) -> ReadSignal<Vec<Element>>
+pub fn For<E, T, G, I, K>(cx: Scope, mut props: ForProps<E, T, G, I, K>) -> ReadSignal<Vec<Element>>
 where
+    E: Fn() -> Vec<T> + 'static,
     G: Fn(Scope, &T) -> Element + 'static,
     I: Fn(&T) -> K + 'static,
     K: Eq + Hash,
     T: Eq + Clone + Debug + 'static,
 {
-    map_keyed(cx, props.each, props.children, props.key).clone()
+    let map_fn = props.children.remove(0);
+    map_keyed(cx, props.each, map_fn, props.key)
 }

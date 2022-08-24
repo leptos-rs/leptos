@@ -33,6 +33,7 @@ pub fn resolve_path<'a>(
     }
 }
 
+#[cfg(not(feature = "browser"))]
 fn has_scheme(path: &str) -> bool {
     use regex::Regex;
     lazy_static::lazy_static! {
@@ -41,6 +42,13 @@ fn has_scheme(path: &str) -> bool {
     }
 
     HAS_SCHEME_RE.is_match(path)
+}
+
+#[cfg(feature = "browser")]
+fn has_scheme(path: &str) -> bool {
+    log::debug!("using browser re #2");
+    let re = js_sys::RegExp::new(HAS_SCHEME, "");
+    re.test(path)
 }
 
 #[doc(hidden)]
@@ -70,7 +78,9 @@ const QUERY: &str = r#"/*(\*.*)?$"#;
 
 #[cfg(feature = "browser")]
 fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
-    let re = js_sys::Regexp::new(TRIM_PATH, "g");
+    log::debug!("using browser re #1");
+
+    let re = js_sys::RegExp::new(TRIM_PATH, "g");
     js_sys::JsString::from(text)
         .replace_by_pattern(&re, "")
         .as_string()
@@ -80,13 +90,15 @@ fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
 
 #[cfg(feature = "browser")]
 fn begins_with_query_or_hash(text: &str) -> bool {
-    let re = js_sys::Regexp::new(BEGINS_WITH_QUERY_OR_HASH, "");
+    log::debug!("using browser re #2");
+    let re = js_sys::RegExp::new(BEGINS_WITH_QUERY_OR_HASH, "");
     re.test(text)
 }
 
 #[cfg(feature = "browser")]
 fn replace_query(text: &str) -> String {
-    let re = js_sys::Regexp::new(QUERY, "g");
+    log::debug!("using browser re #3");
+    let re = js_sys::RegExp::new(QUERY, "g");
     js_sys::JsString::from(text)
         .replace_by_pattern(&re, "")
         .as_string()
