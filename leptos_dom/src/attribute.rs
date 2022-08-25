@@ -11,19 +11,19 @@ pub trait IntoAttribute {
     fn into_attribute(self, cx: Scope) -> Attribute;
 }
 
-impl<'a> IntoAttribute for String {
+impl IntoAttribute for String {
     fn into_attribute(self, _cx: Scope) -> Attribute {
         Attribute::String(self)
     }
 }
 
-impl<'a> IntoAttribute for bool {
+impl IntoAttribute for bool {
     fn into_attribute(self, _cx: Scope) -> Attribute {
         Attribute::Bool(self)
     }
 }
 
-impl<'a> IntoAttribute for Option<String> {
+impl IntoAttribute for Option<String> {
     fn into_attribute(self, _cx: Scope) -> Attribute {
         Attribute::Option(self)
     }
@@ -42,13 +42,13 @@ where
 
 macro_rules! attr_type {
     ($attr_type:ty) => {
-        impl<'a> IntoAttribute for $attr_type {
+        impl IntoAttribute for $attr_type {
             fn into_attribute(self, _cx: Scope) -> Attribute {
                 Attribute::String(self.to_string())
             }
         }
 
-        impl<'a> IntoAttribute for Option<$attr_type> {
+        impl IntoAttribute for Option<$attr_type> {
             fn into_attribute(self, _cx: Scope) -> Attribute {
                 Attribute::Option(self.map(|n| n.to_string()))
             }

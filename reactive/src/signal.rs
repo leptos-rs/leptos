@@ -257,7 +257,11 @@ impl<T> Observable for SignalState<T> {
 pub struct ObservableLink(pub(crate) Weak<dyn Observable>);
 
 impl ObservableLink {
-    pub(crate) fn unsubscribe(&self, observer: ObserverLink) {}
+    pub(crate) fn unsubscribe(&self, observer: ObserverLink) {
+        if let Some(observable) = self.0.upgrade() {
+            observable.unsubscribe(observer);
+        }
+    }
 }
 
 impl std::hash::Hash for ObservableLink {

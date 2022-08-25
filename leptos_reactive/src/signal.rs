@@ -232,9 +232,9 @@ pub(crate) struct SignalId(pub(crate) usize);
 
 //#[derive(Debug)]
 pub(crate) struct SignalState<T> {
-    value: debug_cell::RefCell<T>,
-    t_value: debug_cell::RefCell<Option<T>>,
-    subscribers: debug_cell::RefCell<HashSet<Subscriber>>,
+    value: RefCell<T>,
+    t_value: RefCell<Option<T>>,
+    subscribers: RefCell<HashSet<Subscriber>>,
 }
 
 impl<T> Debug for SignalState<T>
@@ -256,7 +256,7 @@ where
 {
     pub fn new(value: T) -> Self {
         Self {
-            value: debug_cell::RefCell::new(value),
+            value: RefCell::new(value),
             t_value: Default::default(),
             subscribers: Default::default(),
         }

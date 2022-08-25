@@ -15,11 +15,11 @@ impl IntoClass for bool {
     }
 }
 
-impl<'a, T> IntoClass for T
+impl<T> IntoClass for T
 where
     T: Fn() -> bool + 'static,
 {
-    fn into_class(self, cx: Scope) -> Class {
+    fn into_class(self, _cx: Scope) -> Class {
         let modified_fn = Box::new(self);
         Class::Fn(modified_fn)
     }

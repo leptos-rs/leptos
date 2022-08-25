@@ -15,7 +15,7 @@ where
     T: Fn() -> U + 'static,
     U: Into<JsValue>,
 {
-    fn into_property(self, cx: Scope) -> Property {
+    fn into_property(self, _cx: Scope) -> Property {
         let modified_fn = Box::new(move || self().into());
         Property::Fn(modified_fn)
     }

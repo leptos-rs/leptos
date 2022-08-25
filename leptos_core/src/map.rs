@@ -27,7 +27,7 @@ where
     U: PartialEq + Debug + Clone,
 {
     // Previous state used for diffing.
-    let mut mapped: Rc<RefCell<Vec<U>>> = Rc::new(RefCell::new(Vec::new()));
+    let mut mapped: Vec<U> = Vec::new();
     let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
 
     let (item_signal, set_item_signal) = create_signal(cx, Vec::new());
@@ -41,12 +41,12 @@ where
         if new_items.is_empty() {
             // Fast path for removing all items.
             let disposers = std::mem::take(&mut disposers);
-            leptos_reactive::queue_microtask(move || {
-                for disposer in disposers {
-                    disposer.unwrap().dispose();
+            for disposer in disposers {
+                if let Some(disposer) = disposer {
+                    disposer.dispose();
                 }
-            });
-            *mapped.borrow_mut() = Vec::new();
+            }
+            mapped.clear();
         } else if items.is_empty() {
             // Fast path for creating items when the existing list is empty.
             for new_item in new_items.iter() {
@@ -54,7 +54,7 @@ where
                 let new_disposer = cx.child_scope(|cx| {
                     value = Some(map_fn(cx, new_item));
                 });
-                mapped.borrow_mut().push(value.unwrap());
+                mapped.push(value.unwrap());
                 disposers.push(Some(new_disposer));
             }
         } else {
@@ -78,7 +78,7 @@ where
             while end > start && new_end > start && items[end - 1] == new_items[new_end - 1] {
                 end -= 1;
                 new_end -= 1;
-                temp[new_end] = Some(mapped.borrow()[end].clone());
+                temp[new_end] = Some(mapped[end].clone());
                 temp_disposers[new_end] = disposers[end].take();
             }
 
@@ -102,7 +102,7 @@ where
                 let item = &items[i];
                 if let Some(j) = new_indices.get(&key_fn(item)).copied() {
                     // Moved. j is index of item in new_items.
-                    temp[j] = Some(mapped.borrow()[i].clone());
+                    temp[j] = Some(mapped[i].clone());
                     temp_disposers[j] = disposers[i].take();
                     new_indices_next[j - start].and_then(|j| new_indices.insert(key_fn(item), j));
                 } else {
@@ -116,11 +116,11 @@ where
             for j in start..new_items.len() {
                 if matches!(temp.get(j), Some(Some(_))) {
                     // Pull from moved array.
-                    if j >= mapped.borrow().len() {
-                        mapped.borrow_mut().push(temp[j].clone().unwrap());
+                    if j >= mapped.len() {
+                        mapped.push(temp[j].clone().unwrap());
                         disposers.push(temp_disposers[j].take());
                     } else {
-                        *mapped.borrow_mut().index_mut(j) = temp[j].clone().unwrap();
+                        *mapped.index_mut(j) = temp[j].clone().unwrap();
                         disposers[j] = temp_disposers[j].take();
                     }
                 } else {
@@ -130,25 +130,22 @@ where
                     let new_disposer = cx.child_scope(|cx| {
                         tmp = Some(map_fn(cx, new_item));
                     });
-                    if mapped.borrow().len() > j {
-                        mapped.borrow_mut()[j] = tmp.unwrap();
+                    if mapped.len() > j {
+                        mapped[j] = tmp.unwrap();
                         disposers[j] = Some(new_disposer);
                     } else {
-                        mapped.borrow_mut().push(tmp.unwrap());
+                        mapped.push(tmp.unwrap());
                         disposers.push(Some(new_disposer));
                     }
                 }
             }
         }
         // 3) In case the new set is shorter than the old, set the length of the mapped array.
-        mapped.borrow_mut().truncate(new_items_len);
+        mapped.truncate(new_items_len);
         disposers.truncate(new_items_len);
 
         // 4) Update signal to trigger updates.
-        set_item_signal({
-            let mapped = Rc::clone(&mapped);
-            move |n| *n = mapped.borrow().to_vec()
-        });
+        set_item_signal(|n| *n = mapped.clone());
 
         // 5) Return the new items, for use in next iteration
         new_items.to_vec()

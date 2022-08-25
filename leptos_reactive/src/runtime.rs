@@ -5,7 +5,6 @@ use crate::{
 use slotmap::SlotMap;
 use std::cell::RefCell;
 use std::fmt::Debug;
-use std::future::Future;
 use std::rc::Rc;
 
 #[derive(Default, Debug)]

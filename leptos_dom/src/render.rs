@@ -7,6 +7,35 @@ use crate::{
     Class, Property,
 };
 
+#[derive(Clone, PartialEq, Eq)]
+pub enum Marker {
+    NoChildren,
+    LastChild,
+    BeforeChild(web_sys::Node),
+}
+
+impl Marker {
+    fn as_some_node(&self) -> Option<&web_sys::Node> {
+        match &self {
+            Self::BeforeChild(node) => Some(node),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Debug for Marker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoChildren => write!(f, "NoChildren"),
+            Self::LastChild => write!(f, "LastChild"),
+            Self::BeforeChild(arg0) => f
+                .debug_tuple("BeforeChild")
+                .field(&arg0.node_name())
+                .finish(),
+        }
+    }
+}
+
 pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, value: Attribute) {
     match value {
         Attribute::Fn(f) => {
@@ -65,33 +94,14 @@ fn class_expression(el: &web_sys::Element, class_name: &str, value: bool) {
 pub fn insert(
     cx: Scope,
     parent: web_sys::Node,
-    mut value: Child,
-    before: Option<web_sys::Node>,
+    value: Child,
+    before: Marker,
     initial: Option<Child>,
-    multi: bool,
 ) {
-    /* let initial = if before.is_some() && initial.is_none() {
-        Some(Child::Nodes(vec![]))
-    } else {
-        initial
-    }; */
-
-    log::debug!(
-        "inserting {value:?} into {} before {:?} with initial {:?}",
-        parent.node_name(),
-        before.as_ref().map(|n| n.node_name()),
-        initial
-    );
-
-    /* while let Child::Fn(f) = value {
-        value = f();
-        log::debug!("insert Fn value = {value:?}");
-    } */
-
     match value {
         Child::Fn(f) => {
             create_render_effect(cx, move |current| {
-                let mut current = current
+                let current = current
                     .unwrap_or_else(|| initial.clone())
                     .unwrap_or(Child::Null);
 
@@ -104,8 +114,7 @@ pub fn insert(
                     parent.clone().unchecked_into(),
                     &value,
                     current,
-                    before.as_ref(),
-                    multi,
+                    &before,
                 ))
             });
         }
@@ -114,8 +123,7 @@ pub fn insert(
                 parent.unchecked_into(),
                 &value,
                 initial.unwrap_or(Child::Null),
-                before.as_ref(),
-                multi,
+                &before,
             );
         }
     }
@@ -125,18 +133,13 @@ pub fn insert_expression(
     parent: web_sys::Element,
     new_value: &Child,
     mut current: Child,
-    before: Option<&web_sys::Node>,
-    multi: bool,
+    before: &Marker,
 ) -> Child {
-    log::debug!(
-        "insert_expression {new_value:?} into {} before {:?} with current {current:?} and multi = {multi}",
-        parent.node_name(),
-        before.map(|b| b.node_name())
-    );
     if new_value == &current {
-        log::debug!("insert_expression: values are equal");
         current
     } else {
+        let multi = before != &Marker::NoChildren;
+
         let parent = if multi {
             match &current {
                 Child::Nodes(nodes) => nodes
@@ -158,19 +161,15 @@ pub fn insert_expression(
                     remove_child(&parent, &old_node);
                     Child::Null
                 } else {
-                    clean_children(&parent, current, before, None, multi)
+                    clean_children(&parent, current, before, None)
                 }
             }
             // if it's a new text value, set that text value
             Child::Text(data) => insert_str(&parent, data, before, multi, current),
             Child::Node(node) => match current {
-                Child::Nodes(current) => clean_children(
-                    &parent,
-                    Child::Nodes(current),
-                    before,
-                    Some(node.clone()),
-                    multi,
-                ),
+                Child::Nodes(current) => {
+                    clean_children(&parent, Child::Nodes(current), before, Some(node.clone()))
+                }
                 Child::Null => Child::Node(append_child(&parent, node)),
                 Child::Text(current_text) => {
                     if current_text.is_empty() {
@@ -181,11 +180,6 @@ pub fn insert_expression(
                     }
                 }
                 Child::Node(old_node) => {
-                    /* crate::warn!(
-                        "replacing old node with new node\n\nparents are {} and {}",
-                        old_node.parent_node().unwrap().node_name(),
-                        node.parent_node().unwrap().node_name()
-                    ); */
                     replace_with(old_node.unchecked_ref(), node);
                     Child::Node(node.clone())
                 }
@@ -200,7 +194,7 @@ pub fn insert_expression(
             },
             Child::Nodes(new_nodes) => {
                 if new_nodes.is_empty() {
-                    clean_children(&parent, current, before, None, multi)
+                    clean_children(&parent, current, before, None)
                 } else if let Child::Nodes(ref mut current_nodes) = current {
                     if current_nodes.is_empty() {
                         Child::Nodes(append_nodes(&parent, new_nodes, before))
@@ -209,7 +203,7 @@ pub fn insert_expression(
                         Child::Nodes(new_nodes.to_vec())
                     }
                 } else {
-                    clean_children(&parent, Child::Null, None, None, multi);
+                    clean_children(&parent, Child::Null, &Marker::NoChildren, None);
                     append_nodes(&parent, new_nodes, before);
                     Child::Nodes(new_nodes.to_vec())
                 }
@@ -220,7 +214,6 @@ pub fn insert_expression(
                 let mut value = f();
                 while let Child::Fn(f) = value {
                     value = f();
-                    log::debug!("insert_expression Fn value = {value:?}");
                 }
                 value
             }
@@ -231,63 +224,55 @@ pub fn insert_expression(
 pub fn insert_str(
     parent: &web_sys::Element,
     data: &str,
-    before: Option<&web_sys::Node>,
+    before: &Marker,
     multi: bool,
     current: Child,
 ) -> Child {
-    log::debug!(
-        "insert_str {data:?} into {} before {:?} with current {current:?} and multi = {multi}",
-        parent.node_name(),
-        before.map(|b| b.node_name())
-    );
-
     if multi {
-        let node = if let Child::Nodes(nodes) = &current {
-            if let Some(node) = nodes.get(0) {
-                if node.node_type() == 3 {
-                    node.unchecked_ref::<web_sys::Text>().set_data(data);
-                    node.clone()
+        if let Child::Node(node) = &current {
+            if node.node_type() == 3 {
+                node.unchecked_ref::<web_sys::Text>().set_data(data);
+                current
+            } else {
+                let new_node = create_text_node(data).unchecked_into::<web_sys::Node>();
+                replace_child(parent, &new_node, node);
+                Child::Node(new_node)
+            }
+        } else {
+            let node = if let Child::Nodes(nodes) = &current {
+                if let Some(node) = nodes.get(0) {
+                    if node.node_type() == 3 {
+                        node.unchecked_ref::<web_sys::Text>().set_data(data);
+                        node.clone()
+                    } else {
+                        create_text_node(data).unchecked_into()
+                    }
                 } else {
                     create_text_node(data).unchecked_into()
                 }
             } else {
                 create_text_node(data).unchecked_into()
-            }
-        } else if let Some(node) = before
-            .and_then(|marker| marker.previous_sibling())
-            .and_then(|prev| prev.dyn_into::<web_sys::Text>().ok())
-        {
-            node.set_data(data);
-            return Child::Text(data.to_string());
-        } else {
-            create_text_node(data).unchecked_into()
-        };
-        clean_children(parent, current, before, Some(node), multi)
+            };
+            clean_children(parent, current, before, Some(node))
+        }
     } else {
         match current {
-            Child::Text(_) => match before {
-                Some(marker) => {
-                    let prev = marker.previous_sibling().unwrap_throw();
-                    if let Some(text_node) = prev.dyn_ref::<web_sys::Text>() {
-                        text_node.set_data(data)
-                    } else {
-                        prev.set_text_content(Some(data))
-                    }
-                }
-                None => match parent.first_child() {
-                    Some(child) => {
-                        child.unchecked_ref::<web_sys::Text>().set_data(data);
-                    }
-                    None => parent.set_text_content(Some(data)),
-                },
-            },
-
-            /* match parent.first_child() {
+            Child::Text(_) => match parent.first_child() {
                 Some(child) => {
                     child.unchecked_ref::<web_sys::Text>().set_data(data);
                 }
                 None => parent.set_text_content(Some(data)),
-            }, */
+            },
+            Child::Node(node) => match parent.first_child() {
+                Some(child) => {
+                    if let Ok(text_node) = child.dyn_into::<web_sys::Text>() {
+                        text_node.set_data(data);
+                    } else {
+                        replace_child(parent, create_text_node(data).unchecked_ref(), &node);
+                    }
+                }
+                None => parent.set_text_content(Some(data)),
+            },
             _ => parent.set_text_content(Some(data)),
         }
         Child::Text(data.to_string())
@@ -297,15 +282,11 @@ pub fn insert_str(
 fn append_nodes(
     parent: &web_sys::Element,
     new_nodes: &[web_sys::Node],
-    marker: Option<&web_sys::Node>,
+    marker: &Marker,
 ) -> Vec<web_sys::Node> {
     let mut result = Vec::new();
     for node in new_nodes {
-        if let Some(marker) = marker {
-            result.push(insert_before(parent, node, Some(marker)));
-        } else {
-            result.push(append_child(parent, node));
-        }
+        result.push(insert_before(parent, node, marker.as_some_node()));
     }
     result
 }
@@ -313,26 +294,19 @@ fn append_nodes(
 fn clean_children(
     parent: &web_sys::Element,
     current: Child,
-    marker: Option<&web_sys::Node>,
+    marker: &Marker,
     replacement: Option<web_sys::Node>,
-    multi: bool,
 ) -> Child {
-    log::debug!(
-        "clean_children on {} before {:?} with current {current:?} and replacement {replacement:?} and multi = {multi}",
-        parent.node_name(),
-        marker.map(|b| b.node_name())
-    );
-
-    if marker.is_none() && !multi {
+    if marker == &Marker::NoChildren {
         parent.set_text_content(Some(""));
         Child::Null
     } else {
         let node = replacement.unwrap_or_else(|| create_text_node("").unchecked_into());
 
         match current {
-            Child::Null => Child::Node(insert_before(parent, &node, marker)),
-            Child::Text(_) => Child::Node(insert_before(parent, &node, marker)),
-            Child::Node(node) => Child::Node(insert_before(parent, &node, marker)),
+            Child::Null => Child::Node(insert_before(parent, &node, marker.as_some_node())),
+            Child::Text(_) => Child::Node(insert_before(parent, &node, marker.as_some_node())),
+            Child::Node(_) => Child::Node(insert_before(parent, &node, marker.as_some_node())),
             Child::Nodes(nodes) => {
                 let mut inserted = false;
                 let mut result = Vec::new();
@@ -344,7 +318,7 @@ fn clean_children(
                                 replace_child(parent, &node, el);
                                 result.push(node.clone())
                             } else {
-                                result.push(insert_before(parent, &node, marker))
+                                result.push(insert_before(parent, &node, marker.as_some_node()))
                             }
                         }
                     } else {

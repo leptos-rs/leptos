@@ -78,6 +78,7 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
                     static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
                 };
                 let root = #template_uid.with(|template| leptos_dom::clone_template(template));
+                //let root = leptos_dom::clone_template(&leptos_dom::create_template(#template));
 
                 #(#navigations);*
                 #(#expressions);*;
@@ -371,26 +372,71 @@ fn child_to_tokens(
 
                 PrevSibChange::Sib(name)
             } else {
-                // doesn't push to template, so shouldn't push to navigations
-                let before = match &next_sib {
-                    Some(child) => quote! { Some(#child.clone()) },
-                    None => quote! { None },
-                };
+                if next_sib.is_some() {
+                    let name = child_ident(*next_el_id, node);
+                    template.push_str("<!>");
+                    let location = if let Some(sibling) = prev_sib {
+                        quote_spanned! {
+                            span => let #name = #sibling.next_sibling().unwrap_throw();
+                        }
+                    } else {
+                        quote_spanned! {
+                            span => let #name = #parent.first_child().unwrap_throw();
+                        }
+                    };
+                    navigations.push(location);
 
-                let value = node.value_as_block().expect("no block value");
+                    let before = match &next_sib {
+                        Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+                        None => {
+                            if multi {
+                                quote! { leptos::Marker::LastChild }
+                            } else {
+                                quote! { leptos::Marker::NoChildren }
+                            }
+                        }
+                    };
 
-                expressions.push(quote! {
-                    leptos::insert(
-                        cx,
-                        #parent.clone(),
-                        #value.into_child(cx),
-                        #before,
-                        None,
-                        #multi,
-                    );
-                });
+                    let value = node.value_as_block().expect("no block value");
 
-                PrevSibChange::Skip
+                    expressions.push(quote! {
+                        leptos::insert(
+                            cx,
+                            #parent.clone(),
+                            #value.into_child(cx),
+                            #before,
+                            None,
+                        );
+                    });
+
+                    PrevSibChange::Sib(name)
+                } else {
+                    // doesn't push to template, so shouldn't push to navigations
+                    let before = match &next_sib {
+                        Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+                        None => {
+                            if multi {
+                                quote! { leptos::Marker::LastChild }
+                            } else {
+                                quote! { leptos::Marker::NoChildren }
+                            }
+                        }
+                    };
+
+                    let value = node.value_as_block().expect("no block value");
+
+                    expressions.push(quote! {
+                        leptos::insert(
+                            cx,
+                            #parent.clone(),
+                            #value.into_child(cx),
+                            #before,
+                            None,
+                        );
+                    });
+
+                    PrevSibChange::Skip
+                }
             }
         }
         _ => panic!("unexpected child node type"),
@@ -409,8 +455,14 @@ fn component_to_tokens(
 
     if let Some(parent) = parent {
         let before = match &next_sib {
-            Some(child) => quote! { Some(#child.clone()) },
-            None => quote! { None },
+            Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+            None => {
+                if multi {
+                    quote! { leptos::Marker::LastChild }
+                } else {
+                    quote! { leptos::Marker::NoChildren }
+                }
+            }
         };
 
         expressions.push(quote! {
@@ -420,7 +472,6 @@ fn component_to_tokens(
                 #create_component.into_child(cx),
                 #before,
                 None,
-                #multi
             );
         });
     } else {

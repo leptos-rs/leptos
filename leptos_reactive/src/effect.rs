@@ -9,7 +9,7 @@ where
     cx.create_eff(true, f)
 }
 
-pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T) -> Effect<T>
+pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
 where
     T: Debug + 'static,
 {
@@ -70,9 +70,9 @@ pub(crate) struct EffectId(pub(crate) usize);
 pub(crate) struct EffectState<T> {
     runtime: &'static Runtime,
     render_effect: bool,
-    f: Box<debug_cell::RefCell<dyn FnMut(Option<T>) -> T>>,
-    value: debug_cell::RefCell<Option<T>>,
-    sources: debug_cell::RefCell<HashSet<Source>>,
+    f: Box<RefCell<dyn FnMut(Option<T>) -> T>>,
+    value: RefCell<Option<T>>,
+    sources: RefCell<HashSet<Source>>,
 }
 
 impl<T> EffectState<T> {
@@ -84,7 +84,7 @@ impl<T> EffectState<T> {
         Self {
             runtime,
             render_effect,
-            f: Box::new(debug_cell::RefCell::new(f)),
+            f: Box::new(RefCell::new(f)),
             value: Default::default(),
             sources: Default::default(),
         }

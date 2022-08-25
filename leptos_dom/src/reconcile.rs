@@ -65,7 +65,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
             // Remove.
             for node in &a[a_start..a_end] {
                 crate::debug_warn!("unwrap at 68");
-                if map.is_none() || !map.as_ref().unwrap().contains_key(&NodeWrapper(&node)) {
+                if map.is_none() || !map.as_ref().unwrap().contains_key(&NodeWrapper(node)) {
                     parent.remove_child(node);
                 }
             }

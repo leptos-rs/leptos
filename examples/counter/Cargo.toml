@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 leptos = { path = "../../leptos" }
 wee_alloc = "0.4"
+console_log = "0.2"
+log = "0.4"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"

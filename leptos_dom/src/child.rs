@@ -1,4 +1,4 @@
-use std::{any::Any, rc::Rc};
+use std::rc::Rc;
 
 use leptos_reactive::Scope;
 use wasm_bindgen::JsCast;
@@ -72,7 +72,7 @@ impl IntoChild for web_sys::Element {
     }
 }
 
-impl<'a, T> IntoChild for Option<T>
+impl<T> IntoChild for Option<T>
 where
     T: IntoChild,
 {
@@ -100,7 +100,7 @@ impl IntoChild for Vec<web_sys::Element> {
     }
 }
 
-impl<'a, T, U> IntoChild for T
+impl<T, U> IntoChild for T
 where
     T: Fn() -> U + 'static,
     U: IntoChild,
