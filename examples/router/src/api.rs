@@ -29,17 +29,29 @@ pub struct Contact {
 
 pub async fn get_contacts(search: String) -> Vec<ContactSummary> {
     // fake an API call with an artificial delay
-    delay(Duration::from_millis(100)).await;
-    vec![ContactSummary {
-        id: 0,
-        first_name: "Bill".into(),
-        last_name: "Smith".into(),
-    }]
+    delay(Duration::from_millis(300)).await;
+    vec![
+        ContactSummary {
+            id: 0,
+            first_name: "Bill".into(),
+            last_name: "Smith".into(),
+        },
+        ContactSummary {
+            id: 1,
+            first_name: "Tim".into(),
+            last_name: "Jones".into(),
+        },
+        ContactSummary {
+            id: 2,
+            first_name: "Sally".into(),
+            last_name: "Stevens".into(),
+        },
+    ]
 }
 
 pub async fn get_contact(id: Option<usize>) -> Option<Contact> {
     // fake an API call with an artificial delay
-    delay(Duration::from_millis(350)).await;
+    delay(Duration::from_millis(500)).await;
     match id {
         Some(0) => Some(Contact {
             id: 0,
@@ -52,6 +64,30 @@ pub async fn get_contact(id: Option<usize>) -> Option<Contact> {
             zip: "02129".into(),
             email: "bill@smith.com".into(),
             phone: "617-121-1221".into(),
+        }),
+        Some(1) => Some(Contact {
+            id: 1,
+            first_name: "Tim".into(),
+            last_name: "Jones".into(),
+            address_1: "56 Main Street".into(),
+            address_2: "".into(),
+            city: "Chattanooga".into(),
+            state: "TN".into(),
+            zip: "13371".into(),
+            email: "timjones@lmail.com".into(),
+            phone: "232-123-1337".into(),
+        }),
+        Some(2) => Some(Contact {
+            id: 2,
+            first_name: "Sally".into(),
+            last_name: "Stevens".into(),
+            address_1: "404 E 123rd St".into(),
+            address_2: "Apt 7E".into(),
+            city: "New York".into(),
+            state: "NY".into(),
+            zip: "10082".into(),
+            email: "sally.stevens@wahoo.net".into(),
+            phone: "242-121-3789".into(),
         }),
         _ => None,
     }
