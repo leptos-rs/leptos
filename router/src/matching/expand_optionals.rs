@@ -3,8 +3,44 @@ use std::borrow::Cow;
 #[doc(hidden)]
 #[cfg(feature = "browser")]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
-    // TODO real implementation for browser
-    vec![pattern.into()]
+    use wasm_bindgen::JsValue;
+
+    #[allow(non_snake_case)]
+    let OPTIONAL_RE = js_sys::RegExp::new(OPTIONAL, "");
+    #[allow(non_snake_case)]
+    let OPTIONAL_RE_2 = js_sys::RegExp::new(OPTIONAL_2, "");
+
+    let captures = OPTIONAL_RE.exec(pattern);
+    match captures {
+        None => vec![pattern.into()],
+        Some(matched) => {
+            let start: usize = js_sys::Reflect::get(&matched, &JsValue::from_str("index"))
+                .unwrap()
+                .as_f64()
+                .unwrap() as usize;
+            let mut prefix = pattern[0..start].to_string();
+            let mut suffix = &pattern[start + matched.get(1).as_string().unwrap().len()..];
+            let mut prefixes = vec![prefix.clone()];
+
+            prefix += &matched.get(1).as_string().unwrap();
+            prefixes.push(prefix.clone());
+
+            while let Some(matched) = OPTIONAL_RE_2.exec(suffix.trim_start_matches('?')) {
+                prefix += &matched.get(1).as_string().unwrap();
+                prefixes.push(prefix.clone());
+                suffix = &suffix[matched.get(0).as_string().unwrap().len()..];
+            }
+
+            expand_optionals(suffix)
+                .iter()
+                .fold(Vec::new(), |mut results, expansion| {
+                    results.extend(prefixes.iter().map(|prefix| {
+                        Cow::Owned(prefix.clone() + expansion.trim_start_matches('?'))
+                    }));
+                    results
+                })
+        }
+    }
 }
 
 #[doc(hidden)]

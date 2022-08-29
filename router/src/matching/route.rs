@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use leptos_dom::Child;
+use leptos_reactive::Scope;
 
 use crate::{Action, Loader};
 
@@ -10,7 +11,7 @@ pub struct RouteDefinition {
     pub loader: Option<Loader>,
     pub action: Option<Action>,
     pub children: Vec<RouteDefinition>,
-    pub element: Rc<dyn Fn() -> Child>,
+    pub element: Rc<dyn Fn(Scope) -> Child>,
 }
 
 impl std::fmt::Debug for RouteDefinition {
@@ -37,7 +38,7 @@ impl Default for RouteDefinition {
             loader: Default::default(),
             action: Default::default(),
             children: Default::default(),
-            element: Rc::new(|| Child::Null),
+            element: Rc::new(|cx| Child::Null),
         }
     }
 }

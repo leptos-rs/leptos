@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{rc::Rc, str::FromStr};
 
 use linear_map::LinearMap;
 
@@ -83,7 +83,7 @@ where
                 Ok(value) => Ok(Some(value)),
                 Err(e) => {
                     eprintln!("{}", e);
-                    Err(RouterError::Params(Box::new(e)))
+                    Err(RouterError::Params(Rc::new(e)))
                 }
             },
         }
@@ -100,6 +100,6 @@ where
 {
     fn into_param(value: Option<&str>, name: &str) -> Result<Self, RouterError> {
         let value = value.ok_or_else(|| RouterError::MissingParam(name.to_string()))?;
-        Self::from_str(value).map_err(|e| RouterError::Params(Box::new(e)))
+        Self::from_str(value).map_err(|e| RouterError::Params(Rc::new(e)))
     }
 }

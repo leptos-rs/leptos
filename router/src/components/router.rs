@@ -51,7 +51,13 @@ where
     // Rebuild the list of nested routes conservatively, and show the root route here
     let mut disposers = Vec::<ScopeDisposer>::new();
 
+    // iterate over the new matches, reusing old routes when they are the same
+    // and replacing them with new routes when they differ
+    let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
+
     let route_states: Memo<RouterState> = create_memo(cx, move |prev: Option<RouterState>| {
+        next.borrow_mut().clear();
+
         let next_matches = matches();
         let prev_matches = prev.as_ref().map(|p| &p.matches);
         let prev_routes = prev.as_ref().map(|p| &p.routes);
@@ -60,10 +66,6 @@ where
         let mut equal = prev_matches
             .map(|prev_matches| next_matches.len() == prev_matches.len())
             .unwrap_or(false);
-
-        // iterate over the new matches, reusing old routes when they are the same
-        // and replacing them with new routes when they differ
-        let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
 
         for i in 0..next_matches.len() {
             let next = next.clone();
@@ -80,21 +82,34 @@ where
             } else {
                 equal = false; 
 
-                let disposer = cx.child_scope({let next = next.clone(); let router = Rc::clone(&router.inner); move |cx| {
+                let disposer = cx.child_scope({
                     let next = next.clone();
-                    let next_ctx = RouteContext::new(
-                        cx,
-                        &RouterContext { inner: router },
-                        {let next = next.clone(); move || next.borrow().get(i + 1).cloned()},
-                        move || matches().get(i).cloned().unwrap()
-                    );
-                    
-                    if next.borrow().len() > i + 1 {
-                        next.borrow_mut()[i] = next_ctx;
-                    } else {
-                        next.borrow_mut().push(next_ctx);
+                    let router = Rc::clone(&router.inner);
+                    move |cx| {
+                        let next = next.clone();
+                        let next_ctx = RouteContext::new(
+                            cx,
+                            &RouterContext { inner: router },
+                            {
+                                let next = next.clone();
+                                move || {
+                                    next.borrow().get(i + 1).cloned()
+                                }
+                            },
+                            move || {
+                                matches().get(i).cloned()
+                            }
+                        );
+
+                        if let Some(next_ctx) = next_ctx {
+                            if next.borrow().len() > i + 1 {
+                                next.borrow_mut()[i] = next_ctx;
+                            } else {
+                                next.borrow_mut().push(next_ctx);
+                            }
+                        }
                     }
-                }});
+                });
 
                 if disposers.len() > i + 1 {
                     let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
@@ -117,7 +132,7 @@ where
             let root = next.borrow().get(0).cloned();
             RouterState {
                 matches: next_matches.to_vec(),
-                routes: next,
+                routes: Rc::new(RefCell::new(next.borrow().to_vec())),
                 root
             }
         }
@@ -126,9 +141,8 @@ where
     // show the root route
     let root_outlet = (move || {
         route_states.with(|state| {
-            log::debug!("new routes {:#?}", state.routes);
             let root = state.routes.borrow();
-            let root = root.get(0).clone();
+            let root = root.get(0);
             if let Some(route) = root {
                 provide_context(cx, route.clone());
             }
@@ -192,7 +206,7 @@ impl RouterContext {
 
         // if initial route is empty, redirect to base path, if it exists
         let base = base.unwrap_or_default();
-        let base_path = resolve_path("", &base, None);
+        let base_path = resolve_path("", base, None);
 
         if let Some(base_path) = &base_path && source.with(|s| s.value.is_empty()) {
 			history.navigate(&LocationChange {
@@ -306,21 +320,21 @@ impl RouterContextInner {
                         } else {
                             {
                                 self.referrers.borrow_mut().push(LocationChange {
-                                    value: resolved_to.to_string(),
+                                    value: self.reference.get(),
                                     replace: options.replace,
                                     scroll: options.scroll,
-                                    state: State(None), // TODO state state.get(),
+                                    state: self.state.get(),
                                 });
                             }
                             let len = self.referrers.borrow().len();
 
                             let transition = use_transition(self.cx);
-                            transition.start({
+                            //transition.start({
                                 let set_reference = self.set_reference;
                                 let set_state = self.set_state;
                                 let referrers = self.referrers.clone();
                                 let this = Rc::clone(&self);
-                                move || {
+                                //move || {
                                     set_reference.update({
                                         let resolved = resolved_to.to_string();
                                         move |r| *r = resolved
@@ -336,9 +350,9 @@ impl RouterContextInner {
                                             scroll: true,
                                             state: options.state.clone(),
                                         })
-                                    }
+                                   // }
                                 }
-                            });
+                            //});
                         }
                     }
 
@@ -348,13 +362,14 @@ impl RouterContextInner {
         })
     }
 
-    pub(crate) fn navigate_end(self: Rc<Self>, next: LocationChange) {
+    pub(crate) fn navigate_end(self: Rc<Self>, mut next: LocationChange) {
+        log::debug!("navigate_end w/ referrers = {:#?}\n\nnext = {next:#?}", self.referrers.borrow());
         let first = self.referrers.borrow().get(0).cloned();
         if let Some(first) = first {
             if next.value != first.value || next.state != first.state {
-                let mut next = next.clone();
                 next.replace = first.replace;
                 next.scroll = first.scroll;
+                log::debug!("navigating in browser to {next:#?}");
                 self.history.navigate(&next);
             }
             self.referrers.borrow_mut().clear();
@@ -391,6 +406,7 @@ impl RouterContextInner {
 
             // let browser handle this event if link has target,
             // or if it doesn't have href or state
+            // TODO "state" is set as a prop, not an attribute
             /* if !target.is_empty() || (href.is_empty() && !a.has_attribute("state")) {
                 log::debug!("target or href empty");
                 ev.prevent_default();
@@ -421,6 +437,7 @@ impl RouterContextInner {
             } */
 
             let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
+            // TODO "state" is set as a prop, not an attribute
             let state = a.get_attribute("state"); // TODO state
 
             ev.prevent_default();
@@ -430,6 +447,7 @@ impl RouterContextInner {
                 &to,
                 &NavigateOptions {
                     resolve: false,
+                    // TODO "replace" is set as a prop, not an attribute
                     replace: a.has_attribute("replace"),
                     scroll: !a.has_attribute("noscroll"),
                     state: State(None), // TODO state
