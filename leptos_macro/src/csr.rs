@@ -50,7 +50,13 @@ fn first_node_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
             .as_ref()
             .map(|value| quote! { #value })
             .expect("root Block node with no value"),
-        _ => panic!("Root nodes need to be a Fragment (<></>) or Element."),
+        NodeType::Text => {
+            let value = node.value_as_string().unwrap();
+            quote! {
+                #value
+            }
+        }
+        _ => panic!("Root nodes need to be a Fragment (<></>), Element, or text."),
     }
 }
 
@@ -132,7 +138,7 @@ fn element_to_tokens(
     } else {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
-                let #this_el_ident = #parent.first_child().unwrap_throw();
+                let #this_el_ident = "first child wing C"; let #this_el_ident = #parent.first_child().unwrap_throw();
         }
     };
     navigations.push(this_nav);
@@ -364,79 +370,80 @@ fn child_to_tokens(
                     }
                 } else {
                     quote_spanned! {
-                        span => let #name = #parent.first_child().unwrap_throw();
+                        span => let #name = "first child wing A";
+                            let #name = #parent.first_child().unwrap_throw();
                     }
                 };
                 navigations.push(location);
                 template.push_str(&v);
 
                 PrevSibChange::Sib(name)
-            } else {
-                if next_sib.is_some() {
-                    let name = child_ident(*next_el_id, node);
-                    template.push_str("<!>");
-                    let location = if let Some(sibling) = prev_sib {
-                        quote_spanned! {
-                            span => let #name = #sibling.next_sibling().unwrap_throw();
-                        }
-                    } else {
-                        quote_spanned! {
-                            span => let #name = #parent.first_child().unwrap_throw();
-                        }
-                    };
-                    navigations.push(location);
+            } else if next_sib.is_some() {
+                *next_el_id += 1;
+                let name = child_ident(*next_el_id, node);
 
-                    let before = match &next_sib {
-                        Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-                        None => {
-                            if multi {
-                                quote! { leptos::Marker::LastChild }
-                            } else {
-                                quote! { leptos::Marker::NoChildren }
-                            }
-                        }
-                    };
-
-                    let value = node.value_as_block().expect("no block value");
-
-                    expressions.push(quote! {
-                        leptos::insert(
-                            cx,
-                            #parent.clone(),
-                            #value.into_child(cx),
-                            #before,
-                            None,
-                        );
-                    });
-
-                    PrevSibChange::Sib(name)
+                template.push_str("<!>");
+                let location = if let Some(sibling) = &prev_sib {
+                    quote_spanned! {
+                        span => let #name = #sibling.next_sibling().unwrap_throw();
+                    }
                 } else {
-                    // doesn't push to template, so shouldn't push to navigations
-                    let before = match &next_sib {
-                        Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-                        None => {
-                            if multi {
-                                quote! { leptos::Marker::LastChild }
-                            } else {
-                                quote! { leptos::Marker::NoChildren }
-                            }
+                    quote_spanned! {
+                        span => let #name = "first child wing B"; let #name = #parent.first_child().unwrap_throw();
+                    }
+                };
+                navigations.push(location);
+
+                let before = match &next_sib {
+                    Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+                    None => {
+                        if multi {
+                            quote! { leptos::Marker::LastChild }
+                        } else {
+                            quote! { leptos::Marker::NoChildren }
                         }
-                    };
+                    }
+                };
 
-                    let value = node.value_as_block().expect("no block value");
+                let value = node.value_as_block().expect("no block value");
 
-                    expressions.push(quote! {
-                        leptos::insert(
-                            cx,
-                            #parent.clone(),
-                            #value.into_child(cx),
-                            #before,
-                            None,
-                        );
-                    });
+                expressions.push(quote! {
+                    leptos::insert(
+                        cx,
+                        #parent.clone(),
+                        #value.into_child(cx),
+                        #before,
+                        None,
+                    );
+                });
 
-                    PrevSibChange::Skip
-                }
+                PrevSibChange::Sib(name)
+            } else {
+                // doesn't push to template, so shouldn't push to navigations
+                let before = match &next_sib {
+                    Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+                    None => {
+                        if multi {
+                            quote! { leptos::Marker::LastChild }
+                        } else {
+                            quote! { leptos::Marker::NoChildren }
+                        }
+                    }
+                };
+
+                let value = node.value_as_block().expect("no block value");
+
+                expressions.push(quote! {
+                    leptos::insert(
+                        cx,
+                        #parent.clone(),
+                        #value.into_child(cx),
+                        #before,
+                        None,
+                    );
+                });
+
+                PrevSibChange::Skip
             }
         }
         _ => panic!("unexpected child node type"),
@@ -510,7 +517,7 @@ fn create_component(node: &Node) -> TokenStream {
         }
     });
 
-    let mut events = node.attributes.iter().filter_map(|attr| {
+    let mut other_attrs = node.attributes.iter().filter_map(|attr| {
         let attr_name = attr.name_as_string().unwrap_or_default();
         if let Some(event_name) = attr_name.strip_prefix("on:") {
             let span = attr.name_span().unwrap();
@@ -521,14 +528,29 @@ fn create_component(node: &Node) -> TokenStream {
             Some(quote_spanned! {
                 span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
             })
-        } else {
+        }
+        // Properties
+        else if let Some(name) = attr_name.strip_prefix("prop:") {
+            let value = node.value.as_ref().expect("prop: blocks need values");
+            Some(quote_spanned! {
+                span => leptos_dom::property(cx, #component_name.unchecked_ref(), #name, #value.into_property(cx))
+            })
+        }
+        // Classes
+        else if let Some(name) = attr_name.strip_prefix("class:") {
+            let value = node.value.as_ref().expect("class: attributes need values");
+            Some(quote_spanned! {
+                span => leptos_dom::class(cx, #component_name.unchecked_ref(), #name, #value.into_class(cx))
+            })
+        }
+        else {
             None
         }
     }).peekable();
 
     // TODO children
 
-    if events.peek().is_none() {
+    if other_attrs.peek().is_none() {
         quote_spanned! {
             span => create_component(cx, move || {
                 #component_name(
@@ -550,7 +572,7 @@ fn create_component(node: &Node) -> TokenStream {
                         #children
                         .build(),
                 );
-                #(#events);*;
+                #(#other_attrs);*;
                 #component_name
             })
         }
