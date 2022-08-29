@@ -1,6 +1,6 @@
 use crate::{
-    AnyEffect, AnySignal, EffectId, EffectState, ResourceId, ResourceState, Runtime, SignalId,
-    SignalState,
+    AnyEffect, AnySignal, EffectId, EffectState, ReadSignal, ResourceId, ResourceState, Runtime,
+    SignalId, SignalState, WriteSignal,
 };
 use elsa::FrozenVec;
 use std::{
@@ -24,6 +24,10 @@ pub struct Scope {
 }
 
 impl Scope {
+    pub fn id(&self) -> ScopeId {
+        self.id
+    }
+
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         self.runtime.create_scope(f, Some(self))
     }
@@ -95,7 +99,7 @@ impl Debug for ScopeDisposer {
     }
 }
 
-slotmap::new_key_type! { pub(crate) struct ScopeId; }
+slotmap::new_key_type! { pub struct ScopeId; }
 
 pub(crate) struct ScopeState {
     pub(crate) parent: Option<Scope>,
