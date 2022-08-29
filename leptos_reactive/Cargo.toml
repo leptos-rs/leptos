@@ -11,6 +11,9 @@ elsa = "1"
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 
+[dev-dependencies]
+sycamore = "0.8.0-beta.7"
+
 [features]
 default = []
 browser = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
