@@ -37,6 +37,7 @@ macro_rules! prop_type {
     };
 }
 
+prop_type!(JsValue);
 prop_type!(String);
 prop_type!(&String);
 prop_type!(&str);

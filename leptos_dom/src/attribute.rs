@@ -1,10 +1,36 @@
+use std::rc::Rc;
+
 use leptos_reactive::Scope;
 
+#[derive(Clone)]
 pub enum Attribute {
     String(String),
-    Fn(Box<dyn Fn() -> Attribute>),
+    Fn(Rc<dyn Fn() -> Attribute>),
     Option(Option<String>),
     Bool(bool),
+}
+
+impl PartialEq for Attribute {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::Fn(_), Self::Fn(_)) => false,
+            (Self::Option(l0), Self::Option(r0)) => l0 == r0,
+            (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+
+impl std::fmt::Debug for Attribute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Fn(_) => f.debug_tuple("Fn").finish(),
+            Self::Option(arg0) => f.debug_tuple("Option").field(arg0).finish(),
+            Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+        }
+    }
 }
 
 pub trait IntoAttribute {
@@ -35,7 +61,7 @@ where
     U: IntoAttribute,
 {
     fn into_attribute(self, cx: Scope) -> Attribute {
-        let modified_fn = Box::new(move || (self)().into_attribute(cx));
+        let modified_fn = Rc::new(move || (self)().into_attribute(cx));
         Attribute::Fn(modified_fn)
     }
 }

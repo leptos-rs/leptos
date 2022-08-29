@@ -40,7 +40,13 @@ pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, valu
     match value {
         Attribute::Fn(f) => {
             let el = el.clone();
-            create_render_effect(cx, move |_| attribute_expression(&el, attr_name, f()));
+            create_render_effect(cx, move |old| {
+                let new = f();
+                if old.as_ref() != Some(&new) {
+                    attribute_expression(&el, attr_name, new.clone());
+                }
+                new
+            });
         }
         _ => attribute_expression(el, attr_name, value),
     }
@@ -62,7 +68,13 @@ pub fn property(cx: Scope, el: &web_sys::Element, prop_name: &'static str, value
     match value {
         Property::Fn(f) => {
             let el = el.clone();
-            create_render_effect(cx, move |_| property_expression(&el, prop_name, f()));
+            create_render_effect(cx, move |old| {
+                let new = f();
+                if old.as_ref() != Some(&new) && !(old == None && new == JsValue::UNDEFINED) {
+                    property_expression(&el, prop_name, new.clone())
+                }
+                new
+            });
         }
         Property::Value(value) => property_expression(el, prop_name, value),
     }
@@ -76,7 +88,13 @@ pub fn class(cx: Scope, el: &web_sys::Element, class_name: &'static str, value: 
     match value {
         Class::Fn(f) => {
             let el = el.clone();
-            create_render_effect(cx, move |_| class_expression(&el, class_name, f()));
+            create_render_effect(cx, move |old| {
+                let new = f();
+                if old.as_ref() != Some(&new) && (old.is_some() || new) {
+                    class_expression(&el, class_name, new)
+                }
+                new
+            });
         }
         Class::Value(value) => class_expression(el, class_name, value),
     }
@@ -106,16 +124,21 @@ pub fn insert(
                     .unwrap_or(Child::Null);
 
                 let mut value = f();
-                while let Child::Fn(f) = value {
-                    value = f();
-                }
 
-                Some(insert_expression(
-                    parent.clone().unchecked_into(),
-                    &value,
-                    current,
-                    &before,
-                ))
+                if current != value {
+                    while let Child::Fn(f) = value {
+                        value = f();
+                    }
+
+                    Some(insert_expression(
+                        parent.clone().unchecked_into(),
+                        &value,
+                        current,
+                        &before,
+                    ))
+                } else {
+                    Some(current)
+                }
             });
         }
         _ => {
@@ -157,7 +180,6 @@ pub fn insert_expression(
             // if the new value is null, clean children out of the parent up to the marker node
             Child::Null => {
                 if let Child::Node(old_node) = current {
-                    crate::debug_warn!("just remove the node");
                     remove_child(&parent, &old_node);
                     Child::Null
                 } else {
