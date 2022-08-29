@@ -5,14 +5,9 @@
   - [ ] Tests for Suspense/Transitions
   - [ ] Bugs in Suspense/Transitions
     - [ ] let render effects that _aren't_ under the transition continue running
-- [ ] Router
-  - [ ] Tests
-  - [ ] Utils
-  - [ ] Components
-  - [ ] Integrations
-    - [ ] Client
-    - [ ] Server
-  - [ ] Examples
+- [ ] Router example
+  - [ ] Styling and formatting
+  - [ ] Get transitions working
 - [ ] Docs (and clippy warning to insist on docs)
 - [ ] Read through + understand...
   - [ ] `Props` macro
