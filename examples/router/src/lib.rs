@@ -63,12 +63,12 @@ pub fn router_example(cx: Scope) -> Element {
                             <Route
                                 path="about"
                                 loader=contact.into()
-                                element=move |cx| view! { <p class="contact">"Here is your list of contacts"</p> }
+                                element=move |_| view! { <p class="contact">"Here is your list of contacts"</p> }
                             />
                             <Route
                                 path=""
                                 loader=contact.into()
-                                element=move |cx| view! { <p class="contact">"Select a contact."</p> }
+                                element=move |_| view! { <p class="contact">"Select a contact."</p> }
                             />
                         </Route>
                         <Route
