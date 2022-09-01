@@ -10,6 +10,7 @@ use leptos_reactive::{
 };
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use wasm_bindgen::JsCast;
 
 use crate::{
     create_location,
@@ -153,7 +154,7 @@ where
     view! { <div>{root_outlet}</div> }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct RouterState {
     matches: Vec<RouteMatch>,
     routes: Rc<RefCell<Vec<RouteContext>>>,
@@ -350,7 +351,7 @@ impl RouterContextInner {
                                             scroll: true,
                                             state: options.state.clone(),
                                         })
-                                   // }
+                                //}
                                 }
                             //});
                         }
