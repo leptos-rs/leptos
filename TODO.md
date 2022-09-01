@@ -8,6 +8,11 @@
 - [ ] Router example
   - [ ] Styling and formatting
   - [ ] Get transitions working
+- [ ] SSR
+  - [x] SSR
+  - [ ] Hydration
+  - [ ] Streaming HTML from server
+  - [ ] Streaming `Resource`s
 - [ ] Docs (and clippy warning to insist on docs)
 - [ ] Read through + understand...
   - [ ] `Props` macro
@@ -18,10 +23,6 @@
   - [ ] Scheduling effects/run effects at end of render
   - [ ] `batch()`
 - [ ] Portals
-- [ ] SSR
-  - [ ] Macro
-  - [ ] Streaming HTML from server
-  - [ ] Streaming `Resource`s
 - [ ] Loaders
 - [ ] Tutorials + website
 - [ ] Scoped CSS

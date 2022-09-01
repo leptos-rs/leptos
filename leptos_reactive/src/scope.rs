@@ -83,6 +83,22 @@ impl Scope {
         })
         // removing from the runtime will drop this Scope, and all its Signals/Effects/Memos
     }
+
+    pub fn begin_hydration(&self) {
+        self.runtime.begin_hydration();
+    }
+
+    pub fn complete_hydration(&self) {
+        self.runtime.complete_hydration();
+    }
+
+    pub fn is_hydrating(&self) -> bool {
+        self.runtime.is_hydrating()
+    }
+
+    pub fn next_hydration_key(&self) -> usize {
+        self.runtime.next_hydration_key()
+    }
 }
 
 pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);

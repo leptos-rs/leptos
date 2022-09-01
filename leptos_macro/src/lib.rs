@@ -3,43 +3,34 @@ use quote::ToTokens;
 use syn::{parse_macro_input, DeriveInput};
 use syn_rsx::{parse, Node, NodeType};
 
-enum Mode {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Mode {
     Client,
     Hydrate,
-    Dehydrate,
-    Static,
+    Ssr,
 }
 
 impl Default for Mode {
     fn default() -> Self {
-        Self::Client
+        if cfg!(feature = "ssr") {
+            Mode::Ssr
+        } else if cfg!(feature = "hydrate") {
+            Mode::Hydrate
+        } else {
+            Mode::Client
+        }
     }
 }
 
-mod csr;
-use csr::client_side_rendering;
+mod view;
+use view::render_view;
 mod component;
 mod props;
 
 #[proc_macro]
 pub fn view(tokens: TokenStream) -> TokenStream {
     match parse(tokens) {
-        Ok(nodes) => {
-            let mode = std::env::var("LEPTOS_MODE")
-                .map(|mode| match mode.to_lowercase().as_str() {
-                    "client" => Mode::Client,
-                    "hydrate" => Mode::Hydrate,
-                    "dehydrate" => Mode::Dehydrate,
-                    "static" => Mode::Static,
-                    _ => Mode::Client,
-                })
-                .unwrap_or_default();
-
-            match mode {
-                Mode::Client => client_side_rendering(&nodes),
-                _ => todo!(),
-            }
-        }
+        Ok(nodes) => render_view(&nodes, Mode::default()),
         Err(error) => error.to_compile_error(),
     }
     .into()

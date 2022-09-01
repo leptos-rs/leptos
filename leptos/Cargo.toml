@@ -11,5 +11,8 @@ leptos_reactive = { path = "../leptos_reactive" }
 leptos_router = { path = "../router" }
 
 [features]
-default = ["browser"]
+default = ["browser", "csr"]
 browser = ["leptos_router/browser", "leptos_reactive/browser"]
+csr = ["leptos_macro/client"]
+ssr = ["leptos_macro/ssr", "leptos_dom/server", "leptos_router/server"]
+hydrate = ["leptos_macro/hydrate"]

@@ -13,3 +13,14 @@ quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 syn-rsx = "0.8.1"
 uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+leptos_core = { path = "../leptos_core" }
+leptos_dom = { path = "../leptos_dom", features = ["server"] }
+leptos_reactive = { path = "../leptos_reactive" }
+
+[features]
+default = ["client"]
+client = []
+hydrate = []
+ssr = []

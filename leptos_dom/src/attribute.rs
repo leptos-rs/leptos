@@ -10,6 +10,32 @@ pub enum Attribute {
     Bool(bool),
 }
 
+impl Attribute {
+    pub fn as_value_string(&self, attr_name: &'static str) -> String {
+        match self {
+            Attribute::String(value) => format!("{attr_name}=\"{value}\""),
+            Attribute::Fn(f) => {
+                let mut value = f();
+                while let Attribute::Fn(f) = value {
+                    value = f();
+                }
+                value.as_value_string(attr_name)
+            }
+            Attribute::Option(value) => value
+                .as_ref()
+                .map(|value| format!("{attr_name}=\"{value}\""))
+                .unwrap_or_default(),
+            Attribute::Bool(include) => {
+                if *include {
+                    attr_name.to_string()
+                } else {
+                    String::new()
+                }
+            }
+        }
+    }
+}
+
 impl PartialEq for Attribute {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {

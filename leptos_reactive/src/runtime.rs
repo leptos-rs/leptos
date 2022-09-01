@@ -3,12 +3,14 @@ use crate::{
     ScopeState, SignalId, SignalState, Subscriber, TransitionState,
 };
 use slotmap::SlotMap;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
 
 #[derive(Default, Debug)]
 pub(crate) struct Runtime {
+    pub(crate) is_hydrating: Cell<bool>,
+    pub(crate) hydration_key: Cell<usize>,
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
     pub(crate) transition: RefCell<Option<Rc<TransitionState>>>,
@@ -146,6 +148,24 @@ impl Runtime {
         let untracked_result = f();
         self.stack.replace(prev_stack);
         untracked_result
+    }
+
+    pub fn is_hydrating(&self) -> bool {
+        self.is_hydrating.get()
+    }
+
+    pub fn begin_hydration(&self) {
+        self.is_hydrating.set(true);
+    }
+
+    pub fn complete_hydration(&self) {
+        self.is_hydrating.set(false);
+    }
+
+    pub fn next_hydration_key(&self) -> usize {
+        let next = self.hydration_key.get();
+        self.hydration_key.set(next + 1);
+        next
     }
 }
 

@@ -35,4 +35,5 @@ features = [
 
 [features]
 default = ["dep:url", "dep:regex"]
-browser = ["dep:js-sys"]
+browser = ["dep:js-sys", "leptos_dom/browser"]
+server = ["leptos_dom/server"]

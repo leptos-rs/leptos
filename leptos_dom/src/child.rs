@@ -3,7 +3,7 @@ use std::rc::Rc;
 use leptos_reactive::Scope;
 use wasm_bindgen::JsCast;
 
-type Node = web_sys::Node;
+use crate::Node;
 
 #[derive(Clone)]
 pub enum Child {
@@ -12,6 +12,25 @@ pub enum Child {
     Fn(Rc<dyn Fn() -> Child>),
     Node(Node),
     Nodes(Vec<Node>),
+}
+
+impl Child {
+    #[cfg(feature = "server")]
+    pub fn as_child_string(&self) -> String {
+        match self {
+            Child::Null => String::new(),
+            Child::Text(text) => text.to_string(),
+            Child::Fn(f) => {
+                let mut value = f();
+                while let Child::Fn(f) = value {
+                    value = f();
+                }
+                value.as_child_string()
+            }
+            Child::Node(node) => node.to_string(),
+            Child::Nodes(nodes) => nodes.iter().cloned().collect(),
+        }
+    }
 }
 
 impl std::fmt::Debug for Child {
@@ -54,18 +73,21 @@ impl IntoChild for String {
     }
 }
 
+#[cfg(not(feature = "server"))]
 impl IntoChild for web_sys::Node {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self)
     }
 }
 
+#[cfg(not(feature = "server"))]
 impl IntoChild for web_sys::Text {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
     }
 }
 
+#[cfg(not(feature = "server"))]
 impl IntoChild for web_sys::Element {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
@@ -84,12 +106,14 @@ where
     }
 }
 
+#[cfg(not(feature = "server"))]
 impl IntoChild for Vec<web_sys::Node> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(self)
     }
 }
 
+#[cfg(not(feature = "server"))]
 impl IntoChild for Vec<web_sys::Element> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(

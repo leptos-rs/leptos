@@ -4,20 +4,20 @@ use syn::{spanned::Spanned, ExprPath};
 use syn_rsx::{Node, NodeName, NodeType};
 use uuid::Uuid;
 
-use crate::is_component_node;
+use crate::{is_component_node, Mode};
 
-pub fn client_side_rendering(nodes: &[Node]) -> TokenStream {
+pub(crate) fn render_view(nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
         &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
         Span::call_site(),
     );
 
     if nodes.len() == 1 {
-        first_node_to_tokens(&template_uid, &nodes[0])
+        first_node_to_tokens(&template_uid, &nodes[0], mode)
     } else {
         let nodes = nodes
             .iter()
-            .map(|node| first_node_to_tokens(&template_uid, node));
+            .map(|node| first_node_to_tokens(&template_uid, node, mode));
         quote! {
             {
                 vec![
@@ -28,14 +28,14 @@ pub fn client_side_rendering(nodes: &[Node]) -> TokenStream {
     }
 }
 
-fn first_node_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
+fn first_node_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
     match node.node_type {
         NodeType::Doctype | NodeType::Comment => quote! {},
         NodeType::Fragment => {
             let nodes = node
                 .children
                 .iter()
-                .map(|node| first_node_to_tokens(template_uid, node));
+                .map(|node| first_node_to_tokens(template_uid, node, mode));
             quote! {
                 {
                     vec![
@@ -44,7 +44,7 @@ fn first_node_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
                 }
             }
         }
-        NodeType::Element => root_element_to_tokens(template_uid, node),
+        NodeType::Element => root_element_to_tokens(template_uid, node, mode),
         NodeType::Block => node
             .value
             .as_ref()
@@ -60,37 +60,63 @@ fn first_node_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
     }
 }
 
-fn root_element_to_tokens(template_uid: &Ident, node: &Node) -> TokenStream {
+fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
     let mut template = String::new();
     let mut navigations = Vec::new();
     let mut expressions = Vec::new();
 
     if is_component_node(node) {
-        create_component(node)
+        create_component(node, mode)
     } else {
         element_to_tokens(
             node,
             &Ident::new("root", Span::call_site()),
             None,
             &mut 0,
+            &mut 0,
             &mut template,
             &mut navigations,
             &mut expressions,
+            true,
+            mode,
         );
 
-        quote! {
-            {
-                thread_local! {
-                    static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
+        match mode {
+            Mode::Ssr => {
+                quote! {
+                    format!(
+                        #template,
+                        #(#expressions),*
+                    )
+                }
+            }
+            _ => {
+                // create the root element from which navigations and expressions will begin
+                let generate_root = match mode {
+                    // SSR is just going to return a format string, so no root/navigations
+                    Mode::Ssr => unreachable!(),
+                    // for CSR, just clone the template and take the first child as the root
+                    Mode::Client => quote! {
+                        let root = #template_uid.with(|template| leptos_dom::clone_template(template)).first_element_child().unwrap_throw();
+                    },
+                    // for hydration, use get_next_element(), which will either draw from an SSRed node or clone the template
+                    Mode::Hydrate => quote! {
+                        let root = #template_uid.with(|template| cx.get_next_element(template));
+                    },
                 };
-                let root = #template_uid.with(|template| leptos_dom::clone_template(template));
-                //let root = leptos_dom::clone_template(&leptos_dom::create_template(#template));
 
-                #(#navigations);*
-                #(#expressions);*;
+                quote! {
+                    thread_local! {
+                        static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
+                    };
 
-                // returns the first child created in the template
-                root.first_element_child().unwrap_throw()
+                    #generate_root
+
+                    #(#navigations);*
+                    #(#expressions);*;
+
+                    root
+                }
             }
         }
     }
@@ -109,28 +135,44 @@ fn element_to_tokens(
     parent: &Ident,
     prev_sib: Option<Ident>,
     next_el_id: &mut usize,
+    next_co_id: &mut usize,
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
     expressions: &mut Vec<TokenStream>,
+    is_root_el: bool,
+    mode: Mode,
 ) -> Ident {
     // create this element
     *next_el_id += 1;
     let this_el_ident = child_ident(*next_el_id, node);
 
-    // TEMPLATE: open tag
+    // TEMPLATE: open tag — true for any mode
     let name_str = node.name_as_string().unwrap();
     template.push('<');
     template.push_str(&name_str);
 
+    // for SSR: add a hydration key
+    if mode == Mode::Ssr && is_root_el {
+        template.push_str(" data-hk=\"{}\"");
+        expressions.push(quote! {
+            cx.next_hydration_key()
+        });
+    }
+
     // attributes
     for attr in &node.attributes {
-        attr_to_tokens(attr, &this_el_ident, template, expressions);
+        attr_to_tokens(attr, &this_el_ident, template, expressions, mode);
     }
 
     // navigation for this el
     let debug_name = debug_name(node);
     let span = span(node);
-    let this_nav = if let Some(prev_sib) = &prev_sib {
+    let this_nav = if is_root_el {
+        quote_spanned! {
+            span => let #this_el_ident = #debug_name;
+                let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
+        }
+    } else if let Some(prev_sib) = &prev_sib {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
                 let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
@@ -138,7 +180,7 @@ fn element_to_tokens(
     } else {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
-                let #this_el_ident = "first child wing C"; let #this_el_ident = #parent.first_child().unwrap_throw();
+                let #this_el_ident = #parent.first_child().unwrap_throw();
         }
     };
     navigations.push(this_nav);
@@ -187,10 +229,12 @@ fn element_to_tokens(
             if idx == 0 { None } else { prev_sib.clone() },
             next_sib,
             next_el_id,
+            next_co_id,
             template,
             navigations,
             expressions,
             multi,
+            mode,
         );
 
         prev_sib = match curr_id {
@@ -200,7 +244,7 @@ fn element_to_tokens(
         };
     }
 
-    // TEMPLATE: close tag
+    // TEMPLATE: close tag (same for any mode)
     template.push_str("</");
     template.push_str(&name_str);
     template.push('>');
@@ -213,6 +257,7 @@ fn attr_to_tokens(
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
+    mode: Mode,
 ) {
     let name = node
         .name_as_string()
@@ -234,48 +279,60 @@ fn attr_to_tokens(
 
     // refs
     if name == "ref" {
-        expressions.push(match &node.value {
-            Some(expr) => {
-                if let Some(ident) = expr_to_ident(expr) {
-                    quote_spanned! {
-                        span =>
-                            // we can't pass by reference because the _el won't live long enough (it's dropped when template returns)
-                            // so we clone here; this will be unnecessary if it's the last attribute, but very necessary otherwise
-                            #ident = #el_id.clone().unchecked_into::<web_sys::Element>();
+        // refs mean nothing in SSR
+        if mode != Mode::Ssr {
+            expressions.push(match &node.value {
+                Some(expr) => {
+                    if let Some(ident) = expr_to_ident(expr) {
+                        quote_spanned! {
+                            span =>
+                                // we can't pass by reference because the _el won't live long enough (it's dropped when template returns)
+                                // so we clone here; this will be unnecessary if it's the last attribute, but very necessary otherwise
+                                #ident = #el_id.clone().unchecked_into::<web_sys::Element>();
+                        }
+                    } else {
+                        panic!("'ref' needs to be passed a variable name")
                     }
-                } else {
-                    panic!("'ref' needs to be passed a variable name")
                 }
-            }
-            _ => panic!("'ref' needs to be passed a variable name"),
-        })
+                _ => panic!("'ref' needs to be passed a variable name"),
+            })
+        }
     }
     // Event Handlers
     else if name.starts_with("on:") {
-        let event_name = name.replacen("on:", "", 1);
-        let handler = node
-            .value
-            .as_ref()
-            .expect("event listener attributes need a value");
-        expressions.push(quote_spanned! {
-            span => add_event_listener(#el_id.unchecked_ref(), #event_name, #handler);
-        });
+        if mode != Mode::Ssr {
+            let event_name = name.replacen("on:", "", 1);
+            let handler = node
+                .value
+                .as_ref()
+                .expect("event listener attributes need a value");
+            expressions.push(quote_spanned! {
+                span => add_event_listener(#el_id.unchecked_ref(), #event_name, #handler);
+            });
+        }
     }
     // Properties
     else if name.starts_with("prop:") {
-        let name = name.replacen("prop:", "", 1);
-        let value = node.value.as_ref().expect("prop: blocks need values");
-        expressions.push(quote_spanned! {
+        // can't set properties in SSR
+        if mode != Mode::Ssr {
+            let name = name.replacen("prop:", "", 1);
+            let value = node.value.as_ref().expect("prop: blocks need values");
+            expressions.push(quote_spanned! {
             span => leptos_dom::property(cx, #el_id.unchecked_ref(), #name, #value.into_property(cx))
         });
+        }
     }
     // Classes
     else if name.starts_with("class:") {
-        let name = name.replacen("class:", "", 1);
-        let value = node.value.as_ref().expect("class: attributes need values");
-        expressions.push(quote_spanned! {
-            span => leptos_dom::class(cx, #el_id.unchecked_ref(), #name, #value.into_class(cx))
-        });
+        if mode == Mode::Ssr {
+            todo!()
+        } else {
+            let name = name.replacen("class:", "", 1);
+            let value = node.value.as_ref().expect("class: attributes need values");
+            expressions.push(quote_spanned! {
+                span => leptos_dom::class(cx, #el_id.unchecked_ref(), #name, #value.into_class(cx))
+            });
+        }
     }
     // Attributes
     else {
@@ -297,12 +354,20 @@ fn attr_to_tokens(
                 template.push('"');
             }
 
-            // For client-side rendering, dynamic attributes don't need to be rendered in the template
-            // They'll immediately be set synchronously before the cloned template is mounted
+            // Dynamic attributes are handled differently depending on the rendering mode
             AttributeValue::Dynamic(value) => {
-                expressions.push(quote_spanned! {
-                    span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, #value.into_attribute(cx))
-                });
+                if mode == Mode::Ssr {
+                    template.push_str(" {}");
+                    expressions.push(quote_spanned! {
+                        span => #value.into_attribute(cx).as_value_string(#name)
+                    });
+                } else {
+                    // For client-side rendering, dynamic attributes don't need to be rendered in the template
+                    // They'll immediately be set synchronously before the cloned template is mounted
+                    expressions.push(quote_spanned! {
+                        span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, #value.into_attribute(cx))
+                    });
+                }
             }
         }
     }
@@ -321,24 +386,37 @@ fn child_to_tokens(
     prev_sib: Option<Ident>,
     next_sib: Option<Ident>,
     next_el_id: &mut usize,
+    next_co_id: &mut usize,
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
     expressions: &mut Vec<TokenStream>,
     multi: bool,
+    mode: Mode,
 ) -> PrevSibChange {
     match node.node_type {
         NodeType::Element => {
             if is_component_node(node) {
-                component_to_tokens(node, Some(parent), next_sib, expressions, multi)
+                component_to_tokens(
+                    node,
+                    Some(parent),
+                    next_sib,
+                    template,
+                    expressions,
+                    multi,
+                    mode,
+                )
             } else {
                 PrevSibChange::Sib(element_to_tokens(
                     node,
                     parent,
                     prev_sib,
                     next_el_id,
+                    next_co_id,
                     template,
                     navigations,
                     expressions,
+                    false,
+                    mode,
                 ))
             }
         }
@@ -370,8 +448,7 @@ fn child_to_tokens(
                     }
                 } else {
                     quote_spanned! {
-                        span => let #name = "first child wing A";
-                            let #name = #parent.first_child().unwrap_throw();
+                        span => let #name = #parent.first_child().unwrap_throw();
                     }
                 };
                 navigations.push(location);
@@ -382,17 +459,43 @@ fn child_to_tokens(
                 *next_el_id += 1;
                 let name = child_ident(*next_el_id, node);
 
-                template.push_str("<!>");
                 let location = if let Some(sibling) = &prev_sib {
                     quote_spanned! {
                         span => let #name = #sibling.next_sibling().unwrap_throw();
                     }
                 } else {
                     quote_spanned! {
-                        span => let #name = "first child wing B"; let #name = #parent.first_child().unwrap_throw();
+                        span => let #name = #parent.first_child().unwrap_throw();
                     }
                 };
-                navigations.push(location);
+
+                // these markers are one of the primary templating differences across modes
+                match mode {
+                    // in CSR, simply insert a comment node: it will be picked up and replaced with the value
+                    Mode::Client => {
+                        template.push_str("<!>");
+                        navigations.push(location);
+                    }
+                    // when hydrating, a text node will be generated by SSR; in the hydration/CSR template,
+                    // wrap it with comments that mark where it begins and ends
+                    Mode::Hydrate => {
+                        *next_el_id += 1;
+                        let el = child_ident(*next_el_id, node);
+                        *next_co_id += 1;
+                        let co = comment_ident(*next_co_id, node);
+
+                        template.push_str("<!#><!/>");
+                        navigations.push(quote! {
+                            #location;
+                            let (#el, #co) = cx.get_next_marker(#name);
+                        });
+                    }
+                    // in SSR, it needs to both wrap with comments and insert a hole for an existing value
+                    Mode::Ssr => {
+                        template.push_str("<!--#-->{}<!--/-->");
+                        // TODO push expression here, or elsewhere?
+                    }
+                }
 
                 let before = match &next_sib {
                     Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
@@ -407,15 +510,21 @@ fn child_to_tokens(
 
                 let value = node.value_as_block().expect("no block value");
 
-                expressions.push(quote! {
-                    leptos::insert(
-                        cx,
-                        #parent.clone(),
-                        #value.into_child(cx),
-                        #before,
-                        None,
-                    );
-                });
+                if mode == Mode::Ssr {
+                    expressions.push(quote! {
+                        #value.into_child(cx).as_child_string()
+                    });
+                } else {
+                    expressions.push(quote! {
+                        leptos::insert(
+                            cx,
+                            #parent.clone(),
+                            #value.into_child(cx),
+                            #before,
+                            None,
+                        );
+                    });
+                }
 
                 PrevSibChange::Sib(name)
             } else {
@@ -433,15 +542,21 @@ fn child_to_tokens(
 
                 let value = node.value_as_block().expect("no block value");
 
-                expressions.push(quote! {
-                    leptos::insert(
-                        cx,
-                        #parent.clone(),
-                        #value.into_child(cx),
-                        #before,
-                        None,
-                    );
-                });
+                if mode == Mode::Ssr {
+                    expressions.push(quote! {
+                        #value.into_child(cx).as_child_string()
+                    });
+                } else {
+                    expressions.push(quote! {
+                        leptos::insert(
+                            cx,
+                            #parent.clone(),
+                            #value.into_child(cx),
+                            #before,
+                            None,
+                        );
+                    });
+                }
 
                 PrevSibChange::Skip
             }
@@ -455,10 +570,12 @@ fn component_to_tokens(
     node: &Node,
     parent: Option<&Ident>,
     next_sib: Option<Ident>,
+    template: &mut String,
     expressions: &mut Vec<TokenStream>,
     multi: bool,
+    mode: Mode,
 ) -> PrevSibChange {
-    let create_component = create_component(node);
+    let create_component = create_component(node, mode);
 
     if let Some(parent) = parent {
         let before = match &next_sib {
@@ -472,15 +589,22 @@ fn component_to_tokens(
             }
         };
 
-        expressions.push(quote! {
-            leptos::insert(
-                cx,
-                #parent.clone(),
-                #create_component.into_child(cx),
-                #before,
-                None,
-            );
-        });
+        if mode == Mode::Ssr {
+            template.push_str("<!--#-->{}<!--/-->");
+            expressions.push(quote! {
+                #create_component.into_child(cx).as_child_string()
+            });
+        } else {
+            expressions.push(quote! {
+                leptos::insert(
+                    cx,
+                    #parent.clone(),
+                    #create_component.into_child(cx),
+                    #before,
+                    None,
+                );
+            });
+        }
     } else {
         expressions.push(create_component)
     }
@@ -488,7 +612,7 @@ fn component_to_tokens(
     PrevSibChange::Skip
 }
 
-fn create_component(node: &Node) -> TokenStream {
+fn create_component(node: &Node, mode: Mode) -> TokenStream {
     let component_name = ident_from_tag_name(node.name.as_ref().unwrap());
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
@@ -496,10 +620,10 @@ fn create_component(node: &Node) -> TokenStream {
     let children = if node.children.is_empty() {
         quote! {}
     } else if node.children.len() == 1 {
-        let child = client_side_rendering(&node.children);
+        let child = render_view(&node.children, mode);
         quote! { .children(vec![#child]) }
     } else {
-        let children = client_side_rendering(&node.children);
+        let children = render_view(&node.children, mode);
         quote! { .children(#children) }
     };
 
@@ -593,6 +717,15 @@ fn span(node: &Node) -> Span {
 
 fn child_ident(el_id: usize, node: &Node) -> Ident {
     let id = format!("_el{el_id}");
+    match node.node_type {
+        NodeType::Element => Ident::new(&id, node.name_span().unwrap()),
+        NodeType::Text | NodeType::Block => Ident::new(&id, node.value.as_ref().unwrap().span()),
+        _ => panic!("invalid child node type"),
+    }
+}
+
+fn comment_ident(co_id: usize, node: &Node) -> Ident {
+    let id = format!("_co{co_id}");
     match node.node_type {
         NodeType::Element => Ident::new(&id, node.name_span().unwrap()),
         NodeType::Text | NodeType::Block => Ident::new(&id, node.value.as_ref().unwrap().span()),

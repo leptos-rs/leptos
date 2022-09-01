@@ -1,40 +1,57 @@
 mod attribute;
 mod child;
 mod class;
+#[cfg(not(feature = "server"))]
 mod event_delegation;
 pub mod logging;
+#[cfg(not(feature = "server"))]
 mod operations;
 mod property;
+#[cfg(not(feature = "server"))]
 mod reconcile;
+#[cfg(not(feature = "server"))]
 mod render;
 
 pub use attribute::*;
 pub use child::*;
 pub use class::*;
 pub use logging::*;
+#[cfg(not(feature = "server"))]
 pub use operations::*;
 pub use property::*;
+#[cfg(not(feature = "server"))]
 pub use render::*;
 
 pub use js_sys;
 pub use wasm_bindgen;
 pub use web_sys;
 
+#[cfg(not(feature = "server"))]
 pub type Element = web_sys::Element;
+#[cfg(feature = "server")]
+pub type Element = String;
+
+#[cfg(not(feature = "server"))]
+pub type Node = web_sys::Node;
+#[cfg(feature = "server")]
+pub type Node = String;
 
 use leptos_reactive::{create_scope, Scope};
 pub use wasm_bindgen::UnwrapThrowExt;
 
+#[cfg(not(feature = "server"))]
 pub trait Mountable {
     fn mount(&self, parent: &web_sys::Element);
 }
 
+#[cfg(not(feature = "server"))]
 impl Mountable for Element {
     fn mount(&self, parent: &web_sys::Element) {
         parent.append_child(self).unwrap_throw();
     }
 }
 
+#[cfg(not(feature = "server"))]
 impl Mountable for Vec<Element> {
     fn mount(&self, parent: &web_sys::Element) {
         for element in self {
@@ -43,6 +60,7 @@ impl Mountable for Vec<Element> {
     }
 }
 
+#[cfg(not(feature = "server"))]
 pub fn mount_to_body<T, F>(f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -51,6 +69,7 @@ where
     mount(document().body().unwrap_throw(), f)
 }
 
+#[cfg(not(feature = "server"))]
 pub fn mount<T, F>(parent: web_sys::HtmlElement, f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -60,6 +79,21 @@ where
     // as the "mount" has no parent that can clean it up
     let _ = create_scope(move |cx| {
         (f(cx)).mount(&parent);
+    });
+}
+
+#[cfg(not(feature = "server"))]
+pub fn hydrate<T, F>(parent: web_sys::HtmlElement, f: F)
+where
+    F: Fn(Scope) -> T + 'static,
+    T: Mountable,
+{
+    // running "hydrate" intentionally leaks the memory,
+    // as the "hydrate" has no parent that can clean it up
+    let _ = create_scope(move |cx| {
+        cx.begin_hydration();
+        (f(cx));
+        cx.complete_hydration();
     });
 }
 
@@ -74,7 +108,7 @@ where
 #[macro_export]
 macro_rules! is_server {
     () => {
-        !cfg!(target_arch = "wasm32")
+        cfg!(feature = "server")
     };
 }
 
