@@ -53,22 +53,27 @@ impl Transition {
                 let signals = running_transition.signals.clone();
                 let effects = running_transition.effects.clone();
                 let set_pending = self.set_pending;
+
                 // place this at end of task queue so it doesn't start at 0
                 queue_microtask(move || {
                     create_effect(scope, move |_| {
                         let pending = resources.borrow().iter().map(|p| p.get()).sum::<usize>();
 
                         if pending == 0 {
+                            log::debug!("[Transition] transition complete");
                             for signal in signals.borrow().iter() {
+                                log::debug!("[Transition] deferred signal");
                                 runtime.any_signal(*signal, |signal| {
                                     signal.end_transition(runtime);
                                 });
                             }
                             for effect in effects.borrow().iter() {
+                                log::debug!("[Transition] running deferred effect");
                                 runtime.any_effect(*effect, |any_effect| {
                                     any_effect.run(*effect);
                                 });
                             }
+                            log::debug!("[Transition] setting pending to false");
                             set_pending.update(|n| *n = false);
                         }
                     });
