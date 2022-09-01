@@ -8,13 +8,15 @@ where
 
 pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
 where
-    T: Clone + Debug + 'static,
+    T: PartialEq + Clone + Debug + 'static,
 {
     let (read, set) = create_signal(cx, None);
 
     create_effect(cx, move |prev| {
-        let new = f(prev);
-        set(|n| *n = Some(new.clone()));
+        let new = f(prev.clone());
+        if prev.as_ref() != Some(&new) {
+            set(|n| *n = Some(new.clone()));
+        }
         new
     });
 

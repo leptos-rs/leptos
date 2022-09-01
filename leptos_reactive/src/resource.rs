@@ -22,7 +22,7 @@ pub fn create_resource<S, T, Fu>(
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: PartialEq + Debug + Clone + 'static,
     T: Debug + Clone + 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -36,7 +36,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
     initial_value: Option<T>,
 ) -> Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: PartialEq + Debug + Clone + 'static,
     T: Debug + Clone + 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -231,7 +231,13 @@ where
         let running_transition = self.scope.runtime.running_transition();
         for suspense_context in suspense_contexts.borrow().iter() {
             suspense_context.increment();
+            log::debug!(
+                "[Transition] resource: running transition? {}",
+                running_transition.is_some()
+            );
+
             if let Some(transition) = &running_transition {
+                log::debug!("[Transition] adding resource");
                 transition
                     .resources
                     .borrow_mut()

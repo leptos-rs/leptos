@@ -40,7 +40,7 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RouteContext {
     inner: Rc<RouteContextInner>,
 }
@@ -145,6 +145,16 @@ pub(crate) struct RouteContextInner {
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
     pub(crate) outlet: Box<dyn Fn() -> Option<Child>>,
+}
+
+impl PartialEq for RouteContextInner {
+    fn eq(&self, other: &Self) -> bool {
+        self.cx == other.cx
+            && self.base_path == other.base_path
+            && self.path == other.path
+            && self.original_path == other.original_path
+            && self.params == other.params
+    }
 }
 
 impl std::fmt::Debug for RouteContextInner {

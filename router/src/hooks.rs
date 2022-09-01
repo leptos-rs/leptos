@@ -21,7 +21,7 @@ pub fn use_location(cx: Scope) -> Location {
 
 pub fn use_params<T: Params>(cx: Scope) -> Memo<Result<T, RouterError>>
 where
-    T: std::fmt::Debug + Clone,
+    T: PartialEq + std::fmt::Debug + Clone,
 {
     let route = use_route(cx);
     create_memo(cx, move |_| T::from_map(&route.params()))
