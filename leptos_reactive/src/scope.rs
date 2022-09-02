@@ -84,20 +84,103 @@ impl Scope {
         // removing from the runtime will drop this Scope, and all its Signals/Effects/Memos
     }
 
-    pub fn begin_hydration(&self) {
-        self.runtime.begin_hydration();
+    #[cfg(feature = "browser")]
+    pub fn start_hydration(&self, element: &web_sys::Element) {
+        self.runtime.start_hydration(element);
     }
 
-    pub fn complete_hydration(&self) {
-        self.runtime.complete_hydration();
+    #[cfg(feature = "browser")]
+    pub fn end_hydration(&self) {
+        self.runtime.end_hydration();
     }
 
-    pub fn is_hydrating(&self) -> bool {
-        self.runtime.is_hydrating()
+    #[cfg(feature = "browser")]
+    pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
+        use wasm_bindgen::{JsCast, UnwrapThrowExt};
+
+        log::debug!("get_next_element");
+
+        let cloned_template = |t: &web_sys::Element| {
+            t.unchecked_ref::<web_sys::HtmlTemplateElement>()
+                .content()
+                .clone_node_with_deep(true)
+                .unwrap_throw()
+                .unchecked_into::<web_sys::Element>()
+                .first_element_child()
+                .unwrap_throw()
+        };
+
+        if let Some(ref mut shared_context) = &mut *self.runtime.shared_context.borrow_mut() {
+            if shared_context.id.is_some() {
+                let key = shared_context.next_hydration_key();
+                log::debug!(
+                    "searching for key {key} in registry {:#?}",
+                    shared_context.registry
+                );
+                let node = shared_context.registry.remove(&key.to_string());
+
+                if let Some(node) = node {
+                    shared_context.completed.push(node.clone());
+                    node
+                } else {
+                    log::debug!("get_next_element() cloned_template C");
+                    cloned_template(template)
+                }
+            } else {
+                log::debug!("get_next_element() cloned_template B");
+                cloned_template(template)
+            }
+        } else {
+            log::debug!("get_next_element() cloned_template A");
+            cloned_template(template)
+        }
     }
 
-    pub fn next_hydration_key(&self) -> usize {
-        self.runtime.next_hydration_key()
+    #[cfg(feature = "browser")]
+    pub fn get_next_marker(&self, start: &web_sys::Node) -> (web_sys::Node, Vec<web_sys::Node>) {
+        let mut end = Some(start.clone());
+        let mut count = 0;
+        let mut current = Vec::new();
+        let mut start = start.clone();
+
+        log::debug!("get_next_marker");
+
+        if self
+            .runtime
+            .shared_context
+            .borrow()
+            .as_ref()
+            .map(|sc| sc.id)
+            .is_some()
+        {
+            while let Some(curr) = end {
+                start = curr.clone();
+                log::debug!("curr = {} => {:?}", curr.node_name(), curr.node_value());
+                if curr.node_type() == 8 {
+                    // COMMENT
+                    let v = curr.node_value();
+                    if v == Some("#".to_string()) {
+                        log::debug!("incrementing count");
+
+                        count += 1;
+                        log::debug!("incremented count => {count}");
+                    } else if v == Some("/".to_string()) {
+                        log::debug!("decrementing count == {count}");
+                        if count == 0 {
+                            return (curr, current);
+                        }
+                        count -= 1;
+                    }
+                }
+                if count > 0 {
+                    current.push(curr.clone());
+                }
+                end = curr.next_sibling();
+            }
+        }
+
+        log::debug!("end = {end:?}");
+        (start, current)
     }
 }
 

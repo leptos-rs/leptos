@@ -53,7 +53,7 @@ fn ssr_test_with_components() {
 
         assert_eq!(
             rendered,
-            r#"<div data-hk="0" class="counters"><!--#--><div data-hk="1"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div><!--/--><!--#--><div data-hk="2"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div><!--/--></div>"#
+            r#"<div data-hk="0" class="counters"><!--#--><div data-hk="1"><button>-1</button><span>Value: <!--#-->1<!--/-->!</span><button>+1</button></div><!--/--><!--#--><div data-hk="2"><button>-1</button><span>Value: <!--#-->2<!--/-->!</span><button>+1</button></div><!--/--></div>"#
         );
     });
 }

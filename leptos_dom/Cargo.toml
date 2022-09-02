@@ -55,5 +55,5 @@ opt-level = 'z'
 
 [features]
 default = ["browser"]
-browser = []
+browser = ["leptos_reactive/browser"]
 server = []

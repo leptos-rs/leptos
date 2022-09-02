@@ -384,7 +384,7 @@ fn child_to_tokens(
     node: &Node,
     parent: &Ident,
     prev_sib: Option<Ident>,
-    next_sib: Option<Ident>,
+    mut next_sib: Option<Ident>,
     next_el_id: &mut usize,
     next_co_id: &mut usize,
     template: &mut String,
@@ -431,6 +431,7 @@ fn child_to_tokens(
                 },
                 _ => None,
             });
+            let mut current: Option<Ident> = None;
 
             // code to navigate to this text node
             let span = node
@@ -483,12 +484,15 @@ fn child_to_tokens(
                         let el = child_ident(*next_el_id, node);
                         *next_co_id += 1;
                         let co = comment_ident(*next_co_id, node);
+                        next_sib = Some(el.clone());
 
                         template.push_str("<!#><!/>");
                         navigations.push(quote! {
                             #location;
-                            let (#el, #co) = cx.get_next_marker(#name);
+                            let (#el, #co) = cx.get_next_marker(&#name);
                         });
+
+                        current = Some(co);
                     }
                     // in SSR, it needs to both wrap with comments and insert a hole for an existing value
                     Mode::Ssr => {
@@ -515,13 +519,17 @@ fn child_to_tokens(
                         #value.into_child(cx).as_child_string()
                     });
                 } else {
+                    let current = match current {
+                        Some(i) => quote! { Some(#i.into_child(cx)) },
+                        None => quote! { None },
+                    };
                     expressions.push(quote! {
                         leptos::insert(
                             cx,
                             #parent.clone(),
                             #value.into_child(cx),
                             #before,
-                            None,
+                            #current,
                         );
                     });
                 }
@@ -547,13 +555,17 @@ fn child_to_tokens(
                         #value.into_child(cx).as_child_string()
                     });
                 } else {
+                    let current = match current {
+                        Some(i) => quote! { Some(#i.into_child(cx)) },
+                        None => quote! { None },
+                    };
                     expressions.push(quote! {
                         leptos::insert(
                             cx,
                             #parent.clone(),
                             #value.into_child(cx),
                             #before,
-                            None,
+                            #current,
                         );
                     });
                 }

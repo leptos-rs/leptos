@@ -15,7 +15,7 @@ pub enum Child {
 }
 
 impl Child {
-    #[cfg(feature = "server")]
+    #[cfg(not(feature = "browser"))]
     pub fn as_child_string(&self) -> String {
         match self {
             Child::Null => String::new(),
@@ -73,21 +73,21 @@ impl IntoChild for String {
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl IntoChild for web_sys::Node {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self)
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl IntoChild for web_sys::Text {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl IntoChild for web_sys::Element {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
@@ -106,14 +106,14 @@ where
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl IntoChild for Vec<web_sys::Node> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(self)
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl IntoChild for Vec<web_sys::Element> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(

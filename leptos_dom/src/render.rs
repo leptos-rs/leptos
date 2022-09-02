@@ -116,6 +116,11 @@ pub fn insert(
     before: Marker,
     initial: Option<Child>,
 ) {
+    log::debug!(
+        "inserting {value:?} on {} before {before:?} with initial = {initial:?}",
+        parent.node_name()
+    );
+
     match value {
         Child::Fn(f) => {
             create_render_effect(cx, move |current| {
@@ -158,6 +163,11 @@ pub fn insert_expression(
     mut current: Child,
     before: &Marker,
 ) -> Child {
+    log::debug!(
+        "insert_expression {new_value:?} on {} before {before:?} with current = {current:?}",
+        parent.node_name()
+    );
+
     if new_value == &current {
         current
     } else {
@@ -250,6 +260,11 @@ pub fn insert_str(
     multi: bool,
     current: Child,
 ) -> Child {
+    log::debug!(
+        "insert_str {data:?} on {} before {before:?} — multi = {multi} and current = {current:?}",
+        parent.node_name()
+    );
+
     if multi {
         if let Child::Node(node) = &current {
             if node.node_type() == 3 {
@@ -262,8 +277,16 @@ pub fn insert_str(
             }
         } else {
             let node = if let Child::Nodes(nodes) = &current {
+                log::debug!(
+                    "ok here we are nodes = {:?}!",
+                    nodes
+                        .iter()
+                        .map(|n| (n.node_name(), n.node_value()))
+                        .collect::<Vec<_>>()
+                );
                 if let Some(node) = nodes.get(0) {
                     if node.node_type() == 3 {
+                        log::debug!("setting node data to {data:?}");
                         node.unchecked_ref::<web_sys::Text>().set_data(data);
                         node.clone()
                     } else {
@@ -319,35 +342,55 @@ fn clean_children(
     marker: &Marker,
     replacement: Option<web_sys::Node>,
 ) -> Child {
+    log::debug!("clean_children on {} with current = {current:?} and marker = {marker:#?} and replacement = {replacement:#?}", parent.node_name());
+
     if marker == &Marker::NoChildren {
         parent.set_text_content(Some(""));
         Child::Null
     } else {
-        let node = replacement.unwrap_or_else(|| create_text_node("").unchecked_into());
+        let mut node = replacement.unwrap_or_else(|| create_text_node("").unchecked_into());
 
         match current {
             Child::Null => Child::Node(insert_before(parent, &node, marker.as_some_node())),
             Child::Text(_) => Child::Node(insert_before(parent, &node, marker.as_some_node())),
             Child::Node(_) => Child::Node(insert_before(parent, &node, marker.as_some_node())),
             Child::Nodes(nodes) => {
-                let mut inserted = false;
-                let mut result = Vec::new();
-                for (idx, el) in nodes.iter().enumerate().rev() {
-                    if &node != el {
-                        let is_parent = el.parent_node() == Some(parent.clone().unchecked_into());
-                        if !inserted && idx == 0 {
-                            if is_parent {
-                                replace_child(parent, &node, el);
-                                result.push(node.clone())
+                if nodes.is_empty() {
+                    Child::Node(insert_before(parent, &node, marker.as_some_node()))
+                } else {
+                    let mut inserted = false;
+                    log::debug!("iterating over current nodes");
+                    log::debug!("node = {} => {:?}", node.node_name(), node.node_value());
+                    for (idx, el) in nodes.iter().enumerate().rev() {
+                        log::debug!("{idx}: {} => {:?}", el.node_name(), el.node_value());
+                        if &node != el {
+                            let is_parent =
+                                el.parent_node() == Some(parent.clone().unchecked_into());
+                            log::debug!("is_parent = {is_parent}");
+                            if !inserted && idx == 0 {
+                                log::debug!("!insert && idx == 0");
+                                if is_parent {
+                                    log::debug!(
+                                        "replacing child {}/{:?} with {}/{:?}",
+                                        el.node_name(),
+                                        el.node_value(),
+                                        node.node_name(),
+                                        node.node_value()
+                                    );
+                                    replace_child(parent, &node, el);
+                                } else {
+                                    log::debug!("inserting before");
+                                    node = insert_before(parent, &node, marker.as_some_node());
+                                }
                             } else {
-                                result.push(insert_before(parent, &node, marker.as_some_node()))
+                                el.unchecked_ref::<web_sys::Element>().remove();
                             }
+                        } else {
+                            inserted = true;
                         }
-                    } else {
-                        inserted = true;
                     }
+                    Child::Node(node)
                 }
-                Child::Nodes(result)
             }
             Child::Fn(_) => todo!(),
         }

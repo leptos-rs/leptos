@@ -1,57 +1,57 @@
 mod attribute;
 mod child;
 mod class;
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 mod event_delegation;
 pub mod logging;
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 mod operations;
 mod property;
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 mod reconcile;
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 mod render;
 
 pub use attribute::*;
 pub use child::*;
 pub use class::*;
 pub use logging::*;
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub use operations::*;
 pub use property::*;
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub use render::*;
 
 pub use js_sys;
 pub use wasm_bindgen;
 pub use web_sys;
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub type Element = web_sys::Element;
-#[cfg(feature = "server")]
+#[cfg(not(feature = "browser"))]
 pub type Element = String;
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub type Node = web_sys::Node;
-#[cfg(feature = "server")]
+#[cfg(not(feature = "browser"))]
 pub type Node = String;
 
 use leptos_reactive::{create_scope, Scope};
 pub use wasm_bindgen::UnwrapThrowExt;
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub trait Mountable {
     fn mount(&self, parent: &web_sys::Element);
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl Mountable for Element {
     fn mount(&self, parent: &web_sys::Element) {
         parent.append_child(self).unwrap_throw();
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 impl Mountable for Vec<Element> {
     fn mount(&self, parent: &web_sys::Element) {
         for element in self {
@@ -60,7 +60,7 @@ impl Mountable for Vec<Element> {
     }
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub fn mount_to_body<T, F>(f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -69,7 +69,7 @@ where
     mount(document().body().unwrap_throw(), f)
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub fn mount<T, F>(parent: web_sys::HtmlElement, f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -82,7 +82,7 @@ where
     });
 }
 
-#[cfg(not(feature = "server"))]
+#[cfg(feature = "browser")]
 pub fn hydrate<T, F>(parent: web_sys::HtmlElement, f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -91,9 +91,9 @@ where
     // running "hydrate" intentionally leaks the memory,
     // as the "hydrate" has no parent that can clean it up
     let _ = create_scope(move |cx| {
-        cx.begin_hydration();
+        cx.start_hydration(&parent);
         (f(cx));
-        cx.complete_hydration();
+        cx.end_hydration();
     });
 }
 

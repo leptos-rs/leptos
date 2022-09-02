@@ -7,10 +7,13 @@ use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
 
+#[cfg(feature = "browser")]
+use crate::hydration::SharedContext;
+
 #[derive(Default, Debug)]
 pub(crate) struct Runtime {
-    pub(crate) is_hydrating: Cell<bool>,
-    pub(crate) hydration_key: Cell<usize>,
+    #[cfg(feature = "browser")]
+    pub(crate) shared_context: RefCell<Option<SharedContext>>,
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
     pub(crate) transition: RefCell<Option<Rc<TransitionState>>>,
@@ -150,22 +153,32 @@ impl Runtime {
         untracked_result
     }
 
-    pub fn is_hydrating(&self) -> bool {
-        self.is_hydrating.get()
+    #[cfg(feature = "browser")]
+    pub fn start_hydration(&self, element: &web_sys::Element) {
+        use std::collections::HashMap;
+        use wasm_bindgen::{JsCast, UnwrapThrowExt};
+
+        // gather hydratable elements
+        let mut registry = HashMap::new();
+        if let Ok(templates) = element.query_selector_all("*[data-hk]") {
+            for i in 0..templates.length() {
+                let node = templates
+                    .item(i)
+                    .unwrap_throw()
+                    .unchecked_into::<web_sys::Element>();
+                let key = node.get_attribute("data-hk").unwrap_throw();
+                registry.insert(key, node);
+            }
+        }
+
+        *self.shared_context.borrow_mut() = Some(SharedContext::new_with_registry(registry));
     }
 
-    pub fn begin_hydration(&self) {
-        self.is_hydrating.set(true);
-    }
-
-    pub fn complete_hydration(&self) {
-        self.is_hydrating.set(false);
-    }
-
-    pub fn next_hydration_key(&self) -> usize {
-        let next = self.hydration_key.get();
-        self.hydration_key.set(next + 1);
-        next
+    #[cfg(feature = "browser")]
+    pub fn end_hydration(&self) {
+        if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
+            sc.id = None;
+        }
     }
 }
 

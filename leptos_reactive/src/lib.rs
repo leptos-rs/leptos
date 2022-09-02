@@ -5,6 +5,8 @@
 
 mod context;
 mod effect;
+#[cfg(feature = "browser")]
+mod hydration;
 mod memo;
 mod resource;
 mod runtime;
