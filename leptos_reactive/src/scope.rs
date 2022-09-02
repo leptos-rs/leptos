@@ -113,25 +113,18 @@ impl Scope {
         if let Some(ref mut shared_context) = &mut *self.runtime.shared_context.borrow_mut() {
             if shared_context.id.is_some() {
                 let key = shared_context.next_hydration_key();
-                log::debug!(
-                    "searching for key {key} in registry {:#?}",
-                    shared_context.registry
-                );
                 let node = shared_context.registry.remove(&key.to_string());
 
                 if let Some(node) = node {
                     shared_context.completed.push(node.clone());
                     node
                 } else {
-                    log::debug!("get_next_element() cloned_template C");
                     cloned_template(template)
                 }
             } else {
-                log::debug!("get_next_element() cloned_template B");
                 cloned_template(template)
             }
         } else {
-            log::debug!("get_next_element() cloned_template A");
             cloned_template(template)
         }
     }
@@ -142,8 +135,6 @@ impl Scope {
         let mut count = 0;
         let mut current = Vec::new();
         let mut start = start.clone();
-
-        log::debug!("get_next_marker");
 
         if self
             .runtime
@@ -160,26 +151,25 @@ impl Scope {
                     // COMMENT
                     let v = curr.node_value();
                     if v == Some("#".to_string()) {
-                        log::debug!("incrementing count");
-
                         count += 1;
-                        log::debug!("incremented count => {count}");
-                    } else if v == Some("/".to_string()) {
-                        log::debug!("decrementing count == {count}");
+                    } else if v == Some("/".to_string()) {  
+                        count -= 1;                      
                         if count == 0 {
+                            current.push(curr.clone());
                             return (curr, current);
                         }
-                        count -= 1;
+                        
+                        log::debug!(">>> count is now {count}");
                     }
                 }
-                if count > 0 {
-                    current.push(curr.clone());
-                }
+                current.push(curr.clone());
                 end = curr.next_sibling();
             }
         }
 
         log::debug!("end = {end:?}");
+        log::debug!("current = {:?}", current.iter().map(|n| (n.node_name(), n.node_value())).collect::<Vec<_>>());
+
         (start, current)
     }
 }

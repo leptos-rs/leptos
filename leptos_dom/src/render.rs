@@ -116,10 +116,10 @@ pub fn insert(
     before: Marker,
     initial: Option<Child>,
 ) {
-    log::debug!(
+    /* log::debug!(
         "inserting {value:?} on {} before {before:?} with initial = {initial:?}",
         parent.node_name()
-    );
+    ); */
 
     match value {
         Child::Fn(f) => {
@@ -163,10 +163,10 @@ pub fn insert_expression(
     mut current: Child,
     before: &Marker,
 ) -> Child {
-    log::debug!(
+    /* log::debug!(
         "insert_expression {new_value:?} on {} before {before:?} with current = {current:?}",
         parent.node_name()
-    );
+    ); */
 
     if new_value == &current {
         current
@@ -260,10 +260,10 @@ pub fn insert_str(
     multi: bool,
     current: Child,
 ) -> Child {
-    log::debug!(
+    /* log::debug!(
         "insert_str {data:?} on {} before {before:?} — multi = {multi} and current = {current:?}",
         parent.node_name()
-    );
+    ); */
 
     if multi {
         if let Child::Node(node) = &current {

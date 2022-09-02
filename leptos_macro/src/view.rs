@@ -440,36 +440,35 @@ fn child_to_tokens(
                 .map(|val| val.span())
                 .unwrap_or_else(Span::call_site);
 
+            *next_el_id += 1;
+            let name = child_ident(*next_el_id, node);
+            let location = if let Some(sibling) = prev_sib {
+                quote_spanned! {
+                    span => let #name = #sibling.next_sibling().unwrap_throw();
+                }
+            } else {
+                quote_spanned! {
+                    span => let #name = #parent.first_child().unwrap_throw();
+                }
+            };
+
+            let before = match &next_sib {
+                Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+                None => {
+                    if multi {
+                        quote! { leptos::Marker::LastChild }
+                    } else {
+                        quote! { leptos::Marker::NoChildren }
+                    }
+                }
+            };
+
             if let Some(v) = str_value {
-                *next_el_id += 1;
-                let name = child_ident(*next_el_id, node);
-                let location = if let Some(sibling) = prev_sib {
-                    quote_spanned! {
-                        span => let #name = #sibling.next_sibling().unwrap_throw();
-                    }
-                } else {
-                    quote_spanned! {
-                        span => let #name = #parent.first_child().unwrap_throw();
-                    }
-                };
                 navigations.push(location);
                 template.push_str(&v);
 
                 PrevSibChange::Sib(name)
-            } else if next_sib.is_some() {
-                *next_el_id += 1;
-                let name = child_ident(*next_el_id, node);
-
-                let location = if let Some(sibling) = &prev_sib {
-                    quote_spanned! {
-                        span => let #name = #sibling.next_sibling().unwrap_throw();
-                    }
-                } else {
-                    quote_spanned! {
-                        span => let #name = #parent.first_child().unwrap_throw();
-                    }
-                };
-
+            } else /* if next_sib.is_some() */ {
                 // these markers are one of the primary templating differences across modes
                 match mode {
                     // in CSR, simply insert a comment node: it will be picked up and replaced with the value
@@ -501,17 +500,6 @@ fn child_to_tokens(
                     }
                 }
 
-                let before = match &next_sib {
-                    Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-                    None => {
-                        if multi {
-                            quote! { leptos::Marker::LastChild }
-                        } else {
-                            quote! { leptos::Marker::NoChildren }
-                        }
-                    }
-                };
-
                 let value = node.value_as_block().expect("no block value");
 
                 if mode == Mode::Ssr {
@@ -535,42 +523,6 @@ fn child_to_tokens(
                 }
 
                 PrevSibChange::Sib(name)
-            } else {
-                // doesn't push to template, so shouldn't push to navigations
-                let before = match &next_sib {
-                    Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-                    None => {
-                        if multi {
-                            quote! { leptos::Marker::LastChild }
-                        } else {
-                            quote! { leptos::Marker::NoChildren }
-                        }
-                    }
-                };
-
-                let value = node.value_as_block().expect("no block value");
-
-                if mode == Mode::Ssr {
-                    expressions.push(quote! {
-                        #value.into_child(cx).as_child_string()
-                    });
-                } else {
-                    let current = match current {
-                        Some(i) => quote! { Some(#i.into_child(cx)) },
-                        None => quote! { None },
-                    };
-                    expressions.push(quote! {
-                        leptos::insert(
-                            cx,
-                            #parent.clone(),
-                            #value.into_child(cx),
-                            #before,
-                            #current,
-                        );
-                    });
-                }
-
-                PrevSibChange::Skip
             }
         }
         _ => panic!("unexpected child node type"),

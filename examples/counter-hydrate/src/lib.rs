@@ -20,6 +20,7 @@ pub fn Counter(cx: Scope, initial_value: i32) -> Element {
         <div>
             <button on:click=move |_| { log::debug!("clicked -1"); set_value(|value| *value -= 1) }>"-1"</button>
             <span>"Value: " {move || value().to_string()} "!"</span>
+            <span>"Value: " {move || value().to_string()}</span>
             <button on:click=move |_| { log::debug!("clicked +1"); set_value(|value| *value += 1) }>"+1"</button>
         </div>
     }
