@@ -105,17 +105,21 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                     },
                 };
 
-                quote! {
-                    thread_local! {
-                        static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
-                    };
+                let span = node.name_span().unwrap();
 
-                    #generate_root
+                quote_spanned! {
+                    span => {
+                        thread_local! {
+                            static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
+                        }
 
-                    #(#navigations);*
-                    #(#expressions);*;
+                        #generate_root
 
-                    root
+                        #(#navigations);*
+                        #(#expressions);*;
+
+                        root
+                    }
                 }
             }
         }

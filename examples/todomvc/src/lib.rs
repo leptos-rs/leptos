@@ -4,11 +4,8 @@ use storage::TodoSerialized;
 
 mod storage;
 
-#[derive(Clone)]
-pub struct Todos {
-    todos: ReadSignal<Vec<Todo>>,
-    set_todos: WriteSignal<Vec<Todo>>,
-}
+#[derive(Debug, Clone)]
+pub struct Todos(Vec<Todo>);
 
 const STORAGE_KEY: &str = "todos-leptos";
 
@@ -30,61 +27,58 @@ impl Todos {
         } else {
             Vec::new()
         };
-        let (todos, set_todos) = cx.create_signal_owned(starting_todos);
-        Self { todos, set_todos }
+        Self(starting_todos)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.todos.get().is_empty()
+        self.0.is_empty()
     }
 
-    pub fn add(&self, todo: Todo) {
-        (self.set_todos)(move |todos| todos.push(todo.clone()));
+    pub fn add(&mut self, todo: Todo) {
+       self.0.push(todo.clone());
     }
 
-    pub fn remove(&self, id: usize) {
-        (self.set_todos)(|todos| todos.retain(|todo| todo.id != id));
+    pub fn remove(&mut self, id: usize) {
+        self.0.retain(|todo| todo.id != id);
     }
 
     pub fn remaining(&self) -> usize {
-        self.todos
-            .get()
+        self.0
             .iter()
-            .filter(|todo| !*todo.completed.get())
+            .filter(|todo| !(todo.completed)())
             .count()
     }
 
     pub fn completed(&self) -> usize {
-        self.todos
-            .get()
+        self.0
             .iter()
-            .filter(|todo| *todo.completed.get())
+            .filter(|todo| (todo.completed)())
             .count()
     }
 
     pub fn toggle_all(&self) {
         // if all are complete, mark them all active instead
         if self.remaining() == 0 {
-            for todo in self.todos.get_untracked().iter() {
-                if todo.is_completed_untracked() {
+            for todo in &self.0 {
+                if todo.completed.get() {
                     (todo.set_completed)(|completed| *completed = false);
                 }
-            }
+            };
         }
         // otherwise, mark them all complete
         else {
-            for todo in self.todos.get_untracked().iter() {
+             for todo in &self.0 {
                 (todo.set_completed)(|completed| *completed = true);
-            }
+            };
         }
     }
 
-    fn clear_completed(&self) {
-        (self.set_todos)(|todos| todos.retain(|todo| !todo.is_completed_untracked()));
+    fn clear_completed(&mut self) {
+        self.0.retain(|todo| !todo.completed.get());
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Todo {
     pub id: usize,
     pub title: ReadSignal<String>,
@@ -99,8 +93,8 @@ impl Todo {
     }
 
     pub fn new_with_completed(cx: Scope, id: usize, title: String, completed: bool) -> Self {
-        let (title, set_title) = cx.create_signal_owned(title);
-        let (completed, set_completed) = cx.create_signal_owned(completed);
+        let (title, set_title) = create_signal(cx, title);
+        let (completed, set_completed) = create_signal(cx, completed);
         Self {
             id,
             title,
@@ -113,10 +107,6 @@ impl Todo {
     pub fn toggle(&self) {
         (self.set_completed)(|completed| *completed = !*completed);
     }
-
-    pub fn is_completed_untracked(&self) -> bool {
-        *self.completed.get_untracked()
-    }
 }
 
 const ESCAPE_KEY: u32 = 27;
@@ -124,11 +114,10 @@ const ENTER_KEY: u32 = 13;
 
 #[component]
 pub fn TodoMVC(cx: Scope) -> Vec<Element> {
-    let todos = Todos::new(cx);
-    cx.provide_context(todos.clone());
-    let todos = cx.create_ref(todos);
+    let (todos, set_todos) = create_signal(cx, Todos::new(cx));
+    provide_context(cx, set_todos);
 
-    let (mode, set_mode) = cx.create_signal(Mode::All);
+    let (mode, set_mode) = create_signal(cx, Mode::All);
     window_event_listener("hashchange", move |_| {
         let new_mode = location_hash().map(|hash| route(&hash)).unwrap_or_default();
         set_mode(|mode| *mode = new_mode);
@@ -143,37 +132,36 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
             let title = event_target_value(&ev);
             let title = title.trim();
             if !title.is_empty() {
-                todos.add(Todo::new(cx, next_id, title.to_string()));
+                set_todos.update(|t| t.add(Todo::new(cx, next_id, title.to_string())));
                 next_id += 1;
                 target.set_value("");
             }
         }
     };
 
-    let filtered_todos = cx.create_memo::<Vec<Todo>>(move || {
-        let todos = todos.todos.get();
-        match *mode.get() {
-            Mode::All => todos.iter().cloned().collect(),
-            Mode::Active => todos
-                .iter()
-                .filter(|todo| !*todo.completed.get())
-                .cloned()
-                .collect(),
-            Mode::Completed => todos
-                .iter()
-                .filter(|todo| *todo.completed.get())
-                .cloned()
-                .collect(),
-        }
+    let filtered_todos = create_memo::<Vec<Todo>>(cx, move |_| {
+        todos.with(|todos| {
+            match mode.get() {
+                Mode::All => todos.0.to_vec(),
+                Mode::Active => todos.0
+                    .iter()
+                    .filter(|todo| !todo.completed.get())
+                    .cloned()
+                    .collect(),
+                Mode::Completed => todos.0
+                    .iter()
+                    .filter(|todo| todo.completed.get())
+                    .cloned()
+                    .collect(),
+            }
+        })
     });
 
     // effect to serialize to JSON
     // this does reactive reads, so it will automatically serialize on any relevant change
-    cx.create_effect(move || {
+    create_effect(cx, move |_| {
         if let Ok(Some(storage)) = window().local_storage() {
-            let objs = todos
-                .todos
-                .get()
+            let objs = todos.get().0
                 .iter()
                 .map(TodoSerialized::from)
                 .collect::<Vec<_>>();
@@ -189,22 +177,22 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
                     <h1>"todos"</h1>
                     <input class="new-todo" placeholder="What needs to be done?" autofocus on:keydown={add_todo} />
                 </header>
-                <section class="main" class:hidden={move || todos.is_empty()}>
+                <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <input id="toggle-all" class="toggle-all" type="checkbox"
-                        prop:checked={move || todos.remaining() > 0}
-                        on:input={move |_| todos.toggle_all()}
+                        prop:checked={move || todos.with(|t| t.remaining() > 0)}
+                        on:input={move |_| set_todos.update(|t| t.toggle_all())}
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
                         <For each={filtered_todos} key={|todo| todo.id}>
-                            {move |cx, todo| view! { <Todo todo={todo.clone()} /> }}
+                            {move |cx, todo: &Todo| view! { <Todo todo={todo.clone()} /> }}
                         </For>
                     </ul>
                 </section>
-                <footer class="footer" class:hidden={move || todos.is_empty()}>
+                <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <span class="todo-count">
-                        <strong>{move || todos.remaining().to_string()}</strong>
-                        {move || if todos.remaining() == 1 {
+                        <strong>{move || todos.with(|t| t.remaining().to_string())}</strong>
+                        {move || if todos.with(|t| t.remaining()) == 1 {
                             " item"
                         } else {
                             " items"
@@ -212,14 +200,14 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
                         " left"
                     </span>
                     <ul class="filters">
-                        <li><a href="#/" class:selected={move || *mode.get() == Mode::All}>"All"</a></li>
-                        <li><a href="#/active" class:selected={move || *mode.get() == Mode::Active}>"Active"</a></li>
-                        <li><a href="#/completed" class:selected={move || *mode.get() == Mode::Completed}>"Completed"</a></li>
+                        <li><a href="#/" class:selected={move || mode() == Mode::All}>"All"</a></li>
+                        <li><a href="#/active" class:selected={move || mode() == Mode::Active}>"Active"</a></li>
+                        <li><a href="#/completed" class:selected={move || mode() == Mode::Completed}>"Completed"</a></li>
                     </ul>
                     <button
                         class="clear-completed"
-                        class:hidden={move || todos.completed() == 0}
-                        on:click={move |_| todos.clear_completed()}
+                        class:hidden={move || todos.with(|t| t.completed() == 0)}
+                        on:click={move |_| set_todos.update(|t| t.clear_completed())}
                     >
                         "Clear completed"
                     </button>
@@ -238,15 +226,14 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
 pub fn Todo(cx: Scope, todo: Todo) -> Element {
     // creates a scope-bound reference to the Todo
     // this allows us to move the reference into closures below without cloning it
-    let todo = cx.create_ref(todo);
-    let (editing, set_editing) = cx.create_signal(false);
-    let todos = cx.use_context::<Todos>().unwrap();
+    let (editing, set_editing) = create_signal(cx, false);
+    let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
     let input: web_sys::Element;
 
     let save = move |value: &str| {
         let value = value.trim();
         if value.is_empty() {
-            todos.remove(todo.id);
+            set_todos.update(|t| t.remove(todo.id));
         } else {
             (todo.set_title)(move |n| *n = value.to_string());
         }
@@ -256,31 +243,31 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
     let tpl = view! {
         <li
             class="todo"
-            class:editing={move || *editing.get()}
-            class:completed={move || *todo.completed.get()}
+            class:editing={editing}
+            class:completed={move || (todo.completed)()}
             _ref=input
         >
             <div class="view">
                 <input
                     class="toggle"
                     type="checkbox"
-                    prop:checked={move || *todo.completed.get()}
+                    prop:checked={move || (todo.completed)()}
                     on:input={move |ev| {
                         let checked = event_target_checked(&ev);
                         (todo.set_completed)(|n| *n = checked);
                     }}
                 />
                 <label on:dblclick={move |_| set_editing(|n| *n = true)}>
-                    {move || todo.title.get().clone()}
+                    {move || todo.title.get()}
                 </label>
-                <button class="destroy" on:click={move |_| todos.remove(todo.id)}/>
+                <button class="destroy" on:click={move |_| set_todos.update(|t| t.remove(todo.id))}/>
             </div>
-            {move || (*editing.get()).then(|| view! {
+            {move || editing().then(|| view! {
                 <input
                     class="edit"
-                    class:hidden={move || !*editing.get()}
-                    prop:value={move || todo.title.get().to_string()}
-                    on:focusout={move |ev| save(&event_target_value(&ev))}
+                    class:hidden={move || !(editing)()}
+                    prop:value={move || todo.title.get()}
+                    on:focusout={|ev| save(&event_target_value(&ev))}
                     on:keyup={move |ev| {
                         let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
                         if key_code == ENTER_KEY {
@@ -295,9 +282,8 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         </li>
     };
 
-    cx.create_effect(move || {
-        if *editing.get() {
-            log!("focusing element");
+    create_effect(cx, move |_| {
+        if editing() {
             input.unchecked_ref::<HtmlInputElement>().focus();
         }
     });
