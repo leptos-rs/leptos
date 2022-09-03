@@ -10,7 +10,7 @@
   - [ ] Get transitions working
 - [ ] SSR
   - [x] SSR
-  - [ ] Hydration
+  - [x] Hydration
   - [ ] Streaming HTML from server
   - [ ] Streaming `Resource`s
 - [ ] Docs (and clippy warning to insist on docs)

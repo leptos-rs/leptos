@@ -30,8 +30,8 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
 }
 
 pub fn fetch_example(cx: Scope) -> web_sys::Element {
-    let (cat_count, set_cat_count) = cx.create_signal::<u32>(1);
-    let cats = cx.create_resource(cat_count, |count| fetch_cats(*count));
+    let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
+    let cats = create_resource(cx, cat_count, |count| fetch_cats(*count));
 
     view! {
         <div>

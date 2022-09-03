@@ -28,12 +28,12 @@ impl Display for Tab {
 }
 
 pub fn transition_tabs(cx: Scope) -> web_sys::Element {
-    let (tab, set_tab) = cx.create_signal(Tab::A);
-    let (progress, set_progress) = cx.create_signal(0);
+    let (tab, set_tab) = create_signal(cx, Tab::A);
+    let (progress, set_progress) = create_signal(cx, 0);
 
-    let transition = cx.use_transition();
+    let transition = use_transition(cx);
 
-    cx.create_effect(move |handle: Option<Option<IntervalHandle>>| {
+    create_effect(cx, move |handle: Option<Option<IntervalHandle>>| {
         if let Some(Some(handle)) = handle {
             if transition.pending() {
                 Some(handle)
@@ -80,11 +80,11 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
 
 #[component]
 pub fn Child(cx: Scope, page: ReadSignal<Tab>) -> Element {
-    let data = cx.create_resource(page, |page| fake_data_load(*page));
+    let data = create_resource(cx, page, |page| fake_data_load(page));
 
-    let (counter, set_counter) = cx.create_signal(0);
+    let (counter, set_counter) = create_signal(cx, 0);
 
-    cx.create_effect(move |prev_handle: Option<IntervalHandle>| {
+    create_effect(cx, move |prev_handle: Option<IntervalHandle>| {
         log::debug!("resetting counter for Child #{}", page());
         set_counter(|n| *n = 0);
         if let Some(handle) = prev_handle {
