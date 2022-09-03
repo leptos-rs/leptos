@@ -1,6 +1,8 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use leptos_reactive::Scope;
+
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::JsCast;
 
 use crate::Node;
@@ -9,7 +11,7 @@ use crate::Node;
 pub enum Child {
     Null,
     Text(String),
-    Fn(Rc<dyn Fn() -> Child>),
+    Fn(Rc<RefCell<dyn FnMut() -> Child>>),
     Node(Node),
     Nodes(Vec<Node>),
 }
@@ -21,9 +23,9 @@ impl Child {
             Child::Null => String::new(),
             Child::Text(text) => text.to_string(),
             Child::Fn(f) => {
-                let mut value = f();
+                let mut value = (f.borrow_mut())();
                 while let Child::Fn(f) = value {
-                    value = f();
+                    value = (f.borrow_mut())();
                 }
                 value.as_child_string()
             }
@@ -106,8 +108,7 @@ where
     }
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
-impl IntoChild for Vec<web_sys::Node> {
+impl IntoChild for Vec<Node> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(self)
     }
@@ -126,11 +127,11 @@ impl IntoChild for Vec<web_sys::Element> {
 
 impl<T, U> IntoChild for T
 where
-    T: Fn() -> U + 'static,
+    T: FnMut() -> U + 'static,
     U: IntoChild,
 {
-    fn into_child(self, cx: Scope) -> Child {
-        let modified_fn = Rc::new(move || (self)().into_child(cx));
+    fn into_child(mut self, cx: Scope) -> Child {
+        let modified_fn = Rc::new(RefCell::new(move || (self)().into_child(cx)));
         Child::Fn(modified_fn)
     }
 }

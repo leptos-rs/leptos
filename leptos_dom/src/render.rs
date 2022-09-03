@@ -128,11 +128,11 @@ pub fn insert(
                     .unwrap_or_else(|| initial.clone())
                     .unwrap_or(Child::Null);
 
-                let mut value = f();
+                let mut value = (f.borrow_mut())();
 
                 if current != value {
                     while let Child::Fn(f) = value {
-                        value = f();
+                        value = (f.borrow_mut())();
                     }
 
                     Some(insert_expression(
@@ -243,9 +243,9 @@ pub fn insert_expression(
 
             // Nested Signals here simply won't do anything; they should be flattened so it's a single Signal
             Child::Fn(f) => {
-                let mut value = f();
+                let mut value = (f.borrow_mut())();
                 while let Child::Fn(f) = value {
-                    value = f();
+                    value = (f.borrow_mut())();
                 }
                 value
             }

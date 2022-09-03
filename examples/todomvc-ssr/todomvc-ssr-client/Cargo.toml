@@ -3,6 +3,18 @@ name = "todomvc-ssr-client"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-todomvc = { path = "../../todomvc", features = ["hydrate"] }
+console_log = "0.2"
 leptos = { path = "../../../leptos", features = ["hydrate"] }
+todomvc = { path = "../../todomvc", features = ["hydrate"] }
+log = "0.4"
+wasm-bindgen = "0.2"
+wee_alloc = "0.4"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'

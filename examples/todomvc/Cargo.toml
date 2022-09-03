@@ -8,7 +8,7 @@ leptos = { path = "../../leptos" }
 wee_alloc = "0.4"
 miniserde = "0.1"
 log = "0.4"
-console_log = "0.1"
+console_log = "0.2"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
@@ -19,6 +19,7 @@ lto = true
 opt-level = 'z'
 
 [features]
+default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr"]

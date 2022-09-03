@@ -239,15 +239,15 @@ pub fn add_event_listener(
     .unwrap_throw(); */
 }
 
-pub fn window_event_listener(event_name: &str, cb: impl Fn(web_sys::Event)) {
-    let boxed: Box<dyn FnMut(web_sys::Event)> = Box::new(cb);
-    // Safety: see add_event_listener above
-    let handler: Box<dyn FnMut(web_sys::Event) + 'static> = unsafe { std::mem::transmute(boxed) };
+pub fn window_event_listener(event_name: &str, cb: impl Fn(web_sys::Event) + 'static) {
+    if !is_server!() {
+        let handler = Box::new(cb) as Box<dyn FnMut(web_sys::Event)>;
 
-    let cb = Closure::wrap(handler).into_js_value();
-    window()
-        .add_event_listener_with_callback(event_name, cb.unchecked_ref())
-        .unwrap_throw();
+        let cb = Closure::wrap(handler).into_js_value();
+        window()
+            .add_event_listener_with_callback(event_name, cb.unchecked_ref())
+            .unwrap_throw();
+    }
 }
 
 // Hydration operations to find text and comment nodes

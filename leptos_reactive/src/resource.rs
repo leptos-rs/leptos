@@ -65,6 +65,7 @@ where
     });
 
     // initial load fires immediately
+    // TODO SSR — this won't run on server
     create_effect(cx, {
         let r = Rc::clone(&r);
         move |_| r.load(false)
@@ -179,6 +180,8 @@ where
 
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
+
+        // TODO SSR check -- this won't run on server
         create_effect(self.scope, move |_| {
             if let Some(s) = &suspense_cx {
                 let mut contexts = suspense_contexts.borrow_mut();

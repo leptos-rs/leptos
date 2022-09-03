@@ -13,23 +13,21 @@ impl Todos {
     pub fn new(cx: Scope) -> Self {
         let starting_todos = if is_server!() {
             Vec::new()
+        } else if let Ok(Some(storage)) = window().local_storage() {
+            storage
+                .get_item(STORAGE_KEY)
+                .ok()
+                .flatten()
+                .and_then(|value| json::from_str::<Vec<TodoSerialized>>(&value).ok())
+                .map(|values| {
+                    values
+                        .into_iter()
+                        .map(|stored| stored.into_todo(cx))
+                        .collect()
+                })
+                .unwrap_or_default()
         } else {
-            if let Ok(Some(storage)) = window().local_storage() {
-                storage
-                    .get_item(STORAGE_KEY)
-                    .ok()
-                    .flatten()
-                    .and_then(|value| json::from_str::<Vec<TodoSerialized>>(&value).ok())
-                    .map(|values| {
-                        values
-                            .into_iter()
-                            .map(|stored| stored.into_todo(cx))
-                            .collect()
-                    })
-                    .unwrap_or_default()
-            } else {
-                Vec::new()
-            }
+            Vec::new()
         };
         Self(starting_todos)
     }
@@ -39,7 +37,7 @@ impl Todos {
     }
 
     pub fn add(&mut self, todo: Todo) {
-       self.0.push(todo);
+        self.0.push(todo);
     }
 
     pub fn remove(&mut self, id: usize) {
@@ -47,17 +45,11 @@ impl Todos {
     }
 
     pub fn remaining(&self) -> usize {
-        self.0
-            .iter()
-            .filter(|todo| !(todo.completed)())
-            .count()
+        self.0.iter().filter(|todo| !(todo.completed)()).count()
     }
 
     pub fn completed(&self) -> usize {
-        self.0
-            .iter()
-            .filter(|todo| (todo.completed)())
-            .count()
+        self.0.iter().filter(|todo| (todo.completed)()).count()
     }
 
     pub fn toggle_all(&self) {
@@ -67,13 +59,13 @@ impl Todos {
                 if todo.completed.get() {
                     (todo.set_completed)(|completed| *completed = false);
                 }
-            };
+            }
         }
         // otherwise, mark them all complete
         else {
-             for todo in &self.0 {
+            for todo in &self.0 {
                 (todo.set_completed)(|completed| *completed = true);
-            };
+            }
         }
     }
 
@@ -118,6 +110,14 @@ const ENTER_KEY: u32 = 13;
 
 #[component]
 pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
+    let mut next_id = todos
+        .0
+        .iter()
+        .map(|todo| todo.id)
+        .max()
+        .map(|last| last + 1)
+        .unwrap_or(0);
+
     let (todos, set_todos) = create_signal(cx, todos);
     provide_context(cx, set_todos);
 
@@ -127,7 +127,6 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
         set_mode(|mode| *mode = new_mode);
     });
 
-    let mut next_id = 0;
     let add_todo = move |ev: web_sys::Event| {
         let target = event_target::<HtmlInputElement>(&ev);
         ev.stop_propagation();
@@ -144,20 +143,20 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
     };
 
     let filtered_todos = create_memo::<Vec<Todo>>(cx, move |_| {
-        todos.with(|todos| {
-            match mode.get() {
-                Mode::All => todos.0.to_vec(),
-                Mode::Active => todos.0
-                    .iter()
-                    .filter(|todo| !todo.completed.get())
-                    .cloned()
-                    .collect(),
-                Mode::Completed => todos.0
-                    .iter()
-                    .filter(|todo| todo.completed.get())
-                    .cloned()
-                    .collect(),
-            }
+        todos.with(|todos| match mode.get() {
+            Mode::All => todos.0.to_vec(),
+            Mode::Active => todos
+                .0
+                .iter()
+                .filter(|todo| !todo.completed.get())
+                .cloned()
+                .collect(),
+            Mode::Completed => todos
+                .0
+                .iter()
+                .filter(|todo| todo.completed.get())
+                .cloned()
+                .collect(),
         })
     });
 
@@ -165,7 +164,9 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
     // this does reactive reads, so it will automatically serialize on any relevant change
     create_effect(cx, move |_| {
         if let Ok(Some(storage)) = window().local_storage() {
-            let objs = todos.get().0
+            let objs = todos
+                .get()
+                .0
                 .iter()
                 .map(TodoSerialized::from)
                 .collect::<Vec<_>>();
@@ -230,11 +231,9 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
 
 #[component]
 pub fn Todo(cx: Scope, todo: Todo) -> Element {
-    // creates a scope-bound reference to the Todo
-    // this allows us to move the reference into closures below without cloning it
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
-    let input: web_sys::Element;
+    let input: Element;
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -288,6 +287,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         </li>
     };
 
+    #[cfg(not(feature = "ssr"))]
     create_effect(cx, move |_| {
         if editing() {
             _ = input.unchecked_ref::<HtmlInputElement>().focus();

@@ -83,12 +83,14 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
 
         match mode {
             Mode::Ssr => {
-                quote! {
+                quote! {{
+                    #(#navigations);*;
+
                     format!(
                         #template,
                         #(#expressions),*
                     )
-                }
+                }}
             }
             _ => {
                 // create the root element from which navigations and expressions will begin
@@ -165,7 +167,14 @@ fn element_to_tokens(
 
     // attributes
     for attr in &node.attributes {
-        attr_to_tokens(attr, &this_el_ident, template, expressions, mode);
+        attr_to_tokens(
+            attr,
+            &this_el_ident,
+            template,
+            expressions,
+            navigations,
+            mode,
+        );
     }
 
     // navigation for this el
@@ -187,7 +196,9 @@ fn element_to_tokens(
                 let #this_el_ident = #parent.first_child().unwrap_throw();
         }
     };
-    navigations.push(this_nav);
+    if mode != Mode::Ssr {
+        navigations.push(this_nav);
+    }
 
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
@@ -261,6 +272,7 @@ fn attr_to_tokens(
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
+    navigations: &mut Vec<TokenStream>,
     mode: Mode,
 ) {
     let name = node
@@ -283,8 +295,26 @@ fn attr_to_tokens(
 
     // refs
     if name == "ref" {
-        // refs mean nothing in SSR
-        if mode != Mode::Ssr {
+        let ident = match &node.value {
+            Some(expr) => {
+                if let Some(ident) = expr_to_ident(expr) {
+                    quote_spanned! { span => #ident }
+                } else {
+                    quote_spanned! { span => compile_error!("'ref' needs to be passed a variable name") }
+                }
+            }
+            None => {
+                quote_spanned! { span => compile_error!("'ref' needs to be passed a variable name") }
+            }
+        };
+
+        if mode == Mode::Ssr {
+            // fake the initialization; should only be used in effects or event handlers, which will never run on the server
+            // but if we don't initialize it, the compiler will complain
+            navigations.push(quote_spanned! {
+                span => #ident = String::new();
+            });
+        } else {
             expressions.push(match &node.value {
                 Some(expr) => {
                     if let Some(ident) = expr_to_ident(expr) {
@@ -329,7 +359,7 @@ fn attr_to_tokens(
     // Classes
     else if name.starts_with("class:") {
         if mode == Mode::Ssr {
-            todo!()
+            // TODO class: in SSR
         } else {
             let name = name.replacen("class:", "", 1);
             let value = node.value.as_ref().expect("class: attributes need values");
@@ -468,11 +498,15 @@ fn child_to_tokens(
             };
 
             if let Some(v) = str_value {
-                navigations.push(location);
+                if mode != Mode::Ssr {
+                    navigations.push(location);
+                }
                 template.push_str(&v);
 
                 PrevSibChange::Sib(name)
-            } else /* if next_sib.is_some() */ {
+            } else
+            /* if next_sib.is_some() */
+            {
                 // these markers are one of the primary templating differences across modes
                 match mode {
                     // in CSR, simply insert a comment node: it will be picked up and replaced with the value

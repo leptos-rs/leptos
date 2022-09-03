@@ -2,14 +2,14 @@ use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
 use serde::{Deserialize, Serialize};
 use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
-pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
+pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
     cx.create_eff(true, f)
 }
 
-pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Effect<T>
+pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
@@ -17,11 +17,8 @@ where
 }
 
 impl Scope {
-    pub(crate) fn create_eff<T>(
-        self,
-        render_effect: bool,
-        f: impl FnMut(Option<T>) -> T + 'static,
-    ) -> Effect<T>
+    #[cfg(not(feature = "ssr"))]
+    pub(crate) fn create_eff<T>(self, render_effect: bool, f: impl FnMut(Option<T>) -> T + 'static)
     where
         T: Debug + 'static,
     {
@@ -29,16 +26,19 @@ impl Scope {
 
         let id = self.push_effect(state);
 
-        let eff = Effect {
-            scope: self.id,
-            id,
-            ty: PhantomData,
-        };
-
         self.runtime
             .any_effect((self.id, id), |effect| effect.run((self.id, id)));
+    }
 
-        eff
+    // Simply don't run effects on the server at all
+    #[cfg(feature = "ssr")]
+    pub(crate) fn create_eff<T>(
+        self,
+        _render_effect: bool,
+        _f: impl FnMut(Option<T>) -> T + 'static,
+    ) where
+        T: Debug + 'static,
+    {
     }
 }
 

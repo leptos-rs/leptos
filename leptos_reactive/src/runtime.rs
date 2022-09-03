@@ -3,16 +3,14 @@ use crate::{
     ScopeState, SignalId, SignalState, Subscriber, TransitionState,
 };
 use slotmap::SlotMap;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
 use crate::hydration::SharedContext;
 
 #[derive(Default, Debug)]
 pub(crate) struct Runtime {
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub(crate) shared_context: RefCell<Option<SharedContext>>,
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
@@ -131,6 +129,20 @@ impl Runtime {
         f(scope);
 
         ScopeDisposer(Box::new(move || scope.dispose()))
+    }
+
+    pub fn run_scope<T>(&'static self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
+        let id = {
+            self.scopes
+                .borrow_mut()
+                .insert(Rc::new(ScopeState::new(parent)))
+        };
+        let scope = Scope { runtime: self, id };
+        let ret = f(scope);
+
+        scope.dispose();
+
+        ret
     }
 
     pub fn push_stack(&self, id: Subscriber) {

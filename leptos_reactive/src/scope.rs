@@ -1,6 +1,6 @@
 use crate::{
-    AnyEffect, AnySignal, EffectId, EffectState, ReadSignal, ResourceId, ResourceState, Runtime,
-    SignalId, SignalState, WriteSignal,
+    hydration::SharedContext, AnyEffect, AnySignal, EffectId, EffectState, ReadSignal, ResourceId,
+    ResourceState, Runtime, SignalId, SignalState, WriteSignal,
 };
 use elsa::FrozenVec;
 use std::{
@@ -12,9 +12,22 @@ use std::{
 };
 
 #[must_use = "Scope will leak memory if the disposer function is never called"]
+/// Creates a child reactive scope and runs the function within it. This is useful for applications
+/// like a list or a router, which may want to create child scopes and dispose of them when
+/// they are no longer needed (e.g., a list item has been destroyed or the user has navigated away
+/// from the route.)
 pub fn create_scope(f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
     let runtime = Box::leak(Box::new(Runtime::new()));
     runtime.create_scope(f, None)
+}
+
+/// Creates a temporary scope, runs the given function, disposes of the scope,
+/// and returns the value returned from the function. This is very useful for short-lived
+/// applications like SSR, where actual reactivity is not required beyond the end
+/// of the synchronous operation.
+pub fn run_scope<T>(f: impl FnOnce(Scope) -> T + 'static) -> T {
+    let runtime = Box::leak(Box::new(Runtime::new()));
+    runtime.run_scope(f, None)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -152,13 +165,13 @@ impl Scope {
                     let v = curr.node_value();
                     if v == Some("#".to_string()) {
                         count += 1;
-                    } else if v == Some("/".to_string()) {  
-                        count -= 1;                      
+                    } else if v == Some("/".to_string()) {
+                        count -= 1;
                         if count == 0 {
                             current.push(curr.clone());
                             return (curr, current);
                         }
-                        
+
                         log::debug!(">>> count is now {count}");
                     }
                 }
@@ -168,9 +181,27 @@ impl Scope {
         }
 
         log::debug!("end = {end:?}");
-        log::debug!("current = {:?}", current.iter().map(|n| (n.node_name(), n.node_value())).collect::<Vec<_>>());
+        log::debug!(
+            "current = {:?}",
+            current
+                .iter()
+                .map(|n| (n.node_name(), n.node_value()))
+                .collect::<Vec<_>>()
+        );
 
         (start, current)
+    }
+
+    pub fn next_hydration_key(&self) -> usize {
+        let mut sc = self.runtime.shared_context.borrow_mut();
+        if let Some(ref mut sc) = *sc {
+            sc.next_hydration_key()
+        } else {
+            let mut new_sc = SharedContext::default();
+            let id = new_sc.next_hydration_key();
+            *sc = Some(new_sc);
+            id
+        }
     }
 }
 

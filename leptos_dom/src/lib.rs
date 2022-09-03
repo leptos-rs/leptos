@@ -1,10 +1,9 @@
 mod attribute;
+#[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
 mod child;
 mod class;
-#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod event_delegation;
 pub mod logging;
-#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod operations;
 mod property;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -13,10 +12,10 @@ mod reconcile;
 mod render;
 
 pub use attribute::*;
+#[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
 pub use child::*;
 pub use class::*;
 pub use logging::*;
-#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub use operations::*;
 pub use property::*;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -82,7 +81,7 @@ where
     });
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(feature = "hydrate")]
 pub fn hydrate<T, F>(parent: web_sys::HtmlElement, f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -99,7 +98,7 @@ where
 
 pub fn create_component<F, T>(cx: Scope, f: F) -> T
 where
-    F: Fn() -> T,
+    F: FnOnce() -> T,
 {
     // TODO hydration logic here
     cx.untrack(f)
@@ -108,7 +107,7 @@ where
 #[macro_export]
 macro_rules! is_server {
     () => {
-        cfg!(feature = "server")
+        cfg!(feature = "ssr")
     };
 }
 

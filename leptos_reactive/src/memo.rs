@@ -6,6 +6,7 @@ pub struct Memo<T>(ReadSignal<Option<T>>)
 where
     T: 'static;
 
+#[cfg(not(feature = "ssr"))]
 pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + Clone + Debug + 'static,
@@ -19,6 +20,18 @@ where
         }
         new
     });
+
+    Memo(read)
+}
+
+// On the server, Memo just carries its original value
+// If we didn't provide this alternate version, it would panic because its inner effect wouldn't run
+#[cfg(feature = "ssr")]
+pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
+where
+    T: PartialEq + Clone + Debug + 'static,
+{
+    let (read, _) = create_signal(cx, Some(f(None)));
 
     Memo(read)
 }
