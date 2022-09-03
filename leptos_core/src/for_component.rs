@@ -28,7 +28,10 @@ where
 /// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.
 #[allow(non_snake_case)]
-pub fn For<E, T, G, I, K>(cx: Scope, mut props: ForProps<E, T, G, I, K>) -> ReadSignal<Vec<Element>>
+pub fn For<E, T, G, I, K>(
+    cx: Scope,
+    mut props: ForProps<E, T, G, I, K>,
+) -> impl FnMut() -> Vec<Element>
 where
     E: Fn() -> Vec<T> + 'static,
     G: Fn(Scope, &T) -> Element + 'static,

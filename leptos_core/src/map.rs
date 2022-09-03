@@ -1,5 +1,5 @@
-use leptos_reactive::{create_effect, create_signal, ReadSignal, Scope, ScopeDisposer};
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut, rc::Rc};
+use leptos_reactive::{create_effect, create_signal, Memo, ReadSignal, Scope, ScopeDisposer};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
 /// computed; its value will only be updated when requested. Modifications to the
@@ -8,8 +8,8 @@ use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, ops::Inde
 /// This function is the underlying utility behind `Keyed`.
 ///
 /// # Params
-/// * `list` - The list to be mapped. The list must be a [`ReadSignal`] (obtained from a [`Signal`])
-///   and therefore reactive.
+/// * `list` - The list to be mapped. It is obtained via an accessor function, so can be a ReadSignal, a Memo
+///   or a derived signal.
 /// * `map_fn` - A closure that maps from the input type to the output type.
 /// * `key_fn` - A closure that returns an _unique_ key to each entry.
 ///
@@ -20,31 +20,28 @@ pub fn map_keyed<T, U, K>(
     list: impl Fn() -> Vec<T> + 'static,
     map_fn: impl Fn(Scope, &T) -> U + 'static,
     key_fn: impl Fn(&T) -> K + 'static,
-) -> ReadSignal<Vec<U>>
+) -> impl FnMut() -> Vec<U>
 where
     T: PartialEq + Debug + Clone + 'static,
     K: Eq + Hash,
-    U: PartialEq + Debug + Clone,
+    U: PartialEq + Debug + Clone + 'static,
 {
     // Previous state used for diffing.
-    let mut mapped: Vec<U> = Vec::new();
     let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
-
-    let (item_signal, set_item_signal) = create_signal(cx, Vec::new());
+    let mut prev_items: Option<Vec<T>> = None;
+    let mut mapped: Vec<U> = Vec::new();
 
     // Diff and update signal each time list is updated.
-    create_effect(cx, move |items| {
-        let items: Vec<T> = items.unwrap_or_default();
+    move || {
+        let items = prev_items.take().unwrap_or_default();
         let new_items = list();
         let new_items_len = new_items.len();
 
         if new_items.is_empty() {
             // Fast path for removing all items.
             let disposers = std::mem::take(&mut disposers);
-            for disposer in disposers {
-                if let Some(disposer) = disposer {
-                    disposer.dispose();
-                }
+            for disposer in disposers.into_iter().flatten() {
+                disposer.dispose();
             }
             mapped.clear();
         } else if items.is_empty() {
@@ -144,12 +141,9 @@ where
         mapped.truncate(new_items_len);
         disposers.truncate(new_items_len);
 
-        // 4) Update signal to trigger updates.
-        set_item_signal(|n| *n = mapped.clone());
+        // 4) Return the mapped and new items, for use in next iteration
+        prev_items = Some(new_items);
 
-        // 5) Return the new items, for use in next iteration
-        new_items.to_vec()
-    });
-
-    item_signal
+        mapped.to_vec()
+    }
 }
