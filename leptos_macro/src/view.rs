@@ -110,13 +110,13 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                 quote_spanned! {
                     span => {
                         thread_local! {
-                            static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template);
+                            static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template)
                         }
 
                         #generate_root
 
                         #(#navigations);*
-                        #(#expressions);*;
+                        #(#expressions);*
 
                         root
                     }

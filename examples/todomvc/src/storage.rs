@@ -19,7 +19,7 @@ impl From<&Todo> for TodoSerialized {
     fn from(todo: &Todo) -> Self {
         Self {
             id: todo.id,
-            title: todo.title.get().to_string(),
+            title: todo.title.get(),
             completed: (todo.completed)(),
         }
     }

@@ -35,7 +35,7 @@ impl Todos {
     }
 
     pub fn add(&mut self, todo: Todo) {
-       self.0.push(todo.clone());
+       self.0.push(todo);
     }
 
     pub fn remove(&mut self, id: usize) {
@@ -166,7 +166,9 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
                 .map(TodoSerialized::from)
                 .collect::<Vec<_>>();
             let json = json::to_string(&objs);
-            storage.set_item(STORAGE_KEY, &json);
+            if let Err(e) = storage.set_item(STORAGE_KEY, &json) {
+                log::error!("error while trying to set item in localStorage");
+            }
         }
     });
 
@@ -175,7 +177,7 @@ pub fn TodoMVC(cx: Scope) -> Vec<Element> {
             <section class="todoapp">
                 <header class="header">
                     <h1>"todos"</h1>
-                    <input class="new-todo" placeholder="What needs to be done?" autofocus on:keydown={add_todo} />
+                    <input class="new-todo" placeholder="What needs to be done?" autofocus on:keydown=add_todo />
                 </header>
                 <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <input id="toggle-all" class="toggle-all" type="checkbox"
@@ -267,7 +269,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     class="edit"
                     class:hidden={move || !(editing)()}
                     prop:value={move || todo.title.get()}
-                    on:focusout={|ev| save(&event_target_value(&ev))}
+                    on:focusout=|ev| save(&event_target_value(&ev))
                     on:keyup={move |ev| {
                         let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
                         if key_code == ENTER_KEY {
@@ -284,7 +286,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
 
     create_effect(cx, move |_| {
         if editing() {
-            input.unchecked_ref::<HtmlInputElement>().focus();
+            _ = input.unchecked_ref::<HtmlInputElement>().focus();
         }
     });
 
