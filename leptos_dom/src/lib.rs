@@ -1,57 +1,57 @@
 mod attribute;
 mod child;
 mod class;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod event_delegation;
 pub mod logging;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod operations;
 mod property;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod reconcile;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod render;
 
 pub use attribute::*;
 pub use child::*;
 pub use class::*;
 pub use logging::*;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub use operations::*;
 pub use property::*;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub use render::*;
 
 pub use js_sys;
 pub use wasm_bindgen;
 pub use web_sys;
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Element = web_sys::Element;
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 pub type Element = String;
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Node = web_sys::Node;
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 pub type Node = String;
 
 use leptos_reactive::{create_scope, Scope};
 pub use wasm_bindgen::UnwrapThrowExt;
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub trait Mountable {
     fn mount(&self, parent: &web_sys::Element);
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 impl Mountable for Element {
     fn mount(&self, parent: &web_sys::Element) {
         parent.append_child(self).unwrap_throw();
     }
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 impl Mountable for Vec<Element> {
     fn mount(&self, parent: &web_sys::Element) {
         for element in self {
@@ -60,7 +60,7 @@ impl Mountable for Vec<Element> {
     }
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn mount_to_body<T, F>(f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -69,7 +69,7 @@ where
     mount(document().body().unwrap_throw(), f)
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn mount<T, F>(parent: web_sys::HtmlElement, f: F)
 where
     F: Fn(Scope) -> T + 'static,
@@ -82,7 +82,7 @@ where
     });
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn hydrate<T, F>(parent: web_sys::HtmlElement, f: F)
 where
     F: Fn(Scope) -> T + 'static,

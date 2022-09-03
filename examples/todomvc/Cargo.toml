@@ -17,3 +17,8 @@ wasm-bindgen-test = "0.3.0"
 codegen-units = 1
 lto = true
 opt-level = 'z'
+
+[features]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
+ssr = ["leptos/ssr"]

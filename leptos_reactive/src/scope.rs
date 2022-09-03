@@ -84,17 +84,17 @@ impl Scope {
         // removing from the runtime will drop this Scope, and all its Signals/Effects/Memos
     }
 
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         self.runtime.start_hydration(element);
     }
 
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn end_hydration(&self) {
         self.runtime.end_hydration();
     }
 
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -129,7 +129,7 @@ impl Scope {
         }
     }
 
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn get_next_marker(&self, start: &web_sys::Node) -> (web_sys::Node, Vec<web_sys::Node>) {
         let mut end = Some(start.clone());
         let mut count = 0;

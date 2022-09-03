@@ -265,7 +265,7 @@ impl RouterContext {
         });
 
         // handle all click events on anchor tags
-        if cfg!(feature = "browser") {
+        if cfg!(any(feature = "csr", feature = "hydrate")) {
             leptos_dom::window_event_listener("click", {
                 let inner = Rc::clone(&inner);
                 move |ev| inner.clone().handle_anchor_click(ev)

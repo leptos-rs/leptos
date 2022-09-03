@@ -28,19 +28,19 @@ impl Url {
     }
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 pub(crate) fn unescape(s: &str) -> String {
     urlencoding::decode(s)
         .unwrap_or_else(|_| std::borrow::Cow::from(s))
         .replace('+', " ")
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub(crate) fn unescape(s: &str) -> String {
     js_sys::decode_uri(s).unwrap().into()
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 impl TryFrom<&str> for Url {
     type Error = String;
 
@@ -57,7 +57,7 @@ impl TryFrom<&str> for Url {
     }
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 impl TryFrom<&str> for Url {
     type Error = String;
 

@@ -1,0 +1,9 @@
+[package]
+name = "todomvc-ssr-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4"
+leptos = { path = "../../../leptos", features = ["ssr"] }
+todomvc = { path = "../../todomvc", features = ["ssr"] }

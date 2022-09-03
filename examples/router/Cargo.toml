@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 console_log = "0.2"
 log = "0.4"
-leptos = { path = "../../leptos", default-features = false, features = ["browser"] }
+leptos = { path = "../../leptos", features = ["csr"] }
 wee_alloc = "0.4"
 futures = "0.3"
 

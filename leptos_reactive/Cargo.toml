@@ -16,5 +16,6 @@ web-sys = { version = "0.3", optional = true, features = ["Element"] }
 sycamore = "0.8.0-beta.7"
 
 [features]
-default = []
-browser = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
+csr = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
+hydrate = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
+ssr = []

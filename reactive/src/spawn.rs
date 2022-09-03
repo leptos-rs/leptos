@@ -1,18 +1,18 @@
 use std::future::Future;
 
 // run immediately on server
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 pub fn queue_microtask(task: impl FnOnce()) {
     task();
 }
 
 // run immediately on server
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn queue_microtask(task: impl FnOnce() + 'static) {
     microtask(wasm_bindgen::closure::Closure::once_into_js(task));
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 #[wasm_bindgen::prelude::wasm_bindgen(
     inline_js = "export function microtask(f) { queueMicrotask(f); }"
 )]
@@ -20,7 +20,7 @@ extern "C" {
     fn microtask(task: wasm_bindgen::JsValue);
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn spawn_local<F>(fut: F)
 where
     F: Future<Output = ()> + 'static,
@@ -28,7 +28,7 @@ where
     wasm_bindgen_futures::spawn_local(fut)
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 pub fn spawn_local<F>(_fut: F)
 where
     F: Future<Output = ()> + 'static,

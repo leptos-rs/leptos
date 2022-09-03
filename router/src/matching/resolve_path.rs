@@ -33,7 +33,7 @@ pub fn resolve_path<'a>(
     }
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 fn has_scheme(path: &str) -> bool {
     use regex::Regex;
     lazy_static::lazy_static! {
@@ -44,7 +44,7 @@ fn has_scheme(path: &str) -> bool {
     HAS_SCHEME_RE.is_match(path)
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 fn has_scheme(path: &str) -> bool {
     let re = js_sys::RegExp::new(HAS_SCHEME, "");
     re.test(path)
@@ -75,7 +75,7 @@ const BEGINS_WITH_QUERY_OR_HASH: &str = r#"^[?#]"#;
 const HAS_SCHEME: &str = r#"^(?:[a-z0-9]+:)?//"#;
 const QUERY: &str = r#"/*(\*.*)?$"#;
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
     let re = js_sys::RegExp::new(TRIM_PATH, "g");
     js_sys::JsString::from(text)
@@ -85,13 +85,13 @@ fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
         .into()
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 fn begins_with_query_or_hash(text: &str) -> bool {
     let re = js_sys::RegExp::new(BEGINS_WITH_QUERY_OR_HASH, "");
     re.test(text)
 }
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 fn replace_query(text: &str) -> String {
     let re = js_sys::RegExp::new(QUERY, "g");
     js_sys::JsString::from(text)
@@ -101,7 +101,7 @@ fn replace_query(text: &str) -> String {
         .into()
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
     use regex::Regex;
     lazy_static::lazy_static! {
@@ -112,7 +112,7 @@ fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
     TRIM_PATH_RE.replace(text, replace)
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 fn begins_with_query_or_hash(text: &str) -> bool {
     use regex::Regex;
     lazy_static::lazy_static! {
@@ -122,7 +122,7 @@ fn begins_with_query_or_hash(text: &str) -> bool {
     BEGINS_WITH_QUERY_OR_HASH_RE.is_match(text)
 }
 
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 fn replace_query(text: &str) -> Cow<str> {
     use regex::Regex;
     lazy_static::lazy_static! {

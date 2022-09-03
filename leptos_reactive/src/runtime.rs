@@ -7,12 +7,12 @@ use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
 
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 use crate::hydration::SharedContext;
 
 #[derive(Default, Debug)]
 pub(crate) struct Runtime {
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub(crate) shared_context: RefCell<Option<SharedContext>>,
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
@@ -153,7 +153,7 @@ impl Runtime {
         untracked_result
     }
 
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         use std::collections::HashMap;
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -174,7 +174,7 @@ impl Runtime {
         *self.shared_context.borrow_mut() = Some(SharedContext::new_with_registry(registry));
     }
 
-    #[cfg(feature = "browser")]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn end_hydration(&self) {
         if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
             sc.id = None;

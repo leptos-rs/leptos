@@ -1,0 +1,8 @@
+[package]
+name = "todomvc-ssr-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+todomvc = { path = "../../todomvc", features = ["hydrate"] }
+leptos = { path = "../../../leptos", features = ["hydrate"] }

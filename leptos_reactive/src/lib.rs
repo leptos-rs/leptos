@@ -5,7 +5,7 @@
 
 mod context;
 mod effect;
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 mod hydration;
 mod memo;
 mod resource;

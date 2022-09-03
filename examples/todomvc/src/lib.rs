@@ -4,28 +4,32 @@ use storage::TodoSerialized;
 
 mod storage;
 
-#[derive(Debug, Clone)]
-pub struct Todos(Vec<Todo>);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Todos(pub Vec<Todo>);
 
 const STORAGE_KEY: &str = "todos-leptos";
 
 impl Todos {
     pub fn new(cx: Scope) -> Self {
-        let starting_todos = if let Ok(Some(storage)) = window().local_storage() {
-            storage
-                .get_item(STORAGE_KEY)
-                .ok()
-                .flatten()
-                .and_then(|value| json::from_str::<Vec<TodoSerialized>>(&value).ok())
-                .map(|values| {
-                    values
-                        .into_iter()
-                        .map(|stored| stored.into_todo(cx))
-                        .collect()
-                })
-                .unwrap_or_default()
-        } else {
+        let starting_todos = if is_server!() {
             Vec::new()
+        } else {
+            if let Ok(Some(storage)) = window().local_storage() {
+                storage
+                    .get_item(STORAGE_KEY)
+                    .ok()
+                    .flatten()
+                    .and_then(|value| json::from_str::<Vec<TodoSerialized>>(&value).ok())
+                    .map(|values| {
+                        values
+                            .into_iter()
+                            .map(|stored| stored.into_todo(cx))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            }
         };
         Self(starting_todos)
     }
@@ -113,8 +117,8 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope) -> Vec<Element> {
-    let (todos, set_todos) = create_signal(cx, Todos::new(cx));
+pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
+    let (todos, set_todos) = create_signal(cx, todos);
     provide_context(cx, set_todos);
 
     let (mode, set_mode) = create_signal(cx, Mode::All);

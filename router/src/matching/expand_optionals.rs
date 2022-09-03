@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 #[doc(hidden)]
-#[cfg(feature = "browser")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
     use wasm_bindgen::JsValue;
 
@@ -44,7 +44,7 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
 }
 
 #[doc(hidden)]
-#[cfg(not(feature = "browser"))]
+#[cfg(feature = "ssr")]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
     use regex::Regex;
 
