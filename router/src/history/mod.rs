@@ -1,10 +1,12 @@
-use leptos_reactive::{create_signal, ReadSignal, Scope};
+use leptos_reactive::{create_signal, use_context, ReadSignal, Scope};
 use wasm_bindgen::UnwrapThrowExt;
 
 mod location;
 mod params;
 mod state;
 mod url;
+
+use crate::{NavigateOptions, RouterContext};
 
 pub use self::url::*;
 pub use location::*;
@@ -38,21 +40,45 @@ impl History for BrowserIntegration {
         let (location, set_location) = create_signal(cx, Self::current());
 
         leptos_dom::window_event_listener("popstate", move |_| {
-            set_location(|change| *change = Self::current());
+            log::debug!(
+                "[BrowserIntegration::location] popstate fired {:#?}",
+                Self::current()
+            );
+            let router = use_context::<RouterContext>(cx);
+            if let Some(router) = router {
+                let change = Self::current();
+                match router.inner.navigate_from_route(
+                    &change.value,
+                    &NavigateOptions {
+                        resolve: false,
+                        replace: change.replace,
+                        scroll: change.scroll,
+                        state: change.state,
+                    },
+                ) {
+                    Ok(_) => log::debug!("navigated"),
+                    Err(e) => log::error!("{e:#?}"),
+                };
+                set_location(|change| *change = Self::current());
+            } else {
+                log::debug!("RouterContext not found");
+            }
+
+            //Self::navigate(&Self {}, &Self::current());
+            //set_location(|change| *change = Self::current());
         });
 
         location
     }
 
     fn navigate(&self, loc: &LocationChange) {
+        log::debug!("[BrowserIntegration::navigate] {loc:#?}");
         let history = leptos_dom::window().history().unwrap();
         if loc.replace {
-            log::debug!("replacing state");
             history
                 .replace_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
                 .unwrap_throw();
         } else {
-            log::debug!("pushing state");
             history
                 .push_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
                 .unwrap_throw();

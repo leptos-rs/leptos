@@ -11,11 +11,7 @@ use leptos_reactive::Scope;
 #[component]
 pub fn Outlet(cx: Scope) -> Child {
     let route = use_route(cx);
-    create_effect(cx, move |_| {
-        log::debug!("<Outlet> RouteContext is {:#?}", use_route(cx).path())
-    });
     if let Some(child) = route.child() {
-        log::debug!("<Outlet> providing context {child:#?}");
         provide_context(child.cx(), child.clone());
         child.outlet().into_child(child.cx())
     } else {

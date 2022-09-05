@@ -504,9 +504,7 @@ fn child_to_tokens(
                 template.push_str(&v);
 
                 PrevSibChange::Sib(name)
-            } else
-            /* if next_sib.is_some() */
-            {
+            } else {
                 // these markers are one of the primary templating differences across modes
                 match mode {
                     // in CSR, simply insert a comment node: it will be picked up and replaced with the value
@@ -631,7 +629,11 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
 
     let props = node.attributes.iter().filter_map(|attr| {
         let attr_name = attr.name_as_string().unwrap_or_default();
-        if attr_name.strip_prefix("on:").is_some() {
+        if attr_name.starts_with("on:")
+            || attr_name.starts_with("prop:")
+            || attr_name.starts_with("class:")
+            || attr_name.starts_with("attr:")
+        {
             None
         } else {
             let name = ident_from_tag_name(attr.name.as_ref().unwrap());
@@ -657,16 +659,24 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
         }
         // Properties
         else if let Some(name) = attr_name.strip_prefix("prop:") {
-            let value = node.value.as_ref().expect("prop: blocks need values");
+            let value = attr.value.as_ref().expect("prop: attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::property(cx, #component_name.unchecked_ref(), #name, #value.into_property(cx))
             })
         }
         // Classes
         else if let Some(name) = attr_name.strip_prefix("class:") {
-            let value = node.value.as_ref().expect("class: attributes need values");
+            let value = attr.value.as_ref().expect("class: attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::class(cx, #component_name.unchecked_ref(), #name, #value.into_class(cx))
+            })
+        }
+        // Attributes
+        else if let Some(name) = attr_name.strip_prefix("attr:") {
+            let value = attr.value.as_ref().expect("attr: attributes need values");
+            let name = name.replace("_", "-");
+            Some(quote_spanned! {
+                span => leptos_dom::attribute(cx, #component_name.unchecked_ref(), #name, #value.into_attribute(cx))
             })
         }
         else {

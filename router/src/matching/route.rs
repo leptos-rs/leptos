@@ -38,7 +38,7 @@ impl Default for RouteDefinition {
             loader: Default::default(),
             action: Default::default(),
             children: Default::default(),
-            element: Rc::new(|cx| Child::Null),
+            element: Rc::new(|_| Child::Null),
         }
     }
 }

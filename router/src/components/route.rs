@@ -119,10 +119,6 @@ impl RouteContext {
     }
 
     pub fn resolve_path<'a>(&'a self, to: &'a str) -> Option<Cow<'a, str>> {
-        log::debug!(
-            "resolve_path to {to:?}: RouteContext.inner is {:#?}",
-            self.inner.path
-        );
         resolve_path(&self.inner.base_path, to, Some(&self.inner.path))
     }
 

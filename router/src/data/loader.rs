@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Debug, rc::Rc};
 
-use leptos_reactive::{Memo, ReadSignal, Scope};
+use leptos_reactive::{Memo, Scope};
 
 use crate::{use_route, Location, ParamsMap};
 
@@ -8,18 +8,9 @@ pub fn use_loader<T>(cx: Scope) -> T
 where
     T: Clone + Debug + 'static,
 {
-    log::debug!("use_loader on cx {:?}\n\n{:#?}", cx.id(), cx);
-
     let route = use_route(cx);
-
-    log::debug!("use_loader route = {route:#?}");
-
     let data = route.data().as_ref().unwrap();
-
-    log::debug!("use_loader data = {data:?}");
-
     let data = data.downcast_ref::<T>().unwrap();
-
     data.clone()
 }
 

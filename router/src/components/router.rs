@@ -114,6 +114,7 @@ where
 
                 if disposers.len() > i + 1 {
                     let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
+                    log::debug!("disposing");
                     old_route_disposer.dispose();
                 } else {
                     disposers.push(disposer);
@@ -168,6 +169,7 @@ pub struct RouterContext {
 pub(crate) struct RouterContextInner {
     pub location: Location,
     pub base: RouteContext,
+    base_path: String,
     history: Box<dyn History>,
     cx: Scope,
     reference: ReadSignal<String>,
@@ -253,6 +255,7 @@ impl RouterContext {
         });
 
         let inner = Rc::new(RouterContextInner {
+            base_path: base_path.into_owned(),
             location,
             base,
             history: Box::new(history),
@@ -364,13 +367,11 @@ impl RouterContextInner {
     }
 
     pub(crate) fn navigate_end(self: Rc<Self>, mut next: LocationChange) {
-        log::debug!("navigate_end w/ referrers = {:#?}\n\nnext = {next:#?}", self.referrers.borrow());
         let first = self.referrers.borrow().get(0).cloned();
         if let Some(first) = first {
             if next.value != first.value || next.state != first.state {
                 next.replace = first.replace;
                 next.scroll = first.scroll;
-                log::debug!("navigating in browser to {next:#?}");
                 self.history.navigate(&next);
             }
             self.referrers.borrow_mut().clear();
@@ -380,16 +381,15 @@ impl RouterContextInner {
     pub(crate) fn handle_anchor_click(self: Rc<Self>, ev: web_sys::Event) {
         use leptos_dom::wasm_bindgen::JsCast;
         let ev = ev.unchecked_into::<web_sys::MouseEvent>();
-        /* if ev.default_prevented()
+        if ev.default_prevented()
             || ev.button() != 0
             || ev.meta_key()
             || ev.alt_key()
             || ev.ctrl_key()
             || ev.shift_key()
         {
-            log::debug!("branch A prevent");
             return;
-        } */
+        }
 
         let composed_path = ev.composed_path();
         let mut a: Option<web_sys::HtmlAnchorElement> = None;
@@ -408,11 +408,9 @@ impl RouterContextInner {
             // let browser handle this event if link has target,
             // or if it doesn't have href or state
             // TODO "state" is set as a prop, not an attribute
-            /* if !target.is_empty() || (href.is_empty() && !a.has_attribute("state")) {
-                log::debug!("target or href empty");
-                ev.prevent_default();
+            if !target.is_empty() || (href.is_empty() && !a.has_attribute("state")) {
                 return;
-            } */
+            }
 
             let rel = a.get_attribute("rel").unwrap_or_default();
             let mut rel = rel.split([' ', '\t']);
@@ -427,15 +425,15 @@ impl RouterContextInner {
 
             // let browser handle this event if it leaves our domain
             // or our base path
-            /* if url.origin != leptos_dom::location().origin().unwrap_or_default()
-                || (!base_path.is_empty()
+            if url.origin != leptos_dom::location().origin().unwrap_or_default()
+                || (!self.base_path.is_empty()
                     && !path_name.is_empty()
                     && !path_name
                         .to_lowercase()
-                        .starts_with(&base_path.to_lowercase()))
+                        .starts_with(&self.base_path.to_lowercase()))
             {
                 return;
-            } */
+            }
 
             let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
             // TODO "state" is set as a prop, not an attribute

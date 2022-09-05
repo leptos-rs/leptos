@@ -28,7 +28,7 @@ pub(crate) fn get_route_matches(branches: Vec<Branch>, location: String) -> Vec<
 #[derive(Debug, Clone, PartialEq)]
 pub struct Branch {
     pub routes: Vec<RouteData>,
-    pub score: usize,
+    pub score: i32,
 }
 
 impl Branch {

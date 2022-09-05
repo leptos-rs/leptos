@@ -12,6 +12,8 @@ impl Url {
     pub fn search_params(&self) -> ParamsMap {
         let map = self
             .search
+            .strip_prefix('?')
+            .unwrap_or_default()
             .split('&')
             .filter_map(|piece| {
                 let mut parts = piece.split('=');

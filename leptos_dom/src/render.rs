@@ -54,7 +54,13 @@ pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, valu
 
 fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute) {
     match value {
-        Attribute::String(value) => set_attribute(el, attr_name, &value),
+        Attribute::String(value) => {
+            if attr_name == "inner_html" {
+                el.set_inner_html(&value);
+            } else {
+                set_attribute(el, attr_name, &value)
+            }
+        }
         Attribute::Option(value) => match value {
             Some(value) => set_attribute(el, attr_name, &value),
             None => remove_attribute(el, attr_name),
@@ -342,7 +348,7 @@ fn clean_children(
     marker: &Marker,
     replacement: Option<web_sys::Node>,
 ) -> Child {
-    log::debug!("clean_children on {} with current = {current:?} and marker = {marker:#?} and replacement = {replacement:#?}", parent.node_name());
+    //log::debug!("clean_children on {} with current = {current:?} and marker = {marker:#?} and replacement = {replacement:#?}", parent.node_name());
 
     if marker == &Marker::NoChildren {
         parent.set_text_content(Some(""));

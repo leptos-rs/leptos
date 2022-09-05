@@ -13,6 +13,8 @@
   - [x] Hydration
   - [ ] Streaming HTML from server
   - [ ] Streaming `Resource`s
+  - [ ] Escaping HTML entities when running format!()
+  - [ ] Isomorphic rendering benchmark
 - [ ] Docs (and clippy warning to insist on docs)
 - [ ] Read through + understand...
   - [ ] `Props` macro

@@ -66,7 +66,7 @@ pub fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
 
 #[doc(hidden)]
 pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
-    let from = replace_query(&normalize(from, false)).to_string();
+    let from = replace_query(&normalize(from, false));
     from + &normalize(to, false)
 }
 
@@ -79,7 +79,7 @@ const QUERY: &str = r#"/*(\*.*)?$"#;
 fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
     let re = js_sys::RegExp::new(TRIM_PATH, "g");
     js_sys::JsString::from(text)
-        .replace_by_pattern(&re, "")
+        .replace_by_pattern(&re, replace)
         .as_string()
         .unwrap()
         .into()
@@ -98,7 +98,6 @@ fn replace_query(text: &str) -> String {
         .replace_by_pattern(&re, "")
         .as_string()
         .unwrap()
-        .into()
 }
 
 #[cfg(feature = "ssr")]

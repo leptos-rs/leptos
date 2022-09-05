@@ -20,7 +20,7 @@ impl PartialEq for RouterError {
             (Self::NoMatch(l0), Self::NoMatch(r0)) => l0 == r0,
             (Self::NotFound(l0), Self::NotFound(r0)) => l0 == r0,
             (Self::MissingParam(l0), Self::MissingParam(r0)) => l0 == r0,
-            (Self::Params(l0), Self::Params(r0)) => false,
+            (Self::Params(_), Self::Params(_)) => false,
             _ => false,
         }
     }

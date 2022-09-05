@@ -126,6 +126,8 @@ where
 pub(crate) trait AnyEffect: Debug {
     fn run(&self, id: (ScopeId, EffectId));
 
+    fn clear_dependencies(&self);
+
     fn subscribe_to(&self, source: Source);
 }
 
@@ -154,6 +156,10 @@ where
 
         // pop it back off the stack
         self.runtime.pop_stack();
+    }
+
+    fn clear_dependencies(&self) {
+        self.sources.borrow_mut().clear();
     }
 
     fn subscribe_to(&self, source: Source) {

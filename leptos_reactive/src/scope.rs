@@ -88,13 +88,26 @@ impl Scope {
     }
 
     pub fn dispose(self) {
-        // first, drop child scopes
-        self.runtime.scope(self.id, |scope| {
-            for id in scope.children.borrow().iter() {
-                self.runtime.remove_scope(id)
+        if let Some(scope) = self.runtime.scopes.borrow_mut().remove(self.id) {
+            for id in scope.children.take() {
+                Scope {
+                    runtime: self.runtime,
+                    id,
+                }
+                .dispose();
             }
-        })
-        // removing from the runtime will drop this Scope, and all its Signals/Effects/Memos
+
+            for effect in &scope.effects {
+                log::debug!("unloading dependencies from effect");
+                effect.clear_dependencies();
+            }
+
+            for cleanup in scope.cleanups.take() {
+                (cleanup)();
+            }
+
+            drop(scope);
+        }
     }
 
     #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -110,8 +123,6 @@ impl Scope {
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
-
-        log::debug!("get_next_element");
 
         let cloned_template = |t: &web_sys::Element| {
             t.unchecked_ref::<web_sys::HtmlTemplateElement>()
@@ -159,7 +170,6 @@ impl Scope {
         {
             while let Some(curr) = end {
                 start = curr.clone();
-                log::debug!("curr = {} => {:?}", curr.node_name(), curr.node_value());
                 if curr.node_type() == 8 {
                     // COMMENT
                     let v = curr.node_value();
@@ -171,23 +181,12 @@ impl Scope {
                             current.push(curr.clone());
                             return (curr, current);
                         }
-
-                        log::debug!(">>> count is now {count}");
                     }
                 }
                 current.push(curr.clone());
                 end = curr.next_sibling();
             }
         }
-
-        log::debug!("end = {end:?}");
-        log::debug!(
-            "current = {:?}",
-            current
-                .iter()
-                .map(|n| (n.node_name(), n.node_value()))
-                .collect::<Vec<_>>()
-        );
 
         (start, current)
     }
@@ -228,6 +227,7 @@ pub(crate) struct ScopeState {
     pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
     pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
     pub(crate) resources: FrozenVec<Rc<dyn Any>>,
+    pub(crate) cleanups: RefCell<Vec<Box<dyn FnOnce()>>>,
 }
 
 impl Debug for ScopeState {
@@ -245,6 +245,7 @@ impl ScopeState {
             signals: Default::default(),
             effects: Default::default(),
             resources: Default::default(),
+            cleanups: Default::default(),
         }
     }
 }

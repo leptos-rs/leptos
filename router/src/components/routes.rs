@@ -37,7 +37,7 @@ pub struct RouteData {
 }
 
 impl RouteData {
-    fn score(&self) -> usize {
+    fn score(&self) -> i32 {
         let (pattern, splat) = match self.pattern.split_once("/*") {
             Some((p, s)) => (p, Some(s)),
             None => (self.pattern.as_str(), None),
@@ -47,7 +47,7 @@ impl RouteData {
             .filter(|n| !n.is_empty())
             .collect::<Vec<_>>();
         segments.iter().fold(
-            segments.len() - if splat.is_none() { 0 } else { 1 },
+            (segments.len() as i32) - if splat.is_none() { 0 } else { 1 },
             |score, segment| score + if segment.starts_with(':') { 2 } else { 3 },
         )
     }
@@ -83,7 +83,7 @@ fn create_branches(
 pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
     Branch {
         routes: routes.to_vec(),
-        score: routes.last().unwrap().score() * 10000 - index,
+        score: routes.last().unwrap().score() * 10000 - (index as i32),
     }
 }
 
