@@ -122,11 +122,11 @@ fn begins_with_query_or_hash(text: &str) -> bool {
 }
 
 #[cfg(feature = "ssr")]
-fn replace_query(text: &str) -> Cow<str> {
+fn replace_query(text: &str) -> String {
     use regex::Regex;
     lazy_static::lazy_static! {
         pub static ref QUERY_RE: Regex =
             Regex::new(QUERY).expect("couldn't compile QUERY_RE");
     }
-    QUERY_RE.replace(text, "")
+    QUERY_RE.replace(text, "").into_owned()
 }

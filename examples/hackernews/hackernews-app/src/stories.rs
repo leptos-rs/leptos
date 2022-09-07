@@ -65,15 +65,15 @@ pub fn Stories(cx: Scope) -> Element {
     view! {
         <div class="news-view">
             <div class="news-list-nav">
-                {move || if page() > 1 {
+                /* {move || if page() > 1 {
                     view! {
-                        <Link
-                            attr:class="page-link"
-                            to={format!("/{}?page={}", story_type(), page() - 1)}
-                            attr:aria_label="Previous Page"
-                        >
+                        //<Link
+                            //attr:class="page-link"
+                            //to={format!("/{}?page={}", story_type(), page() - 1)}
+                            //attr:aria_label="Previous Page"
+                        <a href="#">//href={format!("/{}?page={}", story_type(), page() - 1)}
                             "< prev"
-                        </Link>
+                        </a>//</Link>
                     }
                 } else {
                     view! {
@@ -81,18 +81,18 @@ pub fn Stories(cx: Scope) -> Element {
                             "< prev"
                         </span>
                     }
-                }}
+                }} */
                 <span>"page " {page}</span>
                 {
                     move || if stories.read().unwrap_or(Err(())).unwrap_or_default().len() >= 28 {
                         view! {
-                            <Link
-                                attr:class="page-link"
-                                to={format!("/{}?page={}", story_type(), page() + 1)}
-                                attr:aria_label="Next Page"
-                            >
+                            //<Link
+                               //attr:class="page-link"
+                                //to={format!("/{}?page={}", story_type(), page() + 1)}
+                                //attr:aria_label="Next Page"
+                            <a href="#"> // href={format!("/{}?page={}", story_type(), page() + 1)}>
                                 "more >"
-                            </Link>
+                            </a> //</Link>
                         }
                     } else {
                         view! {
@@ -108,11 +108,14 @@ pub fn Stories(cx: Scope) -> Element {
                     None => None,
                     Some(Err(_)) => Some(view! { <p>"Error loading stories."</p> }),
                     Some(Ok(stories)) => {
+                        log::debug!("stories.len() = {}", stories.len());
                         Some(view! {
                             <ul>
+                                <p>{stories.len()}</p>
                                 <For each={move || stories.clone()} key=|story| story.id>{
-                                    |cx, story: &api::Story| view! {
-                                        <Story story={story.clone()} />
+                                    |cx: Scope, story: &api::Story| view! {
+                                        <p>"Story"</p>
+                                        //<Story story={story.clone()} />
                                     }
                                 }</For>
                             </ul>
@@ -141,7 +144,8 @@ fn Story(cx: Scope, story: api::Story) -> Element {
                     }
                 } else {
                     let title = story.title.clone();
-                    view! { <Link to={format!("/stories/{}", story.id)}>{title}</Link> }
+                    //view! { <Link to={format!("/stories/{}", story.id)}>{title}</Link> }
+                    view! { <a href=format!("/stories/{}", story.id)>{title}</a>}
                 }}
             </span>
             <br />
@@ -152,18 +156,19 @@ fn Story(cx: Scope, story: api::Story) -> Element {
                             {"by "}
                             {story.user.map(|user| view ! { <Link to={format!("/users/{}", user)}>{user}</Link>})}
                             {format!(" {} | ", story.time_ago)}
-                            <Link to={format!("/stories/{}", story.id)}>
+                            /* <Link to={format!("/stories/{}", story.id)}>
                                 {if story.comments_count.unwrap_or_default() > 0 {
                                     format!("{} comments", story.comments_count.unwrap_or_default())
                                 } else {
                                     "discuss".into()
                                 }}
-                            </Link>
+                            </Link> */
                         </span>
                     }
                 } else {
                     let title = story.title.clone();
-                    view! { <Link to={format!("/item/{}", story.id)}>{title}</Link> }
+                    //view! { <Link to={format!("/item/{}", story.id)}>{title}</Link> }
+                    view! { <a href=format!("/item/{}", story.id)>{title}</a> }
                 }}
             </span>
             {(story.story_type != "link").then(|| view! {

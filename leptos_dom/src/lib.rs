@@ -96,12 +96,19 @@ where
     });
 }
 
+#[cfg(feature = "csr")]
 pub fn create_component<F, T>(cx: Scope, f: F) -> T
 where
     F: FnOnce() -> T,
 {
-    // TODO hydration logic here
     cx.untrack(f)
+}
+
+pub fn create_component<F, T>(cx: Scope, f: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    cx.with_next_context(f)
 }
 
 #[macro_export]

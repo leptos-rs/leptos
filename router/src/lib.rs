@@ -17,3 +17,4 @@ pub use error::*;
 pub use fetch::*;
 pub use history::*;
 pub use hooks::*;
+pub use matching::Branch;

@@ -86,10 +86,9 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                 quote! {{
                     #(#navigations);*;
 
-                    format!(
-                        #template,
-                        #(#expressions),*
-                    )
+                    let mut leptos_buffer = String::new();
+                    #(#expressions);*
+                    leptos_buffer
                 }}
             }
             _ => {
@@ -99,7 +98,7 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                     Mode::Ssr => unreachable!(),
                     // for CSR, just clone the template and take the first child as the root
                     Mode::Client => quote! {
-                        let root = #template_uid.with(|template| leptos_dom::clone_template(template)).first_element_child().unwrap_throw();
+                        let root = #template_uid.with(|template| leptos_dom::clone_template(template));
                     },
                     // for hydration, use get_next_element(), which will either draw from an SSRed node or clone the template
                     Mode::Hydrate => quote! {
@@ -152,16 +151,28 @@ fn element_to_tokens(
     *next_el_id += 1;
     let this_el_ident = child_ident(*next_el_id, node);
 
-    // TEMPLATE: open tag — true for any mode
+    // Open tag
     let name_str = node.name_as_string().unwrap();
-    template.push('<');
-    template.push_str(&name_str);
+    let span = node.name_span().unwrap();
+
+    if mode == Mode::Ssr {
+        // SSR, push directly to buffer
+        expressions.push(quote::quote_spanned! {
+            span => leptos_buffer.push('<');
+                    leptos_buffer.push_str(#name_str);
+        });
+    } else {
+        // CSR/hydrate, push to template
+        template.push('<');
+        template.push_str(&name_str);
+    }
 
     // for SSR: add a hydration key
     if mode == Mode::Ssr && is_root_el {
-        template.push_str(" data-hk=\"{}\"");
-        expressions.push(quote! {
-            cx.next_hydration_key()
+        expressions.push(quote::quote_spanned! {
+            span => leptos_buffer.push_str(" data-hk=\"");
+                    leptos_buffer.push_str(&cx.next_hydration_key().to_string());
+                    leptos_buffer.push('"');
         });
     }
 
@@ -179,24 +190,28 @@ fn element_to_tokens(
 
     // navigation for this el
     let debug_name = debug_name(node);
-    let span = span(node);
-    let this_nav = if is_root_el {
-        quote_spanned! {
-            span => let #this_el_ident = #debug_name;
-                let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-        }
-    } else if let Some(prev_sib) = &prev_sib {
-        quote_spanned! {
-            span => let #this_el_ident = #debug_name;
-                let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-        }
-    } else {
-        quote_spanned! {
-            span => let #this_el_ident = #debug_name;
-                let #this_el_ident = #parent.first_child().unwrap_throw();
-        }
-    };
     if mode != Mode::Ssr {
+        let this_nav = if is_root_el {
+            quote_spanned! {
+                span => //let #this_el_ident = #debug_name;
+                    let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
+                    log::debug!("=> got {}", #this_el_ident.node_name());
+            }
+        } else if let Some(prev_sib) = &prev_sib {
+            quote_spanned! {
+                span => //let #this_el_ident = #debug_name;
+                    log::debug!("next_sibling ({})", #debug_name);
+                    let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
+                    log::debug!("=> got {}", #this_el_ident.node_name());
+            }
+        } else {
+            quote_spanned! {
+                span => //let #this_el_ident = #debug_name;
+                    log::debug!("first_child ({})", #debug_name);
+                    let #this_el_ident = #parent.first_child().unwrap_throw();
+                    log::debug!("=> got {}", #this_el_ident.node_name());
+            }
+        };
         navigations.push(this_nav);
     }
 
@@ -219,8 +234,18 @@ fn element_to_tokens(
             | "track"
             | "wbr"
     ) {
-        template.push_str("/>");
+        if mode == Mode::Ssr {
+            expressions.push(quote::quote! {
+                leptos_buffer.push_str("/>");
+            });
+        } else {
+            template.push_str("/>");
+        }
         return this_el_ident;
+    } else if mode == Mode::Ssr {
+        expressions.push(quote::quote! {
+            leptos_buffer.push('>');
+        });
     } else {
         template.push('>');
     }
@@ -259,10 +284,18 @@ fn element_to_tokens(
         };
     }
 
-    // TEMPLATE: close tag (same for any mode)
-    template.push_str("</");
-    template.push_str(&name_str);
-    template.push('>');
+    // close tag
+    if mode == Mode::Ssr {
+        expressions.push(quote::quote! {
+            leptos_buffer.push_str("</");
+            leptos_buffer.push_str(#name_str);
+            leptos_buffer.push('>');
+        })
+    } else {
+        template.push_str("</");
+        template.push_str(&name_str);
+        template.push('>');
+    }
 
     this_el_ident
 }
@@ -370,17 +403,32 @@ fn attr_to_tokens(
     }
     // Attributes
     else {
-        match value {
+        match (value, mode) {
             // Boolean attributes: only name present in template, no value
             // Nothing set programmatically
-            AttributeValue::Empty => {
+            (AttributeValue::Empty, Mode::Ssr) => {
+                expressions.push(quote::quote_spanned! {
+                    span => leptos_buffer.push(' ');
+                            leptos_buffer.push_str(#name);
+                });
+            }
+            (AttributeValue::Empty, _) => {
                 template.push(' ');
                 template.push_str(&name);
             }
 
             // Static attributes (i.e., just a literal given as value, not an expression)
             // are just set in the template — again, nothing programmatic
-            AttributeValue::Static(value) => {
+            (AttributeValue::Static(value), Mode::Ssr) => {
+                expressions.push(quote::quote_spanned! {
+                    span => leptos_buffer.push(' ');
+                            leptos_buffer.push_str(#name);
+                            leptos_buffer.push_str("=\"");
+                            leptos_buffer.push_str(#value);
+                            leptos_buffer.push('"');
+                });
+            }
+            (AttributeValue::Static(value), _) => {
                 template.push(' ');
                 template.push_str(&name);
                 template.push_str("=\"");
@@ -389,19 +437,18 @@ fn attr_to_tokens(
             }
 
             // Dynamic attributes are handled differently depending on the rendering mode
-            AttributeValue::Dynamic(value) => {
-                if mode == Mode::Ssr {
-                    template.push_str(" {}");
-                    expressions.push(quote_spanned! {
-                        span => #value.into_attribute(cx).as_value_string(#name)
-                    });
-                } else {
-                    // For client-side rendering, dynamic attributes don't need to be rendered in the template
-                    // They'll immediately be set synchronously before the cloned template is mounted
-                    expressions.push(quote_spanned! {
-                        span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, #value.into_attribute(cx))
-                    });
-                }
+            (AttributeValue::Dynamic(value), Mode::Ssr) => {
+                expressions.push(quote_spanned! {
+                    span => leptos_buffer.push(' ');
+                            leptos_buffer.push_str(&#value.into_attribute(cx).as_value_string(#name));
+                });
+            }
+            (AttributeValue::Dynamic(value), _) => {
+                // For client-side rendering, dynamic attributes don't need to be rendered in the template
+                // They'll immediately be set synchronously before the cloned template is mounted
+                expressions.push(quote_spanned! {
+                    span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, #value.into_attribute(cx))
+                });
             }
         }
     }
@@ -478,11 +525,15 @@ fn child_to_tokens(
             let name = child_ident(*next_el_id, node);
             let location = if let Some(sibling) = prev_sib {
                 quote_spanned! {
-                    span => let #name = #sibling.next_sibling().unwrap_throw();
+                    span => log::debug!("next sibling");
+                            let #name = #sibling.next_sibling().unwrap_throw();
+                            log::debug!("=> next sibling = {}", #name.node_name());
                 }
             } else {
                 quote_spanned! {
-                    span => let #name = #parent.first_child().unwrap_throw();
+                    span => log::debug!("first child");
+                            let #name = #parent.first_child().unwrap_throw();
+                            log::debug!("=> next sibling = {}", #name.node_name());
                 }
             };
 
@@ -496,12 +547,17 @@ fn child_to_tokens(
                     }
                 }
             };
+            let value = node.value.as_ref().expect("no block value");
 
             if let Some(v) = str_value {
-                if mode != Mode::Ssr {
+                if mode == Mode::Ssr {
+                    expressions.push(quote::quote_spanned! {
+                        span => leptos_buffer.push_str(#v);
+                    });
+                } else {
                     navigations.push(location);
+                    template.push_str(&v);
                 }
-                template.push_str(&v);
 
                 PrevSibChange::Sib(name)
             } else {
@@ -529,20 +585,15 @@ fn child_to_tokens(
 
                         current = Some(co);
                     }
-                    // in SSR, it needs to both wrap with comments and insert a hole for an existing value
-                    Mode::Ssr => {
-                        template.push_str("<!--#-->{}<!--/-->");
-                        // TODO push expression here, or elsewhere?
-                    }
+                    // in SSR, it needs to insert the value, wrapped in comments
+                    Mode::Ssr => expressions.push(quote::quote_spanned! {
+                        span => leptos_buffer.push_str("<!--#-->");
+                                leptos_buffer.push_str(&#value.into_child(cx).as_child_string());
+                                leptos_buffer.push_str("<!--/-->");
+                    }),
                 }
 
-                let value = node.value_as_block().expect("no block value");
-
-                if mode == Mode::Ssr {
-                    expressions.push(quote! {
-                        #value.into_child(cx).as_child_string()
-                    });
-                } else {
+                if mode != Mode::Ssr {
                     let current = match current {
                         Some(i) => quote! { Some(#i.into_child(cx)) },
                         None => quote! { None },
@@ -576,6 +627,7 @@ fn component_to_tokens(
     mode: Mode,
 ) -> PrevSibChange {
     let create_component = create_component(node, mode);
+    let span = node.name_span().unwrap();
 
     if let Some(parent) = parent {
         let before = match &next_sib {
@@ -590,9 +642,11 @@ fn component_to_tokens(
         };
 
         if mode == Mode::Ssr {
-            template.push_str("<!--#-->{}<!--/-->");
-            expressions.push(quote! {
-                #create_component.into_child(cx).as_child_string()
+            expressions.push(quote::quote_spanned! {
+                span => leptos_buffer.push_str("<!--#-->");
+                        leptos_buffer.push_str(&#create_component.into_child(cx).as_child_string());
+                        leptos_buffer.push_str("<!--/-->");
+
             });
         } else {
             expressions.push(quote! {
@@ -613,6 +667,9 @@ fn component_to_tokens(
 }
 
 fn create_component(node: &Node, mode: Mode) -> TokenStream {
+    // TODO hydrate
+    // TODO SSR (attributes etc.)
+
     let component_name = ident_from_tag_name(node.name.as_ref().unwrap());
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
@@ -683,8 +740,6 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
             None
         }
     }).peekable();
-
-    // TODO children
 
     if other_attrs.peek().is_none() {
         quote_spanned! {

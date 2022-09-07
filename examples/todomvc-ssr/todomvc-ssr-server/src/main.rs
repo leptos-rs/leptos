@@ -5,9 +5,6 @@ use actix_web::*;
 use leptos::*;
 use todomvc::*;
 
-// TODO
-// - WASM/JS routes
-
 #[get("/")]
 async fn render_todomvc() -> impl Responder {
     HttpResponse::Ok().content_type("text/html").body(format!(
@@ -32,7 +29,7 @@ async fn render_todomvc() -> impl Responder {
                         <body>
                             <TodoMVC todos=todos/>
                         </body>
-                        <script type="module">r#"import init, {{ main }} from './pkg/todomvc_ssr_client.js'; init().then(main);"#</script>
+                        <script type="module">r#"import init, { main } from './pkg/todomvc_ssr_client.js'; init().then(main);"#</script>
                     </html>
                 }
             }

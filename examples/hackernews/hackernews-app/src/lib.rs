@@ -14,19 +14,15 @@ use story::*;
 use users::*;
 
 #[component]
-pub fn App(cx: Scope) -> Element {
+pub fn App(cx: Scope) -> Vec<Branch> {
     view! {
-        <div>
-            <Router mode=BrowserIntegration {}>
-                <Routes>
-                    <Route path="" element=|cx| view! { <Main/> }>
-                        <Route path="users/:id" element=|cx| view! { <User/> } loader=user_data.into() />
-                        <Route path="stories/:id" element=|cx| view! { <Story/> } loader=story_data.into() />
-                        <Route path="*stories" element=|cx| view! { <Stories/> } loader=stories_data.into()/>
-                    </Route>
-                </Routes>
-            </Router>
-        </div>
+        <Routes>
+            <Route path="" element=|cx| view! { <Main/> }>
+                <Route path="users/:id" element=|cx| view! { <User/> } loader=user_data.into() />
+                <Route path="stories/:id" element=|cx| view! { <Story/> } loader=story_data.into() />
+                <Route path="*stories" element=|cx| view! { <Stories/> } loader=stories_data.into()/>
+            </Route>
+        </Routes>
     }
 }
 

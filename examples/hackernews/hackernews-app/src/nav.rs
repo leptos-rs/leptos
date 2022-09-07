@@ -5,21 +5,21 @@ pub fn Nav(cx: Scope) -> Element {
     view! {
         <header class="header">
             <nav class="inner">
-                <Link to="/".into()>
+                <a href="/"> // <Link to="/".into()>
                     <strong>"HN"</strong>
-                </Link>
-                <Link to="/new".into()>
+                </a> // </Link>
+                <a href="/new"> // <Link to="/new".into()>
                     <strong>"New"</strong>
-                </Link>
-                <Link to="/show".into()>
+                </a> // </Link>
+                <a href="/show"> // <Link to="/show".into()>
                     <strong>"Show"</strong>
-                </Link>
-                <Link to="/ask".into()>
+                </a> // </Link>
+                <a href="/ask"> // <Link to="/ask".into()>
                     <strong>"Ask"</strong>
-                </Link>
-                <Link to="/job".into()>
+                </a> // </Link>
+                <a href="/job"> // <Link to="/job".into()>
                     <strong>"Jobs"</strong>
-                </Link>
+                </a> // </Link>
                 <a class="github" href="http://github.com/gbj/leptos" target="_blank" rel="noreferrer">
                     "Built with Leptos"
                 </a>

@@ -44,9 +44,11 @@ pub fn create_template(html: &str) -> web_sys::HtmlTemplateElement {
     template.unchecked_into()
 }
 
-pub fn clone_template(template: &web_sys::HtmlTemplateElement) -> web_sys::DocumentFragment {
+pub fn clone_template(template: &web_sys::HtmlTemplateElement) -> web_sys::Element {
     template
         .content()
+        .first_element_child()
+        .unwrap_throw()
         .clone_node_with_deep(true)
         .unwrap_throw()
         .unchecked_into()

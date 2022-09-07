@@ -98,7 +98,6 @@ impl Scope {
             }
 
             for effect in &scope.effects {
-                log::debug!("unloading dependencies from effect");
                 effect.clear_dependencies();
             }
 
@@ -122,24 +121,28 @@ impl Scope {
 
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
+        log::debug!("get_next_element");
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
         let cloned_template = |t: &web_sys::Element| {
-            t.unchecked_ref::<web_sys::HtmlTemplateElement>()
+            let t = t
+                .unchecked_ref::<web_sys::HtmlTemplateElement>()
                 .content()
                 .clone_node_with_deep(true)
                 .unwrap_throw()
                 .unchecked_into::<web_sys::Element>()
                 .first_element_child()
-                .unwrap_throw()
+                .unwrap_throw();
+            t
         };
 
         if let Some(ref mut shared_context) = &mut *self.runtime.shared_context.borrow_mut() {
-            if shared_context.id.is_some() {
+            if shared_context.context.is_some() {
                 let key = shared_context.next_hydration_key();
                 let node = shared_context.registry.remove(&key.to_string());
 
                 if let Some(node) = node {
+                    log::debug!("(get_next_element) hk {} => {}", key, node.node_name());
                     shared_context.completed.push(node.clone());
                     node
                 } else {
@@ -165,7 +168,7 @@ impl Scope {
             .shared_context
             .borrow()
             .as_ref()
-            .map(|sc| sc.id)
+            .map(|sc| sc.context.as_ref())
             .is_some()
         {
             while let Some(curr) = end {
@@ -191,7 +194,7 @@ impl Scope {
         (start, current)
     }
 
-    pub fn next_hydration_key(&self) -> usize {
+    pub fn next_hydration_key(&self) -> String {
         let mut sc = self.runtime.shared_context.borrow_mut();
         if let Some(ref mut sc) = *sc {
             sc.next_hydration_key()
@@ -200,6 +203,39 @@ impl Scope {
             let id = new_sc.next_hydration_key();
             *sc = Some(new_sc);
             id
+        }
+    }
+
+    pub fn with_next_context<T>(&self, f: impl FnOnce() -> T) -> T {
+        if self
+            .runtime
+            .shared_context
+            .borrow()
+            .as_ref()
+            .and_then(|sc| sc.context.as_ref())
+            .is_some()
+        {
+            let c = {
+                if let Some(ref mut sc) = *self.runtime.shared_context.borrow_mut() {
+                    if let Some(ref mut context) = sc.context {
+                        let next = context.next_hydration_context();
+                        Some(std::mem::replace(context, next))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
+
+            let res = self.untrack(f);
+
+            if let Some(ref mut sc) = *self.runtime.shared_context.borrow_mut() {
+                sc.context = c;
+            }
+            res
+        } else {
+            self.untrack(f)
         }
     }
 }

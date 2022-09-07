@@ -189,7 +189,7 @@ impl Runtime {
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn end_hydration(&self) {
         if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
-            sc.id = None;
+            sc.context = None;
         }
     }
 }

@@ -9,6 +9,7 @@ pub fn create_location(cx: Scope, path: ReadSignal<String>, state: ReadSignal<St
         path.with(|path| match Url::try_from(path.as_str()) {
             Ok(url) => url,
             Err(e) => {
+                eprintln!("[Leptos Router] Invalid path {path}\n\n{e:?}");
                 log::error!("[Leptos Router] Invalid path {path}\n\n{e:?}");
                 prev.clone().unwrap()
             }
