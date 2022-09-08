@@ -121,7 +121,7 @@ impl Scope {
 
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
-        log::debug!("get_next_element");
+        //log::debug!("get_next_element");
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
         let cloned_template = |t: &web_sys::Element| {
@@ -142,7 +142,6 @@ impl Scope {
                 let node = shared_context.registry.remove(&key.to_string());
 
                 if let Some(node) = node {
-                    log::debug!("(get_next_element) hk {} => {}", key, node.node_name());
                     shared_context.completed.push(node.clone());
                     node
                 } else {

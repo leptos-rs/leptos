@@ -195,21 +195,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}\n\n{:?}", #this_el_ident.node_name(), #this_el_ident.dyn_ref::<web_sys::Element>().map(|el| el.outer_html()));
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    log::debug!("next_sibling ({})", #debug_name);
+                    //log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    log::debug!("first_child ({})", #debug_name);
+                    //log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -525,15 +525,15 @@ fn child_to_tokens(
             let name = child_ident(*next_el_id, node);
             let location = if let Some(sibling) = prev_sib {
                 quote_spanned! {
-                    span => log::debug!("next sibling");
+                    span => //log::debug!("-> next sibling");
                             let #name = #sibling.next_sibling().unwrap_throw();
-                            log::debug!("=> next sibling = {}", #name.node_name());
+                            //log::debug!("\tnext sibling = {}", #name.node_name());
                 }
             } else {
                 quote_spanned! {
-                    span => log::debug!("first child");
+                    span => //log::debug!("\\|/ first child");
                             let #name = #parent.first_child().unwrap_throw();
-                            log::debug!("=> next sibling = {}", #name.node_name());
+                            //log::debug!("\tfirst child = {}", #name.node_name());
                 }
             };
 
@@ -674,14 +674,30 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
 
-    let children = if node.children.is_empty() {
-        quote! {}
+    let (initialize_children, children) = if node.children.is_empty() {
+        (quote! {}, quote! {})
     } else if node.children.len() == 1 {
         let child = render_view(&node.children, mode);
-        quote! { .children(vec![#child]) }
+
+        if mode == Mode::Hydrate {
+            (
+                quote! {let children = vec![#child]; },
+                quote! { .children(children) },
+            )
+        } else {
+            (quote! {}, quote! { .children(vec![#child]) })
+        }
     } else {
         let children = render_view(&node.children, mode);
-        quote! { .children(#children) }
+
+        if mode == Mode::Hydrate {
+            (
+                quote! { let children = #children; },
+                quote! { .children(children) },
+            )
+        } else {
+            (quote! {}, quote! { .children(#children) })
+        }
     };
 
     let props = node.attributes.iter().filter_map(|attr| {
@@ -744,6 +760,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
     if other_attrs.peek().is_none() {
         quote_spanned! {
             span => create_component(cx, move || {
+                #initialize_children
                 #component_name(
                     cx,
                     #component_props_name::builder()
@@ -756,6 +773,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
     } else {
         quote_spanned! {
             span => create_component(cx, move || {
+                #initialize_children
                 let #component_name = #component_name(
                     cx,
                     #component_props_name::builder()

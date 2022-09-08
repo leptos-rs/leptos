@@ -348,7 +348,7 @@ fn clean_children(
     marker: &Marker,
     replacement: Option<web_sys::Node>,
 ) -> Child {
-    //log::debug!("clean_children on {} with current = {current:?} and marker = {marker:#?} and replacement = {replacement:#?}", parent.node_name());
+    log::debug!("clean_children on {} with current = {current:?} and marker = {marker:#?} and replacement = {replacement:#?}", parent.node_name());
 
     if marker == &Marker::NoChildren {
         parent.set_text_content(Some(""));
@@ -366,26 +366,31 @@ fn clean_children(
                 } else {
                     let mut inserted = false;
                     log::debug!("iterating over current nodes");
-                    log::debug!("node = {} => {:?}", node.node_name(), node.node_value());
+                    //log::debug!("node = {} => {:?}", node.node_name(), node.node_value());
                     for (idx, el) in nodes.iter().enumerate().rev() {
-                        log::debug!("{idx}: {} => {:?}", el.node_name(), el.node_value());
+                        //log::debug!("{idx}: {} => {:?}", el.node_name(), el.node_value());
                         if &node != el {
                             let is_parent =
                                 el.parent_node() == Some(parent.clone().unchecked_into());
-                            log::debug!("is_parent = {is_parent}");
+                            //log::debug!("is_parent = {is_parent}");
                             if !inserted && idx == 0 {
-                                log::debug!("!insert && idx == 0");
+                                //log::debug!("!insert && idx == 0");
                                 if is_parent {
-                                    log::debug!(
+                                    /* log::debug!(
                                         "replacing child {}/{:?} with {}/{:?}",
                                         el.node_name(),
                                         el.node_value(),
                                         node.node_name(),
                                         node.node_value()
-                                    );
+                                    ); */
                                     replace_child(parent, &node, el);
                                 } else {
-                                    log::debug!("inserting before");
+                                    /*  log::debug!(
+                                        "inserting {:?} before {:?} on {:?}",
+                                        node.node_name(),
+                                        marker.as_some_node().map(|n| n.node_name()),
+                                        parent.outer_html()
+                                    ); */
                                     node = insert_before(parent, &node, marker.as_some_node());
                                 }
                             } else {

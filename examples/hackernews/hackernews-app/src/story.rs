@@ -35,7 +35,7 @@ pub fn Story(cx: Scope) -> Element {
                             // TODO issue here in renderer
                             {story.points}
                             " points | by "
-                            <Link to=format!("/users/{}", user)>{user}</Link>
+                            <Link to=format!("/users/{}", user)>{&user}</Link>
                             {format!(" {}", story.time_ago)}
                         </p>})}
                         </div>
@@ -66,7 +66,7 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> Element {
     view! {
         <li class="comment">
         <div class="by">
-            <Link to={format!("/users/{}", comment.user)}>{comment.user}</Link>
+            <Link to={format!("/users/{}", comment.user)}>{&comment.user}</Link>
             {format!(" {}", comment.time_ago)}
         </div>
         <div class="text" inner_html={comment.content}></div>

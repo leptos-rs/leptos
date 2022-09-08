@@ -9,8 +9,9 @@ leptos_dom = { path = "../leptos_dom" }
 leptos_macro = { path = "../leptos_macro" }
 leptos_reactive = { path = "../leptos_reactive" }
 leptos_router = { path = "../router" }
+leptos_ssr= { path = "../ssr" }
 
 [features]
-csr = ["leptos_core/csr", "leptos_router/csr", "leptos_macro/csr", "leptos_reactive/csr", "leptos_router/csr"]
-hydrate = ["leptos_core/hydrate", "leptos_router/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos_core/ssr", "leptos_router/ssr", "leptos_macro/ssr", "leptos_reactive/ssr", "leptos_router/ssr"]
+csr = ["leptos_core/csr", "leptos_router/csr", "leptos_macro/csr", "leptos_reactive/csr", "leptos_router/csr", "leptos_ssr/csr"]
+hydrate = ["leptos_core/hydrate", "leptos_router/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate", "leptos_router/hydrate", "leptos_ssr/hydrate"]
+ssr = ["leptos_core/ssr", "leptos_router/ssr", "leptos_macro/ssr", "leptos_reactive/ssr", "leptos_router/ssr", "leptos_ssr/ssr"]

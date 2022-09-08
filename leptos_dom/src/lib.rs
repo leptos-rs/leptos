@@ -104,6 +104,7 @@ where
     cx.untrack(f)
 }
 
+#[cfg(not(feature = "csr"))]
 pub fn create_component<F, T>(cx: Scope, f: F) -> T
 where
     F: FnOnce() -> T,
