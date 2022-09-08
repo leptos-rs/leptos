@@ -1,4 +1,6 @@
-use leptos_reactive::{create_effect, create_signal, Memo, ReadSignal, Scope, ScopeDisposer};
+use leptos_reactive::{
+    create_effect, create_memo, create_signal, Memo, ReadSignal, Scope, ScopeDisposer,
+};
 use std::{collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
@@ -20,7 +22,8 @@ pub fn map_keyed<T, U, K>(
     list: impl Fn() -> Vec<T> + 'static,
     map_fn: impl Fn(Scope, &T) -> U + 'static,
     key_fn: impl Fn(&T) -> K + 'static,
-) -> impl FnMut() -> Vec<U>
+) -> Memo<Vec<U>>
+//-> impl FnMut() -> Vec<U>
 where
     T: PartialEq + Debug + Clone + 'static,
     K: Eq + Hash,
@@ -29,10 +32,11 @@ where
     // Previous state used for diffing.
     let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
     let mut prev_items: Option<Vec<T>> = None;
-    let mut mapped: Vec<U> = Vec::new();
+    //let mapped: Vec<U> = Vec::new();
 
     // Diff and update signal each time list is updated.
-    move || {
+    create_memo(cx, move |mapped: Option<Vec<U>>| {
+        let mut mapped = mapped.unwrap_or_default();
         let items = prev_items.take().unwrap_or_default();
         let new_items = list();
         let new_items_len = new_items.len();
@@ -145,5 +149,5 @@ where
         prev_items = Some(new_items);
 
         mapped.to_vec()
-    }
+    })
 }
