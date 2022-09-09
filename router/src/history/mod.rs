@@ -19,6 +19,7 @@ pub trait History {
     fn navigate(&self, loc: &LocationChange);
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BrowserIntegration {}
 
 impl BrowserIntegration {

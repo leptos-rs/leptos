@@ -195,21 +195,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    //log::debug!("=> got {}\n\n{:?}", #this_el_ident.node_name(), #this_el_ident.dyn_ref::<web_sys::Element>().map(|el| el.outer_html()));
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    //log::debug!("next_sibling ({})", #debug_name);
+                    log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    //log::debug!("first_child ({})", #debug_name);
+                    log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -252,7 +252,7 @@ fn element_to_tokens(
 
     // iterate over children
     let mut prev_sib = prev_sib;
-    let multi = node.children.len() >= 2;
+    let multi = !node.children.is_empty();
     for (idx, child) in node.children.iter().enumerate() {
         // set next sib (for any insertions)
         let next_sib = node.children.get(idx + 1).and_then(|next_sib| {
@@ -643,9 +643,10 @@ fn component_to_tokens(
 
         if mode == Mode::Ssr {
             expressions.push(quote::quote_spanned! {
-                span => leptos_buffer.push_str("<!--#-->");
+                span => // TODO wrap components but use get_next_element() instead of first_child/next_sibling?
+                        //leptos_buffer.push_str("<!--#-->");
                         leptos_buffer.push_str(&#create_component.into_child(cx).as_child_string());
-                        leptos_buffer.push_str("<!--/-->");
+                        //leptos_buffer.push_str("<!--/-->");
 
             });
         } else {

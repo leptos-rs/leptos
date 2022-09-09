@@ -29,9 +29,9 @@ pub fn App(cx: Scope) -> Vec<Branch> {
 #[component]
 pub fn Main(cx: Scope) -> Element {
     view! {
-        <div>
+        <article>
             <Nav />
             <Outlet />
-        </div>
+        </article>
     }
 }

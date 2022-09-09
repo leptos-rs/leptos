@@ -20,7 +20,7 @@ impl SharedContext {
             events: Default::default(),
             context: Some(HydrationContext {
                 id: "0-".into(),
-                count: 0,
+                count: -1,
             }),
             registry,
         }
@@ -43,7 +43,7 @@ impl SharedContext {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct HydrationContext {
     id: String,
-    count: usize,
+    count: i32,
 }
 
 impl HydrationContext {

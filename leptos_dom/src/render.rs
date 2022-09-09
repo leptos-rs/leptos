@@ -135,6 +135,11 @@ pub fn insert(
                     .unwrap_or(Child::Null);
 
                 let mut value = (f.borrow_mut())();
+                log::debug!(
+                    "rendering Child::Fn on {} — value is {:?}",
+                    parent.node_name(),
+                    value
+                );
 
                 if current != value {
                     while let Child::Fn(f) = value {
@@ -169,10 +174,11 @@ pub fn insert_expression(
     mut current: Child,
     before: &Marker,
 ) -> Child {
-    /* log::debug!(
-        "insert_expression {new_value:?} on {} before {before:?} with current = {current:?}",
-        parent.node_name()
-    ); */
+    log::debug!(
+        "insert_expression {new_value:?} on {} before {before:?} with current = {current:?}\nparent.parentNode = {}",
+        parent.node_name(),
+        parent.parent_node().unwrap().node_name()
+    );
 
     if new_value == &current {
         current
@@ -208,7 +214,15 @@ pub fn insert_expression(
                 Child::Nodes(current) => {
                     clean_children(&parent, Child::Nodes(current), before, Some(node.clone()))
                 }
-                Child::Null => Child::Node(append_child(&parent, node)),
+                Child::Null => {
+                    log::debug!(
+                        "okay, should append node {} on {} (under {:?})",
+                        node.node_name(),
+                        parent.node_name(),
+                        parent.parent_node().map(|n| n.node_name())
+                    );
+                    Child::Node(append_child(&parent, node))
+                }
                 Child::Text(current_text) => {
                     if current_text.is_empty() {
                         Child::Node(append_child(&parent, node))
@@ -241,8 +255,15 @@ pub fn insert_expression(
                         Child::Nodes(new_nodes.to_vec())
                     }
                 } else {
+                    log::debug!("branch C clean_children on {}", parent.node_name());
                     clean_children(&parent, Child::Null, &Marker::NoChildren, None);
+                    log::debug!("branch C cleaned children on {}", parent.node_name());
                     append_nodes(&parent, new_nodes, before);
+                    log::debug!(
+                        "branch C append_nodes on {} {:?}",
+                        parent.node_name(),
+                        new_nodes
+                    );
                     Child::Nodes(new_nodes.to_vec())
                 }
             }
@@ -336,6 +357,11 @@ fn append_nodes(
     marker: &Marker,
 ) -> Vec<web_sys::Node> {
     let mut result = Vec::new();
+    log::debug!(
+        "appending nodes to {} with parent {}",
+        parent.node_name(),
+        parent.parent_node().unwrap().node_name()
+    );
     for node in new_nodes {
         result.push(insert_before(parent, node, marker.as_some_node()));
     }

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use leptos::*;
 
 use crate::api;
@@ -105,33 +107,25 @@ pub fn Stories(cx: Scope) -> Element {
                 }
             </div>
             <main class="news-list">
-                <p>"Stories" {move || match stories.read() {
-                    None => "none".to_string(),
-                    Some(s) => match s {
-                    Err(_) => "err".to_string(),
-                    Ok(stories) => stories.len().to_string()
-                }
-                }}</p>
-                {move || match stories.read() {
-                    None => None,
-                    Some(Err(_)) => Some(view! { <p>"Error loading stories."</p> }),
-                    Some(Ok(stories)) => {
-                        log::debug!("stories.len() = {}", stories.len());
-                        Some(view! {
-                            <ul>
-                                <p>{stories.len()}</p>
-                                <For each={move || stories.clone()} key=|story| story.id>{
-                                    move |cx: Scope, story: &api::Story| {
-                                        log::debug!("Story entry {:?}", story);
-                                        view! {
-                                        //<p>"Story"</p>
-                                        <Story story={story.clone()} />
-                                    }}
-                                }</For>
-                            </ul>
-                        })
-                    }
-                }}
+                <div>
+                    {move || match stories.read() {
+                        None => None,
+                        Some(Err(_)) => Some(view! { <p>"Error loading stories."</p> }),
+                        Some(Ok(stories)) => {
+                            Some(view! {
+                                <ul>
+                                    <For each={move || stories.clone()} key=|story| story.id>{
+                                        move |cx: Scope, story: &api::Story| {
+                                            view! {
+                                                <Story story={story.clone()} />
+                                            }
+                                        }
+                                    }</For>
+                                </ul>
+                            })
+                        }
+                    }}
+                </div>
             </main>
         </div>
     }

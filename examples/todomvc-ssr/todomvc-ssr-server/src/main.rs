@@ -8,7 +8,20 @@ use todomvc::*;
 #[get("/")]
 async fn render_todomvc() -> impl Responder {
     HttpResponse::Ok().content_type("text/html").body(format!(
-        "<!DOCTYPE html>{}",
+        r#"<!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <link rel="stylesheet" href="/static/todomvc-common/base.css"/>
+                <link rel="stylesheet" href="/static/todomvc-app-css/index.css"/>
+                <title>"Leptos • TodoMVC"</title>
+            </head>
+            <body>
+                {}
+            </body>
+            <script type="module">import init, {{ main }} from './pkg/todomvc_ssr_client.js'; init().then(main);</script>
+        </html>"#,
         run_scope({
             |cx| {
                 let todos = Todos(vec![
@@ -18,19 +31,9 @@ async fn render_todomvc() -> impl Responder {
                 ]);
 
                 view! {
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="stylesheet" href="/static/todomvc-common/base.css"/>
-                            <link rel="stylesheet" href="/static/todomvc-app-css/index.css"/>
-                            <title>"Leptos • TodoMVC"</title>
-                        </head>
-                        <body>
-                            <TodoMVC todos=todos/>
-                        </body>
-                        <script type="module">r#"import init, { main } from './pkg/todomvc_ssr_client.js'; init().then(main);"#</script>
-                    </html>
+                    <main>
+                        <TodoMVC todos=todos/>
+                    </main>
                 }
             }
         })
