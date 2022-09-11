@@ -59,11 +59,11 @@ pub fn append_child(parent: &web_sys::Element, child: &web_sys::Node) -> web_sys
 }
 
 pub fn remove_child(parent: &web_sys::Element, child: &web_sys::Node) {
-    parent.remove_child(child).unwrap_throw();
+    _ = parent.remove_child(child);
 }
 
 pub fn replace_child(parent: &web_sys::Element, new: &web_sys::Node, old: &web_sys::Node) {
-    parent.replace_child(new, old).unwrap_throw();
+    _ = parent.replace_child(new, old);
 }
 
 pub fn insert_before(
@@ -75,7 +75,7 @@ pub fn insert_before(
 }
 
 pub fn replace_with(old_node: &web_sys::Element, new_node: &web_sys::Node) {
-    old_node.replace_with_with_node_1(new_node).unwrap_throw()
+    _ = old_node.replace_with_with_node_1(new_node);
 }
 
 pub fn set_data(node: &web_sys::Text, value: &str) {
@@ -83,18 +83,18 @@ pub fn set_data(node: &web_sys::Text, value: &str) {
 }
 
 pub fn set_attribute(el: &web_sys::Element, attr_name: &str, value: &str) {
-    el.set_attribute(attr_name, value).unwrap_throw()
+    _ = el.set_attribute(attr_name, value);
 }
 
 pub fn remove_attribute(el: &web_sys::Element, attr_name: &str) {
-    el.remove_attribute(attr_name).unwrap_throw()
+    _ = el.remove_attribute(attr_name);
 }
 
 pub fn set_property(el: &web_sys::Element, prop_name: &str, value: &Option<JsValue>) {
     let key = JsValue::from_str(prop_name);
     match value {
-        Some(value) => js_sys::Reflect::set(el, &key, value).unwrap_throw(),
-        None => js_sys::Reflect::delete_property(el, &key).unwrap_throw(),
+        Some(value) => _ = js_sys::Reflect::set(el, &key, value),
+        None => _ = js_sys::Reflect::delete_property(el, &key),
     };
 }
 
@@ -172,26 +172,20 @@ pub fn event_target_selector(ev: &web_sys::Event, selector: &str) -> bool {
 
 pub fn request_animation_frame(cb: impl Fn() + 'static) {
     let cb = Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
-    window()
-        .request_animation_frame(cb.as_ref().unchecked_ref())
-        .unwrap_throw();
+    _ = window().request_animation_frame(cb.as_ref().unchecked_ref());
 }
 
 pub fn request_idle_callback(cb: impl Fn() + 'static) {
     let cb = Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
-    window()
-        .request_idle_callback(cb.as_ref().unchecked_ref())
-        .unwrap_throw();
+    _ = window().request_idle_callback(cb.as_ref().unchecked_ref());
 }
 
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
     let cb = Closure::once_into_js(Box::new(cb) as Box<dyn FnOnce()>);
-    window()
-        .set_timeout_with_callback_and_timeout_and_arguments_0(
-            cb.as_ref().unchecked_ref(),
-            duration.as_millis().try_into().unwrap_throw(),
-        )
-        .unwrap_throw();
+    _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(
+        cb.as_ref().unchecked_ref(),
+        duration.as_millis().try_into().unwrap_throw(),
+    );
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -232,7 +226,7 @@ pub fn add_event_listener(
 
     // delegate events
     let key = event_delegation::event_delegation_key(event_name);
-    js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb).unwrap_throw();
+    _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     event_delegation::add_event_listener(event_name);
 
     // below: non-delegated
@@ -246,53 +240,8 @@ pub fn window_event_listener(event_name: &str, cb: impl Fn(web_sys::Event) + 'st
         let handler = Box::new(cb) as Box<dyn FnMut(web_sys::Event)>;
 
         let cb = Closure::wrap(handler).into_js_value();
-        window()
-            .add_event_listener_with_callback(event_name, cb.unchecked_ref())
-            .unwrap_throw();
+        _ = window().add_event_listener_with_callback(event_name, cb.unchecked_ref());
     }
-}
-
-// Hydration operations to find text and comment nodes
-pub fn pick_up_comment_node(
-    parent: &web_sys::HtmlElement,
-    node_idx: usize,
-) -> Option<web_sys::Node> {
-    let mut node_identifier = String::from("hk");
-    node_identifier.push_str(&node_idx.to_string());
-
-    let walker = document()
-        .create_tree_walker_with_what_to_show(parent, 128) // = NodeFilter.SHOW_COMMENT
-        .unwrap_throw();
-    while let Some(node) = walker.next_node().unwrap_throw() {
-        if let Some(value) = node.node_value() {
-            if value == node_identifier {
-                return Some(node);
-            }
-        }
-    }
-    None
-}
-
-pub fn pick_up_text_node(parent: &web_sys::HtmlElement, node_idx: usize) -> Option<web_sys::Text> {
-    let mut node_identifier = String::from("hk");
-    node_identifier.push_str(&node_idx.to_string());
-
-    let walker = document()
-        .create_tree_walker(parent) //_with_what_to_show(&node, 128) // = NodeFilter.SHOW_COMMENT
-        .unwrap_throw();
-    while let Some(node) = walker.next_node().unwrap_throw() {
-        let next_value = node.node_value();
-        if next_value.is_some() && next_value.unwrap_throw() == node_identifier {
-            let next_node = walker.next_node().unwrap_throw();
-            if let Some(node) = next_node {
-                // if it's Node.TEXT_NODE
-                if node.node_type() == 3 {
-                    return Some(node.unchecked_into());
-                }
-            }
-        }
-    }
-    None
 }
 
 pub fn remove_event_listeners(el: &web_sys::Element) {
