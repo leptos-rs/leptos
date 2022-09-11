@@ -65,7 +65,13 @@ fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute
             Some(value) => set_attribute(el, attr_name, &value),
             None => remove_attribute(el, attr_name),
         },
-        Attribute::Bool(_) => todo!(),
+        Attribute::Bool(value) => {
+            if value {
+                set_attribute(el, attr_name, attr_name);
+            } else {
+                remove_attribute(el, attr_name);
+            }
+        }
         _ => panic!("Remove nested Fn in Attribute"),
     }
 }
