@@ -12,8 +12,7 @@ impl Url {
     pub fn search_params(&self) -> ParamsMap {
         let map = self
             .search
-            .strip_prefix('?')
-            .unwrap_or_default()
+            .trim_start_matches('?')
             .split('&')
             .filter_map(|piece| {
                 let mut parts = piece.split('=');
@@ -65,13 +64,11 @@ impl TryFrom<&str> for Url {
 
     fn try_from(url: &str) -> Result<Self, Self::Error> {
         let url = url::Url::parse(url).map_err(|e| e.to_string())?;
-        let r = Ok(Self {
+        Ok(Self {
             origin: url.origin().unicode_serialization(),
             pathname: url.path().to_string(),
             search: url.query().unwrap_or_default().to_string(),
             hash: Default::default(),
-        });
-        log::debug!("request URL = {r:#?}");
-        r
+        })
     }
 }
