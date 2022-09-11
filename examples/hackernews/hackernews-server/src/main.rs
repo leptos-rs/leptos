@@ -55,18 +55,19 @@ async fn render_app(req: HttpRequest) -> impl Responder {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <title>"Leptos • Hacker News"</title>
+                <title>Leptos • Hacker News</title>
                 <link rel="stylesheet" href="/static/style.css"/>
                 <script type="module">import init, { main } from '/pkg/hackernews_client.js'; init().then(main);</script>
             </head>
             <body>"#
                 .to_string()
         })
-        // the actual app body/template code
-        // this does NOT contain any of the data being loaded asynchronously in resources
+        
         .chain({
             let ((shell, pending_resources, serializers), disposer) = run_scope_undisposed({
                 move |cx| {
+                    // the actual app body/template code
+                    // this does NOT contain any of the data being loaded asynchronously in resources
                     let shell = view! {
                         <div>
                             <Router mode=integration>
@@ -103,30 +104,6 @@ async fn render_app(req: HttpRequest) -> impl Responder {
 
             // TODO handle disposer; currently leaking memory from scope
         })
-            
-            /* futures::stream::once(async {
-            // the app shell
-            run_scope({
-                |cx| {
-                    let template = view! {
-                        <div>
-                            <Router mode=integration>
-                                <App />
-                            </Router>
-                        </div>
-                    };
-
-                    let resources = cx.all_resources();
-                    let resources = serde_json::to_string(&resources).unwrap();
-
-                    format!("{template}<script>const __LEPTOS_PENDING_RESOURCES = {resources}; const __LEPTOS_RESOLVED_RESOURCES = {{}}; const __LEPTOS_RESOURCE_RESOLVERS = {{}};</script>")
-                }
-            })
-        }))*/
-        // at the end of streaming, close the HTML document
-        /* .chain(futures::stream::once(async {
-            "</body></html>".to_string()
-        })) */
         .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
     )
 }
