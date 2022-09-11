@@ -1,6 +1,6 @@
 use crate::{
     AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer, ScopeId,
-    ScopeState, SignalId, SignalState, Subscriber, TransitionState,
+    ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber, TransitionState,
 };
 use slotmap::SlotMap;
 use std::cell::RefCell;
@@ -82,7 +82,7 @@ impl Runtime {
     {
         self.scope(id.0, |scope| {
             if let Some(n) = scope.resources.get(id.1 .0) {
-                if let Some(n) = n.downcast_ref::<ResourceState<S, T>>() {
+                if let Some(n) = n.as_any().downcast_ref::<ResourceState<S, T>>() {
                     f(n)
                 } else {
                     panic!(
@@ -145,6 +145,22 @@ impl Runtime {
         ret
     }
 
+    pub fn run_scope_undisposed<T>(
+        &'static self,
+        f: impl FnOnce(Scope) -> T,
+        parent: Option<Scope>,
+    ) -> (T, ScopeDisposer) {
+        let id = {
+            self.scopes
+                .borrow_mut()
+                .insert(Rc::new(ScopeState::new(parent)))
+        };
+        let scope = Scope { runtime: self, id };
+        let ret = f(scope);
+
+        (ret, ScopeDisposer(Box::new(move || scope.dispose())))
+    }
+
     pub fn push_stack(&self, id: Subscriber) {
         self.stack.borrow_mut().push(id);
     }
@@ -165,7 +181,7 @@ impl Runtime {
         untracked_result
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         use std::collections::HashMap;
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -186,11 +202,49 @@ impl Runtime {
         *self.shared_context.borrow_mut() = Some(SharedContext::new_with_registry(registry));
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub fn end_hydration(&self) {
         if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
             sc.context = None;
         }
+    }
+
+    /// Returns IDs for all [Resource]s found on any scope.
+    pub(crate) fn all_resources(&self) -> Vec<StreamingResourceId> {
+        self.scopes
+            .borrow()
+            .iter()
+            .flat_map(|(scope_id, scope)| {
+                scope
+                    .resources
+                    .iter()
+                    .enumerate()
+                    .map(move |(resource_id, _)| {
+                        StreamingResourceId(scope_id, ResourceId(resource_id))
+                    })
+            })
+            .collect()
+    }
+
+    #[cfg(feature = "ssr")]
+    pub(crate) fn serialization_resolvers(
+        &self,
+    ) -> futures::stream::futures_unordered::FuturesUnordered<
+        std::pin::Pin<Box<dyn futures::Future<Output = (StreamingResourceId, String)>>>,
+    > {
+        let f = futures::stream::futures_unordered::FuturesUnordered::new();
+        for (id, resource) in self.scopes.borrow().iter().flat_map(|(scope_id, scope)| {
+            scope
+                .resources
+                .iter()
+                .enumerate()
+                .map(move |(idx, resource)| {
+                    (StreamingResourceId(scope_id, ResourceId(idx)), resource)
+                })
+        }) {
+            f.push(resource.to_serialization_resolver(id));
+        }
+        f
     }
 }
 

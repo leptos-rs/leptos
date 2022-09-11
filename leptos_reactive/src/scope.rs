@@ -1,8 +1,9 @@
 use crate::{
-    hydration::SharedContext, AnyEffect, AnySignal, EffectId, EffectState, ReadSignal, ResourceId,
-    ResourceState, Runtime, SignalId, SignalState, WriteSignal,
+    hydration::SharedContext, AnyEffect, AnyResource, AnySignal, EffectId, EffectState, ReadSignal,
+    ResourceId, ResourceState, Runtime, SignalId, SignalState, StreamingResourceId, WriteSignal,
 };
 use elsa::FrozenVec;
+use serde::{de::DeserializeOwned, Serialize};
 use std::{
     any::{Any, TypeId},
     cell::RefCell,
@@ -26,8 +27,18 @@ pub fn create_scope(f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
 /// applications like SSR, where actual reactivity is not required beyond the end
 /// of the synchronous operation.
 pub fn run_scope<T>(f: impl FnOnce(Scope) -> T + 'static) -> T {
+    // TODO this leaks the runtime — should unsafely upgrade the lifetime, and then drop it after the scope is run
     let runtime = Box::leak(Box::new(Runtime::new()));
     runtime.run_scope(f, None)
+}
+
+#[must_use = "Scope will leak memory if the disposer function is never called"]
+/// Creates a temporary scope and run the given function without disposing of the scope.
+/// If you do not dispose of the scope on your own, memory will leak.
+pub fn run_scope_undisposed<T>(f: impl FnOnce(Scope) -> T + 'static) -> (T, ScopeDisposer) {
+    // TODO this leaks the runtime — should unsafely upgrade the lifetime, and then drop it after the scope is run
+    let runtime = Box::leak(Box::new(Runtime::new()));
+    runtime.run_scope_undisposed(f, None)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -79,7 +90,7 @@ impl Scope {
     pub(crate) fn push_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + Clone + 'static,
+        T: Debug + Clone + Serialize + DeserializeOwned + 'static,
     {
         self.runtime.scope(self.id, |scope| {
             scope.resources.push(state);
@@ -241,6 +252,21 @@ impl Scope {
             self.untrack(f)
         }
     }
+
+    /// Returns IDs for all [Resource]s found on any scope.
+    pub fn all_resources(&self) -> Vec<StreamingResourceId> {
+        self.runtime.all_resources()
+    }
+
+    /// Returns IDs for all [Resource]s found on any scope.
+    #[cfg(feature = "ssr")]
+    pub fn serialization_resolvers(
+        &self,
+    ) -> futures::stream::futures_unordered::FuturesUnordered<
+        std::pin::Pin<Box<dyn futures::Future<Output = (StreamingResourceId, String)>>>,
+    > {
+        self.runtime.serialization_resolvers()
+    }
 }
 
 pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
@@ -265,7 +291,7 @@ pub(crate) struct ScopeState {
     pub(crate) children: RefCell<Vec<ScopeId>>,
     pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
     pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
-    pub(crate) resources: FrozenVec<Rc<dyn Any>>,
+    pub(crate) resources: FrozenVec<Rc<dyn AnyResource>>,
     pub(crate) cleanups: RefCell<Vec<Box<dyn FnOnce()>>>,
 }
 

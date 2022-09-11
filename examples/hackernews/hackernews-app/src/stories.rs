@@ -19,9 +19,13 @@ pub fn stories_data(cx: Scope, params: Memo<ParamsMap>, location: Location) -> S
     let page = create_memo(cx, move |_| {
         location
             .query
-            .with(|q| q.get("page").and_then(|p| p.parse::<usize>().ok()))
+            .with(|q| {
+                log::debug!("(stories_data) q.page == {:?}", q.get("page"));
+                q.get("page").and_then(|p| p.parse::<usize>().ok())
+            })
             .unwrap_or(1)
     });
+    log::debug!("(stories_data) page == {}", page.get(),);
     let story_type = create_memo(cx, move |_| {
         params
             .with(|params| params.get("stories").cloned())

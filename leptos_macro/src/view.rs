@@ -195,21 +195,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    log::debug!("next_sibling ({})", #debug_name);
+                    //log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    log::debug!("first_child ({})", #debug_name);
+                    //log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);

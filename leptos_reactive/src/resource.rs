@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     collections::HashSet,
     fmt::Debug,
@@ -8,7 +9,7 @@ use std::{
     rc::Rc,
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     create_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
@@ -23,7 +24,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
     Fu: Future<Output = T> + 'static,
 {
     create_resource_with_initial_value(cx, source, fetcher, None)
@@ -37,7 +38,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -64,14 +65,17 @@ where
         suspense_contexts: Default::default(),
     });
 
+    let id = cx.push_resource(Rc::clone(&r));
+
     // initial load fires immediately
-    // TODO SSR — this won't run on server
+    // TODO SSR
+    #[cfg(any(feature = "hydrate", feature = "ssr", feature = "csr"))]
     create_effect(cx, {
         let r = Rc::clone(&r);
-        move |_| r.load(false)
+        move |_| {
+            load_resource(cx, id, r.clone());
+        }
     });
-
-    let id = cx.push_resource(r);
 
     Resource {
         runtime: cx.runtime,
@@ -79,6 +83,78 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
+    }
+}
+
+#[cfg(any(feature = "csr", feature = "ssr"))]
+fn load_resource<S, T>(cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+{
+    r.load(false)
+}
+
+#[cfg(feature = "hydrate")]
+fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+{
+    use wasm_bindgen::{JsCast, UnwrapThrowExt};
+
+    if let Some(ref mut context) = *cx.runtime.shared_context.borrow_mut() {
+        let resource_id = StreamingResourceId(cx.id, id);
+        log::debug!(
+            "(create_resource) resolved resources = {:#?}",
+            context.resolved_resources
+        );
+
+        if let Some(json) = context.resolved_resources.remove(&resource_id) {
+            log::debug!("(create_resource) resource already resolved from server");
+            r.resolved.set(true);
+            let res = serde_json::from_str(&json).unwrap_throw();
+            r.set_value.update(|n| *n = Some(res));
+            r.set_loading.update(|n| *n = false);
+        } else if context.pending_resources.remove(&resource_id) {
+            log::debug!("(create_resource) resource pending from server");
+            r.set_loading.update(|n| *n = true);
+            r.trigger.update(|n| *n += 1);
+
+            let resolve = {
+                let resolved = r.resolved.clone();
+                let set_value = r.set_value;
+                let set_loading = r.set_loading;
+                move |res: String| {
+                    let res = serde_json::from_str(&res).ok();
+                    resolved.set(true);
+                    set_value.update(|n| *n = res);
+                    set_loading.update(|n| *n = false);
+                }
+            };
+            let resolve =
+                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+            let resource_resolvers = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
+            )
+            .unwrap();
+            let id = serde_json::to_string(&id).unwrap();
+            js_sys::Reflect::set(
+                &resource_resolvers,
+                &wasm_bindgen::JsValue::from_str(&id),
+                resolve.as_ref().unchecked_ref(),
+            );
+        } else {
+            log::debug!(
+                "(create_resource) resource not found in hydration context, loading\n\n{:#?}",
+                context.pending_resources
+            );
+            r.load(false);
+        }
+    } else {
+        log::debug!("(create_resource) no hydration context, loading resource");
+        r.load(false)
     }
 }
 
@@ -107,6 +183,18 @@ where
                 resource.refetch()
             })
     }
+
+    #[cfg(feature = "ssr")]
+    pub async fn to_serialization_resolver(&self) -> (StreamingResourceId, String)
+    where
+        T: Serialize + DeserializeOwned,
+    {
+        self.runtime
+            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
+                resource.to_serialization_resolver(StreamingResourceId(self.scope, self.id))
+            })
+            .await
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -121,6 +209,9 @@ where
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct StreamingResourceId(pub(crate) ScopeId, pub(crate) ResourceId);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct ResourceId(pub(crate) usize);
@@ -272,5 +363,49 @@ where
                 }
             }
         })
+    }
+
+    #[cfg(feature = "ssr")]
+    pub fn resource_to_serialization_resolver(
+        &self,
+        id: StreamingResourceId,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = (StreamingResourceId, String)>>>
+    where
+        T: Serialize,
+    {
+        let fut = (self.fetcher)(self.source.get());
+        Box::pin(async move {
+            let res = fut.await;
+            (id, serde_json::to_string(&res).unwrap())
+        })
+    }
+}
+
+pub(crate) trait AnyResource {
+    fn as_any(&self) -> &dyn Any;
+
+    #[cfg(feature = "ssr")]
+    fn to_serialization_resolver(
+        &self,
+        id: StreamingResourceId,
+    ) -> Pin<Box<dyn Future<Output = (StreamingResourceId, String)>>>;
+}
+
+impl<S, T> AnyResource for ResourceState<S, T>
+where
+    S: Debug + Clone,
+    T: Clone + Debug + Serialize + DeserializeOwned,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[cfg(feature = "ssr")]
+    fn to_serialization_resolver(
+        &self,
+        id: StreamingResourceId,
+    ) -> Pin<Box<dyn Future<Output = (StreamingResourceId, String)>>> {
+        let fut = self.resource_to_serialization_resolver(id);
+        Box::pin(fut)
     }
 }

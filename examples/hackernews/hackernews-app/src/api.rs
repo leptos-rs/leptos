@@ -1,5 +1,5 @@
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
     format!("https://node-hnapi.herokuapp.com/{path}")
@@ -9,6 +9,7 @@ pub fn user(path: &str) -> String {
     format!("https://hacker-news.firebaseio.com/v0/user/{path}.json")
 }
 
+#[cfg(not(feature = "ssr"))]
 pub async fn fetch_api<T>(path: &str) -> Result<T, ()>
 where
     T: DeserializeOwned,
@@ -22,7 +23,20 @@ where
         .map_err(|e| log::error!("{e}"))
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
+#[cfg(feature = "ssr")]
+pub async fn fetch_api<T>(path: &str) -> Result<T, ()>
+where
+    T: DeserializeOwned,
+{
+    reqwest::get(path)
+        .await
+        .map_err(|e| log::error!("{e}"))?
+        .json::<T>()
+        .await
+        .map_err(|e| log::error!("{e}"))
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Story {
     pub id: usize,
     pub title: String,
@@ -39,7 +53,7 @@ pub struct Story {
     pub comments_count: Option<usize>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct Comment {
     pub id: usize,
     pub level: usize,
@@ -50,7 +64,7 @@ pub struct Comment {
     pub comments: Vec<Comment>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct User {
     pub created: usize,
     pub id: String,
