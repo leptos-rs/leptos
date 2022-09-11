@@ -68,6 +68,8 @@ pub fn Stories(cx: Scope) -> Element {
         stories,
     } = use_loader::<StoriesData>(cx);
 
+    let hide_more_link = move || stories.read().unwrap_or(Err(())).unwrap_or_default().len() < 28;
+
     view! {
         <div class="news-view">
             <div class="news-list-nav">
@@ -90,25 +92,16 @@ pub fn Stories(cx: Scope) -> Element {
                     }
                 }} */
                 <span>"page " {page}</span>
-                {
-                    move || if stories.read().unwrap_or(Err(())).unwrap_or_default().len() >= 28 {
-                        view! {
-                            <Link
-                               //attr:class="page-link"
-                                to={format!("/{}?page={}", story_type(), page() + 1)}
-                                //attr:aria_label="Next Page"
-                            >
-                                "more >"
-                            </Link>
-                        }
-                    } else {
-                        view! {
-                            <span class="page-link disabled" aria-hidden="true">
-                                "more >"
-                            </span>
-                        }
-                    }
-                }
+                <span class="page-link"
+                    class:disabled={move || hide_more_link()}
+                    aria-hidden={move || hide_more_link()}
+                >
+                    <a href={format!("/{}?page={}", story_type(), page() + 1)}
+                        aria-label="Next Page"
+                    >
+                        "more >"
+                    </a>
+                </span>
             </div>
             <main class="news-list">
                 <div>
