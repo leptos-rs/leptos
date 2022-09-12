@@ -5,17 +5,19 @@
   - [ ] Tests for Suspense/Transitions
   - [ ] Bugs in Suspense/Transitions
     - [ ] let render effects that _aren't_ under the transition continue running
-- [ ] Router example
-  - [ ] Styling and formatting
-  - [ ] Get transitions working
 - [ ] SSR
   - [x] SSR
   - [x] Hydration
-  - [ ] Streaming HTML from server
-  - [ ] Streaming `Resource`s
-  - [ ] Escaping HTML entities when running format!()
+  - [x] Streaming HTML from server
+  - [x] Streaming `Resource`s
+  - [ ] Escaping HTML entities when doing SSR
   - [ ] Isomorphic rendering benchmark
+  - [ ] Get hydration working properly with SSR/streaming HTML
 - [ ] Docs (and clippy warning to insist on docs)
+- [ ] `<Meta/>`, `<Style/>`, `<Link/>`
+- [ ] Router example
+  - [ ] Styling and formatting
+  - [ ] Get transitions working
 - [ ] Read through + understand...
   - [ ] `Props` macro
   - [ ] `component` macro
@@ -24,7 +26,7 @@
 - Reactive system improvements
   - [ ] Scheduling effects/run effects at end of render
   - [ ] `batch()`
+- [ ] Scoped CSS
 - [ ] Portals
 - [ ] Loaders
 - [ ] Tutorials + website
-- [ ] Scoped CSS
