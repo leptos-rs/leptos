@@ -1,6 +1,7 @@
 use crate::{
     hydration::SharedContext, AnyEffect, AnyResource, AnySignal, EffectId, EffectState, ReadSignal,
-    ResourceId, ResourceState, Runtime, SignalId, SignalState, StreamingResourceId, WriteSignal,
+    ResourceId, ResourceState, Runtime, SignalId, SignalState, StreamingResourceId,
+    SuspenseContext, WriteSignal,
 };
 use elsa::FrozenVec;
 use serde::{de::DeserializeOwned, Serialize};
@@ -11,6 +12,8 @@ use std::{
     fmt::Debug,
     rc::Rc,
 };
+#[cfg(feature = "ssr")]
+use std::{future::Future, pin::Pin};
 
 #[must_use = "Scope will leak memory if the disposer function is never called"]
 /// Creates a child reactive scope and runs the function within it. This is useful for applications
@@ -266,6 +269,58 @@ impl Scope {
         std::pin::Pin<Box<dyn futures::Future<Output = (StreamingResourceId, String)>>>,
     > {
         self.runtime.serialization_resolvers()
+    }
+
+    #[cfg(feature = "ssr")]
+    pub fn current_fragment_key(&self) -> String {
+        self.runtime
+            .shared_context
+            .borrow()
+            .as_ref()
+            .map(|context| context.current_fragment_key())
+            .unwrap_or_else(|| String::from("0f"))
+    }
+
+    #[cfg(feature = "ssr")]
+    pub fn register_suspense(
+        &self,
+        context: SuspenseContext,
+        key: &str,
+        resolver: impl FnOnce() -> String + 'static,
+    ) {
+        use crate::{create_isomorphic_effect, SuspenseContext};
+        use futures::{future::join_all, FutureExt, StreamExt};
+
+        if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
+            let (mut tx, mut rx) = futures::channel::mpsc::channel::<()>(1);
+
+            create_isomorphic_effect(*self, move |fut| {
+                let pending = context.pending_resources.get();
+                if pending == 0 {
+                    log::debug!("\n\n\npending_resources.get() == 0");
+                    tx.try_send(());
+                } else {
+                    log::debug!("\n\n\npending_resources.get() == {pending}");
+                }
+            });
+
+            shared_context.pending_fragments.insert(
+                key.to_string(),
+                Box::pin(async move {
+                    rx.next().await;
+                    resolver()
+                }),
+            );
+        }
+    }
+
+    #[cfg(feature = "ssr")]
+    pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
+        if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
+            std::mem::replace(&mut shared_context.pending_fragments, HashMap::new())
+        } else {
+            HashMap::new()
+        }
     }
 }
 

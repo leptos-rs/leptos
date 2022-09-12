@@ -20,7 +20,7 @@ extern "C" {
     fn microtask(task: wasm_bindgen::JsValue);
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn spawn_local<F>(fut: F)
 where
     F: Future<Output = ()> + 'static,
@@ -28,12 +28,18 @@ where
     wasm_bindgen_futures::spawn_local(fut)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ssr")]
+pub fn spawn_local<F>(fut: F)
+where
+    F: Future<Output = ()> + 'static,
+{
+    tokio::task::spawn_local(fut);
+}
+
+#[cfg(not(any(feature = "csr", feature = "hydrate", feature = "ssr")))]
 pub fn spawn_local<F>(_fut: F)
 where
     F: Future<Output = ()> + 'static,
 {
-
-    // noop for now; useful for ignoring any async tasks on the server side
-    // could be replaced with a Tokio dependency
+    log::debug!("(spawn_local) no async runtime enabled; use features `csr`, `hydrate`, or `ssr`");
 }

@@ -1,6 +1,8 @@
+use std::pin::Pin;
+
 use actix_files::{Directory, Files, NamedFile};
 use actix_web::{*, http::header::CACHE_CONTROL, dev::Service};
-use futures::StreamExt;
+use futures::{StreamExt, stream::FuturesUnordered, Future};
 use hackernews_app::*;
 use leptos::*;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -64,7 +66,7 @@ async fn render_app(req: HttpRequest) -> impl Responder {
         })
         
         .chain({
-            let ((shell, pending_resources, serializers), disposer) = run_scope_undisposed({
+            let ((shell, pending_resources, pending_fragments, serializers), disposer) = run_scope_undisposed({
                 move |cx| {
                     // the actual app body/template code
                     // this does NOT contain any of the data being loaded asynchronously in resources
@@ -80,9 +82,14 @@ async fn render_app(req: HttpRequest) -> impl Responder {
                     let pending_resources = serde_json::to_string(&resources).unwrap();
 
                     //tx.unbounded_send(format!("{template}<script>const __LEPTOS_PENDING_RESOURCES = {pending_resources}; const __LEPTOS_RESOLVED_RESOURCES = {{}}; const __LEPTOS_RESOURCE_RESOLVERS = {{}};</script>"));
-                    (shell, pending_resources, cx.serialization_resolvers())
+                    (shell, pending_resources, cx.pending_fragments(), cx.serialization_resolvers())
                 }
             });
+
+            let fragments = FuturesUnordered::new();
+            for (fragment_id, fut) in pending_fragments {
+                fragments.push(async move { (fragment_id, fut.await)} )
+            }
             
             futures::stream::once(async move {
                 format!(r#"
@@ -94,6 +101,11 @@ async fn render_app(req: HttpRequest) -> impl Responder {
                     </script>
                 "#)
             })
+            .chain(fragments.map(|(fragment_id, html)| {
+                format!(
+                    r#"<script>const f = document.querySelector(`[data-fragment-id="{fragment_id}"]`); f.innerHTML = {html:?};</script>"#
+                )
+            }))
             .chain(serializers.map(|(id, json)| {
                 let id = serde_json::to_string(&id).unwrap();
                 format!(

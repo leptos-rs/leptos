@@ -12,7 +12,7 @@ use std::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    create_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
+    create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
     spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId, SuspenseContext,
     WriteSignal,
 };
@@ -67,10 +67,8 @@ where
 
     let id = cx.push_resource(Rc::clone(&r));
 
-    // initial load fires immediately
-    // TODO SSR
-    #[cfg(any(feature = "hydrate", feature = "ssr", feature = "csr"))]
-    create_effect(cx, {
+    #[cfg(any(feature = "csr", feature = "ssr", feature = "hydrate"))]
+    create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
         move |_| {
             load_resource(cx, id, r.clone());
@@ -272,12 +270,11 @@ where
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
-        // TODO SSR check -- this won't run on server
-        create_effect(self.scope, move |_| {
+        let increment = move |_| {
             if let Some(s) = &suspense_cx {
                 let mut contexts = suspense_contexts.borrow_mut();
                 if !contexts.contains(s) {
-                    contexts.insert(*s);
+                    contexts.insert(s.clone());
 
                     // on subsequent reads, increment will be triggered in load()
                     // because the context has been tracked here
@@ -287,7 +284,9 @@ where
                     }
                 }
             }
-        });
+        };
+
+        create_isomorphic_effect(self.scope, increment);
 
         v
     }
@@ -323,6 +322,7 @@ where
         // increment counter everywhere it's read
         let suspense_contexts = self.suspense_contexts.clone();
         let running_transition = self.scope.runtime.running_transition();
+
         for suspense_context in suspense_contexts.borrow().iter() {
             suspense_context.increment();
             log::debug!(
@@ -347,6 +347,7 @@ where
             let set_loading = self.set_loading;
             async move {
                 let res = fut.await;
+
                 resolved.set(true);
 
                 // TODO hydration

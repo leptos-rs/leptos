@@ -16,6 +16,13 @@ where
     cx.create_eff(false, f)
 }
 
+pub fn create_isomorphic_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
+where
+    T: Debug + 'static,
+{
+    cx.create_isomorphic_eff(f)
+}
+
 impl Scope {
     #[cfg(not(feature = "ssr"))]
     pub(crate) fn create_eff<T>(self, render_effect: bool, f: impl FnMut(Option<T>) -> T + 'static)
@@ -39,6 +46,18 @@ impl Scope {
     ) where
         T: Debug + 'static,
     {
+    }
+
+    pub(crate) fn create_isomorphic_eff<T>(self, f: impl FnMut(Option<T>) -> T + 'static)
+    where
+        T: Debug + 'static,
+    {
+        let state = EffectState::new(self.runtime, false, f);
+
+        let id = self.push_effect(state);
+
+        self.runtime
+            .any_effect((self.id, id), |effect| effect.run((self.id, id)));
     }
 }
 

@@ -12,6 +12,7 @@ futures = { version = "0.3", optional = true }
 js-sys = { version = "0.3", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
 serde_json = { version = "1", optional = true }
+tokio = { version = "1", features = ["rt"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["Element"] }
@@ -22,4 +23,4 @@ sycamore = "0.8.0-beta.7"
 [features]
 csr = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 hydrate = ["dep:js-sys", "dep:serde-wasm-bindgen", "dep:serde_json", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
-ssr = ["dep:futures", "dep:serde_json"]
+ssr = ["dep:futures", "dep:serde_json", "dep:tokio"]

@@ -105,23 +105,25 @@ pub fn Stories(cx: Scope) -> Element {
             </div>
             <main class="news-list">
                 <div>
-                    {move || match stories.read() {
-                        None => None,
-                        Some(Err(_)) => Some(view! { <p>"Error loading stories."</p> }),
-                        Some(Ok(stories)) => {
-                            Some(view! {
-                                <ul>
-                                    <For each={move || stories.clone()} key=|story| story.id>{
-                                        move |cx: Scope, story: &api::Story| {
-                                            view! {
-                                                <Story story={story.clone()} />
+                    <Suspense fallback=view! { <p>"Loading..."</p> }>
+                        {move || match stories.read() {
+                            None => None,
+                            Some(Err(_)) => Some(view! { <p>"Error loading stories."</p> }),
+                            Some(Ok(stories)) => {
+                                Some(view! {
+                                    <ul>
+                                        <For each={move || stories.clone()} key=|story| story.id>{
+                                            move |cx: Scope, story: &api::Story| {
+                                                view! {
+                                                    <Story story={story.clone()} />
+                                                }
                                             }
-                                        }
-                                    }</For>
-                                </ul>
-                            })
-                        }
-                    }}
+                                        }</For>
+                                    </ul>
+                                })
+                            }
+                        }}
+                    </Suspense>
                 </div>
             </main>
         </div>

@@ -1,3 +1,6 @@
+#[cfg(feature = "ssr")]
+use std::{cell::RefCell, future::Future, pin::Pin, rc::Rc};
+
 use crate::{create_signal, spawn::queue_microtask, ReadSignal, Scope, WriteSignal};
 
 #[derive(Copy, Clone, Debug)]

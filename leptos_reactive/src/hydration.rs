@@ -1,22 +1,61 @@
 #[cfg(any(feature = "hydrate"))]
 use std::collections::{HashMap, HashSet};
+#[cfg(any(feature = "ssr"))]
+use std::{collections::HashMap, future::Future, pin::Pin};
 
 #[cfg(any(feature = "hydrate"))]
 use crate::{Scope, StreamingResourceId};
 
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Default)]
 pub struct SharedContext {
-    #[cfg(any(feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub completed: Vec<web_sys::Element>,
+    #[cfg(feature = "hydrate")]
     pub events: Vec<()>,
     pub context: Option<HydrationContext>,
-    #[cfg(any(feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub registry: HashMap<String, web_sys::Element>,
-    #[cfg(any(feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub pending_resources: HashSet<StreamingResourceId>,
-    #[cfg(any(feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub resolved_resources: HashMap<StreamingResourceId, String>,
+    #[cfg(feature = "ssr")]
+    pub pending_fragments: HashMap<String, Pin<Box<dyn Future<Output = String>>>>,
 }
+
+impl std::fmt::Debug for SharedContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedContext").finish()
+    }
+}
+
+#[cfg(feature = "hydrate")]
+impl PartialEq for SharedContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.completed == other.completed
+            && self.events == other.events
+            && self.context == other.context
+            && self.registry == other.registry
+            && self.pending_resources == other.pending_resources
+            && self.resolved_resources == other.resolved_resources
+    }
+}
+
+#[cfg(feature = "ssr")]
+impl PartialEq for SharedContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.context == other.context
+    }
+}
+
+#[cfg(not(any(feature = "ssr", feature = "hydrate")))]
+impl PartialEq for SharedContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.context == other.context
+    }
+}
+
+impl Eq for SharedContext {}
 
 impl SharedContext {
     #[cfg(feature = "hydrate")]
@@ -80,6 +119,14 @@ impl SharedContext {
                 count: 0,
             });
             "0-0".into()
+        }
+    }
+
+    pub fn current_fragment_key(&self) -> String {
+        if let Some(context) = &self.context {
+            format!("{}{}f", context.id, context.count)
+        } else {
+            "0f".to_string()
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{create_effect, create_signal, ReadSignal, Scope};
+use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope};
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -6,32 +6,19 @@ pub struct Memo<T>(ReadSignal<Option<T>>)
 where
     T: 'static;
 
-#[cfg(not(feature = "ssr"))]
 pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + Clone + Debug + 'static,
 {
     let (read, set) = create_signal(cx, None);
 
-    create_effect(cx, move |prev| {
+    create_isomorphic_effect(cx, move |prev| {
         let new = f(prev.clone());
         if prev.as_ref() != Some(&new) {
             set(|n| *n = Some(new.clone()));
         }
         new
     });
-
-    Memo(read)
-}
-
-// On the server, Memo just carries its original value
-// If we didn't provide this alternate version, it would panic because its inner effect wouldn't run
-#[cfg(feature = "ssr")]
-pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
-where
-    T: PartialEq + Clone + Debug + 'static,
-{
-    let (read, _) = create_signal(cx, Some(f(None)));
 
     Memo(read)
 }
