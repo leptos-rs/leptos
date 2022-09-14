@@ -123,17 +123,17 @@ impl Scope {
         }
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         self.runtime.start_hydration(element);
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub fn end_hydration(&self) {
         self.runtime.end_hydration();
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(feature = "hydrate")]
     pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
         //log::debug!("get_next_element");
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
