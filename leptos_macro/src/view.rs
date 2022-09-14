@@ -108,6 +108,18 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
 
                 let span = node.name_span().unwrap();
 
+                let navigations = if navigations.is_empty() {
+                    quote! {}
+                } else {
+                    quote! { #(#navigations);* }
+                };
+
+                let expressions = if expressions.is_empty() {
+                    quote! {}
+                } else {
+                    quote! { #(#expressions;);* }
+                };
+
                 quote_spanned! {
                     span => {
                         thread_local! {
@@ -116,8 +128,8 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
 
                         #generate_root
 
-                        #(#navigations);*
-                        #(#expressions);*
+                        #navigations
+                        #expressions
 
                         root
                     }
@@ -748,7 +760,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
         // Attributes
         else if let Some(name) = attr_name.strip_prefix("attr:") {
             let value = attr.value.as_ref().expect("attr: attributes need values");
-            let name = name.replace("_", "-");
+            let name = name.replace('_', "-");
             Some(quote_spanned! {
                 span => leptos_dom::attribute(cx, #component_name.unchecked_ref(), #name, #value.into_attribute(cx))
             })
