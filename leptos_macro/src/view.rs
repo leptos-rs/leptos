@@ -723,8 +723,12 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
             None
         } else {
             let name = ident_from_tag_name(attr.name.as_ref().unwrap());
-            let value = attr.value.as_ref().expect("component props need values");
             let span = attr.name_span().unwrap();
+            let value = attr
+                .value
+                .as_ref()
+                .map(|v| quote_spanned! { span => #v })
+                .unwrap_or_else(|| quote_spanned! { span => #name });
             Some(quote_spanned! {
                 span => .#name(#value)
             })
