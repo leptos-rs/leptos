@@ -180,12 +180,6 @@ pub fn insert_expression(
     mut current: Child,
     before: &Marker,
 ) -> Child {
-    log::debug!(
-        "insert_expression {new_value:?} on {} before {before:?} with current = {current:?}\nparent.parentNode = {}",
-        parent.node_name(),
-        parent.parent_node().unwrap().node_name()
-    );
-
     if new_value == &current {
         current
     } else {
@@ -293,10 +287,10 @@ pub fn insert_str(
     multi: bool,
     current: Child,
 ) -> Child {
-    /* log::debug!(
+    log::debug!(
         "insert_str {data:?} on {} before {before:?} — multi = {multi} and current = {current:?}",
         parent.node_name()
-    ); */
+    );
 
     if multi {
         if let Child::Node(node) = &current {
@@ -363,11 +357,6 @@ fn append_nodes(
     marker: &Marker,
 ) -> Vec<web_sys::Node> {
     let mut result = Vec::new();
-    log::debug!(
-        "appending nodes to {} with parent {}",
-        parent.node_name(),
-        parent.parent_node().unwrap().node_name()
-    );
     for node in new_nodes {
         result.push(insert_before(parent, node, marker.as_some_node()));
     }
