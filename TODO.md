@@ -13,8 +13,9 @@
   - [ ] Escaping HTML entities when doing SSR
   - [ ] Isomorphic rendering benchmark
   - [ ] Get hydration working properly with SSR/streaming HTML
-- [ ] Docs (and clippy warning to insist on docs)
+- [ ] Server functions
 - [ ] `<Meta/>`, `<Style/>`, `<Link/>`
+- [ ] Docs (and clippy warning to insist on docs)
 - [ ] Router example
   - [ ] Styling and formatting
   - [ ] Get transitions working
