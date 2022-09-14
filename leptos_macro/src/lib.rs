@@ -22,6 +22,7 @@ impl Default for Mode {
     }
 }
 
+mod params;
 mod view;
 use view::render_view;
 mod component;
@@ -51,6 +52,13 @@ pub fn derive_prop(input: TokenStream) -> TokenStream {
     props::impl_derive_prop(&input)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
+}
+
+// Derive Params trait for routing
+#[proc_macro_derive(Params, attributes(params))]
+pub fn params_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast = syn::parse(input).unwrap();
+    params::impl_params(&ast)
 }
 
 pub(crate) fn is_component_node(node: &Node) -> bool {
