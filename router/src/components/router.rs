@@ -141,7 +141,7 @@ where
     });
 
     // show the root route
-    let root_outlet = (move || {
+    move || {
         route_states.with(|state| {
             let root = state.routes.borrow();
             let root = root.get(0);
@@ -150,9 +150,7 @@ where
             }
             root.as_ref().map(|route| route.outlet())
         })
-    })
-    .into_child(cx);
-    view! { <div>{root_outlet}</div> }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
