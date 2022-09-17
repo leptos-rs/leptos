@@ -103,14 +103,27 @@ where
                         }),
                     )
                 } else {
-                    log::warn!("<Form/> cannot be submitted from a tag other than <form>, <input>, or <button>");
+                    leptos_dom::debug_warn!("<Form/> cannot be submitted from a tag other than <form>, <input>, or <button>");
                     panic!()
                 }
             }
-            None => {
-                log::warn!("<Form/> component: no submitter found for SubmitEvent");
-                panic!()
-            }
+            None => match ev.target() {
+                None => {
+                    leptos_dom::debug_warn!("<Form/> SubmitEvent fired without a target.");
+                    panic!()
+                }
+                Some(form) => {
+                    let form = form.unchecked_into::<web_sys::HtmlFormElement>();
+                    (
+                        form.clone(),
+                        form.get_attribute("method")
+                            .unwrap_or_else(|| "get".to_string()),
+                        form.get_attribute("action").unwrap_or_default(),
+                        form.get_attribute("enctype")
+                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string()),
+                    )
+                }
+            },
         };
 
         if method == "get" {
@@ -124,7 +137,7 @@ where
             navigate(&format!("{action}?{params}"), Default::default());
         } else {
             // TODO POST
-            log::warn!("<Form/> component: POST not yet implemented");
+            leptos_dom::debug_warn!("<Form/> component: POST not yet implemented");
             todo!()
         }
     };
