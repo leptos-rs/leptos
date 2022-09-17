@@ -128,10 +128,10 @@ pub fn insert(
     before: Marker,
     initial: Option<Child>,
 ) {
-    /* log::debug!(
+    log::debug!(
         "inserting {value:?} on {} before {before:?} with initial = {initial:?}",
         parent.node_name()
-    ); */
+    );
 
     match value {
         Child::Fn(f) => {
@@ -214,15 +214,12 @@ pub fn insert_expression(
                 Child::Nodes(current) => {
                     clean_children(&parent, Child::Nodes(current), before, Some(node.clone()))
                 }
-                Child::Null => {
-                    log::debug!(
-                        "okay, should append node {} on {} (under {:?})",
-                        node.node_name(),
-                        parent.node_name(),
-                        parent.parent_node().map(|n| n.node_name())
-                    );
-                    Child::Node(append_child(&parent, node))
-                }
+                Child::Null => match before {
+                    Marker::BeforeChild(before) => {
+                        Child::Node(insert_before(&parent, node, Some(before)))
+                    }
+                    _ => Child::Node(append_child(&parent, node)),
+                },
                 Child::Text(current_text) => {
                     if current_text.is_empty() {
                         Child::Node(append_child(&parent, node))
