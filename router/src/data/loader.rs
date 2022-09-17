@@ -1,6 +1,6 @@
 use std::{any::Any, fmt::Debug, rc::Rc};
 
-use leptos_reactive::{Memo, Scope};
+use leptos_reactive::{debug_warn, Memo, Scope};
 
 use crate::{use_route, Location, ParamsMap};
 
@@ -9,8 +9,20 @@ where
     T: Clone + Debug + 'static,
 {
     let route = use_route(cx);
-    let data = route.data().as_ref().unwrap();
-    let data = data.downcast_ref::<T>().unwrap();
+    let data = match route.data().as_ref() {
+        Some(data) => data,
+        None => {
+            debug_warn!("(use_loader) could not find any data for route");
+            panic!()
+        }
+    };
+    let data = match data.downcast_ref::<T>() {
+        Some(data) => data,
+        None => {
+            debug_warn!("(use_loader) could not downcast data to requested type");
+            panic!()
+        }
+    };
     data.clone()
 }
 
