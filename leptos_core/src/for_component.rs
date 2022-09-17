@@ -9,17 +9,18 @@ use crate::map::map_keyed;
 
 /// Properties for the [For](crate::For) component.
 #[derive(Props)]
-pub struct ForProps<E, T, G, I, K>
+pub struct ForProps<E, T, G, H, I, K>
 where
     E: Fn() -> Vec<T>,
     G: Fn(Scope, &T) -> Element,
+    H: Fn() -> G,
     I: Fn(&T) -> K,
     K: Eq + Hash,
     T: Eq + Clone + 'static,
 {
     pub each: E,
     pub key: I,
-    pub children: Vec<G>,
+    pub children: H,
 }
 
 /// Iterates over children and displays them, keyed by `PartialEq`. If you want to provide your
@@ -28,19 +29,16 @@ where
 /// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.
 #[allow(non_snake_case)]
-pub fn For<E, T, G, I, K>(cx: Scope, mut props: ForProps<E, T, G, I, K>) -> Memo<Vec<Element>>
+pub fn For<E, T, G, H, I, K>(cx: Scope, props: ForProps<E, T, G, H, I, K>) -> Memo<Vec<Element>>
 //-> impl FnMut() -> Vec<Element>
 where
     E: Fn() -> Vec<T> + 'static,
     G: Fn(Scope, &T) -> Element + 'static,
+    H: Fn() -> G,
     I: Fn(&T) -> K + 'static,
     K: Eq + Hash,
     T: Eq + Clone + Debug + 'static,
 {
-    let map_fn = props.children.remove(0);
-    let m = map_keyed(cx, props.each, map_fn, props.key);
-    create_effect(cx, move |_| {
-        log::debug!("<For/> component memo len is {}", m.with(|m| m.len()));
-    });
-    m
+    let map_fn = (props.children)();
+    map_keyed(cx, props.each, map_fn, props.key)
 }

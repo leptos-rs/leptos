@@ -680,9 +680,6 @@ fn component_to_tokens(
 }
 
 fn create_component(node: &Node, mode: Mode) -> TokenStream {
-    // TODO hydrate
-    // TODO SSR (attributes etc.)
-
     let component_name = ident_from_tag_name(node.name.as_ref().unwrap());
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
@@ -694,22 +691,28 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
 
         if mode == Mode::Hydrate {
             (
-                quote! {let children = vec![#child]; },
-                quote! { .children(children) },
+                quote_spanned! { span => let children = vec![#child]; },
+                quote_spanned! { span => .children(Box::new(move || children)) },
             )
         } else {
-            (quote! {}, quote! { .children(vec![#child]) })
+            (
+                quote! {},
+                quote_spanned! { span => .children(Box::new(move || vec![#child])) },
+            )
         }
     } else {
         let children = render_view(&node.children, mode);
 
         if mode == Mode::Hydrate {
             (
-                quote! { let children = #children; },
-                quote! { .children(children) },
+                quote_spanned! { span => let children = Box::new(move || #children); },
+                quote_spanned! { span => .children(children) },
             )
         } else {
-            (quote! {}, quote! { .children(#children) })
+            (
+                quote! {},
+                quote_spanned! { span => .children(Box::new(move || #children)) },
+            )
         }
     };
 

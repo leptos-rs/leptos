@@ -1,4 +1,5 @@
 use crate::{use_navigate, use_resolved_path};
+use leptos_core::IntoVec;
 use leptos_dom as leptos;
 use leptos_dom::*;
 use leptos_macro::view;
@@ -7,18 +8,24 @@ use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
 
 #[derive(TypedBuilder)]
-pub struct FormProps {
+pub struct FormProps<C>
+where
+    C: IntoVec<Element>,
+{
     #[builder(default, setter(strip_option))]
     method: Option<String>,
     #[builder(default, setter(strip_option))]
     action: Option<String>,
     #[builder(default, setter(strip_option))]
     enctype: Option<String>,
-    children: Vec<Element>,
+    children: Box<dyn Fn() -> C>,
 }
 
 #[allow(non_snake_case)]
-pub fn Form(cx: Scope, props: FormProps) -> Element {
+pub fn Form<C>(cx: Scope, props: FormProps<C>) -> Element
+where
+    C: IntoVec<Element>,
+{
     let FormProps {
         method,
         action,
@@ -121,6 +128,8 @@ pub fn Form(cx: Scope, props: FormProps) -> Element {
             todo!()
         }
     };
+
+    let children = children().into_vec();
 
     view! {
         <form

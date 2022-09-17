@@ -4,39 +4,31 @@ use leptos_macro::Props;
 use leptos_reactive::{debug_warn, provide_context, Scope, SuspenseContext};
 
 #[derive(Props)]
-pub struct SuspenseProps<F, E, G>
+pub struct SuspenseProps<F, E, G, H>
 where
     F: IntoChild + Clone,
     E: IntoChild,
     G: Fn() -> E,
+    H: Fn() -> G,
 {
     fallback: F,
-    children: Vec<G>,
+    children: H,
 }
 
 #[allow(non_snake_case)]
-pub fn Suspense<F, E, G>(cx: Scope, mut props: SuspenseProps<F, E, G>) -> impl Fn() -> Child
+pub fn Suspense<F, E, G, H>(cx: Scope, props: SuspenseProps<F, E, G, H>) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
     E: IntoChild,
     G: Fn() -> E + 'static,
+    H: Fn() -> G,
 {
     let context = SuspenseContext::new(cx);
 
-    if props.children.len() > 1 {
-        debug_warn!("[Suspense] Only pass one function as a child to <Suspense/>. Other children will be ignored.");
-    }
-
-    // guard against a zero-length Children; warn but don't panic
-    let child = if props.children.is_empty() {
-        debug_warn!("[Suspense] You need to pass a function as a child to <Suspense/>.");
-        None
-    } else {
-        Some(props.children.swap_remove(0))
-    };
-
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context.clone());
+
+    let child = (props.children)();
 
     render_suspense(cx, context, props.fallback.clone(), child)
 }
@@ -46,7 +38,7 @@ fn render_suspense<'a, F, E, G>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Option<G>,
+    child: G,
 ) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
@@ -55,7 +47,7 @@ where
 {
     move || {
         if context.ready() || cx.transition_pending() {
-            child.as_ref().map(|child| (child)()).into_child(cx)
+            (child)().into_child(cx)
         } else {
             fallback.clone().into_child(cx)
         }
@@ -67,7 +59,7 @@ fn render_suspense<'a, F, E, G>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Option<G>,
+    orig_child: G,
 ) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
@@ -76,7 +68,7 @@ where
 {
     use leptos_macro::view;
 
-    let initial = if let Some(orig_child) = child {
+    let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
         let mut child = orig_child().into_child(cx);
         while let Child::Fn(f) = child {
@@ -97,9 +89,6 @@ where
             // return the fallback for now, wrapped in fragment identifer
             Child::Node(view! { <div data-fragment-id={key}>{fallback.into_child(cx)}</div> })
         }
-    } else {
-        // no child passed in, just show the fallback
-        fallback.into_child(cx)
     };
     move || initial.clone()
 }

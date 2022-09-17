@@ -1,5 +1,6 @@
 use std::{cmp::Reverse, rc::Rc};
 
+use leptos_core::IntoVec;
 use leptos_dom::{Child, IntoChild};
 use leptos_reactive::Scope;
 use typed_builder::TypedBuilder;
@@ -10,8 +11,7 @@ use crate::matching::{expand_optionals, join_paths, Branch, Matcher, RouteDefini
 pub struct RoutesProps {
     #[builder(default, setter(strip_option))]
     base: Option<String>,
-    #[builder(default)]
-    children: Vec<RouteDefinition>,
+    children: Box<dyn Fn() -> Vec<RouteDefinition>>,
 }
 
 #[allow(non_snake_case)]
@@ -19,7 +19,7 @@ pub fn Routes(_cx: Scope, props: RoutesProps) -> Vec<Branch> {
     let mut branches = Vec::new();
 
     create_branches(
-        &props.children,
+        &(props.children)(),
         &props.base.unwrap_or_default(),
         &mut Vec::new(),
         &mut branches,

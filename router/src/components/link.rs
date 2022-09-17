@@ -51,22 +51,22 @@ where
     /// will skip this page.)
     #[builder(default)]
     replace: bool,
-    #[builder(default)]
-    children: Vec<C>,
+    children: Box<dyn Fn() -> Vec<C>>,
 }
 
 #[allow(non_snake_case)]
-pub fn Link<C, H>(cx: Scope, mut props: LinkProps<C, H>) -> Element
+pub fn Link<C, H>(cx: Scope, props: LinkProps<C, H>) -> Element
 where
     C: IntoChild,
     H: ToHref + 'static,
 {
     let href = use_resolved_path(cx, move || props.to.to_href()());
 
-    if props.children.len() != 1 {
+    let mut children = (props.children)();
+    if children.len() != 1 {
         debug_warn!("[Link] Pass exactly one child to <Link/>. If you want to pass more than one child, next them within an element.");
     }
-    let child = props.children.remove(0);
+    let child = children.remove(0);
 
     view! {
         <a
@@ -100,12 +100,11 @@ where
     /// will skip this page.)
     #[builder(default)]
     replace: bool,
-    #[builder(default)]
-    children: Vec<C>,
+    children: Box<dyn Fn() -> Vec<C>>,
 }
 
 #[allow(non_snake_case)]
-pub fn NavLink<C, H>(cx: Scope, mut props: NavLinkProps<C, H>) -> Element
+pub fn NavLink<C, H>(cx: Scope, props: NavLinkProps<C, H>) -> Element
 where
     C: IntoChild,
     H: ToHref + 'static,
@@ -130,11 +129,11 @@ where
         }
     });
 
-    if props.children.len() != 1 {
+    let mut children = (props.children)();
+    if children.len() != 1 {
         debug_warn!("[Link] Pass exactly one child to <Link/>. If you want to pass more than one child, next them within an element.");
     }
-    let child = props.children.remove(0);
-
+    let child = children.remove(0);
     view! {
         <a
             href={href().unwrap_or_default()}

@@ -1,5 +1,6 @@
 use std::{any::Any, borrow::Cow, rc::Rc};
 
+use leptos_core::IntoVec;
 use leptos_dom::{Child, Element, IntoChild};
 use leptos_reactive::{create_memo, Memo, Scope};
 use typed_builder::TypedBuilder;
@@ -9,11 +10,13 @@ use crate::{
     Action, Loader, ParamsMap, RouterContext,
 };
 
+pub struct ChildlessRoute {}
+
 #[derive(TypedBuilder)]
-pub struct RouteProps<F, E>
+pub struct RouteProps<E, F>
 where
-    F: Fn(Scope) -> E + 'static,
     E: IntoChild,
+    F: Fn(Scope) -> E + 'static,
 {
     path: &'static str,
     element: F,
@@ -21,21 +24,21 @@ where
     loader: Option<Loader>,
     #[builder(default, setter(strip_option))]
     action: Option<Action>,
-    #[builder(default)]
-    children: Vec<RouteDefinition>,
+    #[builder(default, setter(strip_option))]
+    children: Option<Box<dyn Fn() -> Vec<RouteDefinition>>>,
 }
 
 #[allow(non_snake_case)]
-pub fn Route<F, E>(cx: Scope, props: RouteProps<F, E>) -> RouteDefinition
+pub fn Route<E, F>(_cx: Scope, props: RouteProps<E, F>) -> RouteDefinition
 where
-    F: Fn(Scope) -> E + 'static,
     E: IntoChild,
+    F: Fn(Scope) -> E + 'static,
 {
     RouteDefinition {
         path: props.path,
         loader: props.loader,
         action: props.action,
-        children: props.children,
+        children: props.children.map(|c| c().into_vec()).unwrap_or_default(),
         element: Rc::new(move |cx| (props.element)(cx).into_child(cx)),
     }
 }

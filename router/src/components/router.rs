@@ -1,6 +1,7 @@
 use std::ops::IndexMut;
 use std::{cell::RefCell, rc::Rc};
 
+use leptos_core::IntoVec;
 use leptos_dom as leptos;
 use leptos_dom::{Element, IntoChild, UnwrapThrowExt};
 use leptos_macro::view;
@@ -19,27 +20,29 @@ use crate::{
 };
 
 #[derive(TypedBuilder)]
-pub struct RouterProps<H: History + 'static> {
+pub struct RouterProps<H>
+where
+    H: History + 'static
+{
     mode: H,
     #[builder(default, setter(strip_option))]
     base: Option<&'static str>,
     #[builder(default, setter(strip_option))]
     fallback: Option<fn() -> Element>,
-    #[builder(default)]
-    children: Vec<Vec<Branch>>,
+    children: Box<dyn Fn() -> Vec<Vec<Branch>>>
 }
 
 #[allow(non_snake_case)]
 pub fn Router<H>(cx: Scope, props: RouterProps<H>) -> impl IntoChild
 where
-    H: History,
+    H: History + 'static
 {
     // create a new RouterContext and provide it to every component beneath the router
     let router = RouterContext::new(cx, props.mode, props.base, props.fallback);
     provide_context(cx, router.clone());
 
     // whenever path changes, update matches
-    let branches = props.children.into_iter().flatten().collect::<Vec<_>>();
+    let branches = (props.children)().into_iter().flatten().collect::<Vec<_>>();
     let matches = create_memo(cx, {
         let router = router.clone();
         move |_| {
