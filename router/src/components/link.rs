@@ -70,7 +70,7 @@ where
 
     view! {
         <a
-            href={href().unwrap_or_default()}
+            href={move || href().unwrap_or_default()}
             prop:state={props.state.map(|s| s.to_js_value())}
             prop:replace={props.replace}
         >
@@ -136,7 +136,7 @@ where
     let child = children.remove(0);
     view! {
         <a
-            href={href().unwrap_or_default()}
+            href={move || href().unwrap_or_default()}
             prop:state={props.state.map(|s| s.to_js_value())}
             prop:replace={props.replace}
             class:active={is_active}
