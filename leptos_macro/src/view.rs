@@ -267,13 +267,7 @@ fn element_to_tokens(
     let multi = !node.children.is_empty();
     for (idx, child) in node.children.iter().enumerate() {
         // set next sib (for any insertions)
-        let next_sib = node.children.get(idx + 1).and_then(|next_sib| {
-            if is_component_node(next_sib) {
-                None
-            } else {
-                Some(child_ident(*next_el_id + 1, next_sib))
-            }
-        });
+        let next_sib = next_sibling_node(&node.children, idx + 1, next_el_id);
 
         let curr_id = child_to_tokens(
             child,
@@ -310,6 +304,19 @@ fn element_to_tokens(
     }
 
     this_el_ident
+}
+
+fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> Option<Ident> {
+    if children.len() <= idx {
+        None
+    } else {
+        let sibling = &children[idx];
+        if is_component_node(sibling) {
+            next_sibling_node(children, idx + 1, next_el_id)
+        } else {
+            Some(child_ident(*next_el_id + 1, sibling))
+        }
+    }
 }
 
 fn attr_to_tokens(
@@ -535,7 +542,7 @@ fn child_to_tokens(
 
             *next_el_id += 1;
             let name = child_ident(*next_el_id, node);
-            let location = if let Some(sibling) = prev_sib {
+            let location = if let Some(sibling) = &prev_sib {
                 quote_spanned! {
                     span => //log::debug!("-> next sibling");
                             let #name = #sibling.next_sibling().unwrap_throw();
