@@ -4,31 +4,29 @@ use leptos_macro::Props;
 use leptos_reactive::{debug_warn, provide_context, Scope, SuspenseContext};
 
 #[derive(Props)]
-pub struct SuspenseProps<F, E, G, H>
+pub struct SuspenseProps<F, E, G>
 where
     F: IntoChild + Clone,
     E: IntoChild,
     G: Fn() -> E,
-    H: Fn() -> G,
 {
     fallback: F,
-    children: H,
+    children: Box<dyn Fn() -> Vec<G>>,
 }
 
 #[allow(non_snake_case)]
-pub fn Suspense<F, E, G, H>(cx: Scope, props: SuspenseProps<F, E, G, H>) -> impl Fn() -> Child
+pub fn Suspense<F, E, G>(cx: Scope, props: SuspenseProps<F, E, G>) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
     E: IntoChild,
     G: Fn() -> E + 'static,
-    H: Fn() -> G,
 {
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context.clone());
 
-    let child = (props.children)();
+    let child = (props.children)().swap_remove(0);
 
     render_suspense(cx, context, props.fallback.clone(), child)
 }
