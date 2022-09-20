@@ -26,6 +26,19 @@ impl ParamsMap {
     pub fn get(&self, key: &str) -> Option<&String> {
         self.0.get(key)
     }
+
+    #[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
+    pub fn to_query_string(&self) -> String {
+        use crate::history::url::escape;
+        let mut buf = String::from("?");
+        for (k, v) in &self.0 {
+            buf.push_str(&escape(k));
+            buf.push('=');
+            buf.push_str(&escape(v));
+            buf.push('&');
+        }
+        buf
+    }
 }
 
 impl Default for ParamsMap {
