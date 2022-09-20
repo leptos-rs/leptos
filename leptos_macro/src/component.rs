@@ -88,7 +88,22 @@ impl ToTokens for InlinePropsBody {
         } = self;
 
         let fields = inputs.iter().map(|f| {
-            quote! { #vis #f }
+            let typed_arg = match f {
+                FnArg::Receiver(_) => todo!(),
+                FnArg::Typed(t) => t,
+            };
+            if let Type::Path(pat) = &*typed_arg.ty {
+                if pat.path.segments[0].ident == "Option" {
+                    quote! {
+                        #[builder(default, setter(strip_option))]
+                        #vis #f
+                    }
+                } else {
+                    quote! { #vis #f }
+                }
+            } else {
+                quote! { #vis #f }
+            }
         });
 
         let struct_name = Ident::new(&format!("{}Props", ident), Span::call_site());
@@ -152,7 +167,7 @@ impl ToTokens for InlinePropsBody {
 
             #[allow(non_snake_case)]
             #(#attrs)*
-            #vis fn #ident #fn_generics (#cx_token: Scope, props: #struct_name) #output
+            #vis fn #ident #fn_generics (#cx_token: Scope, props: #struct_name #struct_generics) #output
             #where_clause
             {
                 let #struct_name { #(#field_names),* } = props;
