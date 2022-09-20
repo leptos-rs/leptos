@@ -7,7 +7,6 @@ where
     T: Clone + 'static,
 {
     let id = value.type_id();
-    log::debug!("[Context] provide_context {} => {id:?}", type_name::<T>(),);
     cx.runtime.scope(cx.id, |scope_state| {
         scope_state
             .contexts
@@ -21,7 +20,6 @@ where
     T: Clone + 'static,
 {
     let id = TypeId::of::<T>();
-    log::debug!("[Context] use_context {} => {id:?}", type_name::<T>(),);
     cx.runtime.scope(cx.id, |scope_state| {
         let contexts = scope_state.contexts.borrow();
         let local_value = contexts.get(&id).and_then(|val| val.downcast_ref::<T>());

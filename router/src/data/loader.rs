@@ -12,7 +12,10 @@ where
     let data = match route.data().as_ref() {
         Some(data) => data,
         None => {
-            debug_warn!("(use_loader) could not find any data for route");
+            debug_warn!(
+                "(use_loader) could not find any data for route {}",
+                route.path()
+            );
             panic!()
         }
     };

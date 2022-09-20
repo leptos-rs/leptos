@@ -269,13 +269,12 @@ impl RouterContext {
         });
 
         // handle all click events on anchor tags
-        if cfg!(any(feature = "csr", feature = "hydrate")) {
-            leptos_dom::window_event_listener("click", {
-                let inner = Rc::clone(&inner);
-                move |ev| inner.clone().handle_anchor_click(ev)
-            });
-            // TODO on_cleanup remove event listener
-        }
+        #[cfg(any(feature = "csr", feature = "hydrate"))]
+        leptos_dom::window_event_listener("click", {
+            let inner = Rc::clone(&inner);
+            move |ev| inner.clone().handle_anchor_click(ev)
+        });
+        // TODO on_cleanup remove event listener
 
         Self { inner }
     }
@@ -379,8 +378,8 @@ impl RouterContextInner {
         }
     }
 
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     pub(crate) fn handle_anchor_click(self: Rc<Self>, ev: web_sys::Event) {
-        use leptos_dom::wasm_bindgen::JsCast;
         let ev = ev.unchecked_into::<web_sys::MouseEvent>();
         if ev.default_prevented()
             || ev.button() != 0

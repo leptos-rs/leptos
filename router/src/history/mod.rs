@@ -19,9 +19,11 @@ pub trait History {
     fn navigate(&self, loc: &LocationChange);
 }
 
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BrowserIntegration {}
 
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 impl BrowserIntegration {
     fn current() -> LocationChange {
         let loc = leptos_dom::location();
@@ -36,6 +38,7 @@ impl BrowserIntegration {
     }
 }
 
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 impl History for BrowserIntegration {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
         let (location, set_location) = create_signal(cx, Self::current());
@@ -75,6 +78,7 @@ impl History for BrowserIntegration {
     fn navigate(&self, loc: &LocationChange) {
         log::debug!("[BrowserIntegration::navigate] {loc:#?}");
         let history = leptos_dom::window().history().unwrap();
+
         if loc.replace {
             history
                 .replace_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
@@ -87,10 +91,12 @@ impl History for BrowserIntegration {
         // scroll to el
         if let Ok(hash) = leptos_dom::location().hash() {
             if !hash.is_empty() {
-                let hash = &hash[1..];
-                let el = leptos_dom::document()
-                    .query_selector(&format!("#{}", hash))
-                    .unwrap();
+                let hash = js_sys::decode_uri(&hash[1..])
+                    .ok()
+                    .and_then(|decoded| decoded.as_string())
+                    .unwrap_or(hash);
+                let el = leptos_dom::document().get_element_by_id(&hash);
+                log::debug!("el to scroll to = {hash:?} => {el:?}");
                 if let Some(el) = el {
                     el.scroll_into_view()
                 } else if loc.scroll {
@@ -98,5 +104,6 @@ impl History for BrowserIntegration {
                 }
             }
         }
+        log::debug!("[BrowserIntegration::navigate 5]");
     }
 }

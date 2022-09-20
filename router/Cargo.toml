@@ -23,7 +23,6 @@ typed-builder = "0.10"
 js-sys = { version = "0.3", optional = true }
 wasm-bindgen = "0.2"
 
-
 [dependencies.web-sys]
 version = "0.3"
 features = [
@@ -43,7 +42,6 @@ features = [
 ]
 
 [features]
-default = ["csr"]
 csr = ["leptos_core/csr", "leptos_dom/csr", "leptos_macro/csr", "leptos_reactive/csr", "dep:js-sys"]
 hydrate = ["leptos_core/hydrate", "leptos_dom/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate", "dep:js-sys"]
 ssr = ["leptos_core/ssr", "leptos_dom/ssr", "leptos_macro/ssr", "leptos_reactive/ssr", "dep:url", "dep:regex"]

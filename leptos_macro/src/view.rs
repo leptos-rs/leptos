@@ -337,7 +337,13 @@ fn attr_to_tokens(
     };
     let value = match &node.value {
         Some(expr) => match expr {
-            syn::Expr::Lit(_) => AttributeValue::Static(node.value_as_string().unwrap()),
+            syn::Expr::Lit(expr_lit) => {
+                if matches!(expr_lit.lit, syn::Lit::Str(_)) {
+                    AttributeValue::Static(node.value_as_string().unwrap())
+                } else {
+                    AttributeValue::Dynamic(expr)
+                }
+            }
             _ => AttributeValue::Dynamic(expr),
         },
         None => AttributeValue::Empty,
@@ -466,7 +472,7 @@ fn attr_to_tokens(
                 // For client-side rendering, dynamic attributes don't need to be rendered in the template
                 // They'll immediately be set synchronously before the cloned template is mounted
                 expressions.push(quote_spanned! {
-                    span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, #value.into_attribute(cx))
+                    span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, {#value}.into_attribute(cx))
                 });
             }
         }
