@@ -9,6 +9,7 @@ pub struct Url {
 }
 
 impl Url {
+    #[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
     pub fn search_params(&self) -> ParamsMap {
         let map = self
             .search
@@ -30,15 +31,25 @@ impl Url {
 }
 
 #[cfg(feature = "ssr")]
-pub(crate) fn unescape(s: &str) -> String {
+pub fn unescape(s: &str) -> String {
     urlencoding::decode(s)
         .unwrap_or_else(|_| std::borrow::Cow::from(s))
         .replace('+', " ")
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-pub(crate) fn unescape(s: &str) -> String {
+pub fn unescape(s: &str) -> String {
     js_sys::decode_uri(s).unwrap().into()
+}
+
+#[cfg(feature = "ssr")]
+pub fn escape(s: &str) -> String {
+    urlencoding::encode(s).into()
+}
+
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+pub fn escape(s: &str) -> String {
+    js_sys::encode_uri(s).as_string().unwrap()
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
