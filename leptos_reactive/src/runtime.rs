@@ -1,11 +1,12 @@
 use crate::{
-    AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer, ScopeId,
-    ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber, TransitionState,
+    debug_warn, AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer,
+    ScopeId, ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber, TransitionState,
 };
 use slotmap::SlotMap;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
+use thiserror::Error;
 
 use crate::hydration::SharedContext;
 
@@ -15,6 +16,14 @@ pub(crate) struct Runtime {
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
     pub(crate) transition: RefCell<Option<Rc<TransitionState>>>,
+}
+
+#[derive(Error, Debug)]
+enum ReactiveSystemErr {
+    #[error("tried to access a scope that had already been disposed: {0:?}")]
+    ScopeDisposed(ScopeId),
+    #[error("tried to access an error that was not available: {0:?} {1:?}")]
+    Effect(ScopeId, EffectId),
 }
 
 impl Runtime {
@@ -27,11 +36,22 @@ impl Runtime {
         if let Some(scope) = scope {
             (f)(&scope)
         } else {
-            log::error!(
-                "couldn't locate {id:?} in scopes {:#?}",
-                self.scopes.borrow()
-            );
+            debug_warn!("(scope) couldn't locate {id:?}");
             panic!("couldn't locate {id:?}");
+        }
+    }
+
+    pub fn try_scope<T>(
+        &self,
+        id: ScopeId,
+        f: impl FnOnce(&ScopeState) -> T,
+    ) -> Result<T, ReactiveSystemErr> {
+        let scope = { self.scopes.borrow().get(id).cloned() };
+        if let Some(scope) = scope {
+            Ok((f)(&scope))
+        } else {
+            debug_warn!("(scope) couldn't locate {id:?}");
+            Err(ReactiveSystemErr::ScopeDisposed(id))
         }
     }
 
@@ -40,9 +60,28 @@ impl Runtime {
             if let Some(n) = scope.effects.get(id.1 .0) {
                 (f)(n)
             } else {
+                debug_warn!("(any_effect) couldn't locate {id:?}");
                 panic!("couldn't locate {id:?}");
             }
         })
+    }
+
+    pub fn try_any_effect<T>(
+        &self,
+        id: (ScopeId, EffectId),
+        f: impl FnOnce(&dyn AnyEffect) -> T,
+    ) -> Result<T, ReactiveSystemErr> {
+        self.try_scope(id.0, |scope| {
+            if let Some(n) = scope.effects.get(id.1 .0) {
+                Ok((f)(n))
+            } else {
+                debug_warn!("(try_any_effect) couldn't locate {id:?}");
+                Err(ReactiveSystemErr::Effect(id.0, id.1))
+            }
+        })
+        .into_iter()
+        .flatten()
+        .collect()
     }
 
     pub fn any_signal<T>(&self, id: (ScopeId, SignalId), f: impl FnOnce(&dyn AnySignal) -> T) -> T {
@@ -50,6 +89,7 @@ impl Runtime {
             if let Some(n) = scope.signals.get(id.1 .0) {
                 (f)(n)
             } else {
+                debug_warn!("(any_signal) couldn't locate {id:?}");
                 panic!("couldn't locate {id:?}");
             }
         })
@@ -128,7 +168,10 @@ impl Runtime {
         let scope = Scope { runtime: self, id };
         f(scope);
 
-        ScopeDisposer(Box::new(move || scope.dispose()))
+        ScopeDisposer(Box::new(move || {
+            debug_warn!("disposing scope {id:?}");
+            scope.dispose()
+        }))
     }
 
     pub fn run_scope<T>(&'static self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {

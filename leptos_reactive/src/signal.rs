@@ -171,9 +171,16 @@ where
                 }
 
                 // notify subscribers
+                // if any of them are in scopes that have been disposed, unsubscribe
                 let subs = { signal_state.subscribers.borrow().clone() };
+                let mut dropped_subs = Vec::new();
                 for subscriber in subs.iter() {
-                    subscriber.run(self.runtime);
+                    if subscriber.try_run(self.runtime).is_err() {
+                        dropped_subs.push(subscriber);
+                    }
+                }
+                for sub in dropped_subs {
+                    signal_state.subscribers.borrow_mut().remove(sub);
                 }
             })
     }
@@ -290,8 +297,17 @@ where
             *self.value.borrow_mut() = value;
 
             let subs = { self.subscribers.borrow().clone() };
+
+            // run all its subscribers; if any of them are from scopes that have
+            // been disposed, unsubscribe them
+            let mut dropped_subs = Vec::new();
             for subscriber in subs.iter() {
-                subscriber.run(runtime);
+                if subscriber.try_run(runtime).is_err() {
+                    dropped_subs.push(subscriber);
+                }
+            }
+            for sub in dropped_subs {
+                self.subscribers.borrow_mut().remove(sub);
             }
         }
     }
