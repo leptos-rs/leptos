@@ -128,10 +128,10 @@ pub fn insert(
     before: Marker,
     initial: Option<Child>,
 ) {
-    log::debug!(
+    /* log::debug!(
         "inserting {value:?} on {} before {before:?} with initial = {initial:?}",
         parent.node_name()
-    );
+    ); */
 
     match value {
         Child::Fn(f) => {
