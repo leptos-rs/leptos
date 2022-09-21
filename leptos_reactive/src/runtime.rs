@@ -1,7 +1,10 @@
+#[cfg(feature = "transition")]
+use crate::TransitionState;
 use crate::{
     debug_warn, AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer,
-    ScopeId, ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber, TransitionState,
+    ScopeId, ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber,
 };
+
 use slotmap::SlotMap;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -15,11 +18,12 @@ pub(crate) struct Runtime {
     pub(crate) shared_context: RefCell<Option<SharedContext>>,
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
+    #[cfg(feature = "transition")]
     pub(crate) transition: RefCell<Option<Rc<TransitionState>>>,
 }
 
 #[derive(Error, Debug)]
-enum ReactiveSystemErr {
+pub(crate) enum ReactiveSystemErr {
     #[error("tried to access a scope that had already been disposed: {0:?}")]
     ScopeDisposed(ScopeId),
     #[error("tried to access an error that was not available: {0:?} {1:?}")]
@@ -70,7 +74,7 @@ impl Runtime {
         &self,
         id: (ScopeId, EffectId),
         f: impl FnOnce(&dyn AnyEffect) -> T,
-    ) -> Result<T, ReactiveSystemErr> {
+    ) -> Result<Result<T, ReactiveSystemErr>, ReactiveSystemErr> {
         self.try_scope(id.0, |scope| {
             if let Some(n) = scope.effects.get(id.1 .0) {
                 Ok((f)(n))
@@ -79,9 +83,6 @@ impl Runtime {
                 Err(ReactiveSystemErr::Effect(id.0, id.1))
             }
         })
-        .into_iter()
-        .flatten()
-        .collect()
     }
 
     pub fn any_signal<T>(&self, id: (ScopeId, SignalId), f: impl FnOnce(&dyn AnySignal) -> T) -> T {
@@ -141,6 +142,7 @@ impl Runtime {
         self.stack.borrow().last().cloned()
     }
 
+    #[cfg(feature = "transition")]
     pub fn running_transition(&self) -> Option<Rc<TransitionState>> {
         self.transition.borrow().as_ref().and_then(|t| {
             if t.running.get() {
@@ -151,6 +153,7 @@ impl Runtime {
         })
     }
 
+    #[cfg(feature = "transition")]
     pub fn transition(&self) -> Option<Rc<TransitionState>> {
         self.transition.borrow().as_ref().map(Rc::clone)
     }
@@ -168,10 +171,7 @@ impl Runtime {
         let scope = Scope { runtime: self, id };
         f(scope);
 
-        ScopeDisposer(Box::new(move || {
-            debug_warn!("disposing scope {id:?}");
-            scope.dispose()
-        }))
+        ScopeDisposer(Box::new(move || scope.dispose()))
     }
 
     pub fn run_scope<T>(&'static self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {

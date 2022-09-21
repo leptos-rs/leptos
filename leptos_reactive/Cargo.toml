@@ -25,3 +25,4 @@ sycamore = "0.8.0-beta.7"
 csr = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 hydrate = ["dep:js-sys", "dep:serde-wasm-bindgen", "dep:serde_json", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 ssr = ["dep:futures", "dep:serde_json", "dep:tokio"]
+transition = []

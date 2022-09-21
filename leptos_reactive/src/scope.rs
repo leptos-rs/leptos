@@ -59,6 +59,7 @@ impl Scope {
         self.runtime.create_scope(f, Some(self))
     }
 
+    #[cfg(feature = "transition")]
     pub fn transition_pending(&self) -> bool {
         self.runtime.transition().is_some()
     }

@@ -44,7 +44,13 @@ where
     G: Fn() -> E,
 {
     move || {
-        if context.ready() || cx.transition_pending() {
+        #[cfg(feature = "transition")]
+        let transition_pending = cx.transition_pending();
+
+        #[cfg(not(feature = "transition"))]
+        let transition_pending = false;
+
+        if context.ready() || transition_pending {
             (child)().into_child(cx)
         } else {
             fallback.clone().into_child(cx)

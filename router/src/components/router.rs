@@ -6,12 +6,15 @@ use leptos_dom as leptos;
 use leptos_dom::{Element, IntoChild, UnwrapThrowExt};
 use leptos_macro::view;
 use leptos_reactive::{
-    create_memo, create_render_effect, create_signal, provide_context, use_transition, Memo,
+    create_memo, create_render_effect, create_signal, provide_context, Memo,
     ReadSignal, Scope, ScopeDisposer, WriteSignal,
 };
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
+
+#[cfg(feature = "transition")]
+use leptos_reactive::use_transition;
 
 use crate::{
     create_location,
@@ -228,6 +231,7 @@ impl RouterContext {
         let (state, set_state) = create_signal(cx, source.with(|s| s.state.clone()));
 
         // we'll use this transition to wait for async resources to load when navigating to a new route
+        #[cfg(feature = "transition")]
         let transition = use_transition(cx);
 
         // Each field of `location` reactively represents a different part of the current location
@@ -247,10 +251,17 @@ impl RouterContext {
             let LocationChange { value, state, .. } = source();
             cx.untrack(move || {
                 if value != reference() {
+                    #[cfg(feature = "transition")]
                     transition.start(move || {
                         set_reference(move |r| *r = value.clone());
                         set_state(move |s| *s = state.clone());
                     });
+
+                    #[cfg(not(feature = "transition"))]
+                    {
+                        set_reference(move |r| *r = value.clone());
+                        set_state(move |s| *s = state.clone());
+                    }
                 }
             });
         });
@@ -332,6 +343,7 @@ impl RouterContextInner {
                             }
                             let len = self.referrers.borrow().len();
 
+                            #[cfg(feature = "transition")]
                             let transition = use_transition(self.cx);
                             //transition.start({
                                 let set_reference = self.set_reference;

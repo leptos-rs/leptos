@@ -15,6 +15,8 @@ mod source;
 mod spawn;
 mod subscriber;
 mod suspense;
+
+#[cfg(feature = "transition")]
 mod transition;
 
 pub use context::*;
@@ -28,6 +30,8 @@ use source::*;
 use spawn::*;
 use subscriber::*;
 pub use suspense::*;
+
+#[cfg(feature = "transition")]
 pub use transition::*;
 
 #[macro_export]

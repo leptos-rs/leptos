@@ -303,6 +303,7 @@ where
 
         self.scheduled.set(false);
 
+        #[cfg(feature = "transition")]
         let loaded_under_transition = self.scope.runtime.running_transition().is_some();
 
         let fut = (self.fetcher)(self.source.get());
@@ -321,15 +322,14 @@ where
 
         // increment counter everywhere it's read
         let suspense_contexts = self.suspense_contexts.clone();
+
+        #[cfg(feature = "transition")]
         let running_transition = self.scope.runtime.running_transition();
 
         for suspense_context in suspense_contexts.borrow().iter() {
             suspense_context.increment();
-            log::debug!(
-                "[Transition] resource: running transition? {}",
-                running_transition.is_some()
-            );
 
+            #[cfg(feature = "transition")]
             if let Some(transition) = &running_transition {
                 log::debug!("[Transition] adding resource");
                 transition
@@ -350,8 +350,7 @@ where
 
                 resolved.set(true);
 
-                // TODO hydration
-
+                #[cfg(feature = "transition")]
                 if let Some(transition) = scope.runtime.transition() {
                     // TODO transition
                 }

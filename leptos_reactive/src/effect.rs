@@ -165,9 +165,17 @@ where
         self.runtime.push_stack(Subscriber(id));
 
         // actually run the effect
+        #[cfg(feature = "transition")]
         if let Some(transition) = self.runtime.running_transition() && self.render_effect {
             transition.effects.borrow_mut().push(id);
         } else {
+            let curr = { self.value.borrow_mut().take() };
+            let v = { (self.f.borrow_mut())(curr) };
+            *self.value.borrow_mut() = Some(v);
+        }
+
+        #[cfg(not(feature = "transition"))]
+        {
             let curr = { self.value.borrow_mut().take() };
             let v = { (self.f.borrow_mut())(curr) };
             *self.value.borrow_mut() = Some(v);

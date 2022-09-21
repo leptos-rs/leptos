@@ -58,6 +58,7 @@ where
         }
 
         // If transition is running, or contains this as a source, take from t_value
+        #[cfg(feature = "transition")]
         if let Some(transition) = self.runtime.transition() {
             self.runtime
                 .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
@@ -79,6 +80,12 @@ where
                     (f)(&signal_state.value.borrow())
                 })
         }
+
+        #[cfg(not(feature = "transition"))]
+        self.runtime
+            .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
+                (f)(&signal_state.value.borrow())
+            })
     }
 
     fn add_subscriber(&self, subscriber: Subscriber) {
@@ -150,6 +157,8 @@ where
         self.runtime
             .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
                 // update value
+
+                #[cfg(feature = "transition")]
                 if let Some(transition) = self.runtime.running_transition() {
                     let mut t_value = signal_state.t_value.borrow_mut();
                     if let Some(t_value) = &mut *t_value {
@@ -169,6 +178,9 @@ where
                 } else {
                     (f)(&mut *signal_state.value.borrow_mut());
                 }
+
+                #[cfg(not(feature = "transition"))]
+                (f)(&mut *signal_state.value.borrow_mut());
 
                 // notify subscribers
                 // if any of them are in scopes that have been disposed, unsubscribe
@@ -240,6 +252,7 @@ pub(crate) struct SignalId(pub(crate) usize);
 //#[derive(Debug)]
 pub(crate) struct SignalState<T> {
     value: RefCell<T>,
+    #[cfg(feature = "transition")]
     t_value: RefCell<Option<T>>,
     subscribers: RefCell<HashSet<Subscriber>>,
 }
@@ -248,10 +261,19 @@ impl<T> Debug for SignalState<T>
 where
     T: Debug,
 {
+    #[cfg(feature = "transition")]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SignalState")
             .field("value", &*self.value.borrow())
             .field("t_value", &*self.t_value.borrow())
+            .field("subscribers", &*self.subscribers.borrow())
+            .finish()
+    }
+
+    #[cfg(not(feature = "transition"))]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignalState")
+            .field("value", &*self.value.borrow())
             .field("subscribers", &*self.subscribers.borrow())
             .finish()
     }
@@ -264,6 +286,7 @@ where
     pub fn new(value: T) -> Self {
         Self {
             value: RefCell::new(value),
+            #[cfg(feature = "transition")]
             t_value: Default::default(),
             subscribers: Default::default(),
         }
@@ -275,6 +298,7 @@ pub(crate) trait AnySignal: Debug {
 
     fn as_any(&self) -> &dyn Any;
 
+    #[cfg(feature = "transition")]
     fn end_transition(&self, runtime: &'static Runtime);
 }
 
@@ -290,6 +314,7 @@ where
         self
     }
 
+    #[cfg(feature = "transition")]
     fn end_transition(&self, runtime: &'static Runtime) {
         let t_value = self.t_value.borrow_mut().take();
 
