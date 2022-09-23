@@ -3,7 +3,6 @@ name = "leptos_router"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 leptos_core = { path = "../leptos_core" }
 leptos_dom = { path = "../leptos_dom" }

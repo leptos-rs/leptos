@@ -1,0 +1,19 @@
+[package]
+name = "leptos_meta"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../leptos" }
+log = "0.4"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+	"HtmlTitleElement"
+]
+
+[features]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
+ssr = ["leptos/ssr"]

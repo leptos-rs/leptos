@@ -69,6 +69,12 @@ impl IntoChild for Child {
     }
 }
 
+impl IntoChild for () {
+    fn into_child(self, _cx: Scope) -> Child {
+        Child::Null
+    }
+}
+
 impl IntoChild for String {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Text(self)
