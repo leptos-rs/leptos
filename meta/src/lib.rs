@@ -77,6 +77,19 @@ where
     }
 }
 
+#[cfg(feature = "ssr")]
+#[component]
+pub fn Title(cx: Scope, formatter: Option<Formatter>, text: Option<TextProp>) {
+    let meta = use_head(cx);
+    if let Some(formatter) = formatter {
+        *meta.title.formatter.borrow_mut() = Some(formatter);
+    }
+    if let Some(text) = text {
+        *meta.title.text.borrow_mut() = Some(text.into());
+    }
+}
+
+#[cfg(not(feature = "ssr"))]
 #[component]
 pub fn Title(cx: Scope, formatter: Option<Formatter>, text: Option<TextProp>) {
     let meta = use_head(cx);
