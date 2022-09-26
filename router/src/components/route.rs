@@ -1,4 +1,4 @@
-use std::{any::Any, borrow::Cow, rc::Rc};
+use std::{any::Any, borrow::Cow, future::Future, pin::Pin, rc::Rc};
 
 use leptos_core::IntoVec;
 use leptos_dom::{Child, Element, IntoChild};
@@ -72,14 +72,12 @@ impl RouteContext {
                 .unwrap_or_default()
         });
 
-        let data = loader.map(|loader| (loader.data)(cx, params, location.clone()));
-
         Some(Self {
             inner: Rc::new(RouteContextInner {
                 cx,
                 base_path: base.to_string(),
                 child: Box::new(child),
-                data,
+                loader,
                 action,
                 path,
                 original_path: route.original_path.to_string(),
@@ -97,12 +95,12 @@ impl RouteContext {
         &self.inner.path
     }
 
-    pub fn params(&self) -> ParamsMap {
-        self.inner.params.get()
+    pub fn params(&self) -> Memo<ParamsMap> {
+        self.inner.params
     }
 
-    pub fn data(&self) -> &Option<Box<dyn Any>> {
-        &self.inner.data
+    pub fn loader(&self) -> &Option<Loader> {
+        &self.inner.loader
     }
 
     pub fn base(cx: Scope, path: &str, fallback: Option<fn() -> Element>) -> Self {
@@ -111,7 +109,7 @@ impl RouteContext {
                 cx,
                 base_path: path.to_string(),
                 child: Box::new(|| None),
-                data: None,
+                loader: None,
                 action: None,
                 path: path.to_string(),
                 original_path: path.to_string(),
@@ -138,7 +136,7 @@ pub(crate) struct RouteContextInner {
     cx: Scope,
     base_path: String,
     pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
-    pub(crate) data: Option<Box<dyn Any>>,
+    pub(crate) loader: Option<Loader>,
     pub(crate) action: Option<Action>,
     pub(crate) path: String,
     pub(crate) original_path: String,

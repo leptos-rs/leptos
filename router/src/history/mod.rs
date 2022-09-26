@@ -1,4 +1,6 @@
 use leptos_reactive::{create_signal, use_context, ReadSignal, Scope};
+
+#[cfg(not(feature = "ssr"))]
 use wasm_bindgen::UnwrapThrowExt;
 
 mod location;

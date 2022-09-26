@@ -11,6 +11,8 @@ use leptos_reactive::{
 };
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+
+#[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
 
 #[cfg(feature = "transition")]
