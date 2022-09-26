@@ -29,10 +29,10 @@ where
     T: PartialEq + std::fmt::Debug + Clone,
 {
     let route = use_route(cx);
-    create_memo(cx, move |_| T::from_map(&route.params()))
+    create_memo(cx, move |_| route.params().with(T::from_map))
 }
 
-pub fn use_params_map(cx: Scope) -> ParamsMap {
+pub fn use_params_map(cx: Scope) -> Memo<ParamsMap> {
     let route = use_route(cx);
     route.params()
 }
