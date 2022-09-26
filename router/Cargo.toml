@@ -15,12 +15,14 @@ linear-map = "1"
 log = "0.4"
 regex = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
+bincode = "1"
 url = { version = "2", optional = true }
 urlencoding = "2"
 thiserror = "1"
 typed-builder = "0.10"
 js-sys = { version = "0.3", optional = true }
-wasm-bindgen = "0.2"
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [dependencies.web-sys]
 version = "0.3"
@@ -37,11 +39,18 @@ features = [
 	"HtmlInputElement",
 	"SubmitEvent",
 	"Url",
-	"UrlSearchParams"
+	"UrlSearchParams",
+	# Fetching in Hydrate Mode
+	"Headers",
+	"Request",
+	"RequestInit",
+	"RequestMode",
+	"Response",
+	"Window",
 ]
 
 [features]
-csr = ["leptos_core/csr", "leptos_dom/csr", "leptos_macro/csr", "leptos_reactive/csr", "dep:js-sys"]
-hydrate = ["leptos_core/hydrate", "leptos_dom/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate", "dep:js-sys"]
+csr = ["leptos_core/csr", "leptos_dom/csr", "leptos_macro/csr", "leptos_reactive/csr", "dep:js-sys", "dep:wasm-bindgen"]
+hydrate = ["leptos_core/hydrate", "leptos_dom/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate", "dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 ssr = ["leptos_core/ssr", "leptos_dom/ssr", "leptos_macro/ssr", "leptos_reactive/ssr", "dep:url", "dep:regex"]
 transition = ["leptos_core/transition", "leptos_reactive/transition"]

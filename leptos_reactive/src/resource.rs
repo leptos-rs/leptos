@@ -17,6 +17,7 @@ use crate::{
     WriteSignal,
 };
 
+#[cfg(not(feature = "ssr"))]
 pub fn create_resource<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -28,6 +29,24 @@ where
     Fu: Future<Output = T> + 'static,
 {
     create_resource_with_initial_value(cx, source, fetcher, None)
+}
+
+#[cfg(feature = "ssr")]
+pub fn create_resource<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    use futures::FutureExt;
+
+    let initial_fut = fetcher(source());
+    let initial_value = initial_fut.now_or_never();
+    create_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
 
 pub fn create_resource_with_initial_value<S, T, Fu>(
@@ -84,7 +103,7 @@ where
     }
 }
 
-#[cfg(any(feature = "csr", feature = "ssr"))]
+#[cfg(not(feature = "hydrate"))]
 fn load_resource<S, T>(cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
@@ -108,10 +127,12 @@ where
             context.resolved_resources
         );
 
-        if let Some(json) = context.resolved_resources.remove(&resource_id) {
+        if let Some(data) = context.resolved_resources.remove(&resource_id) {
             log::debug!("(create_resource) resource already resolved from server");
             r.resolved.set(true);
-            let res = serde_json::from_str(&json).unwrap_throw();
+            let decoded = base64::decode(&data).unwrap_throw();
+            let res = bincode::deserialize(&decoded).unwrap_throw();
+            log::debug!("deserialized = {res:?}");
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
         } else if context.pending_resources.remove(&resource_id) {
@@ -124,7 +145,8 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = serde_json::from_str(&res).ok();
+                    let decoded = base64::decode(&res).unwrap_throw();
+                    let res = bincode::deserialize(&decoded).unwrap_throw();
                     resolved.set(true);
                     set_value.update(|n| *n = res);
                     set_loading.update(|n| *n = false);
@@ -376,7 +398,8 @@ where
         let fut = (self.fetcher)(self.source.get());
         Box::pin(async move {
             let res = fut.await;
-            (id, serde_json::to_string(&res).unwrap())
+            //(id, serde_json::to_string(&res).unwrap())
+            (id, base64::encode(&bincode::serialize(&res).unwrap()))
         })
     }
 }
