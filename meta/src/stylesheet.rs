@@ -30,8 +30,12 @@ pub fn Stylesheet(cx: Scope, href: String) {
     use leptos::document;
 
     let meta = use_head(cx);
-    let existing_el = meta.stylesheets.els.borrow();
-    let existing_el = existing_el.get(&href).clone();
+
+    // TODO I guess this will create a duplicated <link> when hydrating
+    let existing_el = {
+        let els = meta.stylesheets.els.borrow();
+        els.get(&href).cloned()
+    };
     if let Some(Some(_)) = existing_el {
         log::warn!("<Stylesheet/> already loaded stylesheet {href}");
     } else {
