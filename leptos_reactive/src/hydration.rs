@@ -100,7 +100,7 @@ impl SharedContext {
             completed: Default::default(),
             events: Default::default(),
             context: Some(HydrationContext {
-                id: "0-".into(),
+                id: "".into(),
                 count: -1,
             }),
             registry,
@@ -111,8 +111,9 @@ impl SharedContext {
 
     pub fn next_hydration_key(&mut self) -> String {
         if let Some(context) = &mut self.context {
+            let k = format!("{}{}", context.id, context.count);
             context.count += 1;
-            format!("{}{}", context.id, context.count)
+            k
         } else {
             self.context = Some(HydrationContext {
                 id: "0-".into(),

@@ -2,9 +2,15 @@ use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 use leptos::*;
 
+mod stylesheet;
+mod title;
+pub use stylesheet::*;
+pub use title::*;
+
 #[derive(Debug, Clone, Default)]
 pub struct MetaContext {
-    title: TitleContext,
+    pub(crate) title: TitleContext,
+    pub(crate) stylesheets: StylesheetContext,
 }
 
 pub fn use_head(cx: Scope) -> MetaContext {
@@ -21,18 +27,22 @@ impl MetaContext {
     pub fn new() -> Self {
         Default::default()
     }
-}
 
-#[derive(Clone, Default)]
-pub struct TitleContext {
-    el: Rc<RefCell<Option<web_sys::HtmlTitleElement>>>,
-    formatter: Rc<RefCell<Option<Formatter>>>,
-    text: Rc<RefCell<Option<TextProp>>>,
-}
+    #[cfg(feature = "ssr")]
+    pub fn dehydrate(&self) -> String {
+        let mut tags = String::new();
 
-impl Debug for TitleContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("TitleContext").finish()
+        // Title
+        if let Some(title) = self.title.as_string() {
+            tags.push_str("<title>");
+            tags.push_str(&title);
+            tags.push_str("</title>");
+        }
+
+        // Stylesheets
+        tags.push_str(&self.stylesheets.as_string());
+
+        tags
     }
 }
 
@@ -64,74 +74,4 @@ where
     fn from(s: F) -> Self {
         TextProp(Box::new(s))
     }
-}
-
-pub struct Formatter(Box<dyn Fn(String) -> String>);
-
-impl<F> From<F> for Formatter
-where
-    F: Fn(String) -> String + 'static,
-{
-    fn from(f: F) -> Formatter {
-        Formatter(Box::new(f))
-    }
-}
-
-#[cfg(feature = "ssr")]
-#[component]
-pub fn Title(cx: Scope, formatter: Option<Formatter>, text: Option<TextProp>) {
-    let meta = use_head(cx);
-    if let Some(formatter) = formatter {
-        *meta.title.formatter.borrow_mut() = Some(formatter);
-    }
-    if let Some(text) = text {
-        *meta.title.text.borrow_mut() = Some(text.into());
-    }
-}
-
-#[cfg(not(feature = "ssr"))]
-#[component]
-pub fn Title(cx: Scope, formatter: Option<Formatter>, text: Option<TextProp>) {
-    let meta = use_head(cx);
-    if let Some(formatter) = formatter {
-        *meta.title.formatter.borrow_mut() = Some(formatter);
-    }
-    if let Some(text) = text {
-        *meta.title.text.borrow_mut() = Some(text.into());
-    }
-
-    let el_ref = meta.title.el.borrow_mut();
-    let el = if let Some(el) = &*el_ref {
-        el.clone()
-    } else {
-        match document().query_selector("title") {
-            Ok(Some(title)) => title.unchecked_into(),
-            _ => {
-                let el = document().create_element("title").unwrap_throw();
-                document()
-                    .query_selector("head")
-                    .unwrap_throw()
-                    .unwrap_throw()
-                    .append_child(el.unchecked_ref())
-                    .unwrap_throw();
-                el.unchecked_into()
-            }
-        }
-    };
-    create_render_effect(cx, move |_| {
-        let text = meta
-            .title
-            .text
-            .borrow()
-            .as_ref()
-            .map(|f| (f.0)())
-            .unwrap_or_default();
-        let text = if let Some(formatter) = &*meta.title.formatter.borrow() {
-            (formatter.0)(text)
-        } else {
-            text
-        };
-
-        el.set_text_content(Some(&text));
-    });
 }

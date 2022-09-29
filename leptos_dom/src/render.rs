@@ -132,6 +132,12 @@ pub fn insert(
         "inserting {value:?} on {} before {before:?} with initial = {initial:?}",
         parent.node_name()
     ); */
+    let initial =
+        if before != Marker::NoChildren && (initial == None || initial == Some(Child::Null)) {
+            Some(Child::Nodes(vec![]))
+        } else {
+            initial
+        };
 
     match value {
         Child::Fn(f) => {
@@ -148,6 +154,7 @@ pub fn insert(
                     }
 
                     Some(insert_expression(
+                        cx,
                         parent.clone().unchecked_into(),
                         &value,
                         current,
@@ -160,6 +167,7 @@ pub fn insert(
         }
         _ => {
             insert_expression(
+                cx,
                 parent.unchecked_into(),
                 &value,
                 initial.unwrap_or(Child::Null),
@@ -170,11 +178,19 @@ pub fn insert(
 }
 
 pub fn insert_expression(
+    cx: Scope,
     parent: web_sys::Element,
     new_value: &Child,
     mut current: Child,
     before: &Marker,
 ) -> Child {
+    #[cfg(feature = "hydrate")]
+    if cx.is_hydrating() && current == Child::Null {
+        current = Child::Nodes(child_nodes(&parent));
+    }
+
+    log::debug!("insert_expression\nparent = {}\nnew_value = {new_value:?}\ncurrent = {current:?}\nbefore = {before:?}", parent.node_name());
+
     if new_value == &current {
         current
     } else {
@@ -211,7 +227,11 @@ pub fn insert_expression(
                 }
                 Child::Null => match before {
                     Marker::BeforeChild(before) => {
-                        Child::Node(insert_before(&parent, node, Some(before)))
+                        if before.is_connected() {
+                            Child::Node(insert_before(&parent, node, Some(before)))
+                        } else {
+                            Child::Node(append_child(&parent, node))
+                        }
                     }
                     _ => Child::Node(append_child(&parent, node)),
                 },
@@ -386,4 +406,15 @@ fn clean_children(
             Child::Fn(_) => todo!(),
         }
     }
+}
+
+fn child_nodes(parent: &web_sys::Element) -> Vec<web_sys::Node> {
+    let children = parent.children();
+    let mut nodes = Vec::new();
+    for idx in 0..children.length() {
+        if let Some(node) = children.item(idx) {
+            nodes.push(node.clone().unchecked_into());
+        }
+    }
+    nodes
 }

@@ -125,6 +125,11 @@ impl Scope {
     }
 
     #[cfg(feature = "hydrate")]
+    pub fn is_hydrating(&self) -> bool {
+        self.runtime.shared_context.borrow().is_some()
+    }
+
+    #[cfg(feature = "hydrate")]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         self.runtime.start_hydration(element);
     }

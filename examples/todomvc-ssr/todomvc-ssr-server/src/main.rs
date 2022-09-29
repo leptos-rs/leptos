@@ -31,9 +31,7 @@ async fn render_todomvc() -> impl Responder {
                 ]);
 
                 view! {
-                    <main>
-                        <TodoMVC todos=todos/>
-                    </main>
+                    <TodoMVC todos=todos/>
                 }
             }
         })

@@ -109,7 +109,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
+pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
     let mut next_id = todos
         .0
         .iter()
@@ -178,7 +178,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
     });
 
     view! {
-        <>
+        <main>
             <section class="todoapp">
                 <header class="header">
                     <h1>"todos"</h1>
@@ -225,7 +225,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Vec<Element> {
                 <p>"Created by "<a href="http://todomvc.com">"Greg Johnston"</a></p>
                 <p>"Part of "<a href="http://todomvc.com">"TodoMVC"</a></p>
             </footer>
-        </>
+        </main>
     }
 }
 

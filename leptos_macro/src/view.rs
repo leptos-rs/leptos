@@ -103,6 +103,7 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                     // for hydration, use get_next_element(), which will either draw from an SSRed node or clone the template
                     Mode::Hydrate => quote! {
                         let root = #template_uid.with(|template| cx.get_next_element(template));
+                        log::debug!("root node = {:#?}", root.outer_html());
                     },
                 };
 
@@ -207,21 +208,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    //log::debug!("next_sibling ({})", #debug_name);
+                    log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => //let #this_el_ident = #debug_name;
-                    //log::debug!("first_child ({})", #debug_name);
+                    log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -465,7 +466,7 @@ fn attr_to_tokens(
             (AttributeValue::Dynamic(value), Mode::Ssr) => {
                 expressions.push(quote_spanned! {
                     span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(&#value.into_attribute(cx).as_value_string(#name));
+                            leptos_buffer.push_str(&{#value}.into_attribute(cx).as_value_string(#name));
                 });
             }
             (AttributeValue::Dynamic(value), _) => {
@@ -508,6 +509,9 @@ fn child_to_tokens(
                     next_sib,
                     template,
                     expressions,
+                    navigations,
+                    next_el_id,
+                    next_co_id,
                     multi,
                     mode,
                 )
@@ -605,7 +609,8 @@ fn child_to_tokens(
                         template.push_str("<!#><!/>");
                         navigations.push(quote! {
                             #location;
-                            let (#el, #co) = cx.get_next_marker(&#name);
+                            let (#el, #co) = cx.get_next_marker(&#parent);
+                            log::debug!("get_next_marker => {} [{:?}]", #el.node_name(), #co.iter().map(|c| c.node_name()).collect::<Vec<_>>());
                         });
 
                         current = Some(co);
@@ -645,9 +650,12 @@ fn child_to_tokens(
 fn component_to_tokens(
     node: &Node,
     parent: Option<&Ident>,
-    next_sib: Option<Ident>,
+    mut next_sib: Option<Ident>,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
+    navigations: &mut Vec<TokenStream>,
+    next_el_id: &mut usize,
+    next_co_id: &mut usize,
     multi: bool,
     mode: Mode,
 ) -> PrevSibChange {
@@ -669,10 +677,36 @@ fn component_to_tokens(
         if mode == Mode::Ssr {
             expressions.push(quote::quote_spanned! {
                 span => // TODO wrap components but use get_next_element() instead of first_child/next_sibling?
-                        //leptos_buffer.push_str("<!--#-->");
+                        leptos_buffer.push_str("<!--#-->");
                         leptos_buffer.push_str(&#create_component.into_child(cx).as_child_string());
-                        //leptos_buffer.push_str("<!--/-->");
+                        leptos_buffer.push_str("<!--/-->");
 
+            });
+        } else if mode == Mode::Hydrate {
+            let name = child_ident(*next_el_id, node);
+            *next_el_id += 1;
+            let el = child_ident(*next_el_id, node);
+            *next_co_id += 1;
+            let co = comment_ident(*next_co_id, node);
+            next_sib = Some(el.clone());
+
+            template.push_str("<!#><!/>");
+            navigations.push(quote! {
+                let (#el, #co) = cx.get_next_marker(&#name);
+                log::debug!("component get_next_marker => {} [{:?}]", #el.node_name(), #co.iter().map(|c| c.node_name()).collect::<Vec<_>>());
+            });
+
+            //current = Some(co);
+
+            expressions.push(quote! {
+                log::debug!("inserting! really!");
+                leptos::insert(
+                    cx,
+                    #el,
+                    #create_component.into_child(cx),
+                    Marker::NoChildren,
+                    Some(Child::Nodes(#co)),
+                );
             });
         } else {
             expressions.push(quote! {
@@ -705,7 +739,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
         if mode == Mode::Hydrate {
             (
                 quote_spanned! { span => let children = vec![#child]; },
-                quote_spanned! { span => .children(Box::new(move || children)) },
+                quote_spanned! { span => .children(Box::new(move || children.clone())) },
             )
         } else {
             (

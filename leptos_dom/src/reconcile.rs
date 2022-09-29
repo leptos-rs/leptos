@@ -26,9 +26,10 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
     {
         for (i, node) in a.iter().enumerate() {
             if node.parent_node().as_ref() != Some(parent) {
-                panic!(
+                crate::debug_warn!(
                     "node {} in existing nodes Vec is not a child of parent. node = {:#?}",
-                    i, node
+                    i,
+                    node
                 );
             }
         }
@@ -81,8 +82,8 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
         } else if a[a_start] == b[b_end - 1] && b[b_start] == a[a_end - 1] {
             // Swap backwards.
             let node = a[a_end - 1].next_sibling();
-            parent.insert_before(&b[b_start], a[a_start].next_sibling().as_ref());
-            parent.insert_before(&b[b_end - 1], node.as_ref());
+            insert_before(parent, &b[b_start], a[a_start].next_sibling().as_ref());
+            insert_before(parent, &b[b_end - 1], node.as_ref());
             a_start += 1;
             b_start += 1;
             a_end -= 1;
@@ -119,7 +120,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
                     if sequence > index - b_start {
                         let node = &a[a_start];
                         while b_start < index {
-                            parent.insert_before(&b[b_start], Some(node));
+                            insert_before(parent, &b[b_start], Some(node));
                             b_start += 1;
                         }
                     } else {
@@ -142,7 +143,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
     {
         for (i, node) in b.iter().enumerate() {
             if node.parent_node().as_ref() != Some(parent) {
-                panic!(
+                crate::debug_warn!(
                     "node {} in new nodes Vec is not a child of parent after reconciliation. node = {:#?}",
                     i, node
                 );

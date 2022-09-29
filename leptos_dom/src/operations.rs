@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
-use crate::{event_delegation, is_server};
+use crate::{debug_warn, event_delegation, is_server};
 
 thread_local! {
     pub static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
@@ -71,7 +71,31 @@ pub fn insert_before(
     new: &web_sys::Node,
     existing: Option<&web_sys::Node>,
 ) -> web_sys::Node {
-    parent.insert_before(new, existing).unwrap_throw()
+    log::warn!(
+        "insert_before insert {} before {:?} \n\non {}",
+        new.node_name(),
+        existing.map(|e| e.node_name()),
+        parent.node_name(),
+    );
+    if parent.node_type() != 1 {
+        debug_warn!("insert_before: trying to insert on a parent node that is not an element");
+        new.clone()
+    } else if let Some(existing) = existing {
+        if existing.parent_node().as_ref() == Some(parent.unchecked_ref()) {
+            match parent.insert_before(new, Some(existing)) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("{:?}", e.as_string());
+                    new.clone()
+                }
+            }
+        } else {
+            debug_warn!("insert_before: existing node is not a child of parent node");
+            parent.append_child(new).unwrap_throw()
+        }
+    } else {
+        parent.append_child(new).unwrap_throw()
+    }
 }
 
 pub fn replace_with(old_node: &web_sys::Element, new_node: &web_sys::Node) {
