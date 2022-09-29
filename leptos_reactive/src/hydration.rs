@@ -100,8 +100,8 @@ impl SharedContext {
             completed: Default::default(),
             events: Default::default(),
             context: Some(HydrationContext {
-                id: "".into(),
-                count: -1,
+                id: "0-".into(),
+                count: 0,
             }),
             registry,
             pending_resources,
@@ -117,7 +117,7 @@ impl SharedContext {
         } else {
             self.context = Some(HydrationContext {
                 id: "0-".into(),
-                count: 0,
+                count: 1,
             });
             "0-0".into()
         }

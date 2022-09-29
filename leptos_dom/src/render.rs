@@ -132,12 +132,12 @@ pub fn insert(
         "inserting {value:?} on {} before {before:?} with initial = {initial:?}",
         parent.node_name()
     ); */
-    let initial =
-        if before != Marker::NoChildren && (initial == None || initial == Some(Child::Null)) {
-            Some(Child::Nodes(vec![]))
-        } else {
-            initial
-        };
+    /* let initial =
+    if before != Marker::NoChildren && (initial == None || initial == Some(Child::Null)) {
+        Some(Child::Nodes(vec![]))
+    } else {
+        initial
+    }; */
 
     match value {
         Child::Fn(f) => {
@@ -184,10 +184,10 @@ pub fn insert_expression(
     mut current: Child,
     before: &Marker,
 ) -> Child {
-    #[cfg(feature = "hydrate")]
+    /* #[cfg(feature = "hydrate")]
     if cx.is_hydrating() && current == Child::Null {
         current = Child::Nodes(child_nodes(&parent));
-    }
+    } */
 
     log::debug!("insert_expression\nparent = {}\nnew_value = {new_value:?}\ncurrent = {current:?}\nbefore = {before:?}", parent.node_name());
 
