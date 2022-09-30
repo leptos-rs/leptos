@@ -206,23 +206,23 @@ fn element_to_tokens(
     if mode != Mode::Ssr {
         let this_nav = if is_root_el {
             quote_spanned! {
-                span => //let #this_el_ident = #debug_name;
+                span => let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
-                span => //let #this_el_ident = #debug_name;
-                    log::debug!("next_sibling ({})", #debug_name);
+                span => let #this_el_ident = #debug_name;
+                    //log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
-                span => //let #this_el_ident = #debug_name;
-                    log::debug!("first_child ({})", #debug_name);
+                span => let #this_el_ident = #debug_name;
+                    //log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -623,20 +623,21 @@ fn child_to_tokens(
                         template.push_str("<!#><!/>");
                         navigations.push(quote! {
                             #location;
-                            let (#el, #co) = cx.get_next_marker(&#parent);
+                            let (#el, #co) = cx.get_next_marker(&#name);
+                            log::debug!("Text/Block get_next_marker => {} [{:?}]", #el.node_name(), #co.iter().map(|c| c.node_name()).collect::<Vec<_>>());
                         });
 
                         expressions.push(quote! {
                             leptos::insert(
                                 cx,
-                                #el.clone(),
+                                #parent.clone(),
                                 #value.into_child(cx),
-                                Marker::NoChildren,
+                                #before,
                                 Some(Child::Nodes(#co)),
                             );
                         });
 
-                        current = Some(co);
+                        current = Some(el);
                     }
                     // in SSR, it needs to insert the value, wrapped in comments
                     Mode::Ssr => expressions.push(quote::quote_spanned! {
@@ -706,7 +707,6 @@ fn component_to_tokens(
             //current = Some(co);
 
             expressions.push(quote! {
-                log::debug!("inserting! really!");
                 leptos::insert(
                     cx,
                     #el,

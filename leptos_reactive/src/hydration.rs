@@ -74,14 +74,7 @@ impl SharedContext {
             &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
         )
         .unwrap_or(wasm_bindgen::JsValue::NULL);
-        log::debug!(
-            "(create_resource) (hydration.rs) resolved resources from JS = {:#?}",
-            resolved_resources
-        );
-        /*  let resolved_resources = resolved_resources
-        .map_err(|_| ())
-        .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
-        .unwrap_or_default(); */
+
         let resolved_resources = match serde_wasm_bindgen::from_value(resolved_resources) {
             Ok(v) => v,
             Err(e) => {
@@ -91,17 +84,13 @@ impl SharedContext {
                 HashMap::default()
             }
         };
-        log::debug!(
-            "(create_resource) (hydration.rs) resolved resources after deserializing = {:#?}",
-            resolved_resources
-        );
 
         Self {
             completed: Default::default(),
             events: Default::default(),
             context: Some(HydrationContext {
-                id: "0-".into(),
-                count: 0,
+                id: "".into(),
+                count: -1,
             }),
             registry,
             pending_resources,
