@@ -7,7 +7,7 @@ use leptos_dom::{Element, IntoChild, UnwrapThrowExt};
 use leptos_macro::view;
 use leptos_reactive::{
     create_memo, create_render_effect, create_signal, provide_context, Memo,
-    ReadSignal, Scope, ScopeDisposer, WriteSignal,
+    ReadSignal, Scope, ScopeDisposer, WriteSignal, use_context,
 };
 use thiserror::Error;
 use typed_builder::TypedBuilder;
@@ -19,17 +19,15 @@ use wasm_bindgen::JsCast;
 use leptos_reactive::use_transition;
 
 use crate::{
+    RouterIntegrationContext,
     create_location,
     matching::{get_route_matches, resolve_path, Branch, RouteMatch},
     unescape, History, Location, LocationChange, RouteContext, State, Url,
 };
 
 #[derive(TypedBuilder)]
-pub struct RouterProps<H>
-where
-    H: History + 'static
+pub struct RouterProps
 {
-    mode: H,
     #[builder(default, setter(strip_option))]
     base: Option<&'static str>,
     #[builder(default, setter(strip_option))]
@@ -38,12 +36,10 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn Router<H>(cx: Scope, props: RouterProps<H>) -> impl IntoChild
-where
-    H: History + 'static
+pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild
 {
     // create a new RouterContext and provide it to every component beneath the router
-    let router = RouterContext::new(cx, props.mode, props.base, props.fallback);
+    let router = RouterContext::new(cx, props.base, props.fallback);
     provide_context(cx, router.clone());
 
     // whenever path changes, update matches
@@ -204,10 +200,14 @@ impl std::fmt::Debug for RouterContextInner {
 impl RouterContext {
     pub fn new(
         cx: Scope,
-        history: impl History + 'static,
         base: Option<&'static str>,
         fallback: Option<fn() -> Element>,
     ) -> Self {
+        #[cfg(any(feature = "csr", feature = "hydrate"))]
+        let history = use_context::<RouterIntegrationContext>(cx).unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration { })));
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.");
+
         // Any `History` type gives a way to get a reactive signal of the current location
         // in the browser context, this is drawn from the `popstate` event
         // different server adapters can provide different `History` implementations to allow server routing

@@ -15,6 +15,12 @@ pub use location::*;
 pub use params::*;
 pub use state::*;
 
+impl std::fmt::Debug for RouterIntegrationContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RouterIntegrationContext").finish()
+    }
+}
+
 pub trait History {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange>;
 
@@ -107,5 +113,18 @@ impl History for BrowserIntegration {
             }
         }
         log::debug!("[BrowserIntegration::navigate 5]");
+    }
+}
+
+#[derive(Clone)]
+pub struct RouterIntegrationContext(pub std::rc::Rc<dyn History>);
+
+impl History for RouterIntegrationContext {
+    fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
+        self.0.location(cx)
+    }
+
+    fn navigate(&self, loc: &LocationChange) {
+        self.0.navigate(loc)
     }
 }
