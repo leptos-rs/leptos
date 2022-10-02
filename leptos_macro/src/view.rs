@@ -101,10 +101,13 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                         let root = #template_uid.with(|template| leptos_dom::clone_template(template));
                     },
                     // for hydration, use get_next_element(), which will either draw from an SSRed node or clone the template
-                    Mode::Hydrate => quote! {
-                        let root = #template_uid.with(|template| cx.get_next_element(template));
-                        //log::debug!("root node = {:#?}", root.outer_html());
-                    },
+                    Mode::Hydrate => {
+                        let name = node.name_as_string().unwrap();
+                        quote! {
+                            let root = #template_uid.with(|template| cx.get_next_element(template));
+                            // log::debug!("root = {}", root.node_name());
+                        }
+                    }
                 };
 
                 let span = node.name_span().unwrap();
@@ -208,21 +211,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    // log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
-                    //log::debug!("next_sibling ({})", #debug_name);
+                    // log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    // log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
-                    //log::debug!("first_child ({})", #debug_name);
+                    // log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    // log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -506,6 +509,7 @@ fn child_to_tokens(
                 component_to_tokens(
                     node,
                     Some(parent),
+                    prev_sib,
                     next_sib,
                     template,
                     expressions,
@@ -554,15 +558,15 @@ fn child_to_tokens(
             let name = child_ident(*next_el_id, node);
             let location = if let Some(sibling) = &prev_sib {
                 quote_spanned! {
-                    span => //log::debug!("-> next sibling");
+                    span => // log::debug!("-> next sibling");
                             let #name = #sibling.next_sibling().unwrap_throw();
-                            //log::debug!("\tnext sibling = {}", #name.node_name());
+                            // log::debug!("\tnext sibling = {}", #name.node_name());
                 }
             } else {
                 quote_spanned! {
-                    span => //log::debug!("\\|/ first child");
+                    span => // log::debug!("\\|/ first child on {}", #parent.node_name());
                             let #name = #parent.first_child().unwrap_throw();
-                            //log::debug!("\tfirst child = {}", #name.node_name());
+                            // log::debug!("\tfirst child = {}", #name.node_name());
                 }
             };
 
@@ -572,7 +576,7 @@ fn child_to_tokens(
                     if multi {
                         quote! { leptos::Marker::LastChild }
                     } else {
-                        quote! { leptos::Marker::NoChildren }
+                        quote! { leptos::Marker::LastChild }
                     }
                 }
             };
@@ -624,7 +628,6 @@ fn child_to_tokens(
                         navigations.push(quote! {
                             #location;
                             let (#el, #co) = cx.get_next_marker(&#name);
-                            log::debug!("Text/Block get_next_marker => {} [{:?}]", #el.node_name(), #co.iter().map(|c| c.node_name()).collect::<Vec<_>>());
                         });
 
                         expressions.push(quote! {
@@ -658,6 +661,7 @@ fn child_to_tokens(
 fn component_to_tokens(
     node: &Node,
     parent: Option<&Ident>,
+    prev_sib: Option<Ident>,
     mut next_sib: Option<Ident>,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
@@ -669,6 +673,8 @@ fn component_to_tokens(
 ) -> PrevSibChange {
     let create_component = create_component(node, mode);
     let span = node.name_span().unwrap();
+
+    let mut current = None;
 
     if let Some(parent) = parent {
         let before = match &next_sib {
@@ -698,20 +704,25 @@ fn component_to_tokens(
             let co = comment_ident(*next_co_id, node);
             next_sib = Some(el.clone());
 
+            let starts_at = if let Some(prev_sib) = prev_sib {
+                quote::quote! { &#prev_sib.next_sibling().unwrap_throw() }
+            } else {
+                quote::quote! { &#parent.first_child().unwrap_throw() }
+            };
+
+            current = Some(el.clone());
+
             template.push_str("<!#><!/>");
             navigations.push(quote! {
-                let (#el, #co) = cx.get_next_marker(&#name);
-                log::debug!("component get_next_marker => {} [{:?}]", #el.node_name(), #co.iter().map(|c| c.node_name()).collect::<Vec<_>>());
+                let (#el, #co) = cx.get_next_marker(#starts_at);
             });
-
-            //current = Some(co);
 
             expressions.push(quote! {
                 leptos::insert(
                     cx,
-                    #el,
+                    #parent.clone(),
                     #create_component.into_child(cx),
-                    Marker::NoChildren,
+                    Marker::BeforeChild(#el),
                     Some(Child::Nodes(#co)),
                 );
             });
@@ -730,7 +741,10 @@ fn component_to_tokens(
         expressions.push(create_component)
     }
 
-    PrevSibChange::Skip
+    match current {
+        Some(el) => PrevSibChange::Sib(el),
+        None => PrevSibChange::Skip,
+    }
 }
 
 fn create_component(node: &Node, mode: Mode) -> TokenStream {

@@ -161,14 +161,14 @@ impl Scope {
                 let key = shared_context.next_hydration_key();
                 let node = shared_context.registry.remove(&key.to_string());
 
-                log::debug!("searching for node with key {key}");
+                //log::debug!("(hy) searching for {key}");
 
                 if let Some(node) = node {
-                    log::debug!("found node with key {key}");
+                    //log::debug!("(hy) found {key}");
                     shared_context.completed.push(node.clone());
                     node
                 } else {
-                    log::debug!("could not find node with key {key}");
+                    //log::debug!("(hy) did NOT find {key}");
                     cloned_template(template)
                 }
             } else {

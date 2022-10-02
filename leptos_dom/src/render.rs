@@ -196,7 +196,7 @@ pub fn insert_expression(
     } else {
         let multi = before != &Marker::NoChildren;
 
-        let parent = if multi {
+        /* let parent = if multi {
             match &current {
                 Child::Nodes(nodes) => nodes
                     .get(0)
@@ -207,7 +207,7 @@ pub fn insert_expression(
             }
         } else {
             parent
-        };
+        }; */
 
         match new_value {
             // if the new value is null, clean children out of the parent up to the marker node

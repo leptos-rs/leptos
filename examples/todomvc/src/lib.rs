@@ -207,12 +207,12 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
                         " left"
                     </span>
                     <ul class="filters">
-                        <li><a href="#/" class:selected={move || mode() == Mode::All}>"All"</a></li>
+                        <li><a href="#/" class="selected" class:selected={move || mode() == Mode::All}>"All"</a></li>
                         <li><a href="#/active" class:selected={move || mode() == Mode::Active}>"Active"</a></li>
                         <li><a href="#/completed" class:selected={move || mode() == Mode::Completed}>"Completed"</a></li>
                     </ul>
                     <button
-                        class="clear-completed"
+                        class="clear-completed hidden"
                         class:hidden={move || todos.with(|t| t.completed() == 0)}
                         on:click={move |_| set_todos.update(|t| t.clear_completed())}
                     >

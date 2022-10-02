@@ -71,12 +71,6 @@ pub fn insert_before(
     new: &web_sys::Node,
     existing: Option<&web_sys::Node>,
 ) -> web_sys::Node {
-    log::warn!(
-        "insert_before insert {} before {:?} \n\non {}",
-        new.node_name(),
-        existing.map(|e| e.node_name()),
-        parent.node_name(),
-    );
     if parent.node_type() != 1 {
         debug_warn!("insert_before: trying to insert on a parent node that is not an element");
         new.clone()
@@ -85,7 +79,7 @@ pub fn insert_before(
             match parent.insert_before(new, Some(existing)) {
                 Ok(c) => c,
                 Err(e) => {
-                    log::warn!("{:?}", e.as_string());
+                    debug_warn!("{:?}", e.as_string());
                     new.clone()
                 }
             }

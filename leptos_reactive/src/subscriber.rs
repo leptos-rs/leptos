@@ -9,7 +9,6 @@ impl Subscriber {
         &self,
         runtime: &'static Runtime,
     ) -> Result<Result<(), ReactiveSystemErr>, ReactiveSystemErr> {
-        crate::debug_warn!("(Subscriber::run) {:?}", self.0);
         runtime.try_any_effect(self.0, |effect| effect.run(self.0))
     }
 }

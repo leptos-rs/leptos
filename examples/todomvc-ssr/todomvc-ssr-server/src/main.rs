@@ -45,6 +45,7 @@ async fn main() -> std::io::Result<()> {
             .service(render_todomvc)
             .service(Files::new("/static", "../../todomvc/node_modules"))
             .service(Files::new("/pkg", "../todomvc-ssr-client/pkg"))
+            .wrap(middleware::Compress::default())
     })
     .bind(("127.0.0.1", 8080))?
     .run()
