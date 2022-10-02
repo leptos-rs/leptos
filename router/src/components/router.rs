@@ -6,8 +6,8 @@ use leptos_dom as leptos;
 use leptos_dom::{Element, IntoChild, UnwrapThrowExt};
 use leptos_macro::view;
 use leptos_reactive::{
-    create_memo, create_render_effect, create_signal, provide_context, Memo,
-    ReadSignal, Scope, ScopeDisposer, WriteSignal, use_context,
+    create_memo, create_render_effect, create_signal, provide_context, use_context, Memo,
+    ReadSignal, Scope, ScopeDisposer, WriteSignal,
 };
 use thiserror::Error;
 use typed_builder::TypedBuilder;
@@ -19,149 +19,28 @@ use wasm_bindgen::JsCast;
 use leptos_reactive::use_transition;
 
 use crate::{
-    RouterIntegrationContext,
     create_location,
     matching::{get_route_matches, resolve_path, Branch, RouteMatch},
-    unescape, History, Location, LocationChange, RouteContext, State, Url,
+    unescape, History, Location, LocationChange, RouteContext, RouterIntegrationContext, State,
+    Url,
 };
 
 #[derive(TypedBuilder)]
-pub struct RouterProps
-{
+pub struct RouterProps {
     #[builder(default, setter(strip_option))]
     base: Option<&'static str>,
     #[builder(default, setter(strip_option))]
     fallback: Option<fn() -> Element>,
-    children: Box<dyn Fn() -> Vec<Vec<Branch>>>
+    children: Box<dyn Fn() -> Vec<Element>>,
 }
 
 #[allow(non_snake_case)]
-pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild
-{
+pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild {
     // create a new RouterContext and provide it to every component beneath the router
     let router = RouterContext::new(cx, props.base, props.fallback);
-    provide_context(cx, router.clone());
+    provide_context(cx, router);
 
-    // whenever path changes, update matches
-    let branches = (props.children)().into_iter().flatten().collect::<Vec<_>>();
-    let matches = create_memo(cx, {
-        let router = router.clone();
-        move |_| {
-            get_route_matches(branches.clone(), router.pathname().get())
-        }
-    });
-
-    // TODO router.out for SSR
-
-    // Rebuild the list of nested routes conservatively, and show the root route here
-    let mut disposers = Vec::<ScopeDisposer>::new();
-
-    // iterate over the new matches, reusing old routes when they are the same
-    // and replacing them with new routes when they differ
-    let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
-
-    let route_states: Memo<RouterState> = create_memo(cx, move |prev: Option<RouterState>| {
-        next.borrow_mut().clear();
-
-        let next_matches = matches();
-        let prev_matches = prev.as_ref().map(|p| &p.matches);
-        let prev_routes = prev.as_ref().map(|p| &p.routes);
-
-        // are the new route matches the same as the previous route matches so far?
-        let mut equal = prev_matches
-            .map(|prev_matches| next_matches.len() == prev_matches.len())
-            .unwrap_or(false);
-
-        for i in 0..next_matches.len() {
-            let next = next.clone();
-            let prev_match = prev_matches.and_then(|p| p.get(i));
-            let next_match = next_matches.get(i).unwrap();
-
-            if let Some(prev) = prev_routes && let Some(prev_match) = prev_match && next_match.route.key == prev_match.route.key {
-                let prev_one = { prev.borrow()[i].clone() };
-                if i >= next.borrow().len() {
-                    next.borrow_mut().push(prev_one);
-                } else {
-                    *(next.borrow_mut().index_mut(i)) = prev_one;
-                }
-            } else {
-                equal = false; 
-
-                let disposer = cx.child_scope({
-                    let next = next.clone();
-                    let router = Rc::clone(&router.inner);
-                    move |cx| {
-                        let next = next.clone();
-                        let next_ctx = RouteContext::new(
-                            cx,
-                            &RouterContext { inner: router },
-                            {
-                                let next = next.clone();
-                                move || {
-                                    next.borrow().get(i + 1).cloned()
-                                }
-                            },
-                            move || {
-                                matches().get(i).cloned()
-                            }
-                        );
-
-                        if let Some(next_ctx) = next_ctx {
-                            if next.borrow().len() > i + 1 {
-                                next.borrow_mut()[i] = next_ctx;
-                            } else {
-                                next.borrow_mut().push(next_ctx);
-                            }
-                        }
-                    }
-                });
-
-                if disposers.len() > i + 1 {
-                    let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
-                    log::debug!("disposing");
-                    old_route_disposer.dispose();
-                } else {
-                    disposers.push(disposer);
-                }
-            }
-        }
-
-        // TODO dispose of extra routes from previous matches if they're longer than new ones
-
-        if let Some(prev) = &prev && equal {
-            RouterState {
-                matches: next_matches.to_vec(),
-                routes: prev_routes.cloned().unwrap_or_default(),
-                root: prev.root.clone()
-            }
-        } else {
-            let root = next.borrow().get(0).cloned();
-            RouterState {
-                matches: next_matches.to_vec(),
-                routes: Rc::new(RefCell::new(next.borrow().to_vec())),
-                root
-            }
-        }
-    });
-
-    // show the root route
-    move || {
-        route_states.with(|state| {
-            let root = state.routes.borrow();
-            let root = root.get(0);
-            if let Some(route) = root {
-                provide_context(cx, route.clone());
-            }
-            root.as_ref().map(|route| route.outlet())
-        })
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct RouterState {
-    matches: Vec<RouteMatch>,
-    routes: Rc<RefCell<Vec<RouteContext>>>,
-    root: Option<RouteContext>,
+    props.children
 }
 
 #[derive(Debug, Clone)]
@@ -198,13 +77,10 @@ impl std::fmt::Debug for RouterContextInner {
 }
 
 impl RouterContext {
-    pub fn new(
-        cx: Scope,
-        base: Option<&'static str>,
-        fallback: Option<fn() -> Element>,
-    ) -> Self {
+    pub fn new(cx: Scope, base: Option<&'static str>, fallback: Option<fn() -> Element>) -> Self {
         #[cfg(any(feature = "csr", feature = "hydrate"))]
-        let history = use_context::<RouterIntegrationContext>(cx).unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration { })));
+        let history = use_context::<RouterIntegrationContext>(cx)
+            .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.");
 
@@ -348,28 +224,28 @@ impl RouterContextInner {
                             #[cfg(feature = "transition")]
                             let transition = use_transition(self.cx);
                             //transition.start({
-                                let set_reference = self.set_reference;
-                                let set_state = self.set_state;
-                                let referrers = self.referrers.clone();
-                                let this = Rc::clone(&self);
-                                //move || {
-                                    set_reference.update({
-                                        let resolved = resolved_to.to_string();
-                                        move |r| *r = resolved
-                                    });
-                                    set_state.update({
-                                        let next_state = options.state.clone();
-                                        move |state| *state = next_state
-                                    });
-                                    if referrers.borrow().len() == len {
-                                        this.navigate_end(LocationChange {
-                                            value: resolved_to.to_string(),
-                                            replace: false,
-                                            scroll: true,
-                                            state: options.state.clone(),
-                                        })
+                            let set_reference = self.set_reference;
+                            let set_state = self.set_state;
+                            let referrers = self.referrers.clone();
+                            let this = Rc::clone(&self);
+                            //move || {
+                            set_reference.update({
+                                let resolved = resolved_to.to_string();
+                                move |r| *r = resolved
+                            });
+                            set_state.update({
+                                let next_state = options.state.clone();
+                                move |state| *state = next_state
+                            });
+                            if referrers.borrow().len() == len {
+                                this.navigate_end(LocationChange {
+                                    value: resolved_to.to_string(),
+                                    replace: false,
+                                    scroll: true,
+                                    state: options.state.clone(),
+                                })
                                 //}
-                                }
+                            }
                             //});
                         }
                     }

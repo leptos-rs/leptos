@@ -1,11 +1,11 @@
-use std::{cmp::Reverse, rc::Rc};
+use std::{cmp::Reverse, rc::Rc, cell::RefCell, ops::IndexMut};
 
 use leptos_core::IntoVec;
 use leptos_dom::{Child, IntoChild};
-use leptos_reactive::Scope;
+use leptos_reactive::{Scope, use_context, create_memo, ScopeDisposer, Memo, provide_context};
 use typed_builder::TypedBuilder;
 
-use crate::matching::{expand_optionals, join_paths, Branch, Matcher, RouteDefinition};
+use crate::{matching::{expand_optionals, join_paths, Branch, Matcher, RouteDefinition, get_route_matches, RouteMatch}, RouterContext, RouteContext};
 
 #[derive(TypedBuilder)]
 pub struct RoutesProps {
@@ -15,9 +15,13 @@ pub struct RoutesProps {
 }
 
 #[allow(non_snake_case)]
-pub fn Routes(_cx: Scope, props: RoutesProps) -> Vec<Branch> {
-    let mut branches = Vec::new();
+pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
+    let router = use_context::<RouterContext>(cx).unwrap_or_else(|| {
+        log::warn!("<Routes/> component should be nested within a <Router/>.");
+        panic!()
+    });
 
+    let mut branches = Vec::new();
     create_branches(
         &(props.children)(),
         &props.base.unwrap_or_default(),
@@ -25,7 +29,125 @@ pub fn Routes(_cx: Scope, props: RoutesProps) -> Vec<Branch> {
         &mut branches,
     );
 
-    branches
+    // whenever path changes, update matches
+    let matches = create_memo(cx, {
+        let router = router.clone();
+        move |_| {
+            get_route_matches(branches.clone(), router.pathname().get())
+        }
+    });
+
+    // TODO router.out for SSR
+
+    // Rebuild the list of nested routes conservatively, and show the root route here
+    let mut disposers = Vec::<ScopeDisposer>::new();
+
+    // iterate over the new matches, reusing old routes when they are the same
+    // and replacing them with new routes when they differ
+    let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
+
+    let route_states: Memo<RouterState> = create_memo(cx, move |prev: Option<RouterState>| {
+        next.borrow_mut().clear();
+
+        let next_matches = matches();
+        let prev_matches = prev.as_ref().map(|p| &p.matches);
+        let prev_routes = prev.as_ref().map(|p| &p.routes);
+
+        // are the new route matches the same as the previous route matches so far?
+        let mut equal = prev_matches
+            .map(|prev_matches| next_matches.len() == prev_matches.len())
+            .unwrap_or(false);
+
+        for i in 0..next_matches.len() {
+            let next = next.clone();
+            let prev_match = prev_matches.and_then(|p| p.get(i));
+            let next_match = next_matches.get(i).unwrap();
+
+            if let Some(prev) = prev_routes && let Some(prev_match) = prev_match && next_match.route.key == prev_match.route.key {
+                let prev_one = { prev.borrow()[i].clone() };
+                if i >= next.borrow().len() {
+                    next.borrow_mut().push(prev_one);
+                } else {
+                    *(next.borrow_mut().index_mut(i)) = prev_one;
+                }
+            } else {
+                equal = false; 
+
+                let disposer = cx.child_scope({
+                    let next = next.clone();
+                    let router = Rc::clone(&router.inner);
+                    move |cx| {
+                        let next = next.clone();
+                        let next_ctx = RouteContext::new(
+                            cx,
+                            &RouterContext { inner: router },
+                            {
+                                let next = next.clone();
+                                move || {
+                                    next.borrow().get(i + 1).cloned()
+                                }
+                            },
+                            move || {
+                                matches().get(i).cloned()
+                            }
+                        );
+
+                        if let Some(next_ctx) = next_ctx {
+                            if next.borrow().len() > i + 1 {
+                                next.borrow_mut()[i] = next_ctx;
+                            } else {
+                                next.borrow_mut().push(next_ctx);
+                            }
+                        }
+                    }
+                });
+
+                if disposers.len() > i + 1 {
+                    let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
+                    log::debug!("disposing");
+                    old_route_disposer.dispose();
+                } else {
+                    disposers.push(disposer);
+                }
+            }
+        }
+
+        // TODO dispose of extra routes from previous matches if they're longer than new ones
+
+        if let Some(prev) = &prev && equal {
+            RouterState {
+                matches: next_matches.to_vec(),
+                routes: prev_routes.cloned().unwrap_or_default(),
+                root: prev.root.clone()
+            }
+        } else {
+            let root = next.borrow().get(0).cloned();
+            RouterState {
+                matches: next_matches.to_vec(),
+                routes: Rc::new(RefCell::new(next.borrow().to_vec())),
+                root
+            }
+        }
+    });
+
+    // show the root route
+    move || {
+        route_states.with(|state| {
+            let root = state.routes.borrow();
+            let root = root.get(0);
+            if let Some(route) = root {
+                provide_context(cx, route.clone());
+            }
+            root.as_ref().map(|route| route.outlet())
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct RouterState {
+    matches: Vec<RouteMatch>,
+    routes: Rc<RefCell<Vec<RouteContext>>>,
+    root: Option<RouteContext>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
