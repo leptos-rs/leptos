@@ -123,7 +123,7 @@ impl RouteContext {
         resolve_path(&self.inner.base_path, to, Some(&self.inner.path))
     }
 
-    pub(crate) fn child(&self) -> Option<RouteContext> {
+    pub fn child(&self) -> Option<RouteContext> {
         (self.inner.child)()
     }
 

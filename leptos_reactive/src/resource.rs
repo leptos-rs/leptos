@@ -12,9 +12,9 @@ use std::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
-    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId, SuspenseContext,
-    WriteSignal,
+    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::Runtime, spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId,
+    SuspenseContext, WriteSignal,
 };
 
 #[cfg(not(feature = "ssr"))]
@@ -67,8 +67,6 @@ where
     let fetcher = Rc::new(move |s| Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>);
     let source = create_memo(cx, move |_| source());
 
-    // TODO hydration/streaming logic
-
     let r = Rc::new(ResourceState {
         scope: cx,
         value,
@@ -120,33 +118,46 @@ where
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
+    log::debug!("[create_resource] load_resource in hydrate mode");
+
     if let Some(ref mut context) = *cx.runtime.shared_context.borrow_mut() {
         let resource_id = StreamingResourceId(cx.id, id);
         log::debug!(
             "(create_resource) resolved resources = {:#?}",
             context.resolved_resources
         );
+        log::debug!(
+            "(create_resource) pending resources = {:#?}",
+            context.pending_resources
+        );
 
         if let Some(data) = context.resolved_resources.remove(&resource_id) {
             log::debug!("(create_resource) resource already resolved from server");
+            context.pending_resources.remove(&resource_id); // no longer pending
             r.resolved.set(true);
-            let decoded = base64::decode(&data).unwrap_throw();
-            let res = bincode::deserialize(&decoded).unwrap_throw();
+            //let decoded = base64::decode(&data).unwrap_throw();
+            //let res = bincode::deserialize(&decoded).unwrap_throw();
+            let res = serde_json::from_str(&data).unwrap_throw();
             log::debug!("deserialized = {res:?}");
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
+
+            // for reactivity
+            _ = r.source.get();
         } else if context.pending_resources.remove(&resource_id) {
             log::debug!("(create_resource) resource pending from server");
             r.set_loading.update(|n| *n = true);
             r.trigger.update(|n| *n += 1);
 
             let resolve = {
+                let runtime = cx.runtime;
                 let resolved = r.resolved.clone();
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let decoded = base64::decode(&res).unwrap_throw();
-                    let res = bincode::deserialize(&decoded).unwrap_throw();
+                    //let decoded = base64::decode(&res).unwrap_throw();
+                    //let res = bincode::deserialize(&decoded).unwrap_throw();
+                    let res = serde_json::from_str(&res).unwrap_throw();
                     resolved.set(true);
                     set_value.update(|n| *n = res);
                     set_loading.update(|n| *n = false);
@@ -165,6 +176,9 @@ where
                 &wasm_bindgen::JsValue::from_str(&id),
                 resolve.as_ref().unchecked_ref(),
             );
+
+            // for reactivity
+            _ = r.source.get();
         } else {
             log::debug!(
                 "(create_resource) resource not found in hydration context, loading\n\n{:#?}",
@@ -398,8 +412,8 @@ where
         let fut = (self.fetcher)(self.source.get());
         Box::pin(async move {
             let res = fut.await;
-            //(id, serde_json::to_string(&res).unwrap())
-            (id, base64::encode(&bincode::serialize(&res).unwrap()))
+            (id, serde_json::to_string(&res).unwrap())
+            //(id, base64::encode(&bincode::serialize(&res).unwrap()))
         })
     }
 }
