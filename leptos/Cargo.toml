@@ -6,7 +6,7 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 
 [dependencies]
 leptos_core = { path = "../leptos_core", version = "0.0.1" }
-leptos_dom = { path = "../leptos_dom", version = "0.0.1" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.2" }
 leptos_macro = { path = "../leptos_macro", version = "0.0.1" }
 leptos_reactive = { path = "../leptos_reactive", version = "0.0.1" }
 leptos_router = { path = "../router", version = "0.0.1" }

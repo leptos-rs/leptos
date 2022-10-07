@@ -1,15 +1,15 @@
-mod attribute;
+pub mod attribute;
 #[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
-mod child;
-mod class;
-mod event_delegation;
+pub mod child;
+pub mod class;
+pub mod event_delegation;
 pub mod logging;
-mod operations;
-mod property;
+pub mod operations;
+pub mod property;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-mod reconcile;
+pub mod reconcile;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-mod render;
+pub mod render;
 
 pub use attribute::*;
 #[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
