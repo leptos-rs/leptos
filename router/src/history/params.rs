@@ -27,6 +27,10 @@ impl ParamsMap {
         self.0.get(key)
     }
 
+    pub fn remove(&mut self, key: &str) -> Option<String> {
+        self.0.remove(key)
+    }
+
     #[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
     pub fn to_query_string(&self) -> String {
         use crate::history::url::escape;
