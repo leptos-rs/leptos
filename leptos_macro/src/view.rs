@@ -105,7 +105,7 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                         let name = node.name_as_string().unwrap();
                         quote! {
                             let root = #template_uid.with(|template| cx.get_next_element(template));
-                            // log::debug!("root = {}", root.node_name());
+                            // //log::debug!("root = {}", root.node_name());
                         }
                     }
                 };
@@ -211,21 +211,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
-                    log::debug!("next_sibling ({})", #debug_name);
+                    //log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
-                    log::debug!("first_child ({})", #debug_name);
+                    //log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    log::debug!("=> got {}", #this_el_ident.node_name());
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -558,15 +558,15 @@ fn child_to_tokens(
             let name = child_ident(*next_el_id, node);
             let location = if let Some(sibling) = &prev_sib {
                 quote_spanned! {
-                    span => log::debug!("-> next sibling");
+                    span => //log::debug!("-> next sibling");
                             let #name = #sibling.next_sibling().unwrap_throw();
-                            log::debug!("\tnext sibling = {}", #name.node_name());
+                            //log::debug!("\tnext sibling = {}", #name.node_name());
                 }
             } else {
                 quote_spanned! {
-                    span => log::debug!("\\|/ first child on {}", #parent.node_name());
+                    span => //log::debug!("\\|/ first child on {}", #parent.node_name());
                             let #name = #parent.first_child().unwrap_throw();
-                            log::debug!("\tfirst child = {}", #name.node_name());
+                            //log::debug!("\tfirst child = {}", #name.node_name());
                 }
             };
 
@@ -628,7 +628,7 @@ fn child_to_tokens(
                         navigations.push(quote! {
                             #location;
                             let (#el, #co) = cx.get_next_marker(&#name);
-                            log::debug!("get_next_marker => {}", #el.node_name());
+                            //log::debug!("get_next_marker => {}", #el.node_name());
                         });
 
                         expressions.push(quote! {
@@ -707,17 +707,15 @@ fn component_to_tokens(
 
             let starts_at = if let Some(prev_sib) = prev_sib {
                 quote::quote! {{
-                    log::debug!("starts_at = next_sibling");
-                    let e = #prev_sib.next_sibling().unwrap_throw();
-                    log::debug!("ok starts_at");
-                    e
+                    //log::debug!("starts_at = next_sibling");
+                    #prev_sib.next_sibling().unwrap_throw()
+                    //log::debug!("ok starts_at");
                 }}
             } else {
                 quote::quote! {{
-                    log::debug!("starts_at first_child");
-                    let e = #parent.first_child().unwrap_throw();
-                    log::debug!("starts_at ok");
-                    e
+                    //log::debug!("starts_at first_child");
+                    #parent.first_child().unwrap_throw()
+                    //log::debug!("starts_at ok");
                 }}
             };
 

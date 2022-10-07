@@ -189,7 +189,7 @@ pub fn insert_expression(
         current = Child::Nodes(child_nodes(&parent));
     } */
 
-    log::debug!("insert_expression\nparent = {}\nnew_value = {new_value:?}\ncurrent = {current:?}\nbefore = {before:?}", parent.node_name());
+    //log::debug!("insert_expression\nparent = {}\nnew_value = {new_value:?}\ncurrent = {current:?}\nbefore = {before:?}", parent.node_name());
 
     if new_value == &current {
         current
