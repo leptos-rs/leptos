@@ -28,7 +28,7 @@ where
     wasm_bindgen_futures::spawn_local(fut)
 }
 
-#[cfg(feature = "ssr")]
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 pub fn spawn_local<F>(fut: F)
 where
     F: Future<Output = ()> + 'static,

@@ -25,12 +25,12 @@ pub use web_sys;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Element = web_sys::Element;
-#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[cfg(feature = "ssr")]
 pub type Element = String;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Node = web_sys::Node;
-#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[cfg(feature = "ssr")]
 pub type Node = String;
 
 use leptos_reactive::Scope;

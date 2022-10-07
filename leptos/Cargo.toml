@@ -14,7 +14,6 @@ leptos_macro = { path = "../leptos_macro", version = "0.0.1" }
 leptos_reactive = { path = "../leptos_reactive", version = "0.0.1" }
 
 [features]
-default = ["csr"]
 csr = ["leptos_core/csr", "leptos_macro/csr", "leptos_reactive/csr"]
 hydrate = ["leptos_core/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate"]
 ssr = ["leptos_core/ssr", "leptos_macro/ssr", "leptos_reactive/ssr"]

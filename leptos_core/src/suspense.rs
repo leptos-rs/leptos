@@ -15,6 +15,7 @@ where
 }
 
 #[allow(non_snake_case)]
+#[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
 pub fn Suspense<F, E, G>(cx: Scope, props: SuspenseProps<F, E, G>) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
@@ -31,7 +32,17 @@ where
     render_suspense(cx, context, props.fallback.clone(), child)
 }
 
-#[cfg(not(feature = "ssr"))]
+#[cfg(not(any(feature = "csr", feature = "hydrate", feature = "ssr")))]
+pub fn Suspense<F, E, G>(cx: Scope, props: SuspenseProps<F, E, G>) -> impl Fn() -> Child
+where
+    F: IntoChild + Clone,
+    E: IntoChild,
+    G: Fn() -> E + 'static,
+{
+    compile_error!("<Suspense/> can only be used when one of the following features is set on the `leptos` package: 'csr', 'ssr', or 'hydrate'");
+}
+
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 fn render_suspense<'a, F, E, G>(
     cx: Scope,
     context: SuspenseContext,

@@ -42,13 +42,6 @@ pub fn unescape(s: &str) -> String {
 }
 
 #[cfg(feature = "ssr")]
-pub fn unescape(s: &str) -> String {
-    urlencoding::decode(s)
-        .unwrap_or_else(|_| std::borrow::Cow::from(s))
-        .replace('+', " ")
-}
-
-#[cfg(feature = "ssr")]
 pub fn escape(s: &str) -> String {
     urlencoding::encode(s).into()
 }
