@@ -1,12 +1,5 @@
 use crate::use_route;
-use leptos_core as leptos;
-use leptos_dom::Child;
-use leptos_dom::IntoChild;
-use leptos_macro::component;
-use leptos_macro::Props;
-use leptos_reactive::create_effect;
-use leptos_reactive::provide_context;
-use leptos_reactive::Scope;
+use leptos::*;
 
 #[component]
 pub fn Outlet(cx: Scope) -> Child {

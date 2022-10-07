@@ -1,8 +1,6 @@
 use std::{cmp::Reverse, rc::Rc, cell::RefCell, ops::IndexMut};
 
-use leptos_core::IntoVec;
-use leptos_dom::{Child, IntoChild};
-use leptos_reactive::{Scope, use_context, create_memo, ScopeDisposer, Memo, provide_context};
+use leptos::*;
 use typed_builder::TypedBuilder;
 
 use crate::{matching::{expand_optionals, join_paths, Branch, Matcher, RouteDefinition, get_route_matches, RouteMatch}, RouterContext, RouteContext};
@@ -213,7 +211,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
     let mut acc = Vec::new();
-    for original_path in expand_optionals(&route_def.path) {
+    for original_path in expand_optionals(route_def.path) {
         let path = join_paths(base, &original_path);
         let pattern = if is_leaf {
             path

@@ -1,8 +1,6 @@
-use std::{any::Any, borrow::Cow, future::Future, pin::Pin, rc::Rc};
+use std::{borrow::Cow, rc::Rc};
 
-use leptos_core::IntoVec;
-use leptos_dom::{Child, Element, IntoChild};
-use leptos_reactive::{create_memo, Memo, Scope};
+use leptos::*;
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -55,7 +53,6 @@ impl RouteContext {
         child: impl Fn() -> Option<RouteContext> + 'static,
         matcher: impl Fn() -> Option<RouteMatch> + 'static,
     ) -> Option<Self> {
-        let location = &router.inner.location;
         let base = router.base();
         let base = base.path();
         let RouteMatch { path_match, route } = matcher()?;

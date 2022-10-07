@@ -1,11 +1,8 @@
-use crate::{use_navigate, use_resolved_path};
-use leptos_core::IntoVec;
-use leptos_dom as leptos;
-use leptos_dom::*;
-use leptos_macro::view;
-use leptos_reactive::*;
+use leptos::*;
 use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
+
+use crate::{use_navigate, use_resolved_path};
 
 #[derive(TypedBuilder)]
 pub struct FormProps<C>
@@ -147,9 +144,9 @@ where
 
     view! {
         <form
-            method={method}
-            action={action}
-            enctype={enctype}
+            method=method
+            action=action
+            enctype=enctype
             on:submit=on_submit
         >
             {children}

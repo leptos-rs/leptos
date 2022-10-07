@@ -573,11 +573,12 @@ fn child_to_tokens(
             let before = match &next_sib {
                 Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
                 None => {
-                    if multi {
+                    /* if multi {
                         quote! { leptos::Marker::LastChild }
                     } else {
                         quote! { leptos::Marker::LastChild }
-                    }
+                    } */
+                    quote! { leptos::Marker::LastChild }
                 }
             };
             let value = node.value.as_ref().expect("no block value");

@@ -1,5 +1,4 @@
 pub mod attribute;
-#[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
 pub mod child;
 pub mod class;
 pub mod event_delegation;
@@ -12,7 +11,6 @@ pub mod reconcile;
 pub mod render;
 
 pub use attribute::*;
-#[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
 pub use child::*;
 pub use class::*;
 pub use logging::*;
@@ -27,15 +25,15 @@ pub use web_sys;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Element = web_sys::Element;
-#[cfg(feature = "ssr")]
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 pub type Element = String;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Node = web_sys::Node;
-#[cfg(feature = "ssr")]
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 pub type Node = String;
 
-use leptos_reactive::{create_scope, Scope};
+use leptos_reactive::Scope;
 pub use wasm_bindgen::UnwrapThrowExt;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -74,6 +72,8 @@ where
     F: Fn(Scope) -> T + 'static,
     T: Mountable,
 {
+    use leptos_reactive::create_scope;
+
     // running "mount" intentionally leaks the memory,
     // as the "mount" has no parent that can clean it up
     let _ = create_scope(move |cx| {

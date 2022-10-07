@@ -1,11 +1,9 @@
 use std::{any::Any, fmt::Debug, future::Future, rc::Rc};
 
-use leptos_reactive::{
-    create_effect, create_memo, create_resource, debug_warn, Memo, Resource, Scope,
-};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use leptos::*;
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{use_location, use_params_map, use_route, Location, ParamsMap, PinnedFuture, Url};
+use crate::{use_location, use_params_map, use_route, ParamsMap, PinnedFuture, Url};
 
 // SSR and CSR both do the work in their own environment and return it as a resource
 #[cfg(not(feature = "hydrate"))]
@@ -142,6 +140,7 @@ where
 
 #[derive(Clone)]
 pub struct Loader {
+    #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "hydrate"))]
     pub(crate) data: Rc<dyn Fn(Scope, ParamsMap, Url) -> PinnedFuture<Box<dyn AnySerialize>>>,
 }

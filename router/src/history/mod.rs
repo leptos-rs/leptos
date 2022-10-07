@@ -1,14 +1,9 @@
-use leptos_reactive::{create_signal, use_context, ReadSignal, Scope};
-
-#[cfg(not(feature = "ssr"))]
-use wasm_bindgen::UnwrapThrowExt;
+use leptos::*;
 
 mod location;
 mod params;
 mod state;
 mod url;
-
-use crate::{NavigateOptions, RouterContext};
 
 pub use self::url::*;
 pub use location::*;
@@ -49,6 +44,8 @@ impl BrowserIntegration {
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 impl History for BrowserIntegration {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
+        use crate::{NavigateOptions, RouterContext};
+
         let (location, set_location) = create_signal(cx, Self::current());
 
         leptos_dom::window_event_listener("popstate", move |_| {
@@ -85,7 +82,7 @@ impl History for BrowserIntegration {
 
     fn navigate(&self, loc: &LocationChange) {
         log::debug!("[BrowserIntegration::navigate] {loc:#?}");
-        let history = leptos_dom::window().history().unwrap();
+        let history = leptos_dom::window().history().unwrap_throw();
 
         if loc.replace {
             history

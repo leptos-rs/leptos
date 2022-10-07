@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use leptos_reactive::{create_memo, use_context, Memo, Scope};
+use leptos::{create_memo, use_context, Memo, Scope};
 
 use crate::{
     Location, NavigateOptions, NavigationError, Params, ParamsMap, RouteContext, RouterContext,
@@ -11,7 +11,7 @@ pub fn use_router(cx: Scope) -> RouterContext {
     if let Some(router) = use_context::<RouterContext>(cx) {
         router
     } else {
-        leptos_dom::debug_warn!("You must call use_router() within a <Router/> component");
+        leptos::leptos_dom::debug_warn!("You must call use_router() within a <Router/> component");
         panic!("You must call use_router() within a <Router/> component");
     }
 }

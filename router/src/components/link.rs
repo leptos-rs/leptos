@@ -1,7 +1,5 @@
-use leptos_dom as leptos;
-use leptos_dom::*;
-use leptos_macro::view;
-use leptos_reactive::{create_effect, create_memo, Scope};
+use leptos::leptos_dom::IntoChild;
+use leptos::*;
 use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
 
@@ -70,7 +68,7 @@ where
 
     view! {
         <a
-            href={move || href().unwrap_or_default()}
+            href=move || href().unwrap_or_default()
             prop:state={props.state.map(|s| s.to_js_value())}
             prop:replace={props.replace}
         >
@@ -136,11 +134,11 @@ where
     let child = children.remove(0);
     view! {
         <a
-            href={move || href().unwrap_or_default()}
+            href=move || href().unwrap_or_default()
             prop:state={props.state.map(|s| s.to_js_value())}
             prop:replace={props.replace}
             class:active={is_active}
-            aria-current={move || if is_active() { Some("page") } else { None }}
+            aria-current=move || if is_active() { Some("page") } else { None }
         >
             {child}
         </a>

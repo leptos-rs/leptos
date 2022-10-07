@@ -1,5 +1,5 @@
 #[cfg(not(feature = "ssr"))]
-use wasm_bindgen::JsValue;
+use leptos::wasm_bindgen::JsValue;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 #[cfg(not(feature = "ssr"))]

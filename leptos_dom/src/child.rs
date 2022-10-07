@@ -17,7 +17,7 @@ pub enum Child {
 }
 
 impl Child {
-    #[cfg(feature = "ssr")]
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
     pub fn as_child_string(&self) -> String {
         match self {
             Child::Null => String::new(),

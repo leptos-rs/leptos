@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use leptos_dom::Child;
-use leptos_reactive::Scope;
+use leptos::leptos_dom::Child;
+use leptos::*;
 
 use crate::{Action, Loader};
 
