@@ -1,14 +1,14 @@
 [package]
 name = "leptos"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-leptos_core = { path = "../leptos_core" }
-leptos_dom = { path = "../leptos_dom" }
-leptos_macro = { path = "../leptos_macro" }
-leptos_reactive = { path = "../leptos_reactive" }
-leptos_router = { path = "../router" }
+leptos_core = { path = "../leptos_core", version = "0.0.1" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.1" }
+leptos_macro = { path = "../leptos_macro", version = "0.0.1" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.1" }
+leptos_router = { path = "../router", version = "0.0.1" }
 
 [features]
 csr = ["leptos_core/csr", "leptos_router/csr", "leptos_macro/csr", "leptos_reactive/csr"]
