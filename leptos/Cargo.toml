@@ -2,6 +2,7 @@
 name = "leptos"
 version = "0.0.1"
 edition = "2021"
+description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 
 [dependencies]
 leptos_core = { path = "../leptos_core", version = "0.0.1" }
