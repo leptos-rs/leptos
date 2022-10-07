@@ -9,7 +9,7 @@ description = "DOM operations for the Leptos web framework."
 
 [dependencies]
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.1" }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.31"
 wee_alloc = "0.4.5"

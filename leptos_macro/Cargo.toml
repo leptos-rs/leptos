@@ -19,9 +19,9 @@ syn-rsx = "0.8.1"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
-leptos_core = { path = "../leptos_core", features = ["ssr"] }
-leptos_dom = { path = "../leptos_dom", features = ["ssr"] }
-leptos_reactive = { path = "../leptos_reactive", features = ["ssr"] }
+leptos_core = { path = "../leptos_core", features = ["ssr"], version = "0.0.1" }
+leptos_dom = { path = "../leptos_dom", features = ["ssr"], version = "0.0.1" }
+leptos_reactive = { path = "../leptos_reactive", features = ["ssr"], version = "0.0.1" }
 
 [features]
 csr = []

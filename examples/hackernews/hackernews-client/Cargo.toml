@@ -9,6 +9,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 console_log = "0.2"
 hackernews-app = { path = "../hackernews-app", default-features = false, features = ["hydrate"] }
-leptos = { path = "../../../leptos", features = ["hydrate"] }
+leptos = { path = "../../../leptos", features = ["hydrate"], version = "0.0.1" }
 log = "0.4"
 wee_alloc = "0.4"

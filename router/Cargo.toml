@@ -8,10 +8,10 @@ repository = "https://github.com/gbj/leptos"
 description = "Router for the Leptos web framework."
 
 [dependencies]
-leptos_core = { path = "../leptos_core" }
-leptos_dom = { path = "../leptos_dom" }
-leptos_macro = { path = "../leptos_macro"}
-leptos_reactive = { path = "../leptos_reactive"}
+leptos_core = { path = "../leptos_core", version = "0.0.1" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.1" }
+leptos_macro = { path = "../leptos_macro", version = "0.0.1"}
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.1" }
 common_macros = "0.1"
 itertools = "0.10"
 lazy_static = "1"

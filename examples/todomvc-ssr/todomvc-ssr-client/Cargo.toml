@@ -8,7 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 console_log = "0.2"
-leptos = { path = "../../../leptos", features = ["hydrate"] }
+leptos = { path = "../../../leptos", features = ["hydrate"], version = "0.0.1" }
 todomvc = { path = "../../todomvc", features = ["hydrate"] }
 log = "0.4"
 wasm-bindgen = "0.2"
