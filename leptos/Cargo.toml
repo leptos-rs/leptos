@@ -2,6 +2,9 @@
 name = "leptos"
 version = "0.0.1"
 edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+repository = "https://github.com/gbj/leptos"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 
 [dependencies]
