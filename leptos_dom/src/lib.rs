@@ -27,11 +27,15 @@ pub use web_sys;
 pub type Element = web_sys::Element;
 #[cfg(feature = "ssr")]
 pub type Element = String;
+#[cfg(not(any(feature = "csr", feature = "hydrate", feature = "ssr")))]
+pub type Element = web_sys::Element;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub type Node = web_sys::Node;
 #[cfg(feature = "ssr")]
 pub type Node = String;
+#[cfg(not(any(feature = "csr", feature = "hydrate", feature = "ssr")))]
+pub type Node = web_sys::Node;
 
 use leptos_reactive::Scope;
 pub use wasm_bindgen::UnwrapThrowExt;
