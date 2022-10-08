@@ -89,7 +89,7 @@ where
 {
     // running "hydrate" intentionally leaks the memory,
     // as the "hydrate" has no parent that can clean it up
-    let _ = create_scope(move |cx| {
+    let _ = leptos_reactive::create_scope(move |cx| {
         cx.start_hydration(&parent);
         (f(cx));
         cx.end_hydration();
