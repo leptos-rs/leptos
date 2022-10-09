@@ -2,6 +2,8 @@
 
 A full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces.
 
+** NOTE: This README is a work in progress and is currently incomplete.**
+
 ```rust
 use leptos::*;
 
