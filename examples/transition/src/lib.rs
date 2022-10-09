@@ -43,9 +43,9 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
             }
         } else {
             if transition.pending() {
-                set_progress(|n| *n = 0);
+                set_progress(0);
                 Some(
-                    set_interval(move || set_progress(|n| *n += 1), Duration::from_millis(10))
+                    set_interval(move || set_progress.update(|n| *n += 1), Duration::from_millis(10))
                         .unwrap(),
                 )
             } else {
@@ -58,13 +58,13 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
         <div>
             <progress class:visible={move || transition.pending()} value={move || progress().to_string()} max="40"></progress>
             <nav class="tabs" class:pending={move || transition.pending()}>
-                <button class:selected={move || tab() == Tab::A} on:click=move |_| transition.start(move || set_tab(|n| *n = Tab::A))>
+                <button class:selected={move || tab() == Tab::A} on:click=move |_| transition.start(move || set_tab(Tab::A))>
                     "One"
                 </button>
-                <button class:selected={move || tab() == Tab::B} on:click=move |_| transition.start(move || set_tab(|n| *n = Tab::B))>
+                <button class:selected={move || tab() == Tab::B} on:click=move |_| transition.start(move || set_tab(Tab::B))>
                     "Two"
                 </button>
-                <button class:selected={move || tab() == Tab::C} on:click=move |_| transition.start(move || set_tab(|n| *n = Tab::C))>
+                <button class:selected={move || tab() == Tab::C} on:click=move |_| transition.start(move || set_tab(Tab::C))>
                     "Three"
                 </button>
             </nav>
@@ -82,34 +82,16 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
 pub fn Child(cx: Scope, page: ReadSignal<Tab>) -> Element {
     let data = create_resource(cx, page, |page| fake_data_load(page));
 
-    let (counter, set_counter) = create_signal(cx, 0);
-
-    create_effect(cx, move |prev_handle: Option<IntervalHandle>| {
-        log::debug!("resetting counter for Child #{}", page());
-        set_counter(|n| *n = 0);
-        if let Some(handle) = prev_handle {
-            handle.clear();
-        }
-        set_interval(
-            move || {
-                set_counter(|n| *n += 1);
-            },
-            Duration::from_millis(100),
-        )
-        .unwrap()
-    });
-
     view! {
         <div class="tab-content">
-            <span>{move || counter().to_string()}</span>
             <p>
-                <Suspense fallback=view! { <div class="loader">"Lower suspense..."</div> }>
+                //<Suspense fallback=view! { <div class="loader">"Lower suspense..."</div> }>
                     {move || data.read().map(|data| view! {
                         <div>
                             <p>{data}</p>
                         </div>
                     })}
-                </Suspense>
+                //</Suspense>
             </p>
         </div>
     }
