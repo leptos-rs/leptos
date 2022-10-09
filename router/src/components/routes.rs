@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, rc::Rc, cell::RefCell, ops::IndexMut};
+use std::{cmp::Reverse, rc::Rc, cell::{RefCell, Cell}, ops::IndexMut};
 
 use leptos::*;
 use typed_builder::TypedBuilder;
@@ -35,8 +35,6 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
         }
     });
 
-    // TODO router.out for SSR
-
     // Rebuild the list of nested routes conservatively, and show the root route here
     let mut disposers = Vec::<ScopeDisposer>::new();
 
@@ -44,101 +42,114 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
     // and replacing them with new routes when they differ
     let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
 
-    let route_states: Memo<RouterState> = create_memo(cx, move |prev: Option<RouterState>| {
-        next.borrow_mut().clear();
+    let root_equal = Rc::new(Cell::new(true));
 
-        let next_matches = matches();
-        let prev_matches = prev.as_ref().map(|p| &p.matches);
-        let prev_routes = prev.as_ref().map(|p| &p.routes);
+    let route_states: Memo<RouterState> = create_memo(cx, {
+        let root_equal = root_equal.clone();
+        move |prev: Option<RouterState>| {
+            root_equal.set(true);
+            next.borrow_mut().clear();
 
-        // are the new route matches the same as the previous route matches so far?
-        let mut equal = prev_matches
-            .map(|prev_matches| next_matches.len() == prev_matches.len())
-            .unwrap_or(false);
+            let next_matches = matches();
+            let prev_matches = prev.as_ref().map(|p| &p.matches);
+            let prev_routes = prev.as_ref().map(|p| &p.routes);
 
-        for i in 0..next_matches.len() {
-            let next = next.clone();
-            let prev_match = prev_matches.and_then(|p| p.get(i));
-            let next_match = next_matches.get(i).unwrap();
+            // are the new route matches the same as the previous route matches so far?
+            let mut equal = prev_matches
+                .map(|prev_matches| next_matches.len() == prev_matches.len())
+                .unwrap_or(false);
 
-            if let Some(prev) = prev_routes && let Some(prev_match) = prev_match && next_match.route.key == prev_match.route.key {
-                let prev_one = { prev.borrow()[i].clone() };
-                if i >= next.borrow().len() {
-                    next.borrow_mut().push(prev_one);
+            for i in 0..next_matches.len() {
+                let next = next.clone();
+                let prev_match = prev_matches.and_then(|p| p.get(i));
+                let next_match = next_matches.get(i).unwrap();
+
+                if let Some(prev) = prev_routes && let Some(prev_match) = prev_match && next_match.route.key == prev_match.route.key {
+                    let prev_one = { prev.borrow()[i].clone() };
+                    if i >= next.borrow().len() {
+                        next.borrow_mut().push(prev_one);
+                    } else {
+                        *(next.borrow_mut().index_mut(i)) = prev_one;
+                    }
                 } else {
-                    *(next.borrow_mut().index_mut(i)) = prev_one;
-                }
-            } else {
-                equal = false; 
+                    equal = false; 
+                    if i == 0 {
+                        root_equal.set(false);
+                    }
 
-                let disposer = cx.child_scope({
-                    let next = next.clone();
-                    let router = Rc::clone(&router.inner);
-                    move |cx| {
+                    let disposer = cx.child_scope({
                         let next = next.clone();
-                        let next_ctx = RouteContext::new(
-                            cx,
-                            &RouterContext { inner: router },
-                            {
-                                let next = next.clone();
+                        let router = Rc::clone(&router.inner);
+                        move |cx| {
+                            let next = next.clone();
+                            let next_ctx = RouteContext::new(
+                                cx,
+                                &RouterContext { inner: router },
+                                {
+                                    let next = next.clone();
+                                    move || {
+                                        next.borrow().get(i + 1).cloned()
+                                    }
+                                },
                                 move || {
-                                    next.borrow().get(i + 1).cloned()
+                                    matches().get(i).cloned()
                                 }
-                            },
-                            move || {
-                                matches().get(i).cloned()
-                            }
-                        );
+                            );
 
-                        if let Some(next_ctx) = next_ctx {
-                            if next.borrow().len() > i + 1 {
-                                next.borrow_mut()[i] = next_ctx;
-                            } else {
-                                next.borrow_mut().push(next_ctx);
+                            if let Some(next_ctx) = next_ctx {
+                                if next.borrow().len() > i + 1 {
+                                    next.borrow_mut()[i] = next_ctx;
+                                } else {
+                                    next.borrow_mut().push(next_ctx);
+                                }
                             }
                         }
-                    }
-                });
+                    });
 
-                if disposers.len() > i + 1 {
-                    let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
-                    log::debug!("disposing");
-                    old_route_disposer.dispose();
-                } else {
-                    disposers.push(disposer);
+                    if disposers.len() > i + 1 {
+                        let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
+                        old_route_disposer.dispose();
+                    } else {
+                        disposers.push(disposer);
+                    }
                 }
             }
-        }
 
-        // TODO dispose of extra routes from previous matches if they're longer than new ones
+            // TODO dispose of extra routes from previous matches if they're longer than new ones
 
-        if let Some(prev) = &prev && equal {
-            RouterState {
-                matches: next_matches.to_vec(),
-                routes: prev_routes.cloned().unwrap_or_default(),
-                root: prev.root.clone()
-            }
-        } else {
-            let root = next.borrow().get(0).cloned();
-            RouterState {
-                matches: next_matches.to_vec(),
-                routes: Rc::new(RefCell::new(next.borrow().to_vec())),
-                root
+            if let Some(prev) = &prev && equal {
+                RouterState {
+                    matches: next_matches.to_vec(),
+                    routes: prev_routes.cloned().unwrap_or_default(),
+                    root: prev.root.clone()
+                }
+            } else {
+                let root = next.borrow().get(0).cloned();
+                RouterState {
+                    matches: next_matches.to_vec(),
+                    routes: Rc::new(RefCell::new(next.borrow().to_vec())),
+                    root
+                }
             }
         }
     });
 
     // show the root route
-    move || {
+    create_memo(cx, move |prev| {
         route_states.with(|state| {
             let root = state.routes.borrow();
             let root = root.get(0);
             if let Some(route) = root {
                 provide_context(cx, route.clone());
             }
-            root.as_ref().map(|route| route.outlet())
+
+            if prev.is_none() || !root_equal.get() {
+                root.as_ref().map(|route| route.outlet().into_child(cx))
+            } else {
+                prev.clone().unwrap()
+            }
         })
-    }
+    })
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -70,6 +70,7 @@ pub fn router_example(cx: Scope) -> Element {
 #[component]
 pub fn ContactList(cx: Scope) -> Element {
     let contacts = use_loader::<Vec<ContactSummary>>(cx);
+    log::debug!("rendering <ContactList/>");
 
     view! {
         <div class="contact-list">

@@ -22,11 +22,12 @@ where
     });
 
     let location = use_location(cx);
+    let route = use_route(cx);
     let url = move || Url {
-        origin: String::default(),
-        pathname: location.pathname.get(),
-        search: location.search.get(),
-        hash: location.hash.get(),
+        origin: String::default(), // don't care what the origin is for this purpose
+        pathname: route.path().into(), // only use this route path, not all matched routes
+        search: location.search.get(), // reload when any of query string changes
+        hash: String::default(),   // hash is only client-side, shouldn't refire
     };
 
     let loader = loader.data.clone();
@@ -68,11 +69,12 @@ where
     let params = use_params_map(cx);
 
     let location = use_location(cx);
+    let route = use_route(cx);
     let url = move || Url {
-        origin: String::default(),
-        pathname: location.pathname.get(),
-        search: location.search.get(),
-        hash: location.hash.get(),
+        origin: String::default(), // don't care what the origin is for this purpose
+        pathname: route.path().into(), // only use this route path, not all matched routes
+        search: location.search.get(), // reload when any of query string changes
+        hash: String::default(),   // hash is only client-side, shouldn't refire
     };
 
     log::debug!("[LOADER] hydrate call");
@@ -143,25 +145,6 @@ pub struct Loader {
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "hydrate"))]
     pub(crate) data: Rc<dyn Fn(Scope, ParamsMap, Url) -> PinnedFuture<Box<dyn AnySerialize>>>,
-}
-
-impl Loader {
-    #[cfg(not(feature = "hydrate"))]
-    pub fn call(&self, cx: Scope) -> impl Future<Output = Box<dyn AnySerialize>> {
-        let (params, url) = cx.untrack(|| {
-            let params = use_params_map(cx).get();
-            let location = use_location(cx);
-            let url = Url {
-                origin: String::default(),
-                pathname: location.pathname.get(),
-                search: location.search.get(),
-                hash: location.hash.get(),
-            };
-            (params, url)
-        });
-
-        (self.data)(cx, params, url)
-    }
 }
 
 impl<F, Fu, T> From<F> for Loader
