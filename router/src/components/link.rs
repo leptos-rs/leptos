@@ -33,60 +33,14 @@ where
 }
 
 #[derive(TypedBuilder)]
-pub struct LinkProps<C, H>
+pub struct AProps<C, H>
 where
     C: IntoChild,
     H: ToHref + 'static,
 {
-    // <Link/> props
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
-    to: H,
-    /// An object of any type that will be pushed to router state
-    #[builder(default, setter(strip_option))]
-    state: Option<State>,
-    /// If `true`, the link will not add to the browser's history (so, pressing `Back`
-    /// will skip this page.)
-    #[builder(default)]
-    replace: bool,
-    children: Box<dyn Fn() -> Vec<C>>,
-}
-
-#[allow(non_snake_case)]
-pub fn Link<C, H>(cx: Scope, props: LinkProps<C, H>) -> Element
-where
-    C: IntoChild,
-    H: ToHref + 'static,
-{
-    let href = use_resolved_path(cx, move || props.to.to_href()());
-
-    let mut children = (props.children)();
-    if children.len() != 1 {
-        debug_warn!("[Link] Pass exactly one child to <Link/>. If you want to pass more than one child, next them within an element.");
-    }
-    let child = children.remove(0);
-
-    view! {
-        <a
-            href=move || href().unwrap_or_default()
-            prop:state={props.state.map(|s| s.to_js_value())}
-            prop:replace={props.replace}
-        >
-            {child}
-        </a>
-    }
-}
-
-#[derive(TypedBuilder)]
-pub struct NavLinkProps<C, H>
-where
-    C: IntoChild,
-    H: ToHref + 'static,
-{
-    // <Link/> props
-    /// Used to calculate the link's `href` attribute. Will be resolved relative
-    /// to the current route.
-    to: H,
+    href: H,
     /// If `true`, the link is marked active when the location matches exactly;
     /// if false, link is marked active if the current route starts with it.
     #[builder(default)]
@@ -102,13 +56,13 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn NavLink<C, H>(cx: Scope, props: NavLinkProps<C, H>) -> Element
+pub fn A<C, H>(cx: Scope, props: AProps<C, H>) -> Element
 where
     C: IntoChild,
     H: ToHref + 'static,
 {
     let location = use_location(cx);
-    let href = use_resolved_path(cx, move || props.to.to_href()());
+    let href = use_resolved_path(cx, move || props.href.to_href()());
     let is_active = create_memo(cx, move |_| match href() {
         None => false,
 
@@ -129,15 +83,15 @@ where
 
     let mut children = (props.children)();
     if children.len() != 1 {
-        debug_warn!("[Link] Pass exactly one child to <Link/>. If you want to pass more than one child, next them within an element.");
+        debug_warn!("[Link] Pass exactly one child to <A/>. If you want to pass more than one child, nest them within an element.");
     }
     let child = children.remove(0);
+
     view! {
         <a
             href=move || href().unwrap_or_default()
             prop:state={props.state.map(|s| s.to_js_value())}
             prop:replace={props.replace}
-            class:active={is_active}
             aria-current=move || if is_active() { Some("page") } else { None }
         >
             {child}

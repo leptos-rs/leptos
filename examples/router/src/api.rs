@@ -1,11 +1,10 @@
-use std::time::Duration;
-use leptos::{Serialize, Deserialize};
-
 use futures::{
     channel::oneshot::{self, Canceled},
     Future,
 };
 use leptos::set_timeout;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContactSummary {

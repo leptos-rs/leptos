@@ -1,74 +1,54 @@
 mod api;
 
-use std::{
-    any::{Any, TypeId},
-    time::Duration,
-};
-
 use api::{Contact, ContactSummary};
-use futures::Future;
 use leptos::*;
 use leptos_router::*;
 
 use crate::api::{get_contact, get_contacts};
 
-fn contact_list(
-    cx: Scope,
-    params: Memo<ParamsMap>,
-    location: Location,
-) -> Resource<String, Vec<ContactSummary>> {
-    log::debug!("(contact_list) reloading contact list");
-    create_resource(cx, location.search, get_contacts)
+async fn contact_list_data(_cx: Scope, _params: ParamsMap, url: Url) -> Vec<ContactSummary> {
+    log::debug!("(contact_list_data) reloading contacts");
+    get_contacts(url.search).await
 }
 
-fn contact(
-    cx: Scope,
-    params: Memo<ParamsMap>,
-    location: Location,
-) -> Resource<Option<usize>, Option<Contact>> {
-    log::debug!("(contact) reloading contact");
-    create_resource(
-        cx,
-        move || {
-            params()
-                .get("id")
-                .cloned()
-                .unwrap_or_default()
-                .parse::<usize>()
-                .ok()
-        },
-        get_contact,
-    )
+async fn contact_data(_cx: Scope, params: ParamsMap, _url: Url) -> Option<Contact> {
+    log::debug!("(contact_data) reloading contact");
+    let id = params
+        .get("id")
+        .cloned()
+        .unwrap_or_default()
+        .parse::<usize>()
+        .ok();
+    get_contact(id).await
 }
 
 pub fn router_example(cx: Scope) -> Element {
     view! {
-        <div>
-            <Router
-                mode=BrowserIntegration {}
-            >
-                <Routes>
-                    <Route path=""
-                        element=move |cx| view! { <Index/> }
-                    >
+        <div id="root">
+            <Router>
+                <nav>
+                    <A href="contacts">"Contacts"</A>
+                    <A href="about">"About"</A>
+                    <A href="settings">"Settings"</A>
+                </nav>
+                <main>
+                    <Routes>
                         <Route
-                            path="contacts"
+                            path=""
                             element=move |cx| view! { <ContactList/> }
-                            loader=contact_list.into()
+                            loader=contact_list_data.into()
                         >
                             <Route
                                 path=":id"
-                                loader=contact.into()
+                                loader=contact_data.into()
                                 element=move |cx| view! { <Contact/> }
                             />
                             <Route
                                 path="about"
-                                loader=contact.into()
                                 element=move |_| view! { <p class="contact">"Here is your list of contacts"</p> }
                             />
                             <Route
                                 path=""
-                                loader=contact.into()
                                 element=move |_| view! { <p class="contact">"Select a contact."</p> }
                             />
                         </Route>
@@ -80,54 +60,34 @@ pub fn router_example(cx: Scope) -> Element {
                             path="settings"
                             element=move |cx| view! { <Settings/> }
                         />
-                    </Route>
-                </Routes>
+                    </Routes>
+                </main>
             </Router>
         </div>
     }
 }
 
 #[component]
-pub fn Index(cx: Scope) -> Vec<Element> {
-    view! {
-        <>
-            <nav>
-                <NavLink to="contacts".into()>"Contacts"</NavLink>
-                <NavLink to="about".into()>"About"</NavLink>
-                <NavLink to="settings".into()>"Settings"</NavLink>
-            </nav>
-            <main><Outlet/></main>
-        </>
-    }
-}
-
-#[component]
 pub fn ContactList(cx: Scope) -> Element {
-    let contacts = use_loader::<(String, Vec<ContactSummary>)>(cx);
-
-    log::debug!(
-        "[ContactList] before <Suspense/>, use_route(cx).path() is {:?}",
-        use_route(cx).path()
-    );
+    let contacts = use_loader::<Vec<ContactSummary>>(cx);
 
     view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
-            <Link to="about".into()>"About"</Link>
-            <NavLink to={0.to_string()}>"Link to first contact"</NavLink>
             <ul>
                 <Suspense fallback=move || view! { <p>"Loading contacts..."</p> }>{
                     move || {
-                        log::debug!("[ContactList] inside <Suspense/>, use_route(cx) is now {:?}", use_route(cx).path());
-                        view! {
-                            <For each={move || contacts.read().unwrap_or_default()} key=|contact| contact.id>
+                        contacts.read().map(|contacts| view! {
+                            <For each=move || contacts.clone() key=|contact| contact.id>
                                 {move |cx, contact: &ContactSummary| {
+                                    let id = contact.id;
+                                    let name = format!("{} {}", contact.first_name, contact.last_name);
                                     view! {
-                                        <li><NavLink to={contact.id.to_string()}><span>{&contact.first_name} " " {&contact.last_name}</span></NavLink></li>
+                                        <li><A href=id.to_string()><span>{name.clone()}</span></A></li>
                                     }
                                 }}
-                                </For>
-                        }
+                            </For>
+                        })
                     }
                 }</Suspense>
             </ul>
@@ -138,7 +98,7 @@ pub fn ContactList(cx: Scope) -> Element {
 
 #[component]
 pub fn Contact(cx: Scope) -> Element {
-    let contact = use_loader::<Resource<Option<usize>, Option<Contact>>>(cx);
+    let contact = use_loader::<Option<Contact>>(cx);
 
     view! {
         <div class="contact">
