@@ -124,14 +124,14 @@ impl RouterContext {
                 if value != reference() {
                     #[cfg(feature = "transition")]
                     transition.start(move || {
-                        set_reference(move |r| *r = value.clone());
-                        set_state(move |s| *s = state.clone());
+                        set_reference.update(move |r| *r = value.clone());
+                        set_state.update(move |s| *s = state.clone());
                     });
 
                     #[cfg(not(feature = "transition"))]
                     {
-                        set_reference(move |r| *r = value.clone());
-                        set_state(move |s| *s = state.clone());
+                        set_reference.update(move |r| *r = value.clone());
+                        set_state.update(move |s| *s = state.clone());
                     }
                 }
             });

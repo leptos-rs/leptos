@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,12 +8,13 @@ repository = "https://github.com/gbj/leptos"
 description = "Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces."
 
 [dependencies]
-leptos_core = { path = "../leptos_core", version = "0.0.3" }
-leptos_dom = { path = "../leptos_dom", version = "0.0.3" }
+leptos_core = { path = "../leptos_core", version = "0.0.4" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.4" }
 leptos_macro = { path = "../leptos_macro", version = "0.0.3" }
-leptos_reactive = { path = "../leptos_reactive", version = "0.0.3" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.4" }
 
 [features]
 csr = ["leptos_core/csr", "leptos_macro/csr", "leptos_reactive/csr"]
 hydrate = ["leptos_core/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate"]
 ssr = ["leptos_core/ssr", "leptos_macro/ssr", "leptos_reactive/ssr"]
+transition = ["leptos_reactive/transition"]

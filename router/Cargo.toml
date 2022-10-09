@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.0.1"
+version = "0.0.4"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Router for the Leptos web framework."
 
 [dependencies]
-leptos = { path = "../leptos", version = "0.0.1" }
+leptos = { path = "../leptos", version = "0.0.4" }
 common_macros = "0.1"
 itertools = "0.10"
 lazy_static = "1"

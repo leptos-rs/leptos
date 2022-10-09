@@ -57,14 +57,14 @@ impl Todos {
         if self.remaining() == 0 {
             for todo in &self.0 {
                 if todo.completed.get() {
-                    (todo.set_completed)(|completed| *completed = false);
+                    (todo.set_completed)(false);
                 }
             }
         }
         // otherwise, mark them all complete
         else {
             for todo in &self.0 {
-                (todo.set_completed)(|completed| *completed = true);
+                (todo.set_completed)(true);
             }
         }
     }
@@ -101,7 +101,8 @@ impl Todo {
     }
 
     pub fn toggle(&self) {
-        (self.set_completed)(|completed| *completed = !*completed);
+        self.set_completed
+            .update(|completed| *completed = !*completed);
     }
 }
 
@@ -124,7 +125,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
     let (mode, set_mode) = create_signal(cx, Mode::All);
     window_event_listener("hashchange", move |_| {
         let new_mode = location_hash().map(|hash| route(&hash)).unwrap_or_default();
-        set_mode(|mode| *mode = new_mode);
+        set_mode(new_mode);
     });
 
     let add_todo = move |ev: web_sys::Event| {
@@ -240,9 +241,9 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         if value.is_empty() {
             set_todos.update(|t| t.remove(todo.id));
         } else {
-            (todo.set_title)(move |n| *n = value.to_string());
+            (todo.set_title)(value.to_string());
         }
-        set_editing(|n| *n = false);
+        set_editing(false);
     };
 
     let tpl = view! {
@@ -259,10 +260,10 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     prop:checked={move || (todo.completed)()}
                     on:input={move |ev| {
                         let checked = event_target_checked(&ev);
-                        (todo.set_completed)(|n| *n = checked);
+                        (todo.set_completed)(checked);
                     }}
                 />
-                <label on:dblclick={move |_| set_editing(|n| *n = true)}>
+                <label on:dblclick={move |_| set_editing(true)}>
                     {move || todo.title.get()}
                 </label>
                 <button class="destroy" on:click={move |_| set_todos.update(|t| t.remove(todo.id))}/>
@@ -278,7 +279,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                         if key_code == ENTER_KEY {
                             save(&event_target_value(&ev));
                         } else if key_code == ESCAPE_KEY {
-                            set_editing(|n| *n = false);
+                            set_editing(false);
                         }
                     }}
                 />

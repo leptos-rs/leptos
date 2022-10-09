@@ -17,8 +17,8 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
     let add_counter = move |_| {
         let id = next_counter_id();
         let sig = create_signal(cx, 0);
-        set_counters(move |counters| counters.push((id, sig)));
-        set_next_counter_id(|id| *id += 1);
+        set_counters.update(move |counters| counters.push((id, sig)));
+        set_next_counter_id.update(|id| *id += 1);
     };
 
     let add_many_counters = move |_| {
@@ -27,11 +27,11 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
             let signal = create_signal(cx, 0);
             new_counters.push((next_id, signal));
         }
-        set_counters(move |n| *n = new_counters.clone());
+        set_counters(new_counters.clone());
     };
 
     let clear_counters = move |_| {
-        set_counters(|counters| counters.clear());
+        set_counters.update(|counters| counters.clear());
     };
 
     view! {
@@ -80,20 +80,18 @@ fn Counter(
 ) -> web_sys::Element {
     let CounterUpdater { set_counters } = use_context(cx).unwrap_throw();
 
-    let input = move |ev| {
-        set_value(move |value| *value = event_target_value(&ev).parse::<i32>().unwrap_or_default())
-    };
+    let input = move |ev| set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default());
 
     view! {
         <li>
-            <button on:click={move |_| set_value(move |value| *value -= 1)}>"-1"</button>
+            <button on:click={move |_| set_value.update(move |value| *value -= 1)}>"-1"</button>
             <input type="text"
                 prop:value={move || value().to_string()}
                 on:input=input
             />
             <span>{move || value().to_string()}</span>
-            <button on:click=move |_| set_value(move |value| *value += 1)>"+1"</button>
-            <button on:click=move |_| set_counters(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
+            <button on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
+            <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>
     }
 }

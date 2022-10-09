@@ -1,4 +1,5 @@
 use std::time::Duration;
+use leptos::{Serialize, Deserialize};
 
 use futures::{
     channel::oneshot::{self, Canceled},
@@ -6,14 +7,14 @@ use futures::{
 };
 use leptos::set_timeout;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContactSummary {
     pub id: usize,
     pub first_name: String,
     pub last_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Contact {
     pub id: usize,
     pub first_name: String,

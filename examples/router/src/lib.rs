@@ -8,6 +8,7 @@ use std::{
 use api::{Contact, ContactSummary};
 use futures::Future;
 use leptos::*;
+use leptos_router::*;
 
 use crate::api::{get_contact, get_contacts};
 
@@ -102,7 +103,7 @@ pub fn Index(cx: Scope) -> Vec<Element> {
 
 #[component]
 pub fn ContactList(cx: Scope) -> Element {
-    let contacts = use_loader::<Resource<String, Vec<ContactSummary>>>(cx);
+    let contacts = use_loader::<(String, Vec<ContactSummary>)>(cx);
 
     log::debug!(
         "[ContactList] before <Suspense/>, use_route(cx).path() is {:?}",
@@ -142,12 +143,12 @@ pub fn Contact(cx: Scope) -> Element {
     view! {
         <div class="contact">
             <Suspense fallback=move || view! { <p>"Loading..."</p> }>{
-                move || contact.read().flatten().map(|contact| view! {
+                move || contact.read().map(|contact| contact.map(|contact| view! {
                     <section class="card">
                         <h1>{contact.first_name} " " {contact.last_name}</h1>
                         <p>{contact.address_1}<br/>{contact.address_2}</p>
                     </section>
-                })
+                }))
             }</Suspense>
         </div>
     }

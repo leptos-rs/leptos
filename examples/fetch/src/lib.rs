@@ -31,7 +31,7 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
 
 pub fn fetch_example(cx: Scope) -> web_sys::Element {
     let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
-    let cats = create_resource(cx, cat_count, |count| fetch_cats(*count));
+    let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
 
     view! {
         <div>
@@ -41,8 +41,7 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
                     value={move || cat_count.get().to_string()}
                     on:input=move |ev| {
                         let val = event_target_value(&ev).parse::<u32>().unwrap_or(0);
-                        log!("set_cat_count {val}");
-                        set_cat_count(|n| *n = val);
+                        set_cat_count(val);
                     }
                 />
             </label>

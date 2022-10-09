@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 console_log = "0.2"
 log = "0.4"
-leptos = { path = "../../leptos", features = ["csr"], version = "0.0.1" }
+leptos = { path = "../../leptos", features = ["csr"], version = "0.0.4" }
+leptos_router = { path = "../../router", features = ["csr"], version = "0.0.4" }
 wee_alloc = "0.4"
 futures = "0.3"
 
