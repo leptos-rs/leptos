@@ -27,13 +27,13 @@ use crate::{create_effect, create_signal, ReadSignal, Scope, WriteSignal};
 ///
 ///    assert_eq!(is_selected(5), false);
 ///    assert_eq!(*total_notifications.borrow(), 0);
-///    set_a(|n| *n = 5);
+///    set_a(5);
 ///    assert_eq!(is_selected(5), true);
 ///    assert_eq!(*total_notifications.borrow(), 1);
-///    set_a(|n| *n = 5);
+///    set_a(5);
 ///    assert_eq!(is_selected(5), true);
 ///    assert_eq!(*total_notifications.borrow(), 1);
-///    set_a(|n| *n = 4);
+///    set_a(4);
 ///    assert_eq!(is_selected(5), false);
 ///    //assert_eq!(*total_notifications.borrow(), 2);
 ///  # })

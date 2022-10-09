@@ -15,7 +15,7 @@ where
     create_isomorphic_effect(cx, move |prev| {
         let new = f(prev.clone());
         if prev.as_ref() != Some(&new) {
-            set(|n| *n = Some(new.clone()));
+            set(Some(new.clone()));
         }
         new
     });

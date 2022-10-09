@@ -21,7 +21,7 @@ fn effect_runs() {
 
         assert_eq!(b.borrow().as_str(), "Value is -1");
 
-        set_a(|a| *a = 1);
+        set_a(1);
 
         assert_eq!(b.borrow().as_str(), "Value is 1");
     })
@@ -50,7 +50,7 @@ fn effect_tracks_memo() {
         assert_eq!(b().as_str(), "Value is -1");
         assert_eq!(c.borrow().as_str(), "Value is -1");
 
-        set_a(|a| *a = 1);
+        set_a(1);
 
         assert_eq!(b().as_str(), "Value is 1");
         assert_eq!(c.borrow().as_str(), "Value is 1");
@@ -80,7 +80,7 @@ fn untrack_mutes_effect() {
         assert_eq!(a(), -1);
         assert_eq!(b.borrow().as_str(), "Value is -1");
 
-        set_a(|a| *a = 1);
+        set_a(1);
 
         assert_eq!(a(), 1);
         assert_eq!(b.borrow().as_str(), "Value is -1");

@@ -16,9 +16,9 @@ fn memo_with_computed_value() {
         let (b, set_b) = create_signal(cx, 0);
         let c = create_memo(cx, move |_| a() + b());
         assert_eq!(c(), 0);
-        set_a(|a| *a = 5);
+        set_a(5);
         assert_eq!(c(), 5);
-        set_b(|b| *b = 1);
+        set_b(1);
         assert_eq!(c(), 6);
     })
     .dispose()
@@ -33,11 +33,11 @@ fn nested_memos() {
         let d = create_memo(cx, move |_| c() * 2);
         let e = create_memo(cx, move |_| d() + 1);
         assert_eq!(d(), 0);
-        set_a(|a| *a = 5);
+        set_a(5);
         assert_eq!(c(), 5);
         assert_eq!(d(), 10);
         assert_eq!(e(), 11);
-        set_b(|b| *b = 1);
+        set_b(1);
         assert_eq!(c(), 6);
         assert_eq!(d(), 12);
         assert_eq!(e(), 13);
@@ -79,7 +79,7 @@ fn memo_runs_only_when_inputs_change() {
         assert_eq!(call_count.get(), 1);
 
         // and we only call it again when an input changes
-        set_a(|n| *n = 1);
+        set_a(1);
         assert_eq!(c(), 1);
         assert_eq!(call_count.get(), 2);
     })

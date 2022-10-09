@@ -106,7 +106,7 @@ mod tests {
                                     acc.set(r());
                                 }
                             });
-                            w(|n| *n += 1);
+                            w.update(|n| *n += 1);
                         }
                     })
                 })

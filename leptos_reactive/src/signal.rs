@@ -214,35 +214,32 @@ where
 
 impl<T> Copy for WriteSignal<T> where T: Clone {}
 
-impl<T, F> FnOnce<(F,)> for WriteSignal<T>
+impl<T> FnOnce<(T,)> for WriteSignal<T>
 where
-    F: Fn(&mut T),
     T: Clone + 'static,
 {
     type Output = ();
 
-    extern "rust-call" fn call_once(self, args: (F,)) -> Self::Output {
-        self.update(args.0)
+    extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+        self.update(move |n| *n = args.0)
     }
 }
 
-impl<T, F> FnMut<(F,)> for WriteSignal<T>
+impl<T> FnMut<(T,)> for WriteSignal<T>
 where
-    F: Fn(&mut T),
     T: Clone + 'static,
 {
-    extern "rust-call" fn call_mut(&mut self, args: (F,)) -> Self::Output {
-        self.update(args.0)
+    extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
+        self.update(move |n| *n = args.0)
     }
 }
 
-impl<T, F> Fn<(F,)> for WriteSignal<T>
+impl<T> Fn<(T,)> for WriteSignal<T>
 where
-    F: Fn(&mut T),
     T: Clone + 'static,
 {
-    extern "rust-call" fn call(&self, args: (F,)) -> Self::Output {
-        self.update(args.0)
+    extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
+        self.update(move |n| *n = args.0)
     }
 }
 
