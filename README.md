@@ -1,7 +1,5 @@
 # Leptos
 
-**NOTE: This README is a work in progress and is currently incomplete.**
-
 Leptos is full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces.
 
 ## What does that mean?
