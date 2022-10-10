@@ -1,17 +1,35 @@
-# leptos
+# Leptos
 
-A full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces.
+**NOTE: This README is a work in progress and is currently incomplete.**
+
+Leptos is full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces.
+
+## What does that mean?
+
+- **Full-stack**: Leptos can be used to build apps that run in the browser (_client-side rendering_), on the server (_server-side rendering_), or by rendering HTML on the server and then adding interactivity in the browser (_hydration_)
+- **Isomorphic**: The same application code and business logic are compiled to run on the client and server, with seamless integration. You can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and let Leptos manage the data loading without the need to manually create APIs to consume.
+- **Web**: Leptos is built on the Web platform and Web standards. Whenever possible, we use Web essentials (like links and forms) and build on top of them rather than trying to replace them.
+- **Framework**: Leptos provides most of what you need to build a modern web app: a reactive system, templating library, and a router that works on both the server and client side.
+- **Fine-grained reactivity**: The entire framework is build from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (_So, no virtual DOM!_)
+- **Declarative**: Tell Leptos how you want the page to look, and let the framework tell the browser how to do it.
+
+## Show me some code!
 
 ```rust
 use leptos::*;
 
-pub fn simple_counter(cx: Scope) -> Element {
-	let (value, set_value) = create_signal(cx, 0);
+#[component]
+pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+    // create a reactive signal with the initial value
+    let (value, set_value) = create_signal(cx, inital_value);
 
-	let clear = move |_| set_value(0);
-	let decrement = move |_| set_value.update(|value| *value -= 1);
-	let increment = move |_| set_value.update(|value| *value += 1);
+    // create event handlers for our buttons
+    // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
+    let clear = move |_| set_value(0);
+    let decrement = move |_| set_value.update(|value| *value -= 1);
+    let increment = move |_| set_value.update(|value| *value += 1);
 
+    // this JSX is compiled to an HTML template string for performance
     view! {
         <div>
             <button on:click=clear>"Clear"</button>
@@ -21,50 +39,18 @@ pub fn simple_counter(cx: Scope) -> Element {
         </div>
     }
 }
+
+// Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
+pub fn main() {
+    mount_to_body(|cx| view! { <SimpleCounter initial_value=3> })
+}
+
 ```
 
-## Concepts
+## Learn more
 
-### Signals
+Here are some resources for learning more about Leptos:
 
-A **signal** is a piece of data that may change over time, and notifies other code when it has changed. This is the core primitive of Leptos’s reactive system.
-
-Creating a signal is very simple. You call `create_signal`, passing in the reactive scope and the default value, and receive a tuple containing a `ReadSignal` and a `WriteSignal`.
-
-```rust
-let (value, set_value) = create_signal(cx, 0);
-```
-
-> If you’ve used signals in Sycamore or Solid, observables in MobX or Knockout, or a similar primitive in reactive library, you probably have a pretty good idea of how signals work in Leptos. If you’re familiar with React, Yew, or Dioxus, you may recognize a similar pattern to their `use_state` hooks.
-
-#### `ReadSignal<T>`
-
-The `ReadSignal` half of this tuple allows you to get the current value of the signal. Reading that value in a reactive context automatically subscribes to any further changes. You can access the value by calling `ReadSignal::get()` or, more idiomatically, simply calling the `ReadSignal` as a function.
-
-```rust
-let (value, set_value) = create_signal(cx, 0);
-// value.get() will return the current value, and subscribe if you’re in a reactive context
-assert_eq!(value.get(), 0);
-// ✅ best practice: simply call value() as a short-hand
-assert_eq!(value(), 0);
-```
-
-> Here, a **reactive context** means anywhere within an `Effect`. Leptos’s templating system is built on top of its reactive system, so if you’re reading the signal’s value within the template, the template will automatically subscribe to the signal and update exactly the value that needs to change in the DOM.
-
-#### `WriteSignal<T>`
-
-The `WriteSignal` half of this tuple allows you to update the value of the signal, which will automatically notify anything that’s listening to the value that something has changed. If you simply call the `WriteSignal` as a function, its value will be set to the argument you pass. If you want to mutate the value in place instead of replacing it, you can call `WriteSignal::update` instead.
-
-```rust
-// often you just want to replace the value
-let (value, set_value) = create_signal(cx, 0);
-set_value(1);
-assert_eq!(value(), 1);
-
-// sometimes you want to mutate something in place, like a Vec. Just call update()
-let (items, set_items) = create_signal(cx, vec![0]);
-set_items.update(|items: &mut Vec<i32>| items.push(1));
-assert_eq!(items(), vec![1]);
-```
-
-> Under the hood, `set_value(1)` is just syntactic sugar for `set_value.update(|n| *n = 1)`.
+- [Examples](https://github.com/gbj/leptos/tree/main/examples)
+- [API Documentation](https://docs.rs/leptos/latest/leptos/) (in progress)
+- Leptos Guide (in progress)
