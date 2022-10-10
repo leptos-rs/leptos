@@ -12,7 +12,7 @@ log = "0.4"
 slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 elsa = "1"
-futures = { version = "0.3", optional = true }
+futures = { version = "0.3" }
 js-sys = { version = "0.3", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
 serde_json = { version = "1", optional = true }
@@ -26,9 +26,10 @@ web-sys = { version = "0.3", optional = true, features = ["Element"] }
 
 [dev-dependencies]
 sycamore = "0.8.0-beta.7"
+tokio-test = "0.4"
 
 [features]
 csr = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 hydrate = ["dep:base64", "dep:js-sys", "dep:serde-wasm-bindgen", "dep:serde_json", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
-ssr = ["dep:base64", "dep:futures", "dep:serde_json", "dep:tokio"]
+ssr = ["dep:base64", "dep:serde_json", "dep:tokio"]
 transition = []

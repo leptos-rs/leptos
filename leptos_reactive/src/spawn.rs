@@ -36,10 +36,18 @@ where
     tokio::task::spawn_local(fut);
 }
 
-#[cfg(not(any(feature = "csr", feature = "hydrate", feature = "ssr")))]
-pub fn spawn_local<F>(_fut: F)
+#[cfg(not(any(test, doctest, feature = "csr", feature = "hydrate", feature = "ssr")))]
+pub fn spawn_local<F>(fut: F)
 where
     F: Future<Output = ()> + 'static,
 {
-    log::debug!("(spawn_local) no async runtime enabled; use features `csr`, `hydrate`, or `ssr`");
+    futures::executor::block_on(fut)
+}
+
+#[cfg(any(test, doctest))]
+pub fn spawn_local<F>(fut: F)
+where
+    F: Future<Output = ()> + 'static,
+{
+    tokio_test::block_on(fut);
 }

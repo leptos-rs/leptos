@@ -29,7 +29,7 @@ where
 /// let (value, set_value) = create_signal(cx, 0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
-/// let double_value = move || value * 2;
+/// let double_value = move || value() * 2;
 /// set_value(2);
 /// assert_eq!(double_value(), 4);
 ///
@@ -47,7 +47,7 @@ where
 ///
 /// // instead, we create a memo
 /// // 🆗 run #1: the calculation runs once immediately
-/// let memoized = create_memo(move |_| really_expensive_computation(value()));
+/// let memoized = create_memo(cx, move |_| really_expensive_computation(value()));
 /// create_effect(cx, move |_| {
 ///  // 🆗 reads the current value of the memo
 ///   log::debug!("memoized = {}", memoized());

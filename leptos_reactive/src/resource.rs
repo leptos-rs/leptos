@@ -17,7 +17,38 @@ use crate::{
     SuspenseContext, WriteSignal,
 };
 
-#[cfg(not(feature = "ssr"))]
+/// Creates a signal that reflects the current state of an asynchronous task,
+/// allowing you to integrate `async` [Future]s into the synchronous reactive system.
+///
+/// Takes a `fetcher` function that generates a [Future] when called and a
+/// `source` signal that provides the argument for the `fetcher`. Whenever
+/// the value of the `source` changes, a new [Future] will be created and run.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// // any old async function; maybe this is calling a REST API or something
+/// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
+///   // pretend we're fetching cat pics
+///   vec![how_many.to_string()]
+/// }
+///
+/// // a signal that controls how many cat pics we want
+/// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
+///
+/// // create a resource that will refetch whenever `how_many_cats` changes
+/// let cats = create_resource(cx, how_many_cats, fetch_cat_picture_urls);
+///
+/// // when we read the signal, it contains either
+/// // 1) None (if the Future isn't ready yet) or
+/// // 2) Some(T) (if the future's already resolved)
+/// assert_eq!(cats(), Some(vec!["1".to_string()]));
+///
+/// // when the signal's value changes, the `Resource` will generate and run a new `Future`
+/// set_how_many_cats(2);
+/// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// # }).dispose();
+/// ```
 pub fn create_resource<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -28,24 +59,17 @@ where
     T: Debug + Clone + Serialize + DeserializeOwned + 'static,
     Fu: Future<Output = T> + 'static,
 {
-    create_resource_with_initial_value(cx, source, fetcher, None)
-}
+    #[cfg(not(feature = "ssr"))]
+    let initial_value = None;
+    #[cfg(feature = "ssr")]
+    let initial_value = {
+        use futures::FutureExt;
 
-#[cfg(feature = "ssr")]
-pub fn create_resource<S, T, Fu>(
-    cx: Scope,
-    source: impl Fn() -> S + 'static,
-    fetcher: impl Fn(S) -> Fu + 'static,
-) -> Resource<S, T>
-where
-    S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
-    Fu: Future<Output = T> + 'static,
-{
-    use futures::FutureExt;
+        let initial_fut = fetcher(source());
+        let initial_value = initial_fut.now_or_never();
+        create_resource_with_initial_value(cx, source, fetcher, initial_value)
+    };
 
-    let initial_fut = fetcher(source());
-    let initial_value = initial_fut.now_or_never();
     create_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
 
@@ -84,7 +108,6 @@ where
 
     let id = cx.push_resource(Rc::clone(&r));
 
-    #[cfg(any(feature = "csr", feature = "ssr", feature = "hydrate"))]
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
         move |_| {
@@ -271,6 +294,38 @@ where
     S: Debug + Clone + 'static,
     T: Debug + Clone + 'static,
 {
+}
+
+impl<S, T> FnOnce<()> for Resource<S, T>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+{
+    type Output = Option<T>;
+
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.read()
+    }
+}
+
+impl<S, T> FnMut<()> for Resource<S, T>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+{
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.read()
+    }
+}
+
+impl<S, T> Fn<()> for Resource<S, T>
+where
+    S: Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+{
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.read()
+    }
 }
 
 #[derive(Clone)]
