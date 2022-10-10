@@ -36,6 +36,7 @@ pub use suspense::*;
 #[cfg(feature = "transition")]
 pub use transition::*;
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! debug_warn {
     ($($x:tt)*) => {

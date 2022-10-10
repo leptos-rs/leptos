@@ -6,6 +6,59 @@ pub struct Memo<T>(ReadSignal<Option<T>>)
 where
     T: 'static;
 
+/// Creates an efficient derived reactive value based on other reactive values.
+///
+/// Unlike a "derived signal," a memo comes with two guarantees:
+/// 1. The memo will only run *once* per change, no matter how many times you
+/// access its value.
+/// 2. The memo will only notify its dependents if the value of the computation changes.
+///
+/// This makes a memo the perfect tool for expensive computations.
+///
+/// Memos have a certain overhead compared to derived signals. In most cases, you should
+/// create a derived signal. But if the derivation calculation is expensive, you should
+/// create a memo.
+///
+/// As with [create_effect], the argument to the memo function is the previous value,
+/// i.e., the current value of the memo, which will be `None` for the initial calculation.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # fn really_expensive_computation(value: i32) -> i32 { value };
+/// # create_scope(|cx| {
+/// let (value, set_value) = create_signal(cx, 0);
+///
+/// // 🆗 we could create a derived signal with a simple function
+/// let double_value = move || value * 2;
+/// set_value(2);
+/// assert_eq!(double_value(), 4);
+///
+/// // but imagine the computation is really expensive
+/// let expensive = move || really_expensive_computation(value()); // lazy: doesn't run until called
+/// create_effect(cx, move |_| {
+///   // 🆗 run #1: calls `really_expensive_computation` the first time
+///   log::debug!("expensive = {}", expensive());
+/// });
+/// create_effect(cx, move |_| {
+///   // ❌ run #2: this calls `really_expensive_computation` a second time!
+///   let value = expensive();
+///   // do something else...
+/// });
+///
+/// // instead, we create a memo
+/// // 🆗 run #1: the calculation runs once immediately
+/// let memoized = create_memo(move |_| really_expensive_computation(value()));
+/// create_effect(cx, move |_| {
+///  // 🆗 reads the current value of the memo
+///   log::debug!("memoized = {}", memoized());
+/// });
+/// create_effect(cx, move |_| {
+///   // ✅ reads the current value **without re-running the calculation**
+///   let value = memoized();
+///   // do something else...
+/// });
+/// # }).dispose();
+/// ```
 pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + Clone + Debug + 'static,

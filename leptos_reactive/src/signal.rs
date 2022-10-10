@@ -2,6 +2,44 @@ use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
 use serde::{Deserialize, Serialize};
 use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
+/// Creates a signal, the basic reactive primitive.
+///
+/// A signal is a piece of data that may change over time,
+/// and notifies other code when it has changed. This is the
+/// core primitive of Leptos’s reactive system.
+///
+/// Takes a reactive [Scope] and the initial value as arguments,
+/// and returns a tuple containing a [ReadSignal] and a [WriteSignal],
+/// each of which can be called as a function.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// // ✅ calling the getter clones and returns the value
+/// assert_eq!(count(), 0);
+///
+/// // ✅ calling the setter sets the value
+/// set_count(1);
+/// assert_eq!(count(), 1);
+///
+/// // ❌ don't try to call the getter within the setter
+/// // set_count(count() + 1);
+///
+/// // ✅ instead, use .update() to mutate the value in place
+/// set_count.update(|count: &mut i32| *count += 1);
+/// assert_eq!(count(), 2);
+///
+/// // ✅ you can create "derived signals" with the same Fn() -> T interface
+/// let double_count = move || count() * 2; // signals are `Copy` so you can `move` them anywhere
+/// set_count(0);
+/// assert_eq!(double_count(), 0);
+/// set_count(1);
+/// assert_eq!(double_count(), 2);
+/// # }).dispose();
+/// #
+/// ```
 pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>)
 where
     T: Clone + Debug,

@@ -2,13 +2,47 @@ use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
 use serde::{Deserialize, Serialize};
 use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
 
-pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
-where
-    T: Debug + 'static,
-{
-    cx.create_eff(true, f)
-}
-
+/// Effects run a certain chunk of code whenever the signals they depend on change.
+/// `create_effect` immediately runs the given function once, tracks its dependence
+/// on any signal values read within it, and reruns the function whenever the value
+/// of a dependency changes.
+///
+/// Effects are intended to run *side-effects* of the system, not to synchronize state
+/// *within* the system. In other words: don't write to signals within effects.
+/// (If you need to define a signal that depends on the value of other signals, use a
+/// derived signal or [create_memo]).
+///
+/// The effect function is called with an argument containing whatever value it returned
+/// the last time it ran. On the initial run, this is `None`.
+///
+/// By default, effects **do not run on the server**. This means you can call browser-specific
+/// APIs within the effect function without causing issues. If you need an effect to run on
+/// the server, use [create_isomorphic_effect].
+/// ```
+/// # use leptos_reactive::*;
+/// # use log::*;
+/// # create_scope(|cx| {
+/// let (a, set_a) = create_signal(cx, 0);
+/// let (b, set_b) = create_signal(cx, 0);
+///
+/// // ✅ use effects to interact between reactive state and the outside world
+/// create_effect(cx, move |_| {
+///   // immediately prints "Value: 0" and subscribes to `a`
+///   log::debug!("Value: {}", a());
+/// });
+///
+/// set_a(1);
+/// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
+///
+/// // ❌ don't use effects to synchronize state within the reactive system
+/// create_effect(cx, move |_| {
+///   // this technically works but can cause unnecessary re-renders
+///   // and easily lead to problems like infinite loops
+///   set_b(a() + 1);
+/// });
+/// # assert_eq!(b(), 2);
+/// # }).dispose();
+/// ```
 pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
@@ -16,11 +50,45 @@ where
     cx.create_eff(false, f)
 }
 
+/// Creates an effect; unlike effects created by [create_effect], isomorphic effects will run on
+/// the server as well as the client.
+/// ```
+/// # use leptos_reactive::*;
+/// # use log::*;
+/// # create_scope(|cx| {
+/// let (a, set_a) = create_signal(cx, 0);
+/// let (b, set_b) = create_signal(cx, 0);
+///
+/// // ✅ use effects to interact between reactive state and the outside world
+/// create_isomorphic_effect(cx, move |_| {
+///   // immediately prints "Value: 0" and subscribes to `a`
+///   log::debug!("Value: {}", a());
+/// });
+///
+/// set_a(1);
+/// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
+///
+/// // ❌ don't use effects to synchronize state within the reactive system
+/// create_isomorphic_effect(cx, move |_| {
+///   // this technically works but can cause unnecessary re-renders
+///   // and easily lead to problems like infinite loops
+///   set_b(a() + 1);
+/// });
+/// # assert_eq!(b(), 2);
+/// # }).dispose();
 pub fn create_isomorphic_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
     cx.create_isomorphic_eff(f)
+}
+
+#[doc(hidden)]
+pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
+where
+    T: Debug + 'static,
+{
+    cx.create_eff(true, f)
 }
 
 impl Scope {
@@ -61,6 +129,7 @@ impl Scope {
     }
 }
 
+#[doc(hidden)]
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Effect<T>
 where
