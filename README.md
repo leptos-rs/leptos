@@ -13,8 +13,6 @@ Leptos is full-stack, isomorphic Rust web framework leveraging fine-grained reac
 
 ## Show me some code!
 
-** NOTE: This README is a work in progress and is currently incomplete.**
-
 ```rust
 use leptos::*;
 
