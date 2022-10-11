@@ -1,4 +1,4 @@
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
 use syn::{parse_macro_input, DeriveInput};
 use syn_rsx::{parse, Node, NodeType};
@@ -32,11 +32,24 @@ mod props;
 
 #[proc_macro]
 pub fn view(tokens: TokenStream) -> TokenStream {
-    match parse(tokens) {
-        Ok(nodes) => render_view(&nodes, Mode::default()),
-        Err(error) => error.to_compile_error(),
+    let mut tokens = tokens.into_iter();
+    let (cx, comma) = (tokens.next(), tokens.next());
+    match (cx, comma) {
+        (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct))) if punct.as_char() == ',' => {
+            match parse(tokens.collect()) {
+                Ok(nodes) => render_view(
+                    &proc_macro2::Ident::new(&cx.to_string(), cx.span().into()),
+                    &nodes,
+                    Mode::default(),
+                ),
+                Err(error) => error.to_compile_error(),
+            }
+            .into()
+        }
+        _ => {
+            panic!("view! macro needs a context and RSX: e.g., view! {{ cx, <div>...</div> }}")
+        }
     }
-    .into()
 }
 
 #[proc_macro_attribute]

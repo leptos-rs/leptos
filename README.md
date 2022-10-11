@@ -29,6 +29,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
 
     // this JSX is compiled to an HTML template string for performance
     view! {
+        cx,
         <div>
             <button on:click=clear>"Clear"</button>
             <button on:click=decrement>"-1"</button>
@@ -40,7 +41,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
 
 // Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
 pub fn main() {
-    mount_to_body(|cx| view! { <SimpleCounter initial_value=3> })
+    mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3> })
 }
 
 ```

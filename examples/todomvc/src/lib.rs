@@ -178,7 +178,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
         }
     });
 
-    view! {
+    view! { cx,
         <main>
             <section class="todoapp">
                 <header class="header">
@@ -193,7 +193,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
                         <For each={filtered_todos} key={|todo| todo.id}>
-                            {move |cx, todo: &Todo| view! { <Todo todo={todo.clone()} /> }}
+                            {move |cx, todo: &Todo| view! { cx,  <Todo todo={todo.clone()} /> }}
                         </For>
                     </ul>
                 </section>
@@ -246,7 +246,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         set_editing(false);
     };
 
-    let tpl = view! {
+    let tpl = view! { cx,
         <li
             class="todo"
             class:editing={editing}
@@ -268,7 +268,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                 </label>
                 <button class="destroy" on:click={move |_| set_todos.update(|t| t.remove(todo.id))}/>
             </div>
-            {move || editing().then(|| view! {
+            {move || editing().then(|| view! { cx,
                 <input
                     class="edit"
                     class:hidden={move || !(editing)()}

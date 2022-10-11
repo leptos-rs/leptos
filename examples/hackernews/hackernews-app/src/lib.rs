@@ -15,12 +15,12 @@ use users::*;
 
 #[component]
 pub fn App(cx: Scope) -> Vec<Branch> {
-    view! {
+    view! { cx,
         <Routes>
-            <Route path="" element=|cx| view! { <Main/> }>
-                <Route path="users/:id" element=|cx| view! { <User/> } loader=user_data.into() />
-                <Route path="stories/:id" element=|cx| view! { <Story/> } loader=story_data.into() />
-                <Route path="*stories" element=|cx| view! { <Stories/> } loader=stories_data.into()/>
+            <Route path="" element=|cx| view! { cx,  <Main/> }>
+                <Route path="users/:id" element=|cx| view! { cx,  <User/> } loader=user_data.into() />
+                <Route path="stories/:id" element=|cx| view! { cx,  <Story/> } loader=story_data.into() />
+                <Route path="*stories" element=|cx| view! { cx,  <Stories/> } loader=stories_data.into()/>
             </Route>
         </Routes>
     }
@@ -28,7 +28,7 @@ pub fn App(cx: Scope) -> Vec<Branch> {
 
 #[component]
 pub fn Main(cx: Scope) -> Element {
-    view! {
+    view! { cx,
         <article>
             <Nav />
             <Outlet />

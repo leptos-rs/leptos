@@ -102,7 +102,7 @@ where
             });
 
             // return the fallback for now, wrapped in fragment identifer
-            Child::Node(view! { <div data-fragment-id={key}>{fallback.into_child(cx)}</div> })
+            Child::Node(view! { cx, <div data-fragment-id={key}>{fallback.into_child(cx)}</div> })
         }
     };
     move || initial.clone()

@@ -30,7 +30,7 @@ async fn render_todomvc() -> impl Responder {
                     Todo::new(cx, 2, "Profit!".to_string()),
                 ]);
 
-                view! {
+                view! { cx, 
                     <TodoMVC todos=todos/>
                 }
             }

@@ -34,7 +34,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
         set_counters.update(|counters| counters.clear());
     };
 
-    view! {
+    view! { cx,
         <div>
             <button on:click=add_counter>
                 "Add Counter"
@@ -61,7 +61,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
             <ul>
                 <For each={counters} key={|counter| counter.0}>{
                     |cx, (id, (value, set_value)): &(usize, (ReadSignal<i32>, WriteSignal<i32>))| {
-                        view! {
+                        view! { cx,
                             <Counter id=*id value=*value set_value=*set_value/>
                         }
                     }
@@ -82,7 +82,7 @@ fn Counter(
 
     let input = move |ev| set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default());
 
-    view! {
+    view! { cx,
         <li>
             <button on:click={move |_| set_value.update(move |value| *value -= 1)}>"-1"</button>
             <input type="text"

@@ -8,7 +8,7 @@ use counters::{Counters, CountersProps};
 
 #[wasm_bindgen_test]
 fn inc() {
-    mount_to_body(|cx| view! { <Counters/> });
+    mount_to_body(|cx| view! { cx,  <Counters/> });
 
     let document = leptos::document();
     let div = document.query_selector("div").unwrap().unwrap();
@@ -82,7 +82,7 @@ fn inc() {
     // but in user-land testing, RSX comparanda are cool
     assert_eq!(
         div.outer_html(),
-        view! {
+        view! { cx,
             <div>
             <button>"Add Counter"</button>
             <button>"Add 1000 Counters"</button>

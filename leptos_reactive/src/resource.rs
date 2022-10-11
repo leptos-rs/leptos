@@ -66,8 +66,7 @@ where
         use futures::FutureExt;
 
         let initial_fut = fetcher(source());
-        let initial_value = initial_fut.now_or_never();
-        create_resource_with_initial_value(cx, source, fetcher, initial_value)
+        initial_fut.now_or_never()
     };
 
     create_resource_with_initial_value(cx, source, fetcher, initial_value)

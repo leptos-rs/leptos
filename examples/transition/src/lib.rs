@@ -54,7 +54,7 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
         }
     });
 
-    view! {
+    view! { cx, 
         <div>
             <progress class:visible={move || transition.pending()} value={move || progress().to_string()} max="40"></progress>
             <nav class="tabs" class:pending={move || transition.pending()}>
@@ -70,8 +70,8 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
             </nav>
             <p>{move || tab.get().to_string()}</p>
             <div class="tab">
-                //<Suspense fallback=view! { <div class="loader">"Loading..."</div> }>
-                    {move || view! { <Child page=tab /> }}
+                //<Suspense fallback=view! { cx,  <div class="loader">"Loading..."</div> }>
+                    {move || view! { cx,  <Child page=tab /> }}
                 //</Suspense>
             </div>
         </div>
@@ -82,11 +82,11 @@ pub fn transition_tabs(cx: Scope) -> web_sys::Element {
 pub fn Child(cx: Scope, page: ReadSignal<Tab>) -> Element {
     let data = create_resource(cx, page, |page| fake_data_load(page));
 
-    view! {
+    view! { cx, 
         <div class="tab-content">
             <p>
-                //<Suspense fallback=view! { <div class="loader">"Lower suspense..."</div> }>
-                    {move || data.read().map(|data| view! {
+                //<Suspense fallback=view! { cx,  <div class="loader">"Lower suspense..."</div> }>
+                    {move || data.read().map(|data| view! { cx, 
                         <div>
                             <p>{data}</p>
                         </div>

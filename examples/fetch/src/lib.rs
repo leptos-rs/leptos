@@ -33,7 +33,7 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
     let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
     let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
 
-    view! {
+    view! { cx, 
         <div>
             <label>
                 "How many cats would you like?"
@@ -49,12 +49,12 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
                 <Suspense fallback={"Loading (Suspense Fallback)...".to_string()}>
                     {move || {
                             cats.read().map(|data| match data {
-                                Err(_) => view! { <pre>"Error"</pre> },
-                                Ok(cats) => view! {
+                                Err(_) => view! { cx,  <pre>"Error"</pre> },
+                                Ok(cats) => view! { cx, 
                                     <div>{
                                         cats.iter()
                                             .map(|src| {
-                                                view! {
+                                                view! { cx, 
                                                     <img src={src}/>
                                                 }
                                             })

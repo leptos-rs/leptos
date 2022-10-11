@@ -11,14 +11,14 @@ use leptos::*;
 
 #[component]
 fn Button(cx: Scope, text: &'static str) -> Element {
-    view! {
+    view! { cx,
         <button>{text}</button>
     }
 }
 
 #[component]
 fn BoringButtons(cx: Scope) -> Element {
-    view! {
+    view! { cx,
         <div>
 			<Button text="These"/>
 			<Button text="Do"/>
@@ -35,11 +35,11 @@ Leptos uses a simple `view` macro to create the user interface. It’s much like
 1. Text within elements follows the rules of normal Rust strings (i.e., quotation marks or other string syntax)
 
 ```rust
-view! { <p>"Hello, world!"</p> }
+view! { cx,  <p>"Hello, world!"</p> }
 ```
 
 2. Values can be inserted between curly braces. Reactive values
 
 ```rust
-view! { <p id={non_reactive_variable}>{move || value()}</p> }
+view! { cx,  <p id={non_reactive_variable}>{move || value()}</p> }
 ```

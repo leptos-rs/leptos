@@ -25,7 +25,7 @@ where
 /// Iterates over children and displays them, keyed by `PartialEq`. If you want to provide your
 /// own key function, use [Index] instead.
 ///
-/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { ... })...`,
+/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { cx,  ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.
 #[allow(non_snake_case)]
 pub fn For<E, T, G, I, K>(cx: Scope, props: ForProps<E, T, G, I, K>) -> Memo<Vec<Element>>

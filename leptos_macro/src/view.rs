@@ -6,18 +6,18 @@ use uuid::Uuid;
 
 use crate::{is_component_node, Mode};
 
-pub(crate) fn render_view(nodes: &[Node], mode: Mode) -> TokenStream {
+pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
         &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
         Span::call_site(),
     );
 
     if nodes.len() == 1 {
-        first_node_to_tokens(&template_uid, &nodes[0], mode)
+        first_node_to_tokens(cx, &template_uid, &nodes[0], mode)
     } else {
         let nodes = nodes
             .iter()
-            .map(|node| first_node_to_tokens(&template_uid, node, mode));
+            .map(|node| first_node_to_tokens(cx, &template_uid, node, mode));
         quote! {
             {
                 vec![
@@ -28,14 +28,14 @@ pub(crate) fn render_view(nodes: &[Node], mode: Mode) -> TokenStream {
     }
 }
 
-fn first_node_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
+fn first_node_to_tokens(cx: &Ident, template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
     match node.node_type {
         NodeType::Doctype | NodeType::Comment => quote! {},
         NodeType::Fragment => {
             let nodes = node
                 .children
                 .iter()
-                .map(|node| first_node_to_tokens(template_uid, node, mode));
+                .map(|node| first_node_to_tokens(cx, template_uid, node, mode));
             quote! {
                 {
                     vec![
@@ -44,7 +44,7 @@ fn first_node_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> TokenS
                 }
             }
         }
-        NodeType::Element => root_element_to_tokens(template_uid, node, mode),
+        NodeType::Element => root_element_to_tokens(cx, template_uid, node, mode),
         NodeType::Block => node
             .value
             .as_ref()
@@ -60,15 +60,21 @@ fn first_node_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> TokenS
     }
 }
 
-fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
+fn root_element_to_tokens(
+    cx: &Ident,
+    template_uid: &Ident,
+    node: &Node,
+    mode: Mode,
+) -> TokenStream {
     let mut template = String::new();
     let mut navigations = Vec::new();
     let mut expressions = Vec::new();
 
     if is_component_node(node) {
-        create_component(node, mode)
+        create_component(cx, node, mode)
     } else {
         element_to_tokens(
+            cx,
             node,
             &Ident::new("root", Span::call_site()),
             None,
@@ -104,7 +110,7 @@ fn root_element_to_tokens(template_uid: &Ident, node: &Node, mode: Mode) -> Toke
                     Mode::Hydrate => {
                         let name = node.name_as_string().unwrap();
                         quote! {
-                            let root = #template_uid.with(|template| cx.get_next_element(template));
+                            let root = #template_uid.with(|template| #cx.get_next_element(template));
                             // //log::debug!("root = {}", root.node_name());
                         }
                     }
@@ -152,6 +158,7 @@ enum PrevSibChange {
 
 #[allow(clippy::too_many_arguments)]
 fn element_to_tokens(
+    cx: &Ident,
     node: &Node,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -187,7 +194,7 @@ fn element_to_tokens(
     if mode == Mode::Ssr && is_root_el {
         expressions.push(quote::quote_spanned! {
             span => leptos_buffer.push_str(" data-hk=\"");
-                    leptos_buffer.push_str(&cx.next_hydration_key().to_string());
+                    leptos_buffer.push_str(&#cx.next_hydration_key().to_string());
                     leptos_buffer.push('"');
         });
     }
@@ -195,6 +202,7 @@ fn element_to_tokens(
     // attributes
     for attr in &node.attributes {
         attr_to_tokens(
+            cx,
             attr,
             &this_el_ident,
             template,
@@ -274,6 +282,7 @@ fn element_to_tokens(
         let next_sib = next_sibling_node(&node.children, idx + 1, next_el_id);
 
         let curr_id = child_to_tokens(
+            cx,
             child,
             &this_el_ident,
             if idx == 0 { None } else { prev_sib.clone() },
@@ -324,6 +333,7 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
 }
 
 fn attr_to_tokens(
+    cx: &Ident,
     node: &Node,
     el_id: &Ident,
     template: &mut String,
@@ -414,7 +424,7 @@ fn attr_to_tokens(
             let name = name.replacen("prop:", "", 1);
             let value = node.value.as_ref().expect("prop: blocks need values");
             expressions.push(quote_spanned! {
-            span => leptos_dom::property(cx, #el_id.unchecked_ref(), #name, #value.into_property(cx))
+            span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
         });
         }
     }
@@ -426,7 +436,7 @@ fn attr_to_tokens(
             let name = name.replacen("class:", "", 1);
             let value = node.value.as_ref().expect("class: attributes need values");
             expressions.push(quote_spanned! {
-                span => leptos_dom::class(cx, #el_id.unchecked_ref(), #name, #value.into_class(cx))
+                span => leptos_dom::class(#cx, #el_id.unchecked_ref(), #name, #value.into_class(#cx))
             });
         }
     }
@@ -469,14 +479,14 @@ fn attr_to_tokens(
             (AttributeValue::Dynamic(value), Mode::Ssr) => {
                 expressions.push(quote_spanned! {
                     span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(&{#value}.into_attribute(cx).as_value_string(#name));
+                            leptos_buffer.push_str(&{#value}.into_attribute(#cx).as_value_string(#name));
                 });
             }
             (AttributeValue::Dynamic(value), _) => {
                 // For client-side rendering, dynamic attributes don't need to be rendered in the template
                 // They'll immediately be set synchronously before the cloned template is mounted
                 expressions.push(quote_spanned! {
-                    span => leptos_dom::attribute(cx, #el_id.unchecked_ref(), #name, {#value}.into_attribute(cx))
+                    span => leptos_dom::attribute(#cx, #el_id.unchecked_ref(), #name, {#value}.into_attribute(#cx))
                 });
             }
         }
@@ -491,6 +501,7 @@ enum AttributeValue<'a> {
 
 #[allow(clippy::too_many_arguments)]
 fn child_to_tokens(
+    cx: &Ident,
     node: &Node,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -507,6 +518,7 @@ fn child_to_tokens(
         NodeType::Element => {
             if is_component_node(node) {
                 component_to_tokens(
+                    cx,
                     node,
                     Some(parent),
                     prev_sib,
@@ -521,6 +533,7 @@ fn child_to_tokens(
                 )
             } else {
                 PrevSibChange::Sib(element_to_tokens(
+                    cx,
                     node,
                     parent,
                     prev_sib,
@@ -603,14 +616,14 @@ fn child_to_tokens(
                         navigations.push(location);
 
                         let current = match current {
-                            Some(i) => quote! { Some(#i.into_child(cx)) },
+                            Some(i) => quote! { Some(#i.into_child(#cx)) },
                             None => quote! { None },
                         };
                         expressions.push(quote! {
                             leptos::insert(
-                                cx,
+                                #cx,
                                 #parent.clone(),
-                                #value.into_child(cx),
+                                #value.into_child(#cx),
                                 #before,
                                 #current,
                             );
@@ -628,15 +641,15 @@ fn child_to_tokens(
                         template.push_str("<!#><!/>");
                         navigations.push(quote! {
                             #location;
-                            let (#el, #co) = cx.get_next_marker(&#name);
+                            let (#el, #co) = #cx.get_next_marker(&#name);
                             //log::debug!("get_next_marker => {}", #el.node_name());
                         });
 
                         expressions.push(quote! {
                             leptos::insert(
-                                cx,
+                                #cx,
                                 #parent.clone(),
-                                #value.into_child(cx),
+                                #value.into_child(#cx),
                                 #before,
                                 Some(Child::Nodes(#co)),
                             );
@@ -647,7 +660,7 @@ fn child_to_tokens(
                     // in SSR, it needs to insert the value, wrapped in comments
                     Mode::Ssr => expressions.push(quote::quote_spanned! {
                         span => leptos_buffer.push_str("<!--#-->");
-                                leptos_buffer.push_str(&#value.into_child(cx).as_child_string());
+                                leptos_buffer.push_str(&#value.into_child(#cx).as_child_string());
                                 leptos_buffer.push_str("<!--/-->");
                     }),
                 }
@@ -661,6 +674,7 @@ fn child_to_tokens(
 
 #[allow(clippy::too_many_arguments)]
 fn component_to_tokens(
+    cx: &Ident,
     node: &Node,
     parent: Option<&Ident>,
     prev_sib: Option<Ident>,
@@ -673,7 +687,7 @@ fn component_to_tokens(
     multi: bool,
     mode: Mode,
 ) -> PrevSibChange {
-    let create_component = create_component(node, mode);
+    let create_component = create_component(cx, node, mode);
     let span = node.name_span().unwrap();
 
     let mut current = None;
@@ -694,7 +708,7 @@ fn component_to_tokens(
             expressions.push(quote::quote_spanned! {
                 span => // TODO wrap components but use get_next_element() instead of first_child/next_sibling?
                         leptos_buffer.push_str("<!--#-->");
-                        leptos_buffer.push_str(&#create_component.into_child(cx).as_child_string());
+                        leptos_buffer.push_str(&#create_component.into_child(#cx).as_child_string());
                         leptos_buffer.push_str("<!--/-->");
 
             });
@@ -724,14 +738,14 @@ fn component_to_tokens(
 
             template.push_str("<!#><!/>");
             navigations.push(quote! {
-                let (#el, #co) = cx.get_next_marker(&#starts_at);
+                let (#el, #co) = #cx.get_next_marker(&#starts_at);
             });
 
             expressions.push(quote! {
                 leptos::insert(
-                    cx,
+                    #cx,
                     #parent.clone(),
-                    #create_component.into_child(cx),
+                    #create_component.into_child(#cx),
                     Marker::BeforeChild(#el),
                     Some(Child::Nodes(#co)),
                 );
@@ -739,9 +753,9 @@ fn component_to_tokens(
         } else {
             expressions.push(quote! {
                 leptos::insert(
-                    cx,
+                    #cx,
                     #parent.clone(),
-                    #create_component.into_child(cx),
+                    #create_component.into_child(#cx),
                     #before,
                     None,
                 );
@@ -757,7 +771,7 @@ fn component_to_tokens(
     }
 }
 
-fn create_component(node: &Node, mode: Mode) -> TokenStream {
+fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
     let component_name = ident_from_tag_name(node.name.as_ref().unwrap());
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
@@ -765,7 +779,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
     let (initialize_children, children) = if node.children.is_empty() {
         (quote! {}, quote! {})
     } else if node.children.len() == 1 {
-        let child = render_view(&node.children, mode);
+        let child = render_view(cx, &node.children, mode);
 
         if mode == Mode::Hydrate {
             (
@@ -779,7 +793,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
             )
         }
     } else {
-        let children = render_view(&node.children, mode);
+        let children = render_view(cx, &node.children, mode);
 
         if mode == Mode::Hydrate {
             (
@@ -832,14 +846,14 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
         else if let Some(name) = attr_name.strip_prefix("prop:") {
             let value = attr.value.as_ref().expect("prop: attributes need values");
             Some(quote_spanned! {
-                span => leptos_dom::property(cx, #component_name.unchecked_ref(), #name, #value.into_property(cx))
+                span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
             })
         }
         // Classes
         else if let Some(name) = attr_name.strip_prefix("class:") {
             let value = attr.value.as_ref().expect("class: attributes need values");
             Some(quote_spanned! {
-                span => leptos_dom::class(cx, #component_name.unchecked_ref(), #name, #value.into_class(cx))
+                span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
             })
         }
         // Attributes
@@ -847,7 +861,7 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
             let value = attr.value.as_ref().expect("attr: attributes need values");
             let name = name.replace('_', "-");
             Some(quote_spanned! {
-                span => leptos_dom::attribute(cx, #component_name.unchecked_ref(), #name, #value.into_attribute(cx))
+                span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
             })
         }
         else {
@@ -857,10 +871,10 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
 
     if other_attrs.peek().is_none() {
         quote_spanned! {
-            span => create_component(cx, move || {
+            span => create_component(#cx, move || {
                 #initialize_children
                 #component_name(
-                    cx,
+                    #cx,
                     #component_props_name::builder()
                         #(#props)*
                         #children
@@ -870,10 +884,10 @@ fn create_component(node: &Node, mode: Mode) -> TokenStream {
         }
     } else {
         quote_spanned! {
-            span => create_component(cx, move || {
+            span => create_component(#cx, move || {
                 #initialize_children
                 let #component_name = #component_name(
-                    cx,
+                    #cx,
                     #component_props_name::builder()
                         #(#props)*
                         #children

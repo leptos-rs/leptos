@@ -142,7 +142,7 @@ where
 
     let children = children().into_vec();
 
-    view! {
+    view! { cx, 
         <form
             method=method
             action=action

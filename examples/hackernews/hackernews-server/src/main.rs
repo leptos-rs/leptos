@@ -70,7 +70,7 @@ async fn render_app(req: HttpRequest) -> impl Responder {
                 move |cx| {
                     // the actual app body/template code
                     // this does NOT contain any of the data being loaded asynchronously in resources
-                    let shell = view! {
+                    let shell = view! { cx, 
                         <div>
                             <Router mode=integration>
                                 <App />

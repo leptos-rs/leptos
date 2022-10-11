@@ -70,12 +70,12 @@ pub fn Stories(cx: Scope) -> Element {
 
     let hide_more_link = move || stories.read().unwrap_or(Err(())).unwrap_or_default().len() < 28;
 
-    view! {
+    view! { cx, 
         <div class="news-view">
             <div class="news-list-nav">
                 // TODO fix
                 /* {move || if page() > 1 {
-                    view! {
+                    view! { cx, 
                         //<Link
                             //attr:class="page-link"
                             //to={format!("/{}?page={}", story_type(), page() - 1)}
@@ -85,7 +85,7 @@ pub fn Stories(cx: Scope) -> Element {
                         </a>//</Link>
                     }
                 } else {
-                    view! {
+                    view! { cx, 
                         <span class="page-link disabled" aria-hidden="true">
                             "< prev"
                         </span>
@@ -105,16 +105,16 @@ pub fn Stories(cx: Scope) -> Element {
             </div>
             <main class="news-list">
                 <div>
-                    <Suspense fallback=view! { <p>"Loading..."</p> }>
+                    <Suspense fallback=view! { cx,  <p>"Loading..."</p> }>
                         {move || match stories.read() {
                             None => None,
-                            Some(Err(_)) => Some(view! { <p>"Error loading stories."</p> }),
+                            Some(Err(_)) => Some(view! { cx,  <p>"Error loading stories."</p> }),
                             Some(Ok(stories)) => {
-                                Some(view! {
+                                Some(view! { cx, 
                                     <ul>
                                         <For each={move || stories.clone()} key=|story| story.id>{
                                             move |cx: Scope, story: &api::Story| {
-                                                view! {
+                                                view! { cx, 
                                                     <Story story={story.clone()} />
                                                 }
                                             }
@@ -132,12 +132,12 @@ pub fn Stories(cx: Scope) -> Element {
 
 #[component]
 fn Story(cx: Scope, story: api::Story) -> Element {
-    view! {
+    view! { cx, 
          <li class="news-item">
             <span class="score">{story.points}</span>
             <span class="title">
                 {if !story.url.starts_with("item?id=") {
-                    view! {
+                    view! { cx, 
                         <span>
                             <a href={story.url} target="_blank" rel="noreferrer">
                                 {story.title.clone()}
@@ -147,13 +147,13 @@ fn Story(cx: Scope, story: api::Story) -> Element {
                     }
                 } else {
                     let title = story.title.clone();
-                    view! { <Link to={format!("/stories/{}", story.id)}>{title}</Link> }
+                    view! { cx,  <Link to={format!("/stories/{}", story.id)}>{title}</Link> }
                 }}
             </span>
             <br />
             <span class="meta">
                 {if story.story_type != "job" {
-                    view! {
+                    view! { cx, 
                         <span>
                             //{"by "}
                             //{story.user.map(|user| view ! { <Link to={format!("/users/{}", user)}>{&user}</Link>})}
@@ -169,10 +169,10 @@ fn Story(cx: Scope, story: api::Story) -> Element {
                     }
                 } else {
                     let title = story.title.clone();
-                    view! { <Link to={format!("/item/{}", story.id)}>{title}</Link> }
+                    view! { cx,  <Link to={format!("/item/{}", story.id)}>{title}</Link> }
                 }}
             </span>
-            {(story.story_type != "link").then(|| view! {
+            {(story.story_type != "link").then(|| view! { cx, 
                 <span>
                     //{" "}
                     <span class="label">{story.story_type}</span>

@@ -87,7 +87,7 @@ where
     }
     let child = children.remove(0);
 
-    view! {
+    view! { cx, 
         <a
             href=move || href().unwrap_or_default()
             prop:state={props.state.map(|s| s.to_js_value())}

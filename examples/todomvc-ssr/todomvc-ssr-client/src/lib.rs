@@ -19,6 +19,6 @@ pub fn main() {
             Todo::new(cx, 2, "Profit!".to_string()),
         ]);
 
-        view! { <TodoMVC todos=todos/> }
+        view! { cx,  <TodoMVC todos=todos/> }
     });
 }

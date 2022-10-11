@@ -12,7 +12,7 @@ pub fn main() {
     let integration = BrowserIntegration {};
 
     leptos::hydrate(body().unwrap(), move |cx| {
-        view! {
+        view! { cx,
         <div>
             <Router mode=integration>
                 <App />

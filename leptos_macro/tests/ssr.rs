@@ -7,7 +7,8 @@ fn simple_ssr_test() {
 
     _ = create_scope(|cx| {
         let (value, set_value) = create_signal(cx, 0);
-        let rendered = view! {
+        let rendered = view! { cx,
+            cx,
             <div>
                 <button on:click=move |_| set_value(|value| *value -= 1)>"-1"</button>
                 <span>"Value: " {move || value().to_string()} "!"</span>
@@ -34,7 +35,8 @@ fn ssr_test_with_components() {
     #[component]
     fn Counter(cx: Scope, initial_value: i32) -> Element {
         let (value, set_value) = create_signal(cx, 0);
-        view! {
+        view! { cx,
+            cx,
             <div>
                 <button on:click=move |_| set_value(|value| *value -= 1)>"-1"</button>
                 <span>"Value: " {move || value().to_string()} "!"</span>
@@ -44,7 +46,8 @@ fn ssr_test_with_components() {
     }
 
     _ = create_scope(|cx| {
-        let rendered = view! {
+        let rendered = view! { cx,
+            cx,
             <div class="counters">
                 <Counter initial_value=1/>
                 <Counter initial_value=2/>

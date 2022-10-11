@@ -2,7 +2,7 @@ use leptos::*;
 
 #[component]
 pub fn Nav(cx: Scope) -> Element {
-    view! {
+    view! { cx,
         <header class="header">
             <nav class="inner">
                 <Link to="/".into()>
