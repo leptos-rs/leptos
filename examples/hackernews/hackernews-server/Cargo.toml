@@ -7,7 +7,7 @@ edition = "2021"
 actix-files = "0.6"
 actix-web = { version = "4", features = ["openssl", "macros"] }
 futures = "0.3"
-leptos = { path = "../../../leptos", features = ["ssr"], version = "0.0.1" }
+leptos = { path = "../../../leptos", features = ["ssr"] }
 log = "0.4"
 hackernews-app = { path = "../hackernews-app", features = ["ssr"] }
 openssl = { version = "0.10", features = ["v110"] }
