@@ -1,3 +1,5 @@
+<center><img src="https://raw.githubusercontent.com/gbj/leptos/main/docs/logos/logo.svg" alt="Leptos Logo"></center>
+
 # Leptos
 
 Leptos is full-stack, isomorphic Rust web framework leveraging fine-grained reactivity to build declarative user interfaces.
