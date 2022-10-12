@@ -1,7 +1,6 @@
 use crate::{
-    hydration::SharedContext, AnyEffect, AnyResource, AnySignal, EffectId, EffectState, ReadSignal,
-    ResourceId, ResourceState, Runtime, SignalId, SignalState, StreamingResourceId,
-    SuspenseContext, WriteSignal,
+    hydration::SharedContext, AnyEffect, AnyResource, AnySignal, EffectId, EffectState, ResourceId,
+    ResourceState, Runtime, SignalId, SignalState, StreamingResourceId,
 };
 use elsa::FrozenVec;
 use serde::{de::DeserializeOwned, Serialize};
@@ -44,6 +43,21 @@ pub fn run_scope_undisposed<T>(f: impl FnOnce(Scope) -> T + 'static) -> (T, Scop
     runtime.run_scope_undisposed(f, None)
 }
 
+/// A Each scope can have
+/// child scopes, and may in turn have a parent.
+///
+/// Scopes manage memory within the reactive system. When a scope is disposed, its
+/// cleanup functions run and the signals, effects, memos, resources, and contexts
+/// associated with it no longer exist and should no longer be accessed.
+///
+/// You generally won’t need to create your own scopes when writing application code.
+/// However, they’re very useful for managing control flow within an application or library.
+/// For example, if you are writing a keyed list component, you will want to create a child scope
+/// for each row in the list so that you can dispose of its associated signals, etc.
+/// when it is removed from the list.
+///
+/// Every other function in this crate takes a `Scope` as its first argument. Since `Scope`
+/// is [Copy] and `'static` this does not add much overhead or lifetime complexity.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Scope {
     pub(crate) runtime: &'static Runtime,
@@ -262,12 +276,12 @@ impl Scope {
         }
     }
 
-    /// Returns IDs for all [Resource]s found on any scope.
+    /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn all_resources(&self) -> Vec<StreamingResourceId> {
         self.runtime.all_resources()
     }
 
-    /// Returns IDs for all [Resource]s found on any scope.
+    /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     #[cfg(feature = "ssr")]
     pub fn serialization_resolvers(
         &self,

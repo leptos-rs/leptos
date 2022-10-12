@@ -17,8 +17,9 @@ use crate::{
     SuspenseContext, WriteSignal,
 };
 
-/// Creates a signal that reflects the current state of an asynchronous task,
-/// allowing you to integrate `async` [Future]s into the synchronous reactive system.
+/// Creates [Resource](crate::Resource), which is a signal that reflects the
+/// current state of an asynchronous task, allowing you to integrate
+/// `async` [Future]s into the synchronous reactive system.
 ///
 /// Takes a `fetcher` function that generates a [Future] when called and a
 /// `source` signal that provides the argument for the `fetcher`. Whenever
@@ -72,6 +73,8 @@ where
     create_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
 
+/// Creates a [Resource](crate::Resource) with the given initial value, which
+/// will only generate and run a [Future] using the `fetcher` when the `source` changes.
 pub fn create_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -328,7 +331,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct ResourceState<S, T>
+pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
     T: Clone + Debug + 'static,

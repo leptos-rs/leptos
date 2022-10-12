@@ -9,7 +9,13 @@ use std::{
 use crate::{create_effect, create_signal, ReadSignal, Scope, WriteSignal};
 
 /// Creates a conditional signal that only notifies subscribers when a change
-/// in the source matches their key.
+/// in the source signal’s value changes whether it is equal to the key value
+/// (as determined by [PartialEq].)
+///
+/// **You probably don’t need this,** but it can be a very useful optimization
+/// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
+/// because it reduces them from `O(n)` to `O(1)`.
+///
 /// ```
 /// # use leptos_reactive::{create_effect, create_scope, create_selector, create_signal};
 /// # use std::rc::Rc;
@@ -35,7 +41,6 @@ use crate::{create_effect, create_signal, ReadSignal, Scope, WriteSignal};
 ///    assert_eq!(*total_notifications.borrow(), 1);
 ///    set_a(4);
 ///    assert_eq!(is_selected(5), false);
-///    //assert_eq!(*total_notifications.borrow(), 2);
 ///  # })
 ///  # .dispose()
 /// ```
@@ -49,6 +54,12 @@ where
     create_selector_with_fn(cx, source, |a, b| a == b)
 }
 
+/// Creates a conditional signal that only notifies subscribers when a change
+/// in the source signal’s value changes whether the given function is true.
+///
+/// **You probably don’t need this,** but it can be a very useful optimization
+/// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
+/// because it reduces them from `O(n)` to `O(1)`.
 pub fn create_selector_with_fn<T>(
     cx: Scope,
     source: impl Fn() -> T + Clone + 'static,

@@ -64,6 +64,49 @@ where
     (read, write)
 }
 
+/// The getter for a reactive signal.
+///
+/// A signal is a piece of data that may change over time,
+/// and notifies other code when it has changed. This is the
+/// core primitive of Leptos’s reactive system.
+///
+/// Calling [ReadSignal::get] within an effect will cause that effect
+/// to subscribe to the signal, and to re-run whenever the value of
+/// the signal changes.
+///
+/// `ReadSignal` implements [Fn], so that `value()` and `value.get()` are identical.
+///
+/// `ReadSignal` is also [Copy] and `'static`, so it can very easily moved into closures
+/// or copied structs.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// // ✅ calling the getter clones and returns the value
+/// assert_eq!(count(), 0);
+///
+/// // ✅ calling the setter sets the value
+/// set_count(1);
+/// assert_eq!(count(), 1);
+///
+/// // ❌ don't try to call the getter within the setter
+/// // set_count(count() + 1);
+///
+/// // ✅ instead, use .update() to mutate the value in place
+/// set_count.update(|count: &mut i32| *count += 1);
+/// assert_eq!(count(), 2);
+///
+/// // ✅ you can create "derived signals" with the same Fn() -> T interface
+/// let double_count = move || count() * 2; // signals are `Copy` so you can `move` them anywhere
+/// set_count(0);
+/// assert_eq!(double_count(), 0);
+/// set_count(1);
+/// assert_eq!(double_count(), 2);
+/// # }).dispose();
+/// #
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ReadSignal<T>
 where
@@ -79,6 +122,20 @@ impl<T> ReadSignal<T>
 where
     T: Debug,
 {
+    /// Clones and returns the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    ///
+    /// If you want to get the value without cloning it, use [ReadSignal::with].
+    /// (`value.get()` is equivalent to `value.with(T::clone)`.)
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let (count, set_count) = create_signal(cx, 0);
+    ///
+    /// // calling the getter clones and returns the value
+    /// assert_eq!(count(), 0);
+    /// });
+    /// ```
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -86,6 +143,26 @@ where
         self.with(T::clone)
     }
 
+    /// Applies a function to the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    ///
+    /// If you want to get the value without cloning it, use [ReadSignal::with].
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let (name, set_name) = create_signal(cx, "Alice".to_string());
+    ///
+    /// // ❌ unnecessarily clones the string
+    /// let first_char = move || name().chars().next().unwrap();
+    /// assert_eq!(first_char(), 'A');
+    ///
+    /// // ✅ gets the first char without cloning the `String`
+    /// let first_char = move || name.with(|n| n.chars().next().unwrap());
+    /// assert_eq!(first_char(), 'A');
+    /// set_name("Bob".to_string());
+    /// assert_eq!(first_char(), 'B');
+    /// });
+    /// ```
     pub fn with<U>(&self, f: impl Fn(&T) -> U) -> U {
         if let Some(running_subscriber) = self.runtime.running_effect() {
             self.runtime
@@ -176,6 +253,39 @@ where
     }
 }
 
+/// The setter for a reactive signal.
+///
+/// A signal is a piece of data that may change over time,
+/// and notifies other code when it has changed. This is the
+/// core primitive of Leptos’s reactive system.
+///
+/// Calling [WriteSignal::update] will mutate the signal’s value in place,
+/// and notify all subscribers that the signal’s value has changed.
+///
+/// `ReadSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
+/// `set_value.update(|value| *value = new_value)`.
+///
+/// `WriteSignal` is [Copy] and `'static`, so it can very easily moved into closures
+/// or copied structs.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// // ✅ calling the setter sets the value
+/// set_count(1);
+/// assert_eq!(count(), 1);
+///
+/// // ❌ don't try to call the getter within the setter
+/// // set_count(count() + 1);
+///
+/// // ✅ instead, use .update() to mutate the value in place
+/// set_count.update(|count: &mut i32| *count += 1);
+/// assert_eq!(count(), 2);
+/// # }).dispose();
+/// #
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct WriteSignal<T>
 where
@@ -191,6 +301,26 @@ impl<T> WriteSignal<T>
 where
     T: Clone + 'static,
 {
+    /// Applies a function to the current value and notifies subscribers
+    /// that the signal has changed.
+    ///
+    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let (count, set_count) = create_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
+    /// assert_eq!(count(), 1);
+    ///
+    /// // you can include arbitrary logic in this update function
+    /// // also notifies subscribers, even though the value hasn't changed
+    /// set_count.update(|n| if *n > 3 { *n += 1 });
+    /// assert_eq!(count(), 1);
+    /// # }).dispose();
+    /// ```
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.runtime
             .signal((self.scope, self.id), |signal_state: &SignalState<T>| {

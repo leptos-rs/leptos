@@ -10,7 +10,7 @@ use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marke
 /// Effects are intended to run *side-effects* of the system, not to synchronize state
 /// *within* the system. In other words: don't write to signals within effects.
 /// (If you need to define a signal that depends on the value of other signals, use a
-/// derived signal or [create_memo]).
+/// derived signal or [create_memo](crate::create_memo)).
 ///
 /// The effect function is called with an argument containing whatever value it returned
 /// the last time it ran. On the initial run, this is `None`.
