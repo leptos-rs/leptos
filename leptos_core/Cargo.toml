@@ -1,6 +1,6 @@
 [package]
 name = "leptos_core"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Core functionality for the Leptos web framework."
 
 [dependencies]
-ahash = "0.8"
+ahash = "0.7"
 leptos_dom = { path = "../leptos_dom", version = "0.0.4" }
 leptos_macro = { path = "../leptos_macro", version = "0.0.4" }
 leptos_reactive = { path = "../leptos_reactive", version = "0.0.4" }
