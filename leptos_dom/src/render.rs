@@ -276,8 +276,6 @@ pub fn insert_expression(
                     Child::Nodes(new_nodes.to_vec())
                 }
             }
-
-            // Nested Signals here simply won't do anything; they should be flattened so it's a single Signal
             Child::Fn(f) => {
                 let mut value = (f.borrow_mut())();
                 while let Child::Fn(f) = value {
