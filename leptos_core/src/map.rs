@@ -1,6 +1,7 @@
 use ahash::AHashMap;
 use leptos_reactive::{
-    create_effect, create_memo, create_signal, Memo, ReadSignal, Scope, ScopeDisposer,
+    create_effect, create_memo, create_signal, queue_microtask, Memo, ReadSignal, Scope,
+    ScopeDisposer,
 };
 use std::{fmt::Debug, hash::Hash, ops::IndexMut};
 
@@ -48,9 +49,9 @@ where
             // delay disposal until after the current microtask
             queue_microtask(move || {
                 for disposer in disposers.into_iter().flatten() {
-                    disposer.dispose();                
+                    disposer.dispose();
                 }
-            })
+            });
             mapped.clear();
         } else if items.is_empty() {
             // Fast path for creating items when the existing list is empty.
