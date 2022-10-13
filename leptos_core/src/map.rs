@@ -45,9 +45,12 @@ where
         if new_items.is_empty() {
             // Fast path for removing all items.
             let disposers = std::mem::take(&mut disposers);
-            for disposer in disposers.into_iter().flatten() {
-                disposer.dispose();
-            }
+            // delay disposal until after the current microtask
+            queue_microtask(move || {
+                for disposer in disposers.into_iter().flatten() {
+                    disposer.dispose();                
+                }
+            })
             mapped.clear();
         } else if items.is_empty() {
             // Fast path for creating items when the existing list is empty.
