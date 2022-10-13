@@ -230,27 +230,12 @@ pub fn set_interval(
 pub fn add_event_listener(
     target: &web_sys::Element,
     event_name: &'static str,
-    cb: impl FnMut(web_sys::Event),
+    cb: impl FnMut(web_sys::Event) + 'static,
 ) {
-    let boxed: Box<dyn FnMut(web_sys::Event)> = Box::new(cb);
-    // Safety: components should only be mounted by calling dom::mount or dom::mount_to_body,
-    // which create and leak a new Scope. Components can be written with lifetimes (which allows)
-    // the use of non-'static Scopes on, e.g., the server; but event listeners will never be called
-    // in that situation. As a result, all Signals and Effects running in the browser actually have
-    // a static lifetime, so the handler can be upgraded to a static lifetime.
-    let handler: Box<dyn FnMut(web_sys::Event) + 'static> = unsafe { std::mem::transmute(boxed) };
-
-    let cb = Closure::wrap(handler).into_js_value();
-
-    // delegate events
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
     let key = event_delegation::event_delegation_key(event_name);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     event_delegation::add_event_listener(event_name);
-
-    // below: non-delegated
-    /* target
-    .add_event_listener_with_callback(event_name, cb.unchecked_ref())
-    .unwrap_throw(); */
 }
 
 pub fn window_event_listener(event_name: &str, cb: impl Fn(web_sys::Event) + 'static) {
