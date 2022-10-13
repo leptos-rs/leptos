@@ -1,7 +1,8 @@
-// This is essentially a port of Solid's Hacker News demo
+// This is essentially a port of a Solid Hacker News demo
 // https://github.com/solidjs/solid-hackernews
 
 use leptos::*;
+use leptos_router::*;
 
 mod api;
 mod nav;
@@ -14,24 +15,20 @@ use story::*;
 use users::*;
 
 #[component]
-pub fn App(cx: Scope) -> Vec<Branch> {
-    view! { cx,
-        <Routes>
-            <Route path="" element=|cx| view! { cx,  <Main/> }>
-                <Route path="users/:id" element=|cx| view! { cx,  <User/> } loader=user_data.into() />
-                <Route path="stories/:id" element=|cx| view! { cx,  <Story/> } loader=story_data.into() />
-                <Route path="*stories" element=|cx| view! { cx,  <Stories/> } loader=stories_data.into()/>
-            </Route>
-        </Routes>
-    }
-}
-
-#[component]
-pub fn Main(cx: Scope) -> Element {
-    view! { cx,
-        <article>
-            <Nav />
-            <Outlet />
-        </article>
+pub fn App(cx: Scope) -> Element {
+    view! {
+        cx,
+        <div>
+            <Router>
+                <Nav />
+                <main>
+                    <Routes>
+                        <Route path="users/:id" element=|cx| view! { cx,  <User/> } loader=user_data.into() />
+                        <Route path="stories/:id" element=|cx| view! { cx,  <Story/> } loader=story_data.into() />
+                        <Route path="*stories" element=|cx| view! { cx,  <Stories/> } loader=stories_data.into()/>
+                    </Routes>
+                </main>
+            </Router>
+        </div>
     }
 }

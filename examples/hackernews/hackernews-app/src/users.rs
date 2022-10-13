@@ -1,27 +1,21 @@
 use crate::api;
 use leptos::*;
+use leptos_router::*;
 
-pub fn user_data(
-    cx: Scope,
-    params: Memo<ParamsMap>,
-    _location: Location,
-) -> Resource<String, Result<api::User, ()>> {
+pub async fn user_data(_cx: Scope, params: ParamsMap, _url: Url) -> Result<api::User, ()> {
     log::debug!("(story_data) loading data for user");
-    create_resource(
-        cx,
-        move || params().get("id").cloned().unwrap_or_default(),
-        |id| async move { api::fetch_api(&api::user(&id)).await },
-    )
+    let id = params.get("id").cloned().unwrap_or_default();
+    api::fetch_api(&api::user(&id)).await
 }
 
 #[component]
 pub fn User(cx: Scope) -> Element {
-    let user = use_loader::<Resource<String, Result<api::User, ()>>>(cx);
-    view! { cx, 
+    let user = use_loader::<Result<api::User, ()>>(cx);
+    view! { cx,
         <div class="user-view">
             {move || user.read().map(|user| match user {
                 Err(_) => view! { cx,  <h1>"User not found."</h1> },
-                Ok(user) => view! { cx, 
+                Ok(user) => view! { cx,
                     <div>
                         <h1>"User: " {user.id}</h1>
                         <ul class="meta">

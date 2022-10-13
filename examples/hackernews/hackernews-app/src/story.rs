@@ -1,31 +1,25 @@
 use crate::api;
 use leptos::*;
+use leptos_router::*;
 
-pub fn story_data(
-    cx: Scope,
-    params: Memo<ParamsMap>,
-    _location: Location,
-) -> Resource<String, Result<api::Story, ()>> {
+pub async fn story_data(_cx: Scope, params: ParamsMap, _url: Url) -> Result<api::Story, ()> {
     log::debug!("(story_data) loading data for story");
-    create_resource(
-        cx,
-        move || params().get("id").cloned().unwrap_or_default(),
-        |id| async move { api::fetch_api(&api::story(&format!("item/{id}"))).await },
-    )
+    let id = params.get("id").cloned().unwrap_or_default();
+    api::fetch_api(&api::story(&format!("item/{id}"))).await
 }
 
 #[component]
 pub fn Story(cx: Scope) -> Element {
-    let story = use_loader::<Resource<String, Result<api::Story, ()>>>(cx);
+    let story = use_loader::<Result<api::Story, ()>>(cx);
 
-    view! { cx, 
+    view! { cx,
         <div>
             {move || story.read().map(|story| match story {
                 Err(_) => view! { cx,  <div class="item-view">"Error loading this story."</div> },
-                Ok(story) => view! { cx, 
+                Ok(story) => view! { cx,
                     <div class="item-view">
                         <div class="item-view-header">
-                        <a href={story.url} target="_blank">
+                        <a href=story.url target="_blank">
                             <h1>{story.title}</h1>
                         </a>
                         <span class="host">
@@ -35,7 +29,7 @@ pub fn Story(cx: Scope) -> Element {
                             // TODO issue here in renderer
                             {story.points}
                             " points | by "
-                            <Link to=format!("/users/{}", user)>{&user}</Link>
+                            <A href=format!("/users/{}", user)>{user.clone()}</A>
                             {format!(" {}", story.time_ago)}
                         </p>})}
                         </div>
@@ -48,8 +42,8 @@ pub fn Story(cx: Scope) -> Element {
                             }}
                         </p>
                         <ul class="comment-children">
-                            <For each={move || story.comments.clone().unwrap_or_default()} key={|comment| comment.id}>
-                                {move |cx, comment: &api::Comment| view! { cx,  <Comment comment={comment.clone()} /> }}
+                            <For each=move || story.comments.clone().unwrap_or_default() key=|comment| comment.id>
+                                {move |cx, comment: &api::Comment| view! { cx,  <Comment comment=comment.clone() /> }}
                             </For>
                         </ul>
                     </div>
@@ -63,18 +57,18 @@ pub fn Story(cx: Scope) -> Element {
 pub fn Comment(cx: Scope, comment: api::Comment) -> Element {
     let (open, set_open) = create_signal(cx, true);
 
-    view! { cx, 
+    view! { cx,
         <li class="comment">
         <div class="by">
-            <Link to={format!("/users/{}", comment.user)}>{&comment.user}</Link>
+            <A href=format!("/users/{}", comment.user)>{comment.user.clone()}</A>
             {format!(" {}", comment.time_ago)}
         </div>
-        <div class="text" inner_html={comment.content}></div>
+        <div class="text" inner_html=comment.content></div>
         {(!comment.comments.is_empty()).then(|| {
-            view! { cx, 
+            view! { cx,
                 <div>
                     <div class="toggle" class:open=open>
-                        <a on:click=move |_| set_open(|n| *n = !*n)>
+                        <a on:click=move |_| set_open.update(|n| *n = !*n)>
                             {
                                 let comments_len = comment.comments.len();
                                 move || if open() {
@@ -87,12 +81,10 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> Element {
                     </div>
                     {move || open().then({
                         let comments = comment.comments.clone();
-                        move || view! { cx, 
+                        move || view! { cx,
                             <ul class="comment-children">
-                                <For each={move || comments.clone()} key=|comment| comment.id>
-                                    {|cx, comment: &api::Comment| view! { cx, 
-                                        <Comment comment={comment.clone()} />
-                                    }}
+                                <For each=move || comments.clone() key=|comment| comment.id>
+                                    {|cx, comment: &api::Comment| view! { cx, <Comment comment=comment.clone() /> }}
                                 </For>
                             </ul>
                         }

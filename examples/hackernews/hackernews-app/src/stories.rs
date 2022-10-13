@@ -1,6 +1,5 @@
-use std::time::Duration;
-
 use leptos::*;
+use leptos_router::*;
 
 use crate::api;
 
@@ -14,37 +13,21 @@ fn category(from: &str) -> &'static str {
     }
 }
 
-pub fn stories_data(cx: Scope, params: Memo<ParamsMap>, location: Location) -> StoriesData {
+pub async fn stories_data(_cx: Scope, params: ParamsMap, url: Url) -> Result<Vec<api::Story>, ()> {
     log::debug!("(stories_data) loading data for stories");
-    let page = create_memo(cx, move |_| {
-        location
-            .query
-            .with(|q| {
-                log::debug!("(stories_data) q.page == {:?}", q.get("page"));
-                q.get("page").and_then(|p| p.parse::<usize>().ok())
-            })
-            .unwrap_or(1)
-    });
-    log::debug!("(stories_data) page == {}", page.get(),);
-    let story_type = create_memo(cx, move |_| {
-        params
-            .with(|params| params.get("stories").cloned())
-            .unwrap_or_else(|| "top".to_string())
-    });
-    let stories = create_resource(
-        cx,
-        move || format!("{}?page={}", category(&story_type()), page()),
-        |path| async move {
-            api::fetch_api::<Vec<api::Story>>(&api::story(&path))
-                .await
-                .map_err(|_| ())
-        },
-    );
-    StoriesData {
-        page,
-        story_type,
-        stories,
-    }
+    let page = url
+        .search_params()
+        .get("page")
+        .and_then(|p| p.parse::<usize>().ok())
+        .unwrap_or(1);
+    let story_type = params
+        .get("stories")
+        .cloned()
+        .unwrap_or_else(|| "top".to_string());
+    let path = format!("{}?page={}", category(&story_type), page);
+    api::fetch_api::<Vec<api::Story>>(&api::story(&path))
+        .await
+        .map_err(|_| ())
 }
 
 #[derive(Clone)]
@@ -62,41 +45,48 @@ impl std::fmt::Debug for StoriesData {
 
 #[component]
 pub fn Stories(cx: Scope) -> Element {
-    let StoriesData {
-        page,
-        story_type,
-        stories,
-    } = use_loader::<StoriesData>(cx);
+    let stories = use_loader::<Result<Vec<api::Story>, ()>>(cx);
+    let query = use_query_map(cx);
+    let params = use_params_map(cx);
+    let page = move || {
+        query
+            .with(|q| q.get("page").and_then(|page| page.parse::<usize>().ok()))
+            .unwrap_or(1)
+    };
+    let story_type = move || {
+        params
+            .with(|p| p.get("stories").cloned())
+            .unwrap_or_else(|| "top".to_string())
+    };
 
     let hide_more_link = move || stories.read().unwrap_or(Err(())).unwrap_or_default().len() < 28;
 
-    view! { cx, 
+    view! { cx,
         <div class="news-view">
             <div class="news-list-nav">
-                // TODO fix
-                /* {move || if page() > 1 {
-                    view! { cx, 
-                        //<Link
-                            //attr:class="page-link"
-                            //to={format!("/{}?page={}", story_type(), page() - 1)}
-                            //attr:aria_label="Previous Page"
-                        <a href="#">//href={format!("/{}?page={}", story_type(), page() - 1)}
+                {move || if page() > 1 {
+                    view! {
+                        cx,
+                        <a class="page-link"
+                            href=format!("/{}?page={}", story_type(), page() - 1)
+                            attr:aria_label="Previous Page"
+                        >
                             "< prev"
-                        </a>//</Link>
+                        </a>
                     }
                 } else {
-                    view! { cx, 
+                    view! { cx,
                         <span class="page-link disabled" aria-hidden="true">
                             "< prev"
                         </span>
                     }
-                }} */
+                }}
                 <span>"page " {page}</span>
                 <span class="page-link"
-                    class:disabled={move || hide_more_link()}
-                    aria-hidden={move || hide_more_link()}
+                    class:disabled=hide_more_link
+                    aria-hidden=hide_more_link
                 >
-                    <a href={format!("/{}?page={}", story_type(), page() + 1)}
+                    <a href=format!("/{}?page={}", story_type(), page() + 1)
                         aria-label="Next Page"
                     >
                         "more >"
@@ -110,12 +100,12 @@ pub fn Stories(cx: Scope) -> Element {
                             None => None,
                             Some(Err(_)) => Some(view! { cx,  <p>"Error loading stories."</p> }),
                             Some(Ok(stories)) => {
-                                Some(view! { cx, 
+                                Some(view! { cx,
                                     <ul>
-                                        <For each={move || stories.clone()} key=|story| story.id>{
+                                        <For each=move || stories.clone() key=|story| story.id>{
                                             move |cx: Scope, story: &api::Story| {
-                                                view! { cx, 
-                                                    <Story story={story.clone()} />
+                                                view! { cx,
+                                                    <Story story=story.clone() />
                                                 }
                                             }
                                         }</For>
@@ -132,14 +122,14 @@ pub fn Stories(cx: Scope) -> Element {
 
 #[component]
 fn Story(cx: Scope, story: api::Story) -> Element {
-    view! { cx, 
+    view! { cx,
          <li class="news-item">
             <span class="score">{story.points}</span>
             <span class="title">
                 {if !story.url.starts_with("item?id=") {
-                    view! { cx, 
+                    view! { cx,
                         <span>
-                            <a href={story.url} target="_blank" rel="noreferrer">
+                            <a href=story.url target="_blank" rel="noreferrer">
                                 {story.title.clone()}
                             </a>
                             <span class="host">"("{story.domain}")"</span>
@@ -147,32 +137,32 @@ fn Story(cx: Scope, story: api::Story) -> Element {
                     }
                 } else {
                     let title = story.title.clone();
-                    view! { cx,  <Link to={format!("/stories/{}", story.id)}>{title}</Link> }
+                    view! { cx,  <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }
                 }}
             </span>
             <br />
             <span class="meta">
                 {if story.story_type != "job" {
-                    view! { cx, 
+                    view! { cx,
                         <span>
-                            //{"by "}
-                            //{story.user.map(|user| view ! { <Link to={format!("/users/{}", user)}>{&user}</Link>})}
-                            //{format!(" {} | ", story.time_ago)}
-                            <Link to={format!("/stories/{}", story.id)}>
+                            {"by "}
+                            {story.user.map(|user| view ! { cx, <A href=format!("/users/{}", user)>{user.clone()}</A>})}
+                            {format!(" {} | ", story.time_ago)}
+                            <A href=format!("/stories/{}", story.id)>
                                 {if story.comments_count.unwrap_or_default() > 0 {
                                     format!("{} comments", story.comments_count.unwrap_or_default())
                                 } else {
                                     "discuss".into()
                                 }}
-                            </Link>
+                            </A>
                         </span>
                     }
                 } else {
                     let title = story.title.clone();
-                    view! { cx,  <Link to={format!("/item/{}", story.id)}>{title}</Link> }
+                    view! { cx,  <A href=format!("/item/{}", story.id)>{title.clone()}</A> }
                 }}
             </span>
-            {(story.story_type != "link").then(|| view! { cx, 
+            {(story.story_type != "link").then(|| view! { cx,
                 <span>
                     //{" "}
                     <span class="label">{story.story_type}</span>

@@ -1,25 +1,26 @@
 use leptos::*;
+use leptos_router::*;
 
 #[component]
 pub fn Nav(cx: Scope) -> Element {
     view! { cx,
         <header class="header">
             <nav class="inner">
-                <Link to="/".into()>
+                <A href="/">
                     <strong>"HN"</strong>
-                </Link>
-                <Link to="/new".into()>
+                </A>
+                <A href="/new">
                     <strong>"New"</strong>
-                </Link>
-                <Link to="/show".into()>
+                </A>
+                <A href="/show">
                     <strong>"Show"</strong>
-                </Link>
-                <Link to="/ask".into()>
+                </A>
+                <A href="/ask">
                     <strong>"Ask"</strong>
-                </Link>
-                <Link to="/job".into()>
+                </A>
+                <A href="/job">
                     <strong>"Jobs"</strong>
-                </Link>
+                </A>
                 <a class="github" href="http://github.com/gbj/leptos" target="_blank" rel="noreferrer">
                     "Built with Leptos"
                 </a>
