@@ -273,7 +273,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     class="edit"
                     class:hidden={move || !(editing)()}
                     prop:value={move || todo.title.get()}
-                    on:focusout=|ev| save(&event_target_value(&ev))
+                    on:focusout=move |ev| save(&event_target_value(&ev))
                     on:keyup={move |ev| {
                         let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
                         if key_code == ENTER_KEY {

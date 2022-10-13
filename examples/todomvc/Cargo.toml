@@ -19,7 +19,7 @@ lto = true
 opt-level = 'z'
 
 [features]
-default = ["hydrate"]
+default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr"]
