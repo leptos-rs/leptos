@@ -2,6 +2,9 @@
 
 <img src="https://raw.githubusercontent.com/gbj/leptos/main/docs/logos/logo.svg" alt="Leptos Logo" style="width: 100%; height: auto; display: block; margin: auto;">
 
+[![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
+[![docs.rs](https://docs.rs/leptos/badge.svg)](https://docs.rs/leptos)
+
 # Leptos
 
 ```rust
