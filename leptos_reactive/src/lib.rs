@@ -90,6 +90,7 @@ pub use scope::*;
 pub use selector::*;
 pub use signal::*;
 use source::*;
+pub use spawn::queue_microtask;
 use spawn::*;
 use subscriber::*;
 pub use suspense::*;

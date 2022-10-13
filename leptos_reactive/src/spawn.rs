@@ -1,12 +1,14 @@
 use std::future::Future;
 
-// run immediately on server
+/// Exposes the [queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
+/// in the browser, and simply runs the given function when on the server.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn queue_microtask(task: impl FnOnce()) {
     task();
 }
 
-// run immediately on server
+/// Exposes the [queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
+/// in the browser, and simply runs the given function when on the server.
 #[cfg(target_arch = "wasm32")]
 pub fn queue_microtask(task: impl FnOnce() + 'static) {
     microtask(wasm_bindgen::closure::Closure::once_into_js(task));
