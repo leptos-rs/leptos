@@ -43,7 +43,7 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 
 ## What does that mean?
 
-- **Full-stack**: Leptos can be used to build apps that run in the browser (_client-side rendering_), on the server (_server-side rendering_), or by rendering HTML on the server and then adding interactivity in the browser (_hydration_)
+- **Full-stack**: Leptos can be used to build apps that run in the browser (_client-side rendering_), on the server (_server-side rendering_), or by rendering HTML on the server and then adding interactivity in the browser (_hydration_). This includes support for *HTTP streaming* of both data (`Resource`s) and HTML (out-of-order streaming of `<Suspense/>` components.)
 - **Isomorphic**: The same application code and business logic are compiled to run on the client and server, with seamless integration. You can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and let Leptos manage the data loading without the need to manually create APIs to consume.
 - **Web**: Leptos is built on the Web platform and Web standards. Whenever possible, we use Web essentials (like links and forms) and build on top of them rather than trying to replace them.
 - **Framework**: Leptos provides most of what you need to build a modern web app: a reactive system, templating library, and a router that works on both the server and client side.
