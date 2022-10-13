@@ -261,14 +261,18 @@ pub fn insert_expression(
                     clean_children(&parent, current, before, None)
                 } else if let Child::Nodes(ref mut current_nodes) = current {
                     if current_nodes.is_empty() {
-                        Child::Nodes(append_nodes(&parent, new_nodes, before))
+                        Child::Nodes(append_nodes(
+                            parent,
+                            new_nodes.to_vec(),
+                            before.as_some_node().cloned(),
+                        ))
                     } else {
                         reconcile_arrays(&parent, current_nodes, new_nodes);
                         Child::Nodes(new_nodes.to_vec())
                     }
                 } else {
                     clean_children(&parent, Child::Null, &Marker::NoChildren, None);
-                    append_nodes(&parent, new_nodes, before);
+                    append_nodes(parent, new_nodes.to_vec(), before.as_some_node().cloned());
                     Child::Nodes(new_nodes.to_vec())
                 }
             }
@@ -348,7 +352,24 @@ pub fn insert_str(
     }
 }
 
-fn append_nodes(
+#[wasm_bindgen::prelude::wasm_bindgen(
+    inline_js = r#"export function append_nodes(parent, newNodes, marker) {
+    const nodes = [];
+    for(const node of newNodes) {
+        nodes.push(parent.insertBefore(node, marker));
+    }
+    return nodes;
+}"#
+)]
+extern "C" {
+    fn append_nodes(
+        parent: web_sys::Element,
+        new_nodes: Vec<web_sys::Node>,
+        marker: Option<web_sys::Node>,
+    ) -> Vec<web_sys::Node>;
+}
+
+/* fn append_nodes(
     parent: &web_sys::Element,
     new_nodes: &[web_sys::Node],
     marker: &Marker,
@@ -358,7 +379,7 @@ fn append_nodes(
         result.push(insert_before(parent, node, marker.as_some_node()));
     }
     result
-}
+} */
 
 fn clean_children(
     parent: &web_sys::Element,
