@@ -2,6 +2,7 @@
 // https://github.com/solidjs/solid-hackernews
 
 use leptos::*;
+use leptos_meta::*;
 use leptos_router::*;
 
 mod api;
@@ -16,9 +17,12 @@ use users::*;
 
 #[component]
 pub fn App(cx: Scope) -> Element {
+    provide_context(cx, MetaContext::default());
+
     view! {
         cx,
         <div>
+            <Stylesheet href="/static/style.css".into()/>
             <Router>
                 <Nav />
                 <main>

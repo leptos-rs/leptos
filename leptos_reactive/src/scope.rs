@@ -304,7 +304,7 @@ impl Scope {
     #[cfg(feature = "ssr")]
     pub fn register_suspense(
         &self,
-        context: SuspenseContext,
+        context: crate::SuspenseContext,
         key: &str,
         resolver: impl FnOnce() -> String + 'static,
     ) {

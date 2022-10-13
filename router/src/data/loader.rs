@@ -77,12 +77,6 @@ where
         hash: String::default(),   // hash is only client-side, shouldn't refire
     };
 
-    log::debug!("[LOADER] hydrate call");
-
-    create_effect(cx, move |_| {
-        log::debug!("[LOADER] value of url() is {:#?}", url());
-    });
-
     create_resource(
         cx,
         move || (params.get(), url()),
@@ -145,6 +139,22 @@ pub struct Loader {
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "hydrate"))]
     pub(crate) data: Rc<dyn Fn(Scope, ParamsMap, Url) -> PinnedFuture<Box<dyn AnySerialize>>>,
+}
+
+impl Loader {
+    #[cfg(not(feature = "hydrate"))]
+    pub fn call_loader(&self, cx: Scope) -> PinnedFuture<Box<dyn AnySerialize>> {
+        let route = use_route(cx);
+        let params = use_params_map(cx).get();
+        let location = use_location(cx);
+        let url = Url {
+            origin: String::default(), // don't care what the origin is for this purpose
+            pathname: route.path().into(), // only use this route path, not all matched routes
+            search: location.search.get(), // reload when any of query string changes
+            hash: String::default(),   // hash is only client-side, shouldn't refire
+        };
+        (self.data)(cx, params, url)
+    }
 }
 
 impl<F, Fu, T> From<F> for Loader

@@ -7,7 +7,8 @@ edition = "2021"
 anyhow = "1"
 console_log = "0.2"
 leptos = { path = "../../../leptos" }
-leptos_router = { path = "../../../router" }
+leptos_meta = { path = "../../../meta", default-features = false }
+leptos_router = { path = "../../../router", default-features = false }
 log = "0.4"
 gloo-net = { version = "0.2", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"], optional = true }
@@ -22,6 +23,6 @@ opt-level = 'z'
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr"]
-hydrate = ["leptos/hydrate"]
-ssr = ["leptos/ssr", "dep:reqwest"]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:reqwest"]

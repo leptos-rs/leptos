@@ -68,7 +68,7 @@ pub fn Stories(cx: Scope) -> Element {
                     view! {
                         cx,
                         <a class="page-link"
-                            href=format!("/{}?page={}", story_type(), page() - 1)
+                            href=move || format!("/{}?page={}", story_type(), page() - 1)
                             attr:aria_label="Previous Page"
                         >
                             "< prev"
@@ -86,7 +86,7 @@ pub fn Stories(cx: Scope) -> Element {
                     class:disabled=hide_more_link
                     aria-hidden=hide_more_link
                 >
-                    <a href=format!("/{}?page={}", story_type(), page() + 1)
+                    <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                         aria-label="Next Page"
                     >
                         "more >"

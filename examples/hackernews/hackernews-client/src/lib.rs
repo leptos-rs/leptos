@@ -8,15 +8,8 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
 pub fn main() {
-    console_log::init_with_level(log::Level::Debug);
-    let integration = BrowserIntegration {};
-
+    _ = console_log::init_with_level(log::Level::Debug);
     leptos::hydrate(body().unwrap(), move |cx| {
-        view! { cx,
-        <div>
-            <Router mode=integration>
-                <App />
-            </Router>
-        </div>}
+        view! { cx, <App/> }
     });
 }
