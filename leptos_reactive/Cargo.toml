@@ -1,6 +1,6 @@
 [package]
 name = "leptos_reactive"
-version = "0.0.5"
+version = "0.0.7"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -17,7 +17,6 @@ js-sys = { version = "0.3", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
 serde_json = { version = "1", optional = true }
 base64 = { version = "0.13", optional = true }
-# bincode = "1"
 thiserror = "1"
 tokio = { version = "1", features = ["rt"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }

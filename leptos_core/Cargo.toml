@@ -1,6 +1,6 @@
 [package]
 name = "leptos_core"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -9,9 +9,9 @@ description = "Core functionality for the Leptos web framework."
 
 [dependencies]
 ahash = "0.7"
-leptos_dom = { path = "../leptos_dom", version = "0.0" }
-leptos_macro = { path = "../leptos_macro", version = "0.0" }
-leptos_reactive = { path = "../leptos_reactive", version = "0.0" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.7" }
+leptos_macro = { path = "../leptos_macro", version = "0.0.7" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.7" }
 log = "0.4"
 
 [features]
