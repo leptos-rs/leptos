@@ -25,26 +25,13 @@ leptos = { version = "0.0", features = ["csr"] }
 You’ll want to set up a basic `index.html` with the following content:
 
 ```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Leptos • Todos</title>
-    <link data-trunk rel="rust" data-wasm-opt="z" />
-  </head>
-  <body></body>
-</html>
+{{#include ../project/ch01_getting_started/index.html}}
 ```
 
 Let’s start with a very simple `main.rs`
 
 ```rust
-use leptos::*;
-
-fn main() {
-    mount_to_body(|cx| view! { cx,  <p>"Hello, world!"</p> })
-}
+{{#include ../project/ch01_getting_started/src/main.rs}}
 ```
 
 Now run `trunk serve --open`. Trunk should automatically compile your app and open it in your default browser.

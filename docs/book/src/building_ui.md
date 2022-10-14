@@ -1,5 +1,9 @@
 # Templating: Building User Interfaces
 
+## Views
+
+Leptos uses a simple `view` macro to create the user interface. If you’re familiar with JSX, then
+
 ## Components
 
 **Components** are the basic building blocks of your application. Each component is simply a function that creates DOM nodes and sets up the reactive system that will update them. The component function runs exactly once per instance of the component.

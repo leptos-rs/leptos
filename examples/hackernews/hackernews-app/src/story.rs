@@ -60,7 +60,7 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> Element {
     view! { cx,
         <li class="comment">
         <div class="by">
-            <A href=format!("/users/{}", comment.user)>{comment.user.clone()}</A>
+            <A href=format!("/users/{}", comment.user.clone().unwrap_or_default())>{comment.user.clone()}</A>
             {format!(" {}", comment.time_ago)}
         </div>
         <div class="text" inner_html=comment.content></div>

@@ -57,10 +57,10 @@ pub struct Story {
 pub struct Comment {
     pub id: usize,
     pub level: usize,
-    pub user: String,
+    pub user: Option<String>,
     pub time: usize,
     pub time_ago: String,
-    pub content: String,
+    pub content: Option<String>,
     pub comments: Vec<Comment>,
 }
 

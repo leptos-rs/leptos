@@ -1,37 +1,57 @@
 #![feature(stmt_expr_attributes)]
-
-//! **Please note:** This framework is in active development. I'm keeping it in a cycle of 0.0.x releases at the moment to indicate that it’s not even ready for its 0.1.0. Active work is being done on documentation and features, and APIs should not necessarily be considered stable. At the same time, it is more than a toy project or proof of concept, and I am actively using it for my own application development.
+//! # About Leptos
 //!
-//! ## Fine-Grained Reactivity
+//! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
+//! - single-page apps (SPAs) rendered entirely in the browser, using client-side routing and loading
+//!   or mutating data via async requests to the server
+//! - multi-page apps (MPAs) rendered on the server, managing navigation, data, and mutations via
+//!   web-standard `<a>` and `<form>` tags
+//! - progressively-enhanced multi-page apps ([PEMPAs](https://www.epicweb.dev/the-webs-next-transition)?)
+//!   that are rendered on the server and then hydrated on the client, enhancing your `<a>` and `<form>`
+//!   navigations and mutations seamlessly when WASM is available.
 //!
-//! Leptos is built on a fine-grained reactive system, which means that individual reactive values
-//! (“signals,” sometimes known as observables) trigger the code that reacts to them (“effects,”
-//! sometimes known as observers) to re-run. These two halves of the reactive system are inter-dependent.
-//! Without effects, signals can change within the reactive system but never be observed in a way
-//! that interacts with the outside world. Without signals, effects run once but never again, as
-//! there’s no observable value to subscribe to.
+//! And you can do all three of these **using the same Leptos code.**
 //!
-//! Here are the most commonly-used functions and types you'll need to build a reactive system:
+//! # Learning by Example
+//!  
+//! These docs are a work in progress. If you want to see what Leptos is capable of, check out
+//! the [examples](https://github.com/gbj/leptos/tree/main/examples):
+//! - [`counter`](https://github.com/gbj/leptos/tree/main/examples/counter) is the classic
+//!   counter example, showing the basics of client-side rendering and reactive DOM updates
+//! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counter) introduces parent-child
+//!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
+//! - [`todomvc`](https://github.com/gbj/leptos/tree/main/examples/todomvc) implements the classic to-do
+//!   app in Leptos. This is a good example of a complete, simple app. In particular, you might want to
+//!   see how we use [create_effect] to [serialize JSON to `localStorage`](https://github.com/gbj/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L164)
+//!   and [reactively call DOM methods](https://github.com/gbj/leptos/blob/6d7c36655c9e7dcc3a3ad33d2b846a3f00e4ae74/examples/todomvc/src/lib.rs#L291)
+//!   on [references to elements](https://github.com/gbj/leptos/blob/6d7c36655c9e7dcc3a3ad33d2b846a3f00e4ae74/examples/todomvc/src/lib.rs#L254).
+//! - [`fetch`](https://github.com/gbj/leptos/tree/main/examples/fetch) introduces
+//!   [Resource](leptos_reactive::Resource)s, which allow you to integrate arbitrary `async` code like an
+//!   HTTP request within your reactive code.
+//! - [`router`](https://github.com/gbj/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
+//!   to enable client-side navigation and route-specific, reactive data loading.
+//! - [`todomvc`](https://github.com/gbj/leptos/tree/main/examples/todomvc) shows the basics of building an
+//!   isomorphic web app. Both the server and the client import the same app code from the `todomvc` example.
+//!   The server renders the app directly to an HTML string, and the client hydrates that HTML to make it interactive.
+//! - [`hackernews`](https://github.com/gbj/leptos/tree/main/examples/hackernews) pulls everything together.
+//!   It integrates calls to a real external REST API, routing, server-side rendering and hydration to create
+//!   a fully-functional PEMPA that works as intended even before WASM has loaded and begun to run.
 //!
-//! ### Signals
-//! 1. *Signals:* [create_signal](crate::create_signal), which returns a ([ReadSignal](crate::ReadSignal),
-//!    [WriteSignal](crate::WriteSignal)) tuple.
-//! 2. *Derived Signals:* any function that relies on another signal.
-//! 3. *Memos:* [create_memo](crate::create_memo), which returns a [Memo](crate::Memo).
-//! 4. *Resources:* [create_resource], which converts an `async` [Future](std::future::Future)
-//!    into a synchronous [Resource](crate::Resource) signal.
+//! (The SPA examples can be run using `trunk serve`. For information about Trunk,
+//! [see here]((https://trunkrs.dev/)).)
 //!
-//! ### Effects
-//! 1. Use [create_effect](crate::create_effect) when you need to synchronize the reactive system
-//!    with something outside it (for example: logging to the console, writing to a file or local storage)
-//! 2. The Leptos DOM renderer wraps any [Fn] in your template with [create_effect](crate::create_effect), so
-//!    components you write do *not* need explicit effects to synchronize with the DOM.
+//! # Quick Links
 //!
+//! Here are links to the most important sections of the docs:
+//! - **Reactivity**: the [leptos_reactive] overview, and more details in
+//!   - [create_signal], [ReadSignal], and [WriteSignal]
+//!   - [create_memo] and [Memo]
+//!   - [create_resource] and [Resource]
+//!   - [create_effect]
+//! - **Templating/Views**: the [view] macro
+//! - **Routing**: the [leptos_router](https://docs.rs/leptos_router/latest/leptos_router/) crate
 //!
-//! ## Views and Components
-//!
-//! More docs are needed for the UI system, and an in-depth guide is in progress. Here’s a simple example
-//! of how the reactive system feeds into UI.
+//! # A Simple Counter
 //!
 //! ```rust
 //! use leptos::*;
@@ -39,7 +59,7 @@
 //! #[component]
 //! pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
 //!     // create a reactive signal with the initial value
-//!     let (value, set_value) = create_signal(cx, inital_value);
+//!     let (value, set_value) = create_signal(cx, initial_value);
 //!
 //!     // create event handlers for our buttons
 //!     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -61,7 +81,7 @@
 //!
 //! // Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
 //! pub fn main() {
-//!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3> })
+//!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
 //! }
 //! ```
 

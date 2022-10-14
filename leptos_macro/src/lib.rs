@@ -30,6 +30,131 @@ use view::render_view;
 mod component;
 mod props;
 
+/// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
+/// same rules as HTML, with the following differences:
+/// 1. Text content should be provided as a Rust string, i.e., double-quoted:
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// view! { cx, <p>"Here’s some text"</p> }
+/// # });
+/// ```
+///
+/// 2. Self-closing tags need an explicit `/` as in XML/XHTML
+/// ```rust,compile_fail
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// // ❌ not like this
+/// view! { cx, <input type="text" name="name"> }
+/// # });
+/// ```
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// // ✅ add that slash
+/// view! { cx, <input type="text" name="name" /> }
+/// # });
+/// ```
+///
+/// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use leptos_core as leptos; use leptos_core::*;
+/// # #[component] fn Counter(cx: Scope, initial_value: i32) -> Element { view! { cx, <p></p>} }
+/// # run_scope(|cx| {
+/// view! { cx, <div><Counter initial_value=3 /></div> }
+/// # });
+/// ```
+///
+/// 4. Dynamic content can be wrapped in curly braces (`{ }`) to insert text nodes, elements, or set attributes.
+///    If you insert signal here, Leptos will create an effect to update the DOM whenever the value changes.
+///    *(“Signal” here means `Fn() -> T` where `T` is the appropriate type for that node: a `String` in case
+///    of text nodes, a `bool` for `class:` attributes, etc.)*
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// view! {
+///   cx,
+///   <div>
+///     "Count: " {count} // pass a signal
+///     <br/>
+///     "Double Count: " {move || count() % 2} // or derive a signal inline
+///   </div>
+/// }
+/// # });
+/// ```
+///
+/// 5. Event handlers can be added with `on:` attributes
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// view! {
+///   cx,
+///   <button on:click=|ev: web_sys::Event| {
+///     log::debug!("click event: {ev:#?}");
+///   }>
+///     "Click me"
+///   </button>
+/// }
+/// # });
+/// ```
+///
+/// 6. DOM properties can be set with `prop:` attributes, which take any primitive type or `JsValue` (or a signal
+///    that returns a primitive or JsValue).
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// let (name, set_name) = create_signal(cx, "Alice".to_string());
+///
+/// view! {
+///   cx,
+///   <input
+///     type="text"
+///     name="user_name"
+///     value={name} // this only sets the default value!
+///     prop:value={name} // here's how you update values. Sorry, I didn’t invent the DOM.
+///     on:click=move |ev| set_name(event_target_value(ev)) // `event_target_value` is a useful little Leptos helper
+///   />
+/// }
+/// # });
+/// ```
+///
+/// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # run_scope(|cx| {
+/// view! { cx, <div class:hidden={move || count() % 2 }>"Now you see me, now you don’t."</div> }
+/// # });
+/// ```
+///
+/// Here’s a simple example that shows off several of these features, put together
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use leptos_core::*; use leptos_core as leptos;
+///
+/// #[component]
+/// pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+///     // create a reactive signal with the initial value
+///     let (value, set_value) = create_signal(cx, initial_value);
+///
+///     // create event handlers for our buttons
+///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
+///     let clear = move |_ev: web_sys::Event| set_value(0);
+///     let decrement = move |_ev: web_sys::Event| set_value.update(|value| *value -= 1);
+///     let increment = move |_ev: web_sys::Event| set_value.update(|value| *value += 1);
+///
+///     // this JSX is compiled to an HTML template string for performance
+///     view! {
+///         cx,
+///         <div>
+///             <button on:click=clear>"Clear"</button>
+///             <button on:click=decrement>"-1"</button>
+///             <span>"Value: " {move || value().to_string()} "!"</span>
+///             <button on:click=increment>"+1"</button>
+///         </div>
+///     }
+/// }
+/// ```
 #[proc_macro]
 pub fn view(tokens: TokenStream) -> TokenStream {
     let mut tokens = tokens.into_iter();
