@@ -1,9 +1,8 @@
-use ahash::AHashMap;
 use leptos_reactive::{
     create_effect, create_memo, create_signal, queue_microtask, Memo, ReadSignal, Scope,
     ScopeDisposer,
 };
-use std::{fmt::Debug, hash::Hash, ops::IndexMut};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
 /// computed; its value will only be updated when requested. Modifications to the
@@ -90,7 +89,7 @@ where
 
             // 0) Prepare a map of indices in newItems. Scan backwards so we encounter them in
             // natural order.
-            let mut new_indices = AHashMap::with_capacity(new_end - start);
+            let mut new_indices = HashMap::with_capacity(new_end - start);
 
             // Indexes for new_indices_next are shifted by start because values at 0..start are
             // always None.
@@ -155,4 +154,34 @@ where
 
         mapped.to_vec()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::map::map_keyed;
+    use leptos_reactive::*;
+
+    #[test]
+    fn test_map_keyed() {
+        create_scope(|cx| {
+            let (rows, set_rows) =
+                create_signal::<Vec<(usize, ReadSignal<i32>, WriteSignal<i32>)>>(cx, vec![]);
+
+            let keyed = map_keyed(
+                cx,
+                rows,
+                |cx, row| {
+                    let read = row.1;
+                    create_effect(cx, move |_| println!("row value = {}", read.get()));
+                },
+                |row| row.0,
+            );
+
+            create_effect(cx, move |_| println!("keyed = {:#?}", keyed.get()));
+
+            let (r, w) = create_signal(cx, 0);
+            set_rows.update(|n| n.push((0, r, w)));
+        })
+        .dispose();
+    }
 }
