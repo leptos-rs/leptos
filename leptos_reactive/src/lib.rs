@@ -78,9 +78,6 @@ mod spawn;
 mod subscriber;
 mod suspense;
 
-#[cfg(feature = "transition")]
-mod transition;
-
 pub use context::*;
 pub use effect::*;
 pub use memo::*;
@@ -90,13 +87,9 @@ pub use scope::*;
 pub use selector::*;
 pub use signal::*;
 use source::*;
-pub use spawn::queue_microtask;
-use spawn::*;
+pub use spawn::*;
 use subscriber::*;
 pub use suspense::*;
-
-#[cfg(feature = "transition")]
-pub use transition::*;
 
 #[doc(hidden)]
 #[macro_export]

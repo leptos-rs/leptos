@@ -1,10 +1,4 @@
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{create_effect, create_signal, ReadSignal, Scope, WriteSignal};
 
@@ -68,6 +62,7 @@ pub fn create_selector_with_fn<T>(
 where
     T: PartialEq + Eq + Debug + Clone + Hash + 'static,
 {
+    #[allow(clippy::type_complexity)]
     let subs: Rc<RefCell<HashMap<T, (ReadSignal<bool>, WriteSignal<bool>)>>> =
         Rc::new(RefCell::new(HashMap::new()));
     let v = Rc::new(RefCell::new(None));

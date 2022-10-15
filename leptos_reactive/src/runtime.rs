@@ -192,11 +192,6 @@ impl Runtime {
         self.stack.borrow_mut().pop();
     }
 
-    pub fn remove_scope(&self, scope: &ScopeId) {
-        let scope = self.scopes.borrow_mut().remove(*scope);
-        drop(scope); // unnecessary, but just to be explicit
-    }
-
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         let prev_stack = self.stack.replace(Vec::new());
         let untracked_result = f();

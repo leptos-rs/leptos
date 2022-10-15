@@ -12,9 +12,9 @@ use std::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
-    runtime::Runtime, spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId,
-    SuspenseContext, WriteSignal,
+    create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
+    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId, SuspenseContext,
+    WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -127,7 +127,7 @@ where
 }
 
 #[cfg(not(feature = "hydrate"))]
-fn load_resource<S, T>(cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
+fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
     T: Debug + Clone + Serialize + DeserializeOwned + 'static,
@@ -344,6 +344,7 @@ where
     track: ReadSignal<usize>,
     trigger: WriteSignal<usize>,
     source: Memo<S>,
+    #[allow(clippy::type_complexity)]
     fetcher: Rc<dyn Fn(S) -> Pin<Box<dyn Future<Output = T>>>>,
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
@@ -367,7 +368,7 @@ where
             if let Some(s) = &suspense_cx {
                 let mut contexts = suspense_contexts.borrow_mut();
                 if !contexts.contains(s) {
-                    contexts.insert(s.clone());
+                    contexts.insert(*s);
 
                     // on subsequent reads, increment will be triggered in load()
                     // because the context has been tracked here
@@ -396,9 +397,6 @@ where
 
         self.scheduled.set(false);
 
-        #[cfg(feature = "transition")]
-        let loaded_under_transition = self.scope.runtime.running_transition().is_some();
-
         let fut = (self.fetcher)(self.source.get());
 
         // `scheduled` is true for the rest of this code only
@@ -416,37 +414,19 @@ where
         // increment counter everywhere it's read
         let suspense_contexts = self.suspense_contexts.clone();
 
-        #[cfg(feature = "transition")]
-        let running_transition = self.scope.runtime.running_transition();
-
         for suspense_context in suspense_contexts.borrow().iter() {
             suspense_context.increment();
-
-            #[cfg(feature = "transition")]
-            if let Some(transition) = &running_transition {
-                log::debug!("[Transition] adding resource");
-                transition
-                    .resources
-                    .borrow_mut()
-                    .insert(suspense_context.pending_resources);
-            }
         }
 
         // run the Future
         spawn_local({
             let resolved = self.resolved.clone();
-            let scope = self.scope;
             let set_value = self.set_value;
             let set_loading = self.set_loading;
             async move {
                 let res = fut.await;
 
                 resolved.set(true);
-
-                #[cfg(feature = "transition")]
-                if let Some(transition) = scope.runtime.transition() {
-                    // TODO transition
-                }
 
                 set_value.update(|n| *n = Some(res));
                 set_loading.update(|n| *n = false);
