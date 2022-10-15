@@ -1,5 +1,3 @@
-#[cfg(feature = "transition")]
-use crate::TransitionState;
 use crate::{
     debug_warn, AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer,
     ScopeId, ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber,
@@ -18,8 +16,6 @@ pub(crate) struct Runtime {
     pub(crate) shared_context: RefCell<Option<SharedContext>>,
     pub(crate) stack: RefCell<Vec<Subscriber>>,
     pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
-    #[cfg(feature = "transition")]
-    pub(crate) transition: RefCell<Option<Rc<TransitionState>>>,
 }
 
 #[derive(Error, Debug)]
@@ -140,22 +136,6 @@ impl Runtime {
 
     pub fn running_effect(&self) -> Option<Subscriber> {
         self.stack.borrow().last().cloned()
-    }
-
-    #[cfg(feature = "transition")]
-    pub fn running_transition(&self) -> Option<Rc<TransitionState>> {
-        self.transition.borrow().as_ref().and_then(|t| {
-            if t.running.get() {
-                Some(Rc::clone(t))
-            } else {
-                None
-            }
-        })
-    }
-
-    #[cfg(feature = "transition")]
-    pub fn transition(&self) -> Option<Rc<TransitionState>> {
-        self.transition.borrow().as_ref().map(Rc::clone)
     }
 
     pub fn create_scope(

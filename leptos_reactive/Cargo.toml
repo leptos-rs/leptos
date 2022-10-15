@@ -31,4 +31,3 @@ tokio-test = "0.4"
 csr = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 hydrate = ["dep:base64", "dep:js-sys", "dep:serde-wasm-bindgen", "dep:serde_json", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 ssr = ["dep:base64", "dep:serde_json", "dep:tokio"]
-transition = []

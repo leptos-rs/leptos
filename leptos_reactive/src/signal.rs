@@ -172,31 +172,6 @@ where
                 });
         }
 
-        // If transition is running, or contains this as a source, take from t_value
-        #[cfg(feature = "transition")]
-        if let Some(transition) = self.runtime.transition() {
-            self.runtime
-                .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
-                    if transition.running.get()
-                        && transition.signals.borrow().contains(&(self.scope, self.id))
-                    {
-                        f(signal_state
-                            .t_value
-                            .borrow()
-                            .as_ref()
-                            .expect("read ReadSignal under transition, without any t_value"))
-                    } else {
-                        f(&signal_state.value.borrow())
-                    }
-                })
-        } else {
-            self.runtime
-                .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
-                    (f)(&signal_state.value.borrow())
-                })
-        }
-
-        #[cfg(not(feature = "transition"))]
         self.runtime
             .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
                 (f)(&signal_state.value.borrow())
@@ -325,29 +300,6 @@ where
         self.runtime
             .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
                 // update value
-
-                #[cfg(feature = "transition")]
-                if let Some(transition) = self.runtime.running_transition() {
-                    let mut t_value = signal_state.t_value.borrow_mut();
-                    if let Some(t_value) = &mut *t_value {
-                        (f)(t_value);
-                    } else {
-                        // fork reality, using the old value as the basis for the transitional value
-                        let mut forked = (*signal_state.value.borrow()).clone();
-                        (f)(&mut forked);
-                        *t_value = Some(forked);
-
-                        // track this signal
-                        transition
-                            .signals
-                            .borrow_mut()
-                            .insert((self.scope, self.id));
-                    }
-                } else {
-                    (f)(&mut *signal_state.value.borrow_mut());
-                }
-
-                #[cfg(not(feature = "transition"))]
                 (f)(&mut *signal_state.value.borrow_mut());
 
                 // notify subscribers
@@ -417,8 +369,6 @@ pub(crate) struct SignalId(pub(crate) usize);
 //#[derive(Debug)]
 pub(crate) struct SignalState<T> {
     value: RefCell<T>,
-    #[cfg(feature = "transition")]
-    t_value: RefCell<Option<T>>,
     subscribers: RefCell<HashSet<Subscriber>>,
 }
 
@@ -426,16 +376,6 @@ impl<T> Debug for SignalState<T>
 where
     T: Debug,
 {
-    #[cfg(feature = "transition")]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SignalState")
-            .field("value", &*self.value.borrow())
-            .field("t_value", &*self.t_value.borrow())
-            .field("subscribers", &*self.subscribers.borrow())
-            .finish()
-    }
-
-    #[cfg(not(feature = "transition"))]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SignalState")
             .field("value", &*self.value.borrow())
@@ -451,8 +391,6 @@ where
     pub fn new(value: T) -> Self {
         Self {
             value: RefCell::new(value),
-            #[cfg(feature = "transition")]
-            t_value: Default::default(),
             subscribers: Default::default(),
         }
     }
@@ -462,9 +400,6 @@ pub(crate) trait AnySignal: Debug {
     fn unsubscribe(&self, subscriber: Subscriber);
 
     fn as_any(&self) -> &dyn Any;
-
-    #[cfg(feature = "transition")]
-    fn end_transition(&self, runtime: &'static Runtime);
 }
 
 impl<T> AnySignal for SignalState<T>
@@ -477,28 +412,5 @@ where
 
     fn as_any(&self) -> &dyn Any {
         self
-    }
-
-    #[cfg(feature = "transition")]
-    fn end_transition(&self, runtime: &'static Runtime) {
-        let t_value = self.t_value.borrow_mut().take();
-
-        if let Some(value) = t_value {
-            *self.value.borrow_mut() = value;
-
-            let subs = { self.subscribers.borrow().clone() };
-
-            // run all its subscribers; if any of them are from scopes that have
-            // been disposed, unsubscribe them
-            let mut dropped_subs = Vec::new();
-            for subscriber in subs.iter() {
-                if subscriber.try_run(runtime).is_err() {
-                    dropped_subs.push(subscriber);
-                }
-            }
-            for sub in dropped_subs {
-                self.subscribers.borrow_mut().remove(sub);
-            }
-        }
     }
 }
