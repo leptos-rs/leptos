@@ -11,15 +11,13 @@ pub struct SuspenseContext {
 
 impl std::hash::Hash for SuspenseContext {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.pending_resources.scope.hash(state);
         self.pending_resources.id.hash(state);
     }
 }
 
 impl PartialEq for SuspenseContext {
     fn eq(&self, other: &Self) -> bool {
-        self.pending_resources.scope == other.pending_resources.scope
-            && self.pending_resources.id == other.pending_resources.id
+        self.pending_resources.id == other.pending_resources.id
     }
 }
 

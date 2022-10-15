@@ -1,8 +1,7 @@
 use crate::{
-    hydration::SharedContext, AnyEffect, AnyResource, AnySignal, EffectId, EffectState, ResourceId,
-    ResourceState, Runtime, SignalId, SignalState, StreamingResourceId,
+    hydration::SharedContext, AnyEffect, AnyResource, EffectId, ResourceId, ResourceState, Runtime,
+    SignalId,
 };
-use elsa::FrozenVec;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     any::{Any, TypeId},
@@ -21,7 +20,7 @@ use std::{future::Future, pin::Pin};
 /// from the route.)
 pub fn create_scope(f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
     let runtime = Box::leak(Box::new(Runtime::new()));
-    runtime.create_scope(f, None)
+    runtime.run_scope_undisposed(f, None).1
 }
 
 /// Creates a temporary scope, runs the given function, disposes of the scope,
@@ -58,7 +57,7 @@ pub fn run_scope_undisposed<T>(f: impl FnOnce(Scope) -> T + 'static) -> (T, Scop
 ///
 /// Every other function in this crate takes a `Scope` as its first argument. Since `Scope`
 /// is [Copy] and `'static` this does not add much overhead or lifetime complexity.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone)]
 pub struct Scope {
     pub(crate) runtime: &'static Runtime,
     pub(crate) id: ScopeId,
@@ -70,69 +69,101 @@ impl Scope {
     }
 
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
-        self.runtime.create_scope(f, Some(self))
+        let (_, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
+        disposer
     }
 
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
-        self.runtime.untrack(f)
+        let prev_observer = self.runtime.observer.take();
+        let untracked_result = f();
+        self.runtime.observer.set(prev_observer);
+        untracked_result
     }
 }
 
 // Internals
+
 impl Scope {
-    pub(crate) fn push_signal<T>(&self, state: SignalState<T>) -> SignalId
-    where
-        T: Debug + 'static,
-    {
-        self.runtime.scope(self.id, |scope| {
-            scope.signals.push(Box::new(state));
-            SignalId(scope.signals.len() - 1)
-        })
-    }
-
-    pub(crate) fn push_effect<T>(&self, state: EffectState<T>) -> EffectId
-    where
-        T: Debug + 'static,
-    {
-        self.runtime.scope(self.id, |scope| {
-            scope.effects.push(Box::new(state));
-            EffectId(scope.effects.len() - 1)
-        })
-    }
-
-    pub(crate) fn push_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
-    where
-        S: Debug + Clone + 'static,
-        T: Debug + Clone + Serialize + DeserializeOwned + 'static,
-    {
-        self.runtime.scope(self.id, |scope| {
-            scope.resources.push(state);
-            ResourceId(scope.resources.len() - 1)
-        })
-    }
-
     pub fn dispose(self) {
-        if let Some(scope) = self.runtime.scopes.borrow_mut().remove(self.id) {
-            for id in scope.children.take() {
+        // dispose of all child scopes
+        let children = {
+            let mut children = self.runtime.scope_children.borrow_mut();
+            let children = children.remove(self.id);
+            children.map(|children| children.take())
+        };
+
+        if let Some(children) = children {
+            for id in children {
                 Scope {
                     runtime: self.runtime,
                     id,
                 }
                 .dispose();
             }
+        }
 
-            for effect in &scope.effects {
-                effect.clear_dependencies();
+        // remove everything we own and run cleanups
+        let owned = {
+            let owned = self.runtime.scopes.borrow_mut().remove(self.id);
+            owned.map(|owned| owned.take())
+        };
+        if let Some(owned) = owned {
+            for property in owned {
+                match property {
+                    ScopeProperty::Signal(id) => {
+                        self.runtime.signals.borrow_mut().remove(id);
+                        self.runtime.signal_subscribers.borrow_mut().remove(id);
+                    }
+                    ScopeProperty::Effect(id) => {
+                        self.runtime.effects.borrow_mut().remove(id);
+                        self.runtime.effect_sources.borrow_mut().remove(id);
+                    }
+                    /* ScopeProperty::Resource(id) => {
+                        self.runtime.resources.borrow_mut().remove(id);
+                    } */
+                    ScopeProperty::Cleanup(f) => (f()),
+                }
             }
-
-            for cleanup in scope.cleanups.take() {
-                (cleanup)();
-            }
-
-            drop(scope);
         }
     }
 
+    pub(crate) fn with_scope_property(&self, f: impl FnOnce(&mut Vec<ScopeProperty>)) {
+        let scopes = self.runtime.scopes.borrow();
+        let scope = scopes
+            .get(self.id)
+            .expect("tried to add property to a scope that has been disposed");
+        f(&mut *scope.borrow_mut());
+    }
+}
+
+slotmap::new_key_type! { pub struct ScopeId; }
+
+pub(crate) enum ScopeProperty {
+    Signal(SignalId),
+    Effect(EffectId),
+    //Resource(ResourceId),
+    Cleanup(Box<dyn FnOnce()>),
+}
+
+impl Debug for ScopeProperty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Signal(arg0) => f.debug_tuple("Signal").field(arg0).finish(),
+            Self::Effect(arg0) => f.debug_tuple("Effect").field(arg0).finish(),
+            Self::Cleanup(_) => f.debug_tuple("Cleanup").finish(),
+        }
+    }
+}
+
+pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
+
+impl ScopeDisposer {
+    pub fn dispose(self) {
+        (self.0)()
+    }
+}
+
+impl Scope {
     #[cfg(feature = "hydrate")]
     pub fn is_hydrating(&self) -> bool {
         self.runtime.shared_context.borrow().is_some()
@@ -272,7 +303,7 @@ impl Scope {
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
-    pub fn all_resources(&self) -> Vec<StreamingResourceId> {
+    pub fn all_resources(&self) -> Vec<ResourceId> {
         self.runtime.all_resources()
     }
 
@@ -339,48 +370,8 @@ impl Scope {
     }
 }
 
-pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
-
-impl ScopeDisposer {
-    pub fn dispose(self) {
-        (self.0)()
-    }
-}
-
 impl Debug for ScopeDisposer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ScopeDisposer").finish()
-    }
-}
-
-slotmap::new_key_type! { pub struct ScopeId; }
-
-pub(crate) struct ScopeState {
-    pub(crate) parent: Option<Scope>,
-    pub(crate) contexts: RefCell<HashMap<TypeId, Box<dyn Any>>>,
-    pub(crate) children: RefCell<Vec<ScopeId>>,
-    pub(crate) signals: FrozenVec<Box<dyn AnySignal>>,
-    pub(crate) effects: FrozenVec<Box<dyn AnyEffect>>,
-    pub(crate) resources: FrozenVec<Rc<dyn AnyResource>>,
-    pub(crate) cleanups: RefCell<Vec<Box<dyn FnOnce()>>>,
-}
-
-impl Debug for ScopeState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ScopeState").finish()
-    }
-}
-
-impl ScopeState {
-    pub(crate) fn new(parent: Option<Scope>) -> Self {
-        Self {
-            parent,
-            contexts: Default::default(),
-            children: Default::default(),
-            signals: Default::default(),
-            effects: Default::default(),
-            resources: Default::default(),
-            cleanups: Default::default(),
-        }
     }
 }

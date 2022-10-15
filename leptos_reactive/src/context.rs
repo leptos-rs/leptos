@@ -1,4 +1,7 @@
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+};
 
 use crate::Scope;
 
@@ -45,12 +48,9 @@ where
     T: Clone + 'static,
 {
     let id = value.type_id();
-    cx.runtime.scope(cx.id, |scope_state| {
-        scope_state
-            .contexts
-            .borrow_mut()
-            .insert(id, Box::new(value));
-    })
+    let mut contexts = cx.runtime.scope_contexts.borrow_mut();
+    let context = contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
+    context.insert(id, Box::new(value) as Box<dyn Any>);
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
@@ -98,14 +98,25 @@ where
     T: Clone + 'static,
 {
     let id = TypeId::of::<T>();
-    cx.runtime.scope(cx.id, |scope_state| {
-        let contexts = scope_state.contexts.borrow();
-        let local_value = contexts.get(&id).and_then(|val| val.downcast_ref::<T>());
-        match local_value {
-            Some(val) => Some(val.clone()),
-            None => scope_state
-                .parent
-                .and_then(|parent| use_context::<T>(parent)),
-        }
-    })
+    let local_value = {
+        let contexts = cx.runtime.scope_contexts.borrow();
+        let context = contexts.get(cx.id);
+        context
+            .and_then(|context| context.get(&id).and_then(|val| val.downcast_ref::<T>()))
+            .cloned()
+    };
+    match local_value {
+        Some(val) => Some(val),
+        None => cx
+            .runtime
+            .scope_parents
+            .borrow()
+            .get(cx.id)
+            .and_then(|parent| {
+                use_context::<T>(Scope {
+                    runtime: cx.runtime,
+                    id: *parent,
+                })
+            }),
+    }
 }

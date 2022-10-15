@@ -1,6 +1,6 @@
-use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
+use crate::{Runtime, Scope, ScopeId, ScopeProperty};
 use serde::{Deserialize, Serialize};
-use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Creates a signal, the basic reactive primitive.
 ///
@@ -40,28 +40,10 @@ use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Debug, marker::Pha
 /// # }).dispose();
 /// #
 /// ```
-pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>)
-where
-    T: Clone + Debug,
-{
-    let state = SignalState::new(value);
-    let id = cx.push_signal(state);
-
-    let read = ReadSignal {
-        runtime: cx.runtime,
-        scope: cx.id,
-        id,
-        ty: PhantomData,
-    };
-
-    let write = WriteSignal {
-        runtime: cx.runtime,
-        scope: cx.id,
-        id,
-        ty: PhantomData,
-    };
-
-    (read, write)
+pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
+    let s = cx.runtime.create_signal(value);
+    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
+    s
 }
 
 /// The getter for a reactive signal.
@@ -112,37 +94,15 @@ pub struct ReadSignal<T>
 where
     T: 'static,
 {
-    runtime: &'static Runtime,
-    pub(crate) scope: ScopeId,
+    pub(crate) runtime: &'static Runtime,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
 }
 
 impl<T> ReadSignal<T>
 where
-    T: Debug,
+    T: 'static,
 {
-    /// Clones and returns the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    ///
-    /// If you want to get the value without cloning it, use [ReadSignal::with].
-    /// (`value.get()` is equivalent to `value.with(T::clone)`.)
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    ///
-    /// // calling the getter clones and returns the value
-    /// assert_eq!(count(), 0);
-    /// });
-    /// ```
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.with(T::clone)
-    }
-
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal.
     ///
@@ -163,26 +123,29 @@ where
     /// assert_eq!(first_char(), 'B');
     /// });
     /// ```
-    pub fn with<U>(&self, f: impl Fn(&T) -> U) -> U {
-        if let Some(running_subscriber) = self.runtime.running_effect() {
-            self.runtime
-                .any_effect(running_subscriber.0, |running_effect| {
-                    self.add_subscriber(Subscriber(running_subscriber.0));
-                    running_effect.subscribe_to(Source((self.scope, self.id)));
-                });
-        }
-
-        self.runtime
-            .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
-                (f)(&signal_state.value.borrow())
-            })
+    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with(self.runtime, f)
     }
 
-    fn add_subscriber(&self, subscriber: Subscriber) {
-        self.runtime
-            .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
-                signal_state.subscribers.borrow_mut().insert(subscriber);
-            })
+    /// Clones and returns the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    ///
+    /// If you want to get the value without cloning it, use [ReadSignal::with].
+    /// (`value.get()` is equivalent to `value.with(T::clone)`.)
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let (count, set_count) = create_signal(cx, 0);
+    ///
+    /// // calling the getter clones and returns the value
+    /// assert_eq!(count(), 0);
+    /// });
+    /// ```
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.id.with(self.runtime, T::clone)
     }
 }
 
@@ -190,7 +153,6 @@ impl<T> Clone for ReadSignal<T> {
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
-            scope: self.scope,
             id: self.id,
             ty: PhantomData,
         }
@@ -264,10 +226,9 @@ where
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct WriteSignal<T>
 where
-    T: Clone + 'static,
+    T: 'static,
 {
-    runtime: &'static Runtime,
-    pub(crate) scope: ScopeId,
+    pub(crate) runtime: &'static Runtime,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
 }
@@ -297,24 +258,7 @@ where
     /// # }).dispose();
     /// ```
     pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.runtime
-            .signal((self.scope, self.id), |signal_state: &SignalState<T>| {
-                // update value
-                (f)(&mut *signal_state.value.borrow_mut());
-
-                // notify subscribers
-                // if any of them are in scopes that have been disposed, unsubscribe
-                let subs = { signal_state.subscribers.borrow().clone() };
-                let mut dropped_subs = Vec::new();
-                for subscriber in subs.iter() {
-                    if subscriber.try_run(self.runtime).is_err() {
-                        dropped_subs.push(subscriber);
-                    }
-                }
-                for sub in dropped_subs {
-                    signal_state.subscribers.borrow_mut().remove(sub);
-                }
-            })
+        self.id.update(self.runtime, f)
     }
 }
 
@@ -325,7 +269,6 @@ where
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
-            scope: self.scope,
             id: self.id,
             ty: PhantomData,
         }
@@ -363,54 +306,109 @@ where
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub(crate) struct SignalId(pub(crate) usize);
-
-//#[derive(Debug)]
-pub(crate) struct SignalState<T> {
-    value: RefCell<T>,
-    subscribers: RefCell<HashSet<Subscriber>>,
+#[derive(Copy, Clone)]
+pub struct RwSignal<T>
+where
+    T: 'static,
+{
+    pub(crate) runtime: &'static Runtime,
+    pub(crate) id: SignalId,
+    pub(crate) ty: PhantomData<T>,
 }
 
-impl<T> Debug for SignalState<T>
+impl<T> RwSignal<T>
 where
-    T: Debug,
+    T: 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SignalState")
-            .field("value", &*self.value.borrow())
-            .field("subscribers", &*self.subscribers.borrow())
-            .finish()
+    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with(self.runtime, f)
+    }
+
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.id.with(self.runtime, T::clone)
+    }
+
+    pub fn update(&self, f: impl FnOnce(&mut T)) {
+        self.id.update(self.runtime, f)
+    }
+
+    pub fn set(&self, value: T) {
+        self.id.update(self.runtime, |n| *n = value)
     }
 }
 
-impl<T> SignalState<T>
-where
-    T: Debug,
-{
-    pub fn new(value: T) -> Self {
-        Self {
-            value: RefCell::new(value),
-            subscribers: Default::default(),
+// Internals
+slotmap::new_key_type! { pub struct SignalId; }
+
+impl SignalId {
+    pub(crate) fn with<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    where
+        T: 'static,
+    {
+        // add subscriber
+        if let Some(observer) = runtime.observer.get() {
+            let mut subs = runtime.signal_subscribers.borrow_mut();
+            if let Some(subs) = subs.entry(*self) {
+                subs.or_default().borrow_mut().insert(observer);
+            }
         }
+
+        // get the value
+        let value = runtime.signals.borrow();
+        let value = value
+            .get(*self)
+            .unwrap_or_else(|| panic!("tried to access a signal that has been disposed: {self:?}"));
+        let value = value.borrow();
+        let value = value.downcast_ref::<T>().unwrap_or_else(|| {
+            panic!(
+                "error casting signal {:?} to type {:?}",
+                self,
+                std::any::type_name::<T>()
+            )
+        });
+        f(value)
     }
-}
 
-pub(crate) trait AnySignal: Debug {
-    fn unsubscribe(&self, subscriber: Subscriber);
+    pub(crate) fn update<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T))
+    where
+        T: 'static,
+    {
+        // update the value
+        {
+            let value = runtime.signals.borrow();
+            let value = value.get(*self).unwrap_or_else(|| {
+                panic!("tried to access a signal that has been disposed: {self:?}")
+            });
+            let mut value = value.borrow_mut();
+            let value = value.downcast_mut::<T>().unwrap_or_else(|| {
+                panic!(
+                    "error casting signal {:?} to type {:?}",
+                    self,
+                    std::any::type_name::<T>()
+                )
+            });
+            f(value);
+        }
 
-    fn as_any(&self) -> &dyn Any;
-}
-
-impl<T> AnySignal for SignalState<T>
-where
-    T: Debug + 'static,
-{
-    fn unsubscribe(&self, subscriber: Subscriber) {
-        self.subscribers.borrow_mut().remove(&subscriber);
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
+        // notify subscribers
+        let subs = {
+            let subs = runtime.signal_subscribers.borrow();
+            let subs = subs.get(*self);
+            subs.map(|subs| subs.borrow().clone())
+        };
+        if let Some(subs) = subs {
+            for sub in subs {
+                let effect = {
+                    let effects = runtime.effects.borrow();
+                    effects.get(sub).cloned()
+                };
+                if let Some(effect) = effect {
+                    effect.borrow_mut().run(sub, runtime);
+                }
+            }
+        }
     }
 }

@@ -1,6 +1,5 @@
-use crate::{Runtime, Scope, ScopeId, Source, Subscriber};
-use serde::{Deserialize, Serialize};
-use std::{any::type_name, cell::RefCell, collections::HashSet, fmt::Debug, marker::PhantomData};
+use crate::{Runtime, Scope, ScopeProperty};
+use std::fmt::Debug;
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 /// `create_effect` immediately runs the given function once, tracks its dependence
@@ -47,7 +46,8 @@ pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
-    cx.create_eff(false, f)
+    #[cfg(not(feature = "ssr"))]
+    create_isomorphic_effect(cx, f);
 }
 
 /// Creates an effect; unlike effects created by [create_effect], isomorphic effects will run on
@@ -80,7 +80,8 @@ pub fn create_isomorphic_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 's
 where
     T: Debug + 'static,
 {
-    cx.create_isomorphic_eff(f)
+    let e = cx.runtime.create_effect(f);
+    cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
 }
 
 #[doc(hidden)]
@@ -88,167 +89,67 @@ pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'stati
 where
     T: Debug + 'static,
 {
-    cx.create_eff(true, f)
+    create_effect(cx, f);
 }
 
-impl Scope {
-    #[cfg(not(feature = "ssr"))]
-    pub(crate) fn create_eff<T>(self, render_effect: bool, f: impl FnMut(Option<T>) -> T + 'static)
-    where
-        T: Debug + 'static,
-    {
-        let state = EffectState::new(self.runtime, render_effect, f);
+slotmap::new_key_type! { pub struct EffectId; }
 
-        let id = self.push_effect(state);
-
-        self.runtime
-            .any_effect((self.id, id), |effect| effect.run((self.id, id)));
-    }
-
-    // Simply don't run effects on the server at all
-    #[cfg(feature = "ssr")]
-    pub(crate) fn create_eff<T>(
-        self,
-        _render_effect: bool,
-        _f: impl FnMut(Option<T>) -> T + 'static,
-    ) where
-        T: Debug + 'static,
-    {
-    }
-
-    pub(crate) fn create_isomorphic_eff<T>(self, f: impl FnMut(Option<T>) -> T + 'static)
-    where
-        T: Debug + 'static,
-    {
-        let state = EffectState::new(self.runtime, false, f);
-
-        let id = self.push_effect(state);
-
-        self.runtime
-            .any_effect((self.id, id), |effect| effect.run((self.id, id)));
-    }
-}
-
-#[doc(hidden)]
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Effect<T>
+pub(crate) struct Effect<T, F>
 where
     T: 'static,
+    F: FnMut(Option<T>) -> T,
 {
-    pub(crate) scope: ScopeId,
-    pub(crate) id: EffectId,
-    pub(crate) ty: PhantomData<T>,
+    pub(crate) f: F,
+    pub(crate) value: Option<T>,
 }
 
-impl<T> Clone for Effect<T> {
-    fn clone(&self) -> Self {
-        Self {
-            scope: self.scope,
-            id: self.id,
-            ty: PhantomData,
-        }
-    }
+pub(crate) trait AnyEffect {
+    fn run(&mut self, id: EffectId, runtime: &Runtime);
 }
 
-impl<T> Copy for Effect<T> {}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub(crate) struct EffectId(pub(crate) usize);
-
-pub(crate) struct EffectState<T> {
-    runtime: &'static Runtime,
-    render_effect: bool,
-    f: Box<RefCell<dyn FnMut(Option<T>) -> T>>,
-    value: RefCell<Option<T>>,
-    sources: RefCell<HashSet<Source>>,
-}
-
-impl<T> EffectState<T> {
-    pub fn new(
-        runtime: &'static Runtime,
-        render_effect: bool,
-        f: impl FnMut(Option<T>) -> T + 'static,
-    ) -> Self {
-        Self {
-            runtime,
-            render_effect,
-            f: Box::new(RefCell::new(f)),
-            value: Default::default(),
-            sources: Default::default(),
-        }
-    }
-}
-
-impl<T> EffectState<T> {
-    pub(crate) fn add_source(&self, source: Source) {
-        self.sources.borrow_mut().insert(source);
-    }
-
-    fn cleanup(&self, id: (ScopeId, EffectId)) {
-        for source in self.sources.borrow().iter() {
-            source.unsubscribe(self.runtime, Subscriber(id))
-        }
-    }
-}
-
-impl<T> Debug for EffectState<T>
+impl<T, F> AnyEffect for Effect<T, F>
 where
-    T: Debug,
+    T: 'static,
+    F: FnMut(Option<T>) -> T,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EffectState")
-            .field(
-                "f",
-                &format!(
-                    "FnMut<Option<&{}>> -> {}",
-                    type_name::<T>(),
-                    type_name::<T>()
-                ),
-            )
-            //.field("value", &self.value)
-            //.field("sources", &self.sources)
-            .finish()
-    }
-}
-
-pub(crate) trait AnyEffect: Debug {
-    fn run(&self, id: (ScopeId, EffectId));
-
-    fn clear_dependencies(&self);
-
-    fn subscribe_to(&self, source: Source);
-}
-
-impl<T> AnyEffect for EffectState<T>
-where
-    T: Debug + 'static,
-{
-    fn run(&self, id: (ScopeId, EffectId)) {
+    fn run(&mut self, id: EffectId, runtime: &Runtime) {
         // clear previous dependencies
-        // at this point, Effect dependencies have been added to Signal
-        // and any Signal changes will call Effect dependency automatically
-        self.cleanup(id);
+        id.cleanup(runtime);
 
-        // add it to the Scope stack, which means any signals called
-        // in the effect fn immediately below will add this Effect as a dependency
-        self.runtime.push_stack(Subscriber(id));
+        // set this as the current observer
+        let prev_observer = runtime.observer.take();
+        runtime.observer.set(Some(id));
 
-        // actually run the effect
-        {
-            let curr = { self.value.borrow_mut().take() };
-            let v = { (self.f.borrow_mut())(curr) };
-            *self.value.borrow_mut() = Some(v);
+        // run the effect
+        let value = self.value.take();
+        let new_value = (self.f)(value);
+        self.value = Some(new_value);
+
+        // restore the previous observer
+        runtime.observer.set(prev_observer);
+    }
+}
+
+impl EffectId {
+    pub(crate) fn run<T>(&self, runtime: &Runtime) {
+        let effect = {
+            let effects = runtime.effects.borrow();
+            effects.get(*self).cloned()
+        };
+        if let Some(effect) = effect {
+            effect.borrow_mut().run(*self, runtime);
         }
-
-        // pop it back off the stack
-        self.runtime.pop_stack();
     }
 
-    fn clear_dependencies(&self) {
-        self.sources.borrow_mut().clear();
-    }
-
-    fn subscribe_to(&self, source: Source) {
-        self.add_source(source);
+    pub(crate) fn cleanup(&self, runtime: &Runtime) {
+        let sources = runtime.effect_sources.borrow();
+        if let Some(sources) = sources.get(*self) {
+            let subs = runtime.signal_subscribers.borrow();
+            for source in sources.borrow().iter() {
+                if let Some(source) = subs.get(*source) {
+                    source.borrow_mut().remove(self);
+                }
+            }
+        }
     }
 }

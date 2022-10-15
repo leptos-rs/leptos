@@ -61,7 +61,8 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
             <ul>
                 <For each={counters} key={|counter| counter.0}>{
                     |cx, (id, (value, set_value)): &(usize, (ReadSignal<i32>, WriteSignal<i32>))| {
-                        view! { cx,
+                        view! {
+                            cx,
                             <Counter id=*id value=*value set_value=*set_value/>
                         }
                     }

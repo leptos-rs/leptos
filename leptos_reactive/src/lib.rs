@@ -68,27 +68,27 @@ mod context;
 mod effect;
 mod hydration;
 mod memo;
+
+#[cfg(feature = "resource")]
 mod resource;
 mod runtime;
 mod scope;
 mod selector;
 mod signal;
-mod source;
 mod spawn;
-mod subscriber;
 mod suspense;
 
 pub use context::*;
 pub use effect::*;
 pub use memo::*;
+
+#[cfg(feature = "resource")]
 pub use resource::*;
 use runtime::*;
 pub use scope::*;
 pub use selector::*;
 pub use signal::*;
-use source::*;
 pub use spawn::*;
-use subscriber::*;
 pub use suspense::*;
 
 #[doc(hidden)]

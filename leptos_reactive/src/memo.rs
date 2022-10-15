@@ -1,11 +1,6 @@
 use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope};
 use std::fmt::Debug;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Memo<T>(ReadSignal<Option<T>>)
-where
-    T: 'static;
-
 /// Creates an efficient derived reactive value based on other reactive values.
 ///
 /// Unlike a "derived signal," a memo comes with two guarantees:
@@ -59,22 +54,16 @@ where
 /// });
 /// # }).dispose();
 /// ```
-pub fn create_memo<T>(cx: Scope, mut f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
+pub fn create_memo<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + Clone + Debug + 'static,
 {
-    let (read, set) = create_signal(cx, None);
-
-    create_isomorphic_effect(cx, move |prev| {
-        let new = f(prev.clone());
-        if prev.as_ref() != Some(&new) {
-            set(Some(new.clone()));
-        }
-        new
-    });
-
-    Memo(read)
+    cx.runtime.create_memo(f)
 }
+
+pub struct Memo<T>(pub(crate) ReadSignal<Option<T>>)
+where
+    T: 'static;
 
 impl<T> Clone for Memo<T>
 where
@@ -89,7 +78,7 @@ impl<T> Copy for Memo<T> {}
 
 impl<T> Memo<T>
 where
-    T: Debug,
+    T: 'static,
 {
     pub fn get(&self) -> T
     where

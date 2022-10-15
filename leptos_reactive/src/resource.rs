@@ -9,12 +9,11 @@ use std::{
     rc::Rc,
 };
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
-    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeId, SuspenseContext,
-    WriteSignal,
+    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, SuspenseContext, WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -108,7 +107,7 @@ where
         suspense_contexts: Default::default(),
     });
 
-    let id = cx.push_resource(Rc::clone(&r));
+    let id = cx.runtime.create_resource(Rc::clone(&r));
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
@@ -119,7 +118,6 @@ where
 
     Resource {
         runtime: cx.runtime,
-        scope: cx.id,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -224,33 +222,29 @@ where
 {
     pub fn read(&self) -> Option<T> {
         self.runtime
-            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
-                resource.read()
-            })
+            .resource(self.id, |resource: &ResourceState<S, T>| resource.read())
     }
 
     pub fn loading(&self) -> bool {
         self.runtime
-            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
+            .resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.loading.get()
             })
     }
 
     pub fn refetch(&self) {
         self.runtime
-            .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
-                resource.refetch()
-            })
+            .resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
     }
 
     #[cfg(feature = "ssr")]
-    pub async fn to_serialization_resolver(&self) -> (StreamingResourceId, String)
+    pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
     where
         T: Serialize + DeserializeOwned,
     {
         self.runtime
             .resource((self.scope, self.id), |resource: &ResourceState<S, T>| {
-                resource.to_serialization_resolver(StreamingResourceId(self.scope, self.id))
+                resource.to_serialization_resolver(self.id)
             })
             .await
     }
@@ -263,17 +257,13 @@ where
     T: Debug + Clone + 'static,
 {
     runtime: &'static Runtime,
-    pub(crate) scope: ScopeId,
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct StreamingResourceId(pub(crate) ScopeId, pub(crate) ResourceId);
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub(crate) struct ResourceId(pub(crate) usize);
+// Resources
+slotmap::new_key_type! { pub struct ResourceId; }
 
 impl<S, T> Clone for Resource<S, T>
 where
@@ -283,7 +273,6 @@ where
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
-            scope: self.scope,
             id: self.id,
             source_ty: PhantomData,
             out_ty: PhantomData,

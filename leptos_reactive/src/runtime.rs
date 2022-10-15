@@ -1,29 +1,50 @@
 use crate::{
-    debug_warn, AnyEffect, AnySignal, EffectId, ResourceId, ResourceState, Scope, ScopeDisposer,
-    ScopeId, ScopeState, SignalId, SignalState, StreamingResourceId, Subscriber,
+    hydration::SharedContext, AnyEffect, AnyResource, Effect, EffectId, Memo, ReadSignal,
+    ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId, ScopeProperty, SignalId,
+    WriteSignal,
+};
+use serde::{de::DeserializeOwned, Serialize};
+use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
+use std::{
+    any::{Any, TypeId},
+    cell::{Cell, RefCell},
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    marker::PhantomData,
+    rc::Rc,
 };
 
-use slotmap::SlotMap;
-use std::cell::RefCell;
-use std::fmt::Debug;
-use std::rc::Rc;
-use thiserror::Error;
-
-use crate::hydration::SharedContext;
-
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub(crate) struct Runtime {
-    pub(crate) shared_context: RefCell<Option<SharedContext>>,
-    pub(crate) stack: RefCell<Vec<Subscriber>>,
-    pub(crate) scopes: RefCell<SlotMap<ScopeId, Rc<ScopeState>>>,
+    pub shared_context: RefCell<Option<SharedContext>>,
+    pub observer: Cell<Option<EffectId>>,
+    pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
+    pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
+    pub scope_children: RefCell<SparseSecondaryMap<ScopeId, RefCell<Vec<ScopeId>>>>,
+    #[allow(clippy::type_complexity)]
+    pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
+    pub signals: RefCell<SlotMap<SignalId, RefCell<Box<dyn Any>>>>,
+    pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
+    pub effects: RefCell<SlotMap<EffectId, Rc<RefCell<dyn AnyEffect>>>>,
+    pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
+    #[cfg(feature = "resource")]
+    pub resources: RefCell<SlotMap<ResourceId, Rc<dyn AnyResource>>>,
 }
 
-#[derive(Error, Debug)]
-pub(crate) enum ReactiveSystemErr {
-    #[error("tried to access a scope that had already been disposed: {0:?}")]
-    ScopeDisposed(ScopeId),
-    #[error("tried to access an error that was not available: {0:?} {1:?}")]
-    Effect(ScopeId, EffectId),
+impl Debug for Runtime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Runtime")
+            .field("shared_context", &self.shared_context)
+            .field("observer", &self.observer)
+            .field("scopes", &self.scopes)
+            .field("scope_parents", &self.scope_parents)
+            .field("scope_children", &self.scope_children)
+            .field("signals", &self.signals)
+            .field("signal_subscribers", &self.signal_subscribers)
+            .field("effects", &self.effects.borrow().len())
+            .field("effect_sources", &self.effect_sources)
+            .finish()
+    }
 }
 
 impl Runtime {
@@ -31,172 +52,108 @@ impl Runtime {
         Self::default()
     }
 
-    pub fn scope<T>(&self, id: ScopeId, f: impl FnOnce(&ScopeState) -> T) -> T {
-        let scope = { self.scopes.borrow().get(id).cloned() };
-        if let Some(scope) = scope {
-            (f)(&scope)
-        } else {
-            debug_warn!("(scope) couldn't locate {id:?}");
-            panic!("couldn't locate {id:?}");
-        }
-    }
-
-    pub fn try_scope<T>(
-        &self,
-        id: ScopeId,
-        f: impl FnOnce(&ScopeState) -> T,
-    ) -> Result<T, ReactiveSystemErr> {
-        let scope = { self.scopes.borrow().get(id).cloned() };
-        if let Some(scope) = scope {
-            Ok((f)(&scope))
-        } else {
-            debug_warn!("(scope) couldn't locate {id:?}");
-            Err(ReactiveSystemErr::ScopeDisposed(id))
-        }
-    }
-
-    pub fn any_effect<T>(&self, id: (ScopeId, EffectId), f: impl FnOnce(&dyn AnyEffect) -> T) -> T {
-        self.scope(id.0, |scope| {
-            if let Some(n) = scope.effects.get(id.1 .0) {
-                (f)(n)
-            } else {
-                debug_warn!("(any_effect) couldn't locate {id:?}");
-                panic!("couldn't locate {id:?}");
-            }
-        })
-    }
-
-    pub fn try_any_effect<T>(
-        &self,
-        id: (ScopeId, EffectId),
-        f: impl FnOnce(&dyn AnyEffect) -> T,
-    ) -> Result<Result<T, ReactiveSystemErr>, ReactiveSystemErr> {
-        self.try_scope(id.0, |scope| {
-            if let Some(n) = scope.effects.get(id.1 .0) {
-                Ok((f)(n))
-            } else {
-                debug_warn!("(try_any_effect) couldn't locate {id:?}");
-                Err(ReactiveSystemErr::Effect(id.0, id.1))
-            }
-        })
-    }
-
-    pub fn any_signal<T>(&self, id: (ScopeId, SignalId), f: impl FnOnce(&dyn AnySignal) -> T) -> T {
-        self.scope(id.0, |scope| {
-            if let Some(n) = scope.signals.get(id.1 .0) {
-                (f)(n)
-            } else {
-                debug_warn!("(any_signal) couldn't locate {id:?}");
-                panic!("couldn't locate {id:?}");
-            }
-        })
-    }
-
-    pub fn signal<T, U>(&self, id: (ScopeId, SignalId), f: impl FnOnce(&SignalState<T>) -> U) -> U
-    where
-        T: 'static,
-    {
-        self.any_signal(id, |n| {
-            if let Some(n) = n.as_any().downcast_ref::<SignalState<T>>() {
-                f(n)
-            } else {
-                panic!(
-                    "couldn't convert {id:?} to SignalState<{}>",
-                    std::any::type_name::<T>()
-                );
-            }
-        })
-    }
-
-    pub fn resource<S, T, U>(
-        &self,
-        id: (ScopeId, ResourceId),
-        f: impl FnOnce(&ResourceState<S, T>) -> U,
-    ) -> U
-    where
-        S: Debug + Clone + 'static,
-        T: Debug + Clone + 'static,
-    {
-        self.scope(id.0, |scope| {
-            if let Some(n) = scope.resources.get(id.1 .0) {
-                if let Some(n) = n.as_any().downcast_ref::<ResourceState<S, T>>() {
-                    f(n)
-                } else {
-                    panic!(
-                        "couldn't convert {id:?} to ResourceState<{}, {}>",
-                        std::any::type_name::<S>(),
-                        std::any::type_name::<T>(),
-                    );
-                }
-            } else {
-                panic!("couldn't locate {id:?}");
-            }
-        })
-    }
-
-    pub fn running_effect(&self) -> Option<Subscriber> {
-        self.stack.borrow().last().cloned()
-    }
-
-    pub fn create_scope(
-        &'static self,
-        f: impl FnOnce(Scope),
-        parent: Option<Scope>,
-    ) -> ScopeDisposer {
-        let id = {
-            self.scopes
-                .borrow_mut()
-                .insert(Rc::new(ScopeState::new(parent)))
-        };
-        let scope = Scope { runtime: self, id };
-        f(scope);
-
-        ScopeDisposer(Box::new(move || scope.dispose()))
-    }
-
-    pub fn run_scope<T>(&'static self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
-        let id = {
-            self.scopes
-                .borrow_mut()
-                .insert(Rc::new(ScopeState::new(parent)))
-        };
-        let scope = Scope { runtime: self, id };
-        let ret = f(scope);
-
-        scope.dispose();
-
-        ret
-    }
-
     pub fn run_scope_undisposed<T>(
         &'static self,
         f: impl FnOnce(Scope) -> T,
         parent: Option<Scope>,
     ) -> (T, ScopeDisposer) {
-        let id = {
-            self.scopes
-                .borrow_mut()
-                .insert(Rc::new(ScopeState::new(parent)))
-        };
+        let id = { self.scopes.borrow_mut().insert(Default::default()) };
+        if let Some(parent) = parent {
+            self.scope_parents.borrow_mut().insert(id, parent.id);
+        }
         let scope = Scope { runtime: self, id };
-        let ret = f(scope);
-
-        (ret, ScopeDisposer(Box::new(move || scope.dispose())))
+        let val = f(scope);
+        let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
+        (val, disposer)
     }
 
-    pub fn push_stack(&self, id: Subscriber) {
-        self.stack.borrow_mut().push(id);
+    pub fn run_scope<T>(&'static self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
+        let (ret, disposer) = self.run_scope_undisposed(f, parent);
+        disposer.dispose();
+        ret
     }
 
-    pub fn pop_stack(&self) {
-        self.stack.borrow_mut().pop();
+    pub(crate) fn create_signal<T>(&'static self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
+    where
+        T: Any + 'static,
+    {
+        let id = self
+            .signals
+            .borrow_mut()
+            .insert(RefCell::new(Box::new(value)));
+        (
+            ReadSignal {
+                runtime: self,
+                id,
+                ty: PhantomData,
+            },
+            WriteSignal {
+                runtime: self,
+                id,
+                ty: PhantomData,
+            },
+        )
     }
 
-    pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
-        let prev_stack = self.stack.replace(Vec::new());
-        let untracked_result = f();
-        self.stack.replace(prev_stack);
-        untracked_result
+    pub(crate) fn create_rw_signal<T>(&'static self, value: T) -> RwSignal<T>
+    where
+        T: Any + 'static,
+    {
+        let id = self
+            .signals
+            .borrow_mut()
+            .insert(RefCell::new(Box::new(value)));
+        RwSignal {
+            runtime: self,
+            id,
+            ty: PhantomData,
+        }
+    }
+
+    pub(crate) fn create_effect<T>(
+        &'static self,
+        f: impl FnMut(Option<T>) -> T + 'static,
+    ) -> EffectId
+    where
+        T: Any + 'static,
+    {
+        let effect = Effect { f, value: None };
+        let id = {
+            self.effects
+                .borrow_mut()
+                .insert(Rc::new(RefCell::new(effect)))
+        };
+        id.run::<T>(self);
+        id
+    }
+
+    pub(crate) fn create_memo<T>(
+        &'static self,
+        mut f: impl FnMut(Option<T>) -> T + 'static,
+    ) -> Memo<T>
+    where
+        T: Clone + PartialEq + Any + 'static,
+    {
+        let (read, write) = self.create_signal(None);
+
+        self.create_effect(move |prev| {
+            let new = { f(prev.clone()) };
+            if prev.as_ref() != Some(&new) {
+                write(Some(new.clone()));
+            }
+            new
+        });
+
+        Memo(read)
+    }
+
+    #[cfg(feature = "resource")]
+    pub(crate) fn create_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
+    where
+        S: Debug + Clone + 'static,
+        T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    {
+        self.resources.borrow_mut().insert(state)
     }
 
     #[cfg(feature = "hydrate")]
@@ -227,28 +184,48 @@ impl Runtime {
         }
     }
 
+    #[cfg(feature = "resource")]
+    pub(crate) fn resource<S, T, U>(
+        &self,
+        id: ResourceId,
+        f: impl FnOnce(&ResourceState<S, T>) -> U,
+    ) -> U
+    where
+        S: Debug + Clone + 'static,
+        T: Debug + Clone + 'static,
+    {
+        let resources = self.resources.borrow();
+        let res = resources.get(id);
+        if let Some(res) = res {
+            if let Some(n) = res.as_any().downcast_ref::<ResourceState<S, T>>() {
+                f(n)
+            } else {
+                panic!(
+                    "couldn't convert {id:?} to ResourceState<{}, {}>",
+                    std::any::type_name::<S>(),
+                    std::any::type_name::<T>(),
+                );
+            }
+        } else {
+            panic!("couldn't locate {id:?}");
+        }
+    }
+
     /// Returns IDs for all [Resource]s found on any scope.
-    pub(crate) fn all_resources(&self) -> Vec<StreamingResourceId> {
-        self.scopes
+    #[cfg(feature = "resource")]
+    pub(crate) fn all_resources(&self) -> Vec<ResourceId> {
+        self.resources
             .borrow()
             .iter()
-            .flat_map(|(scope_id, scope)| {
-                scope
-                    .resources
-                    .iter()
-                    .enumerate()
-                    .map(move |(resource_id, _)| {
-                        StreamingResourceId(scope_id, ResourceId(resource_id))
-                    })
-            })
+            .map(|(resource_id, _)| resource_id)
             .collect()
     }
 
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", feature = "resource"))]
     pub(crate) fn serialization_resolvers(
         &self,
     ) -> futures::stream::futures_unordered::FuturesUnordered<
-        std::pin::Pin<Box<dyn futures::Future<Output = (StreamingResourceId, String)>>>,
+        std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>,
     > {
         let f = futures::stream::futures_unordered::FuturesUnordered::new();
         for (id, resource) in self.scopes.borrow().iter().flat_map(|(scope_id, scope)| {
@@ -256,9 +233,7 @@ impl Runtime {
                 .resources
                 .iter()
                 .enumerate()
-                .map(move |(idx, resource)| {
-                    (StreamingResourceId(scope_id, ResourceId(idx)), resource)
-                })
+                .map(move |(idx, resource)| (idx, resource))
         }) {
             f.push(resource.to_serialization_resolver(id));
         }

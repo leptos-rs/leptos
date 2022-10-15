@@ -9,13 +9,15 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 readme = "../README.md"
 
 [dependencies]
-leptos_core = { path = "../leptos_core", version = "0.0.7" }
-leptos_dom = { path = "../leptos_dom", version = "0.0.7" }
+leptos_core = { path = "../leptos_core", version = "0.0.8" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.8" }
 leptos_macro = { path = "../leptos_macro", version = "0.0.7" }
-leptos_reactive = { path = "../leptos_reactive", version = "0.0.7" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.8" }
 
 [features]
+default = ["resource"]
 csr = ["leptos_core/csr", "leptos_macro/csr", "leptos_reactive/csr"]
 hydrate = ["leptos_core/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate"]
 ssr = ["leptos_core/ssr", "leptos_macro/ssr", "leptos_reactive/ssr"]
 transition = ["leptos_reactive/transition"]
+resource = ["leptos_reactive/resource"]

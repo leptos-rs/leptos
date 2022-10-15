@@ -1,6 +1,6 @@
 [package]
 name = "leptos_dom"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -9,7 +9,7 @@ description = "DOM operations for the Leptos web framework."
 
 [dependencies]
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive", version = "0.0.7" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.8" }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.31"
 wee_alloc = "0.4.5"
