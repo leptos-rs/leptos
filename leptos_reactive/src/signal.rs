@@ -306,6 +306,54 @@ where
     }
 }
 
+/// Creates a reactive signal with the getter and setter unified in one value.
+/// You may prefer this style, or it may be easier to pass around in a context
+/// or as a function argument.
+/// /// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// let count = create_rw_signal(cx, 0);
+///
+/// // ✅ set the value
+/// count.set(1);
+/// assert_eq!(count(), 1);
+///
+/// // ❌ don't try to call the getter within the setter
+/// // count.set(count.get() + 1);
+///
+/// // ✅ instead, use .update() to mutate the value in place
+/// count.update(|count: &mut i32| *count += 1);
+/// assert_eq!(count(), 2);
+/// # }).dispose();
+/// #
+/// ```
+pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
+    let s = cx.runtime.create_rw_signal(value);
+    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
+    s
+}
+
+/// A signal that combines the getter and setter into one value, rather than
+/// separating them into a [ReadSignal] and a [WriteSignal]. You may prefer this
+/// its style, or it may be easier to pass around in a context or as a function argument.
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// let count = create_rw_signal(cx, 0);
+///
+/// // ✅ set the value
+/// count.set(1);
+/// assert_eq!(count(), 1);
+///
+/// // ❌ don't try to call the getter within the setter
+/// // count.set(count.get() + 1);
+///
+/// // ✅ instead, use .update() to mutate the value in place
+/// count.update(|count: &mut i32| *count += 1);
+/// assert_eq!(count(), 2);
+/// # }).dispose();
+/// #
+/// ```
 #[derive(Copy, Clone)]
 pub struct RwSignal<T>
 where
@@ -337,6 +385,35 @@ where
 
     pub fn set(&self, value: T) {
         self.id.update(self.runtime, |n| *n = value)
+    }
+}
+
+impl<T> FnOnce<()> for RwSignal<T>
+where
+    T: Debug + Clone,
+{
+    type Output = T;
+
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+impl<T> FnMut<()> for RwSignal<T>
+where
+    T: Debug + Clone,
+{
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.get()
+    }
+}
+
+impl<T> Fn<()> for RwSignal<T>
+where
+    T: Debug + Clone,
+{
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.get()
     }
 }
 
