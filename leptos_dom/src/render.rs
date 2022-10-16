@@ -53,6 +53,7 @@ pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, valu
 }
 
 fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute) {
+    log::debug!("attribute_expression {attr_name} {value:#?}");
     match value {
         Attribute::String(value) => {
             if attr_name == "inner_html" {
@@ -61,10 +62,16 @@ fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute
                 set_attribute(el, attr_name, &value)
             }
         }
-        Attribute::Option(value) => match value {
-            Some(value) => set_attribute(el, attr_name, &value),
-            None => remove_attribute(el, attr_name),
-        },
+        Attribute::Option(value) => {
+            if attr_name == "inner_html" {
+                el.set_inner_html(&value.unwrap_or_default());
+            } else {
+                match value {
+                    Some(value) => set_attribute(el, attr_name, &value),
+                    None => remove_attribute(el, attr_name),
+                }
+            }
+        }
         Attribute::Bool(value) => {
             if value {
                 set_attribute(el, attr_name, attr_name);
