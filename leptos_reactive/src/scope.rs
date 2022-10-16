@@ -118,9 +118,9 @@ impl Scope {
                         self.runtime.effects.borrow_mut().remove(id);
                         self.runtime.effect_sources.borrow_mut().remove(id);
                     }
-                    /* ScopeProperty::Resource(id) => {
+                    ScopeProperty::Resource(id) => {
                         self.runtime.resources.borrow_mut().remove(id);
-                    } */
+                    }
                     ScopeProperty::Cleanup(f) => (f()),
                 }
             }
@@ -141,7 +141,7 @@ slotmap::new_key_type! { pub struct ScopeId; }
 pub(crate) enum ScopeProperty {
     Signal(SignalId),
     Effect(EffectId),
-    //Resource(ResourceId),
+    Resource(ResourceId),
     Cleanup(Box<dyn FnOnce()>),
 }
 
@@ -150,6 +150,7 @@ impl Debug for ScopeProperty {
         match self {
             Self::Signal(arg0) => f.debug_tuple("Signal").field(arg0).finish(),
             Self::Effect(arg0) => f.debug_tuple("Effect").field(arg0).finish(),
+            Self::Resource(arg0) => f.debug_tuple("Resource").field(arg0).finish(),
             Self::Cleanup(_) => f.debug_tuple("Cleanup").finish(),
         }
     }

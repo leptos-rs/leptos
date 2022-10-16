@@ -13,7 +13,8 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
-    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, SuspenseContext, WriteSignal,
+    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext,
+    WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -117,6 +118,8 @@ where
             load_resource(cx, id, r.clone());
         }
     });
+
+    cx.with_scope_property(|prop| prop.push(ScopeProperty::Resource(id)));
 
     Resource {
         runtime: cx.runtime,
