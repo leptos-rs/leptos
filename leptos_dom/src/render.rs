@@ -53,7 +53,6 @@ pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, valu
 }
 
 fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute) {
-    log::debug!("attribute_expression {attr_name} {value:#?}");
     match value {
         Attribute::String(value) => {
             if attr_name == "inner_html" {
