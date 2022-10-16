@@ -68,13 +68,10 @@ impl History for BrowserIntegration {
                     Ok(_) => log::debug!("navigated"),
                     Err(e) => log::error!("{e:#?}"),
                 };
-                set_location.update(|change| *change = Self::current());
+                set_location(Self::current());
             } else {
                 log::debug!("RouterContext not found");
             }
-
-            //Self::navigate(&Self {}, &Self::current());
-            //set_location.update(|change| *change = Self::current());
         });
 
         location

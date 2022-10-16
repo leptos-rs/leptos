@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::{collections::HashMap, future::Future, pin::Pin};
 
 #[cfg(any(feature = "hydrate"))]
-use crate::{Scope, StreamingResourceId};
+use crate::{ResourceId, Scope};
 
 #[derive(Default)]
 pub struct SharedContext {
@@ -16,9 +16,9 @@ pub struct SharedContext {
     #[cfg(feature = "hydrate")]
     pub registry: HashMap<String, web_sys::Element>,
     #[cfg(feature = "hydrate")]
-    pub pending_resources: HashSet<StreamingResourceId>,
+    pub pending_resources: HashSet<ResourceId>,
     #[cfg(feature = "hydrate")]
-    pub resolved_resources: HashMap<StreamingResourceId, String>,
+    pub resolved_resources: HashMap<ResourceId, String>,
     #[cfg(feature = "ssr")]
     pub pending_fragments: HashMap<String, Pin<Box<dyn Future<Output = String>>>>,
 }
@@ -64,7 +64,7 @@ impl SharedContext {
             &web_sys::window().unwrap(),
             &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
         );
-        let pending_resources: HashSet<StreamingResourceId> = pending_resources
+        let pending_resources: HashSet<ResourceId> = pending_resources
             .map_err(|_| ())
             .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
             .unwrap_or_default();
@@ -75,15 +75,8 @@ impl SharedContext {
         )
         .unwrap_or(wasm_bindgen::JsValue::NULL);
 
-        let resolved_resources = match serde_wasm_bindgen::from_value(resolved_resources) {
-            Ok(v) => v,
-            Err(e) => {
-                log::debug!(
-                    "(create_resource) error deserializing __LEPTOS_RESOLVED_RESOURCES\n\n{e}"
-                );
-                HashMap::default()
-            }
-        };
+        let resolved_resources =
+            serde_wasm_bindgen::from_value(resolved_resources).unwrap_or_default();
 
         Self {
             completed: Default::default(),

@@ -23,7 +23,7 @@ pub(crate) struct Runtime {
     pub scope_children: RefCell<SparseSecondaryMap<ScopeId, RefCell<Vec<ScopeId>>>>,
     #[allow(clippy::type_complexity)]
     pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
-    pub signals: RefCell<SlotMap<SignalId, RefCell<Box<dyn Any>>>>,
+    pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
     pub effects: RefCell<SlotMap<EffectId, Rc<RefCell<dyn AnyEffect>>>>,
     pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
@@ -80,7 +80,7 @@ impl Runtime {
         let id = self
             .signals
             .borrow_mut()
-            .insert(RefCell::new(Box::new(value)));
+            .insert(Rc::new(RefCell::new(value)));
         (
             ReadSignal {
                 runtime: self,
@@ -102,7 +102,7 @@ impl Runtime {
         let id = self
             .signals
             .borrow_mut()
-            .insert(RefCell::new(Box::new(value)));
+            .insert(Rc::new(RefCell::new(value)));
         RwSignal {
             runtime: self,
             id,
@@ -135,9 +135,9 @@ impl Runtime {
         T: Clone + PartialEq + Any + 'static,
     {
         let (read, write) = self.create_signal(None);
-
         self.create_effect(move |prev| {
             let new = { f(prev.clone()) };
+
             if prev.as_ref() != Some(&new) {
                 write(Some(new.clone()));
             }
@@ -228,13 +228,7 @@ impl Runtime {
         std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>,
     > {
         let f = futures::stream::futures_unordered::FuturesUnordered::new();
-        for (id, resource) in self.scopes.borrow().iter().flat_map(|(scope_id, scope)| {
-            scope
-                .resources
-                .iter()
-                .enumerate()
-                .map(move |(idx, resource)| (idx, resource))
-        }) {
+        for (id, resource) in self.resources.borrow().iter() {
             f.push(resource.to_serialization_resolver(id));
         }
         f

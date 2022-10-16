@@ -122,17 +122,8 @@ impl RouterContext {
             let LocationChange { value, state, .. } = source();
             cx.untrack(move || {
                 if value != reference() {
-                    #[cfg(feature = "transition")]
-                    transition.start(move || {
-                        set_reference.update(move |r| *r = value.clone());
-                        set_state.update(move |s| *s = state.clone());
-                    });
-
-                    #[cfg(not(feature = "transition"))]
-                    {
-                        set_reference.update(move |r| *r = value.clone());
-                        set_state.update(move |s| *s = state.clone());
-                    }
+                    set_reference.update(move |r| *r = value);
+                    set_state.update(move |s| *s = state);
                 }
             });
         });

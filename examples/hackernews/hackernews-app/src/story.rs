@@ -26,7 +26,6 @@ pub fn Story(cx: Scope) -> Element {
                             "("{story.domain}")"
                         </span>
                         {story.user.map(|user| view! { cx,  <p class="meta">
-                            // TODO issue here in renderer
                             {story.points}
                             " points | by "
                             <A href=format!("/users/{}", user)>{user.clone()}</A>

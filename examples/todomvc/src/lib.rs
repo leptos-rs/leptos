@@ -136,7 +136,8 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
             let title = event_target_value(&ev);
             let title = title.trim();
             if !title.is_empty() {
-                set_todos.update(|t| t.add(Todo::new(cx, next_id, title.to_string())));
+                let new = Todo::new(cx, next_id, title.to_string());
+                set_todos.update(|t| t.add(new));
                 next_id += 1;
                 target.set_value("");
             }
@@ -288,6 +289,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         </li>
     };
 
+    #[cfg(not(feature = "ssr"))]
     create_effect(cx, move |_| {
         if editing() {
             _ = input.unchecked_ref::<HtmlInputElement>().focus();

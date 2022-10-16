@@ -57,7 +57,7 @@ pub fn run_scope_undisposed<T>(f: impl FnOnce(Scope) -> T + 'static) -> (T, Scop
 ///
 /// Every other function in this crate takes a `Scope` as its first argument. Since `Scope`
 /// is [Copy] and `'static` this does not add much overhead or lifetime complexity.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scope {
     pub(crate) runtime: &'static Runtime,
     pub(crate) id: ScopeId,
@@ -312,7 +312,7 @@ impl Scope {
     pub fn serialization_resolvers(
         &self,
     ) -> futures::stream::futures_unordered::FuturesUnordered<
-        std::pin::Pin<Box<dyn futures::Future<Output = (StreamingResourceId, String)>>>,
+        std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>,
     > {
         self.runtime.serialization_resolvers()
     }
@@ -343,10 +343,7 @@ impl Scope {
             create_isomorphic_effect(*self, move |fut| {
                 let pending = context.pending_resources.get();
                 if pending == 0 {
-                    log::debug!("\n\n\npending_resources.get() == 0");
                     tx.try_send(());
-                } else {
-                    log::debug!("\n\n\npending_resources.get() == {pending}");
                 }
             });
 

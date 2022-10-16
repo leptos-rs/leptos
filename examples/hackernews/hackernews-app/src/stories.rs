@@ -61,26 +61,30 @@ pub fn Stories(cx: Scope) -> Element {
 
     let hide_more_link = move || stories.read().unwrap_or(Err(())).unwrap_or_default().len() < 28;
 
-    view! { cx,
+    view! {
+        cx,
         <div class="news-view">
             <div class="news-list-nav">
-                {move || if page() > 1 {
-                    view! {
-                        cx,
-                        <a class="page-link"
-                            href=move || format!("/{}?page={}", story_type(), page() - 1)
-                            attr:aria_label="Previous Page"
-                        >
-                            "< prev"
-                        </a>
-                    }
-                } else {
-                    view! { cx,
-                        <span class="page-link disabled" aria-hidden="true">
-                            "< prev"
-                        </span>
-                    }
-                }}
+                <span>
+                    {move || if page() > 1 {
+                        view! {
+                            cx,
+                            <a class="page-link"
+                                href=move || format!("/{}?page={}", story_type(), page() - 1)
+                                attr:aria_label="Previous Page"
+                            >
+                                "< prev"
+                            </a>
+                        }
+                    } else {
+                        view! {
+                            cx,
+                            <span class="page-link disabled" aria-hidden="true">
+                                "< prev"
+                            </span>
+                        }
+                    }}
+                </span>
                 <span>"page " {page}</span>
                 <span class="page-link"
                     class:disabled=hide_more_link

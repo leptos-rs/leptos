@@ -357,10 +357,12 @@ impl SignalId {
         }
 
         // get the value
-        let value = runtime.signals.borrow();
-        let value = value
-            .get(*self)
-            .unwrap_or_else(|| panic!("tried to access a signal that has been disposed: {self:?}"));
+        let value = {
+            let signals = runtime.signals.borrow();
+            signals.get(*self).cloned().unwrap_or_else(|| {
+                panic!("tried to access a signal that has been disposed: {self:?}")
+            })
+        };
         let value = value.borrow();
         let value = value.downcast_ref::<T>().unwrap_or_else(|| {
             panic!(
@@ -378,10 +380,12 @@ impl SignalId {
     {
         // update the value
         {
-            let value = runtime.signals.borrow();
-            let value = value.get(*self).unwrap_or_else(|| {
-                panic!("tried to access a signal that has been disposed: {self:?}")
-            });
+            let value = {
+                let signals = runtime.signals.borrow();
+                signals.get(*self).cloned().unwrap_or_else(|| {
+                    panic!("tried to access a signal that has been disposed: {self:?}")
+                })
+            };
             let mut value = value.borrow_mut();
             let value = value.downcast_mut::<T>().unwrap_or_else(|| {
                 panic!(

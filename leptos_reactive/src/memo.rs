@@ -61,6 +61,7 @@ where
     cx.runtime.create_memo(f)
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Memo<T>(pub(crate) ReadSignal<Option<T>>)
 where
     T: 'static;

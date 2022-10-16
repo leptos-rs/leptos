@@ -1,6 +1,6 @@
 use crate::ParamsMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Url {
     pub origin: String,
     pub pathname: String,
