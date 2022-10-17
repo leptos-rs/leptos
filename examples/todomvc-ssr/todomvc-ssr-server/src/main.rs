@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use actix_files::{Directory, Files, NamedFile};
 use actix_web::*;
 use leptos::*;

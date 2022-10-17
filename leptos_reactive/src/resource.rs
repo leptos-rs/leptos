@@ -163,7 +163,6 @@ where
             r.trigger.update(|n| *n += 1);
 
             let resolve = {
-                let runtime = cx.runtime;
                 let resolved = r.resolved.clone();
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
@@ -184,7 +183,7 @@ where
             )
             .unwrap();
             let id = serde_json::to_string(&id).unwrap();
-            js_sys::Reflect::set(
+            _ = js_sys::Reflect::set(
                 &resource_resolvers,
                 &wasm_bindgen::JsValue::from_str(&id),
                 resolve.as_ref().unchecked_ref(),

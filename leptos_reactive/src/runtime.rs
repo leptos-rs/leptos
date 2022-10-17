@@ -158,7 +158,6 @@ impl Runtime {
 
     #[cfg(feature = "hydrate")]
     pub fn start_hydration(&self, element: &web_sys::Element) {
-        use std::collections::HashMap;
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
         // gather hydratable elements

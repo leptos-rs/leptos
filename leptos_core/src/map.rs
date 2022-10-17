@@ -1,7 +1,4 @@
-use leptos_reactive::{
-    create_effect, create_memo, create_signal, queue_microtask, Memo, ReadSignal, Scope,
-    ScopeDisposer,
-};
+use leptos_reactive::{create_memo, queue_microtask, Memo, Scope, ScopeDisposer};
 use std::{collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy

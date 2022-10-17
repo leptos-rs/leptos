@@ -1,4 +1,4 @@
-use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope};
+use crate::{ReadSignal, Scope};
 use std::fmt::Debug;
 
 /// Creates an efficient derived reactive value based on other reactive values.

@@ -1,17 +1,9 @@
-use crate::{
-    hydration::SharedContext, AnyEffect, AnyResource, EffectId, ResourceId, ResourceState, Runtime,
-    SignalId,
-};
-use serde::{de::DeserializeOwned, Serialize};
-use std::{
-    any::{Any, TypeId},
-    cell::RefCell,
-    collections::HashMap,
-    fmt::Debug,
-    rc::Rc,
-};
 #[cfg(feature = "ssr")]
-use std::{future::Future, pin::Pin};
+use crate::SuspenseContext;
+use crate::{hydration::SharedContext, EffectId, ResourceId, Runtime, SignalId};
+use std::fmt::Debug;
+#[cfg(feature = "ssr")]
+use std::{collections::HashMap, future::Future, pin::Pin};
 
 #[must_use = "Scope will leak memory if the disposer function is never called"]
 /// Creates a child reactive scope and runs the function within it. This is useful for applications
@@ -331,20 +323,20 @@ impl Scope {
     #[cfg(feature = "ssr")]
     pub fn register_suspense(
         &self,
-        context: crate::SuspenseContext,
+        context: SuspenseContext,
         key: &str,
         resolver: impl FnOnce() -> String + 'static,
     ) {
-        use crate::{create_isomorphic_effect, SuspenseContext};
-        use futures::{future::join_all, FutureExt, StreamExt};
+        use crate::create_isomorphic_effect;
+        use futures::StreamExt;
 
         if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
             let (mut tx, mut rx) = futures::channel::mpsc::channel::<()>(1);
 
-            create_isomorphic_effect(*self, move |fut| {
+            create_isomorphic_effect(*self, move |_| {
                 let pending = context.pending_resources.get();
                 if pending == 0 {
-                    tx.try_send(());
+                    _ = tx.try_send(());
                 }
             });
 

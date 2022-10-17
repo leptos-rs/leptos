@@ -30,7 +30,6 @@ where
         children,
     } = props;
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
     let on_submit = move |ev: web_sys::Event| {
         if ev.default_prevented() {
             return;
@@ -142,7 +141,7 @@ where
 
     let children = children().into_vec();
 
-    view! { cx, 
+    view! { cx,
         <form
             method=method
             action=action

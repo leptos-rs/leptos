@@ -184,7 +184,7 @@ pub fn insert(
 }
 
 pub fn insert_expression(
-    cx: Scope,
+    _cx: Scope,
     parent: web_sys::Element,
     new_value: &Child,
     mut current: Child,
@@ -433,7 +433,7 @@ fn clean_children(
     }
 }
 
-fn child_nodes(parent: &web_sys::Element) -> Vec<web_sys::Node> {
+/* fn child_nodes(parent: &web_sys::Element) -> Vec<web_sys::Node> {
     let children = parent.children();
     let mut nodes = Vec::new();
     for idx in 0..children.length() {
@@ -443,3 +443,4 @@ fn child_nodes(parent: &web_sys::Element) -> Vec<web_sys::Node> {
     }
     nodes
 }
+ */

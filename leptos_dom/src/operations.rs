@@ -238,6 +238,11 @@ pub fn add_event_listener(
     event_delegation::add_event_listener(event_name);
 }
 
+#[inline(always)]
+pub fn ssr_event_listener(_cb: impl FnMut(web_sys::Event) + 'static) {
+    // this function exists only for type inference in templates for SSR
+}
+
 pub fn window_event_listener(event_name: &str, cb: impl Fn(web_sys::Event) + 'static) {
     if !is_server!() {
         let handler = Box::new(cb) as Box<dyn FnMut(web_sys::Event)>;

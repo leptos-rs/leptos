@@ -1,6 +1,6 @@
 use leptos_dom::Element;
 use leptos_macro::*;
-use leptos_reactive::{create_effect, Memo, ReadSignal, Scope};
+use leptos_reactive::{Memo, Scope};
 use std::fmt::Debug;
 use std::hash::Hash;
 

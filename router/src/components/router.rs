@@ -12,11 +12,12 @@ use wasm_bindgen::JsCast;
 use leptos_reactive::use_transition;
 
 use crate::{
-    create_location,
-    matching::{get_route_matches, resolve_path, Branch, RouteMatch},
-    unescape, History, Location, LocationChange, RouteContext, RouterIntegrationContext, State,
-    Url,
+    create_location, matching::resolve_path, History, Location, LocationChange, RouteContext,
+    RouterIntegrationContext, State,
 };
+
+#[cfg(not(feature = "ssr"))]
+use crate::{unescape, Url};
 
 #[derive(TypedBuilder)]
 pub struct RouterProps {

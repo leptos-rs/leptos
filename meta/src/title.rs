@@ -1,9 +1,10 @@
-use crate::{use_head, MetaContext, TextProp};
+use crate::{use_head, TextProp};
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Default)]
 pub struct TitleContext {
+    #[cfg(not(feature = "ssr"))]
     el: Rc<RefCell<Option<web_sys::HtmlTitleElement>>>,
     formatter: Rc<RefCell<Option<Formatter>>>,
     text: Rc<RefCell<Option<TextProp>>>,

@@ -125,7 +125,7 @@ impl ToTokens for InlinePropsBody {
             quote! { #[derive(Props, PartialEq, Eq)] }
         }; */
 
-        let (scope_lifetime, fn_generics, struct_generics) = if let Some(lt) = first_lifetime {
+        let (_scope_lifetime, fn_generics, struct_generics) = if let Some(lt) = first_lifetime {
             let struct_generics: Punctuated<_, token::Comma> = generics
                 .params
                 .iter()

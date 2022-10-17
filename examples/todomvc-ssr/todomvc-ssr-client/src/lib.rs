@@ -8,7 +8,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
 pub fn main() {
-    console_log::init_with_level(log::Level::Debug);
+    _ = console_log::init_with_level(log::Level::Debug);
     log::debug!("initialized logging");
 
     leptos::hydrate(body().unwrap(), |cx| {

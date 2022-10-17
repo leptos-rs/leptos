@@ -1,4 +1,4 @@
-use crate::{use_head, MetaContext};
+use crate::use_head;
 use leptos::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 

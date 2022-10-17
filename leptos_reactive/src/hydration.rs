@@ -1,10 +1,11 @@
-#[cfg(any(feature = "hydrate"))]
-use std::collections::{HashMap, HashSet};
-#[cfg(any(feature = "ssr"))]
-use std::{collections::HashMap, future::Future, pin::Pin};
+use std::collections::HashMap;
+#[cfg(feature = "hydrate")]
+use std::collections::HashSet;
+#[cfg(feature = "ssr")]
+use std::{future::Future, pin::Pin};
 
 #[cfg(any(feature = "hydrate"))]
-use crate::{ResourceId, Scope};
+use crate::ResourceId;
 
 #[derive(Default)]
 pub struct SharedContext {

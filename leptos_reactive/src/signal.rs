@@ -1,5 +1,4 @@
-use crate::{Runtime, Scope, ScopeId, ScopeProperty};
-use serde::{Deserialize, Serialize};
+use crate::{Runtime, Scope, ScopeProperty};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Creates a signal, the basic reactive primitive.

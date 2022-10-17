@@ -1,12 +1,11 @@
 use actix_files::{Files, NamedFile};
 use actix_web::*;
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::StreamExt;
 use hackernews_app::*;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug)]
 struct ActixIntegration {
@@ -27,7 +26,7 @@ impl History for ActixIntegration {
         .0
     }
 
-    fn navigate(&self, loc: &LocationChange) {}
+    fn navigate(&self, _loc: &LocationChange) {}
 }
 
 #[get("/static/style.css")]

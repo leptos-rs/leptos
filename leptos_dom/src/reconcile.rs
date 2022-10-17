@@ -66,7 +66,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
             // Remove.
             for node in &a[a_start..a_end] {
                 if map.is_none() || !map.as_ref().unwrap().contains_key(&NodeWrapper(node)) {
-                    parent.remove_child(node);
+                    _ = parent.remove_child(node);
                 }
             }
             a_start = a_end;
@@ -122,7 +122,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
                             b_start += 1;
                         }
                     } else {
-                        parent.replace_child(&a[a_start], &b[b_start]);
+                        _ = parent.replace_child(&a[a_start], &b[b_start]);
                         a_start += 1;
                         b_start += 1;
                     }
@@ -130,7 +130,7 @@ pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &
                     a_start += 1;
                 }
             } else {
-                parent.remove_child(&a[a_start]);
+                _ = parent.remove_child(&a[a_start]);
                 a_start += 1;
             }
         }

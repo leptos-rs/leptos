@@ -42,12 +42,18 @@ use std::fmt::Debug;
 /// # assert_eq!(b(), 2);
 /// # }).dispose();
 /// ```
+#[cfg(not(feature = "ssr"))]
 pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
-    #[cfg(not(feature = "ssr"))]
     create_isomorphic_effect(cx, f);
+}
+#[cfg(feature = "ssr")]
+pub fn create_effect<T>(_cx: Scope, _f: impl FnMut(Option<T>) -> T + 'static)
+where
+    T: Debug + 'static,
+{
 }
 
 /// Creates an effect; unlike effects created by [create_effect], isomorphic effects will run on

@@ -108,7 +108,7 @@ fn root_element_to_tokens(
                     },
                     // for hydration, use get_next_element(), which will either draw from an SSRed node or clone the template
                     Mode::Hydrate => {
-                        let name = node.name_as_string().unwrap();
+                        //let name = node.name_as_string().unwrap();
                         quote! {
                             let root = #template_uid.with(|template| #cx.get_next_element(template));
                             // //log::debug!("root = {}", root.node_name());
@@ -152,7 +152,7 @@ fn root_element_to_tokens(
 #[derive(Clone, Debug)]
 enum PrevSibChange {
     Sib(Ident),
-    Parent,
+    //Parent,
     Skip,
 }
 
@@ -349,7 +349,7 @@ fn element_to_tokens(
 
         prev_sib = match curr_id {
             PrevSibChange::Sib(id) => Some(id),
-            PrevSibChange::Parent => None,
+            //PrevSibChange::Parent => None,
             PrevSibChange::Skip => prev_sib,
         };
     }
@@ -457,14 +457,21 @@ fn attr_to_tokens(
     }
     // Event Handlers
     else if name.starts_with("on:") {
-        if mode != Mode::Ssr {
-            let event_name = name.replacen("on:", "", 1);
-            let handler = node
+                    let handler = node
                 .value
                 .as_ref()
                 .expect("event listener attributes need a value");
+
+        if mode != Mode::Ssr {
+            let event_name = name.replacen("on:", "", 1);
             expressions.push(quote_spanned! {
                 span => add_event_listener(#el_id.unchecked_ref(), #event_name, #handler);
+            });
+        } else {
+            // this is here to avoid warnings about unused signals
+            // that are used in event listeners. I'm open to better solutions.
+            expressions.push(quote_spanned! {
+                span => let _  = ssr_event_listener(#handler);
             });
         }
     }
@@ -556,7 +563,7 @@ fn child_to_tokens(
     node: &Node,
     parent: &Ident,
     prev_sib: Option<Ident>,
-    mut next_sib: Option<Ident>,
+    next_sib: Option<Ident>,
     next_el_id: &mut usize,
     next_co_id: &mut usize,
     template: &mut String,
@@ -609,7 +616,7 @@ fn child_to_tokens(
                 },
                 _ => None,
             });
-            let mut current: Option<Ident> = None;
+            let current: Option<Ident> = None;
 
             // code to navigate to this text node
             let span = node
@@ -687,7 +694,7 @@ fn child_to_tokens(
                         let el = child_ident(*next_el_id, node);
                         *next_co_id += 1;
                         let co = comment_ident(*next_co_id, node);
-                        next_sib = Some(el.clone());
+                        //next_sib = Some(el.clone());
 
                         template.push_str("<!#><!/>");
                         navigations.push(quote! {
@@ -706,7 +713,7 @@ fn child_to_tokens(
                             );
                         });
 
-                        current = Some(el);
+                        //current = Some(el);
                     }
                     // in SSR, it needs to insert the value, wrapped in comments
                     Mode::Ssr => expressions.push(quote::quote_spanned! {
@@ -729,7 +736,7 @@ fn component_to_tokens(
     node: &Node,
     parent: Option<&Ident>,
     prev_sib: Option<Ident>,
-    mut next_sib: Option<Ident>,
+    next_sib: Option<Ident>,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
@@ -764,12 +771,12 @@ fn component_to_tokens(
 
             });
         } else if mode == Mode::Hydrate {
-            let name = child_ident(*next_el_id, node);
+            //let name = child_ident(*next_el_id, node);
             *next_el_id += 1;
             let el = child_ident(*next_el_id, node);
             *next_co_id += 1;
             let co = comment_ident(*next_co_id, node);
-            next_sib = Some(el.clone());
+            //next_sib = Some(el.clone());
 
             let starts_at = if let Some(prev_sib) = prev_sib {
                 quote::quote! {{
@@ -958,10 +965,10 @@ fn debug_name(node: &Node) -> String {
     })
 }
 
-fn span(node: &Node) -> Span {
+/* fn span(node: &Node) -> Span {
     node.name_span()
         .unwrap_or_else(|| node.value.as_ref().unwrap().span())
-}
+} */
 
 fn child_ident(el_id: usize, node: &Node) -> Ident {
     let id = format!("_el{el_id}");

@@ -1,7 +1,7 @@
 use crate as leptos;
-use leptos_dom::{Child, IntoAttribute, IntoChild};
+use leptos_dom::{Child, IntoChild};
 use leptos_macro::Props;
-use leptos_reactive::{debug_warn, provide_context, Scope, SuspenseContext};
+use leptos_reactive::{provide_context, Scope, SuspenseContext};
 
 #[derive(Props)]
 pub struct SuspenseProps<F, E, G>
@@ -102,7 +102,7 @@ where
             });
 
             // return the fallback for now, wrapped in fragment identifer
-            Child::Node(view! { cx, <div data-fragment-id={key}>{fallback.into_child(cx)}</div> })
+            Child::Node(view! { cx, <div data-fragment-id=key>{fallback.into_child(cx)}</div> })
         }
     };
     move || initial.clone()

@@ -173,7 +173,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
                 .map(TodoSerialized::from)
                 .collect::<Vec<_>>();
             let json = json::to_string(&objs);
-            if let Err(e) = storage.set_item(STORAGE_KEY, &json) {
+            if storage.set_item(STORAGE_KEY, &json).is_err() {
                 log::error!("error while trying to set item in localStorage");
             }
         }
@@ -189,12 +189,12 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
                 <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
                     <input id="toggle-all" class="toggle-all" type="checkbox"
                         prop:checked={move || todos.with(|t| t.remaining() > 0)}
-                        on:input={move |_| set_todos.update(|t| t.toggle_all())}
+                        on:input=move |_| set_todos.update(|t| t.toggle_all())
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
-                        <For each={filtered_todos} key={|todo| todo.id}>
-                            {move |cx, todo: &Todo| view! { cx,  <Todo todo={todo.clone()} /> }}
+                        <For each=filtered_todos key=|todo| todo.id>
+                            {move |cx, todo: &Todo| view! { cx,  <Todo todo=todo.clone() /> }}
                         </For>
                     </ul>
                 </section>
@@ -216,7 +216,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
                     <button
                         class="clear-completed hidden"
                         class:hidden={move || todos.with(|t| t.completed() == 0)}
-                        on:click={move |_| set_todos.update(|t| t.clear_completed())}
+                        on:click=move |_| set_todos.update(|t| t.clear_completed())
                     >
                         "Clear completed"
                     </button>
@@ -264,10 +264,10 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                         (todo.set_completed)(checked);
                     }}
                 />
-                <label on:dblclick={move |_| set_editing(true)}>
+                <label on:dblclick=move |_| set_editing(true)>
                     {move || todo.title.get()}
                 </label>
-                <button class="destroy" on:click={move |_| set_todos.update(|t| t.remove(todo.id))}/>
+                <button class="destroy" on:click=move |_| set_todos.update(|t| t.remove(todo.id))/>
             </div>
             {move || editing().then(|| view! { cx,
                 <input

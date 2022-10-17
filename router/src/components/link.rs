@@ -1,6 +1,8 @@
 use leptos::leptos_dom::IntoChild;
 use leptos::*;
 use typed_builder::TypedBuilder;
+
+#[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
 
 use crate::{use_location, use_resolved_path, State};
@@ -87,7 +89,7 @@ where
     }
     let child = children.remove(0);
 
-    view! { cx, 
+    view! { cx,
         <a
             href=move || href().unwrap_or_default()
             prop:state={props.state.map(|s| s.to_js_value())}
