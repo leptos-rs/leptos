@@ -81,6 +81,7 @@ where
     E: IntoChild,
     G: Fn() -> E + 'static,
 {
+    use leptos_dom::IntoAttribute;
     use leptos_macro::view;
 
     let initial = {
