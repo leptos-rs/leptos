@@ -4,6 +4,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
 [![docs.rs](https://docs.rs/leptos/badge.svg)](https://docs.rs/leptos)
+[Discord](https://discord.gg/wkwyyzGGj5)
 
 # Leptos
 
