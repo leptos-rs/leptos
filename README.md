@@ -64,6 +64,10 @@ Here are some resources for learning more about Leptos:
 
 ## FAQs
 
+### Is it fast?
+
+The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). I'm waiting for the next round of official results before making claims about performance here, but the unofficial results (which you can see if you check out `master` from the benchmark repo and open the results page) have Leptos as the fastest Rust/Wasm framework, on this benchmark.
+
 ### How is this different from Yew/Dioxus?
 
 On the surface level, these libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Dioxus is similar in many ways, being heavily inspired by React. Here are some conceptual differences between Leptos and these frameworks:
