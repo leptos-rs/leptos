@@ -537,7 +537,7 @@ fn attr_to_tokens(
             (AttributeValue::Dynamic(value), Mode::Ssr) => {
                 expressions.push(quote_spanned! {
                     span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(&leptos_dom::escape_attr(&{#value}.into_attribute(#cx).as_value_string(#name)));
+                            leptos_buffer.push_str(&{#value}.into_attribute(#cx).as_value_string(#name));
                 });
             }
             (AttributeValue::Dynamic(value), _) => {
