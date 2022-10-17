@@ -1,7 +1,8 @@
-use crate::Element;
 use std::{cell::RefCell, rc::Rc};
 
-use leptos_reactive::{Memo, ReadSignal, RwSignal, Scope};
+use leptos_reactive::Scope;
+#[cfg(feature = "stable")]
+use leptos_reactive::{Memo, ReadSignal, RwSignal};
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::JsCast;
@@ -133,21 +134,21 @@ impl IntoChild for Vec<web_sys::Element> {
 }
 
 #[cfg(feature = "stable")]
-impl IntoChild for Memo<Vec<Element>> {
+impl IntoChild for Memo<Vec<web_sys::Element>> {
     fn into_child(self, cx: Scope) -> Child {
         (move || self.get()).into_child(cx)
     }
 }
 
 #[cfg(feature = "stable")]
-impl IntoChild for ReadSignal<Vec<Element>> {
+impl IntoChild for ReadSignal<Vec<web_sys::Element>> {
     fn into_child(self, cx: Scope) -> Child {
         (move || self.get()).into_child(cx)
     }
 }
 
 #[cfg(feature = "stable")]
-impl IntoChild for RwSignal<Vec<Element>> {
+impl IntoChild for RwSignal<Vec<web_sys::Element>> {
     fn into_child(self, cx: Scope) -> Child {
         (move || self.get()).into_child(cx)
     }
