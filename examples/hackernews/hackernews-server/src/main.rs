@@ -88,101 +88,34 @@ async fn render_app(req: HttpRequest) -> impl Responder {
         _ => {
             log::debug!("GET {path}");
 
-            let ((head, shell, pending_resources, pending_fragments, serializers), disposer) =
-                run_scope_undisposed({
-                    move |cx| {
+            let head = r#"<!DOCTYPE html>
+            <html lang="en">
+                <head>
+                    <meta charset="utf-8"/>
+                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                    <script type="module">import init, { main } from '/pkg/hackernews_client.js'; init().then(main);</script>"#;
+            let tail = "</body></html>";
+
+            HttpResponse::Ok().content_type("text/html").streaming(
+                futures::stream::once(async { head.to_string() })
+                    .chain(render_to_stream(move |cx| {
                         let integration = ActixIntegration {
-                            path: create_signal(cx, path).0,
+                            path: create_signal(cx, path.clone()).0,
                         };
                         provide_context(
                             cx,
                             RouterIntegrationContext(std::rc::Rc::new(integration)),
                         );
 
-                        // the actual app body/template code
-                        // this does NOT contain any of the data being loaded asynchronously in resources
-                        let shell = view! { cx, <App/> };
-
-                        let mut head = String::from(
-                            r#"<!DOCTYPE html>
-            <html lang="en">
-                <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <script type="module">import init, { main } from '/pkg/hackernews_client.js'; init().then(main);</script>"#,
-                        );
-
-                        if let Some(meta) = use_context::<MetaContext>(cx) {
-                            head.push_str(&meta.dehydrate());
-                        }
-                        head.push_str("</head><body>");
-
-                        let resources = cx.all_resources();
-                        let pending_resources = serde_json::to_string(&resources).unwrap();
-
-                        (
-                            head,
-                            shell,
-                            pending_resources,
-                            cx.pending_fragments(),
-                            cx.serialization_resolvers(),
-                        )
-                    }
-                });
-
-            let fragments = FuturesUnordered::new();
-            for (fragment_id, fut) in pending_fragments {
-                fragments.push(async move { (fragment_id, fut.await) })
-            }
-
-            HttpResponse::Ok().content_type("text/html").streaming(
-                futures::stream::once(async move {
-                    format!(
-                        r#"
-                {head}
-                {shell}
-                <script>
-                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
-                    __LEPTOS_RESOLVED_RESOURCES = new Map();
-                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
-                </script>
-            "#
-                    )
-                })
-                .chain(fragments.map(|(fragment_id, html)| {
-                    format!(
-                        r#"
-                <template id="{fragment_id}">{html}</template>
-                <script>
-                    var frag = document.querySelector(`[data-fragment-id="{fragment_id}"]`);
-                    var tpl = document.getElementById("{fragment_id}");
-                    console.log("replace", frag, "with", tpl.content.cloneNode(true));
-                    frag.replaceWith(tpl.content.cloneNode(true));
-                </script>
-                "#
-                    )
-                }))
-                .chain(serializers.map(|(id, json)| {
-                    let id = serde_json::to_string(&id).unwrap();
-                    format!(
-                        r#"<script>
-                    if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                        console.log("(create_resource) calling resolver");
-                        __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
-                    }} else {{
-                        console.log("(create_resource) saving data for resource creation");
-                        __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
-                    }}
-                    </script>"#,
-                    )
-                }))
-                .chain(futures::stream::once(async {
-                    "</body></html>".to_string()
-                }))
-                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+                        let app = view! { cx, <App/> };
+                        let head = use_context::<MetaContext>(cx)
+                            .map(|meta| meta.dehydrate())
+                            .unwrap_or_default();
+                        format!("{head}</head><body>{app}")
+                    }))
+                    .chain(futures::stream::once(async { tail.to_string() }))
+                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
             )
-
-            // TODO handle disposer; currently leaking memory from scope
         }
     }
 }

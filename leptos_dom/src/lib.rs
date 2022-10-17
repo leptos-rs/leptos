@@ -9,6 +9,8 @@ pub mod property;
 pub mod reconcile;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub mod render;
+#[cfg(feature = "ssr")]
+pub mod render_to_string;
 
 pub use attribute::*;
 pub use child::*;
@@ -18,6 +20,8 @@ pub use operations::*;
 pub use property::*;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 pub use render::*;
+#[cfg(feature = "ssr")]
+pub use render_to_string::*;
 
 pub use js_sys;
 pub use wasm_bindgen;
