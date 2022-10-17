@@ -12,7 +12,7 @@ use std::{collections::HashMap, future::Future, pin::Pin};
 /// from the route.)
 pub fn create_scope(f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
     let runtime = Box::leak(Box::new(Runtime::new()));
-    runtime.run_scope_undisposed(f, None).1
+    runtime.run_scope_undisposed(f, None).2
 }
 
 /// Creates a temporary scope, runs the given function, disposes of the scope,
@@ -28,7 +28,9 @@ pub fn run_scope<T>(f: impl FnOnce(Scope) -> T + 'static) -> T {
 #[must_use = "Scope will leak memory if the disposer function is never called"]
 /// Creates a temporary scope and run the given function without disposing of the scope.
 /// If you do not dispose of the scope on your own, memory will leak.
-pub fn run_scope_undisposed<T>(f: impl FnOnce(Scope) -> T + 'static) -> (T, ScopeDisposer) {
+pub fn run_scope_undisposed<T>(
+    f: impl FnOnce(Scope) -> T + 'static,
+) -> (T, ScopeId, ScopeDisposer) {
     // TODO this leaks the runtime — should unsafely upgrade the lifetime, and then drop it after the scope is run
     let runtime = Box::leak(Box::new(Runtime::new()));
     runtime.run_scope_undisposed(f, None)
@@ -61,7 +63,9 @@ impl Scope {
     }
 
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
-        let (_, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
+        let (_, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
+        let mut children = self.runtime.scope_children.borrow_mut();
+        children.entry(self.id).unwrap().or_default().push(child_id);
         disposer
     }
 
@@ -80,8 +84,7 @@ impl Scope {
         // dispose of all child scopes
         let children = {
             let mut children = self.runtime.scope_children.borrow_mut();
-            let children = children.remove(self.id);
-            children.map(|children| children.take())
+            children.remove(self.id)
         };
 
         if let Some(children) = children {

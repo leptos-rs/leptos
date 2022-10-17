@@ -20,9 +20,10 @@ pub(crate) struct Runtime {
     pub observer: Cell<Option<EffectId>>,
     pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
     pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
-    pub scope_children: RefCell<SparseSecondaryMap<ScopeId, RefCell<Vec<ScopeId>>>>,
+    pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
     #[allow(clippy::type_complexity)]
     pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
+    #[allow(clippy::type_complexity)]
     pub scope_cleanups: RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
@@ -57,7 +58,7 @@ impl Runtime {
         &'static self,
         f: impl FnOnce(Scope) -> T,
         parent: Option<Scope>,
-    ) -> (T, ScopeDisposer) {
+    ) -> (T, ScopeId, ScopeDisposer) {
         let id = { self.scopes.borrow_mut().insert(Default::default()) };
         if let Some(parent) = parent {
             self.scope_parents.borrow_mut().insert(id, parent.id);
@@ -65,11 +66,11 @@ impl Runtime {
         let scope = Scope { runtime: self, id };
         let val = f(scope);
         let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
-        (val, disposer)
+        (val, id, disposer)
     }
 
     pub fn run_scope<T>(&'static self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
-        let (ret, disposer) = self.run_scope_undisposed(f, parent);
+        let (ret, _, disposer) = self.run_scope_undisposed(f, parent);
         disposer.dispose();
         ret
     }
