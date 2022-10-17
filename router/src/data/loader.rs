@@ -187,3 +187,25 @@ impl std::fmt::Debug for Loader {
         f.debug_struct("Loader").finish()
     }
 }
+
+//#[cfg(feature = "ssr")]
+pub async fn loader_to_json(view: impl Fn(Scope) -> String + 'static) -> Option<String> {
+    let (data, disposer) = run_scope_undisposed(move |cx| async move {
+        let _shell = view(cx);
+
+        let mut route = use_context::<crate::RouteContext>(cx)?;
+        // get the innermost route matched by this path
+        while let Some(child) = route.child() {
+            route = child;
+        }
+        let data = route
+            .loader()
+            .as_ref()
+            .map(|loader| loader.call_loader(cx))?;
+
+        data.await.serialize()
+    });
+    let data = data.await;
+    disposer.dispose();
+    data
+}

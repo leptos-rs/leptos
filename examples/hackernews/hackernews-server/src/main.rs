@@ -47,33 +47,22 @@ async fn render_app(req: HttpRequest) -> impl Responder {
         "http://leptos".to_string() + path + "?" + query
     };
 
+    let app = move |cx| {
+        let integration = ActixIntegration {
+            path: create_signal(cx, path.clone()).0,
+        };
+        provide_context(cx, RouterIntegrationContext(std::rc::Rc::new(integration)));
+
+        view! { cx, <App/> }
+    };
+
     let accepts_type = req.headers().get("Accept").map(|h| h.to_str());
     match accepts_type {
         // if asks for JSON, send the loader function JSON or 404
         Some(Ok("application/json")) => {
-            log::debug!("\n\ngot JSON request at {path}");
-            let (json, disposer) = run_scope_undisposed(move |cx| async move {
-                let integration = ActixIntegration {
-                    path: create_signal(cx, path).0,
-                };
-                provide_context(cx, RouterIntegrationContext(std::rc::Rc::new(integration)));
+            let json = loader_to_json(app).await;
 
-                let _shell = view! { cx, <App/> };
-
-                let mut route = use_context::<leptos_router::RouteContext>(cx)?;
-                // get the innermost route matched by this path
-                while let Some(child) = route.child() {
-                    route = child;
-                }
-                let data = route
-                    .loader()
-                    .as_ref()
-                    .map(|loader| loader.call_loader(cx))?;
-
-                data.await.serialize()
-            });
-
-            let res = if let Some(json) = json.await {
+            let res = if let Some(json) = json {
                 HttpResponse::Ok()
                     .content_type("application/json")
                     .body(json)
@@ -81,13 +70,10 @@ async fn render_app(req: HttpRequest) -> impl Responder {
                 HttpResponse::NotFound().body(())
             };
 
-            disposer.dispose();
             res
         }
         // otherwise, send HTML
         _ => {
-            log::debug!("GET {path}");
-
             let head = r#"<!DOCTYPE html>
             <html lang="en">
                 <head>
@@ -99,15 +85,7 @@ async fn render_app(req: HttpRequest) -> impl Responder {
             HttpResponse::Ok().content_type("text/html").streaming(
                 futures::stream::once(async { head.to_string() })
                     .chain(render_to_stream(move |cx| {
-                        let integration = ActixIntegration {
-                            path: create_signal(cx, path.clone()).0,
-                        };
-                        provide_context(
-                            cx,
-                            RouterIntegrationContext(std::rc::Rc::new(integration)),
-                        );
-
-                        let app = view! { cx, <App/> };
+                        let app = app(cx);
                         let head = use_context::<MetaContext>(cx)
                             .map(|meta| meta.dehydrate())
                             .unwrap_or_default();
