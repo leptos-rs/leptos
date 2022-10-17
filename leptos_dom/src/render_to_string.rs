@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use leptos_reactive::*;
 
 use crate::Element;
@@ -75,4 +77,12 @@ pub fn render_to_stream(view: impl Fn(Scope) -> Element + 'static) -> impl Strea
         disposer.dispose();
         Default::default()
     }))
+}
+
+pub fn escape_text(text: &str) -> Cow<'_, str> {
+    html_escape::encode_text(text)
+}
+
+pub fn escape_attr(text: &str) -> Cow<'_, str> {
+    html_escape::encode_double_quoted_attribute(text)
 }

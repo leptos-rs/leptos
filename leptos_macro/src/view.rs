@@ -463,7 +463,7 @@ fn attr_to_tokens(
                     span => leptos_buffer.push(' ');
                             leptos_buffer.push_str(#name);
                             leptos_buffer.push_str("=\"");
-                            leptos_buffer.push_str(#value);
+                            leptos_buffer.push_str(&leptos_dom::escape_attr(&#value));
                             leptos_buffer.push('"');
                 });
             }
@@ -479,7 +479,7 @@ fn attr_to_tokens(
             (AttributeValue::Dynamic(value), Mode::Ssr) => {
                 expressions.push(quote_spanned! {
                     span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(&{#value}.into_attribute(#cx).as_value_string(#name));
+                            leptos_buffer.push_str(&leptos_dom::escape_attr(&{#value}.into_attribute(#cx).as_value_string(#name)));
                 });
             }
             (AttributeValue::Dynamic(value), _) => {
@@ -599,7 +599,7 @@ fn child_to_tokens(
             if let Some(v) = str_value {
                 if mode == Mode::Ssr {
                     expressions.push(quote::quote_spanned! {
-                        span => leptos_buffer.push_str(#v);
+                        span => leptos_buffer.push_str(&leptos_dom::escape_text(&#v));
                     });
                 } else {
                     navigations.push(location);
