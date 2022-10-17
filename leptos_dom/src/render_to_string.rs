@@ -6,7 +6,7 @@ use crate::Element;
 use futures::{stream::FuturesUnordered, Stream, StreamExt};
 
 pub fn render_to_stream(view: impl Fn(Scope) -> Element + 'static) -> impl Stream<Item = String> {
-    let ((shell, pending_resources, pending_fragments, serializers), disposer) =
+    let ((shell, pending_resources, pending_fragments, serializers), _, disposer) =
         run_scope_undisposed({
             move |cx| {
                 // the actual app body/template code

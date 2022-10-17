@@ -190,7 +190,7 @@ impl std::fmt::Debug for Loader {
 
 #[cfg(feature = "ssr")]
 pub async fn loader_to_json(view: impl Fn(Scope) -> String + 'static) -> Option<String> {
-    let (data, disposer) = run_scope_undisposed(move |cx| async move {
+    let (data, _, disposer) = run_scope_undisposed(move |cx| async move {
         let _shell = view(cx);
 
         let mut route = use_context::<crate::RouteContext>(cx)?;
