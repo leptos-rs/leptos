@@ -1,4 +1,6 @@
+#[cfg(any(feature = "hydrate", feature = "ssr"))]
 use std::collections::HashMap;
+
 #[cfg(feature = "hydrate")]
 use std::collections::HashSet;
 #[cfg(feature = "ssr")]
@@ -106,6 +108,7 @@ impl SharedContext {
         }
     }
 
+    #[cfg(feature = "ssr")]
     pub fn current_fragment_key(&self) -> String {
         if let Some(context) = &self.context {
             format!("{}{}f", context.id, context.count)

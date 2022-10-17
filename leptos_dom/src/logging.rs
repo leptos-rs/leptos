@@ -67,4 +67,4 @@ pub fn console_debug_warn(s: &str) {
 }
 
 #[cfg(not(debug_assertions))]
-pub fn console_debug_warn(s: &str) {}
+pub fn console_debug_warn(_s: &str) {}

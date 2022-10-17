@@ -40,6 +40,11 @@ pub(crate) fn add_event_listener(event_name: &'static str) {
                             let f = maybe_handler.unchecked_ref::<js_sys::Function>();
                             if let Err(e) = f.call1(&node, &ev) {
                                 crate::debug_warn!("{e:#?}");
+
+                                #[cfg(not(debug_assertions))]
+                                {
+                                    _ = e;
+                                }
                             }
 
                             if ev.cancel_bubble() {

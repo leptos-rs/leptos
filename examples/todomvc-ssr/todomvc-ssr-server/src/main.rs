@@ -1,4 +1,4 @@
-use actix_files::{Directory, Files, NamedFile};
+use actix_files::Files;
 use actix_web::*;
 use leptos::*;
 use todomvc::*;
