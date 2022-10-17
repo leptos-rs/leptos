@@ -22,6 +22,7 @@ uuid = { version = "1", features = ["v4"] }
 leptos_core = { path = "../leptos_core", features = ["ssr"] }
 leptos_dom = { path = "../leptos_dom", features = ["ssr"] }
 leptos_reactive = { path = "../leptos_reactive", features = ["ssr"] }
+log = "0.4"
 
 [features]
 csr = []

@@ -6,7 +6,7 @@ fn simple_ssr_test() {
     use leptos_reactive::{create_scope, create_signal};
 
     _ = create_scope(|cx| {
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, _set_value) = create_signal(cx, 0);
         let rendered = view! {
             cx,
             <div>
@@ -34,7 +34,7 @@ fn ssr_test_with_components() {
 
     #[component]
     fn Counter(cx: Scope, initial_value: i32) -> Element {
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, _set_value) = create_signal(cx, initial_value);
         view! {
             cx,
             <div>
@@ -69,7 +69,7 @@ fn test_classes() {
     use leptos_reactive::{create_scope, create_signal};
 
     _ = create_scope(|cx| {
-        let (value, set_value) = create_signal(cx, 5);
+        let (value, _set_value) = create_signal(cx, 5);
         let rendered = view! {
             cx,
             <div class="my big" class:a={move || value() > 10} class:red=true class:car={move || value() > 1}></div>

@@ -114,7 +114,7 @@ mod props;
 ///     name="user_name"
 ///     value={name} // this only sets the default value!
 ///     prop:value={name} // here's how you update values. Sorry, I didn’t invent the DOM.
-///     on:click=move |ev| set_name(event_target_value(ev)) // `event_target_value` is a useful little Leptos helper
+///     on:click=move |ev| set_name(event_target_value(&ev)) // `event_target_value` is a useful little Leptos helper
 ///   />
 /// }
 /// # });
