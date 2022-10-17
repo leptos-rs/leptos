@@ -91,7 +91,6 @@ where
 
     let (loading, set_loading) = create_signal(cx, false);
 
-    let (track, trigger) = create_signal(cx, 0);
     let fetcher = Rc::new(move |s| Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>);
     let source = create_memo(cx, move |_| source());
 
@@ -101,8 +100,6 @@ where
         set_value,
         loading,
         set_loading,
-        track,
-        trigger,
         source,
         fetcher,
         resolved: Rc::new(Cell::new(resolved)),
@@ -160,7 +157,6 @@ where
             _ = r.source.get();
         } else if context.pending_resources.remove(&id) {
             r.set_loading.update(|n| *n = true);
-            r.trigger.update(|n| *n += 1);
 
             let resolve = {
                 let resolved = r.resolved.clone();
@@ -314,8 +310,6 @@ where
     set_value: WriteSignal<Option<T>>,
     pub loading: ReadSignal<bool>,
     set_loading: WriteSignal<bool>,
-    track: ReadSignal<usize>,
-    trigger: WriteSignal<usize>,
     source: Memo<S>,
     #[allow(clippy::type_complexity)]
     fetcher: Rc<dyn Fn(S) -> Pin<Box<dyn Future<Output = T>>>>,
@@ -382,7 +376,6 @@ where
         });
 
         self.set_loading.update(|n| *n = true);
-        self.trigger.update(|n| *n += 1);
 
         // increment counter everywhere it's read
         let suspense_contexts = self.suspense_contexts.clone();
