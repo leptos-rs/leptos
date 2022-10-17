@@ -64,9 +64,9 @@ Here are some resources for learning more about Leptos:
 
 ## FAQs
 
-### How is this different from Yew?
+### How is this different from Yew/Dioxus?
 
-On the surface level, these two libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Here are some conceptual differences:
+On the surface level, these libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Dioxus is similar in many ways, being heavily inspired by React. Here are some conceptual differences between Leptos and these frameworks:
 
 - **VDOM vs. fine-grained:** Yew is built on the virtual DOM (VDOM) model: state changes cause components to re-render, generating a new virtual DOM tree. Yew diffs this against the previous VDOM, and applies those patches to the actual DOM. Component functions rerun whenever state changes. Leptos takes an entirely different approach. Components run once, creating (and returning) actual DOM nodes and setting up a reactive system to update those DOM nodes.
 - **Performance:** This has huge performance implications: Leptos is simply _much_ faster at both creating and updating the UI than Yew is.
