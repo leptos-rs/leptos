@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 leptos = { path = "../../leptos", default-features = false, features = ["stable", "csr"] }
-wee_alloc = "0.4"
 log = "0.4"
 console_log = "0.2"
 

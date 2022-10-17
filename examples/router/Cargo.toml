@@ -9,7 +9,6 @@ log = "0.4"
 leptos = { path = "../../leptos", features = ["csr"] }
 leptos_router = { path = "../../router", features = ["csr"], version = "0.0" }
 serde = { version = "1", features = ["derive"] }
-wee_alloc = "0.4"
 futures = "0.3"
 
 [dev-dependencies]
