@@ -124,7 +124,8 @@ mod props;
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
 /// # run_scope(|cx| {
-/// view! { cx, <div class:hidden={move || count() % 2 }>"Now you see me, now you don’t."</div> }
+/// let (count, set_count) = create_signal(cx, 2);
+/// view! { cx, <div class:hidden={move || count() < 3}>"Now you see me, now you don’t."</div> }
 /// # });
 /// ```
 ///

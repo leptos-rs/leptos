@@ -199,17 +199,68 @@ fn element_to_tokens(
         });
     }
 
+    // for SSR: merge all class: attributes and class attribute
+    if mode == Mode::Ssr {
+        let class_attr = node
+            .attributes
+            .iter()
+            .find(|a| a.name_as_string() == Some("class".into()))
+            .map(|node| {
+                (node.name_span().expect("no span for class attribute node"), node.value_as_string().unwrap_or_default().trim().to_string())
+            });
+
+        let class_attrs = node
+            .attributes
+            .iter()
+            .filter_map(|node| {
+                node.name_as_string().and_then(|name| {
+                    if name.starts_with("class:") {
+                        let name = name.replacen("class:", "", 1);
+                        let value = node.value.as_ref().expect("class: attributes need values");
+                        let span = node.name_span().expect("missing span for class name");
+                        Some(quote_spanned! { 
+                            span => leptos_buffer.push(' ');
+                                leptos_buffer.push_str(&{#value}.into_class(#cx).as_value_string(#name));
+                        })
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        
+        if class_attr.is_some() || !class_attrs.is_empty() {
+            expressions.push(quote::quote_spanned! {
+                span => leptos_buffer.push_str(" class=\"");
+            });
+            if let Some((span, value)) = class_attr {
+                expressions.push(quote::quote_spanned! {
+                    span => leptos_buffer.push_str(#value);
+                });
+            }
+            for attr in class_attrs {
+                expressions.push(attr);
+            }
+            expressions.push(quote::quote_spanned! {
+                span => leptos_buffer.push('"');
+            });
+        }
+    }
+
     // attributes
     for attr in &node.attributes {
-        attr_to_tokens(
-            cx,
-            attr,
-            &this_el_ident,
-            template,
-            expressions,
-            navigations,
-            mode,
-        );
+        // SSR class attribute has just been handled
+        if !(mode == Mode::Ssr && attr.name_as_string().unwrap() == "class") {
+            attr_to_tokens(
+                cx,
+                attr,
+                &this_el_ident,
+                template,
+                expressions,
+                navigations,
+                mode,
+            );
+        }
     }
 
     // navigation for this el
@@ -431,7 +482,7 @@ fn attr_to_tokens(
     // Classes
     else if name.starts_with("class:") {
         if mode == Mode::Ssr {
-            // TODO class: in SSR
+            // handled separately because they need to be merged
         } else {
             let name = name.replacen("class:", "", 1);
             let value = node.value.as_ref().expect("class: attributes need values");

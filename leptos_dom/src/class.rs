@@ -24,3 +24,25 @@ where
         Class::Fn(modified_fn)
     }
 }
+
+impl Class {
+    pub fn as_value_string(&self, class_name: &'static str) -> &'static str {
+        match self {
+            Class::Value(value) => {
+                if *value {
+                    class_name
+                } else {
+                    ""
+                }
+            }
+            Class::Fn(f) => {
+                let value = f();
+                if value {
+                    class_name
+                } else {
+                    ""
+                }
+            }
+        }
+    }
+}

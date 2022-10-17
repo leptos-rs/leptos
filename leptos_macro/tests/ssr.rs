@@ -7,7 +7,7 @@ fn simple_ssr_test() {
 
     _ = create_scope(|cx| {
         let (value, set_value) = create_signal(cx, 0);
-        let rendered = view! { cx,
+        let rendered = view! {
             cx,
             <div>
                 <button on:click=move |_| set_value(|value| *value -= 1)>"-1"</button>
@@ -18,7 +18,7 @@ fn simple_ssr_test() {
 
         assert_eq!(
             rendered,
-            r#"<div data-hk="0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"# //r#"<div data-hk="0" id="hydrated" data-hk="0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"#
+            r#"<div data-hk="0-0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"# //r#"<div data-hk="0" id="hydrated" data-hk="0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"#
         );
     });
 }
@@ -35,7 +35,7 @@ fn ssr_test_with_components() {
     #[component]
     fn Counter(cx: Scope, initial_value: i32) -> Element {
         let (value, set_value) = create_signal(cx, 0);
-        view! { cx,
+        view! {
             cx,
             <div>
                 <button on:click=move |_| set_value(|value| *value -= 1)>"-1"</button>
@@ -46,7 +46,7 @@ fn ssr_test_with_components() {
     }
 
     _ = create_scope(|cx| {
-        let rendered = view! { cx,
+        let rendered = view! {
             cx,
             <div class="counters">
                 <Counter initial_value=1/>
@@ -56,7 +56,28 @@ fn ssr_test_with_components() {
 
         assert_eq!(
             rendered,
-            r#"<div data-hk="0" class="counters"><!--#--><div data-hk="1"><button>-1</button><span>Value: <!--#-->1<!--/-->!</span><button>+1</button></div><!--/--><!--#--><div data-hk="2"><button>-1</button><span>Value: <!--#-->2<!--/-->!</span><button>+1</button></div><!--/--></div>"#
+            "<div data-hk=\"0-0\" class=\"counters\"><!--#--><div data-hk=\"0-2-0\"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div><!--/--><!--#--><div data-hk=\"0-3-0\"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div><!--/--></div>"
+        );
+    });
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn test_classes() {
+    use leptos_dom::*;
+    use leptos_macro::view;
+    use leptos_reactive::{create_scope, create_signal};
+
+    _ = create_scope(|cx| {
+        let (value, set_value) = create_signal(cx, 5);
+        let rendered = view! {
+            cx,
+            <div class="my big" class:a={move || value() > 10} class:red=true class:car={move || value() > 1}></div>
+        };
+
+        assert_eq!(
+            rendered,
+            r#"<div data-hk="0-0" class="my big  red car"></div>"#
         );
     });
 }
