@@ -36,7 +36,7 @@ where
         path: props.path,
         loader: props.loader,
         action: props.action,
-        children: props.children.map(|c| c().into_vec()).unwrap_or_default(),
+        children: props.children.map(|c| c()).unwrap_or_default(),
         element: Rc::new(move |cx| (props.element)(cx).into_child(cx)),
     }
 }

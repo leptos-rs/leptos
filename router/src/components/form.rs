@@ -5,24 +5,18 @@ use wasm_bindgen::JsCast;
 use crate::{use_navigate, use_resolved_path};
 
 #[derive(TypedBuilder)]
-pub struct FormProps<C>
-where
-    C: IntoVec<Element>,
-{
+pub struct FormProps {
     #[builder(default, setter(strip_option))]
     method: Option<String>,
     #[builder(default, setter(strip_option))]
     action: Option<String>,
     #[builder(default, setter(strip_option))]
     enctype: Option<String>,
-    children: Box<dyn Fn() -> C>,
+    children: Box<dyn Fn() -> Vec<Element>>,
 }
 
 #[allow(non_snake_case)]
-pub fn Form<C>(cx: Scope, props: FormProps<C>) -> Element
-where
-    C: IntoVec<Element>,
-{
+pub fn Form(cx: Scope, props: FormProps) -> Element {
     let FormProps {
         method,
         action,
@@ -138,8 +132,6 @@ where
             todo!()
         }
     };
-
-    let children = children().into_vec();
 
     view! { cx,
         <form
