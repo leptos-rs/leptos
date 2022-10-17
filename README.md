@@ -64,9 +64,13 @@ Here are some resources for learning more about Leptos:
 
 ## FAQs
 
-### How is this different from Yew?
+### Is it fast?
 
-On the surface level, these two libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Here are some conceptual differences:
+The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). I'm waiting for the next round of official results before making claims about performance here, but the unofficial results (which you can see if you check out `master` from the benchmark repo and open the results page) have Leptos as the fastest Rust/Wasm framework, on this benchmark.
+
+### How is this different from Yew/Dioxus?
+
+On the surface level, these libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Dioxus is similar in many ways, being heavily inspired by React. Here are some conceptual differences between Leptos and these frameworks:
 
 - **VDOM vs. fine-grained:** Yew is built on the virtual DOM (VDOM) model: state changes cause components to re-render, generating a new virtual DOM tree. Yew diffs this against the previous VDOM, and applies those patches to the actual DOM. Component functions rerun whenever state changes. Leptos takes an entirely different approach. Components run once, creating (and returning) actual DOM nodes and setting up a reactive system to update those DOM nodes.
 - **Performance:** This has huge performance implications: Leptos is simply _much_ faster at both creating and updating the UI than Yew is.
