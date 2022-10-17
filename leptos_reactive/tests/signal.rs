@@ -1,5 +1,7 @@
+#[cfg(not(feature = "stable"))]
 use leptos_reactive::{create_scope, create_signal};
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn basic_signal() {
     create_scope(|cx| {
@@ -11,6 +13,7 @@ fn basic_signal() {
     .dispose()
 }
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn derived_signals() {
     create_scope(|cx| {

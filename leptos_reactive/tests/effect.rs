@@ -1,5 +1,7 @@
+#[cfg(not(feature = "stable"))]
 use leptos_reactive::{create_effect, create_memo, create_scope, create_signal};
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn effect_runs() {
     use std::cell::RefCell;
@@ -28,6 +30,7 @@ fn effect_runs() {
     .dispose()
 }
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn effect_tracks_memo() {
     use std::cell::RefCell;
@@ -58,6 +61,7 @@ fn effect_tracks_memo() {
     .dispose()
 }
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn untrack_mutes_effect() {
     use std::cell::RefCell;

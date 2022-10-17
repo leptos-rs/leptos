@@ -1,4 +1,3 @@
-#![feature(stmt_expr_attributes)]
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -50,6 +49,19 @@
 //!   - [create_effect]
 //! - **Templating/Views**: the [view] macro
 //! - **Routing**: the [leptos_router](https://docs.rs/leptos_router/latest/leptos_router/) crate
+//!
+//! # Feature Flags
+//! - `csr` Client-side rendering: Generate DOM nodes in the browser
+//! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
+//! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
+//! - `resource` *(default)* Allows the use of [create_resource] and [Resource]s. Enabled by default,
+//!   but there’s a small benefit in binary size when you disable it if you don’t need them.
+//! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
+//!   of calling signals as functions. If you need to use `stable`, you will need to call `.get()`
+//!   and `.set()` manually.
+//!
+//! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
+//! which mode your app is operating in.
 //!
 //! # A Simple Counter
 //!

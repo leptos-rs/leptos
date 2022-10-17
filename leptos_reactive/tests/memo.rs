@@ -1,5 +1,7 @@
+#[cfg(not(feature = "stable"))]
 use leptos_reactive::{create_memo, create_scope, create_signal};
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn basic_memo() {
     create_scope(|cx| {
@@ -9,6 +11,7 @@ fn basic_memo() {
     .dispose()
 }
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn memo_with_computed_value() {
     create_scope(|cx| {
@@ -24,6 +27,7 @@ fn memo_with_computed_value() {
     .dispose()
 }
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn nested_memos() {
     create_scope(|cx| {
@@ -45,6 +49,7 @@ fn nested_memos() {
     .dispose()
 }
 
+#[cfg(not(feature = "stable"))]
 #[test]
 fn memo_runs_only_when_inputs_change() {
     use std::{cell::Cell, rc::Rc};

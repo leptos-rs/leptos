@@ -95,6 +95,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for Memo<T>
 where
     T: Debug + Clone,
@@ -106,6 +107,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for Memo<T>
 where
     T: Debug + Clone,
@@ -115,6 +117,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for Memo<T>
 where
     T: Debug + Clone,

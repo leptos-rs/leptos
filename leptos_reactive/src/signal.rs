@@ -160,6 +160,7 @@ impl<T> Clone for ReadSignal<T> {
 
 impl<T> Copy for ReadSignal<T> {}
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for ReadSignal<T>
 where
     T: Debug + Clone,
@@ -171,6 +172,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for ReadSignal<T>
 where
     T: Debug + Clone,
@@ -180,6 +182,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for ReadSignal<T>
 where
     T: Debug + Clone,
@@ -236,8 +239,8 @@ impl<T> WriteSignal<T>
 where
     T: Clone + 'static,
 {
-    /// Applies a function to the current value and notifies subscribers
-    /// that the signal has changed.
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
@@ -259,6 +262,29 @@ where
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.id.update(self.runtime, f)
     }
+
+    /// Sets the signal’s value and notifies subscribers.
+    ///
+    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let (count, set_count) = create_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
+    /// assert_eq!(count(), 1);
+    ///
+    /// // you can include arbitrary logic in this update function
+    /// // also notifies subscribers, even though the value hasn't changed
+    /// set_count.update(|n| if *n > 3 { *n += 1 });
+    /// assert_eq!(count(), 1);
+    /// # }).dispose();
+    /// ```
+    pub fn set(&self, new_value: T) {
+        self.id.update(self.runtime, |n| *n = new_value)
+    }
 }
 
 impl<T> Clone for WriteSignal<T>
@@ -276,6 +302,7 @@ where
 
 impl<T> Copy for WriteSignal<T> where T: Clone {}
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnOnce<(T,)> for WriteSignal<T>
 where
     T: Clone + 'static,
@@ -287,6 +314,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnMut<(T,)> for WriteSignal<T>
 where
     T: Clone + 'static,
@@ -296,6 +324,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> Fn<(T,)> for WriteSignal<T>
 where
     T: Clone + 'static,
@@ -387,6 +416,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for RwSignal<T>
 where
     T: Debug + Clone,
@@ -398,6 +428,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for RwSignal<T>
 where
     T: Debug + Clone,
@@ -407,6 +438,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for RwSignal<T>
 where
     T: Debug + Clone,

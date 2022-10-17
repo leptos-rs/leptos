@@ -1,7 +1,6 @@
-#![feature(fn_traits)]
-#![feature(let_chains)]
-#![feature(unboxed_closures)]
-#![feature(test)]
+#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
+#![cfg_attr(not(feature = "stable"), feature(test))]
+#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
@@ -106,9 +105,10 @@ macro_rules! debug_warn {
     }
 }
 
+#[cfg(not(feature = "stable"))]
 extern crate test;
 
-#[cfg(test)]
+#[cfg(all(not(feature = "stable"), test))]
 mod tests {
     use test::Bencher;
 

@@ -1,0 +1,18 @@
+[package]
+name = "counters"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../../leptos", default-features = false, features = ["stable", "csr"] }
+wee_alloc = "0.4"
+log = "0.4"
+console_log = "0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'

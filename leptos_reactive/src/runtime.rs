@@ -139,7 +139,7 @@ impl Runtime {
             let new = { f(prev.clone()) };
 
             if prev.as_ref() != Some(&new) {
-                write(Some(new.clone()));
+                write.update(|n| *n = Some(new.clone()));
             }
             new
         });

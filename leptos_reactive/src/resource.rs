@@ -267,6 +267,7 @@ where
 {
 }
 
+#[cfg(not(feature = "stable"))]
 impl<S, T> FnOnce<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
@@ -279,6 +280,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<S, T> FnMut<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
@@ -289,6 +291,7 @@ where
     }
 }
 
+#[cfg(not(feature = "stable"))]
 impl<S, T> Fn<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
