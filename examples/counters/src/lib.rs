@@ -59,7 +59,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
                 " counters."
             </p>
             <ul>
-                <For each={counters} key={|counter| counter.0}>{
+                <For each=counters key=|counter| counter.0>{
                     |cx, (id, (value, set_value)): &(usize, (ReadSignal<i32>, WriteSignal<i32>))| {
                         view! {
                             cx,
@@ -83,9 +83,13 @@ fn Counter(
 
     let input = move |ev| set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default());
 
+    // just an example of how a cleanup function works
+    // this will run when the scope is disposed, i.e., when this row is deleted
+    on_cleanup(cx, || log::debug!("deleted a row"));
+
     view! { cx,
         <li>
-            <button on:click={move |_| set_value.update(move |value| *value -= 1)}>"-1"</button>
+            <button on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
                 prop:value={move || value().to_string()}
                 on:input=input

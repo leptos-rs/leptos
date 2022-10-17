@@ -23,6 +23,7 @@ pub(crate) struct Runtime {
     pub scope_children: RefCell<SparseSecondaryMap<ScopeId, RefCell<Vec<ScopeId>>>>,
     #[allow(clippy::type_complexity)]
     pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
+    pub scope_cleanups: RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
     pub effects: RefCell<SlotMap<EffectId, Rc<RefCell<dyn AnyEffect>>>>,

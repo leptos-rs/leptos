@@ -94,6 +94,13 @@ impl Scope {
             }
         }
 
+        // run cleanups
+        if let Some(cleanups) = self.runtime.scope_cleanups.borrow_mut().remove(self.id) {
+            for cleanup in cleanups {
+                cleanup();
+            }
+        }
+
         // remove everything we own and run cleanups
         let owned = {
             let owned = self.runtime.scopes.borrow_mut().remove(self.id);
@@ -113,7 +120,6 @@ impl Scope {
                     ScopeProperty::Resource(id) => {
                         self.runtime.resources.borrow_mut().remove(id);
                     }
-                    ScopeProperty::Cleanup(f) => (f()),
                 }
             }
         }
@@ -128,24 +134,26 @@ impl Scope {
     }
 }
 
+/// Creates a cleanup function, which will be run when a [Scope] is disposed.
+///
+/// It runs after child scopes have been disposed, but before signals, effects, and resources
+/// are invalidated.
+pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+    let mut cleanups = cx.runtime.scope_cleanups.borrow_mut();
+    let cleanups = cleanups
+        .entry(cx.id)
+        .unwrap()
+        .or_insert_with(Default::default);
+    cleanups.push(Box::new(cleanup_fn));
+}
+
 slotmap::new_key_type! { pub struct ScopeId; }
 
+#[derive(Debug)]
 pub(crate) enum ScopeProperty {
     Signal(SignalId),
     Effect(EffectId),
     Resource(ResourceId),
-    Cleanup(Box<dyn FnOnce()>),
-}
-
-impl Debug for ScopeProperty {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Signal(arg0) => f.debug_tuple("Signal").field(arg0).finish(),
-            Self::Effect(arg0) => f.debug_tuple("Effect").field(arg0).finish(),
-            Self::Resource(arg0) => f.debug_tuple("Resource").field(arg0).finish(),
-            Self::Cleanup(_) => f.debug_tuple("Cleanup").finish(),
-        }
-    }
 }
 
 pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
