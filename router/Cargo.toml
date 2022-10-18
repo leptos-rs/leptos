@@ -52,7 +52,11 @@ features = [
 ]
 
 [features]
-default = ["csr"]
 csr = ["leptos/csr", "dep:js-sys", "dep:wasm-bindgen"]
-hydrate = ["leptos/hydrate", "dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+hydrate = [
+	"leptos/hydrate",
+	"dep:js-sys",
+	"dep:wasm-bindgen",
+	"dep:wasm-bindgen-futures",
+]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
