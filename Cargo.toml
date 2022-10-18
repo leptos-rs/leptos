@@ -1,10 +1,26 @@
 [workspace]
 members = [
+  # core
   "leptos",
   "leptos_dom",
   "leptos_core",
   "leptos_macro",
   "leptos_reactive",
+
+  # libraries
   "meta",
   "router",
+]
+exclude = [
+  "examples/counter",
+  "examples/counters",
+  "examples/counters-stable",
+  "examples/fetch",
+  "examples/hackernews/hackernews-app",
+  "examples/hackernews/hackernews-client",
+  "examples/hackernews/hackernews-server",
+  "examples/router",
+  "examples/todomvc",
+  "examples/todomvc-ssr/todomvc-ssr-client",
+  "examples/todomvc-ssr/todomvc-ssr-server"
 ]
