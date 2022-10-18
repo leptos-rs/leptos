@@ -22,34 +22,19 @@ extern "C" {
     fn microtask(task: wasm_bindgen::JsValue);
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub fn spawn_local<F>(fut: F)
 where
     F: Future<Output = ()> + 'static,
 {
-    wasm_bindgen_futures::spawn_local(fut)
-}
-
-#[cfg(feature = "ssr")]
-pub fn spawn_local<F>(fut: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    tokio::task::spawn_local(fut);
-}
-
-#[cfg(not(any(test, doctest, feature = "csr", feature = "hydrate", feature = "ssr")))]
-pub fn spawn_local<F>(fut: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    futures::executor::block_on(fut)
-}
-
-#[cfg(any(test, doctest))]
-pub fn spawn_local<F>(fut: F)
-where
-    F: Future<Output = ()> + 'static,
-{
-    tokio_test::block_on(fut);
+    cfg_if::cfg_if! {
+        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+            wasm_bindgen_futures::spawn_local(fut)
+        } else if #[cfg(feature = "ssr")] {
+            tokio::task::spawn_local(fut);
+        } else if #[cfg(any(test, doctest))] {
+            tokio_test::block_on(fut);
+        } else {
+            futures::executor::block_on(fut)
+        }
+    }
 }
