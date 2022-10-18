@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 console_log = "0.2"
-leptos = { path = "../../../leptos" }
+leptos = { path = "../../../leptos", default-features = false }
 leptos_meta = { path = "../../../meta", default-features = false }
 leptos_router = { path = "../../../router", default-features = false }
 log = "0.4"

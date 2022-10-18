@@ -29,7 +29,6 @@ pub(crate) struct Runtime {
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
     pub effects: RefCell<SlotMap<EffectId, Rc<RefCell<dyn AnyEffect>>>>,
     pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
-    #[cfg(feature = "resource")]
     pub resources: RefCell<SlotMap<ResourceId, Rc<dyn AnyResource>>>,
 }
 
@@ -149,7 +148,6 @@ impl Runtime {
         Memo(read)
     }
 
-    #[cfg(feature = "resource")]
     pub(crate) fn create_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
     where
         S: Debug + Clone + 'static,
@@ -185,7 +183,6 @@ impl Runtime {
         }
     }
 
-    #[cfg(feature = "resource")]
     pub(crate) fn resource<S, T, U>(
         &self,
         id: ResourceId,
@@ -213,7 +210,6 @@ impl Runtime {
     }
 
     /// Returns IDs for all [Resource]s found on any scope.
-    #[cfg(feature = "resource")]
     pub(crate) fn all_resources(&self) -> Vec<ResourceId> {
         self.resources
             .borrow()
@@ -222,7 +218,7 @@ impl Runtime {
             .collect()
     }
 
-    #[cfg(all(feature = "ssr", feature = "resource"))]
+    #[cfg(all(feature = "ssr"))]
     pub(crate) fn serialization_resolvers(
         &self,
     ) -> futures::stream::futures_unordered::FuturesUnordered<

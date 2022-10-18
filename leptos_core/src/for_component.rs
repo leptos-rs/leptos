@@ -22,8 +22,7 @@ where
     pub children: Box<dyn Fn() -> Vec<G>>,
 }
 
-/// Iterates over children and displays them, keyed by `PartialEq`. If you want to provide your
-/// own key function, use [Index] instead.
+/// Iterates over children and displays them, keyed by `PartialEq`.
 ///
 /// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { cx,  ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.

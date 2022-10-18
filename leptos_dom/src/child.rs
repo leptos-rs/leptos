@@ -4,7 +4,7 @@ use leptos_reactive::Scope;
 #[cfg(feature = "stable")]
 use leptos_reactive::{Memo, ReadSignal, RwSignal};
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
 
 use crate::Node;
@@ -83,21 +83,21 @@ impl IntoChild for String {
     }
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 impl IntoChild for web_sys::Node {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self)
     }
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 impl IntoChild for web_sys::Text {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
     }
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 impl IntoChild for web_sys::Element {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Node(self.unchecked_into())
@@ -122,7 +122,7 @@ impl IntoChild for Vec<Node> {
     }
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 impl IntoChild for Vec<web_sys::Element> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(

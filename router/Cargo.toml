@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Router for the Leptos web framework."
 
 [dependencies]
-leptos = { path = "../leptos", version = "0.0" }
+leptos = { path = "../leptos", version = "0.0", default-features = false }
 common_macros = "0.1"
 itertools = "0.10"
 lazy_static = "1"
@@ -52,6 +52,7 @@ features = [
 ]
 
 [features]
+default = ["csr"]
 csr = ["leptos/csr", "dep:js-sys", "dep:wasm-bindgen"]
 hydrate = [
 	"leptos/hydrate",

@@ -25,6 +25,7 @@ leptos_reactive = { path = "../leptos_reactive" }
 log = "0.4"
 
 [features]
-csr = []
-hydrate = []
-ssr = []
+default = ["ssr"]
+csr = ["leptos_core/csr", "leptos_dom/csr", "leptos_reactive/csr"]
+hydrate = ["leptos_core/hydrate", "leptos_dom/hydrate", "leptos_reactive/hydrate"]
+ssr = ["leptos_core/ssr", "leptos_dom/ssr", "leptos_reactive/ssr"]

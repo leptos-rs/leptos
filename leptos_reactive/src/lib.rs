@@ -68,7 +68,6 @@ mod effect;
 mod hydration;
 mod memo;
 
-#[cfg(feature = "resource")]
 mod resource;
 mod runtime;
 mod scope;
@@ -81,7 +80,6 @@ pub use context::*;
 pub use effect::*;
 pub use memo::*;
 
-#[cfg(feature = "resource")]
 pub use resource::*;
 use runtime::*;
 pub use scope::*;
@@ -116,7 +114,7 @@ mod tests {
 
     #[bench]
     fn create_and_update_1000_signals(b: &mut Bencher) {
-        use crate::{create_effect, create_memo, create_scope, create_signal};
+        use crate::{create_isomorphic_effect, create_memo, create_scope, create_signal};
 
         b.iter(|| {
             create_scope(|cx| {
@@ -126,7 +124,7 @@ mod tests {
                 let writes = sigs.iter().map(|(_, w)| *w).collect::<Vec<_>>();
                 let memo = create_memo(cx, move |_| reads.iter().map(|r| r.get()).sum::<i32>());
                 assert_eq!(memo(), 499500);
-                create_effect(cx, {
+                create_isomorphic_effect(cx, {
                     let acc = Rc::clone(&acc);
                     move |_| {
                         acc.set(memo());
@@ -147,7 +145,7 @@ mod tests {
 
     #[bench]
     fn create_and_dispose_1000_scopes(b: &mut Bencher) {
-        use crate::{create_effect, create_scope, create_signal};
+        use crate::{create_isomorphic_effect, create_scope, create_signal};
 
         b.iter(|| {
             let acc = Rc::new(Cell::new(0));
@@ -157,7 +155,7 @@ mod tests {
                         let acc = Rc::clone(&acc);
                         move |cx| {
                             let (r, w) = create_signal(cx, 0);
-                            create_effect(cx, {
+                            create_isomorphic_effect(cx, {
                                 move |_| {
                                     acc.set(r());
                                 }

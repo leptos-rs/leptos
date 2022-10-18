@@ -337,7 +337,7 @@ where
 /// Creates a reactive signal with the getter and setter unified in one value.
 /// You may prefer this style, or it may be easier to pass around in a context
 /// or as a function argument.
-/// /// ```
+/// ```
 /// # use leptos_reactive::*;
 /// # create_scope(|cx| {
 /// let count = create_rw_signal(cx, 0);

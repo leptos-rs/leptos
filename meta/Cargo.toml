@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Tools to set HTML metadata in the Leptos web framework."
 
 [dependencies]
-leptos = { path = "../leptos", version = "0.0" }
+leptos = { path = "../leptos", version = "0.0", default-features = false }
 log = "0.4"
 
 [dependencies.web-sys]
@@ -19,6 +19,7 @@ features = [
 ]
 
 [features]
+default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr"]

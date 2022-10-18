@@ -1,5 +1,5 @@
 #[cfg(not(feature = "stable"))]
-use leptos_reactive::{create_effect, create_memo, create_scope, create_signal};
+use leptos_reactive::{create_isomorphic_effect, create_memo, create_scope, create_signal};
 
 #[cfg(not(feature = "stable"))]
 #[test]
@@ -13,7 +13,7 @@ fn effect_runs() {
         // simulate an arbitrary side effect
         let b = Rc::new(RefCell::new(String::new()));
 
-        create_effect(cx, {
+        create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
                 let formatted = format!("Value is {}", a());
@@ -43,7 +43,7 @@ fn effect_tracks_memo() {
         // simulate an arbitrary side effect
         let c = Rc::new(RefCell::new(String::new()));
 
-        create_effect(cx, {
+        create_isomorphic_effect(cx, {
             let c = c.clone();
             move |_| {
                 *c.borrow_mut() = b();
@@ -73,7 +73,7 @@ fn untrack_mutes_effect() {
         // simulate an arbitrary side effect
         let b = Rc::new(RefCell::new(String::new()));
 
-        create_effect(cx, {
+        create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
                 let formatted = format!("Value is {}", cx.untrack(a));

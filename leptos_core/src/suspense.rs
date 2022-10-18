@@ -42,7 +42,7 @@ where
     compile_error!("<Suspense/> can only be used when one of the following features is set on the `leptos` package: 'csr', 'ssr', or 'hydrate'");
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 fn render_suspense<'a, F, E, G>(
     cx: Scope,
     context: SuspenseContext,

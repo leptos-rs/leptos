@@ -54,8 +54,6 @@
 //! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
 //! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `resource` *(default)* Allows the use of [create_resource] and [Resource]s. Enabled by default,
-//!   but there’s a small benefit in binary size when you disable it if you don’t need them.
 //! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
 //!   of calling signals as functions. If you need to use `stable`, you will need to call `.get()`
 //!   and `.set()` manually.
@@ -90,8 +88,10 @@
 //!         </div>
 //!     }
 //! }
+//! ```
 //!
-//! // Easy to use with Trunk (trunkrs.dev) or with a simple wasm-bindgen setup
+//! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
+//! ```ignore
 //! pub fn main() {
 //!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
 //! }

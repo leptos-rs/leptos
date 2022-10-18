@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
-use crate::{create_effect, create_signal, ReadSignal, Scope, WriteSignal};
+use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope, WriteSignal};
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
@@ -67,7 +67,7 @@ where
         Rc::new(RefCell::new(HashMap::new()));
     let v = Rc::new(RefCell::new(None));
 
-    create_effect(cx, {
+    create_isomorphic_effect(cx, {
         let subs = Rc::clone(&subs);
         let f = f.clone();
         let v = Rc::clone(&v);
