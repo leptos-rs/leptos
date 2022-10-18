@@ -1,0 +1,10 @@
+[workspace]
+members = [
+  "leptos",
+  "leptos_dom",
+  "leptos_core",
+  "leptos_macro",
+  "leptos_reactive",
+  "meta",
+  "router",
+]

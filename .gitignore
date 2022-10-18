@@ -5,3 +5,4 @@ comparisons
 blob.rs
 Cargo.lock
 **/*.rs.bk
+.DS_Store
