@@ -18,6 +18,8 @@ impl<'a> PartialEq for NodeWrapper<'a> {
 
 impl<'a> Eq for NodeWrapper<'a> {}
 
+// See Sycamore implementation: https://github.com/sycamore-rs/sycamore/blob/5f58fe37599e125fdc4a85cbd51e4e1c3d359791/packages/sycamore-core/src/render.rs#L237
+// Copyright © 2021-2022 Luke Chu
 pub fn reconcile_arrays(parent: &web_sys::Element, a: &mut [web_sys::Node], b: &[web_sys::Node]) {
     debug_assert!(!a.is_empty(), "a cannot be empty");
 
