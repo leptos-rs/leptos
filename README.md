@@ -62,6 +62,16 @@ Here are some resources for learning more about Leptos:
 - [API Documentation](https://docs.rs/leptos/latest/leptos/) (in progress)
 - Leptos Guide (in progress)
 
+## `nightly` Note
+
+Most of the examples assume you’re using `nightly` Rust. If you’re on stable, note the following:
+
+1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }
+2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
+   you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
+   [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
+   for examples of the correct API.
+
 ## FAQs
 
 ### Is it fast?
