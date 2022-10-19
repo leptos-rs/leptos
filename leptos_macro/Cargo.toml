@@ -17,15 +17,15 @@ quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 syn-rsx = "0.8.1"
 uuid = { version = "1", features = ["v4"] }
-
-[dev-dependencies]
-leptos_core = { path = "../leptos_core" }
 leptos_dom = { path = "../leptos_dom" }
 leptos_reactive = { path = "../leptos_reactive" }
+
+[dev-dependencies]
 log = "0.4"
+typed-builder = "0.10"
 
 [features]
 default = ["ssr"]
-csr = ["leptos_core/csr", "leptos_dom/csr", "leptos_reactive/csr"]
-hydrate = ["leptos_core/hydrate", "leptos_dom/hydrate", "leptos_reactive/hydrate"]
-ssr = ["leptos_core/ssr", "leptos_dom/ssr", "leptos_reactive/ssr"]
+csr = ["leptos_dom/csr", "leptos_reactive/csr"]
+hydrate = ["leptos_dom/hydrate", "leptos_reactive/hydrate"]
+ssr = ["leptos_dom/ssr", "leptos_reactive/ssr"]

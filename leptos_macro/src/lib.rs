@@ -58,8 +58,9 @@ mod props;
 ///
 /// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use leptos_core as leptos; use leptos_core::*;
-/// # #[component] fn Counter(cx: Scope, initial_value: i32) -> Element { view! { cx, <p></p>} }
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use typed_builder::TypedBuilder;
+/// # #[derive(TypedBuilder)] struct CounterProps { initial_value: i32 }
+/// # fn Counter(cx: Scope, props: CounterProps) -> Element { view! { cx, <p></p>} }
 /// # run_scope(|cx| {
 /// view! { cx, <div><Counter initial_value=3 /></div> }
 /// # });
@@ -131,12 +132,11 @@ mod props;
 ///
 /// Here’s a simple example that shows off several of these features, put together
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use leptos_core::*; use leptos_core as leptos;
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*;
 ///
-/// #[component]
-/// pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+/// pub fn SimpleCounter(cx: Scope) -> Element {
 ///     // create a reactive signal with the initial value
-///     let (value, set_value) = create_signal(cx, initial_value);
+///     let (value, set_value) = create_signal(cx, 0);
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
