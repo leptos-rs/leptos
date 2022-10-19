@@ -799,12 +799,18 @@ fn component_to_tokens(
                 let (#el, #co) = #cx.get_next_marker(&#starts_at);
             });
 
+            let before = if next_sib.is_none() {
+                quote::quote! { Marker::LastChild }
+            } else {
+                quote::quote! { Marker::BeforeChild(#el) }
+            };
+
             expressions.push(quote! {
                 leptos::insert(
                     #cx,
                     #parent.clone(),
                     #create_component.into_child(#cx),
-                    Marker::BeforeChild(#el),
+                    #before,
                     Some(Child::Nodes(#co)),
                 );
             });
