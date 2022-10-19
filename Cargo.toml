@@ -19,6 +19,7 @@ exclude = [
   "examples/hackernews/hackernews-app",
   "examples/hackernews/hackernews-client",
   "examples/hackernews/hackernews-server",
+  "examples/parent-child",
   "examples/router",
   "examples/todomvc",
   "examples/todomvc-ssr/todomvc-ssr-client",

@@ -19,6 +19,8 @@
 //!   counter example, showing the basics of client-side rendering and reactive DOM updates
 //! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counter) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
+//! - [`parent-child`](https://github.com/gbj/leptos/tree/main/examples/parent-child) shows four different
+//!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`todomvc`](https://github.com/gbj/leptos/tree/main/examples/todomvc) implements the classic to-do
 //!   app in Leptos. This is a good example of a complete, simple app. In particular, you might want to
 //!   see how we use [create_effect] to [serialize JSON to `localStorage`](https://github.com/gbj/leptos/blob/16f084a71268ac325fbc4a5e50c260df185eadb6/examples/todomvc/src/lib.rs#L164)

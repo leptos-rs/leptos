@@ -1,0 +1,14 @@
+[package]
+name = "parent-child"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../../leptos" }
+console_log = "0.2"
+log = "0.4"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'
