@@ -5,5 +5,6 @@ edition = "2021"
 
 [dev-dependencies]
 leptos = { path = "../leptos", default-features = false, features = ["ssr"] }
-sycamore = "0.8"
-yew = "0.19"
+sycamore = { version = "0.8", features = ["ssr"] }
+yew = { git = "https://github.com/yewstack/yew", features = ["ssr", "tokio"] }
+tokio-test = "0.4"
