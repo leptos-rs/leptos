@@ -1,6 +1,6 @@
 [package]
 name = "leptos_dom"
-version = "0.0.8"
+version = "0.0.9"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -11,7 +11,7 @@ description = "DOM operations for the Leptos web framework."
 futures = { version = "0.3", optional = true }
 html-escape = { version = "0.2", optional = true }
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.8" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.9" }
 serde_json = { version = "1", optional = true }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.31"

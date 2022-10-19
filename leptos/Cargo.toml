@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.0.8"
+version = "0.0.9"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -9,10 +9,10 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 readme = "../README.md"
 
 [dependencies]
-leptos_core = { path = "../leptos_core", default-features = false, version = "0.0.8" }
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.8" }
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.7" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.8" }
+leptos_core = { path = "../leptos_core", default-features = false, version = "0.0.9" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.9" }
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.9" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.9" }
 
 [features]
 default = ["csr"]
