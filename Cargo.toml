@@ -12,6 +12,7 @@ members = [
   "router",
 ]
 exclude = [
+  "benchmarks",
   "examples/counter",
   "examples/counters",
   "examples/counters-stable",

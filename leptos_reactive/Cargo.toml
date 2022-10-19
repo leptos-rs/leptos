@@ -24,7 +24,6 @@ web-sys = { version = "0.3", optional = true, features = ["Element"] }
 cfg-if = "1.0.0"
 
 [dev-dependencies]
-sycamore = "0.8.0-beta.7"
 tokio-test = "0.4"
 
 [features]
