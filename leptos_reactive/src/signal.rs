@@ -382,7 +382,6 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Copy, Clone)]
 pub struct RwSignal<T>
 where
     T: 'static,
@@ -392,14 +391,59 @@ where
     pub(crate) ty: PhantomData<T>,
 }
 
+impl<T> Clone for RwSignal<T> {
+    fn clone(&self) -> Self {
+        Self {
+            runtime: self.runtime,
+            id: self.id,
+            ty: self.ty,
+        }
+    }
+}
+
+impl<T> Copy for RwSignal<T> {}
+
 impl<T> RwSignal<T>
 where
     T: 'static,
 {
+    /// Applies a function to the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let name = create_rw_signal(cx, "Alice".to_string());
+    ///
+    /// // ❌ unnecessarily clones the string
+    /// let first_char = move || name().chars().next().unwrap();
+    /// assert_eq!(first_char(), 'A');
+    ///
+    /// // ✅ gets the first char without cloning the `String`
+    /// let first_char = move || name.with(|n| n.chars().next().unwrap());
+    /// assert_eq!(first_char(), 'A');
+    /// name.set("Bob".to_string());
+    /// assert_eq!(first_char(), 'B');
+    /// # }).dispose();
+    /// #
+    /// ```
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
     }
 
+    /// Clones and returns the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let count = create_rw_signal(cx, 0);
+    ///
+    /// assert_eq!(count.get(), 0);
+    ///
+    /// // count() is shorthand for count.get()
+    /// assert_eq!(count(), 0);
+    /// # }).dispose();
+    /// #
+    /// ```
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -407,12 +451,67 @@ where
         self.id.with(self.runtime, T::clone)
     }
 
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let count = create_rw_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
+    /// assert_eq!(count(), 1);
+    ///
+    /// // you can include arbitrary logic in this update function
+    /// // also notifies subscribers, even though the value hasn't changed
+    /// count.update(|n| if *n > 3 { *n += 1 });
+    /// assert_eq!(count(), 1);
+    /// # }).dispose();
+    /// ```
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.id.update(self.runtime, f)
     }
 
+    /// Sets the signal’s value and notifies subscribers.
+    ///
+    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let count = create_rw_signal(cx, 0);
+    ///
+    /// assert_eq!(count(), 0);
+    /// count.set(1);
+    /// assert_eq!(count(), 1);
+    /// # }).dispose();
+    /// ```
     pub fn set(&self, value: T) {
         self.id.update(self.runtime, |n| *n = value)
+    }
+
+    /// Returns a read-only handle to the signal.
+    ///
+    /// Useful if you're trying to give read access to another component but ensure that it can't write
+    /// to the signal and cause other parts of the DOM to update.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(|cx| {
+    /// let count = create_rw_signal(cx, 0);
+    /// let read_count = count.read_only();
+    /// assert_eq!(count(), 0);
+    /// assert_eq!(read_count(), 0);
+    /// count.set(1);
+    /// assert_eq!(count(), 1);
+    /// assert_eq!(read_count(), 1);
+    /// # }).dispose();
+    /// ```
+    pub fn read_only(&self) -> ReadSignal<T> {
+        ReadSignal {
+            runtime: self.runtime,
+            id: self.id,
+            ty: PhantomData,
+        }
     }
 }
 

@@ -45,7 +45,7 @@
 //!
 //! Here are links to the most important sections of the docs:
 //! - **Reactivity**: the [leptos_reactive] overview, and more details in
-//!   - [create_signal], [ReadSignal], and [WriteSignal]
+//!   - [create_signal], [ReadSignal], and [WriteSignal] (and [create_rw_signal] and [RwSignal])
 //!   - [create_memo] and [Memo]
 //!   - [create_resource] and [Resource]
 //!   - [create_effect]

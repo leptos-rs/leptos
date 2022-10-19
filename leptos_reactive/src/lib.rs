@@ -17,7 +17,8 @@
 //!
 //! ### Signals
 //! 1. *Signals:* [create_signal](crate::create_signal), which returns a ([ReadSignal](crate::ReadSignal),
-//!    [WriteSignal](crate::WriteSignal)) tuple.
+//!    [WriteSignal](crate::WriteSignal)) tuple, or [create_rw_signal](crate::create_rw_signal), which returns
+//!    a signal [RwSignal](crate::RwSignal) without this read-write segregation.
 //! 2. *Derived Signals:* any function that relies on another signal.
 //! 3. *Memos:* [create_memo](crate::create_memo), which returns a [Memo](crate::Memo).
 //! 4. *Resources:* [create_resource], which converts an `async` [Future] into a synchronous [Resource](crate::Resource) signal.
