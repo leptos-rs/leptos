@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[wasm_bindgen]
 pub fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
+    console_error_panic_hook::set_once();
     log::debug!("initialized logging");
 
     leptos::hydrate(body().unwrap(), |cx| {

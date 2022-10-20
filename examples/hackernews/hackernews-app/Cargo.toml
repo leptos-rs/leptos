@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+console_error_panic_hook = "0.1"
 console_log = "0.2"
 leptos = { path = "../../../leptos", default-features = false }
 leptos_meta = { path = "../../../meta", default-features = false }
