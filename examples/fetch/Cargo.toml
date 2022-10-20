@@ -11,6 +11,7 @@ reqwasm = "0.5.0"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
 console_log = "0.2"
+console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
