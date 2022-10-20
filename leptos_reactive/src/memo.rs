@@ -91,7 +91,8 @@ where
     pub fn with<U>(&self, f: impl Fn(&T) -> U) -> U {
         // okay to unwrap here, because the value will *always* have initially
         // been set by the effect, synchronously
-        self.0.with(|n| f(n.as_ref().unwrap()))
+        self.0
+            .with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
     }
 }
 
