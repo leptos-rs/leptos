@@ -8,6 +8,7 @@ leptos = { path = "../../leptos", default-features = false }
 miniserde = "0.1"
 log = "0.4"
 console_log = "0.2"
+console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"

@@ -12,6 +12,7 @@ leptos = { path = "../../../leptos", default-features = false, features = ["hydr
 todomvc = { path = "../../todomvc",  default-features = false, features = ["hydrate"] }
 log = "0.4"
 wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1.7"
 
 [profile.release]
 codegen-units = 1
