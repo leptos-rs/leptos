@@ -147,9 +147,8 @@ where
         if let Some(data) = context.resolved_resources.remove(&id) {
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
-            //let decoded = base64::decode(&data).unwrap_throw();
-            //let res = bincode::deserialize(&decoded).unwrap_throw();
-            let res = serde_json::from_str(&data).unwrap_throw();
+            let res =
+                serde_json::from_str(&data).expect_throw("could not deserialize Resource JSON");
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
 
@@ -163,9 +162,8 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    //let decoded = base64::decode(&res).unwrap_throw();
-                    //let res = bincode::deserialize(&decoded).unwrap_throw();
-                    let res = serde_json::from_str(&res).unwrap_throw();
+                    let res = serde_json::from_str(&res)
+                        .expect_throw("could not deserialize JSON for already-resolved Resource");
                     resolved.set(true);
                     set_value.update(|n| *n = res);
                     set_loading.update(|n| *n = false);
@@ -177,8 +175,8 @@ where
                 &web_sys::window().unwrap(),
                 &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
             )
-            .unwrap();
-            let id = serde_json::to_string(&id).unwrap();
+            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
+            let id = serde_json::to_string(&id).expect_throw("could not deserialize Resource ID");
             _ = js_sys::Reflect::set(
                 &resource_resolvers,
                 &wasm_bindgen::JsValue::from_str(&id),
@@ -418,8 +416,10 @@ where
         let fut = (self.fetcher)(self.source.get());
         Box::pin(async move {
             let res = fut.await;
-            (id, serde_json::to_string(&res).unwrap())
-            //(id, base64::encode(&bincode::serialize(&res).unwrap()))
+            (
+                id,
+                serde_json::to_string(&res).expect("could not serialize Resource"),
+            )
         })
     }
 }

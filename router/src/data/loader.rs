@@ -44,11 +44,10 @@ where
                     .downcast_ref::<T>()
                     .cloned()
                     .unwrap_or_else(|| {
-                        debug_warn!(
+                        panic!(
                             "use_loader() could not downcast to {:?}",
                             std::any::type_name::<T>(),
-                        );
-                        panic!()
+                        )
                     })
             }
         },
@@ -81,7 +80,10 @@ where
         cx,
         move || (params.get(), url()),
         move |(params, url)| async move {
-            log::debug!("[LOADER] calling loader; should fire whenever params or URL change");
+            log::debug!(
+                "[LOADER] calling loader with {:#?}; should fire whenever params or URL change",
+                (params, url)
+            );
 
             let route = use_route(cx);
             let query = use_query_map(cx);

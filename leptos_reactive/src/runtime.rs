@@ -166,7 +166,7 @@ impl Runtime {
             for i in 0..templates.length() {
                 let node = templates
                     .item(i)
-                    .unwrap_throw()
+                    .unwrap_throw() // ok to unwrap; we already have the index, so this can't fail
                     .unchecked_into::<web_sys::Element>();
                 let key = node.get_attribute("data-hk").unwrap_throw();
                 registry.insert(key, node);

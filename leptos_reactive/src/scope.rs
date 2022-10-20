@@ -65,7 +65,11 @@ impl Scope {
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
         let mut children = self.runtime.scope_children.borrow_mut();
-        children.entry(self.id).unwrap().or_default().push(child_id);
+        children
+            .entry(self.id)
+            .expect("trying to add a child to a Scope that has already been disposed")
+            .or_default()
+            .push(child_id);
         disposer
     }
 
@@ -145,7 +149,7 @@ pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
     let mut cleanups = cx.runtime.scope_cleanups.borrow_mut();
     let cleanups = cleanups
         .entry(cx.id)
-        .unwrap()
+        .expect("trying to clean up a Scope that has already been disposed")
         .or_insert_with(Default::default);
     cleanups.push(Box::new(cleanup_fn));
 }
@@ -193,10 +197,10 @@ impl Scope {
                 .unchecked_ref::<web_sys::HtmlTemplateElement>()
                 .content()
                 .clone_node_with_deep(true)
-                .unwrap_throw()
+                .expect_throw("(get_next_element) could not clone template")
                 .unchecked_into::<web_sys::Element>()
                 .first_element_child()
-                .unwrap_throw();
+                .expect_throw("(get_next_element) could not get first child of template");
             t
         };
 
