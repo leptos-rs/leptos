@@ -6,22 +6,6 @@ use leptos_router::*;
 
 use crate::api::{get_contact, get_contacts};
 
-async fn contact_list_data(_cx: Scope, _params: ParamsMap, url: Url) -> Vec<ContactSummary> {
-    log::debug!("(contact_list_data) reloading contacts");
-    get_contacts(url.search).await
-}
-
-async fn contact_data(_cx: Scope, params: ParamsMap, _url: Url) -> Option<Contact> {
-    log::debug!("(contact_data) reloading contact");
-    let id = params
-        .get("id")
-        .cloned()
-        .unwrap_or_default()
-        .parse::<usize>()
-        .ok();
-    get_contact(id).await
-}
-
 pub fn router_example(cx: Scope) -> Element {
     view! { cx,
         <div id="root">
@@ -36,11 +20,9 @@ pub fn router_example(cx: Scope) -> Element {
                         <Route
                             path=""
                             element=move |cx| view! { cx,  <ContactList/> }
-                            loader=contact_list_data.into()
                         >
                             <Route
                                 path=":id"
-                                loader=contact_data.into()
                                 element=move |cx| view! { cx,  <Contact/> }
                             />
                             <Route
@@ -69,8 +51,8 @@ pub fn router_example(cx: Scope) -> Element {
 
 #[component]
 pub fn ContactList(cx: Scope) -> Element {
-    let contacts = use_loader::<Vec<ContactSummary>>(cx);
-    log::debug!("rendering <ContactList/>");
+    let location = use_location(cx);
+    let contacts = create_resource(cx, move || location.search.get(), get_contacts);
 
     view! { cx,
         <div class="contact-list">
@@ -99,7 +81,23 @@ pub fn ContactList(cx: Scope) -> Element {
 
 #[component]
 pub fn Contact(cx: Scope) -> Element {
-    let contact = use_loader::<Option<Contact>>(cx);
+    let params = use_params_map(cx);
+    let contact = create_resource(
+        cx,
+        move || {
+            params()
+                .get("id")
+                .cloned()
+                .unwrap_or_default()
+                .parse::<usize>()
+                .ok()
+        },
+        // any of the following would work (they're identical)
+        // move |id| async move { get_contact(id).await }
+        // move |id| get_contact(id),
+        // get_contact
+        get_contact,
+    );
 
     view! { cx,
         <div class="contact">

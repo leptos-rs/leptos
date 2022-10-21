@@ -2,15 +2,14 @@ use crate::api;
 use leptos::*;
 use leptos_router::*;
 
-pub async fn story_data(_cx: Scope, params: ParamsMap, _url: Url) -> Result<api::Story, ()> {
-    log::debug!("(story_data) loading data for story");
-    let id = params.get("id").cloned().unwrap_or_default();
-    api::fetch_api(&api::story(&format!("item/{id}"))).await
-}
-
 #[component]
 pub fn Story(cx: Scope) -> Element {
-    let story = use_loader::<Result<api::Story, ()>>(cx);
+    let params = use_params_map(cx);
+    let story = create_resource(
+        cx,
+        move || params().get("id").cloned().unwrap_or_default(),
+        move |id| async move { api::fetch_api::<api::Story>(&api::story(&format!("item/{id}"))).await },
+    );
 
     view! { cx,
         <div>

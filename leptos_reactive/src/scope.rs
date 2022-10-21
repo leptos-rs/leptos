@@ -117,8 +117,20 @@ impl Scope {
             for property in owned {
                 match property {
                     ScopeProperty::Signal(id) => {
+                        // remove the signal
                         self.runtime.signals.borrow_mut().remove(id);
-                        self.runtime.signal_subscribers.borrow_mut().remove(id);
+                        let subs = self.runtime.signal_subscribers.borrow_mut().remove(id);
+
+                        // each of the subs needs to remove the signal from its dependencies
+                        // so that it doesn't try to read the (now disposed) signal
+                        if let Some(subs) = subs {
+                            let source_map = self.runtime.effect_sources.borrow();
+                            for effect in subs.borrow().iter() {
+                                if let Some(effect_sources) = source_map.get(*effect) {
+                                    effect_sources.borrow_mut().remove(&id);
+                                }
+                            }
+                        }
                     }
                     ScopeProperty::Effect(id) => {
                         self.runtime.effects.borrow_mut().remove(id);

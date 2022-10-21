@@ -13,39 +13,8 @@ fn category(from: &str) -> &'static str {
     }
 }
 
-pub async fn stories_data(_cx: Scope, params: ParamsMap, url: Url) -> Result<Vec<api::Story>, ()> {
-    log::debug!("(stories_data) loading data for stories");
-    let page = url
-        .search_params()
-        .get("page")
-        .and_then(|p| p.parse::<usize>().ok())
-        .unwrap_or(1);
-    let story_type = params
-        .get("stories")
-        .cloned()
-        .unwrap_or_else(|| "top".to_string());
-    let path = format!("{}?page={}", category(&story_type), page);
-    api::fetch_api::<Vec<api::Story>>(&api::story(&path))
-        .await
-        .map_err(|_| ())
-}
-
-#[derive(Clone)]
-pub struct StoriesData {
-    pub page: Memo<usize>,
-    pub story_type: Memo<String>,
-    pub stories: Resource<String, Result<Vec<api::Story>, ()>>,
-}
-
-impl std::fmt::Debug for StoriesData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("StoriesData").finish()
-    }
-}
-
 #[component]
 pub fn Stories(cx: Scope) -> Element {
-    let stories = use_loader::<Result<Vec<api::Story>, ()>>(cx);
     let query = use_query_map(cx);
     let params = use_params_map(cx);
     let page = move || {
@@ -58,6 +27,14 @@ pub fn Stories(cx: Scope) -> Element {
             .with(|p| p.get("stories").cloned())
             .unwrap_or_else(|| "top".to_string())
     };
+    let stories = create_resource(
+        cx,
+        move || (page(), story_type()),
+        move |(page, story_type)| async move {
+            let path = format!("{}?page={}", category(&story_type), page);
+            api::fetch_api::<Vec<api::Story>>(&api::story(&path)).await
+        },
+    );
 
     let hide_more_link = move || stories.read().unwrap_or(Err(())).unwrap_or_default().len() < 28;
 
