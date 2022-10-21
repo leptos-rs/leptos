@@ -2,27 +2,34 @@ use leptos::*;
 use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
 
-use crate::{use_navigate, use_resolved_path};
+use crate::{use_navigate, use_resolved_path, ToHref};
 
 #[derive(TypedBuilder)]
-pub struct FormProps {
+pub struct FormProps<A>
+where
+    A: ToHref + 'static,
+{
     #[builder(default, setter(strip_option))]
     method: Option<String>,
-    #[builder(default, setter(strip_option))]
-    action: Option<String>,
+    action: A,
     #[builder(default, setter(strip_option))]
     enctype: Option<String>,
     children: Box<dyn Fn() -> Vec<Element>>,
 }
 
 #[allow(non_snake_case)]
-pub fn Form(cx: Scope, props: FormProps) -> Element {
+pub fn Form<A>(cx: Scope, props: FormProps<A>) -> Element
+where
+    A: ToHref + 'static,
+{
     let FormProps {
         method,
         action,
         enctype,
         children,
     } = props;
+
+    let action = use_resolved_path(cx, move || action.to_href()());
 
     let on_submit = move |ev: web_sys::Event| {
         if ev.default_prevented() {
