@@ -590,7 +590,10 @@ impl SignalId {
             let value = {
                 let signals = runtime.signals.borrow();
                 signals.get(*self).cloned().unwrap_or_else(|| {
-                    panic!("tried to access a signal that has been disposed: {self:?}")
+                    panic!(
+                        "tried to access a Signal<{}> that has been disposed: {self:?}",
+                        std::any::type_name::<T>()
+                    )
                 })
             };
             let mut value = value.borrow_mut();

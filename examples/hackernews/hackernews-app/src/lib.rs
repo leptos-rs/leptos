@@ -27,9 +27,9 @@ pub fn App(cx: Scope) -> Element {
                 <Nav />
                 <main>
                     <Routes>
-                        <Route path="users/:id" element=|cx| view! { cx,  <User/> } loader=user_data.into() />
-                        <Route path="stories/:id" element=|cx| view! { cx,  <Story/> } loader=story_data.into() />
-                        <Route path="*stories" element=|cx| view! { cx,  <Stories/> } loader=stories_data.into()/>
+                        <Route path="users/:id" element=|cx| view! { cx,  <User/> }/>
+                        <Route path="stories/:id" element=|cx| view! { cx,  <Story/> }/>
+                        <Route path="*stories" element=|cx| view! { cx,  <Stories/> }/>
                     </Routes>
                 </main>
             </Router>
