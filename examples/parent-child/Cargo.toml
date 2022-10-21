@@ -9,7 +9,3 @@ console_log = "0.2"
 log = "0.4"
 console_error_panic_hook = "0.1.7"
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 'z'

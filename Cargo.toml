@@ -10,9 +10,8 @@ members = [
   # libraries
   "meta",
   "router",
-]
-exclude = [
-  "benchmarks",
+
+  # examples
   "examples/counter",
   "examples/counters",
   "examples/counters-stable",
@@ -26,3 +25,12 @@ exclude = [
   "examples/todomvc-ssr/todomvc-ssr-client",
   "examples/todomvc-ssr/todomvc-ssr-server"
 ]
+exclude = [
+  "benchmarks"
+]
+
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'
