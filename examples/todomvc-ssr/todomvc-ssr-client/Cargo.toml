@@ -8,7 +8,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 console_log = "0.2"
-console_error_panic_hook = "0.1"
 leptos = { path = "../../../leptos", default-features = false, features = ["hydrate"] }
 todomvc = { path = "../../todomvc",  default-features = false, features = ["hydrate"] }
 log = "0.4"
