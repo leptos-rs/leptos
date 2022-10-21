@@ -22,16 +22,12 @@ pub fn router_example(cx: Scope) -> Element {
                             element=move |cx| view! { cx,  <ContactList/> }
                         >
                             <Route
-                                path=":id"
+                                path=":id?"
                                 element=move |cx| view! { cx,  <Contact/> }
                             />
                             <Route
                                 path="about"
                                 element=move |_| view! { cx,  <p class="contact">"Here is your list of contacts"</p> }
-                            />
-                            <Route
-                                path=""
-                                element=move |_| view! { cx,  <p class="contact">"Select a contact."</p> }
                             />
                         </Route>
                         <Route
@@ -99,16 +95,26 @@ pub fn Contact(cx: Scope) -> Element {
         get_contact,
     );
 
+    let contact_display = move || match contact.read() {
+        // None => loading, but will be caught by Suspense fallback
+        // I'm only doing this explicitly for the example
+        None => None,
+        // Some(None) => has loaded and found no contact
+        Some(None) => Some(view! { cx, <p>"Please select a contact."</p> }),
+        // Some(Some) => has loaded and found a contact
+        Some(Some(contact)) => Some(view! { cx,
+            <section class="card">
+                <h1>{contact.first_name} " " {contact.last_name}</h1>
+                <p>{contact.address_1}<br/>{contact.address_2}</p>
+            </section>
+        }),
+    };
+
     view! { cx,
         <div class="contact">
-            <Suspense fallback=move || view! { cx,  <p>"Loading..."</p> }>{
-                move || contact.read().map(|contact| contact.map(|contact| view! { cx,
-                    <section class="card">
-                        <h1>{contact.first_name} " " {contact.last_name}</h1>
-                        <p>{contact.address_1}<br/>{contact.address_2}</p>
-                    </section>
-                }))
-            }</Suspense>
+            <Suspense fallback=move || view! { cx,  <p>"Loading..."</p> }>
+                {contact_display}
+            </Suspense>
         </div>
     }
 }
