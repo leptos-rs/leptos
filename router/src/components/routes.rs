@@ -108,7 +108,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
 
                     if disposers.len() > i + 1 {
                         let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
-                        //old_route_disposer.dispose();
+                        old_route_disposer.dispose();
                     } else {
                         disposers.push(disposer);
                     }
