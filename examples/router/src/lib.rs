@@ -22,12 +22,12 @@ pub fn router_example(cx: Scope) -> Element {
                             element=move |cx| view! { cx,  <ContactList/> }
                         >
                             <Route
-                                path=":id?"
+                                path=":id"
                                 element=move |cx| view! { cx,  <Contact/> }
                             />
                             <Route
-                                path="about"
-                                element=move |_| view! { cx,  <p class="contact">"Here is your list of contacts"</p> }
+                                path=""
+                                element=move |_| view! { cx,  <p>"Select a contact."</p> }
                             />
                         </Route>
                         <Route
@@ -95,12 +95,14 @@ pub fn Contact(cx: Scope) -> Element {
         get_contact,
     );
 
+    create_effect(cx, move |_| log::debug!("params = {:#?}", params()));
+
     let contact_display = move || match contact.read() {
         // None => loading, but will be caught by Suspense fallback
         // I'm only doing this explicitly for the example
         None => None,
         // Some(None) => has loaded and found no contact
-        Some(None) => Some(view! { cx, <p>"Please select a contact."</p> }),
+        Some(None) => Some(view! { cx, <p>"No contact with this ID was found."</p> }),
         // Some(Some) => has loaded and found a contact
         Some(Some(contact)) => Some(view! { cx,
             <section class="card">
