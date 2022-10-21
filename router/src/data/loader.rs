@@ -80,11 +80,6 @@ where
         cx,
         move || (params.get(), url()),
         move |(params, url)| async move {
-            log::debug!(
-                "[LOADER] calling loader with {:#?}; should fire whenever params or URL change",
-                (params, url)
-            );
-
             let route = use_route(cx);
             let query = use_query_map(cx);
 

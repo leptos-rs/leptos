@@ -56,7 +56,7 @@ impl History for BrowserIntegration {
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
                 let change = Self::current();
-                match router.inner.navigate_from_route(
+                if let Err(e) = router.inner.navigate_from_route(
                     &change.value,
                     &NavigateOptions {
                         resolve: false,
@@ -65,12 +65,11 @@ impl History for BrowserIntegration {
                         state: change.state,
                     },
                 ) {
-                    Ok(_) => log::debug!("navigated"),
-                    Err(e) => log::error!("{e:#?}"),
-                };
+                    log::error!("{e:#?}");
+                }
                 set_location(Self::current());
             } else {
-                log::debug!("RouterContext not found");
+                log::warn!("RouterContext not found");
             }
         });
 
@@ -78,7 +77,6 @@ impl History for BrowserIntegration {
     }
 
     fn navigate(&self, loc: &LocationChange) {
-        log::debug!("[BrowserIntegration::navigate] {loc:#?}");
         let history = leptos_dom::window().history().unwrap_throw();
 
         if loc.replace {
@@ -98,7 +96,6 @@ impl History for BrowserIntegration {
                     .and_then(|decoded| decoded.as_string())
                     .unwrap_or(hash);
                 let el = leptos_dom::document().get_element_by_id(&hash);
-                log::debug!("el to scroll to = {hash:?} => {el:?}");
                 if let Some(el) = el {
                     el.scroll_into_view()
                 } else if loc.scroll {
@@ -106,7 +103,6 @@ impl History for BrowserIntegration {
                 }
             }
         }
-        log::debug!("[BrowserIntegration::navigate 5]");
     }
 }
 

@@ -315,9 +315,8 @@ impl RouterContextInner {
             let state = a.get_attribute("state"); // TODO state
 
             ev.prevent_default();
-            log::debug!("navigate to {to}");
 
-            match self.navigate_from_route(
+            if let Err(e) = self.navigate_from_route(
                 &to,
                 &NavigateOptions {
                     resolve: false,
@@ -327,8 +326,7 @@ impl RouterContextInner {
                     state: State(None), // TODO state
                 },
             ) {
-                Ok(_) => log::debug!("navigated"),
-                Err(e) => log::error!("{e:#?}"),
+                log::error!("{e:#?}");
             }
         }
     }
