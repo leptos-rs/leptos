@@ -54,11 +54,6 @@ features = [
   "Window"
 ]
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 'z'
-
 [features]
 csr = ["leptos_reactive/csr"]
 hydrate = ["leptos_reactive/hydrate"]
