@@ -88,7 +88,14 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
                                 {
                                     let next = next.clone();
                                     move || {
-                                        next.borrow().get(i + 1).cloned()
+                                        if let Some(route_states) = use_context::<Memo<RouterState>>(cx) {
+                                            route_states.with(|route_states| {
+                                                let routes = route_states.routes.borrow();
+                                                routes.get(i + 1).cloned()
+                                            })
+                                        } else {
+                                            next.borrow().get(i + 1).cloned()
+                                        }
                                     }
                                 },
                                 move || {
@@ -133,9 +140,10 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
             }
         }
     });
-
+    
     // show the root route
     create_memo(cx, move |prev| {
+        provide_context(cx, route_states);
         route_states.with(|state| {
             let root = state.routes.borrow();
             let root = root.get(0);
