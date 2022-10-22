@@ -91,7 +91,7 @@ where
         let (read, _) = subs
             .entry(key.clone())
             .or_insert_with(|| create_signal(cx, false));
-        _ = read.get();
+        _ = read.try_with(|n| n.clone());
         f(&key, v.borrow().as_ref().unwrap())
     }
 }

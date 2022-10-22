@@ -153,7 +153,7 @@ where
             r.set_loading.update(|n| *n = false);
 
             // for reactivity
-            _ = r.source.get();
+            _ = r.source.try_with(|n| n.clone());
         } else if context.pending_resources.remove(&id) {
             r.set_loading.update(|n| *n = true);
 
@@ -206,7 +206,7 @@ where
     pub fn loading(&self) -> bool {
         self.runtime
             .resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.loading.get()
+                resource.loading.try_with(|n| *n).unwrap_or(false)
             })
     }
 
@@ -365,44 +365,46 @@ where
 
         self.scheduled.set(false);
 
-        let fut = (self.fetcher)(self.source.get());
+        _ = self.source.try_with(|source| {
+            let fut = (self.fetcher)(source.clone());
 
-        // `scheduled` is true for the rest of this code only
-        self.scheduled.set(true);
-        queue_microtask({
-            let scheduled = Rc::clone(&self.scheduled);
-            move || {
-                scheduled.set(false);
-            }
-        });
-
-        self.set_loading.update(|n| *n = true);
-
-        // increment counter everywhere it's read
-        let suspense_contexts = self.suspense_contexts.clone();
-
-        for suspense_context in suspense_contexts.borrow().iter() {
-            suspense_context.increment();
-        }
-
-        // run the Future
-        spawn_local({
-            let resolved = self.resolved.clone();
-            let set_value = self.set_value;
-            let set_loading = self.set_loading;
-            async move {
-                let res = fut.await;
-
-                resolved.set(true);
-
-                set_value.update(|n| *n = Some(res));
-                set_loading.update(|n| *n = false);
-
-                for suspense_context in suspense_contexts.borrow().iter() {
-                    suspense_context.decrement();
+            // `scheduled` is true for the rest of this code only
+            self.scheduled.set(true);
+            queue_microtask({
+                let scheduled = Rc::clone(&self.scheduled);
+                move || {
+                    scheduled.set(false);
                 }
+            });
+
+            self.set_loading.update(|n| *n = true);
+
+            // increment counter everywhere it's read
+            let suspense_contexts = self.suspense_contexts.clone();
+
+            for suspense_context in suspense_contexts.borrow().iter() {
+                suspense_context.increment();
             }
-        })
+
+            // run the Future
+            spawn_local({
+                let resolved = self.resolved.clone();
+                let set_value = self.set_value;
+                let set_loading = self.set_loading;
+                async move {
+                    let res = fut.await;
+
+                    resolved.set(true);
+
+                    set_value.update(|n| *n = Some(res));
+                    set_loading.update(|n| *n = false);
+
+                    for suspense_context in suspense_contexts.borrow().iter() {
+                        suspense_context.decrement();
+                    }
+                }
+            })
+        });
     }
 
     #[cfg(feature = "ssr")]

@@ -361,7 +361,7 @@ impl Scope {
             let (mut tx, mut rx) = futures::channel::mpsc::channel::<()>(1);
 
             create_isomorphic_effect(*self, move |_| {
-                let pending = context.pending_resources.get();
+                let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
                 if pending == 0 {
                     _ = tx.try_send(());
                 }
