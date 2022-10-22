@@ -1,4 +1,4 @@
-use crate::{Runtime, Scope, ScopeProperty};
+use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use std::fmt::Debug;
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
@@ -144,6 +144,8 @@ impl EffectId {
         };
         if let Some(effect) = effect {
             effect.borrow_mut().run(*self, runtime);
+        } else {
+            debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
         }
     }
 

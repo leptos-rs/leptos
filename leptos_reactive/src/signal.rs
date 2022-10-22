@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::{Runtime, Scope, ScopeProperty};
+use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Creates a signal, the basic reactive primitive.
@@ -586,7 +586,13 @@ impl SignalId {
         // get the value
         let value = {
             let signals = runtime.signals.borrow();
-            signals.get(*self).cloned().ok_or(SignalError::Disposed)
+            match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
+                Ok(s) => Ok(s),
+                Err(e) => {
+                    debug_warn!("[Signal::try_with] {e}");
+                    Err(e)
+                }
+            }
         }?;
         let value = value.borrow();
         let value = value
@@ -618,9 +624,17 @@ impl SignalId {
                     f(value);
                     true
                 } else {
+                    debug_warn!(
+                        "[Signal::update] failed when downcasting to Signal<{}>",
+                        std::any::type_name::<T>()
+                    );
                     false
                 }
             } else {
+                debug_warn!(
+                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
+                    std::any::type_name::<T>()
+                );
                 false
             }
         };
