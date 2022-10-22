@@ -13,8 +13,8 @@ pub fn User(cx: Scope) -> Element {
     view! { cx,
         <div class="user-view">
             {move || user.read().map(|user| match user {
-                Err(_) => view! { cx,  <h1>"User not found."</h1> },
-                Ok(user) => view! { cx,
+                None => view! { cx,  <h1>"User not found."</h1> },
+                Some(user) => view! { cx,
                     <div>
                         <h1>"User: " {&user.id}</h1>
                         <ul class="meta">

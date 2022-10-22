@@ -15,7 +15,7 @@ lazy_static = "1"
 linear-map = "1"
 log = "0.4"
 regex = { version = "1", optional = true }
-serde = { version = "1", features = ["derive"] }
+serde-lite = "0.3"
 serde_json = { version = "1" }
 bincode = "1"
 url = { version = "2", optional = true }

@@ -9,7 +9,7 @@ use std::{
     rc::Rc,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde_lite::{Deserialize, Serialize};
 
 use crate::{
     create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
@@ -57,7 +57,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serialize + Deserialize + 'static,
     Fu: Future<Output = T> + 'static,
 {
     #[cfg(not(feature = "ssr"))]
@@ -83,7 +83,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serialize + Deserialize + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -130,7 +130,7 @@ where
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serialize + Deserialize + 'static,
 {
     r.load(false)
 }
@@ -139,7 +139,7 @@ where
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serialize + Deserialize + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -147,8 +147,10 @@ where
         if let Some(data) = context.resolved_resources.remove(&id) {
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
-            let res =
+            let intermediate =
                 serde_json::from_str(&data).expect_throw("could not deserialize Resource JSON");
+            let res = T::deserialize(&intermediate)
+                .expect_throw("could not deserialize Resource JSON from serde_lite intermediate");
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
 
@@ -162,10 +164,13 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = serde_json::from_str(&res)
+                    let intermediate = serde_json::from_str(&res)
                         .expect_throw("could not deserialize JSON for already-resolved Resource");
+                    let res = T::deserialize(&intermediate).expect_throw(
+                        "could not deserialize Resource JSON from serde_lite intermediate",
+                    );
                     resolved.set(true);
-                    set_value.update(|n| *n = res);
+                    set_value.update(|n| *n = Some(res));
                     set_loading.update(|n| *n = false);
                 }
             };
@@ -218,7 +223,7 @@ where
     #[cfg(feature = "ssr")]
     pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
     where
-        T: Serialize + DeserializeOwned,
+        T: Serialize + Deserialize,
     {
         self.runtime
             .resource(self.id, |resource: &ResourceState<S, T>| {
@@ -439,7 +444,7 @@ pub(crate) trait AnyResource {
 impl<S, T> AnyResource for ResourceState<S, T>
 where
     S: Debug + Clone,
-    T: Clone + Debug + Serialize + DeserializeOwned,
+    T: Clone + Debug + Serialize + Deserialize,
 {
     fn as_any(&self) -> &dyn Any {
         self

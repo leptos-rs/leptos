@@ -1,5 +1,6 @@
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_lite::{Deserialize, Serialize};
+use serde_lite_derive::{Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
     format!("https://node-hnapi.herokuapp.com/{path}")
@@ -10,23 +11,26 @@ pub fn user(path: &str) -> String {
 }
 
 #[cfg(not(feature = "ssr"))]
-pub async fn fetch_api<T>(path: &str) -> Result<T, ()>
+pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
-    T: DeserializeOwned,
+    T: Deserialize,
 {
-    gloo_net::http::Request::get(path)
+    let json = gloo_net::http::Request::get(path)
         .send()
         .await
-        .map_err(|e| log::error!("{e}"))?
-        .json::<T>()
-        .await
         .map_err(|e| log::error!("{e}"))
+        .ok()?
+        .text()
+        .await
+        .ok()?;
+    let intermediate = serde_json::from_str(&json).ok()?;
+    T::deserialize(&intermediate).ok()
 }
 
 #[cfg(feature = "ssr")]
-pub async fn fetch_api<T>(path: &str) -> Result<T, ()>
+pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
-    T: DeserializeOwned,
+    T: Deserialize,
 {
     reqwest::get(path)
         .await
@@ -34,6 +38,7 @@ where
         .json::<T>()
         .await
         .map_err(|e| log::error!("{e}"))
+        .ok()
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]

@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Debug, future::Future, rc::Rc};
 
 use leptos::*;
-use serde::{de::DeserializeOwned, Serialize};
+use serde_lite::{Deserialize, Serialize};
 
 use crate::{use_location, use_params_map, use_route, ParamsMap, PinnedFuture, Url};
 
@@ -9,7 +9,7 @@ use crate::{use_location, use_params_map, use_route, ParamsMap, PinnedFuture, Ur
 #[cfg(not(feature = "hydrate"))]
 pub fn use_loader<T>(cx: Scope) -> Resource<(ParamsMap, Url), T>
 where
-    T: Clone + Debug + Serialize + DeserializeOwned + 'static,
+    T: Clone + Debug + Serialize + Deserialize + 'static,
 {
     let route = use_route(cx);
     let params = use_params_map(cx);
@@ -58,7 +58,7 @@ where
 #[cfg(feature = "hydrate")]
 pub fn use_loader<T>(cx: Scope) -> Resource<(ParamsMap, Url), T>
 where
-    T: Clone + Debug + Serialize + DeserializeOwned + 'static,
+    T: Clone + Debug + Serialize + Deserialize + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -107,7 +107,11 @@ where
             //let decoded = window.atob(&text).unwrap_throw();
             //bincode::deserialize(&decoded.as_bytes()).unwrap_throw()
             //serde_json::from_str(&text.as_string().unwrap_throw()).unwrap_throw()
-            serde_json::from_str(&text).unwrap_throw()
+            let intermediate =
+                serde_json::from_str(&text).expect_throw("couldn't deserialize loader data");
+            T::deserialize(&intermediate).expect_throw(
+                "couldn't deserialize loader data from serde-lite intermediate format",
+            )
         },
     )
 }
@@ -123,7 +127,8 @@ where
     T: Any + Serialize + 'static,
 {
     fn serialize(&self) -> Option<String> {
-        serde_json::to_string(&self).ok()
+        let intermediate = self.serialize().ok()?;
+        serde_json::to_string(&intermediate).ok()
     }
 
     fn as_any(&self) -> &dyn Any {

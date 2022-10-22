@@ -3,7 +3,7 @@ use crate::{
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId, ScopeProperty, SignalId,
     WriteSignal,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde_lite::{Deserialize, Serialize};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
@@ -151,7 +151,7 @@ impl Runtime {
     pub(crate) fn create_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+        T: Debug + Clone + Serialize + Deserialize + 'static,
     {
         self.resources.borrow_mut().insert(state)
     }

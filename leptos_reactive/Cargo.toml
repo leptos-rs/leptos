@@ -10,7 +10,7 @@ description = "Reactive system for the Leptos web framework."
 [dependencies]
 log = "0.4"
 slotmap = { version = "1", features = ["serde"] }
-serde = { version = "1", features = ["derive", "rc"] }
+serde-lite = "0.3"
 futures = { version = "0.3" }
 js-sys = { version = "0.3", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
