@@ -10,11 +10,13 @@ description = "Reactive system for the Leptos web framework."
 [dependencies]
 log = "0.4"
 slotmap = { version = "1", features = ["serde"] }
-serde-lite = "0.3"
+serde = { version = "1", optional = true, features = ["derive"] }
+serde-lite = { version = "0.3", optional = true }
 futures = { version = "0.3" }
 js-sys = { version = "0.3", optional = true }
+miniserde = { version = "0.1", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
-serde_json = { version = "1", optional = true }
+serde_json = { version = "1" }
 base64 = { version = "0.13", optional = true }
 thiserror = "1"
 tokio = { version = "1", features = ["rt"], optional = true }
@@ -27,15 +29,18 @@ cfg-if = "1.0.0"
 tokio-test = "0.4"
 
 [features]
+default = []
 csr = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 hydrate = [
   "dep:base64",
   "dep:js-sys",
   "dep:serde-wasm-bindgen",
-  "dep:serde_json",
   "dep:wasm-bindgen",
   "dep:wasm-bindgen-futures",
   "dep:web-sys",
 ]
-ssr = ["dep:base64", "dep:serde_json", "dep:tokio"]
+ssr = ["dep:base64", "dep:tokio"]
 stable = []
+serde = ["dep:serde"]
+serde-lite = ["dep:serde-lite"]
+miniserde = ["dep:miniserde"]

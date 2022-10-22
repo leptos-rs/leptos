@@ -12,8 +12,7 @@ leptos_router = { path = "../../../router", default-features = false }
 log = "0.4"
 gloo-net = { version = "0.2", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"], optional = true }
-serde-lite = "0.3"
-serde-lite-derive = "0.3"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 console_error_panic_hook = "0.1.7"
 

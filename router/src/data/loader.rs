@@ -1,7 +1,6 @@
 use std::{any::Any, fmt::Debug, future::Future, rc::Rc};
 
 use leptos::*;
-use serde_lite::{Deserialize, Serialize};
 
 use crate::{use_location, use_params_map, use_route, ParamsMap, PinnedFuture, Url};
 
@@ -9,7 +8,7 @@ use crate::{use_location, use_params_map, use_route, ParamsMap, PinnedFuture, Ur
 #[cfg(not(feature = "hydrate"))]
 pub fn use_loader<T>(cx: Scope) -> Resource<(ParamsMap, Url), T>
 where
-    T: Clone + Debug + Serialize + Deserialize + 'static,
+    T: Clone + Debug + Serializable + 'static,
 {
     let route = use_route(cx);
     let params = use_params_map(cx);
@@ -58,7 +57,7 @@ where
 #[cfg(feature = "hydrate")]
 pub fn use_loader<T>(cx: Scope) -> Resource<(ParamsMap, Url), T>
 where
-    T: Clone + Debug + Serialize + Deserialize + 'static,
+    T: Clone + Debug + Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -104,12 +103,8 @@ where
                 .unwrap_throw()
                 .as_string()
                 .unwrap_throw();
-            //let decoded = window.atob(&text).unwrap_throw();
-            //bincode::deserialize(&decoded.as_bytes()).unwrap_throw()
-            //serde_json::from_str(&text.as_string().unwrap_throw()).unwrap_throw()
-            let intermediate =
-                serde_json::from_str(&text).expect_throw("couldn't deserialize loader data");
-            T::deserialize(&intermediate).expect_throw(
+
+            T::from_json(&text).expect_throw(
                 "couldn't deserialize loader data from serde-lite intermediate format",
             )
         },
@@ -124,11 +119,10 @@ pub trait AnySerialize {
 
 impl<T> AnySerialize for T
 where
-    T: Any + Serialize + 'static,
+    T: Any + Serializable + 'static,
 {
     fn serialize(&self) -> Option<String> {
-        let intermediate = self.serialize().ok()?;
-        serde_json::to_string(&intermediate).ok()
+        self.to_json().ok()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -163,7 +157,7 @@ impl<F, Fu, T> From<F> for Loader
 where
     F: Fn(Scope, ParamsMap, Url) -> Fu + 'static,
     Fu: Future<Output = T> + 'static,
-    T: Any + Serialize + 'static,
+    T: Any + Serializable + 'static,
 {
     #[cfg(not(feature = "hydrate"))]
     fn from(f: F) -> Self {

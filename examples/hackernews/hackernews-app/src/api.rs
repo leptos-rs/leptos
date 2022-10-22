@@ -1,6 +1,5 @@
-use anyhow::Result;
-use serde_lite::{Deserialize, Serialize};
-use serde_lite_derive::{Deserialize, Serialize};
+use leptos::Serializable;
+use serde::{Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
     format!("https://node-hnapi.herokuapp.com/{path}")
@@ -13,7 +12,7 @@ pub fn user(path: &str) -> String {
 #[cfg(not(feature = "ssr"))]
 pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
-    T: Deserialize,
+    T: Serializable,
 {
     let json = gloo_net::http::Request::get(path)
         .send()
@@ -23,22 +22,22 @@ where
         .text()
         .await
         .ok()?;
-    let intermediate = serde_json::from_str(&json).ok()?;
-    T::deserialize(&intermediate).ok()
+    T::from_json(&json).ok()
 }
 
 #[cfg(feature = "ssr")]
 pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
-    T: Deserialize,
+    T: Serializable,
 {
-    reqwest::get(path)
-        .await
-        .map_err(|e| log::error!("{e}"))?
-        .json::<T>()
+    let json = reqwest::get(path)
         .await
         .map_err(|e| log::error!("{e}"))
-        .ok()
+        .ok()?
+        .text()
+        .await
+        .ok()?;
+    T::from_json(&json).map_err(|e| log::error!("{e}")).ok()
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
@@ -54,6 +53,7 @@ pub struct Story {
     pub url: String,
     #[serde(default)]
     pub domain: String,
+    #[serde(default)]
     pub comments: Option<Vec<Comment>>,
     pub comments_count: Option<usize>,
 }
