@@ -626,19 +626,21 @@ impl SignalId {
         };
 
         // notify subscribers
-        let subs = {
-            let subs = runtime.signal_subscribers.borrow();
-            let subs = subs.get(*self);
-            subs.map(|subs| subs.borrow().clone())
-        };
-        if let Some(subs) = subs {
-            for sub in subs {
-                let effect = {
-                    let effects = runtime.effects.borrow();
-                    effects.get(sub).cloned()
-                };
-                if let Some(effect) = effect {
-                    effect.borrow_mut().run(sub, runtime);
+        if updated {
+            let subs = {
+                let subs = runtime.signal_subscribers.borrow();
+                let subs = subs.get(*self);
+                subs.map(|subs| subs.borrow().clone())
+            };
+            if let Some(subs) = subs {
+                for sub in subs {
+                    let effect = {
+                        let effects = runtime.effects.borrow();
+                        effects.get(sub).cloned()
+                    };
+                    if let Some(effect) = effect {
+                        effect.borrow_mut().run(sub, runtime);
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-use crate::{ReadSignal, Scope};
+use crate::{ReadSignal, Scope, SignalError};
 use std::fmt::Debug;
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -93,6 +93,11 @@ where
         // been set by the effect, synchronously
         self.0
             .with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
+    }
+
+    pub(crate) fn try_with<U>(&self, f: impl Fn(&T) -> U) -> Result<U, SignalError> {
+        self.0
+            .try_with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
     }
 }
 
