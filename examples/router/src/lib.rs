@@ -11,7 +11,7 @@ pub fn router_example(cx: Scope) -> Element {
         <div id="root">
             <Router>
                 <nav>
-                    <A href="contacts">"Contacts"</A>
+                    <A exact=true href="/">"Contacts"</A>
                     <A href="about">"About"</A>
                     <A href="settings">"Settings"</A>
                 </nav>
@@ -26,7 +26,7 @@ pub fn router_example(cx: Scope) -> Element {
                                 element=move |cx| view! { cx,  <Contact/> }
                             />
                             <Route
-                                path=""
+                                path="/"
                                 element=move |_| view! { cx,  <p>"Select a contact."</p> }
                             />
                         </Route>
@@ -94,8 +94,6 @@ pub fn Contact(cx: Scope) -> Element {
         // get_contact
         get_contact,
     );
-
-    create_effect(cx, move |_| log::debug!("params = {:#?}", params()));
 
     let contact_display = move || match contact.read() {
         // None => loading, but will be caught by Suspense fallback
