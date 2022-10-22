@@ -1,9 +1,8 @@
 use crate::{
-    hydration::SharedContext, AnyEffect, AnyResource, Effect, EffectId, Memo, ReadSignal,
-    ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId, ScopeProperty, SignalId,
-    WriteSignal,
+    hydration::SharedContext, serialization::Serializable, AnyEffect, AnyResource, Effect,
+    EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
+    ScopeProperty, SignalId, WriteSignal,
 };
-use serde::{de::DeserializeOwned, Serialize};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
@@ -151,7 +150,7 @@ impl Runtime {
     pub(crate) fn create_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+        T: Debug + Clone + Serializable + 'static,
     {
         self.resources.borrow_mut().insert(state)
     }

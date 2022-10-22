@@ -10,5 +10,5 @@ crate-type = ["cdylib", "rlib"]
 console_log = "0.2"
 console_error_panic_hook = "0.1"
 hackernews-app = { path = "../hackernews-app", default-features = false, features = ["hydrate"] }
-leptos = { path = "../../../leptos", default-features = false, features = ["hydrate"] }
+leptos = { path = "../../../leptos", default-features = false, features = ["hydrate", "serde"] }
 log = "0.4"

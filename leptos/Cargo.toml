@@ -15,8 +15,11 @@ leptos_macro = { path = "../leptos_macro", default-features = false, version = "
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.10" }
 
 [features]
-default = ["csr"]
+default = ["csr", "serde"]
 csr = ["leptos_core/csr", "leptos_dom/csr", "leptos_macro/csr", "leptos_reactive/csr"]
 hydrate = ["leptos_core/hydrate", "leptos_dom/hydrate", "leptos_macro/hydrate", "leptos_reactive/hydrate"]
 ssr = ["leptos_core/ssr", "leptos_dom/ssr", "leptos_macro/ssr", "leptos_reactive/ssr"]
 stable = ["leptos_core/stable", "leptos_dom/stable", "leptos_macro/stable", "leptos_reactive/stable"]
+serde = ["leptos_reactive/serde"]
+serde-lite = ["leptos_reactive/serde-lite"]
+miniserde = ["leptos_reactive/miniserde"]

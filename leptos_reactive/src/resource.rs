@@ -9,12 +9,10 @@ use std::{
     rc::Rc,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
-
 use crate::{
     create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
-    spawn::spawn_local, use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext,
-    WriteSignal,
+    serialization::Serializable, spawn::spawn_local, use_context, Memo, ReadSignal, Scope,
+    ScopeProperty, SuspenseContext, WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -57,7 +55,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     #[cfg(not(feature = "ssr"))]
@@ -83,7 +81,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -130,7 +128,7 @@ where
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serializable + 'static,
 {
     r.load(false)
 }
@@ -139,7 +137,7 @@ where
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serialize + DeserializeOwned + 'static,
+    T: Debug + Clone + Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -147,8 +145,8 @@ where
         if let Some(data) = context.resolved_resources.remove(&id) {
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
-            let res =
-                serde_json::from_str(&data).expect_throw("could not deserialize Resource JSON");
+
+            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
 
@@ -162,10 +160,10 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = serde_json::from_str(&res)
-                        .expect_throw("could not deserialize JSON for already-resolved Resource");
+                    let res =
+                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
                     resolved.set(true);
-                    set_value.update(|n| *n = res);
+                    set_value.update(|n| *n = Some(res));
                     set_loading.update(|n| *n = false);
                 }
             };
@@ -218,7 +216,7 @@ where
     #[cfg(feature = "ssr")]
     pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
     where
-        T: Serialize + DeserializeOwned,
+        T: Serializable,
     {
         self.runtime
             .resource(self.id, |resource: &ResourceState<S, T>| {
@@ -413,15 +411,12 @@ where
         id: ResourceId,
     ) -> std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>
     where
-        T: Serialize,
+        T: Serializable,
     {
         let fut = (self.fetcher)(self.source.get());
         Box::pin(async move {
             let res = fut.await;
-            (
-                id,
-                serde_json::to_string(&res).expect("could not serialize Resource"),
-            )
+            (id, res.to_json().expect("could not serialize Resource"))
         })
     }
 }
@@ -439,7 +434,7 @@ pub(crate) trait AnyResource {
 impl<S, T> AnyResource for ResourceState<S, T>
 where
     S: Debug + Clone,
-    T: Clone + Debug + Serialize + DeserializeOwned,
+    T: Clone + Debug + Serializable,
 {
     fn as_any(&self) -> &dyn Any {
         self
