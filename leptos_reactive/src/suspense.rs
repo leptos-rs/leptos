@@ -46,6 +46,8 @@ impl SuspenseContext {
     }
 
     pub fn ready(&self) -> bool {
-        self.pending_resources.get() == 0
+        self.pending_resources
+            .try_with(|n| *n == 0)
+            .unwrap_or(false)
     }
 }

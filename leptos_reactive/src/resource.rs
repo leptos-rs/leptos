@@ -327,7 +327,7 @@ where
     pub fn read(&self) -> Option<T> {
         let suspense_cx = use_context::<SuspenseContext>(self.scope);
 
-        let v = self.value.get();
+        let v = self.value.try_with(|n| n.clone()).ok()?;
 
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();

@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 use crate::{Runtime, Scope, ScopeProperty};
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -145,6 +147,12 @@ where
         T: Clone,
     {
         self.id.with(self.runtime, T::clone)
+    }
+
+    /// Applies the function to the current Signal, if it exists, and subscribes
+    /// the running effect.
+    pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
+        self.id.try_with(self.runtime, f)
     }
 }
 
@@ -550,8 +558,20 @@ where
 // Internals
 slotmap::new_key_type! { pub struct SignalId; }
 
+#[derive(Debug, Error)]
+pub(crate) enum SignalError {
+    #[error("tried to access a signal that had been disposed")]
+    Disposed,
+    #[error("error casting signal to type {0}")]
+    Type(&'static str),
+}
+
 impl SignalId {
-    pub(crate) fn with<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    pub(crate) fn try_with<T, U>(
+        &self,
+        runtime: &Runtime,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError>
     where
         T: 'static,
     {
@@ -566,19 +586,20 @@ impl SignalId {
         // get the value
         let value = {
             let signals = runtime.signals.borrow();
-            signals.get(*self).cloned().unwrap_or_else(|| {
-                panic!("tried to access a signal that has been disposed: {self:?}")
-            })
-        };
+            signals.get(*self).cloned().ok_or(SignalError::Disposed)
+        }?;
         let value = value.borrow();
-        let value = value.downcast_ref::<T>().unwrap_or_else(|| {
-            panic!(
-                "error casting signal {:?} to type {:?}",
-                self,
-                std::any::type_name::<T>()
-            )
-        });
-        f(value)
+        let value = value
+            .downcast_ref::<T>()
+            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
+        Ok(f(value))
+    }
+
+    pub(crate) fn with<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    where
+        T: 'static,
+    {
+        self.try_with(runtime, f).unwrap()
     }
 
     pub(crate) fn update<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T))
@@ -586,26 +607,23 @@ impl SignalId {
         T: 'static,
     {
         // update the value
-        {
+        let updated = {
             let value = {
                 let signals = runtime.signals.borrow();
-                signals.get(*self).cloned().unwrap_or_else(|| {
-                    panic!(
-                        "tried to access a Signal<{}> that has been disposed: {self:?}",
-                        std::any::type_name::<T>()
-                    )
-                })
+                signals.get(*self).cloned()
             };
-            let mut value = value.borrow_mut();
-            let value = value.downcast_mut::<T>().unwrap_or_else(|| {
-                panic!(
-                    "error casting signal {:?} to type {:?}",
-                    self,
-                    std::any::type_name::<T>()
-                )
-            });
-            f(value);
-        }
+            if let Some(value) = value {
+                let mut value = value.borrow_mut();
+                if let Some(value) = value.downcast_mut::<T>() {
+                    f(value);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
 
         // notify subscribers
         let subs = {
