@@ -156,7 +156,7 @@ impl Runtime {
         self.resources.borrow_mut().insert(state)
     }
 
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
 

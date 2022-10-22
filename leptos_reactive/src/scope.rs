@@ -189,7 +189,7 @@ impl Scope {
         self.runtime.shared_context.borrow().is_some()
     }
 
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         self.runtime.start_hydration(element);
     }

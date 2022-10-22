@@ -32,7 +32,7 @@ impl std::fmt::Debug for SharedContext {
     }
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(feature = "ssr")))]
 impl PartialEq for SharedContext {
     fn eq(&self, other: &Self) -> bool {
         self.completed == other.completed
@@ -61,7 +61,7 @@ impl PartialEq for SharedContext {
 impl Eq for SharedContext {}
 
 impl SharedContext {
-    #[cfg(feature = "hydrate")]
+    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
     pub fn new_with_registry(registry: HashMap<String, web_sys::Element>) -> Self {
         let pending_resources = js_sys::Reflect::get(
             &web_sys::window().unwrap(),
