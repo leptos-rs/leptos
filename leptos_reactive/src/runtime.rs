@@ -28,7 +28,7 @@ pub(crate) struct Runtime {
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
     pub effects: RefCell<SlotMap<EffectId, Rc<RefCell<dyn AnyEffect>>>>,
     pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
-    pub resources: RefCell<SlotMap<ResourceId, Rc<dyn AnyResource>>>,
+    pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
 
 impl Debug for Runtime {
@@ -147,12 +147,27 @@ impl Runtime {
         Memo(read)
     }
 
-    pub(crate) fn create_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
+    pub(crate) fn create_client_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
+    where
+        S: Debug + Clone + 'static,
+        T: Debug + Clone + 'static,
+    {
+        self.resources
+            .borrow_mut()
+            .insert(AnyResource::Unserializable(state))
+    }
+
+    pub(crate) fn create_serializable_resource<S, T>(
+        &self,
+        state: Rc<ResourceState<S, T>>,
+    ) -> ResourceId
     where
         S: Debug + Clone + 'static,
         T: Debug + Clone + Serializable + 'static,
     {
-        self.resources.borrow_mut().insert(state)
+        self.resources
+            .borrow_mut()
+            .insert(AnyResource::Serializable(state))
     }
 
     #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
@@ -194,7 +209,13 @@ impl Runtime {
         let resources = self.resources.borrow();
         let res = resources.get(id);
         if let Some(res) = res {
-            if let Some(n) = res.as_any().downcast_ref::<ResourceState<S, T>>() {
+            let res_state = match res {
+                AnyResource::Unserializable(res) => res.as_any(),
+                AnyResource::Serializable(res) => res.as_any(),
+            }
+            .downcast_ref::<ResourceState<S, T>>();
+
+            if let Some(n) = res_state {
                 f(n)
             } else {
                 panic!(
@@ -225,7 +246,9 @@ impl Runtime {
     > {
         let f = futures::stream::futures_unordered::FuturesUnordered::new();
         for (id, resource) in self.resources.borrow().iter() {
-            f.push(resource.to_serialization_resolver(id));
+            if let AnyResource::Serializable(resource) = resource {
+                f.push(resource.to_serialization_resolver(id));
+            }
         }
         f
     }

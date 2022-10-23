@@ -10,9 +10,9 @@ use std::{
 };
 
 use crate::{
-    create_isomorphic_effect, create_memo, create_signal, queue_microtask, runtime::Runtime,
-    serialization::Serializable, spawn::spawn_local, use_context, Memo, ReadSignal, Scope,
-    ScopeProperty, SuspenseContext, WriteSignal,
+    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::Runtime, serialization::Serializable, spawn::spawn_local, use_context, Memo,
+    ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -105,7 +105,7 @@ where
         suspense_contexts: Default::default(),
     });
 
-    let id = cx.runtime.create_resource(Rc::clone(&r));
+    let id = cx.runtime.create_serializable_resource(Rc::clone(&r));
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
@@ -124,11 +124,78 @@ where
     }
 }
 
+pub fn create_client_resource<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    let initial_value = None;
+    create_client_resource_with_initial_value(cx, source, fetcher, initial_value)
+}
+
+/// Creates a [Resource](crate::Resource) with the given initial value, which
+/// will only generate and run a [Future] using the `fetcher` when the `source` changes.
+pub fn create_client_resource_with_initial_value<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+    initial_value: Option<T>,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Debug + Clone + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    let resolved = initial_value.is_some();
+    let (value, set_value) = create_signal(cx, initial_value);
+
+    let (loading, set_loading) = create_signal(cx, false);
+
+    let fetcher = Rc::new(move |s| Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>);
+    let source = create_memo(cx, move |_| source());
+
+    let r = Rc::new(ResourceState {
+        scope: cx,
+        value,
+        set_value,
+        loading,
+        set_loading,
+        source,
+        fetcher,
+        resolved: Rc::new(Cell::new(resolved)),
+        scheduled: Rc::new(Cell::new(false)),
+        suspense_contexts: Default::default(),
+    });
+
+    let id = cx.runtime.create_client_resource(Rc::clone(&r));
+
+    create_effect(cx, {
+        let r = Rc::clone(&r);
+        // This is a local resource, so we're always going to handle it on the
+        // client
+        move |_| r.load(false)
+    });
+
+    cx.with_scope_property(|prop| prop.push(ScopeProperty::Resource(id)));
+
+    Resource {
+        runtime: cx.runtime,
+        id,
+        source_ty: PhantomData,
+        out_ty: PhantomData,
+    }
+}
+
 #[cfg(not(feature = "hydrate"))]
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serializable + 'static,
+    T: Debug + Clone + 'static,
 {
     r.load(false)
 }
@@ -143,6 +210,8 @@ where
 
     if let Some(ref mut context) = *cx.runtime.shared_context.borrow_mut() {
         if let Some(data) = context.resolved_resources.remove(&id) {
+            // The server already sent us the serialized resource value, so
+            // deserialize & set it now
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
 
@@ -153,6 +222,9 @@ where
             // for reactivity
             _ = r.source.try_with(|n| n.clone());
         } else if context.pending_resources.remove(&id) {
+            // We're still waiting for the resource, add a "resolver" closure so
+            // that it will be set as soon as the server sends the serialized
+            // value
             r.set_loading.update(|n| *n = true);
 
             let resolve = {
@@ -174,7 +246,7 @@ where
                 &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
             )
             .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-            let id = serde_json::to_string(&id).expect_throw("could not deserialize Resource ID");
+            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
             _ = js_sys::Reflect::set(
                 &resource_resolvers,
                 &wasm_bindgen::JsValue::from_str(&id),
@@ -184,6 +256,8 @@ where
             // for reactivity
             _ = r.source.get();
         } else {
+            // Server didn't mark the resource as pending, so load it on the
+            // client
             r.load(false);
         }
     } else {
@@ -421,7 +495,12 @@ where
     }
 }
 
-pub(crate) trait AnyResource {
+pub(crate) enum AnyResource {
+    Unserializable(Rc<dyn UnserializableResource>),
+    Serializable(Rc<dyn SerializableResource>),
+}
+
+pub(crate) trait SerializableResource {
     fn as_any(&self) -> &dyn Any;
 
     #[cfg(feature = "ssr")]
@@ -431,7 +510,7 @@ pub(crate) trait AnyResource {
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
 }
 
-impl<S, T> AnyResource for ResourceState<S, T>
+impl<S, T> SerializableResource for ResourceState<S, T>
 where
     S: Debug + Clone,
     T: Clone + Debug + Serializable,
@@ -447,5 +526,19 @@ where
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
         let fut = self.resource_to_serialization_resolver(id);
         Box::pin(fut)
+    }
+}
+
+pub(crate) trait UnserializableResource {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<S, T> UnserializableResource for ResourceState<S, T>
+where
+    S: Debug + Clone,
+    T: Clone + Debug,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
