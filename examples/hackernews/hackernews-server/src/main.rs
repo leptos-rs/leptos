@@ -105,14 +105,17 @@ async fn main() -> std::io::Result<()> {
 
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
+    // uncomment these lines (and .bind_openssl() below) to enable HTTPS, which is sometimes
+    // necessary for proper HTTP/2 streaming
+
     // load TLS keys
     // to create a self-signed temporary cert for testing:
     // `openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'`
-    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-    builder
-        .set_private_key_file("key.pem", SslFiletype::PEM)
-        .unwrap();
-    builder.set_certificate_chain_file("cert.pem").unwrap();
+    // let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    // builder
+    //     .set_private_key_file("key.pem", SslFiletype::PEM)
+    //     .unwrap();
+    // builder.set_certificate_chain_file("cert.pem").unwrap();
 
     HttpServer::new(|| {
         App::new()
@@ -125,6 +128,7 @@ async fn main() -> std::io::Result<()> {
             .service(render_app)
     })
     .bind(("127.0.0.1", 8080))?
+    // replace .bind with .bind_openssl to use HTTPS
     //.bind_openssl(&format!("{}:{}", host, port), builder)?
     .run()
     .await
