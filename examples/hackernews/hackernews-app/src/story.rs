@@ -14,8 +14,8 @@ pub fn Story(cx: Scope) -> Element {
     view! { cx,
         <div>
             {move || story.read().map(|story| match story {
-                Err(_) => view! { cx,  <div class="item-view">"Error loading this story."</div> },
-                Ok(story) => view! { cx,
+                None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
+                Some(story) => view! { cx,
                     <div class="item-view">
                         <div class="item-view-header">
                         <a href=story.url target="_blank">

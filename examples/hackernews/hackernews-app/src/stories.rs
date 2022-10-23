@@ -36,7 +36,7 @@ pub fn Stories(cx: Scope) -> Element {
         },
     );
 
-    let hide_more_link = move || stories.read().unwrap_or(Err(())).unwrap_or_default().len() < 28;
+    let hide_more_link = move || stories.read().unwrap_or(None).unwrap_or_default().len() < 28;
 
     view! {
         cx,
@@ -79,8 +79,8 @@ pub fn Stories(cx: Scope) -> Element {
                     <Suspense fallback=view! { cx,  <p>"Loading..."</p> }>
                         {move || match stories.read() {
                             None => None,
-                            Some(Err(_)) => Some(view! { cx,  <p>"Error loading stories."</p> }),
-                            Some(Ok(stories)) => {
+                            Some(None) => Some(view! { cx,  <p>"Error loading stories."</p> }),
+                            Some(Some(stories)) => {
                                 Some(view! { cx,
                                     <ul>
                                         <For each=move || stories.clone() key=|story| story.id>{
