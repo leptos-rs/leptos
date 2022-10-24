@@ -39,6 +39,48 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 }
 
 #[bench]
+fn tera_ssr_bench(b: &mut Bencher) {
+	use tera::*;
+	use serde::{Serialize, Deserialize};
+
+	static TEMPLATE: &str = r#"<main>
+	<h1>Welcome to our benchmark page.</h1>
+	<p>Here's some introductory text.</p>
+	{% for counter in counters %}
+	<div>
+		<button>-1</button>
+		<span>Value: {{ counter.value }}!</span>
+		<button>+1</button>
+	</div>
+	{% endfor %}
+	</main>"#;
+
+	lazy_static::lazy_static! { 
+		static ref TERA: Tera = {
+			let mut tera = Tera::default();
+			tera.add_raw_templates(vec![("template.html", TEMPLATE)]).unwrap();
+			tera
+		};
+	}
+
+	#[derive(Serialize, Deserialize)]
+	struct Counter {
+		value: i32
+	}
+
+	b.iter(|| {
+		let mut ctx = Context::new();
+		ctx.insert("counters", &vec![
+			Counter { value: 0 },
+			Counter { value: 1},
+			Counter { value: 2 }
+		]);
+
+		let _ = TERA.render("template.html", &ctx).unwrap();
+	});
+}
+
+#[bench]
 fn sycamore_ssr_bench(b: &mut Bencher) {
 	use sycamore::*;
 	use sycamore::prelude::*;

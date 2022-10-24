@@ -72,11 +72,33 @@ Most of the examples assume you’re using `nightly` Rust. If you’re on stable
    [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
    for examples of the correct API.
 
+## Benchmarks
+
+### Server-Side Rendering
+
+I’ve created a benchmark comparing Leptos’s HTML rendering on the server to [Tera](https://github.com/Keats/tera), [Yew](https://github.com/yewstack/yew), and [Sycamore](https://github.com/sycamore-rs/sycamore). You can find the benchmark [here](https://github.com/gbj/leptos/tree/main/benchmarks) and run it yourself using `cargo bench`.
+
+`cargo bench` ns/iter
+
+<table>
+<thead>
+<tr><td></td><td>Tera</td><td>Leptos</td><td>Yew</td><td>Sycamore</td></tr>
+</thead>
+<tbody>
+<tr><td>3 Counters</td><td align="right">3,454</td><td align="right">5,666</td><td align="right">34,984</td><td align="right">32,412</td></tr>
+<tr><td>TodoMVC (no todos)</td><td align="right">2,396</td><td align="right">5,561</td><td align="right">38,725</td><td align="right">68,749</td></tr>
+<tr><td>TodoMVC (1000 todos)</td><td align="right">3,829,447</td><td align="right">3,077,907</td><td align="right">5,125,639</td><td align="right">19,448,900</td></tr>
+<tr><td><em>Average</em></td><td align="right">1.08</td><td align="right">1.65</td><td align="right">6.25</td><td align="right">9.36</td></tr>
+</tbody>
+</table>
+
+As you can see, Leptos renders HTML roughly as fast as Tera, and scales well as templates become larger. It's significantly faster than the server-side HTML rendering done by similar frameworks.
+
+### Client-Side Rendering
+
+The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). The current results (which you can see if you check out `master` from the benchmark repo and open the results page) have Leptos as the fastest Rust/Wasm framework on this benchmark.
+
 ## FAQs
-
-### Is it fast?
-
-The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). I'm waiting for the next round of official results before making claims about performance here, but the unofficial results (which you can see if you check out `master` from the benchmark repo and open the results page) have Leptos as the fastest Rust/Wasm framework, on this benchmark.
 
 ### How is this different from Yew/Dioxus?
 

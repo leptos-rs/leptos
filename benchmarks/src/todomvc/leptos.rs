@@ -246,10 +246,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     class="toggle"
                     type="checkbox"
                     prop:checked={move || (todo.completed)()}
-                    on:input={move |ev| {
-                        let checked = event_target_checked(&ev);
-                        (todo.set_completed)(checked);
-                    }}
+
                 />
                 <label on:dblclick=move |_| set_editing(true)>
                     {move || todo.title.get()}

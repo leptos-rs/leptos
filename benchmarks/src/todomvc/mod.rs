@@ -2,6 +2,7 @@ use test::Bencher;
 
 mod leptos;
 mod sycamore;
+mod tera;
 mod yew;
 
 #[bench]

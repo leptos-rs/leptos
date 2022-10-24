@@ -2,6 +2,6 @@
 
 extern crate test;
 
-mod reactive;
+//mod reactive;
 mod ssr;
 mod todomvc;
