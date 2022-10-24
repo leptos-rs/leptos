@@ -16,12 +16,18 @@ use crate::{
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
-/// current state of an asynchronous task, allowing you to integrate
-/// `async` [Future]s into the synchronous reactive system.
+/// current state of an asynchronous task, allowing you to integrate `async`
+/// [Future]s into the synchronous reactive system.
 ///
 /// Takes a `fetcher` function that generates a [Future] when called and a
-/// `source` signal that provides the argument for the `fetcher`. Whenever
-/// the value of the `source` changes, a new [Future] will be created and run.
+/// `source` signal that provides the argument for the `fetcher`. Whenever the
+/// value of the `source` changes, a new [Future] will be created and run.
+///
+/// When server-side rendering is used, the server will handle running the
+/// [Future] and will stream the result to the client. This process requires the
+/// output type of the Future to be [Serializable]. If your output cannot be
+/// serialized, or you just want to make sure the [Future] runs locally, use
+/// [create_local_resource()].
 ///
 /// ```
 /// # use leptos_reactive::*;
@@ -73,6 +79,12 @@ where
 
 /// Creates a [Resource](crate::Resource) with the given initial value, which
 /// will only generate and run a [Future] using the `fetcher` when the `source` changes.
+///
+/// When server-side rendering is used, the server will handle running the
+/// [Future] and will stream the result to the client. This process requires the
+/// output type of the Future to be [Serializable]. If your output cannot be
+/// serialized, or you just want to make sure the [Future] runs locally, use
+/// [create_local_resource_with_initial_value()].
 pub fn create_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -124,7 +136,35 @@ where
     }
 }
 
-pub fn create_client_resource<S, T, Fu>(
+/// Creates a _local_ [Resource](crate::Resource), which is a signal that
+/// reflects the current state of an asynchronous task, allowing you to
+/// integrate `async` [Future]s into the synchronous reactive system.
+///
+/// Takes a `fetcher` function that generates a [Future] when called and a
+/// `source` signal that provides the argument for the `fetcher`. Whenever the
+/// value of the `source` changes, a new [Future] will be created and run.
+///
+/// Unlike [create_resource()], this [Future] is always run on the local system
+/// and therefore it's result type does not need to be [Serializable].
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
+/// struct ComplicatedUnserializableStruct {
+///   // something here that can't be serialized
+/// }
+/// // any old async function; maybe this is calling a REST API or something
+/// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
+///   // do some work
+///   ComplicatedUnserializableStruct { }
+/// }
+///
+/// // create the resource that will
+/// let result = create_local_resource(cx, move || (), |_| setup_complicated_struct());
+/// # }).dispose();
+/// ```
+pub fn create_local_resource<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
@@ -138,6 +178,13 @@ where
     create_local_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
 
+/// Creates a _local_ [Resource](crate::Resource) with the given initial value,
+/// which will only generate and run a [Future] using the `fetcher` when the
+/// `source` changes.
+///
+/// Unlike [create_resource_with_initial_value()], this [Future] will always run
+/// on the local system and therefore its output type does not need to be
+/// [Serializable].
 pub fn create_local_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
