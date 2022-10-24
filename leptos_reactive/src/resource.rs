@@ -135,12 +135,10 @@ where
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
-    create_client_resource_with_initial_value(cx, source, fetcher, initial_value)
+    create_local_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
 
-/// Creates a [Resource](crate::Resource) with the given initial value, which
-/// will only generate and run a [Future] using the `fetcher` when the `source` changes.
-pub fn create_client_resource_with_initial_value<S, T, Fu>(
+pub fn create_local_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
@@ -172,7 +170,7 @@ where
         suspense_contexts: Default::default(),
     });
 
-    let id = cx.runtime.create_client_resource(Rc::clone(&r));
+    let id = cx.runtime.create_unserializable_resource(Rc::clone(&r));
 
     create_effect(cx, {
         let r = Rc::clone(&r);

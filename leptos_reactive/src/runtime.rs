@@ -147,7 +147,10 @@ impl Runtime {
         Memo(read)
     }
 
-    pub(crate) fn create_client_resource<S, T>(&self, state: Rc<ResourceState<S, T>>) -> ResourceId
+    pub(crate) fn create_unserializable_resource<S, T>(
+        &self,
+        state: Rc<ResourceState<S, T>>,
+    ) -> ResourceId
     where
         S: Debug + Clone + 'static,
         T: Debug + Clone + 'static,
