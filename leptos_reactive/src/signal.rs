@@ -128,6 +128,14 @@ where
         self.id.with(self.runtime, f)
     }
 
+    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+
+    pub(crate) fn subscribe(&self) {
+        self.id.subscribe(self.runtime);
+    }
+
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
     ///
@@ -245,7 +253,7 @@ where
 
 impl<T> WriteSignal<T>
 where
-    T: Clone + 'static,
+    T: 'static,
 {
     /// Applies a function to the current value to mutate it in place
     /// and notifies subscribers that the signal has changed.
@@ -295,10 +303,7 @@ where
     }
 }
 
-impl<T> Clone for WriteSignal<T>
-where
-    T: Clone,
-{
+impl<T> Clone for WriteSignal<T> {
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
@@ -308,7 +313,7 @@ where
     }
 }
 
-impl<T> Copy for WriteSignal<T> where T: Clone {}
+impl<T> Copy for WriteSignal<T> {}
 
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<(T,)> for WriteSignal<T>
@@ -437,6 +442,14 @@ where
     /// ```
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
+    }
+
+    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+
+    pub(crate) fn subscribe(&self) {
+        self.id.subscribe(self.runtime);
     }
 
     /// Clones and returns the current value of the signal, and subscribes
@@ -568,14 +581,7 @@ pub(crate) enum SignalError {
 }
 
 impl SignalId {
-    pub(crate) fn try_with<T, U>(
-        &self,
-        runtime: &Runtime,
-        f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError>
-    where
-        T: 'static,
-    {
+    pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
             let mut subs = runtime.signal_subscribers.borrow_mut();
@@ -583,7 +589,16 @@ impl SignalId {
                 subs.or_default().borrow_mut().insert(observer);
             }
         }
+    }
 
+    pub(crate) fn try_with_no_subscription<T, U>(
+        &self,
+        runtime: &Runtime,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError>
+    where
+        T: 'static,
+    {
         // get the value
         let value = {
             let signals = runtime.signals.borrow();
@@ -600,6 +615,26 @@ impl SignalId {
             .downcast_ref::<T>()
             .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
         Ok(f(value))
+    }
+
+    pub(crate) fn try_with<T, U>(
+        &self,
+        runtime: &Runtime,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError>
+    where
+        T: 'static,
+    {
+        self.subscribe(runtime);
+
+        self.try_with_no_subscription(runtime, f)
+    }
+
+    pub(crate) fn with_no_subscription<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    where
+        T: 'static,
+    {
+        self.try_with_no_subscription(runtime, f).unwrap()
     }
 
     pub(crate) fn with<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
