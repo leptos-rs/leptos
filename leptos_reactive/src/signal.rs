@@ -390,6 +390,7 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// # }).dispose();
 /// #
 /// ```
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct RwSignal<T>
 where
     T: 'static,
