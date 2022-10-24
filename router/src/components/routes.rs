@@ -46,7 +46,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
 
     let route_states: Memo<RouterState> = create_memo(cx, {
         let root_equal = root_equal.clone();
-        move |prev: Option<RouterState>| {
+        move |prev: Option<&RouterState>| {
             root_equal.set(true);
             next.borrow_mut().clear();
 
@@ -154,7 +154,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
             if prev.is_none() || !root_equal.get() {
                 root.as_ref().map(|route| route.outlet().into_child(cx))
             } else {
-                prev.clone().unwrap()
+                prev.cloned().unwrap()
             }
         })
     })

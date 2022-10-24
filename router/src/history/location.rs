@@ -5,12 +5,12 @@ use crate::{State, Url};
 use super::params::ParamsMap;
 
 pub fn create_location(cx: Scope, path: ReadSignal<String>, state: ReadSignal<State>) -> Location {
-    let url = create_memo(cx, move |prev: Option<Url>| {
+    let url = create_memo(cx, move |prev: Option<&Url>| {
         path.with(|path| match Url::try_from(path.as_str()) {
             Ok(url) => url,
             Err(e) => {
                 log::error!("[Leptos Router] Invalid path {path}\n\n{e:?}");
-                prev.clone().unwrap()
+                prev.cloned().unwrap()
             }
         })
     });

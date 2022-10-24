@@ -23,7 +23,7 @@ pub fn map_keyed<T, U, K>(
 ) -> Memo<Vec<U>>
 //-> impl FnMut() -> Vec<U>
 where
-    T: PartialEq + Debug + Clone + 'static,
+    T: PartialEq + Debug + 'static,
     K: Eq + Hash,
     U: PartialEq + Debug + Clone + 'static,
 {
@@ -33,8 +33,8 @@ where
     //let mapped: Vec<U> = Vec::new();
 
     // Diff and update signal each time list is updated.
-    create_memo(cx, move |mapped: Option<Vec<U>>| {
-        let mut mapped = mapped.unwrap_or_default();
+    create_memo(cx, move |mapped: Option<&Vec<U>>| {
+        let mut mapped = mapped.cloned().unwrap_or_default();
         let items = prev_items.take().unwrap_or_default();
         let new_items = list();
         let new_items_len = new_items.len();

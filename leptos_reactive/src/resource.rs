@@ -61,7 +61,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serializable + 'static,
+    T: Debug + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     #[cfg(not(feature = "ssr"))]
@@ -93,7 +93,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serializable + 'static,
+    T: Debug + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -171,7 +171,7 @@ pub fn create_local_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
@@ -193,7 +193,7 @@ pub fn create_local_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -240,7 +240,7 @@ where
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + 'static,
 {
     r.load(false)
 }
@@ -249,7 +249,7 @@ where
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Clone + Serializable + 'static,
+    T: Debug + Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -265,7 +265,7 @@ where
             r.set_loading.update(|n| *n = false);
 
             // for reactivity
-            _ = r.source.try_with(|n| n.clone());
+            r.source.subscribe();
         } else if context.pending_resources.remove(&id) {
             // We're still waiting for the resource, add a "resolver" closure so
             // that it will be set as soon as the server sends the serialized
@@ -299,7 +299,7 @@ where
             );
 
             // for reactivity
-            _ = r.source.get();
+            r.source.subscribe()
         } else {
             // Server didn't mark the resource as pending, so load it on the
             // client
@@ -313,11 +313,19 @@ where
 impl<S, T> Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + 'static,
 {
-    pub fn read(&self) -> Option<T> {
+    pub fn read(&self) -> Option<T>
+    where
+        T: Clone,
+    {
         self.runtime
             .resource(self.id, |resource: &ResourceState<S, T>| resource.read())
+    }
+
+    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+        self.runtime
+            .resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
     }
 
     pub fn loading(&self) -> bool {
@@ -348,8 +356,8 @@ where
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    S: Debug + 'static,
+    T: Debug + 'static,
 {
     runtime: &'static Runtime,
     pub(crate) id: ResourceId,
@@ -421,7 +429,7 @@ where
 pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
-    T: Clone + Debug + 'static,
+    T: Debug + 'static,
 {
     scope: Scope,
     value: ReadSignal<Option<T>>,
@@ -439,17 +447,28 @@ where
 impl<S, T> ResourceState<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Debug + 'static,
 {
-    pub fn read(&self) -> Option<T> {
+    pub fn read(&self) -> Option<T>
+    where
+        T: Clone,
+    {
+        self.with(T::clone)
+    }
+
+    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let suspense_cx = use_context::<SuspenseContext>(self.scope);
 
-        let v = self.value.try_with(|n| n.clone()).ok()?;
+        let v = self
+            .value
+            .try_with(|n| n.as_ref().map(|n| Some(f(n))))
+            .ok()?
+            .flatten();
 
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
-        let increment = move |_| {
+        let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
                 let mut contexts = suspense_contexts.borrow_mut();
                 if !contexts.contains(s) {
@@ -466,7 +485,6 @@ where
         };
 
         create_isomorphic_effect(self.scope, increment);
-
         v
     }
 
@@ -532,7 +550,7 @@ where
     where
         T: Serializable,
     {
-        let fut = (self.fetcher)(self.source.get());
+        let fut = self.source.with(|s| (self.fetcher)(s.clone()));
         Box::pin(async move {
             let res = fut.await;
             (id, res.to_json().expect("could not serialize Resource"))
@@ -558,7 +576,7 @@ pub(crate) trait SerializableResource {
 impl<S, T> SerializableResource for ResourceState<S, T>
 where
     S: Debug + Clone,
-    T: Clone + Debug + Serializable,
+    T: Debug + Serializable,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -580,8 +598,8 @@ pub(crate) trait UnserializableResource {
 
 impl<S, T> UnserializableResource for ResourceState<S, T>
 where
-    S: Debug + Clone,
-    T: Clone + Debug,
+    S: Debug,
+    T: Debug,
 {
     fn as_any(&self) -> &dyn Any {
         self

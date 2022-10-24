@@ -54,9 +54,9 @@ use std::fmt::Debug;
 /// });
 /// # }).dispose();
 /// ```
-pub fn create_memo<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static) -> Memo<T>
+pub fn create_memo<T>(cx: Scope, f: impl FnMut(Option<&T>) -> T + 'static) -> Memo<T>
 where
-    T: PartialEq + Clone + Debug + 'static,
+    T: PartialEq + Debug + 'static,
 {
     cx.runtime.create_memo(f)
 }
@@ -98,6 +98,10 @@ where
     pub(crate) fn try_with<U>(&self, f: impl Fn(&T) -> U) -> Result<U, SignalError> {
         self.0
             .try_with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
+    }
+
+    pub(crate) fn subscribe(&self) {
+        self.0.subscribe()
     }
 }
 

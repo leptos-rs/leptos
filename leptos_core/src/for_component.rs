@@ -15,7 +15,7 @@ where
     G: Fn(Scope, &T) -> Element,
     I: Fn(&T) -> K,
     K: Eq + Hash,
-    T: Eq + Clone + 'static,
+    T: Eq + 'static,
 {
     pub each: E,
     pub key: I,
@@ -34,7 +34,7 @@ where
     G: Fn(Scope, &T) -> Element + 'static,
     I: Fn(&T) -> K + 'static,
     K: Eq + Hash,
-    T: Eq + Clone + Debug + 'static,
+    T: Eq + Debug + 'static,
 {
     let map_fn = (props.children)().swap_remove(0);
     map_keyed(cx, props.each, map_fn, props.key)
