@@ -30,11 +30,11 @@ where
     // Previous state used for diffing.
     let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
     let mut prev_items: Option<Vec<T>> = None;
-    //let mapped: Vec<U> = Vec::new();
+    let mut mapped: Vec<U> = Vec::new();
 
     // Diff and update signal each time list is updated.
-    create_memo(cx, move |mapped: Option<&Vec<U>>| {
-        let mut mapped = mapped.cloned().unwrap_or_default();
+    create_memo(cx, move |_| {
+        //let mut mapped = mapped.cloned().unwrap_or_default();
         let items = prev_items.take().unwrap_or_default();
         let new_items = list();
         let new_items_len = new_items.len();
