@@ -315,6 +315,12 @@ where
     S: Debug + Clone + 'static,
     T: Debug + 'static,
 {
+    /// Clones and returns the current value of the resource ([Option::None] if the
+    /// resource is still pending). Also subscribes the running effect to this
+    /// resource.
+    ///
+    /// If you want to get the value without cloning it, use [Resource::with].
+    /// (`value.read()` is equivalent to `value.with(T::clone)`.)
     pub fn read(&self) -> Option<T>
     where
         T: Clone,
@@ -323,6 +329,13 @@ where
             .resource(self.id, |resource: &ResourceState<S, T>| resource.read())
     }
 
+    /// Applies a function to the current value of the resource, and subscribes
+    /// the running effect to this resource. If the resource hasn't yet
+    /// resolved, the function won't be called and this will return
+    /// [Option::None].
+    ///
+    /// If you want to get the value by cloning it, you can use
+    /// [Resource::read].
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         self.runtime
             .resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
