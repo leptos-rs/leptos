@@ -1,0 +1,5 @@
+- `<Form method="POST">` in `leptos_router`
+  - import `leptos_router` and use `<Form/>` in this example
+- implement other helper functions in trait to make calling from server easier
+- cross-platform response/redirect interface in Router
+- integrate list of server functions in `leptos_router` + use them to handle `POST` requests
