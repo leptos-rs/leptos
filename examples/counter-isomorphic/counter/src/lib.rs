@@ -1,8 +1,14 @@
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::{
+    fmt::Debug,
+    future::Future,
+    sync::atomic::{AtomicI32, Ordering},
+};
 
 use leptos::*;
 
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
+use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
@@ -42,77 +48,126 @@ where
 static COUNT: AtomicI32 = AtomicI32::new(0);
 
 #[cfg(feature = "ssr")]
-pub async fn get_server_count() -> Result<i32, ServerFnError> {
+pub async fn get_server_count(args: ()) -> Result<i32, ServerFnError> {
     Ok(COUNT.load(Ordering::Relaxed))
 }
 #[cfg(not(feature = "ssr"))]
-pub async fn get_server_count() -> Result<i32, ServerFnError> {
+pub async fn get_server_count(args: ()) -> Result<i32, ServerFnError> {
     call_server_fn("/api/get_server_count").await
 }
 
 #[cfg(feature = "ssr")]
-pub async fn increment_server_count() -> Result<i32, ServerFnError> {
+pub async fn increment_server_count(args: ()) -> Result<i32, ServerFnError> {
     let new = COUNT.load(Ordering::Relaxed) + 1;
     COUNT.store(new, Ordering::Relaxed);
     Ok(new)
 }
 #[cfg(not(feature = "ssr"))]
-pub async fn increment_server_count() -> Result<i32, ServerFnError> {
+pub async fn increment_server_count(args: ()) -> Result<i32, ServerFnError> {
     call_server_fn("/api/increment_server_count").await
 }
 
 #[cfg(feature = "ssr")]
-pub async fn decrement_server_count() -> Result<i32, ServerFnError> {
+pub async fn decrement_server_count(args: ()) -> Result<i32, ServerFnError> {
     let new = COUNT.load(Ordering::Relaxed) - 1;
     COUNT.store(new, Ordering::Relaxed);
     Ok(new)
 }
 #[cfg(not(feature = "ssr"))]
-pub async fn decrement_server_count() -> Result<i32, ServerFnError> {
+pub async fn decrement_server_count(args: ()) -> Result<i32, ServerFnError> {
     call_server_fn("/api/decrement_server_count").await
 }
+impl decrement_server_count {}
 
 #[cfg(feature = "ssr")]
-pub async fn clear_server_count() -> Result<i32, ServerFnError> {
+pub async fn clear_server_count(args: ()) -> Result<i32, ServerFnError> {
     COUNT.store(0, Ordering::Relaxed);
     Ok(0)
 }
 #[cfg(not(feature = "ssr"))]
-pub async fn clear_server_count() -> Result<i32, ServerFnError> {
+pub async fn clear_server_count(args: ()) -> Result<i32, ServerFnError> {
     call_server_fn("/api/clear_server_count").await
+}
+
+#[derive(Clone)]
+pub struct RouteAction<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    version: RwSignal<usize>,
+    pending: RwSignal<bool>,
+    current_args: RwSignal<Option<T>>,
+    action_fn: Rc<dyn Fn(T) -> Pin<Box<dyn Future<Output = U>>>>,
+}
+
+impl<T, U> RouteAction<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    pub fn invalidator(&self) {
+        _ = self.version.get();
+    }
+
+    pub fn pending(&self) -> ReadSignal<bool> {
+        self.pending.read_only()
+    }
+
+    pub fn input(&self) -> ReadSignal<Option<T>> {
+        self.current_args.read_only()
+    }
+
+    pub fn dispatch(&self, args: T) {
+        let fut = (self.action_fn)(args);
+        let version = self.version;
+        let pending = self.pending;
+        pending.set(true);
+        spawn_local(async move {
+            let new_count = fut.await;
+            pending.set(false);
+            version.update(|n| *n += 1);
+        })
+    }
+}
+
+fn create_route_action<T, U, Fu>(
+    cx: Scope,
+    action_fn: impl Fn(T) -> Fu + 'static,
+) -> RouteAction<T, U>
+where
+    T: 'static,
+    Fu: Future<Output = U> + 'static,
+{
+    let version = create_rw_signal(cx, 0);
+    let pending = create_rw_signal(cx, false);
+    let current_args = create_rw_signal(cx, None);
+    let action_fn = Rc::new(move |args| {
+        let fut = action_fn(args);
+        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = U>>>
+    });
+
+    RouteAction {
+        version,
+        pending,
+        current_args,
+        action_fn,
+    }
 }
 
 #[component]
 pub fn Counter(cx: Scope) -> Element {
     let (update, set_update) = create_signal(cx, 0);
-    let counter = create_resource(cx, move || update(), |_| get_server_count());
 
-    let dec = move |_| {
-        spawn_local(async move {
-            let new_count = decrement_server_count().await;
-            if let Ok(new_count) = new_count {
-                set_update.update(|n| *n += 1);
-            }
-        })
-    };
+    let dec = create_route_action(cx, decrement_server_count);
+    let inc = create_route_action(cx, increment_server_count);
+    let clear = create_route_action(cx, clear_server_count);
 
-    let inc = move |_| {
-        spawn_local(async move {
-            let new_count = increment_server_count().await;
-            if let Ok(new_count) = new_count {
-                set_update.update(|n| *n += 1);
-            }
-        })
-    };
-
-    let clear = move |_| {
-        spawn_local(async move {
-            let new_count = clear_server_count().await;
-            if let Ok(new_count) = new_count {
-                set_update.update(|n| *n += 1);
-            }
-        })
-    };
+    let counter = create_resource(
+        cx,
+        move || (dec.version.get(), inc.version.get(), clear.version.get()),
+        |_| get_server_count(()),
+    );
 
     let value = move || counter.read().map(|count| count.unwrap_or(0)).unwrap_or(0);
     let error_msg = move || {
@@ -128,10 +183,10 @@ pub fn Counter(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <button on:click=clear>"Clear"</button>
-            <button on:click=dec>"-1"</button>
+            <button on:click=move |_| clear.dispatch(())>"Clear"</button>
+            <button on:click=move |_| dec.dispatch(())>"-1"</button>
             <span>"Value: " {move || value().to_string()} "!"</span>
-            <button on:click=inc>"+1"</button>
+            <button on:click=move |_| inc.dispatch(())>"+1"</button>
         </div>
     }
 }
