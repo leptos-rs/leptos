@@ -26,36 +26,29 @@ async fn render_todomvc() -> impl Responder {
     ))
 }
 
-#[get("/api/get_server_count")]
+#[post("/api/get_server_count")]
 async fn get_server_count() -> impl Responder {
-    counter_isomorphic::get_server_count(())
+    counter_isomorphic::get_server_count()
         .await
         .unwrap()
         .to_string()
 }
 
-#[get("/api/clear_server_count")]
+#[post("/api/clear_server_count")]
 async fn clear_server_count() -> impl Responder {
-    counter_isomorphic::clear_server_count(())
+    counter_isomorphic::clear_server_count()
         .await
         .unwrap()
         .to_string()
 }
 
-#[get("/api/increment_server_count")]
-async fn increment_server_count() -> impl Responder {
-    counter_isomorphic::increment_server_count(())
-        .await
-        .unwrap()
-        .to_string()
-}
-
-#[get("/api/decrement_server_count")]
-async fn decrement_server_count() -> impl Responder {
-    counter_isomorphic::decrement_server_count(())
-        .await
-        .unwrap()
-        .to_string()
+#[post("/api/adjust_server_count")]
+async fn adjust_server_count(data: web::Form<AdjustServerCount>) -> impl Responder {
+    let AdjustServerCount { delta } = data.0;
+    counter_isomorphic::adjust_server_count(delta).await;
+    HttpResponse::SeeOther()
+        .insert_header(("Location", "/"))
+        .body("")
 }
 
 #[actix_web::main]
@@ -66,8 +59,7 @@ async fn main() -> std::io::Result<()> {
             .service(Files::new("/pkg", "../client/pkg"))
             .service(get_server_count)
             .service(clear_server_count)
-            .service(increment_server_count)
-            .service(decrement_server_count)
+            .service(adjust_server_count)
             .wrap(middleware::Compress::default())
     })
     .bind(("127.0.0.1", 8080))?

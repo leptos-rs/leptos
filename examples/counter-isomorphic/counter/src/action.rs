@@ -15,12 +15,25 @@ pub enum ServerFnError {
     Deserialization(String),
 }
 
-pub async fn call_server_fn<T>(url: &str) -> Result<T, ServerFnError>
+pub async fn call_server_fn<T>(url: &str, args: impl AsFormData) -> Result<T, ServerFnError>
 where
     T: Serializable + Sized,
 {
     let window = window();
-    let resp = gloo_net::http::Request::get(url)
+
+    let args_form_data = web_sys::FormData::new().expect_throw("could not create FormData");
+    for (field_name, value) in args.as_form_data().into_iter() {
+        args_form_data
+            .append_with_str(field_name, &value)
+            .expect_throw("could not append form field");
+    }
+    let args_form_data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(&args_form_data)
+        .expect_throw("could not URL encode FormData");
+    let args_form_data = args_form_data.to_string().as_string().unwrap_or_default();
+
+    let resp = gloo_net::http::Request::post(url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(args_form_data.to_string())
         .send()
         .await
         .map_err(|e| ServerFnError::Request(e.to_string()))?;
@@ -39,21 +52,18 @@ where
 }
 
 #[derive(Clone)]
-pub struct RouteAction<T, U>
+pub struct RouteAction<T>
 where
     T: 'static,
-    U: 'static,
 {
     pub version: RwSignal<usize>,
     pending: RwSignal<bool>,
-    current_args: RwSignal<Option<T>>,
-    action_fn: Rc<dyn Fn(T) -> Pin<Box<dyn Future<Output = U>>>>,
+    action_fn: Rc<dyn Fn() -> Pin<Box<dyn Future<Output = T>>>>,
 }
 
-impl<T, U> RouteAction<T, U>
+impl<T> RouteAction<T>
 where
     T: 'static,
-    U: 'static,
 {
     pub fn invalidator(&self) {
         _ = self.version.get();
@@ -63,12 +73,8 @@ where
         self.pending.read_only()
     }
 
-    pub fn input(&self) -> ReadSignal<Option<T>> {
-        self.current_args.read_only()
-    }
-
-    pub fn dispatch(&self, args: T) {
-        let fut = (self.action_fn)(args);
+    pub fn dispatch(&self) {
+        let fut = (self.action_fn)();
         let version = self.version;
         let pending = self.pending;
         pending.set(true);
@@ -80,26 +86,26 @@ where
     }
 }
 
-pub fn create_route_action<T, U, Fu>(
-    cx: Scope,
-    action_fn: impl Fn(T) -> Fu + 'static,
-) -> RouteAction<T, U>
+pub fn create_route_action<T, F, Fu>(cx: Scope, action_fn: F) -> RouteAction<T>
 where
     T: 'static,
-    Fu: Future<Output = U> + 'static,
+    F: Fn() -> Fu + 'static,
+    Fu: Future<Output = T> + 'static,
 {
     let version = create_rw_signal(cx, 0);
     let pending = create_rw_signal(cx, false);
-    let current_args = create_rw_signal(cx, None);
-    let action_fn = Rc::new(move |args| {
-        let fut = action_fn(args);
-        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = U>>>
+    let action_fn = Rc::new(move || {
+        let fut = action_fn();
+        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = T>>>
     });
 
     RouteAction {
         version,
         pending,
-        current_args,
         action_fn,
     }
+}
+
+pub trait AsFormData {
+    fn as_form_data(&self) -> Vec<(&'static str, String)>;
 }
