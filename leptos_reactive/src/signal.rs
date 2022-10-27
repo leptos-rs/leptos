@@ -1,7 +1,7 @@
-use thiserror::Error;
-
-use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use crate::{debug_warn, spawn_local, Runtime, Scope, ScopeProperty};
+use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
+use thiserror::Error;
 
 /// Creates a signal, the basic reactive primitive.
 ///
@@ -45,6 +45,24 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
     let s = cx.runtime.create_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
+}
+
+/// Creates a signal that always contains the most recent value emitted by a [Stream].
+/// If the stream has not yet emitted a value since the signal was created, the signal's
+/// value will be `None`.
+pub fn create_signal_from_stream<T>(
+    cx: Scope,
+    mut stream: impl Stream<Item = T> + Unpin + 'static,
+) -> ReadSignal<Option<T>> {
+    use futures::StreamExt;
+
+    let (read, write) = create_signal(cx, None);
+    spawn_local(async move {
+        while let Some(value) = stream.next().await {
+            write.set(Some(value));
+        }
+    });
+    read
 }
 
 /// The getter for a reactive signal.
@@ -161,6 +179,21 @@ where
     /// the running effect.
     pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
         self.id.try_with(self.runtime, f)
+    }
+
+    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    pub fn to_stream(&self) -> impl Stream<Item = T>
+    where
+        T: Clone,
+    {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+        let id = self.id;
+        let runtime = self.runtime;
+        // TODO: because it's not attached to a scope, this effect will leak if the scope is disposed
+        runtime.create_effect(move |_| {
+            _ = tx.unbounded_send(id.with(runtime, T::clone));
+        });
+        rx
     }
 }
 
@@ -534,6 +567,14 @@ where
             id: self.id,
             ty: PhantomData,
         }
+    }
+
+    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    pub fn to_stream(&self) -> impl Stream<Item = T>
+    where
+        T: Clone,
+    {
+        self.read_only().to_stream()
     }
 }
 
