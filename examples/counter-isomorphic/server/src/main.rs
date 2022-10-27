@@ -26,6 +26,27 @@ async fn render_todomvc() -> impl Responder {
     ))
 }
 
+#[get("/api/events")]
+async fn counter_events() -> impl Responder {
+    use futures::StreamExt;
+
+    println!("setting up a new /api/events request");
+
+    let stream =
+        futures::stream::once(async { counter_isomorphic::get_server_count().await.unwrap_or(0) })
+            .chain(COUNT_CHANNEL.clone())
+            .inspect(|v| println!("\tvalue = {v}"))
+            .map(|value| {
+                Ok(web::Bytes::from(format!(
+                    "event: message\ndata: {value}\n\n"
+                ))) as Result<web::Bytes>
+            });
+    HttpResponse::Ok()
+        .insert_header(("Content-Type", "text/event-stream"))
+        //.no_chunking(24)
+        .streaming(stream)
+}
+
 #[post("/api/get_server_count")]
 async fn get_server_count() -> impl Responder {
     counter_isomorphic::get_server_count()
@@ -53,6 +74,18 @@ async fn adjust_server_count(data: web::Form<AdjustServerCount>) -> impl Respond
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    //simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+
+    // load TLS keys
+    // to create a self-signed temporary cert for testing:
+    // `openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'`
+
+    /* let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    builder
+        .set_private_key_file("key.pem", SslFiletype::PEM)
+        .unwrap();
+    builder.set_certificate_chain_file("cert.pem").unwrap(); */
+
     HttpServer::new(|| {
         App::new()
             .service(render_todomvc)
@@ -60,9 +93,11 @@ async fn main() -> std::io::Result<()> {
             .service(get_server_count)
             .service(clear_server_count)
             .service(adjust_server_count)
-            .wrap(middleware::Compress::default())
+            .service(counter_events)
+        //.wrap(middleware::Compress::default())
     })
     .bind(("127.0.0.1", 8080))?
+    //.bind_openssl(("127.0.0.1", 8080), builder)?
     .run()
     .await
 }

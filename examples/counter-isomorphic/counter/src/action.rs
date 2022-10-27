@@ -31,7 +31,7 @@ where
         .expect_throw("could not URL encode FormData");
     let args_form_data = args_form_data.to_string().as_string().unwrap_or_default();
 
-    let resp = gloo_net::http::Request::post(url)
+    let resp = gloo::net::http::Request::post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(args_form_data.to_string())
         .send()

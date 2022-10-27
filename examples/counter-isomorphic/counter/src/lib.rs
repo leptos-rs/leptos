@@ -1,9 +1,13 @@
-use std::{
-    fmt::Debug,
-    sync::atomic::{AtomicI32, Ordering},
-};
+use std::fmt::Debug;
 
+#[cfg(feature = "ssr")]
+use std::sync::atomic::{AtomicI32, Ordering};
+
+#[cfg(feature = "ssr")]
+use broadcaster::BroadcastChannel;
 use leptos::*;
+
+use futures::StreamExt;
 
 mod action;
 use action::*;
@@ -11,6 +15,11 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
 static COUNT: AtomicI32 = AtomicI32::new(0);
+
+#[cfg(feature = "ssr")]
+lazy_static::lazy_static! {
+    pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetServerCount {}
@@ -47,6 +56,7 @@ impl AsFormData for AdjustServerCount {
 pub async fn adjust_server_count(delta: i32) -> Result<i32, ServerFnError> {
     let new = COUNT.load(Ordering::Relaxed) + delta;
     COUNT.store(new, Ordering::Relaxed);
+    _ = COUNT_CHANNEL.send(&new).await;
     Ok(new)
 }
 #[cfg(not(feature = "ssr"))]
@@ -69,6 +79,7 @@ impl AsFormData for ClearServerCount {
 #[cfg(feature = "ssr")]
 pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     COUNT.store(0, Ordering::Relaxed);
+    _ = COUNT_CHANNEL.send(&0).await;
     Ok(0)
 }
 #[cfg(not(feature = "ssr"))]
@@ -104,12 +115,37 @@ pub fn Counter(cx: Scope) -> Element {
             .flatten()
     };
 
+    #[cfg(not(feature = "ssr"))]
+    let multiplayer_value = {
+        let mut source = gloo::net::eventsource::futures::EventSource::new("/api/events")
+            .expect_throw("couldn't connect to SSE stream");
+        let s = create_signal_from_stream(
+            cx,
+            source.subscribe("message").unwrap().map(|value| {
+                value
+                    .expect_throw("no message event")
+                    .1
+                    .data()
+                    .as_string()
+                    .expect_throw("expected string value")
+            }),
+        );
+
+        on_cleanup(cx, move || source.close());
+        s
+    };
+
+    #[cfg(feature = "ssr")]
+    let multiplayer_value =
+        create_signal_from_stream(cx, futures::stream::once(Box::pin(async { 0.to_string() })));
+
     view! {
         cx,
         <div>
             <button on:click=move |_| clear.dispatch()>"Clear"</button>
             <button on:click=move |_| dec.dispatch()>"-1"</button>
             <span>"Value: " {move || value().to_string()} "!"</span>
+            <span>"Multiplayer Value: " {move || multiplayer_value().unwrap_or_default().to_string()}</span>
             <button on:click=move |_| inc.dispatch()>"+1"</button>
             <form method="POST" action="/api/adjust_server_count">
                 <input type="hidden" name="delta" value="1"/>

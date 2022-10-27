@@ -1,4 +1,4 @@
-pub use counter::*;
+pub use counter_isomorphic::*;
 use leptos::*;
 
 pub fn main() {

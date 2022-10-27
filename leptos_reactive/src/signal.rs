@@ -1,6 +1,7 @@
+use futures::{SinkExt, Stream};
 use thiserror::Error;
 
-use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use crate::{create_effect, debug_warn, spawn_local, Runtime, Scope, ScopeProperty};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Creates a signal, the basic reactive primitive.
@@ -45,6 +46,24 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
     let s = cx.runtime.create_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
+}
+
+/// Creates a signal that always contains the most recent value emitted by a [Stream].
+/// If the stream has not yet emitted a value since the signal was created, the signal's
+/// value will be `None`.
+pub fn create_signal_from_stream<T>(
+    cx: Scope,
+    mut stream: impl Stream<Item = T> + Unpin + 'static,
+) -> ReadSignal<Option<T>> {
+    use futures::StreamExt;
+
+    let (read, write) = create_signal(cx, None);
+    spawn_local(async move {
+        while let Some(value) = stream.next().await {
+            write.set(Some(value));
+        }
+    });
+    read
 }
 
 /// The getter for a reactive signal.
@@ -128,6 +147,14 @@ where
         self.id.with(self.runtime, f)
     }
 
+    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+
+    pub(crate) fn subscribe(&self) {
+        self.id.subscribe(self.runtime);
+    }
+
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
     ///
@@ -153,6 +180,21 @@ where
     /// the running effect.
     pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
         self.id.try_with(self.runtime, f)
+    }
+
+    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    pub fn to_stream(&self) -> impl Stream<Item = T>
+    where
+        T: Clone,
+    {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+        let id = self.id;
+        let runtime = self.runtime;
+        // TODO: because it's not attached to a scope, this effect will leak if the scope is disposed
+        runtime.create_effect(move |_| {
+            _ = tx.unbounded_send(id.with(runtime, T::clone));
+        });
+        rx
     }
 }
 
@@ -245,7 +287,7 @@ where
 
 impl<T> WriteSignal<T>
 where
-    T: Clone + 'static,
+    T: 'static,
 {
     /// Applies a function to the current value to mutate it in place
     /// and notifies subscribers that the signal has changed.
@@ -295,10 +337,7 @@ where
     }
 }
 
-impl<T> Clone for WriteSignal<T>
-where
-    T: Clone,
-{
+impl<T> Clone for WriteSignal<T> {
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
@@ -308,7 +347,7 @@ where
     }
 }
 
-impl<T> Copy for WriteSignal<T> where T: Clone {}
+impl<T> Copy for WriteSignal<T> {}
 
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<(T,)> for WriteSignal<T>
@@ -390,6 +429,7 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// # }).dispose();
 /// #
 /// ```
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct RwSignal<T>
 where
     T: 'static,
@@ -436,6 +476,14 @@ where
     /// ```
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
+    }
+
+    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+
+    pub(crate) fn subscribe(&self) {
+        self.id.subscribe(self.runtime);
     }
 
     /// Clones and returns the current value of the signal, and subscribes
@@ -521,6 +569,14 @@ where
             ty: PhantomData,
         }
     }
+
+    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    pub fn to_stream(&self) -> impl Stream<Item = T>
+    where
+        T: Clone,
+    {
+        self.read_only().to_stream()
+    }
 }
 
 #[cfg(not(feature = "stable"))]
@@ -567,14 +623,7 @@ pub(crate) enum SignalError {
 }
 
 impl SignalId {
-    pub(crate) fn try_with<T, U>(
-        &self,
-        runtime: &Runtime,
-        f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError>
-    where
-        T: 'static,
-    {
+    pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
             let mut subs = runtime.signal_subscribers.borrow_mut();
@@ -582,7 +631,16 @@ impl SignalId {
                 subs.or_default().borrow_mut().insert(observer);
             }
         }
+    }
 
+    pub(crate) fn try_with_no_subscription<T, U>(
+        &self,
+        runtime: &Runtime,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError>
+    where
+        T: 'static,
+    {
         // get the value
         let value = {
             let signals = runtime.signals.borrow();
@@ -599,6 +657,26 @@ impl SignalId {
             .downcast_ref::<T>()
             .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
         Ok(f(value))
+    }
+
+    pub(crate) fn try_with<T, U>(
+        &self,
+        runtime: &Runtime,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError>
+    where
+        T: 'static,
+    {
+        self.subscribe(runtime);
+
+        self.try_with_no_subscription(runtime, f)
+    }
+
+    pub(crate) fn with_no_subscription<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    where
+        T: 'static,
+    {
+        self.try_with_no_subscription(runtime, f).unwrap()
     }
 
     pub(crate) fn with<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
