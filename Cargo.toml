@@ -16,6 +16,7 @@ members = [
   "examples/counters",
   "examples/counters-stable",
   "examples/fetch",
+  "examples/gtk",
   "examples/hackernews/hackernews-app",
   "examples/hackernews/hackernews-client",
   "examples/hackernews/hackernews-server",
