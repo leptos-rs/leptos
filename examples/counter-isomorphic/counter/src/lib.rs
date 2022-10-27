@@ -92,6 +92,21 @@ pub async fn clear_server_count_helper(args: ClearServerCount) -> Result<i32, Se
 }
 
 #[component]
+pub fn Counters(cx: Scope) -> Element {
+    view! {
+        cx,
+        <div style="display: flex; justify-content: space-around">
+            <Counter/>
+            <MultiuserCounter/>
+        </div>
+    }
+}
+
+// This is an example of "single-user" server functions
+// The counter value is loaded from the server, and re-fetches whenever
+// it's invalidated by one of the user's own actions
+// This is the typical pattern for a CRUD app
+#[component]
 pub fn Counter(cx: Scope) -> Element {
     let (update, set_update) = create_signal(cx, 0);
 
@@ -114,6 +129,33 @@ pub fn Counter(cx: Scope) -> Element {
             })
             .flatten()
     };
+
+    view! {
+        cx,
+        <div>
+            <button on:click=move |_| clear.dispatch()>"Clear"</button>
+            <button on:click=move |_| dec.dispatch()>"-1"</button>
+            <span>"Value: " {move || value().to_string()} "!"</span>
+            <button on:click=move |_| inc.dispatch()>"+1"</button>
+            <form method="POST" action="/api/adjust_server_count">
+                <input type="hidden" name="delta" value="1"/>
+                <input type="submit" value="+1 (with Form)"/>
+            </form>
+        </div>
+    }
+}
+
+// This is a kind of "multi-user" counter
+// It relies on a stream of server-sent events (SSE) for the counter's value
+// Whenever another user updates the value, it will update here
+// This is the primitive pattern for live chat, collaborative editing, etc.
+#[component]
+pub fn MultiuserCounter(cx: Scope) -> Element {
+    let (update, set_update) = create_signal(cx, 0);
+
+    let dec = create_route_action(cx, || adjust_server_count(-1));
+    let inc = create_route_action(cx, || adjust_server_count(1));
+    let clear = create_route_action(cx, clear_server_count);
 
     #[cfg(not(feature = "ssr"))]
     let multiplayer_value = {
@@ -144,7 +186,6 @@ pub fn Counter(cx: Scope) -> Element {
         <div>
             <button on:click=move |_| clear.dispatch()>"Clear"</button>
             <button on:click=move |_| dec.dispatch()>"-1"</button>
-            <span>"Value: " {move || value().to_string()} "!"</span>
             <span>"Multiplayer Value: " {move || multiplayer_value().unwrap_or_default().to_string()}</span>
             <button on:click=move |_| inc.dispatch()>"+1"</button>
             <form method="POST" action="/api/adjust_server_count">

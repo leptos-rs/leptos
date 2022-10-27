@@ -9,6 +9,6 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     leptos::hydrate(body().unwrap(), |cx| {
-        view! { cx,  <Counter/> }
+        view! { cx,  <Counters/> }
     });
 }

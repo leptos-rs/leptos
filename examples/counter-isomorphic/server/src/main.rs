@@ -4,7 +4,7 @@ use counter_isomorphic::*;
 use leptos::*;
 
 #[get("/")]
-async fn render_todomvc() -> impl Responder {
+async fn render() -> impl Responder {
     HttpResponse::Ok().content_type("text/html").body(format!(
         r#"<!DOCTYPE html>
         <html lang="en">
@@ -20,7 +20,7 @@ async fn render_todomvc() -> impl Responder {
         </html>"#,
         run_scope({
             |cx| {
-                view! { cx, <Counter/>}
+                view! { cx, <Counters/>}
             }
         })
     ))
@@ -30,12 +30,9 @@ async fn render_todomvc() -> impl Responder {
 async fn counter_events() -> impl Responder {
     use futures::StreamExt;
 
-    println!("setting up a new /api/events request");
-
     let stream =
         futures::stream::once(async { counter_isomorphic::get_server_count().await.unwrap_or(0) })
             .chain(COUNT_CHANNEL.clone())
-            .inspect(|v| println!("\tvalue = {v}"))
             .map(|value| {
                 Ok(web::Bytes::from(format!(
                     "event: message\ndata: {value}\n\n"
@@ -43,7 +40,6 @@ async fn counter_events() -> impl Responder {
             });
     HttpResponse::Ok()
         .insert_header(("Content-Type", "text/event-stream"))
-        //.no_chunking(24)
         .streaming(stream)
 }
 
@@ -88,7 +84,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .service(render_todomvc)
+            .service(render)
             .service(Files::new("/pkg", "../client/pkg"))
             .service(get_server_count)
             .service(clear_server_count)

@@ -18,12 +18,6 @@ serde = { version = "1", features = ["derive"] }
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-	""
-]
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.0"
 
 [features]
 default = ["csr"]
