@@ -6,6 +6,7 @@ members = [
   "leptos_core",
   "leptos_macro",
   "leptos_reactive",
+  "leptos_server",
 
   # libraries
   "meta",

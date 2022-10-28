@@ -1,17 +1,30 @@
-use async_trait::async_trait;
-use leptos::*;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+pub use async_trait::async_trait;
+use leptos_reactive::*;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::{future::Future, pin::Pin, rc::Rc};
 use thiserror::Error;
 
 #[cfg(feature = "ssr")]
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
+
+#[cfg(feature = "ssr")]
+type ServerFnTraitObj =
+    dyn Fn(&[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>> + Send + Sync;
+
+#[cfg(feature = "ssr")]
 lazy_static::lazy_static! {
-    pub static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<dyn Fn(&[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>> + Send + Sync>>>> = Default::default();
+    pub static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
+}
+
+#[cfg(feature = "ssr")]
+pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
+    REGISTERED_SERVER_FUNCTIONS
+        .read()
+        .ok()
+        .and_then(|fns| fns.get(path).cloned())
 }
 
 #[async_trait]
@@ -87,10 +100,13 @@ pub enum ServerFnError {
     Args(String),
 }
 
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 pub async fn call_server_fn<T>(url: &str, args: impl ServerFn) -> Result<T, ServerFnError>
 where
     T: Serializable + Sized,
 {
+    use leptos_dom::*;
+
     let window = window();
 
     let args_form_data = web_sys::FormData::new().expect_throw("could not create FormData");
@@ -103,7 +119,7 @@ where
         .expect_throw("could not URL encode FormData");
     let args_form_data = args_form_data.to_string().as_string().unwrap_or_default();
 
-    let resp = gloo::net::http::Request::post(url)
+    let resp = gloo_net::http::Request::post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
         .header("Accept", "application/json")
         .body(args_form_data.to_string())
@@ -122,21 +138,21 @@ where
         .await
         .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
 
-    log::debug!("text is {text:?}");
     T::from_json(&text).map_err(|e| ServerFnError::Deserialization(e.to_string()))
 }
 
 #[derive(Clone)]
-pub struct RouteAction<T>
+pub struct AsyncAction<T>
 where
     T: 'static,
 {
     pub version: RwSignal<usize>,
+    value: RwSignal<Option<T>>,
     pending: RwSignal<bool>,
     action_fn: Rc<dyn Fn() -> Pin<Box<dyn Future<Output = T>>>>,
 }
 
-impl<T> RouteAction<T>
+impl<T> AsyncAction<T>
 where
     T: 'static,
 {
@@ -144,39 +160,47 @@ where
         _ = self.version.get();
     }
 
-    pub fn pending(&self) -> ReadSignal<bool> {
-        self.pending.read_only()
+    pub fn pending(&self) -> impl Fn() -> bool {
+        let value = self.value;
+        move || value.with(|val| val.is_some())
+    }
+
+    pub fn value(&self) -> ReadSignal<Option<T>> {
+        self.value.read_only()
     }
 
     pub fn dispatch(&self) {
         let fut = (self.action_fn)();
         let version = self.version;
         let pending = self.pending;
+        let value = self.value;
         pending.set(true);
         spawn_local(async move {
-            let new_count = fut.await;
+            let new_value = fut.await;
+            value.set(Some(new_value));
             pending.set(false);
             version.update(|n| *n += 1);
         })
     }
 }
 
-pub fn create_route_action<T, F, Fu>(cx: Scope, action_fn: F) -> RouteAction<T>
+pub fn create_async_action<T, F, Fu>(cx: Scope, action_fn: F) -> AsyncAction<T>
 where
     T: 'static,
     F: Fn() -> Fu + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let version = create_rw_signal(cx, 0);
+    let value = create_rw_signal(cx, None);
     let pending = create_rw_signal(cx, false);
     let action_fn = Rc::new(move || {
-        log::debug!("running route action");
         let fut = action_fn();
         Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = T>>>
     });
 
-    RouteAction {
+    AsyncAction {
         version,
+        value,
         pending,
         action_fn,
     }

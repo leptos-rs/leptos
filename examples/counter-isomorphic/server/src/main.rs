@@ -1,6 +1,5 @@
 use actix_files::Files;
 use actix_web::*;
-use counter_isomorphic::action::REGISTERED_SERVER_FUNCTIONS;
 use counter_isomorphic::*;
 use leptos::*;
 
@@ -39,10 +38,7 @@ async fn handle_server_fns(
         .get("Accept")
         .and_then(|value| value.to_str().ok());
 
-    if let Ok(Some(server_fn)) = REGISTERED_SERVER_FUNCTIONS
-        .read()
-        .map(|fns| fns.get(path.as_str()).cloned())
-    {
+    if let Some(server_fn) = server_fn_by_path(path.as_str()) {
         match server_fn(&body).await {
             Ok(serialized) => {
                 // if this is Accept: application/json then send a serialized JSON response

@@ -1,18 +1,13 @@
-use async_trait::async_trait;
+use leptos::*;
+
 use std::fmt::Debug;
-use std::str::FromStr;
 
 #[cfg(feature = "ssr")]
 use std::sync::atomic::{AtomicI32, Ordering};
 
 #[cfg(feature = "ssr")]
 use broadcaster::BroadcastChannel;
-use leptos::*;
 
-use futures::StreamExt;
-
-pub mod action;
-use action::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
@@ -174,9 +169,9 @@ pub fn Counters(cx: Scope) -> Element {
 // This is the typical pattern for a CRUD app
 #[component]
 pub fn Counter(cx: Scope) -> Element {
-    let dec = create_route_action(cx, || adjust_server_count(-1));
-    let inc = create_route_action(cx, || adjust_server_count(1));
-    let clear = create_route_action(cx, clear_server_count);
+    let dec = create_async_action(cx, || adjust_server_count(-1));
+    let inc = create_async_action(cx, || adjust_server_count(1));
+    let clear = create_async_action(cx, clear_server_count);
     let counter = create_resource(
         cx,
         move || (dec.version.get(), inc.version.get(), clear.version.get()),
@@ -258,12 +253,14 @@ pub fn FormCounter(cx: Scope) -> Element {
 // This is the primitive pattern for live chat, collaborative editing, etc.
 #[component]
 pub fn MultiuserCounter(cx: Scope) -> Element {
-    let dec = create_route_action(cx, || adjust_server_count(-1));
-    let inc = create_route_action(cx, || adjust_server_count(1));
-    let clear = create_route_action(cx, clear_server_count);
+    let dec = create_async_action(cx, || adjust_server_count(-1));
+    let inc = create_async_action(cx, || adjust_server_count(1));
+    let clear = create_async_action(cx, clear_server_count);
 
     #[cfg(not(feature = "ssr"))]
     let multiplayer_value = {
+        use futures::StreamExt;
+
         let mut source = gloo::net::eventsource::futures::EventSource::new("/api/events")
             .expect_throw("couldn't connect to SSE stream");
         let s = create_signal_from_stream(
