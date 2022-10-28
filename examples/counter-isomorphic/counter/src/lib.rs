@@ -57,10 +57,7 @@ pub async fn get_server_count() -> Result<i32, ServerFnError> {
 }
 #[cfg(not(feature = "ssr"))]
 pub async fn get_server_count() -> Result<i32, ServerFnError> {
-    log::debug!("calling get_server_count");
-    let res = call_server_fn(GetServerCount::url(), GetServerCount {}).await;
-    log::debug!("get_server_count result is {:#?}", res);
-    res
+    call_server_fn(GetServerCount::url(), GetServerCount {}).await
 }
 #[cfg(not(feature = "ssr"))]
 pub async fn get_server_count_helper(args: GetServerCount) -> Result<i32, ServerFnError> {
