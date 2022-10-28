@@ -1,5 +1,6 @@
 use actix_files::Files;
 use actix_web::*;
+use counter_isomorphic::action::REGISTERED_SERVER_FUNCTIONS;
 use counter_isomorphic::*;
 use leptos::*;
 
@@ -26,6 +27,43 @@ async fn render() -> impl Responder {
     ))
 }
 
+#[post("{tail:.*}")]
+async fn handle_server_fns(
+    req: HttpRequest,
+    params: web::Path<String>,
+    body: web::Bytes,
+) -> impl Responder {
+    let path = params.into_inner();
+    let accept_header = req
+        .headers()
+        .get("Accept")
+        .and_then(|value| value.to_str().ok());
+
+    if let Ok(Some(server_fn)) = REGISTERED_SERVER_FUNCTIONS
+        .read()
+        .map(|fns| fns.get(path.as_str()).cloned())
+    {
+        match server_fn(&body).await {
+            Ok(serialized) => {
+                // if this is Accept: application/json then send a serialized JSON response
+                if let Some("application/json") = accept_header {
+                    HttpResponse::Ok().body(serialized)
+                }
+                // otherwise, it's probably a <form> submit or something: redirect back to the referrer
+                else {
+                    HttpResponse::SeeOther()
+                        .insert_header(("Location", "/"))
+                        .content_type("application/json")
+                        .body(serialized)
+                }
+            }
+            Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        }
+    } else {
+        HttpResponse::BadRequest().body(format!("Could not find a server function at that route."))
+    }
+}
+
 #[get("/api/events")]
 async fn counter_events() -> impl Responder {
     use futures::StreamExt;
@@ -43,57 +81,19 @@ async fn counter_events() -> impl Responder {
         .streaming(stream)
 }
 
-#[post("/api/get_server_count")]
-async fn get_server_count() -> impl Responder {
-    counter_isomorphic::get_server_count()
-        .await
-        .unwrap()
-        .to_string()
-}
-
-#[post("/api/clear_server_count")]
-async fn clear_server_count() -> impl Responder {
-    counter_isomorphic::clear_server_count()
-        .await
-        .unwrap()
-        .to_string()
-}
-
-#[post("/api/adjust_server_count")]
-async fn adjust_server_count(data: web::Form<AdjustServerCount>) -> impl Responder {
-    let AdjustServerCount { delta } = data.0;
-    counter_isomorphic::adjust_server_count(delta).await;
-    HttpResponse::SeeOther()
-        .insert_header(("Location", "/"))
-        .body("")
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    //simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
-
-    // load TLS keys
-    // to create a self-signed temporary cert for testing:
-    // `openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'`
-
-    /* let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-    builder
-        .set_private_key_file("key.pem", SslFiletype::PEM)
-        .unwrap();
-    builder.set_certificate_chain_file("cert.pem").unwrap(); */
+    counter_isomorphic::register_server_functions();
 
     HttpServer::new(|| {
         App::new()
             .service(render)
             .service(Files::new("/pkg", "../client/pkg"))
-            .service(get_server_count)
-            .service(clear_server_count)
-            .service(adjust_server_count)
             .service(counter_events)
+            .service(handle_server_fns)
         //.wrap(middleware::Compress::default())
     })
     .bind(("127.0.0.1", 8080))?
-    //.bind_openssl(("127.0.0.1", 8080), builder)?
     .run()
     .await
 }

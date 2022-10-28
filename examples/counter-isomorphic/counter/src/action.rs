@@ -1,21 +1,93 @@
+use async_trait::async_trait;
 use leptos::*;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 use thiserror::Error;
+
+#[cfg(feature = "ssr")]
+lazy_static::lazy_static! {
+    pub static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<dyn Fn(&[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>> + Send + Sync>>>> = Default::default();
+}
+
+#[async_trait]
+pub trait ServerFn
+where
+    Self: Sized + DeserializeOwned + 'static,
+{
+    type Output: Serializable;
+
+    fn url() -> &'static str;
+
+    fn as_form_data(&self) -> Vec<(&'static str, String)>;
+
+    #[cfg(feature = "ssr")]
+    async fn call_fn(self) -> Result<Self::Output, ServerFnError>;
+
+    #[cfg(feature = "ssr")]
+    fn register() -> Result<(), ServerFnError> {
+        // create the handler for this server function
+        // takes a String -> returns its async value
+        let run_server_fn = Arc::new(|data: &[u8]| {
+            // decode the args
+            let value = serde_urlencoded::from_bytes::<Self>(&data)
+                .map_err(|e| ServerFnError::Args(e.to_string()));
+            Box::pin(async move {
+                let value = match value {
+                    Ok(v) => v,
+                    Err(e) => return Err(e),
+                };
+
+                // call the function
+                let result = match value.call_fn().await {
+                    Ok(r) => r,
+                    Err(e) => return Err(e),
+                };
+
+                // serialize the output
+                let result = match result
+                    .to_json()
+                    .map_err(|e| ServerFnError::Serialization(e.to_string()))
+                {
+                    Ok(r) => r,
+                    Err(e) => return Err(e),
+                };
+
+                Ok(result)
+            }) as Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>>
+        });
+
+        // store it in the hashmap
+        let mut write = REGISTERED_SERVER_FUNCTIONS
+            .write()
+            .map_err(|e| ServerFnError::Registration(e.to_string()))?;
+        write.insert(Self::url(), run_server_fn);
+
+        Ok(())
+    }
+}
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ServerFnError {
+    #[error("error while trying to register the server function: {0}")]
+    Registration(String),
     #[error("error reaching server to call server function: {0}")]
     Request(String),
     #[error("error running server function: {0}")]
     ServerError(String),
     #[error("error deserializing server function results {0}")]
     Deserialization(String),
+    #[error("error serializing server function results {0}")]
+    Serialization(String),
+    #[error("error deserializing server function arguments {0}")]
+    Args(String),
 }
 
-pub async fn call_server_fn<T>(url: &str, args: impl AsFormData) -> Result<T, ServerFnError>
+pub async fn call_server_fn<T>(url: &str, args: impl ServerFn) -> Result<T, ServerFnError>
 where
     T: Serializable + Sized,
 {
@@ -33,6 +105,7 @@ where
 
     let resp = gloo::net::http::Request::post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Accept", "application/json")
         .body(args_form_data.to_string())
         .send()
         .await
@@ -48,6 +121,8 @@ where
         .text()
         .await
         .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+
+    log::debug!("text is {text:?}");
     T::from_json(&text).map_err(|e| ServerFnError::Deserialization(e.to_string()))
 }
 
@@ -95,6 +170,7 @@ where
     let version = create_rw_signal(cx, 0);
     let pending = create_rw_signal(cx, false);
     let action_fn = Rc::new(move || {
+        log::debug!("running route action");
         let fut = action_fn();
         Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = T>>>
     });
@@ -104,8 +180,4 @@ where
         pending,
         action_fn,
     }
-}
-
-pub trait AsFormData {
-    fn as_form_data(&self) -> Vec<(&'static str, String)>;
 }
