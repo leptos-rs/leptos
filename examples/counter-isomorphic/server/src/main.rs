@@ -39,6 +39,9 @@ async fn handle_server_fns(
         .and_then(|value| value.to_str().ok());
 
     if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+        let body: &[u8] = &body;
+        let body: Vec<u8> = body.to_vec();
+        println!("body = {:?}", String::from_utf8(body.clone()).unwrap());
         match server_fn(&body).await {
             Ok(serialized) => {
                 // if this is Accept: application/json then send a serialized JSON response
@@ -53,7 +56,10 @@ async fn handle_server_fns(
                         .body(serialized)
                 }
             }
-            Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+            Err(e) => {
+                eprintln!("server function error: {e:#?}");
+                HttpResponse::InternalServerError().body(e.to_string())
+            }
         }
     } else {
         HttpResponse::BadRequest().body(format!("Could not find a server function at that route."))

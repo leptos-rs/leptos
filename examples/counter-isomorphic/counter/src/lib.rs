@@ -25,113 +25,24 @@ lazy_static::lazy_static! {
     pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
 }
 
-#[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
-pub struct GetServerCount {}
-
-#[async_trait]
-impl ServerFn for GetServerCount {
-    type Output = i32;
-
-    fn url() -> &'static str {
-        "get_server_count"
-    }
-
-    fn as_form_data(&self) -> Vec<(&'static str, String)> {
-        vec![]
-    }
-
-    #[cfg(feature = "ssr")]
-    async fn call_fn(self) -> Result<Self::Output, ServerFnError> {
-        get_server_count().await
-    }
-}
-
-#[cfg(feature = "ssr")]
+#[server(GetServerCount)]
 pub async fn get_server_count() -> Result<i32, ServerFnError> {
     Ok(COUNT.load(Ordering::Relaxed))
 }
-#[cfg(not(feature = "ssr"))]
-pub async fn get_server_count() -> Result<i32, ServerFnError> {
-    call_server_fn(GetServerCount::url(), GetServerCount {}).await
-}
-#[cfg(not(feature = "ssr"))]
-pub async fn get_server_count_helper(args: GetServerCount) -> Result<i32, ServerFnError> {
-    call_server_fn(GetServerCount::url(), args).await
-}
 
-#[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
-pub struct AdjustServerCount {
-    pub delta: i32,
-}
-
-#[async_trait]
-impl ServerFn for AdjustServerCount {
-    type Output = i32;
-
-    fn url() -> &'static str {
-        "adjust_server_count"
-    }
-
-    fn as_form_data(&self) -> Vec<(&'static str, String)> {
-        vec![("delta", self.delta.to_string())]
-    }
-
-    #[cfg(feature = "ssr")]
-    async fn call_fn(self) -> Result<Self::Output, ServerFnError> {
-        adjust_server_count(self.delta).await
-    }
-}
-
-#[cfg(feature = "ssr")]
+#[server(AdjustServerCount)]
 pub async fn adjust_server_count(delta: i32) -> Result<i32, ServerFnError> {
     let new = COUNT.load(Ordering::Relaxed) + delta;
     COUNT.store(new, Ordering::Relaxed);
     _ = COUNT_CHANNEL.send(&new).await;
     Ok(new)
 }
-#[cfg(not(feature = "ssr"))]
-pub async fn adjust_server_count(delta: i32) -> Result<i32, ServerFnError> {
-    adjust_server_count_helper(AdjustServerCount { delta }).await
-}
-#[cfg(not(feature = "ssr"))]
-pub async fn adjust_server_count_helper(args: AdjustServerCount) -> Result<i32, ServerFnError> {
-    call_server_fn(AdjustServerCount::url(), args).await
-}
 
-#[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
-pub struct ClearServerCount {}
-
-#[async_trait]
-impl ServerFn for ClearServerCount {
-    type Output = i32;
-
-    fn url() -> &'static str {
-        "clear_server_count"
-    }
-
-    fn as_form_data(&self) -> Vec<(&'static str, String)> {
-        vec![]
-    }
-
-    #[cfg(feature = "ssr")]
-    async fn call_fn(self) -> Result<Self::Output, ServerFnError> {
-        clear_server_count().await
-    }
-}
-
-#[cfg(feature = "ssr")]
+#[server(ClearServerCount)]
 pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     COUNT.store(0, Ordering::Relaxed);
     _ = COUNT_CHANNEL.send(&0).await;
     Ok(0)
-}
-#[cfg(not(feature = "ssr"))]
-pub async fn clear_server_count() -> Result<i32, ServerFnError> {
-    clear_server_count_helper(ClearServerCount {}).await
-}
-#[cfg(not(feature = "ssr"))]
-pub async fn clear_server_count_helper(args: ClearServerCount) -> Result<i32, ServerFnError> {
-    call_server_fn(ClearServerCount::url(), args).await
 }
 
 #[component]
