@@ -104,6 +104,16 @@ The gold standard for testing raw rendering performance for front-end web framew
 
 ## FAQs
 
+### Can I use this for native GUI?
+
+Sure! Obviously the `view` macro is for generating DOM nodes but you can use the reactive system to drive native any GUI toolkit that uses the same kind of object-oriented, event-callback-based framework as the DOM pretty easily. The principles are the same:
+- Use signals, derived signals, and memos to create your reactive system
+- Create GUI widgets
+- Use event listeners to update signals
+- Create effects to update the UI
+
+I've put together a [very simple GTK example](https://github.com/gbj/leptos/blob/main/examples/gtk/src/main.rs) so you can see what I mean.
+
 ### How is this different from Yew/Dioxus?
 
 On the surface level, these libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Dioxus is similar in many ways, being heavily inspired by React. Here are some conceptual differences between Leptos and these frameworks:
