@@ -57,7 +57,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let field_names_3 = field_names.clone();
 
     Ok(quote::quote! {
-        #[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
+        #[derive(Serialize, Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
