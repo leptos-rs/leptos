@@ -146,7 +146,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct AsyncAction<T>
+pub struct Action<T>
 where
     T: 'static,
 {
@@ -156,7 +156,7 @@ where
     action_fn: Rc<dyn Fn() -> Pin<Box<dyn Future<Output = T>>>>,
 }
 
-impl<T> AsyncAction<T>
+impl<T> Action<T>
 where
     T: 'static,
 {
@@ -188,7 +188,7 @@ where
     }
 }
 
-pub fn create_async_action<T, F, Fu>(cx: Scope, action_fn: F) -> AsyncAction<T>
+pub fn create_action<T, F, Fu>(cx: Scope, action_fn: F) -> Action<T>
 where
     T: 'static,
     F: Fn() -> Fu + 'static,
@@ -202,7 +202,7 @@ where
         Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = T>>>
     });
 
-    AsyncAction {
+    Action {
         version,
         value,
         pending,

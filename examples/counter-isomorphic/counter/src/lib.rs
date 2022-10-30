@@ -81,9 +81,9 @@ pub fn Counters(cx: Scope) -> Element {
 // This is the typical pattern for a CRUD app
 #[component]
 pub fn Counter(cx: Scope) -> Element {
-    let dec = create_async_action(cx, || adjust_server_count(-1, "decing".into()));
-    let inc = create_async_action(cx, || adjust_server_count(1, "incing".into()));
-    let clear = create_async_action(cx, clear_server_count);
+    let dec = create_action(cx, || adjust_server_count(-1, "decing".into()));
+    let inc = create_action(cx, || adjust_server_count(1, "incing".into()));
+    let clear = create_action(cx, clear_server_count);
     let counter = create_resource(
         cx,
         move || (dec.version.get(), inc.version.get(), clear.version.get()),
@@ -167,9 +167,9 @@ pub fn FormCounter(cx: Scope) -> Element {
 // This is the primitive pattern for live chat, collaborative editing, etc.
 #[component]
 pub fn MultiuserCounter(cx: Scope) -> Element {
-    let dec = create_async_action(cx, || adjust_server_count(-1, "dec dec goose".into()));
-    let inc = create_async_action(cx, || adjust_server_count(1, "inc inc moose".into()));
-    let clear = create_async_action(cx, clear_server_count);
+    let dec = create_action(cx, || adjust_server_count(-1, "dec dec goose".into()));
+    let inc = create_action(cx, || adjust_server_count(1, "inc inc moose".into()));
+    let clear = create_action(cx, clear_server_count);
 
     #[cfg(not(feature = "ssr"))]
     let multiplayer_value = {
