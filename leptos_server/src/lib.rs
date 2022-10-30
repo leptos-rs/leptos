@@ -1,3 +1,72 @@
+//! # Leptos Server Functions
+//!
+//! This package is based on a simple idea: sometimes it’s useful to write functions
+//! that will only run on the server, and call them from the client.
+//!
+//! If you’re creating anything beyond a toy app, you’ll need to do this all the time:
+//! reading from or writing to a database that only runs on the server, running expensive
+//! computations using libraries you don’t want to ship down to the client, accessing
+//! APIs that need to be called from the server rather than the client for CORS reasons
+//! or because you need a secret API key that’s stored on the server and definitely
+//! shouldn’t be shipped down to a user’s browser.
+//!
+//! Traditionally, this is done by separating your server and client code, and by setting
+//! up something like a REST API or GraphQL API to allow your client to fetch and mutate
+//! data on the server. This is fine, but it requires you to write and maintain your code
+//! in multiple separate places (client-side code for fetching, server-side functions to run),
+//! as well as creating a third thing to manage, which is the API contract between the two.
+//!
+//! This package provides two simple primitives that allow you instead to write co-located,
+//! isomorphic server functions. (*Co-located* means you can write them in your app code so
+//! that they are “located alongside” the client code that calls them, rather than separating
+//! the client and server sides. *Isomorphic* means you can call them from the client as if
+//! you were simply calling a function; the function call has the “same shape” on the client
+//! as it does on the server.)
+//!
+//! ### `#[server]`
+//!
+//! The `#[server]` macro allows you to annotate a function to indicate that it should only run
+//! on the server (i.e., when you have an `ssr` feature in your crate that is enabled).
+//!
+//! ```rust,ignore
+//! #[server(ReadFromDB)]
+//! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
+//!   // do some server-only work here to access the database
+//!   let posts = ...;
+//!   Ok(posts)
+//! }
+//!
+//! // call the function
+//! spawn_local(async {
+//!   let posts = read_posts(3, "my search".to_string()).await;
+//!   log::debug!("posts = {posts{:#?}");
+//! })
+//! ```
+//!
+//! If you call this function from the client, it will serialize the function arguments and `POST`
+//! them to the server as if they were the inputs in `<form method="POST">`.
+//!
+//! Here’s what you need to remember:
+//! - **Server functions must be `async`.** Even if the work being done inside the function body
+//!   can run synchronously on the server, from the client’s perspective it involves an asynchronous
+//!   function call.
+//! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
+//!   inside the function body can’t fail, the processes of serialization/deserialization and the
+//!   network call are fallible.
+//! - **Server function arguments and return types must be [Serializable](leptos_reactive::Serializable).**
+//!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
+//!   need to deserialize the result to return it to the client.
+//!
+//! ### `create_action`
+//!
+//! The easiest way to call server functions from the client is the `create_action` primitive.
+//! This returns an [Action](crate::Action), with a [dispatch](crate::Action::dispatch) method
+//! that can run any `async` function, including one that contains one or more calls to server functions.
+//!
+//! Dispatching an action increments its [version](crate::Action::version) field, which is a
+//! signal. This is very useful, as it can be used to invalidate a [Resource](leptos_reactive::Resource)
+//! that reads from the same data.
+
 pub use async_trait::async_trait;
 pub use form_urlencoded;
 use leptos_reactive::*;
