@@ -123,3 +123,15 @@ pub use leptos_server;
 pub use leptos_server::*;
 
 pub use leptos_reactive::debug_warn;
+
+#[cfg(not(any(feature = "csr", feature = "ssr", feature = "hydrate")))]
+compile_error!("set one of the following feature flags: 'csr', 'ssr' or 'hydrate'");
+
+#[cfg(all(feature = "csr", feature = "ssr"))]
+compile_error!("leptos features 'csr' and feature 'ssr' cannot be enabled at the same time");
+
+#[cfg(all(feature = "csr", feature = "hydrate"))]
+compile_error!("leptos features 'csr' and feature 'hydrate' cannot be enabled at the same time");
+
+#[cfg(all(feature = "hydrate", feature = "ssr"))]
+compile_error!("leptos features 'hydrate' and feature 'ssr' cannot be enabled at the same time");

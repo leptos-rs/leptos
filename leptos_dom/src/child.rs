@@ -133,21 +133,21 @@ impl IntoChild for Vec<web_sys::Element> {
     }
 }
 
-#[cfg(feature = "stable")]
+#[cfg(all(feature = "stable", not(feature = "ssr")))]
 impl IntoChild for Memo<Vec<web_sys::Element>> {
     fn into_child(self, cx: Scope) -> Child {
         (move || self.get()).into_child(cx)
     }
 }
 
-#[cfg(feature = "stable")]
+#[cfg(all(feature = "stable", not(feature = "ssr")))]
 impl IntoChild for ReadSignal<Vec<web_sys::Element>> {
     fn into_child(self, cx: Scope) -> Child {
         (move || self.get()).into_child(cx)
     }
 }
 
-#[cfg(feature = "stable")]
+#[cfg(all(feature = "stable", not(feature = "ssr")))]
 impl IntoChild for RwSignal<Vec<web_sys::Element>> {
     fn into_child(self, cx: Scope) -> Child {
         (move || self.get()).into_child(cx)

@@ -76,13 +76,13 @@ Most of the examples assume you’re using `nightly` Rust. If you’re on stable
 
 ### Server-Side Rendering
 
-I’ve created a benchmark comparing Leptos’s HTML rendering on the server to [Tera](https://github.com/Keats/tera), [Yew](https://github.com/yewstack/yew), and [Sycamore](https://github.com/sycamore-rs/sycamore). You can find the benchmark [here](https://github.com/gbj/leptos/tree/main/benchmarks) and run it yourself using `cargo bench`.
+I’ve created a benchmark comparing Leptos’s HTML rendering on the server to [Tera](https://github.com/Keats/tera), [Yew](https://github.com/yewstack/yew), and [Sycamore](https://github.com/sycamore-rs/sycamore). You can find the benchmark [here](https://github.com/gbj/leptos/tree/main/benchmarks) and run it yourself using `cargo bench`. Leptos renders HTML roughly as fast as Tera, and scales well as templates become larger. It's significantly faster than the server-side HTML rendering done by similar frameworks.
 
-`cargo bench` ns/iter
-
+<details>
+  <summary>Click to show results</summary>
 <table>
 <thead>
-<tr><td></td><td>Tera</td><td>Leptos</td><td>Yew</td><td>Sycamore</td></tr>
+<tr><td><em>ns/iter</em></td><td>Tera</td><td>Leptos</td><td>Yew</td><td>Sycamore</td></tr>
 </thead>
 <tbody>
 <tr><td>3 Counters</td><td align="right">3,454</td><td align="right">5,666</td><td align="right">34,984</td><td align="right">32,412</td></tr>
@@ -91,14 +91,28 @@ I’ve created a benchmark comparing Leptos’s HTML rendering on the server to 
 <tr><td><em>Average</em></td><td align="right">1.08</td><td align="right">1.65</td><td align="right">6.25</td><td align="right">9.36</td></tr>
 </tbody>
 </table>
-
-As you can see, Leptos renders HTML roughly as fast as Tera, and scales well as templates become larger. It's significantly faster than the server-side HTML rendering done by similar frameworks.
+</details>
 
 ### Client-Side Rendering
 
-The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). The current results (which you can see if you check out `master` from the benchmark repo and open the results page) have Leptos as the fastest Rust/Wasm framework on this benchmark.
+The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). The official results list Leptos as the fastest Rust/Wasm framework, slightly slower than SolidJS and significantly faster than popular JS frameworks like Svelte, Preact, and React.
+
+<details>
+  <summary>Click to show results</summary>
+  <img width="913" alt="js-framework-benchmark results" src="https://user-images.githubusercontent.com/286622/198388168-d21e938b-5d59-4000-b373-91b48f1ec4d3.png">
+</details>
 
 ## FAQs
+
+### Can I use this for native GUI?
+
+Sure! Obviously the `view` macro is for generating DOM nodes but you can use the reactive system to drive native any GUI toolkit that uses the same kind of object-oriented, event-callback-based framework as the DOM pretty easily. The principles are the same:
+- Use signals, derived signals, and memos to create your reactive system
+- Create GUI widgets
+- Use event listeners to update signals
+- Create effects to update the UI
+
+I've put together a [very simple GTK example](https://github.com/gbj/leptos/blob/main/examples/gtk/src/main.rs) so you can see what I mean.
 
 ### How is this different from Yew/Dioxus?
 

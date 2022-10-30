@@ -129,19 +129,23 @@ impl Runtime {
 
     pub(crate) fn create_memo<T>(
         &'static self,
-        mut f: impl FnMut(Option<T>) -> T + 'static,
+        mut f: impl FnMut(Option<&T>) -> T + 'static,
     ) -> Memo<T>
     where
-        T: Clone + PartialEq + Any + 'static,
+        T: PartialEq + Any + 'static,
     {
         let (read, write) = self.create_signal(None);
-        self.create_effect(move |prev| {
-            let new = { f(prev.clone()) };
 
-            if prev.as_ref() != Some(&new) {
-                write.update(|n| *n = Some(new.clone()));
+        self.create_effect(move |_| {
+            let (new, changed) = read.with_no_subscription(|p| {
+                let new = f(p.as_ref());
+                let changed = Some(&new) != p.as_ref();
+                (new, changed)
+            });
+
+            if changed {
+                write.update(|n| *n = Some(new));
             }
-            new
         });
 
         Memo(read)
@@ -153,7 +157,7 @@ impl Runtime {
     ) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + Clone + 'static,
+        T: Debug + 'static,
     {
         self.resources
             .borrow_mut()
@@ -166,7 +170,7 @@ impl Runtime {
     ) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + Clone + Serializable + 'static,
+        T: Debug + Serializable + 'static,
     {
         self.resources
             .borrow_mut()
@@ -206,8 +210,8 @@ impl Runtime {
         f: impl FnOnce(&ResourceState<S, T>) -> U,
     ) -> U
     where
-        S: Debug + Clone + 'static,
-        T: Debug + Clone + 'static,
+        S: Debug + 'static,
+        T: Debug + 'static,
     {
         let resources = self.resources.borrow();
         let res = resources.get(id);

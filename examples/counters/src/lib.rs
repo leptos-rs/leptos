@@ -27,7 +27,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
             let signal = create_signal(cx, 0);
             new_counters.push((next_id, signal));
         }
-        set_counters(new_counters.clone());
+        set_counters.update(move |counters| counters.extend(new_counters.iter()));
     };
 
     let clear_counters = move |_| {

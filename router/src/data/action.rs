@@ -15,7 +15,7 @@ impl Action {
 
 impl<F, Fu> From<F> for Action
 where
-    F: Fn(&Request) -> Fu + Clone + 'static,
+    F: Fn(&Request) -> Fu + 'static,
     Fu: Future<Output = Response> + 'static,
 {
     fn from(f: F) -> Self {

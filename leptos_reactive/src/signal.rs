@@ -1,8 +1,7 @@
-use futures::{SinkExt, Stream};
-use thiserror::Error;
-
-use crate::{create_effect, debug_warn, spawn_local, Runtime, Scope, ScopeProperty};
+use crate::{debug_warn, spawn_local, Runtime, Scope, ScopeProperty};
+use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
+use thiserror::Error;
 
 /// Creates a signal, the basic reactive primitive.
 ///
