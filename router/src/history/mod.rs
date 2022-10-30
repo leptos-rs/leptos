@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use leptos::*;
 
 mod location;
@@ -107,7 +109,13 @@ impl History for BrowserIntegration {
 }
 
 #[derive(Clone)]
-pub struct RouterIntegrationContext(pub std::rc::Rc<dyn History>);
+pub struct RouterIntegrationContext(pub Rc<dyn History>);
+
+impl RouterIntegrationContext {
+    pub fn new(history: impl History + 'static) -> Self {
+        Self(Rc::new(history))
+    }
+}
 
 impl History for RouterIntegrationContext {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
@@ -117,4 +125,26 @@ impl History for RouterIntegrationContext {
     fn navigate(&self, loc: &LocationChange) {
         self.0.navigate(loc)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct ServerIntegration {
+    pub path: String,
+}
+
+impl History for ServerIntegration {
+    fn location(&self, cx: leptos::Scope) -> ReadSignal<LocationChange> {
+        create_signal(
+            cx,
+            LocationChange {
+                value: self.path.clone(),
+                replace: false,
+                scroll: true,
+                state: State(None),
+            },
+        )
+        .0
+    }
+
+    fn navigate(&self, _loc: &LocationChange) {}
 }

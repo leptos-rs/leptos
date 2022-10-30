@@ -7,28 +7,6 @@ use leptos_meta::*;
 use leptos_router::*;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
-#[derive(Copy, Clone, Debug)]
-struct ActixIntegration {
-    path: ReadSignal<String>,
-}
-
-impl History for ActixIntegration {
-    fn location(&self, cx: leptos::Scope) -> ReadSignal<LocationChange> {
-        create_signal(
-            cx,
-            LocationChange {
-                value: self.path.get(),
-                replace: false,
-                scroll: true,
-                state: State(None),
-            },
-        )
-        .0
-    }
-
-    fn navigate(&self, _loc: &LocationChange) {}
-}
-
 #[get("/static/style.css")]
 async fn css() -> impl Responder {
     NamedFile::open_async("../hackernews-app/style.css").await
@@ -47,10 +25,8 @@ async fn render_app(req: HttpRequest) -> impl Responder {
     };
 
     let app = move |cx| {
-        let integration = ActixIntegration {
-            path: create_signal(cx, path.clone()).0,
-        };
-        provide_context(cx, RouterIntegrationContext(std::rc::Rc::new(integration)));
+        let integration = ServerIntegration { path: path.clone() };
+        provide_context(cx, RouterIntegrationContext::new(integration));
 
         view! { cx, <App/> }
     };
