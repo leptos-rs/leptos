@@ -5,7 +5,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    *,
+    *, token::Type,
 };
 
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
@@ -13,7 +13,6 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
-    let output = body.output;
     let vis = body.vis;
     let block = body.block;
 
@@ -53,18 +52,55 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         })
         .collect::<Vec<_>>();
 
+    let from_form_data_fields =  body.inputs.iter()
+        .map(|field| {
+            let (field_name, field_type) = match field {
+                FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
+                FnArg::Typed(t) => (t.pat.clone(), t.ty.clone()),
+            };
+            let field_name = match *field_name {
+                Pat::Ident(id) => id.ident,
+                _ => panic!("field names need to be identifiers"),
+            };
+            let field_name_as_string = field_name.to_string();
+            quote::quote! {
+                #field_name: data.iter()
+                    .find(|(k, _)| k == #field_name_as_string)
+                    .ok_or_else(|| ::leptos::ServerFnError::MissingArg(#field_name_as_string.into()))
+                    .and_then(|(_, v)| #field_type::from_json(&v).map_err(|e| ::leptos::ServerFnError::Args(e.to_string())))?
+                    
+            }
+        })
+        .collect::<Vec<_>>();
+
     let field_names_2 = field_names.clone();
     let field_names_3 = field_names.clone();
 
+    let output_arrow = body.output_arrow;
+    let return_ty = body.return_ty;
+
+    let output_ty = if let syn::Type::Path(pat) = &return_ty {
+        if pat.path.segments[0].ident == "Result" {
+            if let PathArguments::AngleBracketed(args) = &pat.path.segments[0].arguments {
+                &args.args[0]
+            } else { 
+                panic!("server functions should return Result<T, ServerFnError>");
+            }
+        } else {
+            panic!("server functions should return Result<T, ServerFnError>");
+        }
+    } else {
+        panic!("server functions should return Result<T, ServerFnError>");
+    };
+
     Ok(quote::quote! {
-        #[derive(Serialize, Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
 
         #[async_trait]
         impl ServerFn for #struct_name {
-            type Output = i32;
+            type Output = #output_ty;
 
             fn url() -> &'static str {
                 #fn_name_as_str
@@ -76,6 +112,13 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
                 ]
             }
 
+            fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError> {
+                let data = ::leptos::leptos_server::form_urlencoded::parse(data).collect::<Vec<_>>();
+                Ok(Self {
+                    #(#from_form_data_fields),*
+                })
+            }
+
             #[cfg(feature = "ssr")]
             async fn call_fn(self) -> Result<Self::Output, ServerFnError> {
                 let #struct_name { #(#field_names),* } = self;
@@ -84,11 +127,11 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         }
 
         #[cfg(feature = "ssr")]
-        #vis async fn #fn_name(#(#fn_args),*) #output {
+        #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
             #block
         }
         #[cfg(not(feature = "ssr"))]
-        #vis async fn #fn_name(#(#fn_args_2),*) #output {
+        #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             ::leptos::call_server_fn(#struct_name::url(), #struct_name { #(#field_names_3),* }).await
         }
     }
@@ -116,9 +159,8 @@ pub struct ServerFnBody {
     pub generics: Generics,
     pub paren_token: token::Paren,
     pub inputs: Punctuated<FnArg, Token![,]>,
-    // pub fields: FieldsNamed,
-    pub output: ReturnType,
-    pub where_clause: Option<WhereClause>,
+    pub output_arrow: Token![->],
+    pub return_ty: syn::Type,
     pub block: Box<Block>,
 }
 
@@ -139,12 +181,8 @@ impl Parse for ServerFnBody {
 
         let inputs = syn::punctuated::Punctuated::parse_terminated(&content)?;
 
-        let output = input.parse()?;
-
-        let where_clause = input
-            .peek(syn::token::Where)
-            .then(|| input.parse())
-            .transpose()?;
+        let output_arrow = input.parse()?;
+        let return_ty = input.parse()?;
 
         let block = input.parse()?;
 
@@ -156,8 +194,8 @@ impl Parse for ServerFnBody {
             generics,
             paren_token,
             inputs,
-            output,
-            where_clause,
+            output_arrow,
+            return_ty,
             block,
             attrs,
         })

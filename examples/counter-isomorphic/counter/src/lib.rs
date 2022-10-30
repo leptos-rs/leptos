@@ -31,10 +31,11 @@ pub async fn get_server_count() -> Result<i32, ServerFnError> {
 }
 
 #[server(AdjustServerCount)]
-pub async fn adjust_server_count(delta: i32) -> Result<i32, ServerFnError> {
+pub async fn adjust_server_count(delta: i32, msg: String) -> Result<i32, ServerFnError> {
     let new = COUNT.load(Ordering::Relaxed) + delta;
     COUNT.store(new, Ordering::Relaxed);
     _ = COUNT_CHANNEL.send(&new).await;
+    println!("message = {:?}", msg);
     Ok(new)
 }
 
@@ -80,8 +81,8 @@ pub fn Counters(cx: Scope) -> Element {
 // This is the typical pattern for a CRUD app
 #[component]
 pub fn Counter(cx: Scope) -> Element {
-    let dec = create_async_action(cx, || adjust_server_count(-1));
-    let inc = create_async_action(cx, || adjust_server_count(1));
+    let dec = create_async_action(cx, || adjust_server_count(-1, "decing".into()));
+    let inc = create_async_action(cx, || adjust_server_count(1, "incing".into()));
     let clear = create_async_action(cx, clear_server_count);
     let counter = create_resource(
         cx,
@@ -147,11 +148,13 @@ pub fn FormCounter(cx: Scope) -> Element {
             // by including them as input values with the same name
             <form method="POST" action=AdjustServerCount::url()>
                 <input type="hidden" name="delta" value="-1"/>
+                <input type="hidden" name="msg" value="\"form value down\""/>
                 <input type="submit" value="-1"/>
             </form>
             <span>"Value: " {move || value().to_string()} "!"</span>
             <form method="POST" action=AdjustServerCount::url()>
                 <input type="hidden" name="delta" value="1"/>
+                <input type="hidden" name="msg" value="\"form value up\""/>
                 <input type="submit" value="+1"/>
             </form>
         </div>
@@ -164,8 +167,8 @@ pub fn FormCounter(cx: Scope) -> Element {
 // This is the primitive pattern for live chat, collaborative editing, etc.
 #[component]
 pub fn MultiuserCounter(cx: Scope) -> Element {
-    let dec = create_async_action(cx, || adjust_server_count(-1));
-    let inc = create_async_action(cx, || adjust_server_count(1));
+    let dec = create_async_action(cx, || adjust_server_count(-1, "dec dec goose".into()));
+    let inc = create_async_action(cx, || adjust_server_count(1, "inc inc moose".into()));
     let clear = create_async_action(cx, clear_server_count);
 
     #[cfg(not(feature = "ssr"))]

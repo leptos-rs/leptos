@@ -7,10 +7,11 @@ edition = "2021"
 leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.10" }
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.10" }
 async-trait = "0.1"
+form_urlencoded = "1"
 gloo-net = { version = "0.2", optional = true }
 lazy_static = "1"
+linear-map = "1"
 serde = { version = "1", features = ["derive"] }
-serde_urlencoded = "0.7"
 thiserror = "1"
 
 [features]

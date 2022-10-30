@@ -40,8 +40,6 @@ async fn handle_server_fns(
 
     if let Some(server_fn) = server_fn_by_path(path.as_str()) {
         let body: &[u8] = &body;
-        let body: Vec<u8> = body.to_vec();
-        println!("body = {:?}", String::from_utf8(body.clone()).unwrap());
         match server_fn(&body).await {
             Ok(serialized) => {
                 // if this is Accept: application/json then send a serialized JSON response
@@ -95,7 +93,7 @@ async fn main() -> std::io::Result<()> {
             .service(handle_server_fns)
         //.wrap(middleware::Compress::default())
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("127.0.0.1", 8081))?
     .run()
     .await
 }

@@ -1,4 +1,5 @@
 pub use async_trait::async_trait;
+pub use form_urlencoded;
 use leptos_reactive::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
@@ -30,13 +31,15 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
 #[async_trait]
 pub trait ServerFn
 where
-    Self: Sized + DeserializeOwned + 'static,
+    Self: Sized + 'static,
 {
     type Output: Serializable;
 
     fn url() -> &'static str;
 
     fn as_form_data(&self) -> Vec<(&'static str, String)>;
+
+    fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError>;
 
     #[cfg(feature = "ssr")]
     async fn call_fn(self) -> Result<Self::Output, ServerFnError>;
@@ -47,8 +50,7 @@ where
         // takes a String -> returns its async value
         let run_server_fn = Arc::new(|data: &[u8]| {
             // decode the args
-            let value = serde_urlencoded::from_bytes::<Self>(&data)
-                .map_err(|e| ServerFnError::Args(e.to_string()));
+            let value = Self::from_form_data(&data);
             Box::pin(async move {
                 let value = match value {
                     Ok(v) => v,
@@ -98,6 +100,8 @@ pub enum ServerFnError {
     Serialization(String),
     #[error("error deserializing server function arguments {0}")]
     Args(String),
+    #[error("missing argument {0}")]
+    MissingArg(String),
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
