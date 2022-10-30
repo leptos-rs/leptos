@@ -1,11 +1,11 @@
 [package]
 name = "leptos_server"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2021"
 
 [dependencies]
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.10" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.10" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.11" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.11" }
 async-trait = "0.1"
 form_urlencoded = "1"
 gloo-net = { version = "0.2", optional = true }
