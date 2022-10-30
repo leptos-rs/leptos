@@ -6,6 +6,7 @@ members = [
   "leptos_core",
   "leptos_macro",
   "leptos_reactive",
+  "leptos_server",
 
   # libraries
   "meta",
@@ -13,6 +14,9 @@ members = [
 
   # examples
   "examples/counter",
+  "examples/counter-isomorphic/client",
+  "examples/counter-isomorphic/server",
+  "examples/counter-isomorphic/counter",
   "examples/counters",
   "examples/counters-stable",
   "examples/fetch",
@@ -24,7 +28,7 @@ members = [
   "examples/router",
   "examples/todomvc",
   "examples/todomvc-ssr/todomvc-ssr-client",
-  "examples/todomvc-ssr/todomvc-ssr-server"
+  "examples/todomvc-ssr/todomvc-ssr-server",
 ]
 exclude = [
   "benchmarks"

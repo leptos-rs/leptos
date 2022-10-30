@@ -1,0 +1,25 @@
+[package]
+name = "counter-isomorphic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { path = "../../../leptos", default-features = false, features = ["serde"] }
+leptos_router = { path = "../../../router", default-features = false }
+broadcaster = "1"
+console_log = "0.2"
+futures = "0.3"
+gloo = { git = "https://github.com/rustwasm/gloo" }
+lazy_static = "1"
+log = "0.4"
+console_error_panic_hook = "0.1.7"
+serde = { version = "1", features = ["derive"] }
+
+[dependencies.web-sys]
+version = "0.3"
+
+[features]
+default = ["csr"]
+csr = ["leptos/csr", "leptos_router/csr"]
+hydrate = ["leptos/hydrate", "leptos_router/hydrate"]
+ssr = ["leptos/ssr", "leptos_router/ssr"]

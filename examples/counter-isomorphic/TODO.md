@@ -1,0 +1,5 @@
+- output type can't always be `i32` (parse it in macro and use)
+- need to implement `from_form_data` using `form_urlencoded` and mapping each value to `.from_json()` to allow multiple serde formats (and prevent extra quotes on strings)
+- test with a variety of types
+- `<Form method="POST">` in `leptos_router`
+  - import `leptos_router` and use `<Form/>` in this example

@@ -1,5 +1,6 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
+use server::server_macro_impl;
 use syn::{parse_macro_input, DeriveInput};
 use syn_rsx::{parse, Node, NodeType};
 
@@ -29,6 +30,7 @@ mod view;
 use view::render_view;
 mod component;
 mod props;
+mod server;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
@@ -181,6 +183,14 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match syn::parse::<component::InlinePropsBody>(s) {
+        Err(e) => e.to_compile_error().into(),
+        Ok(s) => s.to_token_stream().into(),
+    }
+}
+
+#[proc_macro_attribute]
+pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    match server_macro_impl(args, s.into()) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),
     }
