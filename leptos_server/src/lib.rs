@@ -119,7 +119,7 @@ where
         // takes a String -> returns its async value
         let run_server_fn = Arc::new(|data: &[u8]| {
             // decode the args
-            let value = Self::from_form_data(&data);
+            let value = Self::from_form_data(data);
             Box::pin(async move {
                 let value = match value {
                     Ok(v) => v,
@@ -180,8 +180,6 @@ where
 {
     use leptos_dom::*;
 
-    let window = window();
-
     let args_form_data = web_sys::FormData::new().expect_throw("could not create FormData");
     for (field_name, value) in args.as_form_data().into_iter() {
         args_form_data
@@ -202,7 +200,7 @@ where
 
     // check for error status
     let status = resp.status();
-    if status >= 500 && status <= 599 {
+    if (500..=599).contains(&status) {
         return Err(ServerFnError::ServerError(resp.status_text()));
     }
 
@@ -215,22 +213,28 @@ where
 }
 
 #[derive(Clone)]
-pub struct Action<T>
+pub struct Action<I, O>
 where
-    T: 'static,
+    I: 'static,
+    O: 'static,
 {
     pub version: RwSignal<usize>,
-    value: RwSignal<Option<T>>,
+    input: RwSignal<Option<I>>,
+    value: RwSignal<Option<O>>,
     pending: RwSignal<bool>,
-    action_fn: Rc<dyn Fn() -> Pin<Box<dyn Future<Output = T>>>>,
+    url: Option<&'static str>,
+    #[allow(clippy::complexity)]
+    action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
 
-impl<T> Action<T>
+impl<I, O> Action<I, O>
 where
-    T: 'static,
+    I: 'static,
+    O: 'static,
 {
-    pub fn invalidator(&self) {
-        _ = self.version.get();
+    pub fn using_server_fn<T: ServerFn>(mut self) -> Self {
+        self.url = Some(T::url());
+        self
     }
 
     pub fn pending(&self) -> impl Fn() -> bool {
@@ -238,12 +242,17 @@ where
         move || value.with(|val| val.is_some())
     }
 
-    pub fn value(&self) -> ReadSignal<Option<T>> {
+    pub fn input(&self) -> ReadSignal<Option<I>> {
+        self.input.read_only()
+    }
+
+    pub fn value(&self) -> ReadSignal<Option<O>> {
         self.value.read_only()
     }
 
-    pub fn dispatch(&self) {
-        let fut = (self.action_fn)();
+    pub fn dispatch(&self, input: I) {
+        let fut = (self.action_fn)(&input);
+        self.input.set(Some(input));
         let version = self.version;
         let pending = self.pending;
         let value = self.value;
@@ -257,22 +266,26 @@ where
     }
 }
 
-pub fn create_action<T, F, Fu>(cx: Scope, action_fn: F) -> Action<T>
+pub fn create_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> Action<I, O>
 where
-    T: 'static,
-    F: Fn() -> Fu + 'static,
-    Fu: Future<Output = T> + 'static,
+    I: 'static,
+    O: 'static,
+    F: Fn(&I) -> Fu + 'static,
+    Fu: Future<Output = O> + 'static,
 {
     let version = create_rw_signal(cx, 0);
+    let input = create_rw_signal(cx, None);
     let value = create_rw_signal(cx, None);
     let pending = create_rw_signal(cx, false);
-    let action_fn = Rc::new(move || {
-        let fut = action_fn();
-        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = T>>>
+    let action_fn = Rc::new(move |input: &I| {
+        let fut = action_fn(input);
+        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = O>>>
     });
 
     Action {
         version,
+        url: None,
+        input,
         value,
         pending,
         action_fn,
