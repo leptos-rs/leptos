@@ -21,7 +21,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
             FnArg::Typed(t) => t,
         };
-        quote! { pub #f }
+        quote! { pub #typed_arg }
     });
 
     let fn_args = body.inputs.iter().map(|f| {
@@ -29,7 +29,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
             FnArg::Typed(t) => t,
         };
-        quote! { #f }
+        quote! { #typed_arg }
     });
     let fn_args_2 = fn_args.clone();
 
@@ -134,8 +134,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             ::leptos::call_server_fn(#struct_name::url(), #struct_name { #(#field_names_3),* }).await
         }
-    }
-    .into())
+    })
 }
 
 pub struct ServerFnName {

@@ -2,9 +2,14 @@ use actix_files::Files;
 use actix_web::*;
 use counter_isomorphic::*;
 use leptos::*;
+use leptos_router::*;
 
-#[get("/")]
-async fn render() -> impl Responder {
+#[get("{tail:.*}")]
+async fn render(req: HttpRequest) -> impl Responder {
+    let path = req.path();
+    let path = "http://leptos".to_string() + path;
+    println!("path = {path}");
+
     HttpResponse::Ok().content_type("text/html").body(format!(
         r#"<!DOCTYPE html>
         <html lang="en">
@@ -19,7 +24,10 @@ async fn render() -> impl Responder {
             <script type="module">import init, {{ main }} from './pkg/counter_client.js'; init().then(main);</script>
         </html>"#,
         run_scope({
-            |cx| {
+            move |cx| {
+                let integration = ServerIntegration { path: path.clone() };
+                provide_context(cx, RouterIntegrationContext::new(integration));
+
                 view! { cx, <Counters/>}
             }
         })
@@ -87,10 +95,10 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .service(render)
             .service(Files::new("/pkg", "../client/pkg"))
             .service(counter_events)
             .service(handle_server_fns)
+            .service(render)
         //.wrap(middleware::Compress::default())
     })
     .bind(("127.0.0.1", 8081))?

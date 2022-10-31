@@ -1,2 +1,0 @@
-- `<Form method="POST">` in `leptos_router`
-  - import `leptos_router` and use `<Form/>` in this example

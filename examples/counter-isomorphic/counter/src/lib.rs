@@ -1,4 +1,5 @@
 use leptos::*;
+use leptos_router::*;
 
 use std::fmt::Debug;
 
@@ -51,26 +52,36 @@ pub fn Counters(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <h1>"Server-Side Counters"</h1>
-            <p>"Each of these counters stores its data in the same variable on the server."</p>
-            <p>"The value is shared across connections. Try opening this is another browser tab to see what I mean."</p>
-            <div style="display: flex; justify-content: space-around">
-                <div>
-                    <h2>"Simple Counter"</h2>
-                    <p>"This counter sets the value on the server and automatically reloads the new value."</p>
-                    <Counter/>
-                </div>
-                <div>
-                    <h2>"Form Counter"</h2>
-                    <p>"This counter uses forms to set the value on the server. When progressively enhanced, it should behave identically to the “Simple Counter.”"</p>
-                    <FormCounter/>
-                </div>
-                <div>
-                    <h2>"Multi-User Counter"</h2>
-                    <p>"This one uses server-sent events (SSE) to live-update when other users make changes."</p>
-                    <MultiuserCounter/>
-                </div>
-            </div>
+            <Router>
+                <header>
+                    <h1>"Server-Side Counters"</h1>
+                    <p>"Each of these counters stores its data in the same variable on the server."</p>
+                    <p>"The value is shared across connections. Try opening this is another browser tab to see what I mean."</p>
+                </header>
+                <nav>
+                    <ul>
+                        <li><A href="">"Simple"</A></li>
+                        <li><A href="form">"Form-Based"</A></li>
+                        <li><A href="multi">"Multi-User"</A></li>
+                    </ul>
+                </nav>
+                <main>
+                    <Routes>
+                        <Route path="" element=|cx| view! {
+                            cx,
+                            <Counter/>
+                        }/>
+                        <Route path="form" element=|cx| view! {
+                            cx,
+                            <FormCounter/>
+                        }/>
+                        <Route path="multi" element=|cx| view! {
+                            cx,
+                            <MultiuserCounter/>
+                        }/>
+                    </Routes>
+                </main>
+            </Router>
         </div>
     }
 }
@@ -81,9 +92,9 @@ pub fn Counters(cx: Scope) -> Element {
 // This is the typical pattern for a CRUD app
 #[component]
 pub fn Counter(cx: Scope) -> Element {
-    let dec = create_action(cx, || adjust_server_count(-1, "decing".into()));
-    let inc = create_action(cx, || adjust_server_count(1, "incing".into()));
-    let clear = create_action(cx, clear_server_count);
+    let dec = create_action(cx, |_| adjust_server_count(-1, "decing".into()));
+    let inc = create_action(cx, |_| adjust_server_count(1, "incing".into()));
+    let clear = create_action(cx, |_| clear_server_count());
     let counter = create_resource(
         cx,
         move || (dec.version.get(), inc.version.get(), clear.version.get()),
@@ -104,10 +115,14 @@ pub fn Counter(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <button on:click=move |_| clear.dispatch()>"Clear"</button>
-            <button on:click=move |_| dec.dispatch()>"-1"</button>
-            <span>"Value: " {move || value().to_string()} "!"</span>
-            <button on:click=move |_| inc.dispatch()>"+1"</button>
+            <h2>"Simple Counter"</h2>
+            <p>"This counter sets the value on the server and automatically reloads the new value."</p>
+            <div>
+                <button on:click=move |_| clear.dispatch(())>"Clear"</button>
+                <button on:click=move |_| dec.dispatch(())>"-1"</button>
+                <span>"Value: " {move || value().to_string()} "!"</span>
+                <button on:click=move |_| inc.dispatch(())>"+1"</button>
+            </div>
         </div>
     }
 }
@@ -117,9 +132,10 @@ pub fn Counter(cx: Scope) -> Element {
 // but uses HTML forms to submit the actions
 #[component]
 pub fn FormCounter(cx: Scope) -> Element {
+    let version = create_rw_signal(cx, 0);
     let counter = create_resource(
         cx,
-        move || (),
+        move || version.get(),
         |_| {
             log::debug!("FormCounter running fetcher");
 
@@ -139,24 +155,28 @@ pub fn FormCounter(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            // calling a server function is the same as POSTing to its API URL
-            // so we can just do that with a form and button
-            <form method="POST" action=ClearServerCount::url()>
-                <input type="submit" value="Clear"/>
-            </form>
-            // We can submit named arguments to the server functions
-            // by including them as input values with the same name
-            <form method="POST" action=AdjustServerCount::url()>
-                <input type="hidden" name="delta" value="-1"/>
-                <input type="hidden" name="msg" value="\"form value down\""/>
-                <input type="submit" value="-1"/>
-            </form>
-            <span>"Value: " {move || value().to_string()} "!"</span>
-            <form method="POST" action=AdjustServerCount::url()>
-                <input type="hidden" name="delta" value="1"/>
-                <input type="hidden" name="msg" value="\"form value up\""/>
-                <input type="submit" value="+1"/>
-            </form>
+            <h2>"Form Counter"</h2>
+            <p>"This counter uses forms to set the value on the server. When progressively enhanced, it should behave identically to the “Simple Counter.”"</p>
+            <div>
+                // calling a server function is the same as POSTing to its API URL
+                // so we can just do that with a form and button
+                <Form method="POST" action=format!("/{}", ClearServerCount::url()) version>
+                    <input type="submit" value="Clear"/>
+                </Form>
+                // We can submit named arguments to the server functions
+                // by including them as input values with the same name
+                <Form method="POST" action=format!("/{}", AdjustServerCount::url()) version>
+                    <input type="hidden" name="delta" value="-1"/>
+                    <input type="hidden" name="msg" value="\"form value down\""/>
+                    <input type="submit" value="-1"/>
+                </Form>
+                <span>"Value: " {move || value().to_string()} "!"</span>
+                <Form method="POST" action=format!("/{}", AdjustServerCount::url()) version>
+                    <input type="hidden" name="delta" value="1"/>
+                    <input type="hidden" name="msg" value="\"form value up\""/>
+                    <input type="submit" value="+1"/>
+                </Form>
+            </div>
         </div>
     }
 }
@@ -167,9 +187,9 @@ pub fn FormCounter(cx: Scope) -> Element {
 // This is the primitive pattern for live chat, collaborative editing, etc.
 #[component]
 pub fn MultiuserCounter(cx: Scope) -> Element {
-    let dec = create_action(cx, || adjust_server_count(-1, "dec dec goose".into()));
-    let inc = create_action(cx, || adjust_server_count(1, "inc inc moose".into()));
-    let clear = create_action(cx, clear_server_count);
+    let dec = create_action(cx, |_| adjust_server_count(-1, "dec dec goose".into()));
+    let inc = create_action(cx, |_| adjust_server_count(1, "inc inc moose".into()));
+    let clear = create_action(cx, |_| clear_server_count());
 
     #[cfg(not(feature = "ssr"))]
     let multiplayer_value = {
@@ -200,10 +220,14 @@ pub fn MultiuserCounter(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <button on:click=move |_| clear.dispatch()>"Clear"</button>
-            <button on:click=move |_| dec.dispatch()>"-1"</button>
-            <span>"Multiplayer Value: " {move || multiplayer_value().unwrap_or_default().to_string()}</span>
-            <button on:click=move |_| inc.dispatch()>"+1"</button>
+            <h2>"Multi-User Counter"</h2>
+            <p>"This one uses server-sent events (SSE) to live-update when other users make changes."</p>
+            <div>
+                <button on:click=move |_| clear.dispatch(())>"Clear"</button>
+                <button on:click=move |_| dec.dispatch(())>"-1"</button>
+                <span>"Multiplayer Value: " {move || multiplayer_value().unwrap_or_default().to_string()}</span>
+                <button on:click=move |_| inc.dispatch(())>"+1"</button>
+            </div>
         </div>
     }
 }

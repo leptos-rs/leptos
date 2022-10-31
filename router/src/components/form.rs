@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use leptos::*;
 use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
@@ -10,11 +12,15 @@ where
     A: ToHref + 'static,
 {
     #[builder(default, setter(strip_option))]
-    method: Option<String>,
+    method: Option<&'static str>,
     action: A,
     #[builder(default, setter(strip_option))]
     enctype: Option<String>,
     children: Box<dyn Fn() -> Vec<Element>>,
+    #[builder(default, setter(strip_option))]
+    version: Option<RwSignal<usize>>,
+    #[builder(default, setter(strip_option))]
+    error: Option<RwSignal<Option<Box<dyn Error>>>>,
 }
 
 #[allow(non_snake_case)]
@@ -27,8 +33,11 @@ where
         action,
         enctype,
         children,
+        version,
+        error,
     } = props;
 
+    let action_version = version;
     let action = use_resolved_path(cx, move || action.to_href()());
 
     let on_submit = move |ev: web_sys::Event| {
@@ -124,21 +133,50 @@ where
             },
         };
 
-        if method == "get" {
-            let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
-            let params =
-                web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+        let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+        let params =
+            web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+        let action = use_resolved_path(cx, move || action.clone())
+            .get()
+            .unwrap_or_default();
+        // POST
+        if method == "post" {
+            spawn_local(async move {
+                let res = gloo_net::http::Request::post(&action)
+                    .header("Accept", "application/json")
+                    .header("Content-Type", &enctype)
+                    .body(params)
+                    .send()
+                    .await;
+                match res {
+                    Err(e) => {
+                        log::error!("<Form/> error while POSTing: {e:#?}");
+                        if let Some(error) = error {
+                            error.set(Some(Box::new(e)));
+                        }
+                    }
+                    Ok(resp) => {
+                        if let Some(version) = action_version {
+                            version.update(|n| *n += 1);
+                        }
+
+                        if resp.status() == 303 {
+                            if let Some(redirect_url) = resp.headers().get("Location") {
+                                navigate(&redirect_url, Default::default());
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        // otherwise, GET
+        else {
             let params = params.to_string().as_string().unwrap_or_default();
-            let action = use_resolved_path(cx, move || action.clone())
-                .get()
-                .unwrap_or_default();
             navigate(&format!("{action}?{params}"), Default::default());
-        } else {
-            // TODO POST
-            leptos_dom::debug_warn!("<Form/> component: POST not yet implemented");
-            todo!()
         }
     };
+
+    let children = children();
 
     view! { cx,
         <form
@@ -149,5 +187,36 @@ where
         >
             {children}
         </form>
+    }
+}
+
+pub trait ToActionVersion {
+    fn to_action_version(&self) -> Option<RwSignal<usize>>;
+}
+
+impl ToActionVersion for &str {
+    fn to_action_version(&self) -> Option<RwSignal<usize>> {
+        None
+    }
+}
+
+impl ToActionVersion for String {
+    fn to_action_version(&self) -> Option<RwSignal<usize>> {
+        None
+    }
+}
+
+impl<F> ToActionVersion for F
+where
+    F: Fn() -> String + 'static,
+{
+    fn to_action_version(&self) -> Option<RwSignal<usize>> {
+        None
+    }
+}
+
+impl<I, O> ToActionVersion for Action<I, O> {
+    fn to_action_version(&self) -> Option<RwSignal<usize>> {
+        Some(self.version)
     }
 }

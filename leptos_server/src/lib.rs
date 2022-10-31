@@ -250,6 +250,10 @@ where
         self.value.read_only()
     }
 
+    pub fn url(&self) -> Option<&str> {
+        self.url
+    }
+
     pub fn dispatch(&self, input: I) {
         let fut = (self.action_fn)(&input);
         self.input.set(Some(input));
