@@ -51,4 +51,12 @@ miniserde = ["leptos_reactive/miniserde"]
 
 [package.metadata.cargo-all-features]
 # mutually exclusive features
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["hydrate", "ssr"]]
+skip_feature_sets = [
+  ["csr", "ssr"],
+  ["csr", "hydrate"],
+  ["hydrate", "ssr"],
+  ["serde", "serde-lite"], 
+  ["serde-lite", "miniserde"],
+  ["serde", "miniserde"]
+]
+denylist = ["stable"]
