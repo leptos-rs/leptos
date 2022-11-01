@@ -51,11 +51,23 @@ features = [
   "Storage",
   "Text",
   "TreeWalker",
-  "Window"
+  "Window",
 ]
 
 [features]
 csr = ["leptos_reactive/csr"]
 hydrate = ["leptos_reactive/hydrate"]
-ssr = ["leptos_reactive/ssr", "dep:futures", "dep:html-escape", "dep:serde_json"]
+ssr = [
+  "leptos_reactive/ssr",
+  "dep:futures",
+  "dep:html-escape",
+  "dep:serde_json",
+]
 stable = ["leptos_reactive/stable"]
+
+[package.metadata.cargo-all-features]
+# mutually exclusive features
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["hydrate", "ssr"]]
+
+# No need to test optional dependencies as they are enabled by the ssr feature
+denylist = ["futures", "html-escape", "serde_json"]

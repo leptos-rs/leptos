@@ -60,3 +60,7 @@ hydrate = [
 	"dep:wasm-bindgen-futures",
 ]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
+
+[package.metadata.cargo-all-features]
+# mutually exclusive features
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["hydrate", "ssr"]]

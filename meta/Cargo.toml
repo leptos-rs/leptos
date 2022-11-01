@@ -13,13 +13,14 @@ log = "0.4"
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-	"HtmlLinkElement",
-	"HtmlTitleElement"
-]
+features = ["HtmlLinkElement", "HtmlTitleElement"]
 
 [features]
 default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr"]
+
+[package.metadata.cargo-all-features]
+# mutually exclusive features
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["hydrate", "ssr"]]
