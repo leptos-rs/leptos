@@ -79,7 +79,7 @@
 //!
 //! # A Simple Counter
 //!
-//! ```rust
+//! ```rust,ignore
 //! use leptos::*;
 //!
 //! #[component]
