@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use leptos_reactive::Scope;
-#[cfg(feature = "stable")]
+#[cfg(all(feature = "stable", not(feature = "ssr")))]
 use leptos_reactive::{Memo, ReadSignal, RwSignal};
 
 #[cfg(not(feature = "ssr"))]

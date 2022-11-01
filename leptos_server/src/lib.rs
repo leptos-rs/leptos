@@ -70,7 +70,7 @@
 pub use async_trait::async_trait;
 pub use form_urlencoded;
 use leptos_reactive::*;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
 use thiserror::Error;
 
