@@ -72,10 +72,10 @@ impl std::fmt::Debug for RouterContextInner {
 
 impl RouterContext {
     pub fn new(cx: Scope, base: Option<&'static str>, fallback: Option<fn() -> Element>) -> Self {
-        #[cfg(any(feature = "csr", feature = "hydrate"))]
+        #[cfg(not(feature = "ssr"))]
         let history = use_context::<RouterIntegrationContext>(cx)
             .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
-        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        #[cfg(feature = "ssr")]
         let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.");
 
         // Any `History` type gives a way to get a reactive signal of the current location
@@ -143,7 +143,7 @@ impl RouterContext {
         });
 
         // handle all click events on anchor tags
-        #[cfg(any(feature = "csr", feature = "hydrate"))]
+        #[cfg(not(feature = "ssr"))]
         leptos_dom::window_event_listener("click", {
             let inner = Rc::clone(&inner);
             move |ev| inner.clone().handle_anchor_click(ev)
@@ -253,7 +253,7 @@ impl RouterContextInner {
         }
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(not(feature = "ssr"))]
     pub(crate) fn handle_anchor_click(self: Rc<Self>, ev: web_sys::Event) {
         let ev = ev.unchecked_into::<web_sys::MouseEvent>();
         if ev.default_prevented()
