@@ -26,3 +26,6 @@ default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:reqwest"]
+
+# No need to test optional dependencies as they are enabled by the ssr feature
+denylist = ["reqwest"]
