@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "parent-child"
 version = "0.1.0"
@@ -8,4 +10,3 @@ leptos = { path = "../../leptos" }
 console_log = "0.2"
 log = "0.4"
 console_error_panic_hook = "0.1.7"
-

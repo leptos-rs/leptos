@@ -1,10 +1,14 @@
+[workspace]
+
 [package]
 name = "counter-isomorphic"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-leptos = { path = "../../../leptos", default-features = false, features = ["serde"] }
+leptos = { path = "../../../leptos", default-features = false, features = [
+  "serde",
+] }
 leptos_router = { path = "../../../router", default-features = false }
 broadcaster = "1"
 console_log = "0.2"

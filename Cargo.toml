@@ -11,28 +11,9 @@ members = [
   # libraries
   "meta",
   "router",
+]
 
-  # examples
-  "examples/counter",
-  "examples/counter-isomorphic/client",
-  "examples/counter-isomorphic/server",
-  "examples/counter-isomorphic/counter",
-  "examples/counters",
-  "examples/counters-stable",
-  "examples/fetch",
-  "examples/gtk",
-  "examples/hackernews/hackernews-app",
-  "examples/hackernews/hackernews-client",
-  "examples/hackernews/hackernews-server",
-  "examples/parent-child",
-  "examples/router",
-  "examples/todomvc",
-  "examples/todomvc-ssr/todomvc-ssr-client",
-  "examples/todomvc-ssr/todomvc-ssr-server",
-]
-exclude = [
-  "benchmarks"
-]
+exclude = ["examples/*", "benchmarks"]
 
 
 [profile.release]
