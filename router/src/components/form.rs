@@ -23,6 +23,7 @@ where
     error: Option<RwSignal<Option<Box<dyn Error>>>>,
 }
 
+#[cfg(any(feature = "ssr", feature = "csr", feature = "hydrate"))]
 #[allow(non_snake_case)]
 pub fn Form<A>(cx: Scope, props: FormProps<A>) -> Element
 where

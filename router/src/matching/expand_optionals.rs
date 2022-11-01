@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 #[doc(hidden)]
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
     use wasm_bindgen::JsValue;
 

@@ -57,6 +57,7 @@ where
     children: Box<dyn Fn() -> Vec<C>>,
 }
 
+#[cfg(any(feature = "ssr", feature = "csr", feature = "hydrate"))]
 #[allow(non_snake_case)]
 pub fn A<C, H>(cx: Scope, props: AProps<C, H>) -> Element
 where

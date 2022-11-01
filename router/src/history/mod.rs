@@ -24,11 +24,11 @@ pub trait History {
     fn navigate(&self, loc: &LocationChange);
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BrowserIntegration {}
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 impl BrowserIntegration {
     fn current() -> LocationChange {
         let loc = leptos_dom::location();
@@ -43,7 +43,7 @@ impl BrowserIntegration {
     }
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 impl History for BrowserIntegration {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
         use crate::{NavigateOptions, RouterContext};
