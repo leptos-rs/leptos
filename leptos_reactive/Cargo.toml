@@ -22,7 +22,7 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Element"] }
+web-sys = { version = "0.3", optional = true, features = ["Document", "DocumentFragment", "Element", "HtmlTemplateElement", "NodeList", "Window"] }
 cfg-if = "1.0.0"
 
 [dev-dependencies]
