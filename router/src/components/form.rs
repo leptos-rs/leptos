@@ -191,7 +191,7 @@ where
 }
 
 #[derive(TypedBuilder)]
-pub struct ServerFormProps<I, O>
+pub struct ActionFormProps<I, O>
 where
     I: 'static,
     O: 'static,
@@ -201,7 +201,7 @@ where
 }
 
 #[allow(non_snake_case)]
-pub fn ServerForm<I, O>(cx: Scope, props: ServerFormProps<I, O>) -> Element
+pub fn ActionForm<I, O>(cx: Scope, props: ActionFormProps<I, O>) -> Element
 where
     I: 'static,
     O: 'static,
@@ -209,7 +209,7 @@ where
     let action = if let Some(url) = props.action.url() {
         format!("/{url}")
     } else {
-        debug_warn!("<ServerForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
         "".to_string()
     };
     let version = props.action.version;

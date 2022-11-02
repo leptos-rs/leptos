@@ -168,22 +168,22 @@ pub fn FormCounter(cx: Scope) -> Element {
             <div>
                 // calling a server function is the same as POSTing to its API URL
                 // so we can just do that with a form and button
-                <ServerForm action=clear>
+                <ActionForm action=clear>
                     <input type="submit" value="Clear"/>
-                </ServerForm>
+                </ActionForm>
                 // We can submit named arguments to the server functions
                 // by including them as input values with the same name
-                <ServerForm action=adjust>
+                <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="-1"/>
                     <input type="hidden" name="msg" value="\"form value down\""/>
                     <input type="submit" value="-1"/>
-                </ServerForm>
+                </ActionForm>
                 <span>"Value: " {move || value().to_string()} "!"</span>
-                <ServerForm action=adjust2>
+                <ActionForm action=adjust2>
                     <input type="hidden" name="delta" value="1"/>
                     <input type="hidden" name="msg" value="\"form value up\""/>
                     <input type="submit" value="+1"/>
-                </ServerForm>
+                </ActionForm>
             </div>
         </div>
     }
