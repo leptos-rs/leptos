@@ -17,11 +17,14 @@ impl Default for Mode {
             Mode::Ssr
         } else if cfg!(feature = "hydrate") {
             Mode::Hydrate
-        } else if cfg!(feature = "csr") {
+        } else {
+            Mode::Client
+        }
+        /* else if cfg!(feature = "csr") {
             Mode::Client
         } else {
             panic!("one of the features leptos/ssr, leptos/hydrate, or leptos/csr needs to be set")
-        }
+        } */
     }
 }
 
