@@ -67,7 +67,6 @@
 //! signal. This is very useful, as it can be used to invalidate a [Resource](leptos_reactive::Resource)
 //! that reads from the same data.
 
-pub use async_trait::async_trait;
 pub use form_urlencoded;
 use leptos_reactive::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -97,7 +96,6 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
         .and_then(|fns| fns.get(path).cloned())
 }
 
-#[async_trait]
 pub trait ServerFn
 where
     Self: Sized + 'static,
@@ -111,7 +109,10 @@ where
     fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError>;
 
     #[cfg(feature = "ssr")]
-    async fn call_fn(self) -> Result<Self::Output, ServerFnError>;
+    fn call_fn(self) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>> + Send>>;
+
+    #[cfg(not(feature = "ssr"))]
+    fn call_fn_client(self) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
     #[cfg(feature = "ssr")]
     fn register() -> Result<(), ServerFnError> {
@@ -294,4 +295,15 @@ where
         pending,
         action_fn,
     }
+}
+
+pub fn create_server_action<S>(cx: Scope) -> Action<S, Result<S::Output, ServerFnError>>
+where
+    S: Clone + ServerFn,
+{
+    #[cfg(feature = "ssr")]
+    let c = |args: &S| S::call_fn(args.clone());
+    #[cfg(not(feature = "ssr"))]
+    let c = |args: &S| S::call_fn_client(args.clone());
+    create_action(cx, c).using_server_fn::<S>()
 }

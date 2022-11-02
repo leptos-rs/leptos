@@ -132,10 +132,16 @@ pub fn Counter(cx: Scope) -> Element {
 // but uses HTML forms to submit the actions
 #[component]
 pub fn FormCounter(cx: Scope) -> Element {
-    let version = create_rw_signal(cx, 0);
+    let adjust = create_server_action::<AdjustServerCount>(cx);
+    let clear = create_server_action::<ClearServerCount>(cx);
+
     let counter = create_resource(
         cx,
-        move || version.get(),
+        {
+            let adjust = adjust.version;
+            let clear = clear.version;
+            move || (adjust.get(), clear.get())
+        },
         |_| {
             log::debug!("FormCounter running fetcher");
 
@@ -152,6 +158,8 @@ pub fn FormCounter(cx: Scope) -> Element {
             .unwrap_or(0)
     };
 
+    let adjust2 = adjust.clone();
+
     view! {
         cx,
         <div>
@@ -160,22 +168,22 @@ pub fn FormCounter(cx: Scope) -> Element {
             <div>
                 // calling a server function is the same as POSTing to its API URL
                 // so we can just do that with a form and button
-                <Form method="POST" action=format!("/{}", ClearServerCount::url()) version>
+                <ServerForm action=clear>
                     <input type="submit" value="Clear"/>
-                </Form>
+                </ServerForm>
                 // We can submit named arguments to the server functions
                 // by including them as input values with the same name
-                <Form method="POST" action=format!("/{}", AdjustServerCount::url()) version>
+                <ServerForm action=adjust>
                     <input type="hidden" name="delta" value="-1"/>
                     <input type="hidden" name="msg" value="\"form value down\""/>
                     <input type="submit" value="-1"/>
-                </Form>
+                </ServerForm>
                 <span>"Value: " {move || value().to_string()} "!"</span>
-                <Form method="POST" action=format!("/{}", AdjustServerCount::url()) version>
+                <ServerForm action=adjust2>
                     <input type="hidden" name="delta" value="1"/>
                     <input type="hidden" name="msg" value="\"form value up\""/>
                     <input type="submit" value="+1"/>
-                </Form>
+                </ServerForm>
             </div>
         </div>
     }

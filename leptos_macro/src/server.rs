@@ -75,6 +75,8 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let field_names_2 = field_names.clone();
     let field_names_3 = field_names.clone();
+    let field_names_4 = field_names.clone();
+    let field_names_5 = field_names.clone();
 
     let output_arrow = body.output_arrow;
     let return_ty = body.return_ty;
@@ -94,11 +96,11 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     };
 
     Ok(quote::quote! {
+        #[derive(Clone)]
         pub struct #struct_name {
             #(#fields),*
         }
 
-        #[async_trait]
         impl ServerFn for #struct_name {
             type Output = #output_ty;
 
@@ -120,9 +122,15 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             }
 
             #[cfg(feature = "ssr")]
-            async fn call_fn(self) -> Result<Self::Output, ServerFnError> {
+            fn call_fn(self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>> + Send>> {
                 let #struct_name { #(#field_names),* } = self;
-                #fn_name( #(#field_names_2),*).await
+                Box::pin(async move { #fn_name( #(#field_names_2),*).await })
+            }
+
+            #[cfg(not(feature = "ssr"))]
+            fn call_fn_client(self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
+                 let #struct_name { #(#field_names_3),* } = self;
+                 Box::pin(async move { #fn_name( #(#field_names_4),*).await })
             }
         }
 
@@ -132,7 +140,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         }
         #[cfg(not(feature = "ssr"))]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            ::leptos::call_server_fn(#struct_name::url(), #struct_name { #(#field_names_3),* }).await
+            ::leptos::call_server_fn(#struct_name::url(), #struct_name { #(#field_names_5),* }).await
         }
     })
 }

@@ -190,33 +190,37 @@ where
     }
 }
 
-pub trait ToActionVersion {
-    fn to_action_version(&self) -> Option<RwSignal<usize>>;
-}
-
-impl ToActionVersion for &str {
-    fn to_action_version(&self) -> Option<RwSignal<usize>> {
-        None
-    }
-}
-
-impl ToActionVersion for String {
-    fn to_action_version(&self) -> Option<RwSignal<usize>> {
-        None
-    }
-}
-
-impl<F> ToActionVersion for F
+#[derive(TypedBuilder)]
+pub struct ServerFormProps<I, O>
 where
-    F: Fn() -> String + 'static,
+    I: 'static,
+    O: 'static,
 {
-    fn to_action_version(&self) -> Option<RwSignal<usize>> {
-        None
-    }
+    action: Action<I, O>,
+    children: Box<dyn Fn() -> Vec<Element>>,
 }
 
-impl<I, O> ToActionVersion for Action<I, O> {
-    fn to_action_version(&self) -> Option<RwSignal<usize>> {
-        Some(self.version)
-    }
+#[allow(non_snake_case)]
+pub fn ServerForm<I, O>(cx: Scope, props: ServerFormProps<I, O>) -> Element
+where
+    I: 'static,
+    O: 'static,
+{
+    let action = if let Some(url) = props.action.url() {
+        format!("/{url}")
+    } else {
+        debug_warn!("<ServerForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        "".to_string()
+    };
+    let version = props.action.version;
+
+    Form(
+        cx,
+        FormProps::builder()
+            .action(action)
+            .version(version)
+            .method("post")
+            .children(props.children)
+            .build(),
+    )
 }
