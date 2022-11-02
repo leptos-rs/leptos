@@ -34,3 +34,4 @@ stable = ["leptos_dom/stable", "leptos_reactive/stable"]
 [package.metadata.cargo-all-features]
 # mutually exclusive features
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["hydrate", "ssr"]]
+denylist = ["stable"]

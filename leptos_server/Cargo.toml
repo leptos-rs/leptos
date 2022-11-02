@@ -25,4 +25,4 @@ stable = ["leptos_dom/stable", "leptos_reactive/stable"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["hydrate", "ssr"]]
 
 # No need to test optional dependencies as they are enabled by the ssr & hydrate feature
-denylist = ["gloo-net"]
+denylist = ["gloo-net", "stable"]
