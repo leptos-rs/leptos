@@ -1,3 +1,4 @@
+use cfg_if::cfg_if;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -18,82 +19,63 @@ where
     fn from_json(json: &str) -> Result<Self, SerializationError>;
 }
 
-#[cfg(all(
-    feature = "serde",
-    not(feature = "miniserde"),
-    not(feature = "serde-lite")
-))]
-use serde::{de::DeserializeOwned, Serialize};
+cfg_if! {
+    // prefer miniserde if it's chosen
+    if #[cfg(feature = "miniserde")] {
+        use miniserde::{json, Deserialize, Serialize};
 
-#[cfg(all(
-    feature = "serde",
-    not(feature = "miniserde"),
-    not(feature = "serde-lite")
-))]
-impl<T> Serializable for T
-where
-    T: DeserializeOwned + Serialize,
-{
-    fn to_json(&self) -> Result<String, SerializationError> {
-        serde_json::to_string(&self).map_err(|e| SerializationError::Serialize(Rc::new(e)))
+        impl<T> Serializable for T
+        where
+            T: Serialize + Deserialize,
+        {
+            fn to_json(&self) -> Result<String, SerializationError> {
+                Ok(json::to_string(&self))
+            }
+
+            fn from_json(json: &str) -> Result<Self, SerializationError> {
+                json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+            }
+        }
+
     }
+    // use serde-lite if enabled
+    else if #[cfg(feature = "serde-lite")] {
+        use serde_lite::{Deserialize, Serialize};
 
-    fn from_json(json: &str) -> Result<Self, SerializationError> {
-        serde_json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+        impl<T> Serializable for T
+        where
+            T: Serialize + Deserialize,
+        {
+            fn to_json(&self) -> Result<String, SerializationError> {
+                let intermediate = self
+                    .serialize()
+                    .map_err(|e| SerializationError::Serialize(Rc::new(e)))?;
+                serde_json::to_string(&intermediate).map_err(|e| SerializationError::Serialize(Rc::new(e)))
+            }
+
+            fn from_json(json: &str) -> Result<Self, SerializationError> {
+                let intermediate =
+                    serde_json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))?;
+                Self::deserialize(&intermediate).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+            }
+        }
+
     }
-}
+    // otherwise, or if serde is chosen, default to serde
+    else {
+        use serde::{de::DeserializeOwned, Serialize};
 
-#[cfg(all(
-    feature = "serde-lite",
-    not(feature = "serde"),
-    not(feature = "miniserde")
-))]
-use serde_lite::{Deserialize, Serialize};
+        impl<T> Serializable for T
+        where
+            T: DeserializeOwned + Serialize,
+        {
+            fn to_json(&self) -> Result<String, SerializationError> {
+                serde_json::to_string(&self).map_err(|e| SerializationError::Serialize(Rc::new(e)))
+            }
 
-#[cfg(all(
-    feature = "serde-lite",
-    not(feature = "serde"),
-    not(feature = "miniserde")
-))]
-impl<T> Serializable for T
-where
-    T: Serialize + Deserialize,
-{
-    fn to_json(&self) -> Result<String, SerializationError> {
-        let intermediate = self
-            .serialize()
-            .map_err(|e| SerializationError::Serialize(Rc::new(e)))?;
-        serde_json::to_string(&intermediate).map_err(|e| SerializationError::Serialize(Rc::new(e)))
-    }
-
-    fn from_json(json: &str) -> Result<Self, SerializationError> {
-        let intermediate =
-            serde_json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))?;
-        Self::deserialize(&intermediate).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
-    }
-}
-
-#[cfg(all(
-    feature = "miniserde",
-    not(feature = "serde-lite"),
-    not(feature = "serde")
-))]
-use miniserde::{json, Deserialize, Serialize};
-
-#[cfg(all(
-    feature = "miniserde",
-    not(feature = "serde-lite"),
-    not(feature = "serde")
-))]
-impl<T> Serializable for T
-where
-    T: Serialize + Deserialize,
-{
-    fn to_json(&self) -> Result<String, SerializationError> {
-        Ok(json::to_string(&self))
-    }
-
-    fn from_json(json: &str) -> Result<Self, SerializationError> {
-        json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+            fn from_json(json: &str) -> Result<Self, SerializationError> {
+                serde_json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+            }
+        }
     }
 }

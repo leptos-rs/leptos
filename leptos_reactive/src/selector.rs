@@ -11,7 +11,7 @@ use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope, WriteSig
 /// because it reduces them from `O(n)` to `O(1)`.
 ///
 /// ```
-/// # use leptos_reactive::{create_effect, create_scope, create_selector, create_signal};
+/// # use leptos_reactive::{create_isomorphic_effect, create_scope, create_selector, create_signal};
 /// # use std::rc::Rc;
 /// # use std::cell::RefCell;
 /// # create_scope(|cx| {
@@ -19,7 +19,7 @@ use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope, WriteSig
 ///    let is_selected = create_selector(cx, a);
 ///    let total_notifications = Rc::new(RefCell::new(0));
 ///    let not = Rc::clone(&total_notifications);
-///    create_effect(cx, {let is_selected = is_selected.clone(); move |_| {
+///    create_isomorphic_effect(cx, {let is_selected = is_selected.clone(); move |_| {
 ///      if is_selected(5) {
 ///        *not.borrow_mut() += 1;
 ///      }
@@ -91,7 +91,7 @@ where
         let (read, _) = subs
             .entry(key.clone())
             .or_insert_with(|| create_signal(cx, false));
-        _ = read.try_with(|n| n.clone());
+        _ = read.try_with(|n| *n);
         f(&key, v.borrow().as_ref().unwrap())
     }
 }

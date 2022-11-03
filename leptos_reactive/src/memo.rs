@@ -100,6 +100,7 @@ where
             .try_with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
     }
 
+    #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
         self.0.subscribe()
     }

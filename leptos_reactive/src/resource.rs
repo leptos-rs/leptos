@@ -42,6 +42,9 @@ use crate::{
 /// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
 ///
 /// // create a resource that will refetch whenever `how_many_cats` changes
+/// # // `csr`, `hydrate`, and `ssr` all have issues here
+/// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+/// # if false {
 /// let cats = create_resource(cx, how_many_cats, fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
@@ -52,6 +55,7 @@ use crate::{
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats(2);
 /// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// # }
 /// # }).dispose();
 /// ```
 pub fn create_resource<S, T, Fu>(
@@ -160,8 +164,10 @@ where
 ///   ComplicatedUnserializableStruct { }
 /// }
 ///
-/// // create the resource that will
+/// // create the resource; it will run but not be serialized
+/// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
 /// let result = create_local_resource(cx, move || (), |_| setup_complicated_struct());
+/// # }
 /// # }).dispose();
 /// ```
 pub fn create_local_resource<S, T, Fu>(

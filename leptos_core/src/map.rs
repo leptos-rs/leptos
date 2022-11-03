@@ -160,25 +160,28 @@ mod tests {
 
     #[test]
     fn test_map_keyed() {
-        create_scope(|cx| {
-            let (rows, set_rows) =
-                create_signal::<Vec<(usize, ReadSignal<i32>, WriteSignal<i32>)>>(cx, vec![]);
+        // we can really only run this in SSR mode, so just ignore if we're in CSR or hydrate
+        if !cfg!(any(feature = "csr", feature = "hydrate")) {
+            create_scope(|cx| {
+                let (rows, set_rows) =
+                    create_signal::<Vec<(usize, ReadSignal<i32>, WriteSignal<i32>)>>(cx, vec![]);
 
-            let keyed = map_keyed(
-                cx,
-                rows,
-                |cx, row| {
-                    let read = row.1;
-                    create_effect(cx, move |_| println!("row value = {}", read.get()));
-                },
-                |row| row.0,
-            );
+                let keyed = map_keyed(
+                    cx,
+                    rows,
+                    |cx, row| {
+                        let read = row.1;
+                        create_effect(cx, move |_| println!("row value = {}", read.get()));
+                    },
+                    |row| row.0,
+                );
 
-            create_effect(cx, move |_| println!("keyed = {:#?}", keyed.get()));
+                create_effect(cx, move |_| println!("keyed = {:#?}", keyed.get()));
 
-            let (r, w) = create_signal(cx, 0);
-            set_rows.update(|n| n.push((0, r, w)));
-        })
-        .dispose();
+                let (r, w) = create_signal(cx, 0);
+                set_rows.update(|n| n.push((0, r, w)));
+            })
+            .dispose();
+        }
     }
 }

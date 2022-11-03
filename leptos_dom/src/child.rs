@@ -1,11 +1,8 @@
+use cfg_if::cfg_if;
+
 use std::{cell::RefCell, rc::Rc};
 
 use leptos_reactive::Scope;
-#[cfg(feature = "stable")]
-use leptos_reactive::{Memo, ReadSignal, RwSignal};
-
-#[cfg(not(feature = "ssr"))]
-use wasm_bindgen::JsCast;
 
 use crate::Node;
 
@@ -19,7 +16,7 @@ pub enum Child {
 }
 
 impl Child {
-    #[cfg(feature = "ssr")]
+    #[cfg(not(any(feature = "hydrate", feature = "csr")))]
     pub fn as_child_string(&self) -> String {
         match self {
             Child::Null => String::new(),
@@ -83,24 +80,14 @@ impl IntoChild for String {
     }
 }
 
-#[cfg(not(feature = "ssr"))]
-impl IntoChild for web_sys::Node {
-    fn into_child(self, _cx: Scope) -> Child {
-        Child::Node(self)
-    }
-}
-
-#[cfg(not(feature = "ssr"))]
-impl IntoChild for web_sys::Text {
-    fn into_child(self, _cx: Scope) -> Child {
-        Child::Node(self.unchecked_into())
-    }
-}
-
-#[cfg(not(feature = "ssr"))]
-impl IntoChild for web_sys::Element {
-    fn into_child(self, _cx: Scope) -> Child {
-        Child::Node(self.unchecked_into())
+impl<T, U> IntoChild for T
+where
+    T: FnMut() -> U + 'static,
+    U: IntoChild,
+{
+    fn into_child(mut self, cx: Scope) -> Child {
+        let modified_fn = Rc::new(RefCell::new(move || (self)().into_child(cx)));
+        Child::Fn(modified_fn)
     }
 }
 
@@ -119,49 +106,6 @@ where
 impl IntoChild for Vec<Node> {
     fn into_child(self, _cx: Scope) -> Child {
         Child::Nodes(self)
-    }
-}
-
-#[cfg(not(feature = "ssr"))]
-impl IntoChild for Vec<web_sys::Element> {
-    fn into_child(self, _cx: Scope) -> Child {
-        Child::Nodes(
-            self.into_iter()
-                .map(|el| el.unchecked_into::<web_sys::Node>())
-                .collect(),
-        )
-    }
-}
-
-#[cfg(all(feature = "stable", not(feature = "ssr")))]
-impl IntoChild for Memo<Vec<web_sys::Element>> {
-    fn into_child(self, cx: Scope) -> Child {
-        (move || self.get()).into_child(cx)
-    }
-}
-
-#[cfg(all(feature = "stable", not(feature = "ssr")))]
-impl IntoChild for ReadSignal<Vec<web_sys::Element>> {
-    fn into_child(self, cx: Scope) -> Child {
-        (move || self.get()).into_child(cx)
-    }
-}
-
-#[cfg(all(feature = "stable", not(feature = "ssr")))]
-impl IntoChild for RwSignal<Vec<web_sys::Element>> {
-    fn into_child(self, cx: Scope) -> Child {
-        (move || self.get()).into_child(cx)
-    }
-}
-
-impl<T, U> IntoChild for T
-where
-    T: FnMut() -> U + 'static,
-    U: IntoChild,
-{
-    fn into_child(mut self, cx: Scope) -> Child {
-        let modified_fn = Rc::new(RefCell::new(move || (self)().into_child(cx)));
-        Child::Fn(modified_fn)
     }
 }
 
@@ -193,3 +137,62 @@ child_type!(f32);
 child_type!(f64);
 child_type!(char);
 child_type!(bool);
+
+cfg_if! {
+    if #[cfg(any(feature = "hydrate", feature = "csr"))] {
+        use wasm_bindgen::JsCast;
+
+        impl IntoChild for web_sys::Node {
+            fn into_child(self, _cx: Scope) -> Child {
+                Child::Node(self)
+            }
+        }
+
+        impl IntoChild for web_sys::Text {
+            fn into_child(self, _cx: Scope) -> Child {
+                Child::Node(self.unchecked_into())
+            }
+        }
+
+        impl IntoChild for web_sys::Element {
+            fn into_child(self, _cx: Scope) -> Child {
+                Child::Node(self.unchecked_into())
+            }
+        }
+
+        impl IntoChild for Vec<web_sys::Element> {
+            fn into_child(self, _cx: Scope) -> Child {
+                Child::Nodes(
+                    self.into_iter()
+                        .map(|el| el.unchecked_into::<web_sys::Node>())
+                        .collect(),
+                )
+            }
+        }
+    }
+}
+
+// `stable` feature
+cfg_if! {
+    if #[cfg(feature = "stable")] {
+        use leptos_reactive::{Memo, ReadSignal, RwSignal};
+
+        impl IntoChild for Memo<Vec<Element>> {
+            fn into_child(self, cx: Scope) -> Child {
+                (move || self.get()).into_child(cx)
+            }
+        }
+
+        impl IntoChild for ReadSignal<Vec<Element>> {
+            fn into_child(self, cx: Scope) -> Child {
+                (move || self.get()).into_child(cx)
+            }
+        }
+
+        impl IntoChild for RwSignal<Vec<Element>> {
+            fn into_child(self, cx: Scope) -> Child {
+                (move || self.get()).into_child(cx)
+            }
+        }
+    }
+}

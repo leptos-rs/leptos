@@ -1,9 +1,15 @@
-#[cfg(feature = "ssr")]
-use crate::SuspenseContext;
+use cfg_if::cfg_if;
+
 use crate::{hydration::SharedContext, EffectId, ResourceId, Runtime, SignalId};
 use std::fmt::Debug;
-#[cfg(feature = "ssr")]
-use std::{collections::HashMap, future::Future, pin::Pin};
+
+cfg_if! {
+    if #[cfg(feature = "ssr")] {
+        use crate::{PinnedFuture, SuspenseContext};
+        use futures::stream::FuturesUnordered;
+        use std::{collections::HashMap, future::Future, pin::Pin};
+    }
+}
 
 #[must_use = "Scope will leak memory if the disposer function is never called"]
 /// Creates a child reactive scope and runs the function within it. This is useful for applications
@@ -184,58 +190,58 @@ impl ScopeDisposer {
 }
 
 impl Scope {
-    #[cfg(feature = "hydrate")]
-    pub fn is_hydrating(&self) -> bool {
-        self.runtime.shared_context.borrow().is_some()
-    }
+    // hydration-specific code
+    cfg_if! {
+        if #[cfg(feature = "hydrate")] {
+            pub fn is_hydrating(&self) -> bool {
+                self.runtime.shared_context.borrow().is_some()
+            }
 
-    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
-    pub fn start_hydration(&self, element: &web_sys::Element) {
-        self.runtime.start_hydration(element);
-    }
+            pub fn start_hydration(&self, element: &web_sys::Element) {
+                self.runtime.start_hydration(element);
+            }
 
-    #[cfg(feature = "hydrate")]
-    pub fn end_hydration(&self) {
-        self.runtime.end_hydration();
-    }
+            pub fn end_hydration(&self) {
+                self.runtime.end_hydration();
+            }
 
-    #[cfg(feature = "hydrate")]
-    pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
-        //log::debug!("get_next_element");
-        use wasm_bindgen::{JsCast, UnwrapThrowExt};
+            pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
+                use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-        let cloned_template = |t: &web_sys::Element| {
-            let t = t
-                .unchecked_ref::<web_sys::HtmlTemplateElement>()
-                .content()
-                .clone_node_with_deep(true)
-                .expect_throw("(get_next_element) could not clone template")
-                .unchecked_into::<web_sys::Element>()
-                .first_element_child()
-                .expect_throw("(get_next_element) could not get first child of template");
-            t
-        };
+                let cloned_template = |t: &web_sys::Element| {
+                    let t = t
+                        .unchecked_ref::<web_sys::HtmlTemplateElement>()
+                        .content()
+                        .clone_node_with_deep(true)
+                        .expect_throw("(get_next_element) could not clone template")
+                        .unchecked_into::<web_sys::Element>()
+                        .first_element_child()
+                        .expect_throw("(get_next_element) could not get first child of template");
+                    t
+                };
 
-        if let Some(ref mut shared_context) = &mut *self.runtime.shared_context.borrow_mut() {
-            if shared_context.context.is_some() {
-                let key = shared_context.next_hydration_key();
-                let node = shared_context.registry.remove(&key.to_string());
+                if let Some(ref mut shared_context) = &mut *self.runtime.shared_context.borrow_mut() {
+                    if shared_context.context.is_some() {
+                        let key = shared_context.next_hydration_key();
+                        let node = shared_context.registry.remove(&key);
 
-                //log::debug!("(hy) searching for {key}");
+                        //log::debug!("(hy) searching for {key}");
 
-                if let Some(node) = node {
-                    //log::debug!("(hy) found {key}");
-                    shared_context.completed.push(node.clone());
-                    node
+                        if let Some(node) = node {
+                            //log::debug!("(hy) found {key}");
+                            shared_context.completed.push(node.clone());
+                            node
+                        } else {
+                            //log::debug!("(hy) did NOT find {key}");
+                            cloned_template(template)
+                        }
+                    } else {
+                        cloned_template(template)
+                    }
                 } else {
-                    //log::debug!("(hy) did NOT find {key}");
                     cloned_template(template)
                 }
-            } else {
-                cloned_template(template)
             }
-        } else {
-            cloned_template(template)
         }
     }
 
@@ -327,62 +333,58 @@ impl Scope {
         self.runtime.all_resources()
     }
 
-    /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
-    #[cfg(feature = "ssr")]
-    pub fn serialization_resolvers(
-        &self,
-    ) -> futures::stream::futures_unordered::FuturesUnordered<
-        std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>,
-    > {
-        self.runtime.serialization_resolvers()
-    }
+    cfg_if! {
+        if #[cfg(feature = "ssr")] {
+            /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
+            pub fn serialization_resolvers(&self) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
+                self.runtime.serialization_resolvers()
+            }
 
-    #[cfg(feature = "ssr")]
-    pub fn current_fragment_key(&self) -> String {
-        self.runtime
-            .shared_context
-            .borrow()
-            .as_ref()
-            .map(|context| context.current_fragment_key())
-            .unwrap_or_else(|| String::from("0f"))
-    }
+            pub fn current_fragment_key(&self) -> String {
+                self.runtime
+                    .shared_context
+                    .borrow()
+                    .as_ref()
+                    .map(|context| context.current_fragment_key())
+                    .unwrap_or_else(|| String::from("0f"))
+            }
 
-    #[cfg(feature = "ssr")]
-    pub fn register_suspense(
-        &self,
-        context: SuspenseContext,
-        key: &str,
-        resolver: impl FnOnce() -> String + 'static,
-    ) {
-        use crate::create_isomorphic_effect;
-        use futures::StreamExt;
+            pub fn register_suspense(
+                &self,
+                context: SuspenseContext,
+                key: &str,
+                resolver: impl FnOnce() -> String + 'static,
+            ) {
+                use crate::create_isomorphic_effect;
+                use futures::StreamExt;
 
-        if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
-            let (mut tx, mut rx) = futures::channel::mpsc::channel::<()>(1);
+                if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
+                    let (mut tx, mut rx) = futures::channel::mpsc::channel::<()>(1);
 
-            create_isomorphic_effect(*self, move |_| {
-                let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
-                if pending == 0 {
-                    _ = tx.try_send(());
+                    create_isomorphic_effect(*self, move |_| {
+                        let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
+                        if pending == 0 {
+                            _ = tx.try_send(());
+                        }
+                    });
+
+                    shared_context.pending_fragments.insert(
+                        key.to_string(),
+                        Box::pin(async move {
+                            rx.next().await;
+                            resolver()
+                        }),
+                    );
                 }
-            });
+            }
 
-            shared_context.pending_fragments.insert(
-                key.to_string(),
-                Box::pin(async move {
-                    rx.next().await;
-                    resolver()
-                }),
-            );
-        }
-    }
-
-    #[cfg(feature = "ssr")]
-    pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
-        if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
-            std::mem::replace(&mut shared_context.pending_fragments, HashMap::new())
-        } else {
-            HashMap::new()
+            pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
+                if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
+                    std::mem::take(&mut shared_context.pending_fragments)
+                } else {
+                    HashMap::new()
+                }
+            }
         }
     }
 }
