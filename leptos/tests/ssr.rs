@@ -81,3 +81,33 @@ fn test_classes() {
         );
     });
 }
+
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[test]
+fn test_dash_prefixes() {
+    use leptos_dom::*;
+    use leptos_macro::view;
+    use leptos_reactive::{create_signal, run_scope};
+
+    let colons = run_scope(|cx| {
+        let (value, set_value) = create_signal(cx, 5);
+        view! {
+            cx,
+            <div class="my big" class:a={move || value() > 10} class:red=true class:car={move || value() > 1} attr:id="id"></div>
+        }
+    });
+
+    let dashes = run_scope(|cx| {
+        let (value, set_value) = create_signal(cx, 5);
+        view! {
+            cx,
+            <div class="my big" class-a={move || value() > 10} class-red=true class-car={move || value() > 1} attr-id="id"></div>
+        }
+    });
+
+    assert_eq!(colons, dashes);
+    assert_eq!(
+        dashes,
+        "<div data-hk=\"0-0\" class=\"my big  red car\" id=\"id\"></div>"
+    );
+}
