@@ -3,15 +3,20 @@ use crate::{
     EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
     ScopeProperty, SignalId, WriteSignal,
 };
+use futures::stream::FuturesUnordered;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     fmt::Debug,
+    future::Future,
     marker::PhantomData,
+    pin::Pin,
     rc::Rc,
 };
+
+pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 #[derive(Default)]
 pub(crate) struct Runtime {
@@ -177,7 +182,7 @@ impl Runtime {
             .insert(AnyResource::Serializable(state))
     }
 
-    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
+    #[cfg(feature = "hydrate")]
     pub fn start_hydration(&self, element: &web_sys::Element) {
         use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -245,13 +250,10 @@ impl Runtime {
             .collect()
     }
 
-    #[cfg(all(feature = "ssr"))]
     pub(crate) fn serialization_resolvers(
         &self,
-    ) -> futures::stream::futures_unordered::FuturesUnordered<
-        std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>,
-    > {
-        let f = futures::stream::futures_unordered::FuturesUnordered::new();
+    ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
+        let f = FuturesUnordered::new();
         for (id, resource) in self.resources.borrow().iter() {
             if let AnyResource::Serializable(resource) = resource {
                 f.push(resource.to_serialization_resolver(id));

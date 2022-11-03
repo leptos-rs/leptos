@@ -289,7 +289,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         </li>
     };
 
-    #[cfg(not(feature = "ssr"))]
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
     create_effect(cx, move |_| {
         if editing() {
             _ = input.unchecked_ref::<HtmlInputElement>().focus();

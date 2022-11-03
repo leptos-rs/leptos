@@ -150,6 +150,7 @@ where
         self.id.with_no_subscription(self.runtime, f)
     }
 
+    #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
         self.id.subscribe(self.runtime);
     }
@@ -475,14 +476,6 @@ where
     /// ```
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
-    }
-
-    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.id.with_no_subscription(self.runtime, f)
-    }
-
-    pub(crate) fn subscribe(&self) {
-        self.id.subscribe(self.runtime);
     }
 
     /// Clones and returns the current value of the signal, and subscribes

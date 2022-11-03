@@ -1,11 +1,11 @@
 // Credit to Dioxus: https://github.com/DioxusLabs/dioxus/blob/master/packages/core-macro/src/Server.rs
 
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens, TokenStreamExt};
+use proc_macro2::{TokenStream as TokenStream2};
+use quote::{quote};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    *, token::Type,
+    *
 };
 
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {

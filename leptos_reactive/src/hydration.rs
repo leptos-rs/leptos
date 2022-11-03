@@ -1,28 +1,18 @@
-#[cfg(any(feature = "hydrate", feature = "ssr"))]
-use std::collections::HashMap;
-
-#[cfg(feature = "hydrate")]
-use std::collections::HashSet;
-#[cfg(feature = "ssr")]
-use std::{future::Future, pin::Pin};
-
-#[cfg(any(feature = "hydrate"))]
 use crate::ResourceId;
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+    pin::Pin,
+};
 
 #[derive(Default)]
 pub struct SharedContext {
-    #[cfg(feature = "hydrate")]
     pub completed: Vec<web_sys::Element>,
-    #[cfg(feature = "hydrate")]
     pub events: Vec<()>,
     pub context: Option<HydrationContext>,
-    #[cfg(feature = "hydrate")]
     pub registry: HashMap<String, web_sys::Element>,
-    #[cfg(feature = "hydrate")]
     pub pending_resources: HashSet<ResourceId>,
-    #[cfg(feature = "hydrate")]
     pub resolved_resources: HashMap<ResourceId, String>,
-    #[cfg(feature = "ssr")]
     pub pending_fragments: HashMap<String, Pin<Box<dyn Future<Output = String>>>>,
 }
 
@@ -32,7 +22,6 @@ impl std::fmt::Debug for SharedContext {
     }
 }
 
-#[cfg(all(feature = "hydrate", not(feature = "ssr")))]
 impl PartialEq for SharedContext {
     fn eq(&self, other: &Self) -> bool {
         self.completed == other.completed
@@ -44,24 +33,10 @@ impl PartialEq for SharedContext {
     }
 }
 
-#[cfg(feature = "ssr")]
-impl PartialEq for SharedContext {
-    fn eq(&self, other: &Self) -> bool {
-        self.context == other.context
-    }
-}
-
-#[cfg(not(any(feature = "ssr", feature = "hydrate")))]
-impl PartialEq for SharedContext {
-    fn eq(&self, other: &Self) -> bool {
-        self.context == other.context
-    }
-}
-
 impl Eq for SharedContext {}
 
 impl SharedContext {
-    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
+    #[cfg(feature = "hydrate")]
     pub fn new_with_registry(registry: HashMap<String, web_sys::Element>) -> Self {
         let pending_resources = js_sys::Reflect::get(
             &web_sys::window().unwrap(),
@@ -91,6 +66,7 @@ impl SharedContext {
             registry,
             pending_resources,
             resolved_resources,
+            pending_fragments: Default::default(),
         }
     }
 
@@ -108,7 +84,6 @@ impl SharedContext {
         }
     }
 
-    #[cfg(feature = "ssr")]
     pub fn current_fragment_key(&self) -> String {
         if let Some(context) = &self.context {
             format!("{}{}f", context.id, context.count)

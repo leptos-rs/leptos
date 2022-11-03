@@ -69,7 +69,7 @@
 
 pub use form_urlencoded;
 use leptos_reactive::*;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
 use thiserror::Error;
 
@@ -174,7 +174,7 @@ pub enum ServerFnError {
     MissingArg(String),
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 pub async fn call_server_fn<T>(url: &str, args: impl ServerFn) -> Result<T, ServerFnError>
 where
     T: Serializable + Sized,

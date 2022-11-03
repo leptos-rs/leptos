@@ -1,0 +1,29 @@
+############
+# A make file for cargo-make, please install it with:
+#     cargo install --force cargo-make
+############
+
+[config]
+# make tasks run at the workspace root
+default_to_workspace = false
+
+[tasks.ci]
+dependencies = ["build", "test"]
+
+[tasks.build]
+clear = true
+dependencies = ["build-all"]
+
+[tasks.build-all]
+command = "cargo"
+args = ["+nightly", "build-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.test]
+clear = true
+dependencies = ["test-all"]
+
+[tasks.test-all]
+command = "cargo"
+args = ["+nightly", "test-all-features"]
+install_crate = "cargo-all-features"

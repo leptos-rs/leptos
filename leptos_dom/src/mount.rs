@@ -1,4 +1,5 @@
 use crate::{document, Element};
+use cfg_if::cfg_if;
 use leptos_reactive::Scope;
 use wasm_bindgen::UnwrapThrowExt;
 
@@ -8,14 +9,24 @@ pub trait Mountable {
 
 impl Mountable for Element {
     fn mount(&self, parent: &web_sys::Element) {
-        parent.append_child(self).unwrap_throw();
+        cfg_if! {
+            if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+                parent.append_child(self).unwrap_throw();
+            } else {
+                let _ = parent;
+            }
+        }
     }
 }
 
 impl Mountable for Vec<Element> {
     fn mount(&self, parent: &web_sys::Element) {
-        for element in self {
-            parent.append_child(element).unwrap_throw();
+        cfg_if! {
+            if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+                for element in self {
+                    parent.append_child(element).unwrap_throw();
+                }
+            }
         }
     }
 }

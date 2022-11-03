@@ -44,7 +44,7 @@ fn has_scheme(path: &str) -> bool {
     HAS_SCHEME_RE.is_match(path)
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 fn has_scheme(path: &str) -> bool {
     let re = js_sys::RegExp::new(HAS_SCHEME, "");
     re.test(path)
@@ -75,7 +75,7 @@ const BEGINS_WITH_QUERY_OR_HASH: &str = r#"^[?#]"#;
 const HAS_SCHEME: &str = r#"^(?:[a-z0-9]+:)?//"#;
 const QUERY: &str = r#"/*(\*.*)?$"#;
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
     let re = js_sys::RegExp::new(TRIM_PATH, "g");
     js_sys::JsString::from(text)
@@ -85,13 +85,13 @@ fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
         .into()
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 fn begins_with_query_or_hash(text: &str) -> bool {
     let re = js_sys::RegExp::new(BEGINS_WITH_QUERY_OR_HASH, "");
     re.test(text)
 }
 
-#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[cfg(not(feature = "ssr"))]
 fn replace_query(text: &str) -> String {
     let re = js_sys::RegExp::new(QUERY, "g");
     js_sys::JsString::from(text)

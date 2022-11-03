@@ -6,12 +6,14 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 console_log = "0.2"
-leptos = { path = "../../../leptos", default-features = false, features = ["serde"] }
+leptos = { path = "../../../leptos", default-features = false, features = [
+	"serde",
+] }
 leptos_meta = { path = "../../../meta", default-features = false }
 leptos_router = { path = "../../../router", default-features = false }
 log = "0.4"
 gloo-net = { version = "0.2", features = ["http"] }
-reqwest = { version = "0.11", features = ["json"], optional = true }
+reqwest = { version = "0.11", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 console_error_panic_hook = "0.1.7"
@@ -21,4 +23,4 @@ console_error_panic_hook = "0.1.7"
 default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:reqwest"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr"]

@@ -8,11 +8,12 @@ repository = "https://github.com/gbj/leptos"
 description = "DOM operations for the Leptos web framework."
 
 [dependencies]
-futures = { version = "0.3", optional = true }
-html-escape = { version = "0.2", optional = true }
+cfg-if = "1"
+futures = "0.3"
+html-escape = "0.2"
 js-sys = "0.3"
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.11" }
-serde_json = { version = "1", optional = true }
+serde_json = "1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.31"
 log = "0.4"
@@ -51,11 +52,11 @@ features = [
   "Storage",
   "Text",
   "TreeWalker",
-  "Window"
+  "Window",
 ]
 
 [features]
 csr = ["leptos_reactive/csr"]
 hydrate = ["leptos_reactive/hydrate"]
-ssr = ["leptos_reactive/ssr", "dep:futures", "dep:html-escape", "dep:serde_json"]
+ssr = ["leptos_reactive/ssr"]
 stable = ["leptos_reactive/stable"]

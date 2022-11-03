@@ -1,3 +1,4 @@
+use cfg_if::cfg_if;
 use leptos::leptos_dom::IntoChild;
 use leptos::*;
 use typed_builder::TypedBuilder;
@@ -89,14 +90,27 @@ where
     }
     let child = children.remove(0);
 
-    view! { cx,
-        <a
-            href=move || href().unwrap_or_default()
-            prop:state={props.state.map(|s| s.to_js_value())}
-            prop:replace={props.replace}
-            aria-current=move || if is_active() { Some("page") } else { None }
-        >
-            {child}
-        </a>
+    cfg_if! {
+        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+            view! { cx,
+                <a
+                    href=move || href().unwrap_or_default()
+                    prop:state={props.state.map(|s| s.to_js_value())}
+                    prop:replace={props.replace}
+                    aria-current=move || if is_active() { Some("page") } else { None }
+                >
+                    {child}
+                </a>
+            }
+        } else {
+            view! { cx,
+                <a
+                    href=move || href().unwrap_or_default()
+                    aria-current=move || if is_active() { Some("page") } else { None }
+                >
+                    {child}
+                </a>
+            }
+        }
     }
 }

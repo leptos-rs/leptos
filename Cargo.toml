@@ -20,7 +20,6 @@ members = [
   "examples/counters",
   "examples/counters-stable",
   "examples/fetch",
-  "examples/gtk",
   "examples/hackernews/hackernews-app",
   "examples/hackernews/hackernews-client",
   "examples/hackernews/hackernews-server",
@@ -31,7 +30,9 @@ members = [
   "examples/todomvc-ssr/todomvc-ssr-server",
 ]
 exclude = [
-  "benchmarks"
+  "benchmarks",
+  # not gonna lie, this is because my arm64 mac fails when linking a GTK binary
+  "examples/gtk",
 ]
 
 
