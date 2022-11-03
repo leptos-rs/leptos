@@ -18,6 +18,8 @@ cfg_if! {
 
         pub mod render_to_string;
         pub use render_to_string::*;
+
+        pub struct Marker { }
     } else {
         pub type Element = web_sys::Element;
         pub type Node = web_sys::Node;
