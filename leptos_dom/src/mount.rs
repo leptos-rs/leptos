@@ -12,6 +12,8 @@ impl Mountable for Element {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                 parent.append_child(self).unwrap_throw();
+            } else {
+                let _ = parent;
             }
         }
     }
