@@ -214,8 +214,14 @@ fn element_to_tokens(
             .iter()
             .filter_map(|node| {
                 node.name_as_string().and_then(|name| {
-                    if name.starts_with("class:") {
-                        let name = name.replacen("class:", "", 1);
+                    if name.starts_with("class:") || name.starts_with("class-") {
+                        let name = if name.starts_with("class:") {
+                            name.replacen("class:", "", 1)
+                        } else if name.starts_with("class-") {
+                            name.replacen("class-", "", 1)
+                        } else {
+                            name
+                        };
                         let value = node.value.as_ref().expect("class: attributes need values");
                         let span = node.name_span().expect("missing span for class name");
                         Some(quote_spanned! { 
@@ -400,6 +406,13 @@ fn attr_to_tokens(
     } else {
         name
     };
+    let name = if name.starts_with("attr:") {
+        name.replacen("attr:", "", 1)
+    } else if name.starts_with("attr-") {
+        name.replacen("attr-", "", 1)
+    } else {
+        name
+    };
     let value = match &node.value {
         Some(expr) => match expr {
             syn::Expr::Lit(expr_lit) => {
@@ -456,16 +469,20 @@ fn attr_to_tokens(
         }
     }
     // Event Handlers
-    else if name.starts_with("on:") {
+    else if name.starts_with("on:") || name.starts_with("on-") {
                     let handler = node
                 .value
                 .as_ref()
                 .expect("event listener attributes need a value");
 
         if mode != Mode::Ssr {
-            let event_name = name.replacen("on:", "", 1);
+            let name = if name.starts_with("on:") { 
+                name.replacen("on:", "", 1)
+            } else {
+                name.replacen("on-", "", 1)
+            };            
             expressions.push(quote_spanned! {
-                span => add_event_listener(#el_id.unchecked_ref(), #event_name, #handler);
+                span => add_event_listener(#el_id.unchecked_ref(), #name, #handler);
             });
         } else {
             // this is here to avoid warnings about unused signals
@@ -476,10 +493,9 @@ fn attr_to_tokens(
         }
     }
     // Properties
-    else if name.starts_with("prop:") {
+    else if name.starts_with("prop:") || name.starts_with("prop-") {
         // can't set properties in SSR
-        if mode != Mode::Ssr {
-            let name = name.replacen("prop:", "", 1);
+        if mode != Mode::Ssr {         
             let value = node.value.as_ref().expect("prop: blocks need values");
             expressions.push(quote_spanned! {
             span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
@@ -487,11 +503,10 @@ fn attr_to_tokens(
         }
     }
     // Classes
-    else if name.starts_with("class:") {
+    else if name.starts_with("class:") || name.starts_with("class-") {
         if mode == Mode::Ssr {
             // handled separately because they need to be merged
         } else {
-            let name = name.replacen("class:", "", 1);
             let value = node.value.as_ref().expect("class: attributes need values");
             expressions.push(quote_spanned! {
                 span => leptos_dom::class(#cx, #el_id.unchecked_ref(), #name, #value.into_class(#cx))
@@ -875,9 +890,13 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
     let props = node.attributes.iter().filter_map(|attr| {
         let attr_name = attr.name_as_string().unwrap_or_default();
         if attr_name.starts_with("on:")
+            || attr_name.starts_with("on-")
             || attr_name.starts_with("prop:")
+            || attr_name.starts_with("prop-")
             || attr_name.starts_with("class:")
+            || attr_name.starts_with("class-")
             || attr_name.starts_with("attr:")
+            || attr_name.starts_with("attr-")
         {
             None
         } else {
@@ -896,12 +915,23 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
 
     let mut other_attrs = node.attributes.iter().filter_map(|attr| {
         let attr_name = attr.name_as_string().unwrap_or_default();
+        // Event Listeners
         if let Some(event_name) = attr_name.strip_prefix("on:") {
             let span = attr.name_span().unwrap();
             let handler = attr
                 .value
                 .as_ref()
-                .expect("event listener attributes need a value");
+                .expect("on: event listener attributes need a value");
+            Some(quote_spanned! {
+                span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+            })
+        }
+        else if let Some(event_name) = attr_name.strip_prefix("on-") {
+            let span = attr.name_span().unwrap();
+            let handler = attr
+                .value
+                .as_ref()
+                .expect("on- event listener attributes need a value");
             Some(quote_spanned! {
                 span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
             })
@@ -913,8 +943,20 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
             })
         }
+        else if let Some(name) = attr_name.strip_prefix("prop-") {
+            let value = attr.value.as_ref().expect("prop- attributes need values");
+            Some(quote_spanned! {
+                span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
+            })
+        }
         // Classes
         else if let Some(name) = attr_name.strip_prefix("class:") {
+            let value = attr.value.as_ref().expect("class: attributes need values");
+            Some(quote_spanned! {
+                span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
+            })
+        }
+        else if let Some(name) = attr_name.strip_prefix("class-") {
             let value = attr.value.as_ref().expect("class: attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
@@ -923,7 +965,12 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
         // Attributes
         else if let Some(name) = attr_name.strip_prefix("attr:") {
             let value = attr.value.as_ref().expect("attr: attributes need values");
-            let name = name.replace('_', "-");
+            Some(quote_spanned! {
+                span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
+            })
+        }
+        else if let Some(name) = attr_name.strip_prefix("attr-") {
+            let value = attr.value.as_ref().expect("attr- attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
             })

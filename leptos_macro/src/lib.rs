@@ -105,7 +105,7 @@ mod server;
 /// # });
 /// ```
 ///
-/// 5. Event handlers can be added with `on:` attributes
+/// 5. Event handlers can be added with `on:` attributes. If the event name contains a dash, you should use `on-` as the prefix instead.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(|cx| {
@@ -124,7 +124,7 @@ mod server;
 /// ```
 ///
 /// 6. DOM properties can be set with `prop:` attributes, which take any primitive type or `JsValue` (or a signal
-///    that returns a primitive or JsValue).
+///    that returns a primitive or JsValue). If your property name contains a dash, you should use `prop-` as the prefix instead.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(|cx| {
@@ -147,6 +147,7 @@ mod server;
 /// ```
 ///
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
+///    If your class name contains a dash, you should use `class-` as the prefix instead.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(|cx| {
