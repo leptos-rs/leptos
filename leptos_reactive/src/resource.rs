@@ -561,7 +561,6 @@ where
         });
     }
 
-    #[cfg(feature = "ssr")]
     pub fn resource_to_serialization_resolver(
         &self,
         id: ResourceId,
@@ -585,7 +584,6 @@ pub(crate) enum AnyResource {
 pub(crate) trait SerializableResource {
     fn as_any(&self) -> &dyn Any;
 
-    #[cfg(feature = "ssr")]
     fn to_serialization_resolver(
         &self,
         id: ResourceId,
@@ -601,7 +599,6 @@ where
         self
     }
 
-    #[cfg(feature = "ssr")]
     fn to_serialization_resolver(
         &self,
         id: ResourceId,

@@ -5,6 +5,7 @@ pub mod child;
 pub mod class;
 pub mod event_delegation;
 pub mod logging;
+pub mod mount;
 pub mod operations;
 pub mod property;
 
@@ -21,11 +22,9 @@ cfg_if! {
         pub type Element = web_sys::Element;
         pub type Node = web_sys::Node;
 
-        pub mod mount;
         pub mod reconcile;
         pub mod render;
 
-        pub use mount::*;
         pub use reconcile::*;
         pub use render::*;
     }
@@ -35,6 +34,7 @@ pub use attribute::*;
 pub use child::*;
 pub use class::*;
 pub use logging::*;
+pub use mount::*;
 pub use operations::*;
 pub use property::*;
 

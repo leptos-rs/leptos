@@ -84,7 +84,6 @@ impl SharedContext {
         }
     }
 
-    #[cfg(feature = "ssr")]
     pub fn current_fragment_key(&self) -> String {
         if let Some(context) = &self.context {
             format!("{}{}f", context.id, context.count)

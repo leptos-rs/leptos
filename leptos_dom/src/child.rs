@@ -177,19 +177,19 @@ cfg_if! {
     if #[cfg(feature = "stable")] {
         use leptos_reactive::{Memo, ReadSignal, RwSignal};
 
-        impl IntoChild for Memo<Vec<Element>> {
+        impl IntoChild for Memo<Vec<crate::Element>> {
             fn into_child(self, cx: Scope) -> Child {
                 (move || self.get()).into_child(cx)
             }
         }
 
-        impl IntoChild for ReadSignal<Vec<Element>> {
+        impl IntoChild for ReadSignal<Vec<crate::Element>> {
             fn into_child(self, cx: Scope) -> Child {
                 (move || self.get()).into_child(cx)
             }
         }
 
-        impl IntoChild for RwSignal<Vec<Element>> {
+        impl IntoChild for RwSignal<Vec<crate::Element>> {
             fn into_child(self, cx: Scope) -> Child {
                 (move || self.get()).into_child(cx)
             }

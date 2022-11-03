@@ -3,25 +3,20 @@ use crate::{
     EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
     ScopeProperty, SignalId, WriteSignal,
 };
-use cfg_if::cfg_if;
+use futures::stream::FuturesUnordered;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     fmt::Debug,
+    future::Future,
     marker::PhantomData,
+    pin::Pin,
     rc::Rc,
 };
 
-cfg_if! {
-    if #[cfg(feature = "ssr")] {
-        use std::{future::Future, pin::Pin};
-        use futures::stream::FuturesUnordered;
-
-        pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
-    }
-}
+pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 #[derive(Default)]
 pub(crate) struct Runtime {
@@ -255,7 +250,6 @@ impl Runtime {
             .collect()
     }
 
-    #[cfg(feature = "ssr")]
     pub(crate) fn serialization_resolvers(
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {

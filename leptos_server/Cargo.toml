@@ -7,14 +7,14 @@ edition = "2021"
 leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.11" }
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.11" }
 form_urlencoded = "1"
-gloo-net = { version = "0.2", optional = true }
+gloo-net = "0.2"
 lazy_static = "1"
 linear-map = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 
 [features]
-csr = ["leptos_dom/csr", "leptos_reactive/csr", "dep:gloo-net"]
-hydrate = ["leptos_dom/hydrate", "leptos_reactive/hydrate", "dep:gloo-net"]
+csr = ["leptos_dom/csr", "leptos_reactive/csr"]
+hydrate = ["leptos_dom/hydrate", "leptos_reactive/hydrate"]
 ssr = ["leptos_dom/ssr", "leptos_reactive/ssr"]
 stable = ["leptos_dom/stable", "leptos_reactive/stable"]

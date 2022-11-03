@@ -184,7 +184,7 @@ impl std::fmt::Debug for Loader {
     }
 }
 
-#[cfg(feature = "ssr")]
+#[cfg(all(feature = "ssr", not(feature = "hydrate")))]
 pub async fn loader_to_json(view: impl Fn(Scope) -> String + 'static) -> Option<String> {
     let (data, _, disposer) = run_scope_undisposed(move |cx| async move {
         let _shell = view(cx);

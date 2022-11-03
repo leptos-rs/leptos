@@ -9,6 +9,7 @@ description = "Router for the Leptos web framework."
 
 [dependencies]
 leptos = { path = "../leptos", version = "0.0", default-features = false }
+cfg-if = "1"
 common_macros = "0.1"
 gloo-net = "0.2"
 itertools = "0.10"
@@ -21,9 +22,9 @@ url = { version = "2", optional = true }
 urlencoding = "2"
 thiserror = "1"
 typed-builder = "0.10"
-js-sys = { version = "0.3", optional = true }
-wasm-bindgen = { version = "0.2", optional = true }
-wasm-bindgen-futures = { version = "0.4", optional = true }
+js-sys = { version = "0.3" }
+wasm-bindgen = { version = "0.2" }
+wasm-bindgen-futures = { version = "0.4" }
 
 [dependencies.web-sys]
 version = "0.3"
@@ -51,12 +52,7 @@ features = [
 ]
 
 [features]
-default = ["csr"]
-csr = ["leptos/csr", "dep:js-sys", "dep:wasm-bindgen"]
-hydrate = [
-	"leptos/hydrate",
-	"dep:js-sys",
-	"dep:wasm-bindgen",
-	"dep:wasm-bindgen-futures",
-]
+default = []
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
