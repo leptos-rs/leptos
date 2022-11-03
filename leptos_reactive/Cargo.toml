@@ -43,3 +43,6 @@ stable = []
 serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
+
+[package.metadata.cargo-all-features]
+denylist = ["stable"]
