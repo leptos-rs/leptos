@@ -18,7 +18,6 @@ impl std::fmt::Debug for RouteDefinition {
         f.debug_struct("RouteDefinition")
             .field("path", &self.path)
             .field("loader", &self.loader)
-            .field("action", &self.action)
             .field("children", &self.children)
             .finish()
     }
