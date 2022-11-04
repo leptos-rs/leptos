@@ -6,23 +6,39 @@ use wasm_bindgen::JsCast;
 
 use crate::{use_navigate, use_resolved_path, ToHref};
 
+/// Properties that can be passed to the [Form] component, which is an HTML
+/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
+/// progressively enhanced to use client-side routing.
 #[derive(TypedBuilder)]
 pub struct FormProps<A>
 where
     A: ToHref + 'static,
 {
+    /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
+    /// is the HTTP method to submit the form with (`get` or `post`).
     #[builder(default, setter(strip_option))]
-    method: Option<&'static str>,
-    action: A,
+    pub method: Option<&'static str>,
+    /// [`action`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action)
+    /// is the URL that processes the form submission. Takes a [String], [&str], or a reactive
+    /// function that returns a [String].
+    pub action: A,
+    /// [`enctype`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-enctype)
+    /// is the MIME type of the form submission if `method` is `post`.
     #[builder(default, setter(strip_option))]
-    enctype: Option<String>,
-    children: Box<dyn Fn() -> Vec<Element>>,
+    pub enctype: Option<String>,
+    /// A signal that will be incremented whenever the form is submitted with `post`. This can useful
+    /// for reactively updating a [Resource] or another signal whenever the form has been submitted.
     #[builder(default, setter(strip_option))]
-    version: Option<RwSignal<usize>>,
+    pub version: Option<RwSignal<usize>>,
+    /// A signal that will be set if the form submission ends in an error.
     #[builder(default, setter(strip_option))]
-    error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    pub error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    /// Component children; should include the HTML of the form elements.
+    pub children: Box<dyn Fn() -> Vec<Element>>,
 }
 
+/// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
+/// enhanced to use client-side routing.
 #[allow(non_snake_case)]
 pub fn Form<A>(cx: Scope, props: FormProps<A>) -> Element
 where
@@ -158,6 +174,9 @@ where
                     Ok(resp) => {
                         if let Some(version) = action_version {
                             version.update(|n| *n += 1);
+                        }
+                        if let Some(error) = error {
+                            error.set(None);
                         }
 
                         if resp.status() == 303 {

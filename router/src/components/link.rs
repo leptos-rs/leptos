@@ -8,6 +8,8 @@ use wasm_bindgen::JsCast;
 
 use crate::{use_location, use_resolved_path, State};
 
+/// Describes a value that is either a static or a reactive URL, i.e.,
+/// a [String], a [&str], or a reactive `Fn() -> String`.
 pub trait ToHref {
     fn to_href(&self) -> Box<dyn Fn() -> String + '_>;
 }
@@ -35,6 +37,9 @@ where
     }
 }
 
+/// Properties that can be passed to the [A] component, which is an HTML
+/// [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
+/// progressively enhanced to use client-side routing.
 #[derive(TypedBuilder)]
 pub struct AProps<C, H>
 where
@@ -58,6 +63,8 @@ where
     children: Box<dyn Fn() -> Vec<C>>,
 }
 
+/// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
+/// progressively enhanced to use client-side routing.
 #[allow(non_snake_case)]
 pub fn A<C, H>(cx: Scope, props: AProps<C, H>) -> Element
 where
