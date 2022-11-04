@@ -5,7 +5,7 @@ use typed_builder::TypedBuilder;
 
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    Action, Loader, ParamsMap, RouterContext,
+    Loader, ParamsMap, RouterContext,
 };
 
 pub struct ChildlessRoute {}
@@ -21,8 +21,6 @@ where
     #[builder(default, setter(strip_option))]
     loader: Option<Loader>,
     #[builder(default, setter(strip_option))]
-    action: Option<Action>,
-    #[builder(default, setter(strip_option))]
     children: Option<Box<dyn Fn() -> Vec<RouteDefinition>>>,
 }
 
@@ -35,7 +33,6 @@ where
     RouteDefinition {
         path: props.path,
         loader: props.loader,
-        action: props.action,
         children: props.children.map(|c| c()).unwrap_or_default(),
         element: Rc::new(move |cx| (props.element)(cx).into_child(cx)),
     }
@@ -58,10 +55,7 @@ impl RouteContext {
         let RouteMatch { path_match, route } = matcher()?;
         let PathMatch { path, .. } = path_match;
         let RouteDefinition {
-            element,
-            loader,
-            action,
-            ..
+            element, loader, ..
         } = route.key;
         let params = create_memo(cx, move |_| {
             matcher()
@@ -75,7 +69,6 @@ impl RouteContext {
                 base_path: base.to_string(),
                 child: Box::new(child),
                 loader,
-                action,
                 path,
                 original_path: route.original_path.to_string(),
                 params,
@@ -107,7 +100,6 @@ impl RouteContext {
                 base_path: path.to_string(),
                 child: Box::new(|| None),
                 loader: None,
-                action: None,
                 path: path.to_string(),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
@@ -134,7 +126,6 @@ pub(crate) struct RouteContextInner {
     base_path: String,
     pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
     pub(crate) loader: Option<Loader>,
-    pub(crate) action: Option<Action>,
     pub(crate) path: String,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,

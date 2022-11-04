@@ -3,13 +3,12 @@ use std::rc::Rc;
 use leptos::leptos_dom::Child;
 use leptos::*;
 
-use crate::{Action, Loader};
+use crate::Loader;
 
 #[derive(Clone)]
 pub struct RouteDefinition {
     pub path: &'static str,
     pub loader: Option<Loader>,
-    pub action: Option<Action>,
     pub children: Vec<RouteDefinition>,
     pub element: Rc<dyn Fn(Scope) -> Child>,
 }
@@ -36,7 +35,6 @@ impl Default for RouteDefinition {
         Self {
             path: Default::default(),
             loader: Default::default(),
-            action: Default::default(),
             children: Default::default(),
             element: Rc::new(|_| Child::Null),
         }
