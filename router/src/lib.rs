@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! # Leptos Router
 //!
 //! Leptos Router is a router and state management tool for web applications
