@@ -2,6 +2,10 @@
 name = "leptos_server"
 version = "0.0.12"
 edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+repository = "https://github.com/gbj/leptos"
+description = "RPC for the Leptos web framework."
 
 [dependencies]
 leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.12" }
