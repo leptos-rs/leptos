@@ -31,46 +31,26 @@ async fn render_app(req: HttpRequest) -> impl Responder {
         view! { cx, <App/> }
     };
 
-    let accepts_type = req.headers().get("Accept").map(|h| h.to_str());
-    match accepts_type {
-        // if asks for JSON, send the loader function JSON or 404
-        Some(Ok("application/json")) => {
-            let json = loader_to_json(app).await;
+    let head = r#"<!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <script type="module">import init, { main } from '/pkg/hackernews_client.js'; init().then(main);</script>"#;
+    let tail = "</body></html>";
 
-            let res = if let Some(json) = json {
-                HttpResponse::Ok()
-                    .content_type("application/json")
-                    .body(json)
-            } else {
-                HttpResponse::NotFound().body(())
-            };
-
-            res
-        }
-        // otherwise, send HTML
-        _ => {
-            let head = r#"<!DOCTYPE html>
-            <html lang="en">
-                <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <script type="module">import init, { main } from '/pkg/hackernews_client.js'; init().then(main);</script>"#;
-            let tail = "</body></html>";
-
-            HttpResponse::Ok().content_type("text/html").streaming(
-                futures::stream::once(async { head.to_string() })
-                    .chain(render_to_stream(move |cx| {
-                        let app = app(cx);
-                        let head = use_context::<MetaContext>(cx)
-                            .map(|meta| meta.dehydrate())
-                            .unwrap_or_default();
-                        format!("{head}</head><body>{app}")
-                    }))
-                    .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-            )
-        }
-    }
+    HttpResponse::Ok().content_type("text/html").streaming(
+        futures::stream::once(async { head.to_string() })
+            .chain(render_to_stream(move |cx| {
+                let app = app(cx);
+                let head = use_context::<MetaContext>(cx)
+                    .map(|meta| meta.dehydrate())
+                    .unwrap_or_default();
+                format!("{head}</head><body>{app}")
+            }))
+            .chain(futures::stream::once(async { tail.to_string() }))
+            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+    )
 }
 
 #[actix_web::main]

@@ -5,7 +5,7 @@ use typed_builder::TypedBuilder;
 
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    Loader, ParamsMap, RouterContext,
+    ParamsMap, RouterContext,
 };
 
 /// Properties that can be passed to a [Route] component, which describes
@@ -25,10 +25,6 @@ where
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     pub element: F,
-    /// A data loader is a function that will be run to begin loading data as soon as you navigate to a route.
-    /// These are run in parallel for all nested routes, to avoid data-fetching waterfalls.
-    #[builder(default, setter(strip_option))]
-    pub loader: Option<Loader>,
     /// `children` may be empty or include nested routes.
     #[builder(default, setter(strip_option))]
     pub children: Option<Box<dyn Fn() -> Vec<RouteDefinition>>>,
@@ -44,7 +40,6 @@ where
 {
     RouteDefinition {
         path: props.path,
-        loader: props.loader,
         children: props.children.map(|c| c()).unwrap_or_default(),
         element: Rc::new(move |cx| (props.element)(cx).into_child(cx)),
     }
@@ -67,9 +62,7 @@ impl RouteContext {
         let base = base.path();
         let RouteMatch { path_match, route } = matcher()?;
         let PathMatch { path, .. } = path_match;
-        let RouteDefinition {
-            element, loader, ..
-        } = route.key;
+        let RouteDefinition { element, .. } = route.key;
         let params = create_memo(cx, move |_| {
             matcher()
                 .map(|matched| matched.path_match.params)
@@ -81,7 +74,6 @@ impl RouteContext {
                 cx,
                 base_path: base.to_string(),
                 child: Box::new(child),
-                loader,
                 path,
                 original_path: route.original_path.to_string(),
                 params,
@@ -105,18 +97,12 @@ impl RouteContext {
         self.inner.params
     }
 
-    /// The data loader for the current route.
-    pub fn loader(&self) -> &Option<Loader> {
-        &self.inner.loader
-    }
-
     pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn() -> Element>) -> Self {
         Self {
             inner: Rc::new(RouteContextInner {
                 cx,
                 base_path: path.to_string(),
                 child: Box::new(|| None),
-                loader: None,
                 path: path.to_string(),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
@@ -145,7 +131,6 @@ pub(crate) struct RouteContextInner {
     cx: Scope,
     base_path: String,
     pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
-    pub(crate) loader: Option<Loader>,
     pub(crate) path: String,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
