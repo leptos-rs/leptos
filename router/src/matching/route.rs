@@ -3,12 +3,9 @@ use std::rc::Rc;
 use leptos::leptos_dom::Child;
 use leptos::*;
 
-use crate::Loader;
-
 #[derive(Clone)]
 pub struct RouteDefinition {
     pub path: &'static str,
-    pub loader: Option<Loader>,
     pub children: Vec<RouteDefinition>,
     pub element: Rc<dyn Fn(Scope) -> Child>,
 }
@@ -17,7 +14,6 @@ impl std::fmt::Debug for RouteDefinition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RouteDefinition")
             .field("path", &self.path)
-            .field("loader", &self.loader)
             .field("children", &self.children)
             .finish()
     }
@@ -33,7 +29,6 @@ impl Default for RouteDefinition {
     fn default() -> Self {
         Self {
             path: Default::default(),
-            loader: Default::default(),
             children: Default::default(),
             element: Rc::new(|_| Child::Null),
         }

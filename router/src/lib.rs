@@ -67,7 +67,6 @@
 //!                 element=move |cx| view! { cx,  <Contact/> }
 //!               />
 //!               // a fallback if the /:id segment is missing from the URL
-//!               // doesn't need any data, so no loader is provided
 //!               <Route
 //!                 path=""
 //!                 element=move |_| view! { cx,  <p class="contact">"Select a contact."</p> }
@@ -84,10 +83,6 @@
 //!     </div>
 //!   }
 //! }
-//!
-//! // Loaders are async functions that have access to the reactive scope,
-//! // map of matched URL params for that route, and the URL
-//! // They are reloaded whenever the params or URL change
 //!
 //! type ContactSummary = (); // TODO!
 //! type Contact = (); // TODO!()
@@ -145,14 +140,12 @@
 #![feature(type_name_of_val)]
 
 mod components;
-mod data;
 mod fetch;
 mod history;
 mod hooks;
 mod matching;
 
 pub use components::*;
-pub use data::*;
 pub use fetch::*;
 pub use history::*;
 pub use hooks::*;
