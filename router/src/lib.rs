@@ -6,10 +6,8 @@
 //! apps (SPAs), server-side rendering/multi-page apps (MPAs), or to synchronize
 //! state between the two.
 //!
-//! **Note:** This is a work in progress. Docs are still being written,
-//! and some features are only stubs, in particular
-//! - passing client-side route [State] in [History.state](https://developer.mozilla.org/en-US/docs/Web/API/History/state))
-//! - data mutations using [Action]s and [Form] `method="POST"`
+//! **Note:** This is a work in progress. Docs are still being written, in particular
+//! passing client-side route [State] in [History.state](https://developer.mozilla.org/en-US/docs/Web/API/History/state))
 //!
 //! ## Philosophy
 //!
@@ -62,16 +60,10 @@
 //!             <Route
 //!               path=""
 //!               element=move |cx| view! { cx,  <ContactList/> }
-//!               // <ContactList/> needs all the contacts, so we provide the loader here
-//!               // this will only be reloaded if we navigate away to /about and back to / or /:id
-//!               loader=contact_list_data.into()
 //!             >
 //!               // users like /gbj or /bob
 //!               <Route
 //!                 path=":id"
-//!                 // <Contact/> needs contact data, so we provide the loader here
-//!                 // this will be reloaded when the :id changes
-//!                 loader=contact_data.into()
 //!                 element=move |cx| view! { cx,  <Contact/> }
 //!               />
 //!               // a fallback if the /:id segment is missing from the URL
@@ -101,25 +93,42 @@
 //! type Contact = (); // TODO!()
 //!
 //! // contact_data reruns whenever the :id param changes
-//! async fn contact_data(_cx: Scope, _params: ParamsMap, url: Url) -> Contact {
+//! async fn contact_data(id: String) -> Contact {
 //!   todo!()
 //! }
 //!
 //! // contact_list_data *doesn't* rerun when the :id changes,
 //! // because that param is nested lower than the <ContactList/> route
-//! async fn contact_list_data(_cx: Scope, _params: ParamsMap, url: Url) -> Vec<ContactSummary> {
+//! async fn contact_list_data() -> Vec<ContactSummary> {
 //!   todo!()
 //! }
 //!
 //! #[component]
 //! fn ContactList(cx: Scope) -> Element {
-//!   let data = use_loader::<Vec<ContactSummary>>(cx);
-//!   todo!()
+//!   // loads the contact list data once; doesn't reload when nested routes change
+//!   let contacts = create_resource(cx, || (), |_| contact_list_data());
+//!   view! {
+//!     cx,
+//!     <div>
+//!       // show the contacts
+//!       <ul>
+//!         {move || contacts.read().map(|contacts| view! { cx, <li>"todo contact info"</li> } )}
+//!       </ul>
+//!
+//!       // insert the nested child route here
+//!       <Outlet/>
+//!     </div>
+//!   }
 //! }
 //!
 //! #[component]
 //! fn Contact(cx: Scope) -> Element {
-//!   let data = use_loader::<Contact>(cx);
+//!   let params = use_params_map(cx);
+//!   let data = create_resource(
+//!     cx,
+//!     move || params.with(|p| p.get("id").cloned().unwrap_or_default()),
+//!     move |id| contact_data(id)
+//!   );
 //!   todo!()
 //! }
 //!
@@ -137,7 +146,6 @@
 
 mod components;
 mod data;
-mod error;
 mod fetch;
 mod history;
 mod hooks;
@@ -145,7 +153,6 @@ mod matching;
 
 pub use components::*;
 pub use data::*;
-pub use error::*;
 pub use fetch::*;
 pub use history::*;
 pub use hooks::*;

@@ -20,15 +20,23 @@ use crate::{
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
 
+/// Props for the [Router] component, which sets up client-side and server-side routing.
 #[derive(TypedBuilder)]
 pub struct RouterProps {
+    /// The base URL for the router. Defaults to "".
     #[builder(default, setter(strip_option))]
-    base: Option<&'static str>,
+    pub base: Option<&'static str>,
     #[builder(default, setter(strip_option))]
-    fallback: Option<fn() -> Element>,
-    children: Box<dyn Fn() -> Vec<Element>>,
+    /// A fallback that should be shown if no route is matched.
+    pub fallback: Option<fn() -> Element>,
+    /// The `<Router/>` should usually wrap your whole page. It can contain
+    /// any elements, and should include a [Routes](crate::Routes) component somewhere
+    /// to define and display [Route](crate::Route)s.
+    pub children: Box<dyn Fn() -> Vec<Element>>,
 }
 
+/// Provides for client-side and server-side routing. This should usually be somewhere near
+/// the root of the application.
 #[allow(non_snake_case)]
 pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild {
     // create a new RouterContext and provide it to every component beneath the router
@@ -38,6 +46,7 @@ pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild {
     props.children
 }
 
+/// Context type that contains information about the current router state.
 #[derive(Debug, Clone)]
 pub struct RouterContext {
     pub(crate) inner: Rc<RouterContextInner>,
@@ -72,7 +81,11 @@ impl std::fmt::Debug for RouterContextInner {
 }
 
 impl RouterContext {
-    pub fn new(cx: Scope, base: Option<&'static str>, fallback: Option<fn() -> Element>) -> Self {
+    pub(crate) fn new(
+        cx: Scope,
+        base: Option<&'static str>,
+        fallback: Option<fn() -> Element>,
+    ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                 let history = use_context::<RouterIntegrationContext>(cx)
@@ -157,10 +170,12 @@ impl RouterContext {
         Self { inner }
     }
 
+    /// The current [`pathname`](https://developer.mozilla.org/en-US/docs/Web/API/Location/pathname).
     pub fn pathname(&self) -> Memo<String> {
         self.inner.location.pathname
     }
 
+    /// The [RouteContext] of the base route.
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
     }
@@ -190,7 +205,7 @@ impl RouterContextInner {
                         return Err(NavigationError::MaxRedirects);
                     }
 
-                    if resolved_to != (this.reference)() || options.state != (this.state).get() {
+                    if resolved_to != this.reference.get() || options.state != (this.state).get() {
                         if cfg!(feature = "server") {
                             // TODO server out
                             self.history.navigate(&LocationChange {
@@ -336,18 +351,30 @@ impl RouterContextInner {
     }
 }
 
+/// An error that occurs during navigation.
 #[derive(Debug, Error)]
 pub enum NavigationError {
+    /// The given path is not routable.
     #[error("Path {0:?} is not routable")]
     NotRoutable(String),
+    /// Too many redirects occurred during routing (prevents and infinite loop.)
     #[error("Too many redirects")]
     MaxRedirects,
 }
 
+/// Options that can be used to configure a navigation. Used with [use_navigate](crate::use_navigate).
+#[derive(Clone, Debug)]
 pub struct NavigateOptions {
+    /// Whether the URL being navigated to should be resolved relative to the current route.
     pub resolve: bool,
+    /// If `true` the new location will replace the current route in the history stack, meaning
+    /// the "back" button will skip over the current route. (Defaults to `false`).
     pub replace: bool,
+    /// If `true`, the router will scroll to the top of the window at the end of navigation.
+    /// Defaults to `true.
     pub scroll: bool,
+    /// [State](https://developer.mozilla.org/en-US/docs/Web/API/History/state) that should be pushed
+    /// onto the history stack during navigation.
     pub state: State,
 }
 

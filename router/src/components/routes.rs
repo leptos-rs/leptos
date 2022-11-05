@@ -5,6 +5,7 @@ use typed_builder::TypedBuilder;
 
 use crate::{matching::{expand_optionals, join_paths, Branch, Matcher, RouteDefinition, get_route_matches, RouteMatch}, RouterContext, RouteContext};
 
+/// Props for the [Routes] component, which contains route definitions and manages routing.
 #[derive(TypedBuilder)]
 pub struct RoutesProps {
     #[builder(default, setter(strip_option))]
@@ -12,6 +13,9 @@ pub struct RoutesProps {
     children: Box<dyn Fn() -> Vec<RouteDefinition>>,
 }
 
+/// Contains route definitions and manages the actual routing process. 
+/// 
+/// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 #[allow(non_snake_case)]
 pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
     let router = use_context::<RouterContext>(cx).unwrap_or_else(|| {
