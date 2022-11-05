@@ -1,10 +1,11 @@
 use crate::Todo;
 use leptos::Scope;
-use miniserde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
 pub struct TodoSerialized {
-    pub id: usize,
+    pub id: Uuid,
     pub title: String,
     pub completed: bool,
 }
@@ -20,7 +21,7 @@ impl From<&Todo> for TodoSerialized {
         Self {
             id: todo.id,
             title: todo.title.get(),
-            completed: (todo.completed)(),
+            completed: todo.completed.get(),
         }
     }
 }

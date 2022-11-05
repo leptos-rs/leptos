@@ -5,14 +5,15 @@ edition = "2021"
 
 [dependencies]
 leptos = { path = "../../leptos", default-features = false }
-miniserde = "0.1"
 log = "0.4"
 console_log = "0.2"
 console_error_panic_hook = "0.1.7"
+uuid = { version = "1", features = ["v4", "js", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
-
 
 [features]
 default = ["csr"]
