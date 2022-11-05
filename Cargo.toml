@@ -26,8 +26,6 @@ members = [
   "examples/parent-child",
   "examples/router",
   "examples/todomvc",
-  "examples/todomvc-ssr/todomvc-ssr-client",
-  "examples/todomvc-ssr/todomvc-ssr-server",
 ]
 exclude = [
   "benchmarks",
