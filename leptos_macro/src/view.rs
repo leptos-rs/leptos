@@ -494,6 +494,11 @@ fn attr_to_tokens(
     }
     // Properties
     else if name.starts_with("prop:") || name.starts_with("prop-") {
+        let name = if name.starts_with("prop:") {
+            name.replacen("prop:", "", 1)
+        } else {
+            name.replacen("prop-", "", 1)
+        };
         // can't set properties in SSR
         if mode != Mode::Ssr {         
             let value = node.value.as_ref().expect("prop: blocks need values");
@@ -504,6 +509,11 @@ fn attr_to_tokens(
     }
     // Classes
     else if name.starts_with("class:") || name.starts_with("class-") {
+        let name = if name.starts_with("class:") {
+            name.replacen("class:", "", 1)
+        } else {
+            name.replacen("class-", "", 1)
+        };
         if mode == Mode::Ssr {
             // handled separately because they need to be merged
         } else {
