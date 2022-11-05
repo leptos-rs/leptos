@@ -25,9 +25,12 @@ pub(crate) fn get_route_matches(branches: Vec<Branch>, location: String) -> Vec<
     vec![]
 }
 
+/// Describes a branch of the route tree.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Branch {
+    /// All the routes contained in the branch.
     pub routes: Vec<RouteData>,
+    /// How closely this branch matches the current URL.
     pub score: i32,
 }
 

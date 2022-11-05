@@ -8,8 +8,6 @@ use crate::{
     Loader, ParamsMap, RouterContext,
 };
 
-pub struct ChildlessRoute {}
-
 /// Properties that can be passed to a [Route] component, which describes
 /// a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
@@ -22,18 +20,18 @@ where
     /// The path fragment that this route should match. This can be static (`users`),
     /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
     /// wildcard (`user/*any`).
-    path: &'static str,
+    pub path: &'static str,
     /// The view that should be shown when this route is matched. This can be any function
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
-    element: F,
+    pub element: F,
     /// A data loader is a function that will be run to begin loading data as soon as you navigate to a route.
     /// These are run in parallel for all nested routes, to avoid data-fetching waterfalls.
     #[builder(default, setter(strip_option))]
-    loader: Option<Loader>,
+    pub loader: Option<Loader>,
     /// `children` may be empty or include nested routes.
     #[builder(default, setter(strip_option))]
-    children: Option<Box<dyn Fn() -> Vec<RouteDefinition>>>,
+    pub children: Option<Box<dyn Fn() -> Vec<RouteDefinition>>>,
 }
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
@@ -52,7 +50,7 @@ where
     }
 }
 
-/// Contains information about the current, matched route.
+/// Context type that contains information about the current, matched route.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteContext {
     inner: Rc<RouteContextInner>,
@@ -112,7 +110,7 @@ impl RouteContext {
         &self.inner.loader
     }
 
-    pub(crate) base(cx: Scope, path: &str, fallback: Option<fn() -> Element>) -> Self {
+    pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn() -> Element>) -> Self {
         Self {
             inner: Rc::new(RouteContextInner {
                 cx,
@@ -171,33 +169,5 @@ impl std::fmt::Debug for RouteContextInner {
             .field("ParamsMap", &self.params)
             .field("child", &(self.child)())
             .finish()
-    }
-}
-
-pub trait IntoChildRoutes {
-    fn into_child_routes(self) -> Vec<RouteDefinition>;
-}
-
-impl IntoChildRoutes for () {
-    fn into_child_routes(self) -> Vec<RouteDefinition> {
-        vec![]
-    }
-}
-
-impl IntoChildRoutes for RouteDefinition {
-    fn into_child_routes(self) -> Vec<RouteDefinition> {
-        vec![self]
-    }
-}
-
-impl IntoChildRoutes for Option<RouteDefinition> {
-    fn into_child_routes(self) -> Vec<RouteDefinition> {
-        self.map(|c| vec![c]).unwrap_or_default()
-    }
-}
-
-impl IntoChildRoutes for Vec<RouteDefinition> {
-    fn into_child_routes(self) -> Vec<RouteDefinition> {
-        self
     }
 }

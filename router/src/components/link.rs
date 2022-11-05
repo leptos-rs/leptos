@@ -3,7 +3,7 @@ use leptos::leptos_dom::IntoChild;
 use leptos::*;
 use typed_builder::TypedBuilder;
 
-#[cfg(not(feature = "ssr"))]
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::JsCast;
 
 use crate::{use_location, use_resolved_path, State};
@@ -11,6 +11,8 @@ use crate::{use_location, use_resolved_path, State};
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
 pub trait ToHref {
+    /// Converts the (static or reactive) URL into a function that can be called to
+    /// return the URL.
     fn to_href(&self) -> Box<dyn Fn() -> String + '_>;
 }
 
@@ -48,19 +50,20 @@ where
 {
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
-    href: H,
+    pub href: H,
     /// If `true`, the link is marked active when the location matches exactly;
     /// if false, link is marked active if the current route starts with it.
     #[builder(default)]
-    exact: bool,
+    pub exact: bool,
     /// An object of any type that will be pushed to router state
     #[builder(default, setter(strip_option))]
-    state: Option<State>,
+    pub state: Option<State>,
     /// If `true`, the link will not add to the browser's history (so, pressing `Back`
     /// will skip this page.)
     #[builder(default)]
-    replace: bool,
-    children: Box<dyn Fn() -> Vec<C>>,
+    pub replace: bool,
+    /// The nodes or elements to be shown inside the link.
+    pub children: Box<dyn Fn() -> Vec<C>>,
 }
 
 /// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)

@@ -18,12 +18,19 @@ impl std::fmt::Debug for RouterIntegrationContext {
     }
 }
 
+/// The [Router](crate::Router) relies on a [RouterIntegrationContext], which tells the router
+/// how to find things like the current URL, and how to navigate to a new page. The [History] trait
+/// can be implemented on any type to provide this information.
 pub trait History {
+    /// A signal that updates whenever the current location changes.
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange>;
 
+    /// Called to navigate to a new location.
     fn navigate(&self, loc: &LocationChange);
 }
 
+/// The default integration when you are running in the browser, which uses
+/// the [`History API`](https://developer.mozilla.org/en-US/docs/Web/API/History).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BrowserIntegration {}
 
@@ -66,7 +73,7 @@ impl History for BrowserIntegration {
                 ) {
                     log::error!("{e:#?}");
                 }
-                set_location(Self::current());
+                set_location.set(Self::current());
             } else {
                 log::warn!("RouterContext not found");
             }
@@ -105,10 +112,19 @@ impl History for BrowserIntegration {
     }
 }
 
+/// The wrapper type that the [Router](crate::Router) uses to interact with a [History].
+/// This is automatically provided in the browser. For the server, it should be provided
+/// as a context.
+///
+/// ```
+/// let integration = ServerIntegration { path: "insert/current/path/here".to_string() };
+/// provide_context(cx, RouterIntegrationContext::new(integration));
+/// ```
 #[derive(Clone)]
 pub struct RouterIntegrationContext(pub Rc<dyn History>);
 
 impl RouterIntegrationContext {
+    /// Creates a new router integration.
     pub fn new(history: impl History + 'static) -> Self {
         Self(Rc::new(history))
     }
@@ -124,6 +140,7 @@ impl History for RouterIntegrationContext {
     }
 }
 
+/// A generic router integration for the server side. All its need is the current path.
 #[derive(Clone, Debug)]
 pub struct ServerIntegration {
     pub path: String,
