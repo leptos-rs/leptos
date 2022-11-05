@@ -115,9 +115,9 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
+pub fn TodoMVC(cx: Scope) -> Element {
     // The `todos` are a signal, since we need to reactively update the list
-    let (todos, set_todos) = create_signal(cx, todos);
+    let (todos, set_todos) = create_signal(cx, Todos::new(cx));
 
     // We provide a context that each <Todo/> component can use to update the list
     // Here, I'm just passing the `WriteSignal`; a <Todo/> doesn't need to read the whole list
