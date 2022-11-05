@@ -117,8 +117,12 @@ impl History for BrowserIntegration {
 /// as a context.
 ///
 /// ```
+/// # use leptos_router::*;
+/// # use leptos::*;
+/// # run_scope(|cx| {
 /// let integration = ServerIntegration { path: "insert/current/path/here".to_string() };
 /// provide_context(cx, RouterIntegrationContext::new(integration));
+/// # });
 /// ```
 #[derive(Clone)]
 pub struct RouterIntegrationContext(pub Rc<dyn History>);

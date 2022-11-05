@@ -7,7 +7,7 @@ use thiserror::Error;
 // that O(n) iteration over a vectorized map is (*probably*) more space-
 // and time-efficient than hashing and using an actual `HashMap`
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ParamsMap(pub(crate) LinearMap<String, String>);
+pub struct ParamsMap(pub LinearMap<String, String>);
 
 impl ParamsMap {
     /// Creates an empty map.
@@ -59,11 +59,11 @@ impl Default for ParamsMap {
 /// A declarative way of creating a [ParamsMap].
 ///
 /// ```
-/// # use crate::params_map;
+/// # use leptos_router::params_map;
 /// let map = params_map! {
-///     "id" => "1"
+///     "id".to_string() => "1".to_string()
 /// };
-/// assert_eq!(map.get("id"), Some("1"));
+/// assert_eq!(map.get("id"), Some(&"1".to_string()));
 /// assert_eq!(map.get("missing"), None)
 /// ```
 // Adapted from hash_map! in common_macros crate
