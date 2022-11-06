@@ -17,6 +17,10 @@ linear-map = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 
+[dev-dependencies]
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.12" }
+leptos = { path = "../leptos", default-features = false, version = "0.0.12" }
+
 [features]
 csr = ["leptos_dom/csr", "leptos_reactive/csr"]
 hydrate = ["leptos_dom/hydrate", "leptos_reactive/hydrate"]
