@@ -1,6 +1,6 @@
 [package]
 name = "leptos_server"
-version = "0.0.13"
+version = "0.0.15"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"

@@ -294,7 +294,7 @@ where
 /// let pending = save_data.pending();
 /// // how many times the action has run
 /// // useful for reactively updating something else in response to a `dispatch` and response
-/// let version = save_data.version();
+/// let version = save_data.version;
 ///
 /// // before we do anything
 /// assert_eq!(input(), None); // no argument yet
@@ -346,7 +346,8 @@ where
     I: 'static,
     O: 'static,
 {
-    version: RwSignal<usize>,
+    /// How many times the action has successfully resolved.
+    pub version: RwSignal<usize>,
     input: RwSignal<Option<I>>,
     value: RwSignal<Option<O>>,
     pending: RwSignal<bool>,
@@ -394,11 +395,6 @@ where
         self.value.read_only()
     }
 
-    /// How many times the action has successfully resolved.
-    pub fn version(&self) -> ReadSignal<usize> {
-        self.version.read_only()
-    }
-
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<&str> {
@@ -442,7 +438,7 @@ where
 /// let pending = save_data.pending();
 /// // how many times the action has run
 /// // useful for reactively updating something else in response to a `dispatch` and response
-/// let version = save_data.version();
+/// let version = save_data.version;
 ///
 /// // before we do anything
 /// assert_eq!(input(), None); // no argument yet
