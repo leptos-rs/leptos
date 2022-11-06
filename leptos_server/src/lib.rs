@@ -56,16 +56,6 @@
 //! - **Server function arguments and return types must be [Serializable](leptos_reactive::Serializable).**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
-//!
-//! ### `create_action`
-//!
-//! The easiest way to call server functions from the client is the `create_action` primitive.
-//! This returns an [Action](crate::Action), with a [dispatch](crate::Action::dispatch) method
-//! that can run any `async` function, including one that contains one or more calls to server functions.
-//!
-//! Dispatching an action increments its [version](crate::Action::version) field, which is a
-//! signal. This is very useful, as it can be used to invalidate a [Resource](leptos_reactive::Resource)
-//! that reads from the same data.
 
 pub use form_urlencoded;
 use leptos_reactive::*;
