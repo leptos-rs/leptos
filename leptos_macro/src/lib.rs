@@ -83,9 +83,13 @@ mod server;
 /// ```
 ///
 /// 4. Dynamic content can be wrapped in curly braces (`{ }`) to insert text nodes, elements, or set attributes.
-///    If you insert signal here, Leptos will create an effect to update the DOM whenever the value changes.
+///    If you insert a signal here, Leptos will create an effect to update the DOM whenever the value changes.
 ///    *(“Signal” here means `Fn() -> T` where `T` is the appropriate type for that node: a `String` in case
 ///    of text nodes, a `bool` for `class:` attributes, etc.)*
+///
+///    Attributes can take a wide variety of primitive types that can be converted to strings. They can also
+///    take an `Option`, in which case `Some` sets the attribute and `None` removes the attribute.
+///
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
 /// # run_scope(|cx| {
@@ -124,7 +128,10 @@ mod server;
 /// ```
 ///
 /// 6. DOM properties can be set with `prop:` attributes, which take any primitive type or `JsValue` (or a signal
-///    that returns a primitive or JsValue). If your property name contains a dash, you should use `prop-` as the prefix instead.
+///    that returns a primitive or JsValue). They can also take an `Option`, in which case `Some` sets the property
+///    and `None` deletes the property.
+///
+///    If your property name contains a dash, you should use `prop-` as the prefix instead.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(|cx| {
