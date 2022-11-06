@@ -301,7 +301,7 @@ where
 /// assert_eq!(pending(), false); // isn't pending a response
 /// assert_eq!(result_of_call(), None); // there's no "last value"
 /// assert_eq!(version(), 0);
-///
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
@@ -315,7 +315,7 @@ where
 /// assert_eq!(pending(), false); // no longer pending
 /// assert_eq!(result_of_call(), Some(42));
 /// assert_eq!(version(), 1);
-///
+/// # }
 /// # });
 /// ```
 ///
@@ -445,7 +445,7 @@ where
 /// assert_eq!(pending(), false); // isn't pending a response
 /// assert_eq!(result_of_call(), None); // there's no "last value"
 /// assert_eq!(version(), 0);
-///
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
@@ -459,7 +459,7 @@ where
 /// assert_eq!(pending(), false); // no longer pending
 /// assert_eq!(result_of_call(), Some(42));
 /// assert_eq!(version(), 1);
-///
+/// # }
 /// # });
 /// ```
 ///
