@@ -53,10 +53,11 @@
 //!
 //! Here are links to the most important sections of the docs:
 //! - **Reactivity**: the [leptos_reactive] overview, and more details in
-//!   - [create_signal], [ReadSignal], and [WriteSignal] (and [create_rw_signal] and [RwSignal])
-//!   - [create_memo] and [Memo]
-//!   - [create_resource] and [Resource]
-//!   - [create_effect]
+//!   - signals: [create_signal], [ReadSignal], and [WriteSignal] (and [create_rw_signal] and [RwSignal])
+//!   - computations: [create_memo] and [Memo]
+//!   - `async` interop: [create_resource] and [Resource] for loading data using `async` functions,
+//!     and [create_action] and [Action] to mutate data or imperatively call `async` functions.
+//!   - reactions: [create_effect]
 //! - **Templating/Views**: the [view] macro
 //! - **Routing**: the [leptos_router](https://docs.rs/leptos_router/latest/leptos_router/) crate
 //!
