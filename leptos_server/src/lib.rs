@@ -75,9 +75,52 @@ type ServerFnTraitObj =
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
-    pub static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
+    static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
 }
 
+/// Attempts to find a server function registered at the given path.
+///
+/// This can be used by a server to handle the requests, as in the following example (using `actix-web`)
+///
+/// ```rust, ignore
+/// #[post("{tail:.*}")]
+/// async fn handle_server_fns(
+///     req: HttpRequest,
+///     params: web::Path<String>,
+///     body: web::Bytes,
+/// ) -> impl Responder {
+///     let path = params.into_inner();
+///     let accept_header = req
+///         .headers()
+///         .get("Accept")
+///         .and_then(|value| value.to_str().ok());
+///
+///     if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+///         let body: &[u8] = &body;
+///         match server_fn(&body).await {
+///             Ok(serialized) => {
+///                 // if this is Accept: application/json then send a serialized JSON response
+///                 if let Some("application/json") = accept_header {
+///                     HttpResponse::Ok().body(serialized)
+///                 }
+///                 // otherwise, it's probably a <form> submit or something: redirect back to the referrer
+///                 else {
+///                     HttpResponse::SeeOther()
+///                         .insert_header(("Location", "/"))
+///                         .content_type("application/json")
+///                         .body(serialized)
+///                 }
+///             }
+///             Err(e) => {
+///                 eprintln!("server function error: {e:#?}");
+///                 HttpResponse::InternalServerError().body(e.to_string())
+///             }
+///         }
+///     } else {
+///         HttpResponse::BadRequest().body(format!("Could not find a server function at that route."))
+///     }
+/// }
+/// ```
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
     REGISTERED_SERVER_FUNCTIONS
@@ -164,6 +207,7 @@ where
     }
 }
 
+/// Type for errors that can occur when using server functions.
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ServerFnError {
     #[error("error while trying to register the server function: {0}")]
