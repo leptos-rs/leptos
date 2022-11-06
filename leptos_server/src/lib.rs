@@ -73,22 +73,22 @@ use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
 use thiserror::Error;
 
-#[cfg(feature = "ssr")]
+#[cfg(any(feature = "ssr", doc))]
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
 
-#[cfg(feature = "ssr")]
+#[cfg(any(feature = "ssr", doc))]
 type ServerFnTraitObj =
     dyn Fn(&[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>> + Send + Sync;
 
-#[cfg(feature = "ssr")]
+#[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
     pub static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
 }
 
-#[cfg(feature = "ssr")]
+#[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
     REGISTERED_SERVER_FUNCTIONS
         .read()
@@ -102,9 +102,9 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
 /// (This follows the same convention as the Leptos framework's distinction between `ssr` for server-side rendering,
 /// and `csr` and `hydrate` for client-side rendering and hydration, respectively.)
 ///
-/// Server functions are created using the [server](leptos_macro::server) macro.
+/// Server functions are created using the `server` macro.
 ///
-/// The function should be registered by calling [ServerFn::register]. The set of server functions
+/// The function should be registered by calling `ServerFn::register()`. The set of server functions
 /// can be queried on the server for routing purposes by calling [server_fn_by_path].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
@@ -124,15 +124,15 @@ where
     fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError>;
 
     /// Runs the function on the server.
-    #[cfg(feature = "ssr")]
+    #[cfg(any(feature = "ssr", doc))]
     fn call_fn(self) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>> + Send>>;
 
     /// Runs the function on the client by sending an HTTP request to the server.
-    #[cfg(not(feature = "ssr"))]
+    #[cfg(any(not(feature = "ssr"), doc))]
     fn call_fn_client(self) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
     /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(feature = "ssr")]
+    #[cfg(any(feature = "ssr", doc))]
     fn register() -> Result<(), ServerFnError> {
         // create the handler for this server function
         // takes a String -> returns its async value
@@ -366,13 +366,13 @@ where
     }
 
     /// The URL associated with the action (typically as part of a server function.)
-    /// This enables integration with the [ActionForm] component.
+    /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<&str> {
         self.url
     }
 
     /// Associates the URL of the given server function with this action.
-    /// This enables integration with the [ActionForm] component.
+    /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn using_server_fn<T: ServerFn>(mut self) -> Self {
         self.url = Some(T::url());
         self
@@ -485,7 +485,6 @@ where
 /// ```rust
 /// # use leptos_reactive::run_scope;
 /// # use leptos_server::{create_server_action, ServerFnError, ServerFn};
-/// # use leptos_server as leptos;
 /// # use leptos_macro::server;
 ///
 /// #[server(MyServerFn)]

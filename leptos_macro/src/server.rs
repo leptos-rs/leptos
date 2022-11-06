@@ -115,7 +115,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             }
 
             fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError> {
-                let data = ::leptos::leptos_server::form_urlencoded::parse(data).collect::<Vec<_>>();
+                let data = ::leptos::form_urlencoded::parse(data).collect::<Vec<_>>();
                 Ok(Self {
                     #(#from_form_data_fields),*
                 })
@@ -129,8 +129,8 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
             #[cfg(not(feature = "ssr"))]
             fn call_fn_client(self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
-                 let #struct_name { #(#field_names_3),* } = self;
-                 Box::pin(async move { #fn_name( #(#field_names_4),*).await })
+                let #struct_name { #(#field_names_3),* } = self;
+                Box::pin(async move { #fn_name( #(#field_names_4),*).await })
             }
         }
 
@@ -208,96 +208,3 @@ impl Parse for ServerFnBody {
         })
     }
 }
-/*
-/// Serialize the same way, regardless of flavor
-impl ToTokens for ServerFnBody {
-    fn to_tokens(&self, out_tokens: &mut TokenStream2) {
-        let Self {
-            vis,
-            ident,
-            generics,
-            inputs,
-            output,
-            where_clause,
-            block,
-            attrs,
-            ..
-        } = self;
-
-        let fields = inputs.iter().map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => todo!(),
-                FnArg::Typed(t) => t,
-            };
-            if let Type::Path(pat) = &*typed_arg.ty {
-                if pat.path.segments[0].ident == "Option" {
-                    quote! {
-                        #[builder(default, setter(strip_option))]
-                        #vis #f
-                    }
-                } else {
-                    quote! { #vis #f }
-                }
-            } else {
-                quote! { #vis #f }
-            }
-        });
-
-        let struct_name = Ident::new(&format!("{}Props", ident), Span::call_site());
-
-        let field_names = inputs.iter().filter_map(|f| match f {
-            FnArg::Receiver(_) => todo!(),
-            FnArg::Typed(t) => Some(&t.pat),
-        });
-
-        let first_lifetime = if let Some(GenericParam::Lifetime(lt)) = generics.params.first() {
-            Some(lt)
-        } else {
-            None
-        };
-
-        out_tokens.append_all(quote! {
-            #[derive(Copy, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
-            pub struct #struct_name {}
-
-            #[async_trait]
-            impl ServerFn for #struct_name {
-                type Output = i32;
-
-                fn url() -> &'static str {
-                    "get_server_count"
-                }
-
-                fn as_form_data(&self) -> Vec<(&'static str, String)> {
-                    vec![]
-                }
-
-                #[cfg(feature = "ssr")]
-                async fn call_fn(self) -> Result<Self::Output, ServerFnError> {
-                    get_server_count().await
-                }
-            }
-
-            #[cfg(feature = "ssr")]
-            pub async fn get_server_count() -> Result<i32, ServerFnError> {
-                Ok(COUNT.load(Ordering::Relaxed))
-            }
-            #[cfg(not(feature = "ssr"))]
-            pub async fn get_server_count() -> Result<i32, ServerFnError> {
-                call_server_fn(#struct_name::url(), #struct_name {}).await
-            }
-            #[cfg(not(feature = "ssr"))]
-            pub async fn get_server_count_helper(args: #struct_name) -> Result<i32, ServerFnError> {
-                call_server_fn(#struct_name::url(), args).await
-            }
-        });
-    }
-}
-
-/*
-
-
-
-
-*/
- */
