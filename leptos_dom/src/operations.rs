@@ -75,17 +75,13 @@ pub fn insert_before(
         debug_warn!("insert_before: trying to insert on a parent node that is not an element");
         new.clone()
     } else if let Some(existing) = existing {
-        if existing.parent_node().as_ref() == Some(parent.unchecked_ref()) {
-            match parent.insert_before(new, Some(existing)) {
-                Ok(c) => c,
-                Err(e) => {
-                    debug_warn!("{:?}", e.as_string());
-                    new.clone()
-                }
+        let parent = existing.parent_node().unwrap_throw();
+        match parent.insert_before(new, Some(existing)) {
+            Ok(c) => c,
+            Err(e) => {
+                debug_warn!("{:?}", e.as_string());
+                new.clone()
             }
-        } else {
-            debug_warn!("insert_before: existing node is not a child of parent node");
-            parent.append_child(new).unwrap_throw()
         }
     } else {
         parent.append_child(new).unwrap_throw()

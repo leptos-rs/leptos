@@ -152,7 +152,7 @@ fn root_element_to_tokens(
 #[derive(Clone, Debug)]
 enum PrevSibChange {
     Sib(Ident),
-    //Parent,
+    Parent,
     Skip,
 }
 
@@ -276,21 +276,21 @@ fn element_to_tokens(
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
-                    //log::debug!("next_sibling ({})", #debug_name);
+                    log::debug!("next_sibling ({})", #debug_name);
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
-                    //log::debug!("first_child ({})", #debug_name);
+                    log::debug!("first_child ({})", #debug_name);
                     let #this_el_ident = #parent.first_child().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
         navigations.push(this_nav);
@@ -351,11 +351,12 @@ fn element_to_tokens(
             expressions,
             multi,
             mode,
+            idx == 0
         );
 
         prev_sib = match curr_id {
             PrevSibChange::Sib(id) => Some(id),
-            //PrevSibChange::Parent => None,
+            PrevSibChange::Parent => None,
             PrevSibChange::Skip => prev_sib,
         };
     }
@@ -596,6 +597,7 @@ fn child_to_tokens(
     expressions: &mut Vec<TokenStream>,
     multi: bool,
     mode: Mode,
+    is_first_child: bool
 ) -> PrevSibChange {
     match node.node_type {
         NodeType::Element => {
@@ -613,6 +615,7 @@ fn child_to_tokens(
                     next_co_id,
                     multi,
                     mode,
+                    is_first_child
                 )
             } else {
                 PrevSibChange::Sib(element_to_tokens(
@@ -769,6 +772,7 @@ fn component_to_tokens(
     next_co_id: &mut usize,
     multi: bool,
     mode: Mode,
+    is_first_child: bool
 ) -> PrevSibChange {
     let create_component = create_component(cx, node, mode);
     let span = node.name_span().unwrap();
@@ -805,15 +809,15 @@ fn component_to_tokens(
 
             let starts_at = if let Some(prev_sib) = prev_sib {
                 quote::quote! {{
-                    //log::debug!("starts_at = next_sibling");
+                    log::debug!("starts_at = next_sibling");
                     #prev_sib.next_sibling().unwrap_throw()
-                    //log::debug!("ok starts_at");
+                    log::debug!("ok starts_at");
                 }}
             } else {
                 quote::quote! {{
-                    //log::debug!("starts_at first_child");
+                    log::debug!("starts_at first_child");
                     #parent.first_child().unwrap_throw()
-                    //log::debug!("starts_at ok");
+                    log::debug!("starts_at ok");
                 }}
             };
 
@@ -856,7 +860,11 @@ fn component_to_tokens(
 
     match current {
         Some(el) => PrevSibChange::Sib(el),
-        None => PrevSibChange::Skip,
+        None => if is_first_child {
+            PrevSibChange::Parent
+        } else {
+            PrevSibChange::Skip
+        },
     }
 }
 

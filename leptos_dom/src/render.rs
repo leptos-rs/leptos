@@ -233,11 +233,7 @@ pub fn insert_expression(
                 }
                 Child::Null => match before {
                     Marker::BeforeChild(before) => {
-                        if before.is_connected() {
-                            Child::Node(insert_before(&parent, node, Some(before)))
-                        } else {
-                            Child::Node(append_child(&parent, node))
-                        }
+                        Child::Node(insert_before(&parent, node, Some(before)))
                     }
                     _ => Child::Node(append_child(&parent, node)),
                 },
