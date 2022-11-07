@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 use crate::{is_component_node, Mode};
 
+const NON_BUBBLING_EVENTS: [&str; 11] = ["load", "unload", "scroll", "focus", "blur", "loadstart", "progress", "error", "abort", "load", "loadend"];
+
 pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
         &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
@@ -481,9 +483,15 @@ fn attr_to_tokens(
             } else {
                 name.replacen("on-", "", 1)
             };            
-            expressions.push(quote_spanned! {
-                span => add_event_listener(#el_id.unchecked_ref(), #name, #handler);
-            });
+            if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
+                expressions.push(quote_spanned! {
+                    span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
+                });
+            } else {
+                expressions.push(quote_spanned! {
+                    span => ::leptos::add_event_listener(#el_id.unchecked_ref(), #name, #handler);
+                });
+            }
         } else {
             // this is here to avoid warnings about unused signals
             // that are used in event listeners. I'm open to better solutions.
@@ -932,9 +940,15 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 .value
                 .as_ref()
                 .expect("on: event listener attributes need a value");
-            Some(quote_spanned! {
-                span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
-            })
+            if NON_BUBBLING_EVENTS.contains(&event_name) {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
+                })
+            } else {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+                })
+            }
         }
         else if let Some(event_name) = attr_name.strip_prefix("on-") {
             let span = attr.name_span().unwrap();
@@ -942,9 +956,15 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 .value
                 .as_ref()
                 .expect("on- event listener attributes need a value");
-            Some(quote_spanned! {
-                span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
-            })
+            if NON_BUBBLING_EVENTS.contains(&event_name) {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
+                })
+            } else {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+                })
+            }
         }
         // Properties
         else if let Some(name) = attr_name.strip_prefix("prop:") {
