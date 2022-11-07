@@ -238,6 +238,15 @@ pub fn add_event_listener(
     event_delegation::add_event_listener(event_name);
 }
 
+pub fn add_event_listener_undelegated(
+    target: &web_sys::Element,
+    event_name: &'static str,
+    cb: impl FnMut(web_sys::Event) + 'static,
+) {
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+    _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
+}
+
 #[inline(always)]
 pub fn ssr_event_listener(_cb: impl FnMut(web_sys::Event) + 'static) {
     // this function exists only for type inference in templates for SSR
