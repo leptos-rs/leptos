@@ -661,20 +661,25 @@ fn child_to_tokens(
                 .map(|val| val.span())
                 .unwrap_or_else(Span::call_site);
 
-            *next_el_id += 1;
-            let name = child_ident(*next_el_id, node);
-            let location = if let Some(sibling) = &prev_sib {
-                quote_spanned! {
-                    span => //log::debug!("-> next sibling");
-                            let #name = #sibling.next_sibling().unwrap_throw();
-                            //log::debug!("\tnext sibling = {}", #name.node_name());
-                }
+            let (name, location) = if is_first_child && mode == Mode::Client {
+                (None, quote! { })
             } else {
-                quote_spanned! {
-                    span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                            let #name = #parent.first_child().unwrap_throw();
-                            //log::debug!("\tfirst child = {}", #name.node_name());
-                }
+                *next_el_id += 1;
+                let name = child_ident(*next_el_id, node);
+                let location = if let Some(sibling) = &prev_sib {
+                    quote_spanned! {
+                        span => //log::debug!("-> next sibling");
+                                let #name = #sibling.next_sibling().unwrap_throw();
+                                //log::debug!("\tnext sibling = {}", #name.node_name());
+                    }
+                } else {
+                    quote_spanned! {
+                        span => //log::debug!("\\|/ first child on {}", #parent.node_name());
+                                let #name = #parent.first_child().unwrap_throw();
+                                //log::debug!("\tfirst child = {}", #name.node_name());
+                    }
+                };
+                (Some(name), location)
             };
 
             let before = match &next_sib {
@@ -700,13 +705,19 @@ fn child_to_tokens(
                     template.push_str(&v);
                 }
 
-                PrevSibChange::Sib(name)
+                if let Some(name) = name {
+                    PrevSibChange::Sib(name)
+                } else {
+                    PrevSibChange::Parent
+                }
             } else {
                 // these markers are one of the primary templating differences across modes
                 match mode {
                     // in CSR, simply insert a comment node: it will be picked up and replaced with the value
                     Mode::Client => {
-                        template.push_str("<!>");
+                        if !is_first_child {
+                            template.push_str("<!>");
+                        }
                         navigations.push(location);
 
                         let current = match current {
@@ -759,7 +770,11 @@ fn child_to_tokens(
                     }),
                 }
 
-                PrevSibChange::Sib(name)
+                                if let Some(name) = name {
+                    PrevSibChange::Sib(name)
+                } else {
+                    PrevSibChange::Parent
+                }
             }
         }
         _ => panic!("unexpected child node type"),

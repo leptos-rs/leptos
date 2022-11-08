@@ -273,7 +273,7 @@ pub fn insert_expression(
                         Child::Nodes(new_nodes.to_vec())
                     }
                 } else {
-                    clean_children(&parent, Child::Null, &Marker::NoChildren, None);
+                    clean_children(&parent, Child::Null, before, None);
                     append_nodes(parent, new_nodes.to_vec(), before.as_some_node().cloned());
                     Child::Nodes(new_nodes.to_vec())
                 }
