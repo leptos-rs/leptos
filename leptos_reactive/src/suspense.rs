@@ -1,7 +1,10 @@
 use crate::{create_signal, spawn::queue_microtask, ReadSignal, Scope, WriteSignal};
 
+/// Tracks [Resource](crate::Resource)s that are read under a suspense context,
+/// i.e., within a [Suspense](leptos_core::Suspense) component.
 #[derive(Copy, Clone, Debug)]
 pub struct SuspenseContext {
+    /// The number of resources that are currently pending.
     pub pending_resources: ReadSignal<usize>,
     set_pending_resources: WriteSignal<usize>,
 }
@@ -21,6 +24,7 @@ impl PartialEq for SuspenseContext {
 impl Eq for SuspenseContext {}
 
 impl SuspenseContext {
+    /// Creates an empty suspense context.
     pub fn new(cx: Scope) -> Self {
         let (pending_resources, set_pending_resources) = create_signal(cx, 0);
         Self {
@@ -29,11 +33,13 @@ impl SuspenseContext {
         }
     }
 
+    /// Notifies the suspense context that a new resource is now pending.
     pub fn increment(&self) {
         let setter = self.set_pending_resources;
         queue_microtask(move || setter.update(|n| *n += 1));
     }
 
+    /// Notifies the suspense context that a resource has resolved.
     pub fn decrement(&self) {
         let setter = self.set_pending_resources;
         queue_microtask(move || {
@@ -45,6 +51,7 @@ impl SuspenseContext {
         });
     }
 
+    /// Tests whether all of the pending resources have resolved.
     pub fn ready(&self) -> bool {
         self.pending_resources
             .try_with(|n| *n == 0)

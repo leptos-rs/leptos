@@ -1,4 +1,5 @@
 use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use cfg_if::cfg_if;
 use std::fmt::Debug;
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
@@ -42,18 +43,17 @@ use std::fmt::Debug;
 /// # assert_eq!(b(), 2);
 /// # }).dispose();
 /// ```
-#[cfg(not(feature = "ssr"))]
 pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
-    create_isomorphic_effect(cx, f);
-}
-#[cfg(feature = "ssr")]
-pub fn create_effect<T>(_cx: Scope, _f: impl FnMut(Option<T>) -> T + 'static)
-where
-    T: Debug + 'static,
-{
+    cfg_if! {
+        if #[cfg(not(feature = "ssr"))] {
+            create_isomorphic_effect(cx, f);
+        } else {
+            { }
+        }
+    }
 }
 
 /// Creates an effect; unlike effects created by [create_effect], isomorphic effects will run on
@@ -98,7 +98,10 @@ where
     create_effect(cx, f);
 }
 
-slotmap::new_key_type! { pub struct EffectId; }
+slotmap::new_key_type! {
+    /// Unique ID assigned to an [Effect](crate::Effect).
+    pub(crate) struct EffectId;
+}
 
 pub(crate) struct Effect<T, F>
 where

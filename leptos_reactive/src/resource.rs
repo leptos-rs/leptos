@@ -347,19 +347,21 @@ where
             .resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
     }
 
-    pub fn loading(&self) -> bool {
+    /// Returns a signal that indicates whether the resource is currently loading.
+    pub fn loading(&self) -> ReadSignal<bool> {
         self.runtime
-            .resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.loading.try_with(|n| *n).unwrap_or(false)
-            })
+            .resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
     }
 
+    /// Re-runs the async function with the current source data.
     pub fn refetch(&self) {
         self.runtime
             .resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
     }
 
-    #[cfg(feature = "ssr")]
+    /// Returns a [std::future::Future] that will resolve when the resource has loaded,
+    /// yield its [ResourceId] and a JSON string.
+    #[cfg(any(feature = "ssr", doc))]
     pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
     where
         T: Serializable,
@@ -372,6 +374,49 @@ where
     }
 }
 
+/// A signal that reflects the
+/// current state of an asynchronous task, allowing you to integrate `async`
+/// [Future]s into the synchronous reactive system.
+///
+/// Takes a `fetcher` function that generates a [Future] when called and a
+/// `source` signal that provides the argument for the `fetcher`. Whenever the
+/// value of the `source` changes, a new [Future] will be created and run.
+///
+/// When server-side rendering is used, the server will handle running the
+/// [Future] and will stream the result to the client. This process requires the
+/// output type of the Future to be [Serializable]. If your output cannot be
+/// serialized, or you just want to make sure the [Future] runs locally, use
+/// [create_local_resource()].
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(|cx| {
+/// // any old async function; maybe this is calling a REST API or something
+/// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
+///   // pretend we're fetching cat pics
+///   vec![how_many.to_string()]
+/// }
+///
+/// // a signal that controls how many cat pics we want
+/// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
+///
+/// // create a resource that will refetch whenever `how_many_cats` changes
+/// # // `csr`, `hydrate`, and `ssr` all have issues here
+/// # // because we're not running in a browser or in Tokio. Let's just ignore it.
+/// # if false {
+/// let cats = create_resource(cx, how_many_cats, fetch_cat_picture_urls);
+///
+/// // when we read the signal, it contains either
+/// // 1) None (if the Future isn't ready yet) or
+/// // 2) Some(T) (if the future's already resolved)
+/// assert_eq!(cats(), Some(vec!["1".to_string()]));
+///
+/// // when the signal's value changes, the `Resource` will generate and run a new `Future`
+/// set_how_many_cats(2);
+/// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// # }
+/// # }).dispose();
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T>
 where
@@ -385,7 +430,10 @@ where
 }
 
 // Resources
-slotmap::new_key_type! { pub struct ResourceId; }
+slotmap::new_key_type! {
+    /// Unique ID assigned to a [Resource](crate::Resource).
+    pub struct ResourceId;
+}
 
 impl<S, T> Clone for Resource<S, T>
 where
