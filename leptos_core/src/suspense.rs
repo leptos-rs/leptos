@@ -30,11 +30,15 @@ where
 /// # use leptos_reactive::*;
 /// # use leptos_core::*;
 /// # use leptos_macro::*;
-/// # use leptos_dom::*;
+/// # use leptos_dom::*; use leptos::*;
 /// # run_scope(|cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// async fn fetch_cats(how_many: u32) -> Result<Vec<String>, ()> { Ok(vec![]) }
+///
 /// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
+///
 /// let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
+///
 /// view! { cx,
 ///   <div>
 ///     <Suspense fallback={"Loading (Suspense Fallback)...".to_string()}>
@@ -58,6 +62,7 @@ where
 ///     </Suspense>
 ///   </div>
 /// };
+/// # }
 /// # });
 /// ```
 #[allow(non_snake_case)]

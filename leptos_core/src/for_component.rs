@@ -34,7 +34,7 @@ where
 /// # use leptos_reactive::*;
 /// # use leptos_macro::*;
 /// # use leptos_core::*;
-/// # use leptos_dom::*;
+/// # use leptos_dom::*; use leptos::*;
 ///
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// struct Counter {
