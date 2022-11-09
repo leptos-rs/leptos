@@ -59,9 +59,11 @@ impl Todos {
         // if all are complete, mark them all active
         if self.remaining() == 0 {
             for todo in &self.0 {
-                if todo.completed.get() {
-                    todo.completed.set(false);
-                }
+                todo.completed.update(|completed| {
+                    if *completed {
+                        *completed = false
+                    }
+                });
             }
         }
         // otherwise, mark them all complete
@@ -177,7 +179,7 @@ pub fn TodoMVC(cx: Scope) -> Element {
     // this is the main point of `create_effect`: to synchronize reactive state
     // with something outside the reactive system (like localStorage)
     create_effect(cx, move |_| {
-        if let Ok(Some(storage)) = window().local_storage() {
+        /* if let Ok(Some(storage)) = window().local_storage() {
             let objs = todos
                 .get()
                 .0
@@ -188,7 +190,7 @@ pub fn TodoMVC(cx: Scope) -> Element {
             if storage.set_item(STORAGE_KEY, &json).is_err() {
                 log::error!("error while trying to set item in localStorage");
             }
-        }
+        } */
     });
 
     view! { cx,
@@ -272,18 +274,15 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         set_editing(false);
     };
 
-    // the `input` variable above is filled by a ref, when the template is created
-    // so we create the template and store it in a variable here, so we can
-    // set up an effect using the `input` below
-    let tpl = view! { cx,
+    view! { cx,
         <li
             class="todo"
             class:editing={editing}
             class:completed={move || todo.completed.get()}
-            _ref=input
         >
             <div class="view">
                 <input
+                    _ref=input
                     class="toggle"
                     type="checkbox"
                     prop:checked={move || (todo.completed)()}
@@ -292,7 +291,12 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                         todo.completed.set(checked);
                     }}
                 />
-                <label on:dblclick=move |_| set_editing(true)>
+                <label on:dblclick=move |_| {
+                    set_editing(true);
+                    if let Some(input) = input.dyn_ref::<HtmlInputElement>() {
+                        input.focus();
+                    }
+                }>
                     {move || todo.title.get()}
                 </label>
                 <button class="destroy" on:click=move |_| set_todos.update(|t| t.remove(todo.id))/>
@@ -315,19 +319,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
             })
         }
         </li>
-    };
-
-    // toggling to edit mode should focus the input
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
-    create_effect(cx, move |_| {
-        if editing() {
-            if let Some(input) = input.dyn_ref::<HtmlInputElement>() {
-                input.focus();
-            }
-        }
-    });
-
-    tpl
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
