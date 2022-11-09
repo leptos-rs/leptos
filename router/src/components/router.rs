@@ -190,7 +190,6 @@ impl RouterContextInner {
         let cx = self.cx;
         let this = Rc::clone(&self);
 
-        // TODO untrack causes an error here
         cx.untrack(move || {
             let resolved_to = if options.resolve {
                 this.base.resolve_path(to)
@@ -201,6 +200,7 @@ impl RouterContextInner {
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
                 Some(resolved_to) => {
+                    let resolved_to = resolved_to.to_string();
                     if self.referrers.borrow().len() > 32 {
                         return Err(NavigationError::MaxRedirects);
                     }
@@ -209,7 +209,7 @@ impl RouterContextInner {
                         if cfg!(feature = "server") {
                             // TODO server out
                             self.history.navigate(&LocationChange {
-                                value: resolved_to.to_string(),
+                                value: resolved_to,
                                 replace: options.replace,
                                 scroll: options.scroll,
                                 state: options.state.clone(),
@@ -233,23 +233,26 @@ impl RouterContextInner {
                             let referrers = self.referrers.clone();
                             let this = Rc::clone(&self);
                             //move || {
-                            set_reference.update({
-                                let resolved = resolved_to.to_string();
-                                move |r| *r = resolved
+
+                            let resolved = resolved_to.to_string();
+                            let state = options.state.clone();
+                            queue_microtask(move || {
+                                set_reference.update(move |r| *r = resolved);
+
+                                set_state.update({
+                                    let next_state = state.clone();
+                                    move |state| *state = next_state
+                                });
+                                if referrers.borrow().len() == len {
+                                    this.navigate_end(LocationChange {
+                                        value: resolved_to.to_string(),
+                                        replace: false,
+                                        scroll: true,
+                                        state,
+                                    })
+                                    //}
+                                }
                             });
-                            set_state.update({
-                                let next_state = options.state.clone();
-                                move |state| *state = next_state
-                            });
-                            if referrers.borrow().len() == len {
-                                this.navigate_end(LocationChange {
-                                    value: resolved_to.to_string(),
-                                    replace: false,
-                                    scroll: true,
-                                    state: options.state.clone(),
-                                })
-                                //}
-                            }
                             //});
                         }
                     }
