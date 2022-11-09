@@ -179,7 +179,7 @@ pub fn TodoMVC(cx: Scope) -> Element {
     // this is the main point of `create_effect`: to synchronize reactive state
     // with something outside the reactive system (like localStorage)
     create_effect(cx, move |_| {
-        /* if let Ok(Some(storage)) = window().local_storage() {
+        if let Ok(Some(storage)) = window().local_storage() {
             let objs = todos
                 .get()
                 .0
@@ -190,7 +190,7 @@ pub fn TodoMVC(cx: Scope) -> Element {
             if storage.set_item(STORAGE_KEY, &json).is_err() {
                 log::error!("error while trying to set item in localStorage");
             }
-        } */
+        }
     });
 
     view! { cx,
