@@ -20,7 +20,7 @@
 //!    for examples of the correct API.
 //!
 //! # Learning by Example
-//!  
+//!
 //! These docs are a work in progress. If you want to see what Leptos is capable of, check out
 //! the [examples](https://github.com/gbj/leptos/tree/main/examples):
 //! - [`counter`](https://github.com/gbj/leptos/tree/main/examples/counter) is the classic
@@ -70,9 +70,9 @@
 //!   and `.set()` manually.
 //! - `serde` (*Default*) In SSR/hydrate mode, uses [serde] to serialize resources and send them
 //!   from the server to the client.
-//! - `serde-lite` (*Default*) In SSR/hydrate mode, uses [serde-lite] to serialize resources and send them
+//! - `serde-lite` In SSR/hydrate mode, uses [serde-lite] to serialize resources and send them
 //!   from the server to the client.
-//! - `serde` (*Default*) In SSR/hydrate mode, uses [miniserde] to serialize resources and send them
+//! - `miniserde` In SSR/hydrate mode, uses [miniserde] to serialize resources and send them
 //!   from the server to the client.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
