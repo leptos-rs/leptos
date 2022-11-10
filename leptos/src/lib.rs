@@ -60,6 +60,7 @@
 //!   - reactions: [create_effect]
 //! - **Templating/Views**: the [view] macro
 //! - **Routing**: the [leptos_router](https://docs.rs/leptos_router/latest/leptos_router/) crate
+//! - **Server Functions**: the [server](crate::leptos_server) macro, [create_action], and [create_server_action]
 //!
 //! # Feature Flags
 //! - `csr` (*Default*) Client-side rendering: Generate DOM nodes in the browser
@@ -70,9 +71,9 @@
 //!   and `.set()` manually.
 //! - `serde` (*Default*) In SSR/hydrate mode, uses [serde] to serialize resources and send them
 //!   from the server to the client.
-//! - `serde-lite` (*Default*) In SSR/hydrate mode, uses [serde-lite] to serialize resources and send them
+//! - `serde-lite` In SSR/hydrate mode, uses [serde-lite] to serialize resources and send them
 //!   from the server to the client.
-//! - `serde` (*Default*) In SSR/hydrate mode, uses [miniserde] to serialize resources and send them
+//! - `miniserde` In SSR/hydrate mode, uses [miniserde] to serialize resources and send them
 //!   from the server to the client.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
