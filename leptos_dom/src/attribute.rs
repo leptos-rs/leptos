@@ -4,8 +4,8 @@ use leptos_reactive::Scope;
 
 /// Represents the different possible values an attribute node could have.
 ///
-/// This mostly exists for the [view](leptos_macro::view) macro’s use. You usually
-/// won't need to interact with it directly.
+/// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
+/// macro’s use. You usually won't need to interact with it directly.
 #[derive(Clone)]
 pub enum Attribute {
     /// A plain string value.

@@ -8,8 +8,8 @@ use crate::Node;
 
 /// Represents the different possible values an element child node could have.
 ///
-/// This mostly exists for the [view](leptos_macro::view) macro’s use. You usually
-/// won't need to interact with it directly.
+/// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) 
+/// macro’s use. You usually won't need to interact with it directly.
 #[derive(Clone)]
 pub enum Child {
     /// Nothingness. Emptiness. The void.

@@ -21,7 +21,8 @@
 //!    a signal [RwSignal](crate::RwSignal) without this read-write segregation.
 //! 2. *Derived Signals:* any function that relies on another signal.
 //! 3. *Memos:* [create_memo](crate::create_memo), which returns a [Memo](crate::Memo).
-//! 4. *Resources:* [create_resource], which converts an `async` [Future] into a synchronous [Resource](crate::Resource) signal.
+//! 4. *Resources:* [create_resource], which converts an `async` [std::future::Future] into a
+//!    synchronous [Resource](crate::Resource) signal.
 //!
 //! ### Effects
 //! 1. Use [create_effect](crate::create_effect) when you need to synchronize the reactive system
