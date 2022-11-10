@@ -6,16 +6,26 @@ use leptos_reactive::Scope;
 
 use crate::Node;
 
+/// Represents the different possible values an element child node could have.
+///
+/// This mostly exists for the [view](leptos_macro::view) macro’s use. You usually
+/// won't need to interact with it directly.
 #[derive(Clone)]
 pub enum Child {
+    /// Nothingness. Emptiness. The void.
     Null,
+    /// A text node.
     Text(String),
+    /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the node.
     Fn(Rc<RefCell<dyn FnMut() -> Child>>),
+    /// A generic node (a text node, comment, or element.)
     Node(Node),
+    /// A list of nodes (text nodes, comments, or elements.)
     Nodes(Vec<Node>),
 }
 
 impl Child {
+    /// Converts the attribute to its HTML value at that moment so it can be rendered on the server.
     #[cfg(not(any(feature = "hydrate", feature = "csr")))]
     pub fn as_child_string(&self) -> String {
         match self {
@@ -58,7 +68,9 @@ impl PartialEq for Child {
     }
 }
 
+/// Converts some type into a [Child].
 pub trait IntoChild {
+    /// Converts the object into a [Child].
     fn into_child(self, cx: Scope) -> Child;
 }
 
