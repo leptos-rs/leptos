@@ -1,11 +1,21 @@
 use leptos_reactive::Scope;
 
+/// Represents the different possible values a single class on an element could have,
+/// allowing you to do fine-grained updates to single items
+/// in [`Element.classList`](https://developer.mozilla.org/en-US/docs/Web/API/Element/classList).
+///
+/// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
+/// macro’s use. You usually won't need to interact with it directly.
 pub enum Class {
+    /// Whether the class is present.
     Value(bool),
+    /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
     Fn(Box<dyn Fn() -> bool>),
 }
 
+/// Converts some type into a [Class].
 pub trait IntoClass {
+    /// Converts the object into a [Class].
     fn into_class(self, cx: Scope) -> Class;
 }
 

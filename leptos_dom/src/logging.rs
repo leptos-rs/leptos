@@ -1,22 +1,7 @@
 use wasm_bindgen::JsValue;
 
-use crate::is_server;
-
-#[macro_export]
-macro_rules! log {
-    ($($t:tt)*) => ($crate::console_log(&format_args!($($t)*).to_string()))
-}
-
-#[macro_export]
-macro_rules! warn {
-    ($($t:tt)*) => ($crate::console_warn(&format_args!($($t)*).to_string()))
-}
-
-#[macro_export]
-macro_rules! error {
-    ($($t:tt)*) => ($crate::console_error(&format_args!($($t)*).to_string()))
-}
-
+/// Uses `println!()`-style formatting to log warnings to the console (in the browser)
+/// or via `eprintln!()` (if not in the browser), but only if it's a debug build.
 #[macro_export]
 macro_rules! debug_warn {
     ($($x:tt)*) => {
@@ -33,38 +18,18 @@ macro_rules! debug_warn {
     }
 }
 
-pub fn console_log(s: &str) {
-    if is_server!() {
-        println!("{}", s);
-    } else {
-        web_sys::console::log_1(&JsValue::from_str(s));
-    }
+/// Uses `println!()`-style formatting to log warnings to the console (in the browser)
+/// or via `eprintln!()` (if not in the browser).
+#[macro_export]
+macro_rules! warn {
+    ($($t:tt)*) => ($crate::console_warn(&format_args!($($t)*).to_string()))
 }
 
+/// Logs a string to the console (in the browser) or via `eprintln!()` (if not in the browser).
 pub fn console_warn(s: &str) {
-    if is_server!() {
-        eprintln!("{}", s);
-    } else {
+    if cfg!(any(feature = "csr", feature = "hydrate")) {
         web_sys::console::warn_1(&JsValue::from_str(s));
+    } else {
+        eprintln!("{}", s);
     }
 }
-
-pub fn console_error(s: &str) {
-    if is_server!() {
-        eprintln!("{}", s);
-    } else {
-        web_sys::console::warn_1(&JsValue::from_str(s));
-    }
-}
-
-#[cfg(debug_assertions)]
-pub fn console_debug_warn(s: &str) {
-    if is_server!() {
-        eprintln!("{}", s);
-    } else {
-        web_sys::console::warn_1(&JsValue::from_str(s));
-    }
-}
-
-#[cfg(not(debug_assertions))]
-pub fn console_debug_warn(_s: &str) {}
