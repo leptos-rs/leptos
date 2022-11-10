@@ -101,7 +101,7 @@ where
 ///   // if on the server, load from DB
 /// } else {
 ///   // if on the browser, do something else
-/// }
+/// };
 /// ```
 #[macro_export]
 macro_rules! is_server {

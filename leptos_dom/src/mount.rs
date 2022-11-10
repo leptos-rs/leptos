@@ -37,9 +37,11 @@ impl Mountable for Vec<Element> {
 ///
 /// ```
 /// // the simplest Leptos application
-/// # use leptos_dom::*;
+/// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// mount_to_body(|cx| view! { cx,  <p>"Hello, world!"</p> });
+/// # }
 /// ```
 pub fn mount_to_body<T, F>(f: F)
 where
@@ -53,12 +55,14 @@ where
 ///
 /// ```
 /// // a very simple Leptos application
-/// # use leptos_dom::*;
+/// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// mount(
-///   document().get_element_by_id("root").unwrap(),
+///   document().get_element_by_id("root").unwrap().unchecked_into(),
 ///   |cx| view! { cx,  <p>"Hello, world!"</p> }
 /// );
+/// # }
 /// ```
 pub fn mount<T, F>(parent: web_sys::HtmlElement, f: F)
 where
@@ -80,9 +84,11 @@ where
 ///
 /// ```
 /// // rehydrate a very simple Leptos application
-/// # use leptos_dom::*;
+/// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// hydrate(body(), |cx| view! { cx,  <p>"Hello, world!"</p> }); // ok, really does nothing
+/// # }
 /// ```
 #[cfg(feature = "hydrate")]
 pub fn hydrate<T, F>(parent: web_sys::HtmlElement, f: F)
