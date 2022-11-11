@@ -262,7 +262,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let input: Element;
+    let input: web_sys::Element;
 
     let save = move |value: &str| {
         let value = value.trim();
