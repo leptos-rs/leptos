@@ -211,7 +211,7 @@ pub fn TodoMVC(cx: Scope) -> Element {
                 >
                     <input id="toggle-all" class="toggle-all" type="checkbox"
                         prop:checked={move || todos.with(|t| t.remaining() > 0)}
-                        on:input=move |_| set_todos.update(|t| t.toggle_all())
+                        on:input=move |_| todos.with(|t| t.toggle_all())
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
