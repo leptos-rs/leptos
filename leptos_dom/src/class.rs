@@ -36,6 +36,7 @@ where
 }
 
 impl Class {
+    /// Converts the class to its HTML value at that moment so it can be rendered on the server.
     pub fn as_value_string(&self, class_name: &'static str) -> &'static str {
         match self {
             Class::Value(value) => {
