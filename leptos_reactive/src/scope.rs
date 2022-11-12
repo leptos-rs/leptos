@@ -60,10 +60,15 @@ pub struct Scope {
 }
 
 impl Scope {
+    /// The unique identifier for this scope.
     pub fn id(&self) -> ScopeId {
         self.id
     }
 
+    /// Creates a child scope and runs the given function within it.
+    ///
+    /// The child scope has its own lifetime and disposer, but will be disposed when the parent is
+    /// disposed, if it has not been already.
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
         let mut children = self.runtime.scope_children.borrow_mut();
@@ -75,6 +80,31 @@ impl Scope {
         disposer
     }
 
+    /// Suspends reactive tracking while running the given function.
+    ///
+    /// This can be used to isolate parts of the reactive graph from one another.
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # run_scope(|cx| {
+    /// let (a, set_a) = create_signal(cx, 0);
+    /// let (b, set_b) = create_signal(cx, 0);
+    /// let c = create_memo(cx, move |_| {
+    ///     // this memo will *only* update when `a` changes
+    ///     a() + cx.untrack(move || b())
+    /// });
+    ///
+    /// assert_eq!(c(), 0);
+    /// set_a(1);
+    /// assert_eq!(c(), 1);
+    /// set_b(1);
+    /// // hasn't updated, because we untracked before reading b
+    /// assert_eq!(c(), 1);
+    /// set_a(2);
+    /// assert_eq!(c(), 3);
+    ///
+    /// # });
+    /// ```
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         let prev_observer = self.runtime.observer.take();
         let untracked_result = f();
@@ -86,7 +116,7 @@ impl Scope {
 // Internals
 
 impl Scope {
-    pub fn dispose(self) {
+    pub(crate) fn dispose(self) {
         // dispose of all child scopes
         let children = {
             let mut children = self.runtime.scope_children.borrow_mut();
@@ -168,7 +198,10 @@ pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
     cleanups.push(Box::new(cleanup_fn));
 }
 
-slotmap::new_key_type! { pub struct ScopeId; }
+slotmap::new_key_type! {
+    /// Unique ID assigned to a [Scope](crate::Scope).
+    pub struct ScopeId;
+}
 
 #[derive(Debug)]
 pub(crate) enum ScopeProperty {
@@ -177,9 +210,22 @@ pub(crate) enum ScopeProperty {
     Resource(ResourceId),
 }
 
+/// Creating a [Scope](crate::Scope) gives you a disposer, which can be called
+/// to dispose of that reactive scope.
+///
+/// This will
+/// 1. dispose of all child `Scope`s
+/// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+/// 3. dispose of all signals, effects, and resources owned by this `Scope`.
 pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
 
 impl ScopeDisposer {
+    /// Disposes of a reactive [Scope](crate::Scope).
+    ///
+    /// This will
+    /// 1. dispose of all child `Scope`s
+    /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+    /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
     pub fn dispose(self) {
         (self.0)()
     }
@@ -188,19 +234,24 @@ impl ScopeDisposer {
 impl Scope {
     // hydration-specific code
     cfg_if! {
-        if #[cfg(feature = "hydrate")] {
+        if #[cfg(any(feature = "hydrate", doc))] {
+            /// `hydrate` only: Whether we're currently hydrating the page.
             pub fn is_hydrating(&self) -> bool {
                 self.runtime.shared_context.borrow().is_some()
             }
 
+            /// `hydrate` only: Begins the hydration process.
             pub fn start_hydration(&self, element: &web_sys::Element) {
                 self.runtime.start_hydration(element);
             }
 
+            /// `hydrate` only: Ends the hydration process.
             pub fn end_hydration(&self) {
                 self.runtime.end_hydration();
             }
 
+            /// `hydrate` only: Gets the next element in the hydration queue, either from the
+            /// server-rendered DOM or from the template.
             pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
                 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -241,7 +292,9 @@ impl Scope {
         }
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    /// `hydrate` only: Given the current node, gets the span of the next component that has
+    /// been marked for hydration, returning its starting node and the set of all its nodes.
+    #[cfg(any(feature = "csr", feature = "hydrate", doc))]
     pub fn get_next_marker(&self, start: &web_sys::Node) -> (web_sys::Node, Vec<web_sys::Node>) {
         let mut end = Some(start.clone());
         let mut count = 0;
@@ -279,6 +332,7 @@ impl Scope {
         (start, current)
     }
 
+    /// On either the server side or the browser side, generates the next key in the hydration process.
     pub fn next_hydration_key(&self) -> String {
         let mut sc = self.runtime.shared_context.borrow_mut();
         if let Some(ref mut sc) = *sc {
@@ -291,6 +345,7 @@ impl Scope {
         }
     }
 
+    /// Runs the given function with the next hydration context.
     pub fn with_next_context<T>(&self, f: impl FnOnce() -> T) -> T {
         if self
             .runtime
@@ -329,6 +384,7 @@ impl Scope {
         self.runtime.all_resources()
     }
 
+    /// The current key for an HTML fragment created by server-rendering a `<Suspense/>` component.
     pub fn current_fragment_key(&self) -> String {
         self.runtime
             .shared_context
@@ -343,6 +399,8 @@ impl Scope {
         self.runtime.serialization_resolvers()
     }
 
+    /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,
+    /// calling the `resolver` when its resources are all resolved.
     pub fn register_suspense(
         &self,
         context: SuspenseContext,
@@ -372,6 +430,7 @@ impl Scope {
         }
     }
 
+    /// The set of all HTML fragments current pending, by their keys (see [Self::current_fragment_key]).
     pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
         if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
             std::mem::take(&mut shared_context.pending_fragments)

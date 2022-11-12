@@ -211,7 +211,7 @@ pub fn TodoMVC(cx: Scope) -> Element {
                 >
                     <input id="toggle-all" class="toggle-all" type="checkbox"
                         prop:checked={move || todos.with(|t| t.remaining() > 0)}
-                        on:input=move |_| set_todos.update(|t| t.toggle_all())
+                        on:input=move |_| todos.with(|t| t.toggle_all())
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
@@ -262,7 +262,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let input: Element;
+    let input: web_sys::Element;
 
     let save = move |value: &str| {
         let value = value.trim();

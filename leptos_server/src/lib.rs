@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! # Leptos Server Functions
 //!
 //! This package is based on a simple idea: sometimes it’s useful to write functions
@@ -145,6 +147,7 @@ pub trait ServerFn
 where
     Self: Sized + 'static,
 {
+    /// The return type of the function.
     type Output: Serializable;
 
     /// The path at which the server function can be reached on the server.
@@ -210,18 +213,25 @@ where
 /// Type for errors that can occur when using server functions.
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ServerFnError {
+    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
     #[error("error while trying to register the server function: {0}")]
     Registration(String),
+    /// Occurs on the client if there is a network error while trying to run function on server.
     #[error("error reaching server to call server function: {0}")]
     Request(String),
+    /// Occurs when there is an error while actually running the function on the server.
     #[error("error running server function: {0}")]
     ServerError(String),
+    /// Occurs on the client if there is an error deserializing the server's response.
     #[error("error deserializing server function results {0}")]
     Deserialization(String),
+    /// Occurs on the client if there is an error serializing the server function arguments.
     #[error("error serializing server function results {0}")]
     Serialization(String),
+    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
     #[error("error deserializing server function arguments {0}")]
     Args(String),
+    /// Occurs on the server if there's a missing argument.
     #[error("missing argument {0}")]
     MissingArg(String),
 }

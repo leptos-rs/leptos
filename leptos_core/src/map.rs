@@ -168,7 +168,7 @@ mod tests {
 
                 let keyed = map_keyed(
                     cx,
-                    rows,
+                    move || rows.get(),
                     |cx, row| {
                         let read = row.1;
                         create_effect(cx, move |_| println!("row value = {}", read.get()));

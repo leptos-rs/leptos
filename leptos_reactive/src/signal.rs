@@ -604,7 +604,10 @@ where
 }
 
 // Internals
-slotmap::new_key_type! { pub struct SignalId; }
+slotmap::new_key_type! {
+    /// Unique ID assigned to a signal.
+    pub struct SignalId;
+}
 
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
@@ -644,7 +647,13 @@ impl SignalId {
                 }
             }
         }?;
-        let value = value.borrow();
+        let value = value.try_borrow().unwrap_or_else(|e| {
+            debug_warn!(
+                "Signal::try_with_no_subscription failed on Signal<{}>. It seems you're trying to read the value of a signal within an effect caused by updating the signal.",
+                std::any::type_name::<T>()
+            );
+            panic!("{e}");
+        });
         let value = value
             .downcast_ref::<T>()
             .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
