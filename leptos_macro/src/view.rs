@@ -494,8 +494,11 @@ fn attr_to_tokens(
                 });
             }
         } else {
-            // we used to fake the event listener here for SSR to avoid warnings about unused errors
-            // but that causes problems if you try to use JsCast on a leptos::Element but it's a string
+            // this is here to avoid warnings about unused signals
+            // that are used in event listeners. I'm open to better solutions.
+            expressions.push(quote_spanned! {
+                span => let _  = ssr_event_listener(#handler);
+            });
         }
     }
     // Properties
