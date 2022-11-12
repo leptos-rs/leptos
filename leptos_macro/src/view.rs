@@ -448,11 +448,8 @@ fn attr_to_tokens(
         };
 
         if mode == Mode::Ssr {
-            // fake the initialization; should only be used in effects or event handlers, which will never run on the server
-            // but if we don't initialize it, the compiler will complain
-            navigations.push(quote_spanned! {
-                span => #ident = String::new();
-            });
+            // used to fake the initialization; but if we do this, we can't do normal things like .dyn_ref() on an Element
+            // this will cause some warnings instead about unused setters, while doing SSR
         } else {
             expressions.push(match &node.value {
                 Some(expr) => {
@@ -494,11 +491,8 @@ fn attr_to_tokens(
                 });
             }
         } else {
-            // this is here to avoid warnings about unused signals
-            // that are used in event listeners. I'm open to better solutions.
-            expressions.push(quote_spanned! {
-                span => let _  = ssr_event_listener(#handler);
-            });
+            // we used to fake the event listener here for SSR to avoid warnings about unused errors
+            // but that causes problems if you try to use JsCast on a leptos::Element but it's a string
         }
     }
     // Properties
