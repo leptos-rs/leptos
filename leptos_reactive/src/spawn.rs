@@ -26,6 +26,9 @@ cfg_if! {
     }
 }
 
+/// Spawns and runs a thread-local [std::future::Future] in a platform-independent way.
+///
+/// This can be used to interface with any `async` code.
 pub fn spawn_local<F>(fut: F)
 where
     F: Future<Output = ()> + 'static,

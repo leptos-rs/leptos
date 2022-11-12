@@ -2,15 +2,24 @@ use std::rc::Rc;
 
 use leptos_reactive::Scope;
 
+/// Represents the different possible values an attribute node could have.
+///
+/// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
+/// macro’s use. You usually won't need to interact with it directly.
 #[derive(Clone)]
 pub enum Attribute {
+    /// A plain string value.
     String(String),
+    /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the attribute.
     Fn(Rc<dyn Fn() -> Attribute>),
+    /// An optional string value, which sets the attribute to the value if `Some` and removes the attribute if `None`.
     Option(Option<String>),
+    /// A boolean attribute, which sets the attribute if `true` and removes the attribute if `false`.
     Bool(bool),
 }
 
 impl Attribute {
+    /// Converts the attribute to its HTML value at that moment so it can be rendered on the server.
     pub fn as_value_string(&self, attr_name: &'static str) -> String {
         match self {
             Attribute::String(value) => format!("{attr_name}=\"{value}\""),
@@ -59,7 +68,11 @@ impl std::fmt::Debug for Attribute {
     }
 }
 
+/// Converts some type into an [Attribute].
+///
+/// This is implemented by default for Rust primitive and string types.
 pub trait IntoAttribute {
+    /// Converts the object into an [Attribute].
     fn into_attribute(self, cx: Scope) -> Attribute;
 }
 

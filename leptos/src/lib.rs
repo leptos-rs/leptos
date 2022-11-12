@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -60,6 +62,7 @@
 //!   - reactions: [create_effect]
 //! - **Templating/Views**: the [view] macro
 //! - **Routing**: the [leptos_router](https://docs.rs/leptos_router/latest/leptos_router/) crate
+//! - **Server Functions**: the [server](crate::leptos_server) macro, [create_action], and [create_server_action]
 //!
 //! # Feature Flags
 //! - `csr` (*Default*) Client-side rendering: Generate DOM nodes in the browser

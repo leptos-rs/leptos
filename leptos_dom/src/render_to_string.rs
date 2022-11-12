@@ -1,10 +1,12 @@
 use cfg_if::cfg_if;
 use std::borrow::Cow;
 
+/// Encodes strings to be used as text in HTML by escaping `&`, `<`, and `>`.
 pub fn escape_text(text: &str) -> Cow<'_, str> {
     html_escape::encode_text(text)
 }
 
+/// Encodes strings to be used as attribute values in HTML by escaping `&`, `<`, `>`, and `"`.
 pub fn escape_attr(text: &str) -> Cow<'_, str> {
     html_escape::encode_double_quoted_attribute(text)
 }
@@ -16,6 +18,18 @@ cfg_if! {
         use crate::Element;
         use futures::{stream::FuturesUnordered, Stream, StreamExt};
 
+        /// Renders a component to a stream of HTML strings.
+        ///
+        /// This renders:
+        /// 1) the application shell
+        ///   a) HTML for everything that is not under a `<Suspense/>`,
+        ///   b) the `fallback` for any `<Suspense/>` component that is not already resolved, and
+        ///   c) JavaScript necessary to receive streaming [Resource](leptos_reactive::Resource) data.
+        /// 2) streaming [Resource](leptos_reactive::Resource) data. Resources begin loading on the
+        ///    server and are sent down to the browser to resolve. On the browser, if the app sees that
+        ///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
+        /// 3) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
+        ///    read under that `<Suspense/>` resolve.
         pub fn render_to_stream(view: impl Fn(Scope) -> Element + 'static) -> impl Stream<Item = String> {
             let ((shell, pending_resources, pending_fragments, serializers), _, disposer) =
                 run_scope_undisposed({
@@ -54,6 +68,10 @@ cfg_if! {
                     "#
                 )
             })
+
+            // TODO this is wrong: it should merge the next two streams, not chain them
+            // you may well need to resolve some fragments before some of the resources are resolved
+
             // stream data for each Resource as it resolves
             .chain(serializers.map(|(id, json)| {
                 let id = serde_json::to_string(&id).unwrap();

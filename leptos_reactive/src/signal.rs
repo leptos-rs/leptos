@@ -604,7 +604,10 @@ where
 }
 
 // Internals
-slotmap::new_key_type! { pub struct SignalId; }
+slotmap::new_key_type! {
+    /// Unique ID assigned to a signal.
+    pub struct SignalId;
+}
 
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
