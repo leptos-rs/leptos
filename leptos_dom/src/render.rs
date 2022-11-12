@@ -7,14 +7,19 @@ use crate::{
     Class, Property,
 };
 
+/// Marks the node relative to which an operation should occur.
 #[derive(Clone, PartialEq, Eq)]
 pub enum Marker {
+    /// The parent has no children.
     NoChildren,
+    /// This node is the last child of its parent.
     LastChild,
+    /// This operation should be applied before the given node.
     BeforeChild(web_sys::Node),
 }
 
 impl Marker {
+    /// If the marker is relative to a node, returns that node. Otherwise, returns `None`.
     fn as_some_node(&self) -> Option<&web_sys::Node> {
         match &self {
             Self::BeforeChild(node) => Some(node),
@@ -36,6 +41,12 @@ impl std::fmt::Debug for Marker {
     }
 }
 
+/// Binds the `value` to the attribute `attr_name` on this `el`. If the attribute is reactive,
+/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// to the attribute value.
+///
+/// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
+/// You usually won't need to interact with it directly.
 pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, value: Attribute) {
     match value {
         Attribute::Fn(f) => {
@@ -82,6 +93,12 @@ fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute
     }
 }
 
+/// Binds the `value` to the property `prop_name` on this `el`. If the property is reactive,
+/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// to the property.
+///
+/// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
+/// You usually won't need to interact with it directly.
 pub fn property(cx: Scope, el: &web_sys::Element, prop_name: &'static str, value: Property) {
     match value {
         Property::Fn(f) => {
@@ -102,6 +119,12 @@ fn property_expression(el: &web_sys::Element, prop_name: &str, value: JsValue) {
     js_sys::Reflect::set(el, &JsValue::from_str(prop_name), &value).unwrap_throw();
 }
 
+/// Binds the `value` to the class `class_name` on this `el`'s `classList`. If the class value is reactive,
+/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// to the class list.
+///
+/// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
+/// You usually won't need to interact with it directly.
 pub fn class(cx: Scope, el: &web_sys::Element, class_name: &'static str, value: Class) {
     match value {
         Class::Fn(f) => {
@@ -127,6 +150,12 @@ fn class_expression(el: &web_sys::Element, class_name: &str, value: bool) {
     }
 }
 
+/// Inserts a child into the DOM, relative to the `before` marker. If the child is reactive,
+/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// to the DOM value.
+///
+/// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
+/// You usually won't need to interact with it directly.
 pub fn insert(
     cx: Scope,
     parent: web_sys::Node,
@@ -183,7 +212,7 @@ pub fn insert(
     }
 }
 
-pub fn insert_expression(
+fn insert_expression(
     _cx: Scope,
     parent: web_sys::Element,
     new_value: &Child,
@@ -293,7 +322,7 @@ pub fn insert_expression(
     }
 }
 
-pub fn insert_str(
+fn insert_str(
     parent: &web_sys::Element,
     data: &str,
     before: &Marker,

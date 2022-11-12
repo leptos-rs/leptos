@@ -5,9 +5,9 @@ use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 use crate::{debug_warn, event_delegation, is_server};
 
 thread_local! {
-    pub static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
+    pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
 
-    pub static DOCUMENT: web_sys::Document = web_sys::window().unwrap_throw().document().unwrap_throw();
+    pub(crate) static DOCUMENT: web_sys::Document = web_sys::window().unwrap_throw().document().unwrap_throw();
 }
 
 /// Returns the [`Window`](https://developer.mozilla.org/en-US/docs/Web/API/Window).

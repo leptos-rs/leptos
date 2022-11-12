@@ -69,6 +69,8 @@ impl std::fmt::Debug for Attribute {
 }
 
 /// Converts some type into an [Attribute].
+///
+/// This is implemented by default for Rust primitive and string types.
 pub trait IntoAttribute {
     /// Converts the object into an [Attribute].
     fn into_attribute(self, cx: Scope) -> Attribute;

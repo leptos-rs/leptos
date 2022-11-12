@@ -1,12 +1,23 @@
 use leptos_reactive::Scope;
 use wasm_bindgen::JsValue;
 
+/// Represents the different possible values an element property could have,
+/// allowing you to do fine-grained updates to single fields.
+///
+/// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
+/// macro’s use. You usually won't need to interact with it directly.
 pub enum Property {
+    /// A static JavaScript value.
     Value(JsValue),
+    /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
     Fn(Box<dyn Fn() -> JsValue>),
 }
 
+/// Converts some type into a [Property].
+///
+/// This is implemented by default for Rust primitive types, [String] and friends, and [JsValue].
 pub trait IntoProperty {
+    /// Converts the object into a [Property].
     fn into_property(self, cx: Scope) -> Property;
 }
 

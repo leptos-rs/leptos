@@ -1,13 +1,29 @@
+#![deny(missing_docs)]
+
+//! DOM operations and rendering for Leptos.
+//!
+//! This crate mostly includes utilities and types used by the templating system, and utility
+//! functions to make it easier for you to interact with the DOM, including with events.
+//!
+//! It also includes functions to support rendering HTML to strings, which is the server-side
+//! equivalent of DOM operations.
+//!
+//! Note that the types [Element] and [Node] are type aliases, handled differently depending on the
+//! target:
+//! - Browser (features `csr` and `hydrate`): they alias [web_sys::Element] and [web_sys::Node],
+//!   since the renderer works directly with actual DOM nodes.
+//! - Server: they both alias [String], since the templating system directly generates HTML strings.
+
 use cfg_if::cfg_if;
 
-pub mod attribute;
-pub mod child;
-pub mod class;
-pub mod event_delegation;
-pub mod logging;
-pub mod mount;
-pub mod operations;
-pub mod property;
+mod attribute;
+mod child;
+mod class;
+mod event_delegation;
+mod logging;
+mod mount;
+mod operations;
+mod property;
 
 cfg_if! {
     // can only include this if we're *only* enabling SSR, as it's the lowest-priority feature
@@ -21,10 +37,10 @@ cfg_if! {
         /// this is a DOM `Node`.
         pub type Node = web_sys::Node;
 
-        pub mod render_to_string;
+        mod render_to_string;
         pub use render_to_string::*;
-        pub mod reconcile;
-        pub mod render;
+        mod reconcile;
+        mod render;
 
         pub use reconcile::*;
         pub use render::*;
@@ -37,9 +53,10 @@ cfg_if! {
         /// this is a DOM `Node`.
         pub type Node = String;
 
-        pub mod render_to_string;
-        pub use render_to_string::*;
+        mod render_to_string;
+        use render_to_string::*;
 
+        #[doc(hidden)]
         pub struct Marker { }
     } else {
         /// The type of an HTML or DOM element. When server rendering, this is a `String`. When rendering in a browser,
@@ -50,8 +67,8 @@ cfg_if! {
         /// this is a DOM `Node`.
         pub type Node = web_sys::Node;
 
-        pub mod reconcile;
-        pub mod render;
+        mod reconcile;
+        mod render;
 
         pub use reconcile::*;
         pub use render::*;
