@@ -448,11 +448,8 @@ fn attr_to_tokens(
         };
 
         if mode == Mode::Ssr {
-            // fake the initialization; should only be used in effects or event handlers, which will never run on the server
-            // but if we don't initialize it, the compiler will complain
-            navigations.push(quote_spanned! {
-                span => #ident = String::new();
-            });
+            // used to fake the initialization; but if we do this, we can't do normal things like .dyn_ref() on an Element
+            // this will cause some warnings instead about unused setters, while doing SSR
         } else {
             expressions.push(match &node.value {
                 Some(expr) => {
