@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 use crate::{is_component_node, Mode};
 
+const NON_BUBBLING_EVENTS: [&str; 11] = ["load", "unload", "scroll", "focus", "blur", "loadstart", "progress", "error", "abort", "load", "loadend"];
+
 pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
         &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
@@ -152,7 +154,7 @@ fn root_element_to_tokens(
 #[derive(Clone, Debug)]
 enum PrevSibChange {
     Sib(Ident),
-    //Parent,
+    Parent,
     Skip,
 }
 
@@ -276,7 +278,7 @@ fn element_to_tokens(
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
+                    //debug!("=> got {}", #this_el_ident.node_name());
             }
         } else if let Some(prev_sib) = &prev_sib {
             quote_spanned! {
@@ -351,11 +353,12 @@ fn element_to_tokens(
             expressions,
             multi,
             mode,
+            idx == 0
         );
 
         prev_sib = match curr_id {
             PrevSibChange::Sib(id) => Some(id),
-            //PrevSibChange::Parent => None,
+            PrevSibChange::Parent => None,
             PrevSibChange::Skip => prev_sib,
         };
     }
@@ -481,9 +484,15 @@ fn attr_to_tokens(
             } else {
                 name.replacen("on-", "", 1)
             };            
-            expressions.push(quote_spanned! {
-                span => add_event_listener(#el_id.unchecked_ref(), #name, #handler);
-            });
+            if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
+                expressions.push(quote_spanned! {
+                    span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
+                });
+            } else {
+                expressions.push(quote_spanned! {
+                    span => ::leptos::add_event_listener(#el_id.unchecked_ref(), #name, #handler);
+                });
+            }
         } else {
             // this is here to avoid warnings about unused signals
             // that are used in event listeners. I'm open to better solutions.
@@ -596,6 +605,7 @@ fn child_to_tokens(
     expressions: &mut Vec<TokenStream>,
     multi: bool,
     mode: Mode,
+    is_first_child: bool
 ) -> PrevSibChange {
     match node.node_type {
         NodeType::Element => {
@@ -613,6 +623,7 @@ fn child_to_tokens(
                     next_co_id,
                     multi,
                     mode,
+                    is_first_child
                 )
             } else {
                 PrevSibChange::Sib(element_to_tokens(
@@ -650,20 +661,25 @@ fn child_to_tokens(
                 .map(|val| val.span())
                 .unwrap_or_else(Span::call_site);
 
-            *next_el_id += 1;
-            let name = child_ident(*next_el_id, node);
-            let location = if let Some(sibling) = &prev_sib {
-                quote_spanned! {
-                    span => //log::debug!("-> next sibling");
-                            let #name = #sibling.next_sibling().unwrap_throw();
-                            //log::debug!("\tnext sibling = {}", #name.node_name());
-                }
+            let (name, location) = if is_first_child && mode == Mode::Client {
+                (None, quote! { })
             } else {
-                quote_spanned! {
-                    span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                            let #name = #parent.first_child().unwrap_throw();
-                            //log::debug!("\tfirst child = {}", #name.node_name());
-                }
+                *next_el_id += 1;
+                let name = child_ident(*next_el_id, node);
+                let location = if let Some(sibling) = &prev_sib {
+                    quote_spanned! {
+                        span => //log::debug!("-> next sibling");
+                                let #name = #sibling.next_sibling().unwrap_throw();
+                                //log::debug!("\tnext sibling = {}", #name.node_name());
+                    }
+                } else {
+                    quote_spanned! {
+                        span => //log::debug!("\\|/ first child on {}", #parent.node_name());
+                                let #name = #parent.first_child().unwrap_throw();
+                                //log::debug!("\tfirst child = {}", #name.node_name());
+                    }
+                };
+                (Some(name), location)
             };
 
             let before = match &next_sib {
@@ -689,13 +705,19 @@ fn child_to_tokens(
                     template.push_str(&v);
                 }
 
-                PrevSibChange::Sib(name)
+                if let Some(name) = name {
+                    PrevSibChange::Sib(name)
+                } else {
+                    PrevSibChange::Parent
+                }
             } else {
                 // these markers are one of the primary templating differences across modes
                 match mode {
                     // in CSR, simply insert a comment node: it will be picked up and replaced with the value
                     Mode::Client => {
-                        template.push_str("<!>");
+                        if !is_first_child {
+                            template.push_str("<!>");
+                        }
                         navigations.push(location);
 
                         let current = match current {
@@ -748,7 +770,11 @@ fn child_to_tokens(
                     }),
                 }
 
-                PrevSibChange::Sib(name)
+                                if let Some(name) = name {
+                    PrevSibChange::Sib(name)
+                } else {
+                    PrevSibChange::Parent
+                }
             }
         }
         _ => panic!("unexpected child node type"),
@@ -769,6 +795,7 @@ fn component_to_tokens(
     next_co_id: &mut usize,
     multi: bool,
     mode: Mode,
+    is_first_child: bool
 ) -> PrevSibChange {
     let create_component = create_component(cx, node, mode);
     let span = node.name_span().unwrap();
@@ -856,7 +883,11 @@ fn component_to_tokens(
 
     match current {
         Some(el) => PrevSibChange::Sib(el),
-        None => PrevSibChange::Skip,
+        None => if is_first_child {
+            PrevSibChange::Parent
+        } else {
+            PrevSibChange::Skip
+        },
     }
 }
 
@@ -932,9 +963,15 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 .value
                 .as_ref()
                 .expect("on: event listener attributes need a value");
-            Some(quote_spanned! {
-                span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
-            })
+            if NON_BUBBLING_EVENTS.contains(&event_name) {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
+                })
+            } else {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+                })
+            }
         }
         else if let Some(event_name) = attr_name.strip_prefix("on-") {
             let span = attr.name_span().unwrap();
@@ -942,9 +979,15 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 .value
                 .as_ref()
                 .expect("on- event listener attributes need a value");
-            Some(quote_spanned! {
-                span => add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
-            })
+            if NON_BUBBLING_EVENTS.contains(&event_name) {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
+                })
+            } else {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+                })
+            }
         }
         // Properties
         else if let Some(name) = attr_name.strip_prefix("prop:") {

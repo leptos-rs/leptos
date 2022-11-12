@@ -104,17 +104,13 @@ pub fn insert_before(
         debug_warn!("insert_before: trying to insert on a parent node that is not an element");
         new.clone()
     } else if let Some(existing) = existing {
-        if existing.parent_node().as_ref() == Some(parent.unchecked_ref()) {
-            match parent.insert_before(new, Some(existing)) {
-                Ok(c) => c,
-                Err(e) => {
-                    debug_warn!("{:?}", e.as_string());
-                    new.clone()
-                }
+        let parent = existing.parent_node().unwrap_throw();
+        match parent.insert_before(new, Some(existing)) {
+            Ok(c) => c,
+            Err(e) => {
+                debug_warn!("{:?}", e.as_string());
+                new.clone()
             }
-        } else {
-            debug_warn!("insert_before: existing node is not a child of parent node");
-            parent.append_child(new).unwrap_throw()
         }
     } else {
         parent.append_child(new).unwrap_throw()
@@ -266,6 +262,15 @@ pub fn add_event_listener(
 }
 
 #[doc(hidden)]
+pub fn add_event_listener_undelegated(
+    target: &web_sys::Element,
+    event_name: &'static str,
+    cb: impl FnMut(web_sys::Event) + 'static,
+) {
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+    _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
+}
+
 #[inline(always)]
 pub fn ssr_event_listener(_cb: impl FnMut(web_sys::Event) + 'static) {
     // this function exists only for type inference in templates for SSR

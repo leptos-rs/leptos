@@ -22,7 +22,7 @@
 //!    for examples of the correct API.
 //!
 //! # Learning by Example
-//!  
+//!
 //! These docs are a work in progress. If you want to see what Leptos is capable of, check out
 //! the [examples](https://github.com/gbj/leptos/tree/main/examples):
 //! - [`counter`](https://github.com/gbj/leptos/tree/main/examples/counter) is the classic

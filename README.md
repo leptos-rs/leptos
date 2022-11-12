@@ -48,8 +48,8 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 ## What does that mean?
 
 - **Full-stack**: Leptos can be used to build apps that run in the browser (_client-side rendering_), on the server (_server-side rendering_), or by rendering HTML on the server and then adding interactivity in the browser (_hydration_). This includes support for _HTTP streaming_ of both data (`Resource`s) and HTML (out-of-order streaming of `<Suspense/>` components.)
-- **Isomorphic**: The same application code and business logic are compiled to run on the client and server, with seamless integration. You can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and let Leptos manage the data loading without the need to manually create APIs to consume.
-- **Web**: Leptos is built on the Web platform and Web standards. Whenever possible, we use Web essentials (like links and forms) and build on top of them rather than trying to replace them.
+- **Isomorphic**: Leptos provides primitives to write isomorphic server functions, i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser.
+- **Web**: Leptos is built on the Web platform and Web standards. The router is designed to use Web fundamentals (like links and forms) and build on top of them rather than trying to replace them.
 - **Framework**: Leptos provides most of what you need to build a modern web app: a reactive system, templating library, and a router that works on both the server and client side.
 - **Fine-grained reactivity**: The entire framework is build from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (_So, no virtual DOM!_)
 - **Declarative**: Tell Leptos how you want the page to look, and let the framework tell the browser how to do it.
@@ -131,7 +131,7 @@ There are some practical differences that make a significant difference:
 - **Maturity:** Sycamore is obviously a much more mature and stable library with a larger ecosystem.
 - **Templating:** Leptos uses a JSX-like template format (built on [syn-rsx](https://github.com/stoically/syn-rsx)) for its `view` macro. Sycamore offers the choice of its own templating DSL or a builder syntax.
 - **Template node cloning:** Leptos's `view` macro compiles to a static HTML string and a set of instructions of how to assign its reactive values. This means that at runtime, Leptos can clone a `<template>` node rather than calling `document.createElement()` to create DOM nodes. This is a _significantly_ faster way of rendering components.
-- **Read-write segregation:** Leptos, like Solid, enforces read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);`
+- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` *(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)*
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
 ```rust
