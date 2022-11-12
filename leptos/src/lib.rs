@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
