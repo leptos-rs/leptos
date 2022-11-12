@@ -293,6 +293,9 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                 />
                 <label on:dblclick=move |_| {
                     set_editing(true);
+
+                    // guard against the fact that in SSR mode, that ref is actually to a String
+                    #[cfg(any(feature = "csr", feature = "hydrate"))]
                     if let Some(input) = input.dyn_ref::<HtmlInputElement>() {
                         input.focus();
                     }
