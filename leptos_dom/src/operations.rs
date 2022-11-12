@@ -271,11 +271,6 @@ pub fn add_event_listener_undelegated(
     _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
 }
 
-#[inline(always)]
-pub fn ssr_event_listener(_cb: impl FnMut(web_sys::Event) + 'static) {
-    // this function exists only for type inference in templates for SSR
-}
-
 /// Adds an event listener to the `Window`.
 pub fn window_event_listener(event_name: &str, cb: impl Fn(web_sys::Event) + 'static) {
     if !is_server!() {
