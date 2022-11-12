@@ -27,11 +27,7 @@ members = [
   "examples/router",
   "examples/todomvc",
 ]
-exclude = [
-  "benchmarks",
-  # not gonna lie, this is because my arm64 mac fails when linking a GTK binary
-  "examples/gtk",
-]
+exclude = ["benchmarks"]
 
 
 [profile.release]
