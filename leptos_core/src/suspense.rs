@@ -32,7 +32,7 @@ where
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # run_scope(|cx| {
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// # if cfg!(not(any(feature = "csr", feature = "hydrate", feature = "ssr"))) {
 /// async fn fetch_cats(how_many: u32) -> Result<Vec<String>, ()> { Ok(vec![]) }
 ///
 /// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
