@@ -2,7 +2,7 @@ use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
 use server::server_macro_impl;
 use syn::{parse_macro_input, DeriveInput};
-use syn_rsx::{parse, Node, NodeType};
+use syn_rsx::{parse, Node, NodeElement, NodeType};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -249,13 +249,9 @@ pub fn params_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     params::impl_params(&ast)
 }
 
-pub(crate) fn is_component_node(node: &Node) -> bool {
-    if let NodeType::Element = node.node_type {
-        node.name_as_string()
-            .and_then(|node_name| node_name.chars().next())
-            .map(|first_char| first_char.is_ascii_uppercase())
-            .unwrap_or(false)
-    } else {
-        false
-    }
+pub(crate) fn is_component_node(node: &NodeElement) -> bool {
+    let name = node.name.to_string();
+    let first_char = node_name.chars().next();
+    first_char.map(|first_char| first_char.is_ascii_uppercase())
+        .unwrap_or(false)
 }

@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
-use syn_rsx::{Node, NodeName, NodeType};
+use syn_rsx::{Node, NodeName, NodeType, NodeElement, NodeAttribute};
 use uuid::Uuid;
 
 use crate::{is_component_node, Mode};
@@ -31,9 +31,9 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
 }
 
 fn first_node_to_tokens(cx: &Ident, template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
-    match node.node_type {
-        NodeType::Doctype | NodeType::Comment => quote! {},
-        NodeType::Fragment => {
+    match node {
+         Node::Doctype(_) | Node::Comment(_) => quote! {},
+        Node::Fragment(node) => {
             let nodes = node
                 .children
                 .iter()
@@ -46,14 +46,15 @@ fn first_node_to_tokens(cx: &Ident, template_uid: &Ident, node: &Node, mode: Mod
                 }
             }
         }
-        NodeType::Element => root_element_to_tokens(cx, template_uid, node, mode),
-        NodeType::Block => node
-            .value
-            .as_ref()
-            .map(|value| quote! { #value })
-            .expect("root Block node with no value"),
-        NodeType::Text => {
-            let value = node.value_as_string().unwrap();
+        Node::Element(node) => root_element_to_tokens(cx, template_uid, node, mode),
+        Node::Block(node) => {
+            let value = node.value.as_ref();
+            quote! {
+                #value
+            }
+        }
+        Node::Text(node) => {
+            let value = node.value.as_ref();
             quote! {
                 #value
             }
@@ -65,7 +66,7 @@ fn first_node_to_tokens(cx: &Ident, template_uid: &Ident, node: &Node, mode: Mod
 fn root_element_to_tokens(
     cx: &Ident,
     template_uid: &Ident,
-    node: &Node,
+    node: &NodeElement,
     mode: Mode,
 ) -> TokenStream {
     let mut template = String::new();
@@ -118,7 +119,7 @@ fn root_element_to_tokens(
                     }
                 };
 
-                let span = node.name_span().unwrap();
+                let span = node.name.span();
 
                 let navigations = if navigations.is_empty() {
                     quote! {}
@@ -161,7 +162,7 @@ enum PrevSibChange {
 #[allow(clippy::too_many_arguments)]
 fn element_to_tokens(
     cx: &Ident,
-    node: &Node,
+    node: &NodeElement,
     parent: &Ident,
     prev_sib: Option<Ident>,
     next_el_id: &mut usize,
@@ -174,11 +175,11 @@ fn element_to_tokens(
 ) -> Ident {
     // create this element
     *next_el_id += 1;
-    let this_el_ident = child_ident(*next_el_id, node);
+    let this_el_ident = child_ident(*next_el_id, node.name.span());
 
     // Open tag
-    let name_str = node.name_as_string().unwrap();
-    let span = node.name_span().unwrap();
+    let name_str = node.name.to_string();
+    let span = node.name.span();
 
     if mode == Mode::Ssr {
         // SSR, push directly to buffer
@@ -201,39 +202,37 @@ fn element_to_tokens(
         });
     }
 
-    // for SSR: merge all class: attributes and class attribute
-    if mode == Mode::Ssr {
-        let class_attr = node
+    let attributes = node
             .attributes
             .iter()
-            .find(|a| a.name_as_string() == Some("class".into()))
+            .filter_map(|node| if let Node::Attribute(attribute) = node  { Some(attribute )} else { None });
+
+    // for SSR: merge all class: attributes and class attribute
+    if mode == Mode::Ssr {        
+        let class_attr = attributes.find(|a| a.key.to_string() == "class")
             .map(|node| {
-                (node.name_span().expect("no span for class attribute node"), node.value_as_string().unwrap_or_default().trim().to_string())
+                (node.key.span(), node.value.and_then(|n| String::try_from(&n).ok()).unwrap_or_default().trim().to_string())
             });
 
-        let class_attrs = node
-            .attributes
-            .iter()
-            .filter_map(|node| {
-                node.name_as_string().and_then(|name| {
-                    if name.starts_with("class:") || name.starts_with("class-") {
-                        let name = if name.starts_with("class:") {
-                            name.replacen("class:", "", 1)
-                        } else if name.starts_with("class-") {
-                            name.replacen("class-", "", 1)
-                        } else {
-                            name
-                        };
-                        let value = node.value.as_ref().expect("class: attributes need values");
-                        let span = node.name_span().expect("missing span for class name");
-                        Some(quote_spanned! { 
-                            span => leptos_buffer.push(' ');
-                                leptos_buffer.push_str(&{#value}.into_class(#cx).as_value_string(#name));
-                        })
+        let class_attrs = attributes.filter_map(|node| {
+                let name = node.key.to_string();
+                if name.starts_with("class:") || name.starts_with("class-") {
+                    let name = if name.starts_with("class:") {
+                        name.replacen("class:", "", 1)
+                    } else if name.starts_with("class-") {
+                        name.replacen("class-", "", 1)
                     } else {
-                        None
-                    }
-                })
+                        name
+                    };
+                    let value = node.value.as_ref().expect("class: attributes need values").as_ref();
+                    let span = node.key.span();
+                    Some(quote_spanned! { 
+                        span => leptos_buffer.push(' ');
+                            leptos_buffer.push_str(&{#value}.into_class(#cx).as_value_string(#name));
+                    })
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>();
         
@@ -256,9 +255,9 @@ fn element_to_tokens(
     }
 
     // attributes
-    for attr in &node.attributes {
+    for attr in attributes {
         // SSR class attribute has just been handled
-        if !(mode == Mode::Ssr && attr.name_as_string().unwrap() == "class") {
+        if !(mode == Mode::Ssr && attr.key.to_string() == "class") {
             attr_to_tokens(
                 cx,
                 attr,
@@ -272,7 +271,7 @@ fn element_to_tokens(
     }
 
     // navigation for this el
-    let debug_name = debug_name(node);
+    let debug_name = node.name.to_string();
     if mode != Mode::Ssr {
         let this_nav = if is_root_el {
             quote_spanned! {
@@ -384,26 +383,30 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
         None
     } else {
         let sibling = &children[idx];
-        if is_component_node(sibling) {
-            next_sibling_node(children, idx + 1, next_el_id)
-        } else {
-            Some(child_ident(*next_el_id + 1, sibling))
+        match sibling {
+            Node::Element(sibling) => {
+                if is_component_node(sibling) {
+                    next_sibling_node(children, idx + 1, next_el_id)
+                } else {
+                    Some(child_ident(*next_el_id + 1, sibling.name.span()))
+                }
+            },
+            Node::Block(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
+            _ => panic!("expected either an element or a block")
         }
     }
 }
 
 fn attr_to_tokens(
     cx: &Ident,
-    node: &Node,
+    node: &NodeAttribute,
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
     mode: Mode,
 ) {
-    let name = node
-        .name_as_string()
-        .expect("Attribute nodes must have strings as names.");
+    let name = node.key.to_string();
     let name = if name.starts_with('_') {
         name.replacen('_', "", 1)
     } else {
@@ -472,18 +475,14 @@ fn attr_to_tokens(
         }
     }
     // Event Handlers
-    else if name.starts_with("on:") || name.starts_with("on-") {
+    else if name.starts_with("on:") {
                     let handler = node
                 .value
                 .as_ref()
                 .expect("event listener attributes need a value");
 
         if mode != Mode::Ssr {
-            let name = if name.starts_with("on:") { 
-                name.replacen("on:", "", 1)
-            } else {
-                name.replacen("on-", "", 1)
-            };            
+            let name = name.replacen("on:", "", 1);            
             if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
                 expressions.push(quote_spanned! {
                     span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
@@ -502,12 +501,8 @@ fn attr_to_tokens(
         }
     }
     // Properties
-    else if name.starts_with("prop:") || name.starts_with("prop-") {
-        let name = if name.starts_with("prop:") {
-            name.replacen("prop:", "", 1)
-        } else {
-            name.replacen("prop-", "", 1)
-        };
+    else if name.starts_with("prop:")  {
+        let name = name.replacen("prop:", "", 1);
         // can't set properties in SSR
         if mode != Mode::Ssr {         
             let value = node.value.as_ref().expect("prop: blocks need values");
@@ -517,12 +512,8 @@ fn attr_to_tokens(
         }
     }
     // Classes
-    else if name.starts_with("class:") || name.starts_with("class-") {
-        let name = if name.starts_with("class:") {
-            name.replacen("class:", "", 1)
-        } else {
-            name.replacen("class-", "", 1)
-        };
+    else if name.starts_with("class:")  {
+        let name = name.replacen("class:", "", 1);
         if mode == Mode::Ssr {
             // handled separately because they need to be merged
         } else {
@@ -891,8 +882,8 @@ fn component_to_tokens(
     }
 }
 
-fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
-    let component_name = ident_from_tag_name(node.name.as_ref().unwrap());
+fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
+    let component_name = ident_from_tag_name(node.name);
     let span = node.name_span().unwrap();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
 
@@ -931,13 +922,9 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
     let props = node.attributes.iter().filter_map(|attr| {
         let attr_name = attr.name_as_string().unwrap_or_default();
         if attr_name.starts_with("on:")
-            || attr_name.starts_with("on-")
             || attr_name.starts_with("prop:")
-            || attr_name.starts_with("prop-")
             || attr_name.starts_with("class:")
-            || attr_name.starts_with("class-")
             || attr_name.starts_with("attr:")
-            || attr_name.starts_with("attr-")
         {
             None
         } else {
@@ -973,31 +960,9 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 })
             }
         }
-        else if let Some(event_name) = attr_name.strip_prefix("on-") {
-            let span = attr.name_span().unwrap();
-            let handler = attr
-                .value
-                .as_ref()
-                .expect("on- event listener attributes need a value");
-            if NON_BUBBLING_EVENTS.contains(&event_name) {
-                Some(quote_spanned! {
-                    span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
-                })
-            } else {
-                Some(quote_spanned! {
-                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
-                })
-            }
-        }
         // Properties
         else if let Some(name) = attr_name.strip_prefix("prop:") {
             let value = attr.value.as_ref().expect("prop: attributes need values");
-            Some(quote_spanned! {
-                span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
-            })
-        }
-        else if let Some(name) = attr_name.strip_prefix("prop-") {
-            let value = attr.value.as_ref().expect("prop- attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
             })
@@ -1009,21 +974,9 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
                 span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
             })
         }
-        else if let Some(name) = attr_name.strip_prefix("class-") {
-            let value = attr.value.as_ref().expect("class: attributes need values");
-            Some(quote_spanned! {
-                span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
-            })
-        }
         // Attributes
         else if let Some(name) = attr_name.strip_prefix("attr:") {
             let value = attr.value.as_ref().expect("attr: attributes need values");
-            Some(quote_spanned! {
-                span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
-            })
-        }
-        else if let Some(name) = attr_name.strip_prefix("attr-") {
-            let value = attr.value.as_ref().expect("attr- attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
             })
@@ -1064,25 +1017,14 @@ fn create_component(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
     }
 }
 
-fn debug_name(node: &Node) -> String {
-    node.name_as_string().unwrap_or_else(|| {
-        node.value_as_string()
-            .expect("expected either node name or value")
-    })
-}
-
 /* fn span(node: &Node) -> Span {
     node.name_span()
         .unwrap_or_else(|| node.value.as_ref().unwrap().span())
 } */
 
-fn child_ident(el_id: usize, node: &Node) -> Ident {
+fn child_ident(el_id: usize, span: Span) -> Ident {
     let id = format!("_el{el_id}");
-    match node.node_type {
-        NodeType::Element => Ident::new(&id, node.name_span().unwrap()),
-        NodeType::Text | NodeType::Block => Ident::new(&id, node.value.as_ref().unwrap().span()),
-        _ => panic!("invalid child node type"),
-    }
+    Ident::new(&id, span)
 }
 
 fn comment_ident(co_id: usize, node: &Node) -> Ident {

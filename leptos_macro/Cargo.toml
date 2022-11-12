@@ -15,7 +15,7 @@ proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
-syn-rsx = "0.8"
+syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
 leptos_dom = { path = "../leptos_dom", version = "0.0.12" }
 leptos_reactive = { path = "../leptos_reactive", version = "0.0.12" }
