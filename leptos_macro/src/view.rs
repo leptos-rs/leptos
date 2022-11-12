@@ -414,16 +414,14 @@ fn attr_to_tokens(
     };
     let name = if name.starts_with("attr:") {
         name.replacen("attr:", "", 1)
-    } else if name.starts_with("attr-") {
-        name.replacen("attr-", "", 1)
     } else {
         name
     };
     let value = match &node.value {
-        Some(expr) => match expr {
+        Some(expr) => match expr.as_ref() {
             syn::Expr::Lit(expr_lit) => {
-                if matches!(expr_lit.lit, syn::Lit::Str(_)) {
-                    AttributeValue::Static(node.value_as_string().unwrap())
+                if let syn::Lit::Str(s) = expr_lit.lit {
+                    AttributeValue::Static(s.value())
                 } else {
                     AttributeValue::Dynamic(expr)
                 }
@@ -433,7 +431,7 @@ fn attr_to_tokens(
         None => AttributeValue::Empty,
     };
 
-    let span = node.name_span().unwrap();
+    let span = node.key.span();
 
     // refs
     if name == "ref" {
@@ -476,10 +474,11 @@ fn attr_to_tokens(
     }
     // Event Handlers
     else if name.starts_with("on:") {
-                    let handler = node
-                .value
-                .as_ref()
-                .expect("event listener attributes need a value");
+        let handler = node
+            .value
+            .as_ref()
+            .expect("event listener attributes need a value")
+            .as_ref();
 
         if mode != Mode::Ssr {
             let name = name.replacen("on:", "", 1);            
@@ -505,10 +504,10 @@ fn attr_to_tokens(
         let name = name.replacen("prop:", "", 1);
         // can't set properties in SSR
         if mode != Mode::Ssr {         
-            let value = node.value.as_ref().expect("prop: blocks need values");
+            let value = node.value.as_ref().expect("prop: blocks need values").as_ref();
             expressions.push(quote_spanned! {
-            span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
-        });
+                span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
+            });
         }
     }
     // Classes
@@ -517,7 +516,7 @@ fn attr_to_tokens(
         if mode == Mode::Ssr {
             // handled separately because they need to be merged
         } else {
-            let value = node.value.as_ref().expect("class: attributes need values");
+            let value = node.value.as_ref().expect("class: attributes need values").as_ref();
             expressions.push(quote_spanned! {
                 span => leptos_dom::class(#cx, #el_id.unchecked_ref(), #name, #value.into_class(#cx))
             });
@@ -598,8 +597,8 @@ fn child_to_tokens(
     mode: Mode,
     is_first_child: bool
 ) -> PrevSibChange {
-    match node.node_type {
-        NodeType::Element => {
+    match node {
+        Node::Element(node) => {
             if is_component_node(node) {
                 component_to_tokens(
                     cx,
@@ -632,8 +631,11 @@ fn child_to_tokens(
                 ))
             }
         }
-        NodeType::Text | NodeType::Block => {
-            let str_value = node.value.as_ref().and_then(|expr| match expr {
+        Node::Text(node) => {
+            todo!()
+        }
+        Node::Block(node) => {
+            let str_value = match node.value.as_ref() {
                 syn::Expr::Lit(lit) => match &lit.lit {
                     syn::Lit::Str(s) => Some(s.value()),
                     syn::Lit::Char(c) => Some(c.value().to_string()),
@@ -641,22 +643,20 @@ fn child_to_tokens(
                     syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
                     _ => None,
                 },
-                _ => None,
-            });
+                _ => None
+            };
             let current: Option<Ident> = None;
 
             // code to navigate to this text node
             let span = node
                 .value
-                .as_ref()
-                .map(|val| val.span())
-                .unwrap_or_else(Span::call_site);
+                .span();
 
             let (name, location) = if is_first_child && mode == Mode::Client {
                 (None, quote! { })
             } else {
                 *next_el_id += 1;
-                let name = child_ident(*next_el_id, node);
+                let name = child_ident(*next_el_id, node.value.span());
                 let location = if let Some(sibling) = &prev_sib {
                     quote_spanned! {
                         span => //log::debug!("-> next sibling");
@@ -775,7 +775,7 @@ fn child_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn component_to_tokens(
     cx: &Ident,
-    node: &Node,
+    node: &NodeElement,
     parent: Option<&Ident>,
     prev_sib: Option<Ident>,
     next_sib: Option<Ident>,
@@ -789,7 +789,7 @@ fn component_to_tokens(
     is_first_child: bool
 ) -> PrevSibChange {
     let create_component = create_component(cx, node, mode);
-    let span = node.name_span().unwrap();
+    let span = node.name.span();
 
     let mut current = None;
 
@@ -883,8 +883,8 @@ fn component_to_tokens(
 }
 
 fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
-    let component_name = ident_from_tag_name(node.name);
-    let span = node.name_span().unwrap();
+    let component_name = ident_from_tag_name(&node.name);
+    let span = node.name.span();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
 
     let (initialize_children, children) = if node.children.is_empty() {
