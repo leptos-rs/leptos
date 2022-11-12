@@ -54,7 +54,7 @@ cfg_if! {
         pub type Node = String;
 
         mod render_to_string;
-        use render_to_string::*;
+        pub use render_to_string::*;
 
         #[doc(hidden)]
         pub struct Marker { }
