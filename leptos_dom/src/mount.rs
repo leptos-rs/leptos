@@ -39,7 +39,7 @@ impl Mountable for Vec<Element> {
 /// // the simplest Leptos application
 /// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// # if false { // can't actually run as a doctest on any feature
 /// mount_to_body(|cx| view! { cx,  <p>"Hello, world!"</p> });
 /// # }
 /// ```
@@ -57,7 +57,7 @@ where
 /// // a very simple Leptos application
 /// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// # if false { // can't actually run as a doctest on any feature
 /// mount(
 ///   document().get_element_by_id("root").unwrap().unchecked_into(),
 ///   |cx| view! { cx,  <p>"Hello, world!"</p> }
@@ -86,7 +86,7 @@ where
 /// // rehydrate a very simple Leptos application
 /// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// # if false { // can't actually run as a doctest on any feature
 /// hydrate(body(), |cx| view! { cx,  <p>"Hello, world!"</p> }); // ok, really does nothing
 /// # }
 /// ```
