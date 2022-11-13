@@ -14,7 +14,7 @@ leptos_reactive = { path = "../leptos_reactive", default-features = false, versi
 log = "0.4"
 
 [dev-dependencies]
-leptos = { path = "../leptos", default-features = false, version = "0.0.16" }
+leptos = { path = "../leptos", default-features = false, version = "0.0" }
 
 [features]
 csr = [

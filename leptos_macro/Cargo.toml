@@ -23,7 +23,7 @@ leptos_reactive = { path = "../leptos_reactive", version = "0.0.16" }
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.10"
-leptos = { path = "../leptos", version = "0.0.16" }
+leptos = { path = "../leptos", version = "0.0" }
 
 [features]
 default = ["ssr"]

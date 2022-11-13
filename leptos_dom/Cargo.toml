@@ -56,7 +56,7 @@ features = [
 ]
 
 [dev-dependencies]
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.16" }
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }
 
 
 [features]
