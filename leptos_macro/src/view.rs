@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
-use syn_rsx::{Node, NodeName, NodeType, NodeElement, NodeAttribute};
+use syn_rsx::{Node, NodeName, NodeElement, NodeAttribute, NodeValueExpr};
 use uuid::Uuid;
 
 use crate::{is_component_node, Mode};
@@ -159,6 +159,13 @@ enum PrevSibChange {
     Skip,
 }
 
+fn attributes(node: &NodeElement) -> impl Iterator<Item = &NodeAttribute> {
+    node
+        .attributes
+        .iter()
+        .filter_map(|node| if let Node::Attribute(attribute) = node  { Some(attribute )} else { None })
+}
+
 #[allow(clippy::too_many_arguments)]
 fn element_to_tokens(
     cx: &Ident,
@@ -202,19 +209,14 @@ fn element_to_tokens(
         });
     }
 
-    let attributes = node
-            .attributes
-            .iter()
-            .filter_map(|node| if let Node::Attribute(attribute) = node  { Some(attribute )} else { None });
-
     // for SSR: merge all class: attributes and class attribute
     if mode == Mode::Ssr {        
-        let class_attr = attributes.find(|a| a.key.to_string() == "class")
+        let class_attr = attributes(node).find(|a| a.key.to_string() == "class")
             .map(|node| {
-                (node.key.span(), node.value.and_then(|n| String::try_from(&n).ok()).unwrap_or_default().trim().to_string())
+                (node.key.span(), node.value.as_ref().and_then(|n| String::try_from(n).ok()).unwrap_or_default().trim().to_string())
             });
 
-        let class_attrs = attributes.filter_map(|node| {
+        let class_attrs = attributes(node).filter_map(|node| {
                 let name = node.key.to_string();
                 if name.starts_with("class:") || name.starts_with("class-") {
                     let name = if name.starts_with("class:") {
@@ -255,7 +257,7 @@ fn element_to_tokens(
     }
 
     // attributes
-    for attr in attributes {
+    for attr in attributes(node) {
         // SSR class attribute has just been handled
         if !(mode == Mode::Ssr && attr.key.to_string() == "class") {
             attr_to_tokens(
@@ -392,6 +394,7 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
                 }
             },
             Node::Block(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
+            Node::Text(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
             _ => panic!("expected either an element or a block")
         }
     }
@@ -420,7 +423,7 @@ fn attr_to_tokens(
     let value = match &node.value {
         Some(expr) => match expr.as_ref() {
             syn::Expr::Lit(expr_lit) => {
-                if let syn::Lit::Str(s) = expr_lit.lit {
+                if let syn::Lit::Str(s) = &expr_lit.lit {
                     AttributeValue::Static(s.value())
                 } else {
                     AttributeValue::Dynamic(expr)
@@ -632,143 +635,159 @@ fn child_to_tokens(
             }
         }
         Node::Text(node) => {
-            todo!()
+            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child)
         }
         Node::Block(node) => {
-            let str_value = match node.value.as_ref() {
-                syn::Expr::Lit(lit) => match &lit.lit {
-                    syn::Lit::Str(s) => Some(s.value()),
-                    syn::Lit::Char(c) => Some(c.value().to_string()),
-                    syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
-                    syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
-                    _ => None,
-                },
-                _ => None
-            };
-            let current: Option<Ident> = None;
-
-            // code to navigate to this text node
-            let span = node
-                .value
-                .span();
-
-            let (name, location) = if is_first_child && mode == Mode::Client {
-                (None, quote! { })
-            } else {
-                *next_el_id += 1;
-                let name = child_ident(*next_el_id, node.value.span());
-                let location = if let Some(sibling) = &prev_sib {
-                    quote_spanned! {
-                        span => //log::debug!("-> next sibling");
-                                let #name = #sibling.next_sibling().unwrap_throw();
-                                //log::debug!("\tnext sibling = {}", #name.node_name());
-                    }
-                } else {
-                    quote_spanned! {
-                        span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                                let #name = #parent.first_child().unwrap_throw();
-                                //log::debug!("\tfirst child = {}", #name.node_name());
-                    }
-                };
-                (Some(name), location)
-            };
-
-            let before = match &next_sib {
-                Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-                None => {
-                    /* if multi {
-                        quote! { leptos::Marker::LastChild }
-                    } else {
-                        quote! { leptos::Marker::LastChild }
-                    } */
-                    quote! { leptos::Marker::LastChild }
-                }
-            };
-            let value = node.value.as_ref().expect("no block value");
-
-            if let Some(v) = str_value {
-                if mode == Mode::Ssr {
-                    expressions.push(quote::quote_spanned! {
-                        span => leptos_buffer.push_str(&leptos_dom::escape_text(&#v));
-                    });
-                } else {
-                    navigations.push(location);
-                    template.push_str(&v);
-                }
-
-                if let Some(name) = name {
-                    PrevSibChange::Sib(name)
-                } else {
-                    PrevSibChange::Parent
-                }
-            } else {
-                // these markers are one of the primary templating differences across modes
-                match mode {
-                    // in CSR, simply insert a comment node: it will be picked up and replaced with the value
-                    Mode::Client => {
-                        if !is_first_child {
-                            template.push_str("<!>");
-                        }
-                        navigations.push(location);
-
-                        let current = match current {
-                            Some(i) => quote! { Some(#i.into_child(#cx)) },
-                            None => quote! { None },
-                        };
-                        expressions.push(quote! {
-                            leptos::insert(
-                                #cx,
-                                #parent.clone(),
-                                #value.into_child(#cx),
-                                #before,
-                                #current,
-                            );
-                        });
-                    }
-                    // when hydrating, a text node will be generated by SSR; in the hydration/CSR template,
-                    // wrap it with comments that mark where it begins and ends
-                    Mode::Hydrate => {
-                        //*next_el_id += 1;
-                        let el = child_ident(*next_el_id, node);
-                        *next_co_id += 1;
-                        let co = comment_ident(*next_co_id, node);
-                        //next_sib = Some(el.clone());
-
-                        template.push_str("<!#><!/>");
-                        navigations.push(quote! {
-                            #location;
-                            let (#el, #co) = #cx.get_next_marker(&#name);
-                            //log::debug!("get_next_marker => {}", #el.node_name());
-                        });
-
-                        expressions.push(quote! {
-                            leptos::insert(
-                                #cx,
-                                #parent.clone(),
-                                #value.into_child(#cx),
-                                #before,
-                                Some(Child::Nodes(#co)),
-                            );
-                        });
-
-                        //current = Some(el);
-                    }
-                    // in SSR, it needs to insert the value, wrapped in comments
-                    Mode::Ssr => expressions.push(quote::quote_spanned! {
-                        span => leptos_buffer.push_str("<!--#-->");
-                                leptos_buffer.push_str(&#value.into_child(#cx).as_child_string());
-                                leptos_buffer.push_str("<!--/-->");
-                    }),
-                }
-
-                                if let Some(name) = name {
-                    PrevSibChange::Sib(name)
-                } else {
-                    PrevSibChange::Parent
-                }
-            }
+            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child)
         }
         _ => panic!("unexpected child node type"),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn block_to_tokens(
+    cx: &Ident,
+    value: &NodeValueExpr,
+    span: Span,
+    parent: &Ident,
+    prev_sib: Option<Ident>,
+    next_sib: Option<Ident>,
+    next_el_id: &mut usize,
+    next_co_id: &mut usize,
+    template: &mut String,
+    expressions: &mut Vec<TokenStream>,
+    navigations: &mut Vec<TokenStream>,
+    mode: Mode,
+    is_first_child: bool
+) -> PrevSibChange {
+    let value = value.as_ref();
+    let str_value = match value {
+        syn::Expr::Lit(lit) => match &lit.lit {
+            syn::Lit::Str(s) => Some(s.value()),
+            syn::Lit::Char(c) => Some(c.value().to_string()),
+            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
+            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
+            _ => None,
+        },
+        _ => None
+    };
+    let current: Option<Ident> = None;
+
+    // code to navigate to this text node
+
+    let (name, location) = if is_first_child && mode == Mode::Client {
+        (None, quote! { })
+    } else {
+        *next_el_id += 1;
+        let name = child_ident(*next_el_id, span);
+        let location = if let Some(sibling) = &prev_sib {
+            quote_spanned! {
+                span => //log::debug!("-> next sibling");
+                        let #name = #sibling.next_sibling().unwrap_throw();
+                        //log::debug!("\tnext sibling = {}", #name.node_name());
+            }
+        } else {
+            quote_spanned! {
+                span => //log::debug!("\\|/ first child on {}", #parent.node_name());
+                        let #name = #parent.first_child().unwrap_throw();
+                        //log::debug!("\tfirst child = {}", #name.node_name());
+            }
+        };
+        (Some(name), location)
+    };
+
+    let before = match &next_sib {
+        Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
+        None => {
+            /* if multi {
+                quote! { leptos::Marker::LastChild }
+            } else {
+                quote! { leptos::Marker::LastChild }
+            } */
+            quote! { leptos::Marker::LastChild }
+        }
+    };
+
+    if let Some(v) = str_value {
+        if mode == Mode::Ssr {
+            expressions.push(quote::quote_spanned! {
+                span => leptos_buffer.push_str(&leptos_dom::escape_text(&#v));
+            });
+        } else {
+            navigations.push(location);
+            template.push_str(&v);
+        }
+
+        if let Some(name) = name {
+            PrevSibChange::Sib(name)
+        } else {
+            PrevSibChange::Parent
+        }
+    } else {
+        // these markers are one of the primary templating differences across modes
+        match mode {
+            // in CSR, simply insert a comment node: it will be picked up and replaced with the value
+            Mode::Client => {
+                if !is_first_child {
+                    template.push_str("<!>");
+                }
+                navigations.push(location);
+
+                let current = match current {
+                    Some(i) => quote! { Some(#i.into_child(#cx)) },
+                    None => quote! { None },
+                };
+                expressions.push(quote! {
+                    leptos::insert(
+                        #cx,
+                        #parent.clone(),
+                        #value.into_child(#cx),
+                        #before,
+                        #current,
+                    );
+                });
+            }
+            // when hydrating, a text node will be generated by SSR; in the hydration/CSR template,
+            // wrap it with comments that mark where it begins and ends
+            Mode::Hydrate => {
+                //*next_el_id += 1;
+                let el = child_ident(*next_el_id, span);
+                *next_co_id += 1;
+                let co = comment_ident(*next_co_id, span);
+                //next_sib = Some(el.clone());
+
+                template.push_str("<!#><!/>");
+                navigations.push(quote! {
+                    #location;
+                    let (#el, #co) = #cx.get_next_marker(&#name);
+                    //log::debug!("get_next_marker => {}", #el.node_name());
+                });
+
+                expressions.push(quote! {
+                    leptos::insert(
+                        #cx,
+                        #parent.clone(),
+                        #value.into_child(#cx),
+                        #before,
+                        Some(Child::Nodes(#co)),
+                    );
+                });
+
+                //current = Some(el);
+            }
+            // in SSR, it needs to insert the value, wrapped in comments
+            Mode::Ssr => expressions.push(quote::quote_spanned! {
+                span => leptos_buffer.push_str("<!--#-->");
+                        leptos_buffer.push_str(&#value.into_child(#cx).as_child_string());
+                        leptos_buffer.push_str("<!--/-->");
+            }),
+        }
+
+        if let Some(name) = name {
+            PrevSibChange::Sib(name)
+        } else {
+            PrevSibChange::Parent
+        }
     }
 }
 
@@ -816,9 +835,9 @@ fn component_to_tokens(
         } else if mode == Mode::Hydrate {
             //let name = child_ident(*next_el_id, node);
             *next_el_id += 1;
-            let el = child_ident(*next_el_id, node);
+            let el = child_ident(*next_el_id, node.name.span());
             *next_co_id += 1;
-            let co = comment_ident(*next_co_id, node);
+            let co = comment_ident(*next_co_id, node.name.span());
             //next_sib = Some(el.clone());
 
             let starts_at = if let Some(prev_sib) = prev_sib {
@@ -919,8 +938,8 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
         }
     };
 
-    let props = node.attributes.iter().filter_map(|attr| {
-        let attr_name = attr.name_as_string().unwrap_or_default();
+    let props = attributes(node).filter_map(|attr| {
+        let attr_name = attr.key.to_string();
         if attr_name.starts_with("on:")
             || attr_name.starts_with("prop:")
             || attr_name.starts_with("class:")
@@ -928,12 +947,15 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
         {
             None
         } else {
-            let name = ident_from_tag_name(attr.name.as_ref().unwrap());
-            let span = attr.name_span().unwrap();
+            let name = ident_from_tag_name(&attr.key);
+            let span = attr.key.span();
             let value = attr
                 .value
                 .as_ref()
-                .map(|v| quote_spanned! { span => #v })
+                .map(|v| {
+                    let v = v.as_ref();
+                    quote_spanned! { span => #v }
+                })
                 .unwrap_or_else(|| quote_spanned! { span => #name });
             Some(quote_spanned! {
                 span => .#name(#value)
@@ -941,15 +963,17 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
         }
     });
 
-    let mut other_attrs = node.attributes.iter().filter_map(|attr| {
-        let attr_name = attr.name_as_string().unwrap_or_default();
+    let mut other_attrs = attributes(node).filter_map(|attr| {
+        let attr_name = attr.key.to_string();
+        let span = attr.key.span();
+        let value = attr.value.as_ref().map(|e| e.as_ref());
         // Event Listeners
         if let Some(event_name) = attr_name.strip_prefix("on:") {
-            let span = attr.name_span().unwrap();
             let handler = attr
                 .value
                 .as_ref()
-                .expect("on: event listener attributes need a value");
+                .expect("on: event listener attributes need a value")
+                .as_ref();
             if NON_BUBBLING_EVENTS.contains(&event_name) {
                 Some(quote_spanned! {
                     span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
@@ -962,28 +986,20 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
         }
         // Properties
         else if let Some(name) = attr_name.strip_prefix("prop:") {
-            let value = attr.value.as_ref().expect("prop: attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
             })
         }
         // Classes
         else if let Some(name) = attr_name.strip_prefix("class:") {
-            let value = attr.value.as_ref().expect("class: attributes need values");
             Some(quote_spanned! {
                 span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
             })
         }
         // Attributes
-        else if let Some(name) = attr_name.strip_prefix("attr:") {
-            let value = attr.value.as_ref().expect("attr: attributes need values");
-            Some(quote_spanned! {
+        else { attr_name.strip_prefix("attr:").map(|name| quote_spanned! {
                 span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
-            })
-        }
-        else {
-            None
-        }
+            }) }
     }).peekable();
 
     if other_attrs.peek().is_none() {
@@ -1027,13 +1043,9 @@ fn child_ident(el_id: usize, span: Span) -> Ident {
     Ident::new(&id, span)
 }
 
-fn comment_ident(co_id: usize, node: &Node) -> Ident {
+fn comment_ident(co_id: usize, span: Span) -> Ident {
     let id = format!("_co{co_id}");
-    match node.node_type {
-        NodeType::Element => Ident::new(&id, node.name_span().unwrap()),
-        NodeType::Text | NodeType::Block => Ident::new(&id, node.value.as_ref().unwrap().span()),
-        _ => panic!("invalid child node type"),
-    }
+    Ident::new(&id, span)
 }
 
 fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
@@ -1047,7 +1059,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .expect("element needs to have a name"),
         NodeName::Block(_) => panic!("blocks not allowed in tag-name position"),
         _ => Ident::new(
-            &tag_name.to_string().replace('-', "_").replace(':', "_"),
+            &tag_name.to_string().replace(['-', ':'], "_"),
             tag_name.span(),
         ),
     }

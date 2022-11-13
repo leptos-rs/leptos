@@ -2,7 +2,7 @@ use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
 use server::server_macro_impl;
 use syn::{parse_macro_input, DeriveInput};
-use syn_rsx::{parse, Node, NodeElement, NodeType};
+use syn_rsx::{parse, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -154,13 +154,38 @@ mod server;
 /// ```
 ///
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
-///    If your class name contains a dash, you should use `class-` as the prefix instead.
-/// ```rust
+/// ```rustxr
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(|cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
-/// view! { cx, <div class:hidden={move || count() < 3}>"Now you see me, now you don’t."</div> }
+/// view! { cx, <div class:hidden-div={move || count() < 3}>"Now you see me, now you don’t."</div> }
+/// # ;
+/// # }
+/// # });
+/// ```
+/// Class names can include dashes, but cannot (at the moment) include a dash-separated segment of only numbers.
+/// ```rust,compile_fail
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # run_scope(|cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let (count, set_count) = create_signal(cx, 2);
+/// // `hidden-div-25` is invalid at the moment
+/// view! { cx, <div class:hidden-div-25={move || count() < 3}>"Now you see me, now you don’t."</div> }
+/// # ;
+/// # }
+/// # });
+/// ```
+///
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a variable to use later.
+/// ```rust
+/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # run_scope(|cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let (value, set_value) = create_signal(cx, 0);
+/// let my_input: Element;
+/// view! { cx, <input type="text" _ref=my_input/> }
+/// // `my_input` now contains an `Element` that we can use anywhere
 /// # ;
 /// # }
 /// # });
@@ -251,7 +276,8 @@ pub fn params_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
 pub(crate) fn is_component_node(node: &NodeElement) -> bool {
     let name = node.name.to_string();
-    let first_char = node_name.chars().next();
-    first_char.map(|first_char| first_char.is_ascii_uppercase())
+    let first_char = name.chars().next();
+    first_char
+        .map(|first_char| first_char.is_ascii_uppercase())
         .unwrap_or(false)
 }
