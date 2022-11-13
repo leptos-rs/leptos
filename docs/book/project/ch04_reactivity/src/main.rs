@@ -2,19 +2,14 @@ use leptos::*;
 
 fn main() {
     run_scope(|cx| {
-        let (count, set_count) = create_signal(cx, 0);
+        let (count, set_count) = create_signal(cx, 1);
         let double_count = move || count() * 2;
-        let fibonacci = create_memo(cx, |prev| {
-            let prev = prev.unwrap_or(1);
-            prev * count()
-        });
 
-        create_effect(cx, |_| {
+        create_effect(cx, move |_| {
             println!(
-                "count =\t\t{}\ndouble_count = \t{}\nfibonacci = \t\t{}",
+                "count =\t\t{}\ndouble_count = \t{}",
                 count(),
                 double_count(),
-                fibonacci()
             );
         });
 
