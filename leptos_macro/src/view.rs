@@ -88,6 +88,7 @@ fn root_element_to_tokens(
             &mut expressions,
             true,
             mode,
+            false
         );
 
         match mode {
@@ -179,6 +180,7 @@ fn element_to_tokens(
     expressions: &mut Vec<TokenStream>,
     is_root_el: bool,
     mode: Mode,
+    parent_is_template: bool,
 ) -> Ident {
     // create this element
     *next_el_id += 1;
@@ -186,6 +188,7 @@ fn element_to_tokens(
 
     // Open tag
     let name_str = node.name.to_string();
+    let is_template = name_str.to_lowercase() == "template";
     let span = node.name.span();
 
     if mode == Mode::Ssr {
@@ -288,6 +291,13 @@ fn element_to_tokens(
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
                     //log::debug!("=> got {}", #this_el_ident.node_name());
             }
+        } else if parent_is_template {
+            quote_spanned! {
+                span => let #this_el_ident = #debug_name;
+                    //log::debug!("first_child ({})", #debug_name);
+                    let #this_el_ident = #parent.unchecked_ref::<web_sys::HtmlTemplateElement>().content().first_child().unwrap_throw();
+                    //log::debug!("=> got {}", #this_el_ident.node_name());
+            }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
@@ -354,7 +364,8 @@ fn element_to_tokens(
             expressions,
             multi,
             mode,
-            idx == 0
+            idx == 0,
+            is_template
         );
 
         prev_sib = match curr_id {
@@ -606,7 +617,8 @@ fn child_to_tokens(
     expressions: &mut Vec<TokenStream>,
     multi: bool,
     mode: Mode,
-    is_first_child: bool
+    is_first_child: bool,
+    parent_is_template: bool,
 ) -> PrevSibChange {
     match node {
         Node::Element(node) => {
@@ -639,6 +651,7 @@ fn child_to_tokens(
                     expressions,
                     false,
                     mode,
+                    parent_is_template
                 ))
             }
         }

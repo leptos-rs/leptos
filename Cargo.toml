@@ -26,6 +26,7 @@ members = [
   "examples/parent-child",
   "examples/router",
   "examples/todomvc",
+  "examples/view-tests",
 
   # book
   "docs/book/project/ch02_getting_started",
