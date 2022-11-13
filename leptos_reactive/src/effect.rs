@@ -40,7 +40,9 @@ use std::fmt::Debug;
 ///   // and easily lead to problems like infinite loops
 ///   set_b(a() + 1);
 /// });
+/// # if !cfg!(feature = "ssr") {
 /// # assert_eq!(b(), 2);
+/// # }
 /// # }).dispose();
 /// ```
 pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
