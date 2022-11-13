@@ -87,7 +87,9 @@ where
 /// # use leptos_dom::*; use leptos_dom::wasm_bindgen::JsCast;
 /// # use leptos_macro::view;
 /// # if false { // can't actually run as a doctest on any feature
-/// hydrate(body(), |cx| view! { cx,  <p>"Hello, world!"</p> }); // ok, really does nothing
+/// if let Some(body) = body() {
+///   hydrate(body, |cx| view! { cx,  <p>"Hello, world!"</p> });
+/// }
 /// # }
 /// ```
 #[cfg(feature = "hydrate")]
