@@ -356,7 +356,7 @@ mod struct_info {
             {
                 field.type_from_inside_option().ok_or_else(|| {
                     Error::new_spanned(
-                        &field_type,
+                        field_type,
                         "can't `strip_option` - field is not `Option<...>`",
                     )
                 })?
