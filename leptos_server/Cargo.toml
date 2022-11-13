@@ -1,6 +1,6 @@
 [package]
 name = "leptos_server"
-version = "0.0.15"
+version = "0.0.16"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,8 +8,8 @@ repository = "https://github.com/gbj/leptos"
 description = "RPC for the Leptos web framework."
 
 [dependencies]
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.12" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.12" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.16" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.16" }
 form_urlencoded = "1"
 gloo-net = "0.2"
 lazy_static = "1"
