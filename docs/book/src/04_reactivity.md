@@ -1,6 +1,45 @@
 # Reactivity
 
-## Signals
+## What is reactivity?
+
+A few months ago, I completely baffled a friend by trying to explain what I was working on. “You have two variables, right? Call them `a` and `b`. And then you have a third variable, `c`. And when you update `a` or `b`, the value of `c` just _automatically changes_. And it changes _on the screen_! Automatically!”
+
+“Isn’t that just... how computers work?” she asked me, puzzled. If your programming experience is limited to something like spreadsheets, it’s a reasonable enough assumption. This is, after all, how math works.
+
+But you know this isn't how ordinary imperative programming works.
+
+```rust,should_panic
+let mut a = 0;
+let mut b = 0;
+let c = a + b;
+
+a = 2;
+b = 2;
+
+// now c = 4, right?
+assert_eq!(c, 4); // nope. we all know this is wrong!
+```
+
+But that’s _exactly_ how reactive programming works.
+
+```rust
+use leptos::*;
+
+run_scope(|cx| {
+    let (a, set_a) = create_signal(cx, 0);
+    let (b, set_b) = create_signal(cx, 0);
+    let c = move || a() + b();
+
+    set_a(2);
+    set_b(2);
+
+    assert_eq!(c(), 4); // ohhhhh yeah.
+});
+```
+
+## Reactive Primitives
+
+### Signals
 
 A **signal** is a piece of data that may change over time, and notifies other code when it has changed. This is the core primitive of Leptos’s reactive system.
 
@@ -12,7 +51,7 @@ let (value, set_value) = create_signal(cx, 0);
 
 > If you’ve used signals in Sycamore or Solid, observables in MobX or Knockout, or a similar primitive in reactive library, you probably have a pretty good idea of how signals work in Leptos. If you’re familiar with React, Yew, or Dioxus, you may recognize a similar pattern to their `use_state` hooks.
 
-### `ReadSignal<T>`
+#### `ReadSignal<T>`
 
 The `ReadSignal` half of this tuple allows you to get the current value of the signal. Reading that value in a reactive context automatically subscribes to any further changes. You can access the value by simply calling the `ReadSignal` as a function.
 
@@ -43,7 +82,7 @@ let lowercased = move || value.with(|value| value.to_lowercase());
 let lowercased = move || value.with(String::to_lowercase);
 ```
 
-### `WriteSignal<T>`
+#### `WriteSignal<T>`
 
 The `WriteSignal` half of this tuple allows you to update the value of the signal, which will automatically notify anything that’s listening to the value that something has changed. If you simply call the `WriteSignal` as a function, its value will be set to the argument you pass. If you want to mutate the value in place instead of replacing it, you can call `WriteSignal::update` instead.
 
