@@ -32,7 +32,7 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
 
 fn first_node_to_tokens(cx: &Ident, template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
     match node {
-         Node::Doctype(_) | Node::Comment(_) => quote! {},
+        Node::Doctype(_) | Node::Comment(_) => quote! {},
         Node::Fragment(node) => {
             let nodes = node
                 .children
@@ -393,8 +393,16 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
                     Some(child_ident(*next_el_id + 1, sibling.name.span()))
                 }
             },
-            Node::Block(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
-            Node::Text(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
+            Node::Block(sibling) => if idx > 0 { 
+                Some(child_ident(*next_el_id + 2, sibling.value.span()))
+            } else {
+                Some(child_ident(*next_el_id + 1, sibling.value.span()))
+            }
+            Node::Text(sibling) => if idx > 0 { 
+                Some(child_ident(*next_el_id + 2, sibling.value.span()))
+            } else {
+                Some(child_ident(*next_el_id + 1, sibling.value.span()))
+            },
             _ => panic!("expected either an element or a block")
         }
     }
@@ -677,7 +685,8 @@ fn block_to_tokens(
 
     let (name, location) = if is_first_child && mode == Mode::Client {
         (None, quote! { })
-    } else {
+    } 
+    else {
         *next_el_id += 1;
         let name = child_ident(*next_el_id, span);
         let location = if let Some(sibling) = &prev_sib {
