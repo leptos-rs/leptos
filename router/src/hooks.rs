@@ -62,7 +62,14 @@ where
 pub fn use_resolved_path(cx: Scope, path: impl Fn() -> String + 'static) -> Memo<Option<String>> {
     let route = use_route(cx);
 
-    create_memo(cx, move |_| route.resolve_path(&path()).map(String::from))
+    create_memo(cx, move |_| {
+        let path = path();
+        if path.starts_with("/") {
+            Some(path)
+        } else {
+            route.resolve_path(&path).map(String::from)
+        }
+    })
 }
 
 /// Returns a function that can be used to navigate to a new route.

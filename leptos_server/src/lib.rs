@@ -61,7 +61,7 @@
 
 pub use form_urlencoded;
 use leptos_reactive::*;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{future::Future, pin::Pin, rc::Rc};
 use thiserror::Error;
 
@@ -145,19 +145,16 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn
 where
-    Self: Sized + 'static,
+    Self: Serialize + DeserializeOwned + Sized + 'static,
 {
     /// The return type of the function.
     type Output: Serializable;
 
+    /// URL prefix that should be prepended by the client to the generated URL.
+    fn prefix() -> &'static str;
+
     /// The path at which the server function can be reached on the server.
     fn url() -> &'static str;
-
-    /// A set of `(input_name, input_value)` pairs used to serialize the arguments to the server function.
-    fn as_form_data(&self) -> Vec<(&'static str, String)>;
-
-    /// Deserializes the arguments to the server function from form data.
-    fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError>;
 
     /// Runs the function on the server.
     #[cfg(any(feature = "ssr", doc))]
@@ -174,7 +171,8 @@ where
         // takes a String -> returns its async value
         let run_server_fn = Arc::new(|data: &[u8]| {
             // decode the args
-            let value = Self::from_form_data(data);
+            let value = serde_urlencoded::from_bytes::<Self>(data)
+                .map_err(|e| ServerFnError::Deserialization(e.to_string()));
             Box::pin(async move {
                 let value = match value {
                     Ok(v) => v,
@@ -244,20 +242,13 @@ where
 {
     use leptos_dom::*;
 
-    let args_form_data = web_sys::FormData::new().expect_throw("could not create FormData");
-    for (field_name, value) in args.as_form_data().into_iter() {
-        args_form_data
-            .append_with_str(field_name, &value)
-            .expect_throw("could not append form field");
-    }
-    let args_form_data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(&args_form_data)
-        .expect_throw("could not URL encode FormData");
-    let args_form_data = args_form_data.to_string().as_string().unwrap_or_default();
+    let args_form_data = serde_urlencoded::to_string(&args)
+        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
 
     let resp = gloo_net::http::Request::post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
         .header("Accept", "application/json")
-        .body(args_form_data.to_string())
+        .body(args_form_data)
         .send()
         .await
         .map_err(|e| ServerFnError::Request(e.to_string()))?;
@@ -361,7 +352,7 @@ where
     input: RwSignal<Option<I>>,
     value: RwSignal<Option<O>>,
     pending: RwSignal<bool>,
-    url: Option<&'static str>,
+    url: Option<String>,
     #[allow(clippy::complexity)]
     action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
@@ -408,13 +399,18 @@ where
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<&str> {
-        self.url
+        self.url.as_deref()
     }
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn using_server_fn<T: ServerFn>(mut self) -> Self {
-        self.url = Some(T::url());
+        let prefix = T::prefix();
+        self.url = if prefix.is_empty() {
+            Some(T::url().to_string())
+        } else {
+            Some(prefix.to_string() + "/" + T::url())
+        };
         self
     }
 }

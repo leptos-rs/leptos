@@ -11,6 +11,7 @@ description = "view macro for the Leptos web framework."
 proc-macro = true
 
 [dependencies]
+cfg-if = "1"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"

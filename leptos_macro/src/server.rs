@@ -1,5 +1,6 @@
+use cfg_if::cfg_if;
 use proc_macro::Span;
-use proc_macro2::{TokenStream as TokenStream2};
+use proc_macro2::{TokenStream as TokenStream2, Literal};
 use quote::{quote};
 use syn::{
     parse::{Parse, ParseStream},
@@ -8,8 +9,8 @@ use syn::{
 };
 
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
-    let ServerFnName { struct_name } = syn::parse::<ServerFnName>(args)?;
-    let span = Span::call_site();
+    let ServerFnName { struct_name, prefix, .. } = syn::parse::<ServerFnName>(args)?;
+    let prefix = prefix.unwrap_or_else(|| Literal::string(""));
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;
@@ -17,10 +18,14 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let vis = body.vis;
     let block = body.block;
 
-    #[cfg(not(feature = "stable"))]
-    let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
-    #[cfg(feature = "stable")]
-    let url = fn_name_as_str;
+    cfg_if! {
+        if #[cfg(not(feature = "stable"))] {
+            let span = Span::call_site();
+            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
+        } else {
+            let url = fn_name_as_str;
+        }
+    }
 
     let fields = body.inputs.iter().map(|f| {
         let typed_arg = match f {
@@ -102,7 +107,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     };
 
     Ok(quote::quote! {
-        #[derive(Clone)]
+        #[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
@@ -110,21 +115,12 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         impl ServerFn for #struct_name {
             type Output = #output_ty;
 
+            fn prefix() -> &'static str {
+                #prefix
+            }
+
             fn url() -> &'static str {
                 #url
-            }
-
-            fn as_form_data(&self) -> Vec<(&'static str, String)> {
-                vec![
-                    #(#as_form_data_fields),*
-                ]
-            }
-
-            fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError> {
-                let data = ::leptos::form_urlencoded::parse(data).collect::<Vec<_>>();
-                Ok(Self {
-                    #(#from_form_data_fields),*
-                })
             }
 
             #[cfg(feature = "ssr")]
@@ -146,20 +142,26 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         }
         #[cfg(not(feature = "ssr"))]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            ::leptos::call_server_fn(#struct_name::url(), #struct_name { #(#field_names_5),* }).await
+            let prefix = #struct_name::prefix().to_string();
+            let url = prefix + "/" + #struct_name::url();
+            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }).await
         }
     })
 }
 
 pub struct ServerFnName {
     struct_name: Ident,
+    comma: Option<Token![,]>,
+    prefix: Option<Literal>
 }
 
 impl Parse for ServerFnName {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let struct_name = input.parse()?;
+        let comma = input.parse()?;
+        let prefix = input.parse()?;
 
-        Ok(Self { struct_name })
+        Ok(Self { struct_name, comma, prefix })
     }
 }
 
