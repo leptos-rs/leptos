@@ -9,7 +9,7 @@ use syn::{
 };
 
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
-    let ServerFnName { struct_name, comma, prefix } = syn::parse::<ServerFnName>(args)?;
+    let ServerFnName { struct_name, prefix, .. } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
@@ -107,7 +107,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     };
 
     Ok(quote::quote! {
-        #[derive(Clone)]
+        #[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
@@ -115,21 +115,12 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         impl ServerFn for #struct_name {
             type Output = #output_ty;
 
+            fn prefix() -> &'static str {
+                #prefix
+            }
+
             fn url() -> &'static str {
                 #url
-            }
-
-            fn as_form_data(&self) -> Vec<(&'static str, String)> {
-                vec![
-                    #(#as_form_data_fields),*
-                ]
-            }
-
-            fn from_form_data(data: &[u8]) -> Result<Self, ServerFnError> {
-                let data = ::leptos::form_urlencoded::parse(data).collect::<Vec<_>>();
-                Ok(Self {
-                    #(#from_form_data_fields),*
-                })
             }
 
             #[cfg(feature = "ssr")]
@@ -151,7 +142,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         }
         #[cfg(not(feature = "ssr"))]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            let prefix = #prefix.to_string();
+            let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
             ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }).await
         }

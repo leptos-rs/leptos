@@ -237,11 +237,11 @@ where
     O: 'static,
 {
     let action = if let Some(url) = props.action.url() {
-        format!("/{url}")
+        url
     } else {
         debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
-        "".to_string()
-    };
+        ""
+    }.to_string();
     let version = props.action.version;
 
     Form(

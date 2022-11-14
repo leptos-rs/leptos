@@ -14,7 +14,9 @@ form_urlencoded = "1"
 gloo-net = "0.2"
 lazy_static = "1"
 linear-map = "1"
+log = "0.4"
 serde = { version = "1", features = ["derive"] }
+serde_urlencoded = "0.7"
 thiserror = "1"
 
 [dev-dependencies]
