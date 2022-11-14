@@ -34,7 +34,7 @@ async fn render(req: HttpRequest) -> impl Responder {
     ))
 }
 
-#[post("{tail:.*}")]
+#[post("/api/{tail:.*}")]
 async fn handle_server_fns(
     req: HttpRequest,
     params: web::Path<String>,

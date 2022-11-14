@@ -26,12 +26,13 @@ lazy_static::lazy_static! {
     pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
 }
 
-#[server(GetServerCount)]
+// "/api" is an optional prefix that allows you to locate server functions wherever you'd like on the server
+#[server(GetServerCount, "/api")]
 pub async fn get_server_count() -> Result<i32, ServerFnError> {
     Ok(COUNT.load(Ordering::Relaxed))
 }
 
-#[server(AdjustServerCount)]
+#[server(AdjustServerCount, "/api")]
 pub async fn adjust_server_count(delta: i32, msg: String) -> Result<i32, ServerFnError> {
     let new = COUNT.load(Ordering::Relaxed) + delta;
     COUNT.store(new, Ordering::Relaxed);
@@ -40,7 +41,7 @@ pub async fn adjust_server_count(delta: i32, msg: String) -> Result<i32, ServerF
     Ok(new)
 }
 
-#[server(ClearServerCount)]
+#[server(ClearServerCount, "/api")]
 pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     COUNT.store(0, Ordering::Relaxed);
     _ = COUNT_CHANNEL.send(&0).await;
