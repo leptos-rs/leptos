@@ -1,5 +1,4 @@
-// Credit to Dioxus: https://github.com/DioxusLabs/dioxus/blob/master/packages/core-macro/src/Server.rs
-
+use proc_macro::Span;
 use proc_macro2::{TokenStream as TokenStream2};
 use quote::{quote};
 use syn::{
@@ -10,11 +9,18 @@ use syn::{
 
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
     let ServerFnName { struct_name } = syn::parse::<ServerFnName>(args)?;
+    let span = Span::call_site();
+
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
     let block = body.block;
+
+    #[cfg(not(feature = "stable"))]
+    let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
+    #[cfg(feature = "stable")]
+    let url = fn_name_as_str;
 
     let fields = body.inputs.iter().map(|f| {
         let typed_arg = match f {
@@ -105,7 +111,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             type Output = #output_ty;
 
             fn url() -> &'static str {
-                #fn_name_as_str
+                #url
             }
 
             fn as_form_data(&self) -> Vec<(&'static str, String)> {

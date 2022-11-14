@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+
 use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
 use server::server_macro_impl;
