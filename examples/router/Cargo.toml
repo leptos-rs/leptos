@@ -7,7 +7,7 @@ edition = "2021"
 console_log = "0.2"
 log = "0.4"
 leptos = { path = "../../leptos" }
-leptos_router = { path = "../../router" }
+leptos_router = { path = "../../router", features=["csr"] }
 serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 console_error_panic_hook = "0.1.7"

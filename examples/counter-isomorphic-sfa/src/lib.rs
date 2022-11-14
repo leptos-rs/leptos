@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use leptos::*;
 mod counters;
 use crate::counters::*;
 

@@ -11,6 +11,7 @@ actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["openssl", "macros"] }
 console_log = "0.2"
 console_error_panic_hook = "0.1"
+serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 cfg-if = "1"
 leptos = { path = "../../../leptos/leptos", default-features = false, features = [
