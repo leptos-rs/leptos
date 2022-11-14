@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use leptos::*;
-use leptos_meta::*;
 use leptos_router::*;
 mod counters;
 
@@ -8,6 +7,9 @@ mod counters;
 cfg_if! {
     // server-only stuff
     if #[cfg(feature = "ssr")] {
+        use actix_files::{Files};
+        use actix_web::*;
+        use crate::counters::*;
 
         #[get("{tail:.*}")]
         async fn render(req: HttpRequest) -> impl Responder {
@@ -26,7 +28,7 @@ cfg_if! {
                     <body>
                         {}
                     </body>
-                    <script type="module">import init, {{ main }} from './pkg/counter_client.js'; init().then(main);</script>
+                    <script type="module">import init, {{ main }} from './pkg/leptos_counter_isomorphic.js'; init().then(main);</script>
                 </html>"#,
                 run_scope({
                     move |cx| {
@@ -82,7 +84,7 @@ cfg_if! {
             use futures::StreamExt;
 
             let stream =
-                futures::stream::once(async { counter_isomorphic::get_server_count().await.unwrap_or(0) })
+                futures::stream::once(async { crate::counters::get_server_count().await.unwrap_or(0) })
                     .chain(COUNT_CHANNEL.clone())
                     .map(|value| {
                         Ok(web::Bytes::from(format!(
@@ -96,11 +98,11 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-            counter_isomorphic::register_server_functions();
+            crate::counters::register_server_functions();
 
             HttpServer::new(|| {
                 App::new()
-                    .service(Files::new("/pkg", "../client/pkg"))
+                    .service(Files::new("/pkg", "./pkg"))
                     .service(counter_events)
                     .service(handle_server_fns)
                     .service(render)

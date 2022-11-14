@@ -1,6 +1,5 @@
 use leptos::*;
 use leptos_router::*;
-use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
 use std::sync::atomic::{AtomicI32, Ordering};
