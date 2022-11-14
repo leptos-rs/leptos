@@ -39,7 +39,7 @@ cfg_if! {
                 <head>
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <script type="module">import init, { main } from '/pkg/hackernews_client.js'; init().then(main);</script>"#;
+                    <script type="module">import init, { main } from '/pkg/leptos_hackernews.js'; init().then(main);</script>"#;
         let tail = "</body></html>";
 
         HttpResponse::Ok().content_type("text/html").streaming(
