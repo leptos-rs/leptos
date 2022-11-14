@@ -9,7 +9,7 @@ cfg_if! {
         use futures::StreamExt;
         use leptos_meta::*;
         use leptos_router::*;
-        use leptos_sfa::*;
+        use leptos_hackernews*;
     #[get("/static/style.css")]
     async fn css() -> impl Responder {
         NamedFile::open_async("./style.css").await
