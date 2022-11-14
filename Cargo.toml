@@ -17,6 +17,7 @@ members = [
   "examples/counter-isomorphic/client",
   "examples/counter-isomorphic/server",
   "examples/counter-isomorphic/counter",
+  "examples/counter-isomorphic-sfa",
   "examples/counters",
   "examples/counters-stable",
   "examples/fetch",

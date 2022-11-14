@@ -96,7 +96,7 @@ cfg_if! {
 
     // client-only stuff for Trunk
     else if #[cfg(feature = "csr")] {
-        use leptos_sfa::*;
+        use leptos_hackernews::*;
 
         pub fn main() {
             console_error_panic_hook::set_once();

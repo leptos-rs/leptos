@@ -1,0 +1,35 @@
+[package]
+name = "leptos-counter-isomorphic"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+actix-files = { version = "0.6", optional = true }
+actix-web = { version = "4", optional = true, features = ["openssl", "macros"] }
+console_log = "0.2"
+console_error_panic_hook = "0.1"
+futures = "0.3"
+cfg-if = "1"
+leptos = { path = "../../../leptos/leptos", default-features = false, features = [
+	"serde",
+] }
+leptos_meta = { path = "../../../leptos/meta", default-features = false }
+leptos_router = { path = "../../../leptos/router", default-features = false }
+log = "0.4"
+simple_logger = "2"
+#counter = { path = "../counter",  default-features = false}
+
+[features]
+default = ["csr"]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
+ssr = [
+	"dep:actix-files",
+	"dep:actix-web",
+	"leptos/ssr",
+	"leptos_meta/ssr",
+	"leptos_router/ssr",
+]
