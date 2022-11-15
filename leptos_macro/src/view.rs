@@ -410,6 +410,14 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
     } else {
         let this = if idx > 0 { children.get(idx - 1) } else { None };
         let sibling = &children[idx];
+        let next_sibling = children.get(idx + 1);
+        let next_is_element = matches!(next_sibling, Some(Node::Element(_)));
+        let next_is_block_or_text = matches!(next_sibling, Some(Node::Block(_)) | Some(Node::Text(_)));
+        let next_is_component = next_sibling.map(|next| match next {
+            Node::Element(el) => el.name.to_string().chars().next().unwrap().is_ascii_uppercase(),
+            _ => false
+        }).unwrap_or(false);
+
         match sibling {
             Node::Element(sibling) => {
                 if is_component_node(sibling) {
@@ -420,9 +428,12 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
                     Some(child_ident(*next_el_id + 1, sibling.name.span()))
                 }
             },
-            Node::Block(sibling) => if idx > 1 { 
+            Node::Block(sibling) => if idx > 1 && !next_is_element { 
                 Some(child_ident(*next_el_id + 2, sibling.value.span()))
-            } else {
+            } else if next_is_component {
+                None
+            }
+            else {
                 Some(child_ident(*next_el_id + 1, sibling.value.span()))
             }
             Node::Text(sibling) => if idx > 1 { 
@@ -717,7 +728,8 @@ fn block_to_tokens(
 
     // code to navigate to this text node
 
-    let (name, location) = if is_first_child && mode == Mode::Client {
+    let should_insert_comment_marker = (!is_first_child && is_block && !next_is_element) || next_is_block;
+    let (name, location) = if mode == Mode::Client && !should_insert_comment_marker {
         (None, quote! { })
     } 
     else {
@@ -771,7 +783,7 @@ fn block_to_tokens(
         match mode {
             // in CSR, simply insert a comment node: it will be picked up and replaced with the value
             Mode::Client => {
-                if (!is_first_child && is_block && !next_is_element) || next_is_block {
+                if should_insert_comment_marker {
                     template.push_str("<!>");
                 }
                 navigations.push(location);
@@ -854,6 +866,7 @@ fn component_to_tokens(
     let span = node.name.span();
 
     let mut current = None;
+    let prev_sib_is_none = prev_sib.is_none();
 
     if let Some(parent) = parent {
         let before = match &next_sib {
@@ -936,7 +949,7 @@ fn component_to_tokens(
 
     match current {
         Some(el) => PrevSibChange::Sib(el),
-        None => if is_first_child {
+        None => if prev_sib_is_none {
             PrevSibChange::Parent
         } else {
             PrevSibChange::Skip

@@ -26,7 +26,7 @@ fn BlockOrders(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <div>"A"</div>
+            /* <div>"A"</div>
             <div>{a}</div>
             <div><span>"A"</span></div>
             <div><span>{a}</span></div>
@@ -56,6 +56,17 @@ fn BlockOrders(cx: Scope) -> Element {
             <div><span style="color: red">"A"</span> <span style="color: blue">{b}</span> {c}</div>
             <div><span style="color: red">{a}</span> "B" <span style="color: blue">{c}</span></div>
             //<div><span style="color: red">"A"</span> {b} <span style="color: blue">"C"</span></div>
+            <hr/>
+            <div><A/></div>
+            <div>"A" <B/></div>
+            <div>{a} <B/></div>
+            <div><A/> "B"</div>
+            <div><A/> {b}</div>
+            <div><A/><B/></div>
+            <hr/>
+            <div><A/> "B" <C/></div> */
+            //<div><A/> {b} <C/></div>
+            <div><A/> {b} "C"</div>
         </div>
     }
 }
