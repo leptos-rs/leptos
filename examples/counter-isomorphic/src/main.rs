@@ -115,7 +115,7 @@ cfg_if! {
         }
 
     // client-only stuff for Trunk
-    else if #[cfg(not(feature = "hydrate"))] {
+    else {
         use leptos_counter_isomorphic::counters::*;
 
         pub fn main() {

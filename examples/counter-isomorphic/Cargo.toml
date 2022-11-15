@@ -30,7 +30,14 @@ gloo = { git = "https://github.com/rustwasm/gloo" }
 default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["dep:actix-files", "dep:actix-web", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr"]
+ssr = [
+	"dep:actix-files",
+	"dep:actix-web",
+	"leptos/ssr",
+	"leptos_meta/ssr",
+	"leptos_router/ssr",
+]
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

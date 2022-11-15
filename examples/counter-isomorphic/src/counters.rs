@@ -170,13 +170,13 @@ pub fn FormCounter(cx: Scope) -> Element {
                 // by including them as input values with the same name
                 <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="-1"/>
-                    <input type="hidden" name="msg" value="\"form value down\""/>
+                    <input type="hidden" name="msg" value="form value down"/>
                     <input type="submit" value="-1"/>
                 </ActionForm>
                 <span>"Value: " {move || value().to_string()} "!"</span>
                 <ActionForm action=adjust2>
                     <input type="hidden" name="delta" value="1"/>
-                    <input type="hidden" name="msg" value="\"form value up\""/>
+                    <input type="hidden" name="msg" value="form value up"/>
                     <input type="submit" value="+1"/>
                 </ActionForm>
             </div>

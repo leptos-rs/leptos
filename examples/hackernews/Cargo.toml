@@ -41,3 +41,4 @@ ssr = [
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
