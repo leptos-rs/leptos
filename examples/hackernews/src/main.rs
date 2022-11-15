@@ -95,7 +95,7 @@ cfg_if! {
 }
 
     // client-only stuff for Trunk
-    else if #[cfg(feature = "csr")] {
+    else if #[cfg(not(feature = "hydrate"))] {
         use leptos_hackernews::*;
 
         pub fn main() {

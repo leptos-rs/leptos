@@ -1,7 +1,6 @@
 use cfg_if::cfg_if;
 use leptos::*;
-mod counters;
-use crate::counters::*;
+pub mod counters;
 
 #[component]
 pub fn App(cx: Scope) -> Element {
