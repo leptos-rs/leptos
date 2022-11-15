@@ -27,13 +27,14 @@ axum = { version = "0.5.17", optional=true }
 tower = { version = "0.4.13", optional=true }
 tower-http = { version = "0.3.4", features = ["fs"], optional = true }
 tokio = { version = "1.0", features = ["full"], optional = true }
+http = {version = "0.2.8", optional = true}
 
 [features]
 default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr"]
+ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "dep:http", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr"]
 
 [package.metadata.cargo-all-features]
-denylist = ["axum", "tower", "tower-http", "tokio"]
+denylist = ["axum", "tower", "tower-http", "tokio", "http"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
