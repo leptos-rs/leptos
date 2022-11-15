@@ -19,6 +19,7 @@ members = [
   "examples/counters-stable",
   "examples/fetch",
   "examples/hackernews",
+  "examples/hackernews-axum",
   "examples/parent-child",
   "examples/router",
   "examples/todomvc",
