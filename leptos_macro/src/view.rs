@@ -88,7 +88,6 @@ fn root_element_to_tokens(
             &mut expressions,
             true,
             mode,
-            false
         );
 
         match mode {
@@ -180,7 +179,6 @@ fn element_to_tokens(
     expressions: &mut Vec<TokenStream>,
     is_root_el: bool,
     mode: Mode,
-    parent_is_template: bool,
 ) -> Ident {
     // create this element
     *next_el_id += 1;
@@ -188,7 +186,6 @@ fn element_to_tokens(
 
     // Open tag
     let name_str = node.name.to_string();
-    let is_template = name_str.to_lowercase() == "template";
     let span = node.name.span();
 
     if mode == Mode::Ssr {
@@ -291,13 +288,6 @@ fn element_to_tokens(
                     let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
                     //log::debug!("=> got {}", #this_el_ident.node_name());
             }
-        } else if parent_is_template {
-            quote_spanned! {
-                span => let #this_el_ident = #debug_name;
-                    //log::debug!("first_child ({})", #debug_name);
-                    let #this_el_ident = #parent.unchecked_ref::<web_sys::HtmlTemplateElement>().content().first_child().unwrap_throw();
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
-            }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
@@ -364,8 +354,7 @@ fn element_to_tokens(
             expressions,
             multi,
             mode,
-            idx == 0,
-            is_template
+            idx == 0
         );
 
         prev_sib = match curr_id {
@@ -396,6 +385,7 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
         None
     } else {
         let sibling = &children[idx];
+
         match sibling {
             Node::Element(sibling) => {
                 if is_component_node(sibling) {
@@ -404,16 +394,8 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
                     Some(child_ident(*next_el_id + 1, sibling.name.span()))
                 }
             },
-            Node::Block(sibling) => if idx > 0 { 
-                Some(child_ident(*next_el_id + 2, sibling.value.span()))
-            } else {
-                Some(child_ident(*next_el_id + 1, sibling.value.span()))
-            }
-            Node::Text(sibling) => if idx > 0 { 
-                Some(child_ident(*next_el_id + 2, sibling.value.span()))
-            } else {
-                Some(child_ident(*next_el_id + 1, sibling.value.span()))
-            },
+            Node::Block(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
+            Node::Text(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
             _ => panic!("expected either an element or a block")
         }
     }
@@ -617,8 +599,7 @@ fn child_to_tokens(
     expressions: &mut Vec<TokenStream>,
     multi: bool,
     mode: Mode,
-    is_first_child: bool,
-    parent_is_template: bool,
+    is_first_child: bool
 ) -> PrevSibChange {
     match node {
         Node::Element(node) => {
@@ -651,7 +632,6 @@ fn child_to_tokens(
                     expressions,
                     false,
                     mode,
-                    parent_is_template
                 ))
             }
         }
@@ -696,10 +676,10 @@ fn block_to_tokens(
 
     // code to navigate to this text node
 
-    let (name, location) = if is_first_child && mode == Mode::Client {
+    let (name, location) = /* if is_first_child && mode == Mode::Client {
         (None, quote! { })
     } 
-    else {
+    else */ {
         *next_el_id += 1;
         let name = child_ident(*next_el_id, span);
         let location = if let Some(sibling) = &prev_sib {
@@ -750,9 +730,7 @@ fn block_to_tokens(
         match mode {
             // in CSR, simply insert a comment node: it will be picked up and replaced with the value
             Mode::Client => {
-                if !is_first_child {
-                    template.push_str("<!>");
-                }
+                template.push_str("<!>");
                 navigations.push(location);
 
                 let current = match current {

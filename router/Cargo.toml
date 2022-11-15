@@ -52,7 +52,7 @@ features = [
 ]
 
 [features]
-default = []
+default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
