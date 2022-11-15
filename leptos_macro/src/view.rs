@@ -351,6 +351,17 @@ fn element_to_tokens(
         // set next sib (for any insertions)
         let next_sib = next_sibling_node(&node.children, idx + 1, next_el_id);
 
+        let next_is_element = match node.children.get(idx + 1) {
+            Some(Node::Element(_)) => true,
+            _ => false
+        };
+
+        let next_is_block = match node.children.get(idx + 1) {
+            Some(Node::Text(_)) => true,
+            Some(Node::Block(_)) => true,
+            _ => false
+        };
+
         let curr_id = child_to_tokens(
             cx,
             child,
@@ -365,7 +376,9 @@ fn element_to_tokens(
             multi,
             mode,
             idx == 0,
-            is_template
+            is_template,
+            next_is_element,
+            next_is_block
         );
 
         prev_sib = match curr_id {
@@ -395,21 +408,24 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
     if children.len() <= idx {
         None
     } else {
+        let this = if idx > 0 { children.get(idx - 1) } else { None };
         let sibling = &children[idx];
         match sibling {
             Node::Element(sibling) => {
                 if is_component_node(sibling) {
                     next_sibling_node(children, idx + 1, next_el_id)
-                } else {
+                } else if idx > 1 {
+                    Some(child_ident(*next_el_id + 2, sibling.name.span()))
+                } else { 
                     Some(child_ident(*next_el_id + 1, sibling.name.span()))
                 }
             },
-            Node::Block(sibling) => if idx > 0 { 
+            Node::Block(sibling) => if idx > 1 { 
                 Some(child_ident(*next_el_id + 2, sibling.value.span()))
             } else {
                 Some(child_ident(*next_el_id + 1, sibling.value.span()))
             }
-            Node::Text(sibling) => if idx > 0 { 
+            Node::Text(sibling) => if idx > 1 { 
                 Some(child_ident(*next_el_id + 2, sibling.value.span()))
             } else {
                 Some(child_ident(*next_el_id + 1, sibling.value.span()))
@@ -619,6 +635,8 @@ fn child_to_tokens(
     mode: Mode,
     is_first_child: bool,
     parent_is_template: bool,
+    next_is_element: bool,
+    next_is_block: bool
 ) -> PrevSibChange {
     match node {
         Node::Element(node) => {
@@ -656,10 +674,10 @@ fn child_to_tokens(
             }
         }
         Node::Text(node) => {
-            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child)
+            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child, false, next_is_element, next_is_block)
         }
         Node::Block(node) => {
-            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child)
+            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child, true, next_is_element, next_is_block)
         }
         _ => panic!("unexpected child node type"),
     }
@@ -679,7 +697,10 @@ fn block_to_tokens(
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
     mode: Mode,
-    is_first_child: bool
+    is_first_child: bool,
+    is_block: bool,
+    next_is_element: bool,
+    next_is_block: bool
 ) -> PrevSibChange {
     let value = value.as_ref();
     let str_value = match value {
@@ -750,7 +771,7 @@ fn block_to_tokens(
         match mode {
             // in CSR, simply insert a comment node: it will be picked up and replaced with the value
             Mode::Client => {
-                if !is_first_child {
+                if (!is_first_child && is_block && !next_is_element) || next_is_block {
                     template.push_str("<!>");
                 }
                 navigations.push(location);
