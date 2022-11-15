@@ -2,11 +2,13 @@ mod api;
 
 use api::{Contact, ContactSummary};
 use leptos::*;
+use leptos_meta::*;
 use leptos_router::*;
 
 use crate::api::{get_contact, get_contacts};
 
 pub fn router_example(cx: Scope) -> Element {
+    provide_context(cx, MetaContext::default());
     view! { cx,
         <div id="root">
             <Router>

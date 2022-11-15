@@ -1,15 +1,11 @@
 use leptos::*;
 use leptos_router::*;
 
-use std::fmt::Debug;
-
 #[cfg(feature = "ssr")]
 use std::sync::atomic::{AtomicI32, Ordering};
 
 #[cfg(feature = "ssr")]
 use broadcaster::BroadcastChannel;
-
-use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ssr")]
 pub fn register_server_functions() {
@@ -25,7 +21,6 @@ static COUNT: AtomicI32 = AtomicI32::new(0);
 lazy_static::lazy_static! {
     pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
 }
-
 // "/api" is an optional prefix that allows you to locate server functions wherever you'd like on the server
 #[server(GetServerCount, "/api")]
 pub async fn get_server_count() -> Result<i32, ServerFnError> {
@@ -47,7 +42,6 @@ pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     _ = COUNT_CHANNEL.send(&0).await;
     Ok(0)
 }
-
 #[component]
 pub fn Counters(cx: Scope) -> Element {
     view! {
@@ -176,13 +170,13 @@ pub fn FormCounter(cx: Scope) -> Element {
                 // by including them as input values with the same name
                 <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="-1"/>
-                    <input type="hidden" name="msg" value="\"form value down\""/>
+                    <input type="hidden" name="msg" value="form value down"/>
                     <input type="submit" value="-1"/>
                 </ActionForm>
                 <span>"Value: " {move || value().to_string()} "!"</span>
                 <ActionForm action=adjust2>
                     <input type="hidden" name="delta" value="1"/>
-                    <input type="hidden" name="msg" value="\"form value up\""/>
+                    <input type="hidden" name="msg" value="form value up"/>
                     <input type="submit" value="+1"/>
                 </ActionForm>
             </div>
