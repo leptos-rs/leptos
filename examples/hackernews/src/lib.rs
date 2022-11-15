@@ -1,19 +1,13 @@
-// This is essentially a port of a Solid Hacker News demo
-// https://github.com/solidjs/solid-hackernews
-
+use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
-
 mod api;
-mod nav;
-mod stories;
-mod story;
-mod users;
-use nav::*;
-use stories::*;
-use story::*;
-use users::*;
+mod routes;
+use routes::nav::*;
+use routes::stories::*;
+use routes::story::*;
+use routes::users::*;
 
 #[component]
 pub fn App(cx: Scope) -> Element {
@@ -34,5 +28,21 @@ pub fn App(cx: Scope) -> Element {
                 </main>
             </Router>
         </div>
+    }
+}
+
+// Needs to be in lib.rs AFAIK because wasm-bindgen needs us to be compiling a lib. I may be wrong.
+cfg_if! {
+    if #[cfg(feature = "hydrate")] {
+        use wasm_bindgen::prelude::wasm_bindgen;
+
+        #[wasm_bindgen]
+        pub fn main() {
+            _ = console_log::init_with_level(log::Level::Debug);
+            console_error_panic_hook::set_once();
+            leptos::hydrate(body().unwrap(), move |cx| {
+                view! { cx, <App/> }
+            });
+        }
     }
 }

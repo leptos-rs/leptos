@@ -14,15 +14,11 @@ members = [
 
   # examples
   "examples/counter",
-  "examples/counter-isomorphic/client",
-  "examples/counter-isomorphic/server",
-  "examples/counter-isomorphic/counter",
+  "examples/counter-isomorphic",
   "examples/counters",
   "examples/counters-stable",
   "examples/fetch",
-  "examples/hackernews/hackernews-app",
-  "examples/hackernews/hackernews-client",
-  "examples/hackernews/hackernews-server",
+  "examples/hackernews",
   "examples/parent-child",
   "examples/router",
   "examples/todomvc",
@@ -35,8 +31,10 @@ members = [
 ]
 exclude = ["benchmarks"]
 
-
 [profile.release]
 codegen-units = 1
 lto = true
 opt-level = 'z'
+
+[workspace.metadata.cargo-all-features]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
