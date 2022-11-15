@@ -20,6 +20,7 @@ pub fn App(cx: Scope) -> Element {
 cfg_if! {
     if #[cfg(feature = "hydrate")] {
         use wasm_bindgen::prelude::wasm_bindgen;
+        use crate::counters::*;
 
         #[wasm_bindgen]
         pub fn main() {
