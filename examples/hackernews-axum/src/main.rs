@@ -9,16 +9,15 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         routing::{get},
         Router,
-        body::Bytes,
         response::{IntoResponse, Response},
+        handler::Handler,
     };
     use std::net::SocketAddr;
     use futures::StreamExt;
     use leptos_meta::*;
     use leptos_router::*;
     use leptos_hackernews_axum::*;
-    use crate::handlers::file_handler;
-    use std::io;
+    use leptos_hackernews_axum::handlers::{file_handler, render_app};
 
     // #[get("/static/style.css")]
     // async fn css() -> impl Responder {
@@ -26,8 +25,8 @@ if #[cfg(feature = "ssr")] {
     // }
 
     #[tokio::main]
-    async fn main() -> std::io::Result<()> {
-        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    async fn main() {
+        let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
 
         log::debug!("serving at {addr}");
 
@@ -65,11 +64,11 @@ if #[cfg(feature = "ssr")] {
         let app = Router::new()
         // `GET /` goes to `root`
         .nest("/pkg", get(file_handler))
-        .fallback(fallback.into_service());
+        .fallback(render_app.into_service());
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
-        tracing::debug!("listening on {}", addr);
+        log!("listening on {}", addr);
         axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .await

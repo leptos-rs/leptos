@@ -46,20 +46,22 @@ if #[cfg(feature = "ssr")] {
     }
 
     // match every path — our router will handle actual dispatch, except for the static css files
-    async fn render_app(request: Request<Body>) -> StreamBody<impl Stream<Item = io::Result<Bytes>>> {
+    pub async fn render_app(req: Request<Body>) -> StreamBody<impl Stream<Item = io::Result<Bytes>>> {
 
         // Need to get the path and query string of the Request
-        let path = req.path();
-        let query = req.query_string();
+        let path = req.uri();
+        let query = path.query();
 
-        let path = if query.is_empty() {
-            "http://leptos".to_string() + path
+        let full_path;
+        if let Some(query) = query {
+            full_path = "http://leptos".to_string() + &path.to_string() + "?" + query
+
         } else {
-            "http://leptos".to_string() + path + "?" + query
-        };
+            full_path = "http://leptos".to_string() + &path.to_string()
+        }
 
         let app = move |cx| {
-            let integration = ServerIntegration { path: path.clone() };
+            let integration = ServerIntegration { path: full_path.clone() };
             provide_context(cx, RouterIntegrationContext::new(integration));
 
             view! { cx, <App/> }

@@ -15,6 +15,9 @@ cfg-if = "1"
 leptos = { path = "../../../leptos/leptos", default-features = false, features = [
 	"serde",
 ] }
+# leptos = { git = "https://github.com/gbj/leptos", default-features = false, features = [
+# 	"serde",
+# ] }
 leptos_meta = { path = "../../../leptos/meta", default-features = false }
 leptos_router = { path = "../../../leptos/router", default-features = false }
 log = "0.4"
