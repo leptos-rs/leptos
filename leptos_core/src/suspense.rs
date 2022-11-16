@@ -75,11 +75,11 @@ where
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
-    provide_context(cx, context.clone());
+    provide_context(cx, context);
 
     let child = (props.children)().swap_remove(0);
 
-    render_suspense(cx, context, props.fallback.clone(), child)
+    render_suspense(cx, context, props.fallback, child)
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -95,13 +95,7 @@ where
     G: Fn() -> E,
 {
     move || {
-        #[cfg(feature = "transition")]
-        let transition_pending = cx.transition_pending();
-
-        #[cfg(not(feature = "transition"))]
-        let transition_pending = false;
-
-        if context.ready() || transition_pending {
+        if context.ready() {
             (child)().into_child(cx)
         } else {
             fallback.clone().into_child(cx)

@@ -51,27 +51,26 @@ pub fn router_example(cx: Scope) -> Element {
 pub fn ContactList(cx: Scope) -> Element {
     let location = use_location(cx);
     let contacts = create_resource(cx, move || location.search.get(), get_contacts);
+    let contacts = move || {
+        contacts.read().map(|contacts| {
+            // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
+            contacts
+                .into_iter()
+                .map(|contact| {
+                    view! { cx,
+                        <li><A href=contact.id.to_string()><span>{&contact.first_name} " " {&contact.last_name}</span></A></li>
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+    };
 
     view! { cx,
         <div class="contact-list">
             <h1>"Contacts"</h1>
-            <ul>
-                <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>{
-                    move || {
-                        contacts.read().map(|contacts| view! { cx,
-                            <For each=move || contacts.clone() key=|contact| contact.id>
-                                {move |cx, contact: &ContactSummary| {
-                                    let id = contact.id;
-                                    let name = format!("{} {}", contact.first_name, contact.last_name);
-                                    view! { cx,
-                                        <li><A href=id.to_string()><span>{name.clone()}</span></A></li>
-                                    }
-                                }}
-                            </For>
-                        })
-                    }
-                }</Suspense>
-            </ul>
+            <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>
+                {move || view! { cx, <ul>{contacts}</ul>}}
+            </Suspense>
             <Outlet/>
         </div>
     }
@@ -122,19 +121,19 @@ pub fn Contact(cx: Scope) -> Element {
 }
 
 #[component]
-pub fn About(_cx: Scope) -> Vec<Element> {
+pub fn About(_cx: Scope) -> Element {
     view! { cx,
-        <>
+        <div>
             <h1>"About"</h1>
             <p>"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."</p>
-        </>
+        </div>
     }
 }
 
 #[component]
-pub fn Settings(_cx: Scope) -> Vec<Element> {
+pub fn Settings(_cx: Scope) -> Element {
     view! { cx,
-        <>
+        <div>
             <h1>"Settings"</h1>
             <form>
                 <fieldset>
@@ -144,6 +143,6 @@ pub fn Settings(_cx: Scope) -> Vec<Element> {
                 </fieldset>
                 <pre>"This page is just a placeholder."</pre>
             </form>
-        </>
+        </div>
     }
 }
