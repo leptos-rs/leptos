@@ -16,7 +16,7 @@ cfg_if! {
         use leptos_reactive::*;
 
         use crate::Element;
-        use futures::{stream::FuturesUnordered, SinkExt, Stream, StreamExt};
+        use futures::{stream::{FuturesUnordered, select}, SinkExt, Stream, StreamExt};
 
         /// Renders a component to a stream of HTML strings.
         ///
@@ -31,7 +31,7 @@ cfg_if! {
         /// 3) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
         ///    read under that `<Suspense/>` resolve.
         pub fn render_to_stream(view: impl Fn(Scope) -> Element + 'static) -> impl Stream<Item = String> + Send {
-            let ((shell, pending_resources, pending_fragments, mut serializers), _, disposer) =
+            let ((shell, pending_resources, pending_fragments, serializers), _, disposer) =
                 run_scope_undisposed({
                     move |cx| {
                         // the actual app body/template code
@@ -50,7 +50,7 @@ cfg_if! {
                     }
                 });
 
-            let mut fragments = FuturesUnordered::new();
+            let fragments = FuturesUnordered::new();
             for (fragment_id, fut) in pending_fragments {
                 fragments.push(async move { (fragment_id, fut.await) })
             }
@@ -74,34 +74,37 @@ cfg_if! {
                 // you may well need to resolve some fragments before some of the resources are resolved
 
                 // stream data for each Resource as it resolves
-                while let Some((id, json)) = serializers.next().await {
+                let resolved_resources = serializers.map(|(id, json)| {
                     let id = serde_json::to_string(&id).unwrap();
-                    tx.send(format!(
+                    format!(
                         r#"<script>
                                 if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                                    console.log("(create_resource) calling resolver");
                                     __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
                                 }} else {{
-                                    console.log("(create_resource) saving data for resource creation");
                                     __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
                                 }}
                             </script>"#,
-                    )).await;
-                }
+                    )
+                });
 
                 // stream HTML for each <Suspense/> as it resolves
-                while let Some((fragment_id, html)) = fragments.next().await {
-                    tx.send(format!(
+                let resolved_suspenses = fragments.map(|(fragment_id, html)| {
+                    format!(
                         r#"
                             <template id="{fragment_id}">{html}</template>
                             <script>
                                 var frag = document.querySelector(`[data-fragment-id="{fragment_id}"]`);
                                 var tpl = document.getElementById("{fragment_id}");
-                                console.log("replace", frag, "with", tpl.content.cloneNode(true));
                                 frag.replaceWith(tpl.content.cloneNode(true));
                             </script>
                         "#
-                    )).await;
+                    )
+                });
+
+                // stream resource data and <Suspense/> fragments as they come down
+                let mut html_fragments = select(resolved_resources, resolved_suspenses);
+                while let Some(html) = html_fragments.next().await {
+                    tx.send(html).await;
                 }
 
                 disposer.dispose();
