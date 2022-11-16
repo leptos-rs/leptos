@@ -52,6 +52,8 @@ if #[cfg(feature = "ssr")] {
         let path = req.uri();
         let query = path.query();
 
+        println!("PATH: {:#?} {:#?}",path,query);
+
         let full_path;
         if let Some(query) = query {
             full_path = "http://leptos".to_string() + &path.to_string() + "?" + query

@@ -40,8 +40,7 @@ where
         else if #[cfg(any(test, doctest))] {
             tokio_test::block_on(fut);
         } else if #[cfg(feature = "ssr")] {
-            use tokio::task;
-            let local = task::LocalSet::new();
+            let local = tokio::task::LocalSet::new();
 
             local.run_until(async move {
                 tokio::task::spawn_local(fut);

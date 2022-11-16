@@ -17,7 +17,6 @@ cfg_if! {
 
         use crate::Element;
         use futures::{stream::{FuturesUnordered, select}, SinkExt, Stream, StreamExt};
-
         /// Renders a component to a stream of HTML strings.
         ///
         /// This renders:
@@ -32,7 +31,8 @@ cfg_if! {
         ///    read under that `<Suspense/>` resolve.
         pub fn render_to_stream(view: impl Fn(Scope) -> Element + 'static) -> impl Stream<Item = String> + Send {
             let ((shell, pending_resources, pending_fragments, serializers), _, disposer) =
-                run_scope_undisposed({
+
+            run_scope_undisposed({
                     move |cx| {
                         // the actual app body/template code
                         // this does NOT contain any of the data being loaded asynchronously in resources
