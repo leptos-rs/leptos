@@ -40,7 +40,13 @@ where
         else if #[cfg(any(test, doctest))] {
             tokio_test::block_on(fut);
         } else if #[cfg(feature = "ssr")] {
-            tokio::task::spawn_local(fut);
+            use tokio::task;
+            let local = task::LocalSet::new();
+
+            local.run_until(async move {
+                tokio::task::spawn_local(fut);
+            });
+
         }  else {
             futures::executor::block_on(fut)
         }

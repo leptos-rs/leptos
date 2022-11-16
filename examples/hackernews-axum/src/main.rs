@@ -18,6 +18,7 @@ if #[cfg(feature = "ssr")] {
     use leptos_router::*;
     use leptos_hackernews_axum::*;
     use leptos_hackernews_axum::handlers::{file_handler, render_app};
+    use tokio::task;
 
     // #[get("/static/style.css")]
     // async fn css() -> impl Responder {
@@ -32,34 +33,6 @@ if #[cfg(feature = "ssr")] {
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
-        // uncomment these lines (and .bind_openssl() below) to enable HTTPS, which is sometimes
-        // necessary for proper HTTP/2 streaming
-
-        // load TLS keys
-        // to create a self-signed temporary cert for testing:
-        // `openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'`
-        // let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-        // builder
-        //     .set_private_key_file("key.pem", SslFiletype::PEM)
-        //     .unwrap();
-        // builder.set_certificate_chain_file("cert.pem").unwrap();
-
-        // HttpServer::new(|| {
-        //     App::new()
-        //         .service(css)
-        //         .service(
-        //             web::scope("/pkg")
-        //                 .service(Files::new("", "./dist"))
-        //                 .wrap(middleware::Compress::default()),
-        //         )
-        //         .service(render_app)
-        // })
-        // .bind(("127.0.0.1", 8080))?
-        // // replace .bind with .bind_openssl to use HTTPS
-        // //.bind_openssl(&format!("{}:{}", host, port), builder)?
-        // .run()
-        // .await
-
         // build our application with a route
         let app = Router::new()
         // `GET /` goes to `root`
@@ -73,8 +46,7 @@ if #[cfg(feature = "ssr")] {
             .serve(app.into_make_service())
             .await
             .unwrap();
-
-    }
+}
 }
 
     // client-only stuff for Trunk
