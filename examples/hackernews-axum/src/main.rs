@@ -9,16 +9,10 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         routing::{get},
         Router,
-        response::{IntoResponse, Response},
         handler::Handler,
     };
     use std::net::SocketAddr;
-    use futures::StreamExt;
-    use leptos_meta::*;
-    use leptos_router::*;
-    use leptos_hackernews_axum::*;
-    use leptos_hackernews_axum::handlers::{file_handler, render_app};
-    use tokio::task;
+    use leptos_hackernews_axum::handlers::{file_handler, get_static_file_handler, render_app};
 
     // #[get("/static/style.css")]
     // async fn css() -> impl Responder {
@@ -37,6 +31,7 @@ if #[cfg(feature = "ssr")] {
         let app = Router::new()
         // `GET /` goes to `root`
         .nest("/pkg", get(file_handler))
+        .nest("/static", get(get_static_file_handler))
         .fallback(render_app.into_service());
 
         // run our app with hyper
