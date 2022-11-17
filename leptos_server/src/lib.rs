@@ -240,8 +240,6 @@ pub async fn call_server_fn<T>(url: &str, args: impl ServerFn) -> Result<T, Serv
 where
     T: Serializable + Sized,
 {
-    use leptos_dom::*;
-
     let args_form_data = serde_urlencoded::to_string(&args)
         .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
 
@@ -391,9 +389,27 @@ where
         self.input.read_only()
     }
 
+    /// The argument that was dispatched to the `async` function.
+    ///
+    /// You probably don't need to call this unless you are implementing a form
+    /// or some other kind of wrapper for an action and need to set the input
+    /// based on its internal logic.
+    pub fn set_input(&self, value: I) {
+        self.input.set(Some(value));
+    }
+
     /// The most recent return value of the `async` function.
     pub fn value(&self) -> ReadSignal<Option<O>> {
         self.value.read_only()
+    }
+
+    /// Sets the most recent return value of the `async` function.
+    ///
+    /// You probably don't need to call this unless you are implementing a form
+    /// or some other kind of wrapper for an action and need to set the value
+    /// based on its internal logic.
+    pub fn set_value(&self, value: O) {
+        self.value.set(Some(value));
     }
 
     /// The URL associated with the action (typically as part of a server function.)

@@ -22,6 +22,7 @@ url = { version = "2", optional = true }
 urlencoding = "2"
 thiserror = "1"
 typed-builder = "0.10"
+serde_urlencoded = "0.7"
 js-sys = { version = "0.3" }
 wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = { version = "0.4" }

@@ -1,10 +1,9 @@
-use std::error::Error;
-
+use crate::{use_navigate, use_resolved_path, ToHref};
 use leptos::*;
+use std::{error::Error, rc::Rc};
 use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
-
-use crate::{use_navigate, use_resolved_path, ToHref};
+use wasm_bindgen_futures::JsFuture;
 
 /// Properties that can be passed to the [Form] component, which is an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
@@ -33,6 +32,13 @@ where
     /// A signal that will be set if the form submission ends in an error.
     #[builder(default, setter(strip_option))]
     pub error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    /// A callback will be called with the [FormData](web_sys::FormData) when the form is submitted.
+    #[builder(default, setter(strip_option))]
+    pub on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    /// A callback will be called with the [Response](web_sys::Response) the server sends in response
+    /// to a form submission.
+    #[builder(default, setter(strip_option))]
+    pub on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
     /// Component children; should include the HTML of the form elements.
     pub children: Box<dyn Fn() -> Vec<Element>>,
 }
@@ -51,6 +57,8 @@ where
         children,
         version,
         error,
+        on_form_data,
+        on_response,
     } = props;
 
     let action_version = version;
@@ -150,6 +158,9 @@ where
         };
 
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+        if let Some(on_form_data) = on_form_data.clone() {
+            on_form_data(&form_data);
+        }
         let params =
             web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
         let action = use_resolved_path(cx, move || action.clone())
@@ -157,6 +168,7 @@ where
             .unwrap_or_default();
         // POST
         if method == "post" {
+            let on_response = on_response.clone();
             spawn_local(async move {
                 let res = gloo_net::http::Request::post(&action)
                     .header("Accept", "application/json")
@@ -177,6 +189,9 @@ where
                         }
                         if let Some(error) = error {
                             error.set(None);
+                        }
+                        if let Some(on_response) = on_response.clone() {
+                            on_response(&resp.as_raw());
                         }
 
                         if resp.status() == 303 {
@@ -222,7 +237,7 @@ where
     /// The action from which to build the form. This should include a URL, which can be generated
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
-    pub action: Action<I, O>,
+    pub action: Action<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
     pub children: Box<dyn Fn() -> Vec<Element>>,
 }
@@ -233,8 +248,8 @@ where
 #[allow(non_snake_case)]
 pub fn ActionForm<I, O>(cx: Scope, props: ActionFormProps<I, O>) -> Element
 where
-    I: 'static,
-    O: 'static,
+    I: Clone + ServerFn + 'static,
+    O: Clone + Serializable + 'static,
 {
     let action = if let Some(url) = props.action.url() {
         url
@@ -244,11 +259,57 @@ where
     }.to_string();
     let version = props.action.version;
 
+    let on_form_data = {
+        let action = props.action.clone();
+        Rc::new(move |form_data: &web_sys::FormData| {
+            let data =
+                web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+            let data = data.to_string().as_string().unwrap_or_default();
+            let data = serde_urlencoded::from_str::<I>(&data);
+            match data {
+                Ok(data) => action.set_input(data),
+                Err(e) => log::error!("{e}"),
+            }
+        })
+    };
+
+    let on_response = {
+        let action = props.action.clone();
+        Rc::new(move |resp: &web_sys::Response| {
+            let action = action.clone();
+            let resp = resp.clone().expect("couldn't get Response");
+            spawn_local(async move {
+                let body =
+                    JsFuture::from(resp.text().expect("couldn't get .text() from Response")).await;
+                match body {
+                    Ok(json) => {
+                        log::debug!(
+                            "body is {:?}\nO is {:?}",
+                            json.as_string().unwrap(),
+                            std::any::type_name::<O>()
+                        );
+                        match O::from_json(
+                            &json.as_string().expect("couldn't get String from JsString"),
+                        ) {
+                            Ok(res) => action.set_value(Ok(res)),
+                            Err(e) => {
+                                action.set_value(Err(ServerFnError::Deserialization(e.to_string())))
+                            }
+                        }
+                    }
+                    Err(e) => log::error!("{e:?}"),
+                }
+            });
+        })
+    };
+
     Form(
         cx,
         FormProps::builder()
             .action(action)
             .version(version)
+            .on_form_data(on_form_data)
+            .on_response(on_response)
             .method("post")
             .children(props.children)
             .build(),
