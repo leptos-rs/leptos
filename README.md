@@ -59,7 +59,8 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 Here are some resources for learning more about Leptos:
 
 - [Examples](https://github.com/gbj/leptos/tree/main/examples)
-- [API Documentation](https://docs.rs/leptos/latest/leptos/) (in progress)
+- [API Documentation](https://docs.rs/leptos/latest/leptos/)
+- [Common Bugs](https://github.com/gbj/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
 - Leptos Guide (in progress)
 
 ## `nightly` Note
@@ -107,6 +108,7 @@ The gold standard for testing raw rendering performance for front-end web framew
 ### Can I use this for native GUI?
 
 Sure! Obviously the `view` macro is for generating DOM nodes but you can use the reactive system to drive native any GUI toolkit that uses the same kind of object-oriented, event-callback-based framework as the DOM pretty easily. The principles are the same:
+
 - Use signals, derived signals, and memos to create your reactive system
 - Create GUI widgets
 - Use event listeners to update signals
@@ -131,7 +133,7 @@ There are some practical differences that make a significant difference:
 - **Maturity:** Sycamore is obviously a much more mature and stable library with a larger ecosystem.
 - **Templating:** Leptos uses a JSX-like template format (built on [syn-rsx](https://github.com/stoically/syn-rsx)) for its `view` macro. Sycamore offers the choice of its own templating DSL or a builder syntax.
 - **Template node cloning:** Leptos's `view` macro compiles to a static HTML string and a set of instructions of how to assign its reactive values. This means that at runtime, Leptos can clone a `<template>` node rather than calling `document.createElement()` to create DOM nodes. This is a _significantly_ faster way of rendering components.
-- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` *(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)*
+- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
 ```rust
