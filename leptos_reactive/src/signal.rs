@@ -124,8 +124,6 @@ where
 {
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal.
-    ///
-    /// If you want to get the value without cloning it, use [ReadSignal::with].
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
