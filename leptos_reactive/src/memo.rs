@@ -177,7 +177,7 @@ where
     /// # }).dispose();
     /// #
     /// ```
-    pub fn with<U>(&self, f: impl Fn(&T) -> U) -> U {
+    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         // okay to unwrap here, because the value will *always* have initially
         // been set by the effect, synchronously
         self.0
