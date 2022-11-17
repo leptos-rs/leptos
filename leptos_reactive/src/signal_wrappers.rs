@@ -224,10 +224,10 @@ where
 /// of the same type. This is especially useful for component properties.
 ///
 /// ```rust
-/// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
+/// # use leptos_reactive::*;
 /// # create_scope(|cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(move || count() * 2);
+/// let double_count = MaybeSignal::derive(move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
 /// let static_value = 5;
 ///
@@ -291,7 +291,7 @@ where
     /// let static_value: MaybeSignal<String> = "Bob".to_string().into();
     ///
     /// // this function takes any kind of wrapped signal
-    /// fn current_len_inefficient(arg: Signal<String>) -> usize {
+    /// fn current_len_inefficient(arg: &MaybeSignal<String>) -> usize {
     ///  // ❌ unnecessarily clones the string
     ///   arg().len()
     /// }
@@ -304,7 +304,7 @@ where
     /// assert_eq!(current_len(&name.into()), 5);
     /// assert_eq!(current_len(&name_upper), 5);
     /// assert_eq!(current_len(&memoized_lower.into()), 5);
-    /// assert_eq!(current_len(&static_value.into()), 5);
+    /// assert_eq!(current_len(&static_value), 3);
     ///
     /// assert_eq!(name(), "Alice");
     /// assert_eq!(name_upper(), "ALICE");
@@ -328,7 +328,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = MaybeSignal::derive(move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
     /// let static_value: MaybeSignal<i32> = 5.into();
     ///
