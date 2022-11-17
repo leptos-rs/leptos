@@ -28,7 +28,7 @@ cfg_if! {
                     <body>
                         {}
                     </body>
-                    <script type="module">import init, {{ main }} from './pkg/leptos_counter_isomorphic.js'; init().then(main);</script>
+                    <script type="module">import init, {{ hydrate }} from './pkg/leptos_counter_isomorphic.js'; init().then(hydrate);</script>
                 </html>"#,
                 run_scope({
                     move |cx| {
