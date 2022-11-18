@@ -69,93 +69,9 @@ where
             return;
         }
         ev.prevent_default();
-        let submitter = ev.unchecked_ref::<web_sys::SubmitEvent>().submitter();
         let navigate = use_navigate(cx);
 
-        let (form, method, action, enctype) = match &submitter {
-            Some(el) => {
-                if let Some(form) = el.dyn_ref::<web_sys::HtmlFormElement>() {
-                    (
-                        form.clone(),
-                        form.get_attribute("method")
-                            .unwrap_or_else(|| "get".to_string())
-                            .to_lowercase(),
-                        form.get_attribute("action")
-                            .unwrap_or_else(|| "".to_string())
-                            .to_lowercase(),
-                        form.get_attribute("enctype")
-                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
-                            .to_lowercase(),
-                    )
-                } else if let Some(input) = el.dyn_ref::<web_sys::HtmlInputElement>() {
-                    let form = ev
-                        .target()
-                        .unwrap()
-                        .unchecked_into::<web_sys::HtmlFormElement>();
-                    (
-                        form.clone(),
-                        input.get_attribute("method").unwrap_or_else(|| {
-                            form.get_attribute("method")
-                                .unwrap_or_else(|| "get".to_string())
-                                .to_lowercase()
-                        }),
-                        input.get_attribute("action").unwrap_or_else(|| {
-                            form.get_attribute("action")
-                                .unwrap_or_else(|| "".to_string())
-                                .to_lowercase()
-                        }),
-                        input.get_attribute("enctype").unwrap_or_else(|| {
-                            form.get_attribute("enctype")
-                                .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
-                                .to_lowercase()
-                        }),
-                    )
-                } else if let Some(button) = el.dyn_ref::<web_sys::HtmlButtonElement>() {
-                    let form = ev
-                        .target()
-                        .unwrap()
-                        .unchecked_into::<web_sys::HtmlFormElement>();
-                    (
-                        form.clone(),
-                        button.get_attribute("method").unwrap_or_else(|| {
-                            form.get_attribute("method")
-                                .unwrap_or_else(|| "get".to_string())
-                                .to_lowercase()
-                        }),
-                        button.get_attribute("action").unwrap_or_else(|| {
-                            form.get_attribute("action")
-                                .unwrap_or_else(|| "".to_string())
-                                .to_lowercase()
-                        }),
-                        button.get_attribute("enctype").unwrap_or_else(|| {
-                            form.get_attribute("enctype")
-                                .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
-                                .to_lowercase()
-                        }),
-                    )
-                } else {
-                    leptos_dom::debug_warn!("<Form/> cannot be submitted from a tag other than <form>, <input>, or <button>");
-                    panic!()
-                }
-            }
-            None => match ev.target() {
-                None => {
-                    leptos_dom::debug_warn!("<Form/> SubmitEvent fired without a target.");
-                    panic!()
-                }
-                Some(form) => {
-                    let form = form.unchecked_into::<web_sys::HtmlFormElement>();
-                    (
-                        form.clone(),
-                        form.get_attribute("method")
-                            .unwrap_or_else(|| "get".to_string()),
-                        form.get_attribute("action").unwrap_or_default(),
-                        form.get_attribute("enctype")
-                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string()),
-                    )
-                }
-            },
-        };
+        let (form, method, action, enctype) = extract_form_attributes(&ev);
 
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
         if let Some(on_form_data) = on_form_data.clone() {
@@ -264,10 +180,7 @@ where
     let on_form_data = {
         let action = props.action.clone();
         Rc::new(move |form_data: &web_sys::FormData| {
-            let data =
-                web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
-            let data = data.to_string().as_string().unwrap_or_default();
-            let data = serde_urlencoded::from_str::<I>(&data);
+            let data = action_input_from_form_data(form_data);
             match data {
                 Ok(data) => input.set(Some(data)),
                 Err(e) => log::error!("{e}"),
@@ -316,4 +229,168 @@ where
             .children(props.children)
             .build(),
     )
+}
+
+/// Properties that can be passed to the [MultiActionForm] component, which
+/// automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
+/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
+/// progressively enhanced to use client-side routing.
+#[derive(TypedBuilder)]
+pub struct MultiActionFormProps<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// The action from which to build the form. This should include a URL, which can be generated
+    /// by default using [create_server_action](leptos_server::create_server_action) or added
+    /// manually using [leptos_server::Action::using_server_fn].
+    pub action: MultiAction<I, Result<O, ServerFnError>>,
+    /// Component children; should include the HTML of the form elements.
+    pub children: Box<dyn Fn() -> Vec<Element>>,
+}
+
+/// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
+/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
+/// progressively enhanced to use client-side routing.
+#[allow(non_snake_case)]
+pub fn MultiActionForm<I, O>(cx: Scope, props: MultiActionFormProps<I, O>) -> Element
+where
+    I: Clone + ServerFn + 'static,
+    O: Clone + Serializable + 'static,
+{
+    let multi_action = props.action;
+    let action = if let Some(url) = multi_action.url() {
+        url
+    } else {
+        debug_warn!("<MultiActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        ""
+    }.to_string();
+
+    let on_submit = move |ev: web_sys::Event| {
+        if ev.default_prevented() {
+            return;
+        }
+
+        let (form, method, action, enctype) = extract_form_attributes(&ev);
+
+        let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+        let data = action_input_from_form_data(&form_data);
+        match data {
+            Err(e) => log::error!("{e}"),
+            Ok(input) => {
+                ev.prevent_default();
+                multi_action.dispatch(input);
+            }
+        }
+    };
+
+    let children = (props.children)();
+
+    view! { cx,
+        <form
+            method="POST"
+            action=action
+            on:submit=on_submit
+        >
+            {children}
+        </form>
+    }
+}
+
+fn extract_form_attributes(
+    ev: &web_sys::Event,
+) -> (web_sys::HtmlFormElement, String, String, String) {
+    let submitter = ev.unchecked_ref::<web_sys::SubmitEvent>().submitter();
+    match &submitter {
+        Some(el) => {
+            if let Some(form) = el.dyn_ref::<web_sys::HtmlFormElement>() {
+                (
+                    form.clone(),
+                    form.get_attribute("method")
+                        .unwrap_or_else(|| "get".to_string())
+                        .to_lowercase(),
+                    form.get_attribute("action")
+                        .unwrap_or_else(|| "".to_string())
+                        .to_lowercase(),
+                    form.get_attribute("enctype")
+                        .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                        .to_lowercase(),
+                )
+            } else if let Some(input) = el.dyn_ref::<web_sys::HtmlInputElement>() {
+                let form = ev
+                    .target()
+                    .unwrap()
+                    .unchecked_into::<web_sys::HtmlFormElement>();
+                (
+                    form.clone(),
+                    input.get_attribute("method").unwrap_or_else(|| {
+                        form.get_attribute("method")
+                            .unwrap_or_else(|| "get".to_string())
+                            .to_lowercase()
+                    }),
+                    input.get_attribute("action").unwrap_or_else(|| {
+                        form.get_attribute("action")
+                            .unwrap_or_else(|| "".to_string())
+                            .to_lowercase()
+                    }),
+                    input.get_attribute("enctype").unwrap_or_else(|| {
+                        form.get_attribute("enctype")
+                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                            .to_lowercase()
+                    }),
+                )
+            } else if let Some(button) = el.dyn_ref::<web_sys::HtmlButtonElement>() {
+                let form = ev
+                    .target()
+                    .unwrap()
+                    .unchecked_into::<web_sys::HtmlFormElement>();
+                (
+                    form.clone(),
+                    button.get_attribute("method").unwrap_or_else(|| {
+                        form.get_attribute("method")
+                            .unwrap_or_else(|| "get".to_string())
+                            .to_lowercase()
+                    }),
+                    button.get_attribute("action").unwrap_or_else(|| {
+                        form.get_attribute("action")
+                            .unwrap_or_else(|| "".to_string())
+                            .to_lowercase()
+                    }),
+                    button.get_attribute("enctype").unwrap_or_else(|| {
+                        form.get_attribute("enctype")
+                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                            .to_lowercase()
+                    }),
+                )
+            } else {
+                leptos_dom::debug_warn!("<Form/> cannot be submitted from a tag other than <form>, <input>, or <button>");
+                panic!()
+            }
+        }
+        None => match ev.target() {
+            None => {
+                leptos_dom::debug_warn!("<Form/> SubmitEvent fired without a target.");
+                panic!()
+            }
+            Some(form) => {
+                let form = form.unchecked_into::<web_sys::HtmlFormElement>();
+                (
+                    form.clone(),
+                    form.get_attribute("method")
+                        .unwrap_or_else(|| "get".to_string()),
+                    form.get_attribute("action").unwrap_or_default(),
+                    form.get_attribute("enctype")
+                        .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string()),
+                )
+            }
+        },
+    }
+}
+
+fn action_input_from_form_data<I: serde::de::DeserializeOwned>(
+    form_data: &web_sys::FormData,
+) -> Result<I, serde_urlencoded::de::Error> {
+    let data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+    let data = data.to_string().as_string().unwrap_or_default();
+    serde_urlencoded::from_str::<I>(&data)
 }
