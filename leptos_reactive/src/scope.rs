@@ -185,7 +185,7 @@ impl Scope {
         let scope = scopes
             .get(self.id)
             .expect("tried to add property to a scope that has been disposed");
-        f(&mut *scope.borrow_mut());
+        f(&mut scope.borrow_mut());
     }
 }
 

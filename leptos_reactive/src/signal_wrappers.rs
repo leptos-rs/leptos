@@ -1,6 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
-use crate::{create_scope, Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
+use crate::{Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
 
 /// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
 /// [Memo](crate::Memo), [RwSignal](crate::RwSignal), or derived signal closure.

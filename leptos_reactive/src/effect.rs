@@ -54,7 +54,9 @@ where
         if #[cfg(not(feature = "ssr"))] {
             create_isomorphic_effect(cx, f);
         } else {
-            { }
+            // clear warnings
+            _ = cx;
+            _ = f;
         }
     }
 }
