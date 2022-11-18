@@ -347,8 +347,11 @@ where
 {
     /// How many times the action has successfully resolved.
     pub version: RwSignal<usize>,
-    input: RwSignal<Option<I>>,
-    value: RwSignal<Option<O>>,
+    /// The current argument that was dispatched to the `async` function.
+    /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    pub input: RwSignal<Option<I>>,
+    /// The most recent return value of the `async` function.
+    pub value: RwSignal<Option<O>>,
     pending: RwSignal<bool>,
     url: Option<String>,
     #[allow(clippy::complexity)]
@@ -381,35 +384,6 @@ where
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
     pub fn pending(&self) -> ReadSignal<bool> {
         self.pending.read_only()
-    }
-
-    /// The argument that was dispatched to the `async` function,
-    /// only while we are waiting for it to resolve.
-    pub fn input(&self) -> ReadSignal<Option<I>> {
-        self.input.read_only()
-    }
-
-    /// The argument that was dispatched to the `async` function.
-    ///
-    /// You probably don't need to call this unless you are implementing a form
-    /// or some other kind of wrapper for an action and need to set the input
-    /// based on its internal logic.
-    pub fn set_input(&self, value: I) {
-        self.input.set(Some(value));
-    }
-
-    /// The most recent return value of the `async` function.
-    pub fn value(&self) -> ReadSignal<Option<O>> {
-        self.value.read_only()
-    }
-
-    /// Sets the most recent return value of the `async` function.
-    ///
-    /// You probably don't need to call this unless you are implementing a form
-    /// or some other kind of wrapper for an action and need to set the value
-    /// based on its internal logic.
-    pub fn set_value(&self, value: O) {
-        self.value.set(Some(value));
     }
 
     /// The URL associated with the action (typically as part of a server function.)

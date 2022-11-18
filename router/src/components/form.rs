@@ -258,6 +258,8 @@ where
         ""
     }.to_string();
     let version = props.action.version;
+    let value = props.action.value;
+    let input = props.action.input;
 
     let on_form_data = {
         let action = props.action.clone();
@@ -267,7 +269,7 @@ where
             let data = data.to_string().as_string().unwrap_or_default();
             let data = serde_urlencoded::from_str::<I>(&data);
             match data {
-                Ok(data) => action.set_input(data),
+                Ok(data) => input.set(Some(data)),
                 Err(e) => log::error!("{e}"),
             }
         })
@@ -291,9 +293,9 @@ where
                         match O::from_json(
                             &json.as_string().expect("couldn't get String from JsString"),
                         ) {
-                            Ok(res) => action.set_value(Ok(res)),
+                            Ok(res) => value.set(Some(Ok(res))),
                             Err(e) => {
-                                action.set_value(Err(ServerFnError::Deserialization(e.to_string())))
+                                value.set(Some(Err(ServerFnError::Deserialization(e.to_string()))))
                             }
                         }
                     }
