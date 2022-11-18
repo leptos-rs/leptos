@@ -115,7 +115,7 @@ pub trait UntrackedGettableSignal<T> {
 /// from being run.
 pub trait UntrackedSettableSignal<T> {
     /// Sets the signal's value without notifying dependents.
-    fn set(&self, new_value: T);
+    fn set_untracked(&self, new_value: T);
 
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents.

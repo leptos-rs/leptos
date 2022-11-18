@@ -303,7 +303,7 @@ impl<T> UntrackedSettableSignal<T> for WriteSignal<T>
 where
     T: 'static,
 {
-    fn set(&self, new_value: T) {
+    fn set_untracked(&self, new_value: T) {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
@@ -494,7 +494,7 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
 }
 
 impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
-    fn set(&self, new_value: T) {
+    fn set_untracked(&self, new_value: T) {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
