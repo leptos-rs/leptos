@@ -76,7 +76,7 @@ where
 {
     let location = use_location(cx);
     let href = use_resolved_path(cx, move || props.href.to_href()());
-    let is_active = create_memo(cx, move |_| match href() {
+    let is_active = create_memo(cx, move |_| match href.get() {
         None => false,
 
         Some(to) => {
@@ -104,10 +104,10 @@ where
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             view! { cx,
                 <a
-                    href=move || href().unwrap_or_default()
+                    href=move || href.get().unwrap_or_default()
                     prop:state={props.state.map(|s| s.to_js_value())}
                     prop:replace={props.replace}
-                    aria-current=move || if is_active() { Some("page") } else { None }
+                    aria-current=move || if is_active.get() { Some("page") } else { None }
                 >
                     {child}
                 </a>
