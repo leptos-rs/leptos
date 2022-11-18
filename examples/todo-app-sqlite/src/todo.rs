@@ -14,6 +14,7 @@ cfg_if! {
         pub fn register_server_functions() {
             GetTodos::register();
             AddTodo::register();
+            DeleteTodo::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -53,9 +54,10 @@ pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
 
 #[server(AddTodo, "/api")]
 pub async fn add_todo(title: String) -> Result<u16, ServerFnError> {
-    use futures::TryStreamExt;
-
     let mut conn = db().await?;
+
+    // fake API delay
+    std::thread::sleep(std::time::Duration::from_millis(250));
 
     match sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
         .bind(title)
@@ -65,6 +67,18 @@ pub async fn add_todo(title: String) -> Result<u16, ServerFnError> {
         Ok(row) => Ok(0),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
     }
+}
+
+#[server(DeleteTodo, "/api")]
+pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
+    let mut conn = db().await?;
+
+    sqlx::query("DELETE FROM todos WHERE id = $1")
+        .bind(id)
+        .execute(&mut conn)
+        .await
+        .map(|_| ())
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))
 }
 
 #[component]
@@ -92,27 +106,55 @@ pub fn TodoApp(cx: Scope) -> Element {
 #[component]
 pub fn Todos(cx: Scope) -> Element {
     let add_todo = create_server_multi_action::<AddTodo>(cx);
+    let submissions = add_todo.submissions();
     let add_changed = add_todo.version;
 
     let todos = create_resource(cx, move || add_changed(), |_| get_todos());
     let todos_view = move || {
-        todos.read().map(|todos| match todos {
-            Err(e) => view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>},
-            Ok(todos) => {
-                if todos.is_empty() {
-                    view! { cx, <p>"No tasks were found."</p> }
-                } else {
-                    let todos = todos
-                        .into_iter()
-                        .map(|todo| view! { cx, <li>{todo.title}</li> })
-                        .collect::<Vec<_>>();
+        let existing_todos = move || {
+            todos
+                .read()
+                .map(|todos| match todos {
+                    Err(e) => {
+                        vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}]
+                    }
+                    Ok(todos) => {
+                        if todos.is_empty() {
+                            vec![view! { cx, <p>"No tasks were found."</p> }]
+                        } else {
+                            todos
+                                .into_iter()
+                                .map(|todo| view! {
+                                    cx,
+                                    <li>{todo.title}</li> 
+                                })
+                                .collect::<Vec<_>>()
+                        }
+                    }
+                })
+                .unwrap_or_default()
+        };
+
+        let pending_todos = move || {
+            submissions
+                .get()
+                .into_iter()
+                .filter(|submission| submission.pending().get())
+                .map(|submission| {
                     view! {
                         cx,
-                        <ul>{todos}</ul>
+                        <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                     }
-                }
-            }
-        })
+                })
+                .collect::<Vec<_>>()
+        };
+
+        view! { cx,
+            <ul>
+                <div>{existing_todos}</div>
+                <div>{added_todos}</div>
+            </ul>
+        }
     };
 
     view! {

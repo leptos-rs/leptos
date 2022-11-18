@@ -24,6 +24,7 @@ cfg_if! {
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
                         <title>Leptos Todos</title>
+                        <style>.pending {{ color: purple; }}</style>
                     </head>
                     <body>
                         {}
@@ -99,6 +100,10 @@ cfg_if! {
             .bind(("127.0.0.1", 8081))?
             .run()
             .await
+        }
+    } else {
+        fn main() {
+            // no client-side main function
         }
     }
 }

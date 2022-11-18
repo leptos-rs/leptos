@@ -7,7 +7,7 @@ This example demonstrates how to use a server functions and multi-actions to bui
 To run it as a server side app with hydration, first you should run
 
 ```bash
-wasm-pack build --target=web --features=hydrate
+wasm-pack build --target=web --no-default-features --features=hydrate
 ```
 
 to generate the Webassembly to provide hydration features for the server.
