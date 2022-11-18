@@ -8,9 +8,9 @@ repository = "https://github.com/gbj/leptos"
 description = "Core functionality for the Leptos web framework."
 
 [dependencies]
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.16" }
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.16" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.16" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.17" }
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.17" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.17" }
 log = "0.4"
 
 [dev-dependencies]
