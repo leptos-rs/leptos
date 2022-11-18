@@ -23,9 +23,9 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// });
 ///
 /// // the argument currently running
-/// let input = save_data.input();
+/// let input = save_data.input;
 /// // the most recent returned result
-/// let result_of_call = save_data.value();
+/// let result_of_call = save_data.value;
 /// // whether the call is pending
 /// let pending = save_data.pending();
 /// // how many times the action has run
@@ -164,9 +164,9 @@ where
 /// });
 ///
 /// // the argument currently running
-/// let input = save_data.input();
+/// let input = save_data.input;
 /// // the most recent returned result
-/// let result_of_call = save_data.value();
+/// let result_of_call = save_data.value;
 /// // whether the call is pending
 /// let pending = save_data.pending();
 /// // how many times the action has run
