@@ -92,6 +92,22 @@ pub use signal::*;
 pub use spawn::*;
 pub use suspense::*;
 
+/// Trait implemented for all signal types which you can `get` a value
+/// from, such as [`ReadSignal`],
+/// [`Memo`], etc., which allows getting the inner value without
+/// subscribing to the current scope.
+pub trait UntrackedGettableSignal<T> {
+    /// Gets the signal's value without creating a dependency on the
+    /// current scope.
+    fn get_untracked(&self) -> T
+    where
+        T: Clone;
+
+    /// Runs the provided closure with a reference to the current
+    /// value without creating a dependency on the current scope.
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+}
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! debug_warn {

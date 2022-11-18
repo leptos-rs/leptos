@@ -1,4 +1,4 @@
-use crate::{debug_warn, spawn_local, Runtime, Scope, ScopeProperty};
+use crate::{debug_warn, spawn_local, Runtime, Scope, ScopeProperty, UntrackedGettableSignal};
 use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
 use thiserror::Error;
@@ -116,6 +116,19 @@ where
     pub(crate) runtime: &'static Runtime,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
+}
+
+impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        self.with_no_subscription(|v| v.clone())
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.with_no_subscription(f)
+    }
 }
 
 impl<T> ReadSignal<T>
@@ -450,6 +463,20 @@ impl<T> Clone for RwSignal<T> {
 }
 
 impl<T> Copy for RwSignal<T> {}
+
+impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        self.id
+            .with_no_subscription(self.runtime, |v: &T| v.clone())
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+}
 
 impl<T> RwSignal<T>
 where
