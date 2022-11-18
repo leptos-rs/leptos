@@ -13,7 +13,7 @@ use crate::{create_scope, Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSi
 /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
 /// # create_scope(|cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(move || count() * 2);
+/// let double_count = Signal::derive(cx, move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
 ///
 /// // this function takes any kind of wrapped signal
@@ -76,7 +76,7 @@ where
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -97,7 +97,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    /// let name_upper = Signal::derive(move || name.with(|n| n.to_uppercase()));
+    /// let name_upper = Signal::derive(cx, move || name.with(|n| n.to_uppercase()));
     /// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
     ///
     /// // this function takes any kind of wrapped signal
@@ -137,7 +137,7 @@ where
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
@@ -260,7 +260,7 @@ where
 /// # use leptos_reactive::*;
 /// # create_scope(|cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(move || count() * 2);
+/// let double_count = MaybeSignal::derive(cx, move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
 /// let static_value = 5;
 ///
@@ -320,7 +320,7 @@ where
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -341,7 +341,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    /// let name_upper = MaybeSignal::derive(move || name.with(|n| n.to_uppercase()));
+    /// let name_upper = MaybeSignal::derive(cx, move || name.with(|n| n.to_uppercase()));
     /// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
     /// let static_value: MaybeSignal<String> = "Bob".to_string().into();
     ///
@@ -383,7 +383,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = MaybeSignal::derive(move || count() * 2);
+    /// let double_count = MaybeSignal::derive(cx, move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
     /// let static_value: MaybeSignal<i32> = 5.into();
     ///
