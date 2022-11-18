@@ -23,6 +23,7 @@ members = [
   "examples/parent-child",
   "examples/router",
   "examples/todomvc",
+  "examples/todo-app-sqlite",
   "examples/view-tests",
 
   # book
