@@ -288,6 +288,28 @@ where
     Dynamic(Signal<T>),
 }
 
+impl<T> UntrackedGettableSignal<T> for MaybeSignal<T>
+where
+    T: 'static,
+{
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        match self {
+            Self::Static(t) => t.clone(),
+            Self::Dynamic(s) => s.get_untracked(),
+        }
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        match self {
+            Self::Static(t) => f(t),
+            Self::Dynamic(s) => s.with_untracked(f),
+        }
+    }
+}
+
 impl<T> MaybeSignal<T>
 where
     T: 'static,
