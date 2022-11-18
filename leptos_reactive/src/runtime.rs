@@ -31,7 +31,7 @@ pub(crate) struct Runtime {
     pub scope_cleanups: RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
-    pub effects: RefCell<SlotMap<EffectId, Rc<RefCell<dyn AnyEffect>>>>,
+    pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
     pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
@@ -115,27 +115,20 @@ impl Runtime {
         }
     }
 
-    pub(crate) fn create_effect<T>(
-        &'static self,
-        f: impl FnMut(Option<T>) -> T + 'static,
-    ) -> EffectId
+    pub(crate) fn create_effect<T>(&'static self, f: impl Fn(Option<T>) -> T + 'static) -> EffectId
     where
         T: Any + 'static,
     {
-        let effect = Effect { f, value: None };
-        let id = {
-            self.effects
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(effect)))
+        let effect = Effect {
+            f,
+            value: RefCell::new(None),
         };
+        let id = { self.effects.borrow_mut().insert(Rc::new(effect)) };
         id.run::<T>(self);
         id
     }
 
-    pub(crate) fn create_memo<T>(
-        &'static self,
-        mut f: impl FnMut(Option<&T>) -> T + 'static,
-    ) -> Memo<T>
+    pub(crate) fn create_memo<T>(&'static self, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
     where
         T: PartialEq + Any + 'static,
     {

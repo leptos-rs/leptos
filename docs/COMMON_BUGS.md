@@ -4,35 +4,6 @@ This document is intended as a running list of common issues, with example code 
 
 ## Reactivity
 
-### Don't get and set a signal within the same effect
-
-**Issue**: Sometimes you need access to a signal's current value when setting a new value.
-
-```rust,should_panic
-let (a, set_a) = create_signal(cx, false);
-
-create_effect(cx, move |_| {
-	if !a() {
-		set_a(true); // ❌ panics: already borrowed
-	}
-});
-```
-
-**Solution**: Use the `.update()` function instead.
-
-```rust
-let (a, set_a) = create_signal(cx, false);
-
-create_effect(cx, move |_| {
-	// ✅ updates the signal, which provides you with the current value
-	set_a.update(|a: &mut bool| {
-		if *a {
-			*a = false;
-		}
-	})
-});
-```
-
 ### Avoid writing to a signal from an effect
 
 **Issue**: Sometimes you want to update a reactive signal in a way that depends on another signal.

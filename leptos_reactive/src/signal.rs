@@ -730,7 +730,7 @@ impl SignalId {
                         effects.get(sub).cloned()
                     };
                     if let Some(effect) = effect {
-                        effect.borrow_mut().run(sub, runtime);
+                        effect.run(sub, runtime);
                     }
                 }
             }

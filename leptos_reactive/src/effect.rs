@@ -1,5 +1,6 @@
 use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
+use std::cell::RefCell;
 use std::fmt::Debug;
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
@@ -45,7 +46,7 @@ use std::fmt::Debug;
 /// # }
 /// # }).dispose();
 /// ```
-pub fn create_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
+pub fn create_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
@@ -84,7 +85,7 @@ where
 /// });
 /// # assert_eq!(b(), 2);
 /// # }).dispose();
-pub fn create_isomorphic_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
+pub fn create_isomorphic_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
@@ -93,7 +94,7 @@ where
 }
 
 #[doc(hidden)]
-pub fn create_render_effect<T>(cx: Scope, f: impl FnMut(Option<T>) -> T + 'static)
+pub fn create_render_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: Debug + 'static,
 {
@@ -108,22 +109,22 @@ slotmap::new_key_type! {
 pub(crate) struct Effect<T, F>
 where
     T: 'static,
-    F: FnMut(Option<T>) -> T,
+    F: Fn(Option<T>) -> T,
 {
     pub(crate) f: F,
-    pub(crate) value: Option<T>,
+    pub(crate) value: RefCell<Option<T>>,
 }
 
 pub(crate) trait AnyEffect {
-    fn run(&mut self, id: EffectId, runtime: &Runtime);
+    fn run(&self, id: EffectId, runtime: &Runtime);
 }
 
 impl<T, F> AnyEffect for Effect<T, F>
 where
     T: 'static,
-    F: FnMut(Option<T>) -> T,
+    F: Fn(Option<T>) -> T,
 {
-    fn run(&mut self, id: EffectId, runtime: &Runtime) {
+    fn run(&self, id: EffectId, runtime: &Runtime) {
         // clear previous dependencies
         id.cleanup(runtime);
 
@@ -134,7 +135,7 @@ where
         // run the effect
         let value = self.value.take();
         let new_value = (self.f)(value);
-        self.value = Some(new_value);
+        *self.value.borrow_mut() = Some(new_value);
 
         // restore the previous observer
         runtime.observer.set(prev_observer);
@@ -148,7 +149,7 @@ impl EffectId {
             effects.get(*self).cloned()
         };
         if let Some(effect) = effect {
-            effect.borrow_mut().run(*self, runtime);
+            effect.run(*self, runtime);
         } else {
             debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
         }

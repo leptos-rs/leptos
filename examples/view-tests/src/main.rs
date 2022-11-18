@@ -7,10 +7,26 @@ pub fn main() {
 }
 
 #[component]
+fn SelfUpdatingEffect(cx: Scope) -> Element {
+    let (a, set_a) = create_signal(cx, false);
+
+    create_effect(cx, move |_| {
+        if !a() {
+            set_a(true);
+        }
+    });
+
+    view! { cx,
+      <h1>"Hello " {move || a().to_string()}</h1>
+    }
+}
+
+#[component]
 fn Tests(cx: Scope) -> Element {
     view! {
         cx,
         <div>
+            <div><SelfUpdatingEffect/></div>
             <div><BlockOrders/></div>
             //<div><TemplateConsumer/></div>
         </div>
@@ -98,8 +114,8 @@ fn TemplateConsumer(cx: Scope) -> Element {
     view! {
         cx,
         <div id="template">
-            <h1>"Template Consumer"</h1>
-            {cloned_tpl}
+            /* <h1>"Template Consumer"</h1>
+            {cloned_tpl} */
         </div>
     }
 }
