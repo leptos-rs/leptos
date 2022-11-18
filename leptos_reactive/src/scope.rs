@@ -8,10 +8,10 @@ use std::fmt::Debug;
 use std::{future::Future, pin::Pin};
 
 #[must_use = "Scope will leak memory if the disposer function is never called"]
-/// Creates a child reactive scope and runs the function within it. This is useful for applications
-/// like a list or a router, which may want to create child scopes and dispose of them when
-/// they are no longer needed (e.g., a list item has been destroyed or the user has navigated away
-/// from the route.)
+/// Creates a new reactive system and root reactive scope and runs the function within it.
+///
+/// This should usually only be used once, at the root of an application, because its reactive
+/// values will not have access to values created under another `create_scope`.
 pub fn create_scope(f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
     let runtime = Box::leak(Box::new(Runtime::new()));
     runtime.run_scope_undisposed(f, None).2
@@ -69,6 +69,10 @@ impl Scope {
     ///
     /// The child scope has its own lifetime and disposer, but will be disposed when the parent is
     /// disposed, if it has not been already.
+    ///
+    /// This is useful for applications like a list or a router, which may want to create child scopes and
+    /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
+    /// has navigated away from the route.)
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
         let mut children = self.runtime.scope_children.borrow_mut();
