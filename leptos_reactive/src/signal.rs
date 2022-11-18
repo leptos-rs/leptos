@@ -1,4 +1,7 @@
-use crate::{debug_warn, spawn_local, Runtime, Scope, ScopeProperty};
+use crate::{
+    debug_warn, spawn_local, Runtime, Scope, ScopeProperty, UntrackedGettableSignal,
+    UntrackedSettableSignal,
+};
 use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
 use thiserror::Error;
@@ -116,6 +119,19 @@ where
     pub(crate) runtime: &'static Runtime,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
+}
+
+impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        self.with_no_subscription(|v| v.clone())
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.with_no_subscription(f)
+    }
 }
 
 impl<T> ReadSignal<T>
@@ -283,6 +299,20 @@ where
     pub(crate) ty: PhantomData<T>,
 }
 
+impl<T> UntrackedSettableSignal<T> for WriteSignal<T>
+where
+    T: 'static,
+{
+    fn set_untracked(&self, new_value: T) {
+        self.id
+            .update_with_no_effect(self.runtime, |v| *v = new_value);
+    }
+
+    fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+        self.id.update_with_no_effect(self.runtime, f);
+    }
+}
+
 impl<T> WriteSignal<T>
 where
     T: 'static,
@@ -448,6 +478,31 @@ impl<T> Clone for RwSignal<T> {
 }
 
 impl<T> Copy for RwSignal<T> {}
+
+impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        self.id
+            .with_no_subscription(self.runtime, |v: &T| v.clone())
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+}
+
+impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
+    fn set_untracked(&self, new_value: T) {
+        self.id
+            .update_with_no_effect(self.runtime, |v| *v = new_value);
+    }
+
+    fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+        self.id.update_with_no_effect(self.runtime, f);
+    }
+}
 
 impl<T> RwSignal<T>
 where
@@ -685,36 +740,41 @@ impl SignalId {
         self.try_with(runtime, f).unwrap()
     }
 
+    fn update_value<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T)) -> bool
+    where
+        T: 'static,
+    {
+        let value = {
+            let signals = runtime.signals.borrow();
+            signals.get(*self).cloned()
+        };
+        if let Some(value) = value {
+            let mut value = value.borrow_mut();
+            if let Some(value) = value.downcast_mut::<T>() {
+                f(value);
+                true
+            } else {
+                debug_warn!(
+                    "[Signal::update] failed when downcasting to Signal<{}>",
+                    std::any::type_name::<T>()
+                );
+                false
+            }
+        } else {
+            debug_warn!(
+                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
+                    std::any::type_name::<T>()
+                );
+            false
+        }
+    }
+
     pub(crate) fn update<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T))
     where
         T: 'static,
     {
         // update the value
-        let updated = {
-            let value = {
-                let signals = runtime.signals.borrow();
-                signals.get(*self).cloned()
-            };
-            if let Some(value) = value {
-                let mut value = value.borrow_mut();
-                if let Some(value) = value.downcast_mut::<T>() {
-                    f(value);
-                    true
-                } else {
-                    debug_warn!(
-                        "[Signal::update] failed when downcasting to Signal<{}>",
-                        std::any::type_name::<T>()
-                    );
-                    false
-                }
-            } else {
-                debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
-                    std::any::type_name::<T>()
-                );
-                false
-            }
-        };
+        let updated = self.update_value(runtime, f);
 
         // notify subscribers
         if updated {
@@ -735,5 +795,13 @@ impl SignalId {
                 }
             }
         }
+    }
+
+    pub(crate) fn update_with_no_effect<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T))
+    where
+        T: 'static,
+    {
+        // update the value
+        self.update_value(runtime, f);
     }
 }

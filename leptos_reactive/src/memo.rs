@@ -1,4 +1,4 @@
-use crate::{ReadSignal, Scope, SignalError};
+use crate::{ReadSignal, Scope, SignalError, UntrackedGettableSignal};
 use std::fmt::Debug;
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -129,6 +129,23 @@ where
 }
 
 impl<T> Copy for Memo<T> {}
+
+impl<T> UntrackedGettableSignal<T> for Memo<T> {
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        // Unwrapping is fine because `T` will already be `Some(T)` by
+        // the time this method can be called
+        self.0.get_untracked().unwrap()
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        // Unwrapping here is fine for the same reasons as <Memo as
+        // UntrackedSignal>::get_untracked
+        self.0.with_untracked(|v| f(v.as_ref().unwrap()))
+    }
+}
 
 impl<T> Memo<T>
 where

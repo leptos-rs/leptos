@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
-use crate::{Memo, ReadSignal, RwSignal};
+use crate::{create_scope, Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
 
 /// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
 /// [Memo](crate::Memo), [RwSignal](crate::RwSignal), or derived signal closure.
@@ -13,7 +13,7 @@ use crate::{Memo, ReadSignal, RwSignal};
 /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
 /// # create_scope(|cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(move || count() * 2);
+/// let double_count = Signal::derive(cx, move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
 ///
 /// // this function takes any kind of wrapped signal
@@ -33,6 +33,39 @@ pub struct Signal<T>(SignalTypes<T>)
 where
     T: 'static;
 
+/// Please note that using `Signal::with_untracked` still clones the inner value,
+/// so there's no benefit to using it as opposed to calling
+/// `Signal::get_untracked`.
+impl<T> UntrackedGettableSignal<T> for Signal<T>
+where
+    T: 'static,
+{
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        match &self.0 {
+            SignalTypes::ReadSignal(s) => s.get_untracked(),
+            SignalTypes::Memo(m) => m.get_untracked(),
+            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f()),
+        }
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        match &self.0 {
+            SignalTypes::ReadSignal(s) => s.with_untracked(f),
+            SignalTypes::Memo(s) => s.with_untracked(f),
+            SignalTypes::DerivedSignal(cx, v_f) => {
+                let mut o = None;
+
+                cx.untrack(|| o = Some(f(&v_f())));
+
+                o.unwrap()
+            }
+        }
+    }
+}
+
 impl<T> Signal<T>
 where
     T: 'static,
@@ -43,7 +76,7 @@ where
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -54,8 +87,8 @@ where
     /// assert_eq!(above_3(&double_count), true);
     /// # });
     /// ```
-    pub fn derive(derived_signal: impl Fn() -> T + 'static) -> Self {
-        Self(SignalTypes::DerivedSignal(Rc::new(derived_signal)))
+    pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
+        Self(SignalTypes::DerivedSignal(cx, Rc::new(derived_signal)))
     }
 
     /// Applies a function to the current value of the signal, and subscribes
@@ -64,7 +97,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    /// let name_upper = Signal::derive(move || name.with(|n| n.to_uppercase()));
+    /// let name_upper = Signal::derive(cx, move || name.with(|n| n.to_uppercase()));
     /// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
     ///
     /// // this function takes any kind of wrapped signal
@@ -91,7 +124,7 @@ where
         match &self.0 {
             SignalTypes::ReadSignal(s) => s.with(f),
             SignalTypes::Memo(s) => s.with(f),
-            SignalTypes::DerivedSignal(s) => f(&s()),
+            SignalTypes::DerivedSignal(_, s) => f(&s()),
         }
     }
 
@@ -104,7 +137,7 @@ where
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
@@ -124,7 +157,7 @@ where
         match &self.0 {
             SignalTypes::ReadSignal(s) => s.get(),
             SignalTypes::Memo(s) => s.get(),
-            SignalTypes::DerivedSignal(s) => s(),
+            SignalTypes::DerivedSignal(_, s) => s(),
         }
     }
 }
@@ -154,7 +187,7 @@ where
 {
     ReadSignal(ReadSignal<T>),
     Memo(Memo<T>),
-    DerivedSignal(Rc<dyn Fn() -> T>),
+    DerivedSignal(Scope, Rc<dyn Fn() -> T>),
 }
 
 impl<T> std::fmt::Debug for SignalTypes<T>
@@ -165,7 +198,7 @@ where
         match self {
             Self::ReadSignal(arg0) => f.debug_tuple("ReadSignal").field(arg0).finish(),
             Self::Memo(arg0) => f.debug_tuple("Memo").field(arg0).finish(),
-            Self::DerivedSignal(_) => f.debug_tuple("DerivedSignal").finish(),
+            Self::DerivedSignal(_, _) => f.debug_tuple("DerivedSignal").finish(),
         }
     }
 }
@@ -178,7 +211,7 @@ where
         match (self, other) {
             (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,
             (Self::Memo(l0), Self::Memo(r0)) => l0 == r0,
-            (Self::DerivedSignal(l0), Self::DerivedSignal(r0)) => std::ptr::eq(l0, r0),
+            (Self::DerivedSignal(_, l0), Self::DerivedSignal(_, r0)) => std::ptr::eq(l0, r0),
             _ => false,
         }
     }
@@ -227,7 +260,7 @@ where
 /// # use leptos_reactive::*;
 /// # create_scope(|cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(move || count() * 2);
+/// let double_count = MaybeSignal::derive(cx, move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
 /// let static_value = 5;
 ///
@@ -255,6 +288,28 @@ where
     Dynamic(Signal<T>),
 }
 
+impl<T> UntrackedGettableSignal<T> for MaybeSignal<T>
+where
+    T: 'static,
+{
+    fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        match self {
+            Self::Static(t) => t.clone(),
+            Self::Dynamic(s) => s.get_untracked(),
+        }
+    }
+
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        match self {
+            Self::Static(t) => f(t),
+            Self::Dynamic(s) => s.with_untracked(f),
+        }
+    }
+}
+
 impl<T> MaybeSignal<T>
 where
     T: 'static,
@@ -265,7 +320,7 @@ where
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -276,8 +331,8 @@ where
     /// assert_eq!(above_3(&double_count), true);
     /// # });
     /// ```
-    pub fn derive(derived_signal: impl Fn() -> T + 'static) -> Self {
-        Self::Dynamic(Signal::derive(derived_signal))
+    pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
+        Self::Dynamic(Signal::derive(cx, derived_signal))
     }
 
     /// Applies a function to the current value of the signal, and subscribes
@@ -286,7 +341,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    /// let name_upper = MaybeSignal::derive(move || name.with(|n| n.to_uppercase()));
+    /// let name_upper = MaybeSignal::derive(cx, move || name.with(|n| n.to_uppercase()));
     /// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
     /// let static_value: MaybeSignal<String> = "Bob".to_string().into();
     ///
@@ -328,7 +383,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = MaybeSignal::derive(move || count() * 2);
+    /// let double_count = MaybeSignal::derive(cx, move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
     /// let static_value: MaybeSignal<i32> = 5.into();
     ///
