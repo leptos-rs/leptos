@@ -23,7 +23,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     cfg_if! {
         if #[cfg(not(feature = "stable"))] {
-            use proc_macro2::Span;
+            use proc_macro::Span;
             let span = Span::call_site();
             let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
         } else {
