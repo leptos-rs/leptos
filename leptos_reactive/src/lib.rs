@@ -76,19 +76,20 @@ mod scope;
 mod selector;
 mod serialization;
 mod signal;
+mod signal_wrappers;
 mod spawn;
 mod suspense;
 
 pub use context::*;
 pub use effect::*;
 pub use memo::*;
-
 pub use resource::*;
 use runtime::*;
 pub use scope::*;
 pub use selector::*;
 pub use serialization::*;
 pub use signal::*;
+pub use signal_wrappers::*;
 pub use spawn::*;
 pub use suspense::*;
 
