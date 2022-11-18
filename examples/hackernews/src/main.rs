@@ -82,7 +82,7 @@ cfg_if! {
                     .service(css)
                     .service(
                         web::scope("/pkg")
-                            .service(Files::new("", "./dist"))
+                            .service(Files::new("", "./pkg"))
                             .wrap(middleware::Compress::default()),
                     )
                     .service(render_app)
