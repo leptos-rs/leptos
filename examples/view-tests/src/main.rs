@@ -3,9 +3,25 @@ use leptos::*;
 pub fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    mount_to_body(|cx| view! { cx, <Tests/> })
+    mount_to_body(|cx| view! { cx, <Panics/> })
 }
 
+#[component]
+fn Panics(cx: Scope) -> Element {
+    let (a, set_a) = create_signal(cx, false);
+
+    create_effect(cx, move |_| {
+        if !a() {
+            set_a(true);
+        }
+    });
+
+    view! { cx,
+      <h1>"Hello " {move || a().to_string()}</h1>
+    }
+}
+
+/*
 #[component]
 fn Tests(cx: Scope) -> Element {
     view! {
@@ -113,3 +129,4 @@ fn TemplateExample(cx: Scope) -> Element {
         </template>
     }
 }
+ */

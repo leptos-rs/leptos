@@ -54,7 +54,7 @@ use std::fmt::Debug;
 /// });
 /// # }).dispose();
 /// ```
-pub fn create_memo<T>(cx: Scope, f: impl FnMut(Option<&T>) -> T + 'static) -> Memo<T>
+pub fn create_memo<T>(cx: Scope, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + Debug + 'static,
 {

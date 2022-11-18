@@ -1,5 +1,5 @@
 use leptos_reactive::{create_memo, queue_microtask, Memo, Scope, ScopeDisposer};
-use std::{collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, ops::IndexMut};
 
 /// Function that maps a `Vec` to another `Vec` via a map function. The mapped `Vec` is lazy
 /// computed; its value will only be updated when requested. Modifications to the
@@ -28,12 +28,15 @@ where
     U: PartialEq + Debug + Clone + 'static,
 {
     // Previous state used for diffing.
-    let mut disposers: Vec<Option<ScopeDisposer>> = Vec::new();
-    let mut prev_items: Option<Vec<T>> = None;
-    let mut mapped: Vec<U> = Vec::new();
+    let disposers: RefCell<Vec<Option<ScopeDisposer>>> = RefCell::new(Vec::new());
+    let prev_items: RefCell<Option<Vec<T>>> = RefCell::new(None);
+    let mapped: RefCell<Vec<U>> = RefCell::new(Vec::new());
 
     // Diff and update signal each time list is updated.
     create_memo(cx, move |_| {
+        let mut prev_items = prev_items.borrow_mut();
+        let mut mapped = mapped.borrow_mut();
+
         //let mut mapped = mapped.cloned().unwrap_or_default();
         let items = prev_items.take().unwrap_or_default();
         let new_items = list();
@@ -41,7 +44,7 @@ where
 
         if new_items.is_empty() {
             // Fast path for removing all items.
-            let disposers = std::mem::take(&mut disposers);
+            let disposers = disposers.take();
             // delay disposal until after the current microtask
             queue_microtask(move || {
                 for disposer in disposers.into_iter().flatten() {
@@ -50,6 +53,8 @@ where
             });
             mapped.clear();
         } else if items.is_empty() {
+            let mut disposers = disposers.borrow_mut();
+
             // Fast path for creating items when the existing list is empty.
             for new_item in new_items.iter() {
                 let mut value: Option<U> = None;
@@ -60,6 +65,7 @@ where
                 disposers.push(Some(new_disposer));
             }
         } else {
+            let mut disposers = disposers.borrow_mut();
             let mut temp = vec![None; new_items.len()];
             let mut temp_disposers: Vec<Option<ScopeDisposer>> =
                 (0..new_items.len()).map(|_| None).collect();
@@ -144,10 +150,10 @@ where
         }
         // 3) In case the new set is shorter than the old, set the length of the mapped array.
         mapped.truncate(new_items_len);
-        disposers.truncate(new_items_len);
+        disposers.borrow_mut().truncate(new_items_len);
 
         // 4) Return the mapped and new items, for use in next iteration
-        prev_items = Some(new_items);
+        *prev_items = Some(new_items);
 
         mapped.to_vec()
     })

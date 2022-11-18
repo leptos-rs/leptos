@@ -411,12 +411,12 @@ impl Scope {
         use futures::StreamExt;
 
         if let Some(ref mut shared_context) = *self.runtime.shared_context.borrow_mut() {
-            let (mut tx, mut rx) = futures::channel::mpsc::channel::<()>(1);
+            let (tx, mut rx) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
                 let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
                 if pending == 0 {
-                    _ = tx.try_send(());
+                    _ = tx.unbounded_send(());
                 }
             });
 
