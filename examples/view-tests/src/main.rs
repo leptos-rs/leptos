@@ -3,11 +3,11 @@ use leptos::*;
 pub fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    mount_to_body(|cx| view! { cx, <Panics/> })
+    mount_to_body(|cx| view! { cx, <Tests/> })
 }
 
 #[component]
-fn Panics(cx: Scope) -> Element {
+fn SelfUpdatingEffect(cx: Scope) -> Element {
     let (a, set_a) = create_signal(cx, false);
 
     create_effect(cx, move |_| {
@@ -21,12 +21,12 @@ fn Panics(cx: Scope) -> Element {
     }
 }
 
-/*
 #[component]
 fn Tests(cx: Scope) -> Element {
     view! {
         cx,
         <div>
+            <div><SelfUpdatingEffect/></div>
             <div><BlockOrders/></div>
             //<div><TemplateConsumer/></div>
         </div>
@@ -114,8 +114,8 @@ fn TemplateConsumer(cx: Scope) -> Element {
     view! {
         cx,
         <div id="template">
-            <h1>"Template Consumer"</h1>
-            {cloned_tpl}
+            /* <h1>"Template Consumer"</h1>
+            {cloned_tpl} */
         </div>
     }
 }
@@ -129,4 +129,3 @@ fn TemplateExample(cx: Scope) -> Element {
         </template>
     }
 }
- */
