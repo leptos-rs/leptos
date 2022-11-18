@@ -40,7 +40,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
     });
 
     // Rebuild the list of nested routes conservatively, and show the root route here
-    let mut disposers = Vec::<ScopeDisposer>::new();
+    let disposers = RefCell::new(Vec::<ScopeDisposer>::new());
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
@@ -54,7 +54,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
             root_equal.set(true);
             next.borrow_mut().clear();
 
-            let next_matches = matches();
+            let next_matches = matches.get();
             let prev_matches = prev.as_ref().map(|p| &p.matches);
             let prev_routes = prev.as_ref().map(|p| &p.routes);
 
@@ -103,7 +103,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
                                     }
                                 },
                                 move || {
-                                    matches().get(i).cloned()
+                                    matches.with(|m| m.get(i).cloned())
                                 }
                             );
 
@@ -117,11 +117,12 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
                         }
                     });
 
-                    if disposers.len() > i + 1 {
+                    if disposers.borrow().len() > i + 1 {
+                        let mut disposers = disposers.borrow_mut();
                         let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
                         old_route_disposer.dispose();
                     } else {
-                        disposers.push(disposer);
+                        disposers.borrow_mut().push(disposer);
                     }
                 }
             }
