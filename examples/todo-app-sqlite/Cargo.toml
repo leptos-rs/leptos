@@ -30,8 +30,7 @@ sqlx = { version = "0.6", features = [
 ], optional = true }
 
 [features]
-default = ["csr"]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+default = ["ssr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
 	"dep:actix-files",

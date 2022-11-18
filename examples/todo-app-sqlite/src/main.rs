@@ -100,9 +100,5 @@ cfg_if! {
             .run()
             .await
         }
-        }
-
-    else {
-        // no client-only version is possible, because we're depending on the server
     }
 }
