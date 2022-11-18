@@ -1,15 +1,18 @@
 use cfg_if::cfg_if;
-use proc_macro::Span;
-use proc_macro2::{TokenStream as TokenStream2, Literal};
-use quote::{quote};
+use proc_macro2::{Literal, TokenStream as TokenStream2};
+use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    *
+    *,
 };
 
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
-    let ServerFnName { struct_name, prefix, .. } = syn::parse::<ServerFnName>(args)?;
+    let ServerFnName {
+        struct_name,
+        prefix,
+        ..
+    } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
@@ -20,6 +23,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     cfg_if! {
         if #[cfg(not(feature = "stable"))] {
+            use proc_macro2::Span;
             let span = Span::call_site();
             let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
         } else {
@@ -49,41 +53,6 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         FnArg::Typed(t) => Some(&t.pat),
     });
 
-    let as_form_data_fields = field_names
-        .clone()
-        .map(|field_name| {
-            let field_name_as_string = match (**field_name).clone() {
-                Pat::Ident(id) => id.ident,
-                _ => panic!("field names need to be identifiers"),
-            };
-            let field_name_as_string = field_name_as_string.to_string();
-            quote::quote! {
-                (#field_name_as_string, self.#field_name.to_json().expect("could not serialize field"))
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let from_form_data_fields =  body.inputs.iter()
-        .map(|field| {
-            let (field_name, field_type) = match field {
-                FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
-                FnArg::Typed(t) => (t.pat.clone(), t.ty.clone()),
-            };
-            let field_name = match *field_name {
-                Pat::Ident(id) => id.ident,
-                _ => panic!("field names need to be identifiers"),
-            };
-            let field_name_as_string = field_name.to_string();
-            quote::quote! {
-                #field_name: data.iter()
-                    .find(|(k, _)| k == #field_name_as_string)
-                    .ok_or_else(|| ::leptos::ServerFnError::MissingArg(#field_name_as_string.into()))
-                    .and_then(|(_, v)| #field_type::from_json(&v).map_err(|e| ::leptos::ServerFnError::Args(e.to_string())))?
-                    
-            }
-        })
-        .collect::<Vec<_>>();
-
     let field_names_2 = field_names.clone();
     let field_names_3 = field_names.clone();
     let field_names_4 = field_names.clone();
@@ -96,7 +65,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         if pat.path.segments[0].ident == "Result" {
             if let PathArguments::AngleBracketed(args) = &pat.path.segments[0].arguments {
                 &args.args[0]
-            } else { 
+            } else {
                 panic!("server functions should return Result<T, ServerFnError>");
             }
         } else {
@@ -151,17 +120,21 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
 pub struct ServerFnName {
     struct_name: Ident,
-    comma: Option<Token![,]>,
-    prefix: Option<Literal>
+    _comma: Option<Token![,]>,
+    prefix: Option<Literal>,
 }
 
 impl Parse for ServerFnName {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let struct_name = input.parse()?;
-        let comma = input.parse()?;
+        let _comma = input.parse()?;
         let prefix = input.parse()?;
 
-        Ok(Self { struct_name, comma, prefix })
+        Ok(Self {
+            struct_name,
+            _comma,
+            prefix,
+        })
     }
 }
 

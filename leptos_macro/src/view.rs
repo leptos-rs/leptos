@@ -636,10 +636,10 @@ fn child_to_tokens(
             }
         }
         Node::Text(node) => {
-            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child)
+            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode)
         }
         Node::Block(node) => {
-            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode, is_first_child)
+            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode)
         }
         _ => panic!("unexpected child node type"),
     }
@@ -659,7 +659,6 @@ fn block_to_tokens(
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
     mode: Mode,
-    is_first_child: bool
 ) -> PrevSibChange {
     let value = value.as_ref();
     let str_value = match value {
