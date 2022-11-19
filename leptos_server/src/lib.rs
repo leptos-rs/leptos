@@ -31,18 +31,21 @@
 //! on the server (i.e., when you have an `ssr` feature in your crate that is enabled).
 //!
 //! ```rust,ignore
+//! # use leptos_reactive::*;
 //! #[server(ReadFromDB)]
-//! async fn read_posts(how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
+//! async fn read_posts(cx: Scope, how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 //!   // do some server-only work here to access the database
 //!   let posts = ...;
 //!   Ok(posts)
 //! }
 //!
 //! // call the function
+//! # run_scope(|cx| {
 //! spawn_local(async {
 //!   let posts = read_posts(3, "my search".to_string()).await;
 //!   log::debug!("posts = {posts{:#?}");
 //! })
+//! # });
 //! ```
 //!
 //! If you call this function from the client, it will serialize the function arguments and `POST`
@@ -55,9 +58,14 @@
 //! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 //!   inside the function body can’t fail, the processes of serialization/deserialization and the
 //!   network call are fallible.
-//! - **Server function arguments and return types must be [Serializable](leptos_reactive::Serializable).**
+//! - **Return types must be [Serializable](leptos_reactive::Serializable).**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
+//! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
+//!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/).
+//! - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
+//!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
+//!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 
 pub use form_urlencoded;
 use leptos_reactive::*;
@@ -77,8 +85,9 @@ use std::{
 };
 
 #[cfg(any(feature = "ssr", doc))]
-type ServerFnTraitObj =
-    dyn Fn(&[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>> + Send + Sync;
+type ServerFnTraitObj = dyn Fn(Scope, &[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>>
+    + Send
+    + Sync;
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
@@ -163,18 +172,24 @@ where
 
     /// Runs the function on the server.
     #[cfg(any(feature = "ssr", doc))]
-    fn call_fn(self) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>> + Send>>;
+    fn call_fn(
+        self,
+        cx: Scope,
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
     /// Runs the function on the client by sending an HTTP request to the server.
     #[cfg(any(not(feature = "ssr"), doc))]
-    fn call_fn_client(self) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
+    fn call_fn_client(
+        self,
+        cx: Scope,
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
     /// Registers the server function, allowing the server to query it by URL.
     #[cfg(any(feature = "ssr", doc))]
     fn register() -> Result<(), ServerFnError> {
         // create the handler for this server function
         // takes a String -> returns its async value
-        let run_server_fn = Arc::new(|data: &[u8]| {
+        let run_server_fn = Arc::new(|cx: Scope, data: &[u8]| {
             // decode the args
             let value = serde_urlencoded::from_bytes::<Self>(data)
                 .map_err(|e| ServerFnError::Deserialization(e.to_string()));
@@ -185,7 +200,7 @@ where
                 };
 
                 // call the function
-                let result = match value.call_fn().await {
+                let result = match value.call_fn(cx).await {
                     Ok(r) => r,
                     Err(e) => return Err(e),
                 };

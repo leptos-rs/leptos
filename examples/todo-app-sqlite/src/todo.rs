@@ -34,7 +34,12 @@ cfg_if! {
 }
 
 #[server(GetTodos, "/api")]
-pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
+pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
+    // this is just an example of how to access server context injected in the handlers
+    let req =
+        use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
+    println!("req.path = {:?}", req.path());
+
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
@@ -114,7 +119,11 @@ pub fn Todos(cx: Scope) -> Element {
     let todo_deleted = delete_todo.version;
 
     // list of todos is loaded from the server in reaction to changes
-    let todos = create_resource(cx, move || (add_changed(), todo_deleted()), |_| get_todos());
+    let todos = create_resource(
+        cx,
+        move || (add_changed(), todo_deleted()),
+        move |_| get_todos(cx),
+    );
 
     view! {
         cx,

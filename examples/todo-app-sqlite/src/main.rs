@@ -27,6 +27,7 @@ cfg_if! {
             let app = move |cx| {
                 let integration = ServerIntegration { path: path.clone() };
                 provide_context(cx, RouterIntegrationContext::new(integration));
+                provide_context(cx, req.clone());
 
                 view! { cx, <TodoApp/> }
             };
@@ -67,7 +68,9 @@ cfg_if! {
 
             if let Some(server_fn) = server_fn_by_path(path.as_str()) {
                 let body: &[u8] = &body;
-                match server_fn(&body).await {
+                let (cx, disposer) = raw_scope_and_disposer();
+                provide_context(cx, req.clone());
+                match server_fn(cx, &body).await {
                     Ok(serialized) => {
                         // if this is Accept: application/json then send a serialized JSON response
                         if let Some("application/json") = accept_header {
