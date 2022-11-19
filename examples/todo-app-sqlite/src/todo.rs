@@ -114,67 +114,7 @@ pub fn Todos(cx: Scope) -> Element {
     let todo_deleted = delete_todo.version;
 
     // list of todos is loaded from the server in reaction to changes
-    let todos = create_resource(
-        cx,
-        move || (add_changed(), todo_deleted()),
-        |_| get_todos()
-    );
-
-    let existing_todos = {
-        let delete_todo = delete_todo.clone();
-        move || {
-            todos
-                .read()
-                .map({
-                    let delete_todo = delete_todo.clone();
-                    move |todos| match todos {
-                        Err(e) => {
-                            vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}]
-                        }
-                        Ok(todos) => {
-                            if todos.is_empty() {
-                                vec![view! { cx, <p>"No tasks were found."</p> }]
-                            } else {
-                                todos
-                                    .into_iter()
-                                    .map({
-                                        let delete_todo = delete_todo.clone();
-                                        move |todo| {
-                                            let delete_todo = delete_todo.clone();
-                                            view! {
-                                                cx,
-                                                <li>
-                                                    {todo.title}
-                                                    <ActionForm action=delete_todo.clone()>
-                                                        <input type="hidden" name="id" value={todo.id}/>
-                                                        <input type="submit" value="X"/>
-                                                    </ActionForm>
-                                                </li> 
-                                            }
-                                        }
-                                    })
-                                    .collect::<Vec<_>>()
-                            }
-                        }
-                    }
-                })
-                .unwrap_or_default()
-            }
-    };
-
-    let pending_todos = move || {
-        submissions
-            .get()
-            .into_iter()
-            .filter(|submission| submission.pending().get())
-            .map(|submission| {
-                view! {
-                    cx,
-                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
-                }
-            })
-            .collect::<Vec<_>>()
-    };
+    let todos = create_resource(cx, move || (add_changed(), todo_deleted()), |_| get_todos());
 
     view! {
         cx,
@@ -186,10 +126,78 @@ pub fn Todos(cx: Scope) -> Element {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <ul>
-                <div>{existing_todos}</div>
-                <div>{pending_todos}</div>
-            </ul>
+            <div>
+                <Suspense fallback=view! {cx, <p>"Loading..."</p> }>
+                    {
+                        let delete_todo = delete_todo.clone();
+                        move || {
+                        let existing_todos = {
+                            let delete_todo = delete_todo.clone();
+                            move || {
+                                todos
+                                .read()
+                                .map({
+                                    let delete_todo = delete_todo.clone();
+                                    move |todos| match todos {
+                                        Err(e) => {
+                                            vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}]
+                                        }
+                                        Ok(todos) => {
+                                            if todos.is_empty() {
+                                                vec![view! { cx, <p>"No tasks were found."</p> }]
+                                            } else {
+                                                todos
+                                                    .into_iter()
+                                                    .map({
+                                                        let delete_todo = delete_todo.clone();
+                                                        move |todo| {
+                                                            let delete_todo = delete_todo.clone();
+                                                            view! {
+                                                                cx,
+                                                                <li>
+                                                                    {todo.title}
+                                                                    <ActionForm action=delete_todo.clone()>
+                                                                        <input type="hidden" name="id" value={todo.id}/>
+                                                                        <input type="submit" value="X"/>
+                                                                    </ActionForm>
+                                                                </li>
+                                                            }
+                                                        }
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                            }
+                                        }
+                                    }
+                                })
+                                .unwrap_or_default()
+                            }
+                        };
+
+                        let pending_todos = move || {
+                            submissions
+                            .get()
+                            .into_iter()
+                            .filter(|submission| submission.pending().get())
+                            .map(|submission| {
+                                view! {
+                                    cx,
+                                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                        };
+
+                        view! {
+                            cx,
+                            <ul>
+                                <div>{existing_todos}</div>
+                                <div>{pending_todos}</div>
+                            </ul>
+                        }
+                    }
+                }
+                </Suspense>
+            </div>
         </div>
     }
 }

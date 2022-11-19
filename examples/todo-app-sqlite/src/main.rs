@@ -1,5 +1,7 @@
 use cfg_if::cfg_if;
+use futures::StreamExt;
 use leptos::*;
+use leptos_meta::*;
 use leptos_router::*;
 mod todo;
 
@@ -14,32 +16,41 @@ cfg_if! {
         #[get("{tail:.*}")]
         async fn render(req: HttpRequest) -> impl Responder {
             let path = req.path();
-            let path = "http://leptos".to_string() + path;
-            println!("path = {path}");
 
-            HttpResponse::Ok().content_type("text/html").body(format!(
-                r#"<!DOCTYPE html>
+            let query = req.query_string();
+            let path = if query.is_empty() {
+                "http://leptos".to_string() + path
+            } else {
+                "http://leptos".to_string() + path + "?" + query
+            };
+
+            let app = move |cx| {
+                let integration = ServerIntegration { path: path.clone() };
+                provide_context(cx, RouterIntegrationContext::new(integration));
+
+                view! { cx, <TodoApp/> }
+            };
+
+            let head = r#"<!DOCTYPE html>
                 <html lang="en">
                     <head>
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <title>Leptos Todos</title>
-                        <style>.pending {{ color: purple; }}</style>
-                    </head>
-                    <body>
-                        {}
-                    </body>
-                    <script type="module">import init, {{ hydrate }} from './pkg/todo_app_sqlite.js'; init().then(hydrate);</script>
-                </html>"#,
-                run_scope({
-                    move |cx| {
-                        let integration = ServerIntegration { path: path.clone() };
-                        provide_context(cx, RouterIntegrationContext::new(integration));
+                        <script type="module">import init, { hydrate } from '/pkg/todo_app_sqlite.js'; init().then(hydrate);</script>"#;
+            let tail = "</body></html>";
 
-                        view! { cx, <TodoApp/>}
-                    }
-                })
-            ))
+            HttpResponse::Ok().content_type("text/html").streaming(
+                futures::stream::once(async { head.to_string() })
+                    .chain(render_to_stream(move |cx| {
+                        let app = app(cx);
+                        let head = use_context::<MetaContext>(cx)
+                            .map(|meta| meta.dehydrate())
+                            .unwrap_or_default();
+                        format!("{head}</head><body>{app}")
+                    }))
+                    .chain(futures::stream::once(async { tail.to_string() }))
+                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+            )
         }
 
         #[post("/api/{tail:.*}")]
