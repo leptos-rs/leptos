@@ -27,9 +27,12 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///   send_new_todo_to_api(task.clone())
 /// });
 ///
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// add_todo.dispatch("Buy milk".to_string());
 /// add_todo.dispatch("???".to_string());
 /// add_todo.dispatch("Profit!!!".to_string());
+/// # }
+///
 /// # });
 /// ```
 ///
@@ -195,12 +198,14 @@ where
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 ///
 /// add_todo.dispatch("Buy milk".to_string());
 /// add_todo.dispatch("???".to_string());
 /// add_todo.dispatch("Profit!!!".to_string());
 ///
 /// assert_eq!(add_todo.submissions().get().len(), 3);
+/// # }
 /// # });
 /// ```
 ///
