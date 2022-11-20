@@ -49,6 +49,8 @@ pub fn handle_server_fns() -> Route {
 
                 if let Some(server_fn) = server_fn_by_path(path.as_str()) {
                     let body: &[u8] = &body;
+
+                    // TODO this leaks a runtime once per invocation
                     let (cx, disposer) = raw_scope_and_disposer();
 
                     // provide HttpRequest as context in server scope
@@ -159,6 +161,7 @@ pub fn render_app_to_stream(
 
             HttpResponse::Ok().content_type("text/html").streaming(
                 futures::stream::once(async move { head.clone() })
+                    // TODO this leaks a runtime once per invocation
                     .chain(render_to_stream(move |cx| {
                         let app = app(cx);
                         let head = use_context::<MetaContext>(cx)
