@@ -7,6 +7,21 @@ use syn::{
     *,
 };
 
+fn fn_arg_is_cx(f: &syn::FnArg) -> bool {
+    if let FnArg::Typed(t) = f {
+        if let Type::Path(path) = &*t.ty {
+            path.path
+                .segments
+                .iter()
+                .any(|segment| segment.ident == "Scope")
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
     let ServerFnName {
         struct_name,
@@ -31,13 +46,35 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         }
     }
 
-    let fields = body.inputs.iter().map(|f| {
+    let fields = body.inputs.iter().filter(|f| !fn_arg_is_cx(f)).map(|f| {
         let typed_arg = match f {
             FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
             FnArg::Typed(t) => t,
         };
         quote! { pub #typed_arg }
     });
+
+    let cx_arg = body
+        .inputs
+        .iter()
+        .next()
+        .and_then(|f| if fn_arg_is_cx(f) { Some(f) } else { None });
+    let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
+        if let Pat::Ident(id) = &*arg.pat {
+            quote! {
+                let #id = cx;
+            }
+        } else {
+            quote! {}
+        }
+    } else {
+        quote! {}
+    };
+    let cx_fn_arg = if cx_arg.is_some() {
+        quote! { cx, }
+    } else {
+        quote! {}
+    };
 
     let fn_args = body.inputs.iter().map(|f| {
         let typed_arg = match f {
@@ -50,7 +87,13 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let field_names = body.inputs.iter().filter_map(|f| match f {
         FnArg::Receiver(_) => todo!(),
-        FnArg::Typed(t) => Some(&t.pat),
+        FnArg::Typed(t) => {
+            if fn_arg_is_cx(f) {
+                None
+            } else {
+                Some(&t.pat)
+            }
+        }
     });
 
     let field_names_2 = field_names.clone();
@@ -93,15 +136,16 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             }
 
             #[cfg(feature = "ssr")]
-            fn call_fn(self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>> + Send>> {
+            fn call_fn(self, cx: ::leptos::Scope) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;
-                Box::pin(async move { #fn_name( #(#field_names_2),*).await })
+                #cx_assign_statement;
+                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
             }
 
             #[cfg(not(feature = "ssr"))]
-            fn call_fn_client(self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
+            fn call_fn_client(self, cx: ::leptos::Scope) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
                 let #struct_name { #(#field_names_3),* } = self;
-                Box::pin(async move { #fn_name( #(#field_names_4),*).await })
+                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_4),*).await })
             }
         }
 

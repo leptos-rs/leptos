@@ -13,8 +13,20 @@ use std::{future::Future, pin::Pin};
 /// This should usually only be used once, at the root of an application, because its reactive
 /// values will not have access to values created under another `create_scope`.
 pub fn create_scope(f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
+    // TODO leak
     let runtime = Box::leak(Box::new(Runtime::new()));
     runtime.run_scope_undisposed(f, None).2
+}
+
+#[must_use = "Scope will leak memory if the disposer function is never called"]
+/// Creates a new reactive system and root reactive scope, and returns them.
+///
+/// This should usually only be used once, at the root of an application, because its reactive
+/// values will not have access to values created under another `create_scope`.
+pub fn raw_scope_and_disposer() -> (Scope, ScopeDisposer) {
+    // TODO leak
+    let runtime = Box::leak(Box::new(Runtime::new()));
+    runtime.raw_scope_and_disposer()
 }
 
 /// Creates a temporary scope, runs the given function, disposes of the scope,

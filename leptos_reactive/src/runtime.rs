@@ -57,6 +57,13 @@ impl Runtime {
         Self::default()
     }
 
+    pub fn raw_scope_and_disposer(&'static self) -> (Scope, ScopeDisposer) {
+        let id = { self.scopes.borrow_mut().insert(Default::default()) };
+        let scope = Scope { runtime: self, id };
+        let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
+        (scope, disposer)
+    }
+
     pub fn run_scope_undisposed<T>(
         &'static self,
         f: impl FnOnce(Scope) -> T,

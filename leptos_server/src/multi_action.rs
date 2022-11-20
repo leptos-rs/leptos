@@ -274,8 +274,8 @@ where
     S: Clone + ServerFn,
 {
     #[cfg(feature = "ssr")]
-    let c = |args: &S| S::call_fn(args.clone());
+    let c = move |args: &S| S::call_fn(args.clone(), cx);
     #[cfg(not(feature = "ssr"))]
-    let c = |args: &S| S::call_fn_client(args.clone());
+    let c = move |args: &S| S::call_fn_client(args.clone(), cx);
     create_multi_action(cx, c).using_server_fn::<S>()
 }

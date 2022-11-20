@@ -1,12 +1,24 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
-use syn_rsx::{Node, NodeName, NodeElement, NodeAttribute, NodeValueExpr};
+use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
 use uuid::Uuid;
 
 use crate::{is_component_node, Mode};
 
-const NON_BUBBLING_EVENTS: [&str; 11] = ["load", "unload", "scroll", "focus", "blur", "loadstart", "progress", "error", "abort", "load", "loadend"];
+const NON_BUBBLING_EVENTS: [&str; 11] = [
+    "load",
+    "unload",
+    "scroll",
+    "focus",
+    "blur",
+    "loadstart",
+    "progress",
+    "error",
+    "abort",
+    "load",
+    "loadend",
+];
 
 pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
@@ -160,10 +172,13 @@ enum PrevSibChange {
 }
 
 fn attributes(node: &NodeElement) -> impl Iterator<Item = &NodeAttribute> {
-    node
-        .attributes
-        .iter()
-        .filter_map(|node| if let Node::Attribute(attribute) = node  { Some(attribute )} else { None })
+    node.attributes.iter().filter_map(|node| {
+        if let Node::Attribute(attribute) = node {
+            Some(attribute)
+        } else {
+            None
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -210,10 +225,19 @@ fn element_to_tokens(
     }
 
     // for SSR: merge all class: attributes and class attribute
-    if mode == Mode::Ssr {        
-        let class_attr = attributes(node).find(|a| a.key.to_string() == "class")
+    if mode == Mode::Ssr {
+        let class_attr = attributes(node)
+            .find(|a| a.key.to_string() == "class")
             .map(|node| {
-                (node.key.span(), node.value.as_ref().and_then(|n| String::try_from(n).ok()).unwrap_or_default().trim().to_string())
+                (
+                    node.key.span(),
+                    node.value
+                        .as_ref()
+                        .and_then(|n| String::try_from(n).ok())
+                        .unwrap_or_default()
+                        .trim()
+                        .to_string(),
+                )
             });
 
         let class_attrs = attributes(node).filter_map(|node| {
@@ -237,7 +261,7 @@ fn element_to_tokens(
                 }
             })
             .collect::<Vec<_>>();
-        
+
         if class_attr.is_some() || !class_attrs.is_empty() {
             expressions.push(quote::quote_spanned! {
                 span => leptos_buffer.push_str(" class=\"");
@@ -354,7 +378,7 @@ fn element_to_tokens(
             expressions,
             multi,
             mode,
-            idx == 0
+            idx == 0,
         );
 
         prev_sib = match curr_id {
@@ -393,10 +417,10 @@ fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> O
                 } else {
                     Some(child_ident(*next_el_id + 1, sibling.name.span()))
                 }
-            },
+            }
             Node::Block(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
             Node::Text(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
-            _ => panic!("expected either an element or a block")
+            _ => panic!("expected either an element or a block"),
         }
     }
 }
@@ -485,7 +509,7 @@ fn attr_to_tokens(
             .as_ref();
 
         if mode != Mode::Ssr {
-            let name = name.replacen("on:", "", 1);            
+            let name = name.replacen("on:", "", 1);
             if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
                 expressions.push(quote_spanned! {
                     span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
@@ -504,23 +528,31 @@ fn attr_to_tokens(
         }
     }
     // Properties
-    else if name.starts_with("prop:")  {
+    else if name.starts_with("prop:") {
         let name = name.replacen("prop:", "", 1);
         // can't set properties in SSR
-        if mode != Mode::Ssr {         
-            let value = node.value.as_ref().expect("prop: blocks need values").as_ref();
+        if mode != Mode::Ssr {
+            let value = node
+                .value
+                .as_ref()
+                .expect("prop: blocks need values")
+                .as_ref();
             expressions.push(quote_spanned! {
                 span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
             });
         }
     }
     // Classes
-    else if name.starts_with("class:")  {
+    else if name.starts_with("class:") {
         let name = name.replacen("class:", "", 1);
         if mode == Mode::Ssr {
             // handled separately because they need to be merged
         } else {
-            let value = node.value.as_ref().expect("class: attributes need values").as_ref();
+            let value = node
+                .value
+                .as_ref()
+                .expect("class: attributes need values")
+                .as_ref();
             expressions.push(quote_spanned! {
                 span => leptos_dom::class(#cx, #el_id.unchecked_ref(), #name, #value.into_class(#cx))
             });
@@ -599,7 +631,7 @@ fn child_to_tokens(
     expressions: &mut Vec<TokenStream>,
     multi: bool,
     mode: Mode,
-    is_first_child: bool
+    is_first_child: bool,
 ) -> PrevSibChange {
     match node {
         Node::Element(node) => {
@@ -617,7 +649,7 @@ fn child_to_tokens(
                     next_co_id,
                     multi,
                     mode,
-                    is_first_child
+                    is_first_child,
                 )
             } else {
                 PrevSibChange::Sib(element_to_tokens(
@@ -635,12 +667,34 @@ fn child_to_tokens(
                 ))
             }
         }
-        Node::Text(node) => {
-            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode)
-        }
-        Node::Block(node) => {
-            block_to_tokens(cx, &node.value, node.value.span(), parent, prev_sib, next_sib, next_el_id, next_co_id, template, expressions, navigations,  mode)
-        }
+        Node::Text(node) => block_to_tokens(
+            cx,
+            &node.value,
+            node.value.span(),
+            parent,
+            prev_sib,
+            next_sib,
+            next_el_id,
+            next_co_id,
+            template,
+            expressions,
+            navigations,
+            mode,
+        ),
+        Node::Block(node) => block_to_tokens(
+            cx,
+            &node.value,
+            node.value.span(),
+            parent,
+            prev_sib,
+            next_sib,
+            next_el_id,
+            next_co_id,
+            template,
+            expressions,
+            navigations,
+            mode,
+        ),
         _ => panic!("unexpected child node type"),
     }
 }
@@ -669,7 +723,7 @@ fn block_to_tokens(
             syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
             _ => None,
         },
-        _ => None
+        _ => None,
     };
     let current: Option<Ident> = None;
 
@@ -804,7 +858,7 @@ fn component_to_tokens(
     next_co_id: &mut usize,
     multi: bool,
     mode: Mode,
-    is_first_child: bool
+    is_first_child: bool,
 ) -> PrevSibChange {
     let create_component = create_component(cx, node, mode);
     let span = node.name.span();
@@ -892,11 +946,13 @@ fn component_to_tokens(
 
     match current {
         Some(el) => PrevSibChange::Sib(el),
-        None => if is_first_child {
-            PrevSibChange::Parent
-        } else {
-            PrevSibChange::Skip
-        },
+        None => {
+            if is_first_child {
+                PrevSibChange::Parent
+            } else {
+                PrevSibChange::Skip
+            }
+        }
     }
 }
 
