@@ -1,0 +1,18 @@
+[package]
+name = "leptos_axum"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+axum = "0.5"
+futures = "0.3"
+leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
+	"ssr",
+] }
+leptos_meta = { path = "../../meta", default-features = false, version = "0.0", features = [
+	"ssr",
+] }
+leptos_router = { path = "../../router", default-features = false, version = "0.0", features = [
+	"ssr",
+] }
+tokio = { version = "1.0", features = ["full"] }

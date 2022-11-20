@@ -89,13 +89,13 @@ pub fn handle_server_fns() -> Route {
     )
 }
 
-/// An Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
 ///
-/// The HTML stream is rendered using [render_to_stream], and also everything described in
+/// The HTML stream is rendered using [render_to_stream], and includes everything described in
 /// the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
