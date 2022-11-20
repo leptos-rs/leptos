@@ -22,6 +22,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
+/// use axum::handler::Handler;
 /// use axum::Router;
 /// use std::net::SocketAddr;
 /// use leptos::*;
@@ -52,7 +53,9 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 pub fn render_app_to_stream(
     client_pkg_name: &'static str,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + Send + 'static,
-) -> impl Fn(Request<Body>) -> Pin<Box<dyn Future<Output = StreamBody<PinnedHtmlStream>>>>
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<Box<dyn Future<Output = StreamBody<PinnedHtmlStream>> + Send + 'static>>
        + Clone
        + Send
        + 'static {
