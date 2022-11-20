@@ -38,7 +38,53 @@ use leptos_router::*;
 /// # }
 /// ```
 pub fn handle_server_fns() -> Route {
-    web::post().to(handle_server_fn)
+    web::post().to(
+        |req: HttpRequest, params: web::Path<String>, body: web::Bytes| async move {
+            {
+                let path = params.into_inner();
+                let accept_header = req
+                    .headers()
+                    .get("Accept")
+                    .and_then(|value| value.to_str().ok());
+
+                if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+                    let body: &[u8] = &body;
+                    let (cx, disposer) = raw_scope_and_disposer();
+
+                    // provide HttpRequest as context in server scope
+                    provide_context(cx, req.clone());
+
+                    match server_fn(cx, body).await {
+                        Ok(serialized) => {
+                            // clean up the scope, which we only needed to run the server fn
+                            disposer.dispose();
+
+                            // if this is Accept: application/json then send a serialized JSON response
+                            if let Some("application/json") = accept_header {
+                                HttpResponse::Ok().body(serialized)
+                            }
+                            // otherwise, it's probably a <form> submit or something: redirect back to the referrer
+                            else {
+                                let referer = req
+                                    .headers()
+                                    .get("Referer")
+                                    .and_then(|value| value.to_str().ok())
+                                    .unwrap_or("/");
+                                HttpResponse::SeeOther()
+                                    .insert_header(("Location", referer))
+                                    .content_type("application/json")
+                                    .body(serialized)
+                            }
+                        }
+                        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+                    }
+                } else {
+                    HttpResponse::BadRequest()
+                        .body(format!("Could not find a server function at that route."))
+                }
+            }
+        },
+    )
 }
 
 /// An Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -125,51 +171,4 @@ pub fn render_app_to_stream(
             )
         }
     })
-}
-
-async fn handle_server_fn(
-    req: HttpRequest,
-    params: web::Path<String>,
-    body: web::Bytes,
-) -> impl Responder {
-    let path = params.into_inner();
-    let accept_header = req
-        .headers()
-        .get("Accept")
-        .and_then(|value| value.to_str().ok());
-
-    if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-        let body: &[u8] = &body;
-        let (cx, disposer) = raw_scope_and_disposer();
-
-        // provide HttpRequest as context in server scope
-        provide_context(cx, req.clone());
-
-        match server_fn(cx, body).await {
-            Ok(serialized) => {
-                // clean up the scope, which we only needed to run the server fn
-                disposer.dispose();
-
-                // if this is Accept: application/json then send a serialized JSON response
-                if let Some("application/json") = accept_header {
-                    HttpResponse::Ok().body(serialized)
-                }
-                // otherwise, it's probably a <form> submit or something: redirect back to the referrer
-                else {
-                    let referer = req
-                        .headers()
-                        .get("Referer")
-                        .and_then(|value| value.to_str().ok())
-                        .unwrap_or("/");
-                    HttpResponse::SeeOther()
-                        .insert_header(("Location", referer))
-                        .content_type("application/json")
-                        .body(serialized)
-                }
-            }
-            Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
-        }
-    } else {
-        HttpResponse::BadRequest().body(format!("Could not find a server function at that route."))
-    }
 }
