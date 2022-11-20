@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use leptos::*;
-use leptos_router::*;
 mod counters;
 
 // boilerplate to run in different modes
@@ -10,36 +9,6 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use crate::counters::*;
-
-        #[get("{tail:.*}")]
-        async fn render(req: HttpRequest) -> impl Responder {
-            let path = req.path();
-            let path = "http://leptos".to_string() + path;
-            println!("path = {path}");
-
-            HttpResponse::Ok().content_type("text/html").body(format!(
-                r#"<!DOCTYPE html>
-                <html lang="en">
-                    <head>
-                        <meta charset="utf-8"/>
-                        <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <title>Isomorphic Counter</title>
-                    </head>
-                    <body>
-                        {}
-                    </body>
-                    <script type="module">import init, {{ hydrate }} from './pkg/leptos_counter_isomorphic.js'; init().then(hydrate);</script>
-                </html>"#,
-                run_scope({
-                    move |cx| {
-                        let integration = ServerIntegration { path: path.clone() };
-                        provide_context(cx, RouterIntegrationContext::new(integration));
-
-                        view! { cx, <Counters/>}
-                    }
-                })
-            ))
-        }
 
         #[get("/api/events")]
         async fn counter_events() -> impl Responder {
@@ -67,7 +36,7 @@ cfg_if! {
                     .service(Files::new("/pkg", "./pkg"))
                     .service(counter_events)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .service(render)
+                    .route("/{tail:.*}", leptos_actix::render_app_to_stream("leptos_counter_isomorphic", |cx| view! { cx, <Counters/> }))
                 //.wrap(middleware::Compress::default())
             })
             .bind(("127.0.0.1", 8081))?

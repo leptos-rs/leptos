@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use leptos::*;
+use leptos::{leptos_dom::debug_warn, *};
 
 mod stylesheet;
 mod title;
@@ -16,8 +16,10 @@ pub struct MetaContext {
 pub fn use_head(cx: Scope) -> MetaContext {
     match use_context::<MetaContext>(cx) {
         None => {
-            log::warn!("use_head() can only be called if a MetaContext has been provided");
-            panic!()
+            debug_warn!("use_head() is being called with a MetaContext being provided. We'll automatically create and provide one, but if this is being called in a child route it will cause bugs. To be safe, you should provide_context(cx, MetaContext::new()) somewhere in the root of the app.");
+            let meta = MetaContext::new();
+            provide_context(cx, meta.clone());
+            meta
         }
         Some(ctx) => ctx,
     }

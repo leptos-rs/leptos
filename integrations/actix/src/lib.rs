@@ -1,5 +1,8 @@
 use actix_web::*;
+use futures::StreamExt;
 use leptos::*;
+use leptos_meta::*;
+use leptos_router::*;
 
 /// An Actix [Route](actix_web::Route) that listens for a `POST` request with
 /// Leptos server function arguments in the body, runs the server function if found,
@@ -36,6 +39,92 @@ use leptos::*;
 /// ```
 pub fn handle_server_fns() -> Route {
     web::post().to(handle_server_fn)
+}
+
+/// An Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
+/// rendering it, and includes any meta tags injected using [leptos_meta].
+///
+/// The HTML stream is rendered using [render_to_stream], and also everything described in
+/// the documentation for that function.
+///
+/// This can then be set up at an appropriate route in your application:
+/// ```
+/// use actix_web::{HttpServer, App};
+/// use leptos::*;
+///
+/// #[component]
+/// fn MyApp(cx: Scope) -> Element {
+///   view! { cx, <main>"Hello, world!"</main> }
+/// }
+///
+/// # if false { // don't actually try to run a server in a doctest...
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     HttpServer::new(|| {
+///         App::new()
+///             // {tail:.*} passes the remainder of the URL as the route
+///             // the actual routing will be handled by `leptos_router`
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }))
+///     })
+///     .bind(("127.0.0.1", 8080))?
+///     .run()
+///     .await
+/// }
+/// # }
+/// ```
+pub fn render_app_to_stream(
+    client_pkg_name: &'static str,
+    app_fn: impl Fn(leptos::Scope) -> Element + Clone + 'static,
+) -> Route {
+    web::get().to(move |req: HttpRequest| {
+        let app_fn = app_fn.clone();
+        async move {
+            let path = req.path();
+
+            let query = req.query_string();
+            let path = if query.is_empty() {
+                "http://leptos".to_string() + path
+            } else {
+                "http://leptos".to_string() + path + "?" + query
+            };
+
+            let app = {
+                let app_fn = app_fn.clone();
+                move |cx| {
+                    let integration = ServerIntegration { path: path.clone() };
+                    provide_context(cx, RouterIntegrationContext::new(integration));
+                    provide_context(cx, MetaContext::new());
+                    provide_context(cx, req.clone());
+
+                    (app_fn)(cx)
+                }
+            };
+
+            let head = format!(r#"<!DOCTYPE html>
+                <html>
+                    <head>
+                        <meta charset="utf-8"/>
+                        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                        <script type="module">import init, {{ hydrate }} from '/pkg/{client_pkg_name}.js'; init().then(hydrate);</script>"#);
+            let tail = "</body></html>";
+
+            HttpResponse::Ok().content_type("text/html").streaming(
+                futures::stream::once(async move { head.clone() })
+                    .chain(render_to_stream(move |cx| {
+                        let app = app(cx);
+                        let head = use_context::<MetaContext>(cx)
+                            .map(|meta| meta.dehydrate())
+                            .unwrap_or_default();
+                        format!("{head}</head><body>{app}")
+                    }))
+                    .chain(futures::stream::once(async { tail.to_string() }))
+                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+            )
+        }
+    })
 }
 
 async fn handle_server_fn(
