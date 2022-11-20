@@ -54,46 +54,6 @@ cfg_if! {
             )
         }
 
-        #[post("/api/{tail:.*}")]
-        async fn handle_server_fns(
-            req: HttpRequest,
-            params: web::Path<String>,
-            body: web::Bytes,
-        ) -> impl Responder {
-            let path = params.into_inner();
-            let accept_header = req
-                .headers()
-                .get("Accept")
-                .and_then(|value| value.to_str().ok());
-
-            if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-                let body: &[u8] = &body;
-                let (cx, disposer) = raw_scope_and_disposer();
-                provide_context(cx, req.clone());
-                match server_fn(cx, &body).await {
-                    Ok(serialized) => {
-                        // if this is Accept: application/json then send a serialized JSON response
-                        if let Some("application/json") = accept_header {
-                            HttpResponse::Ok().body(serialized)
-                        }
-                        // otherwise, it's probably a <form> submit or something: redirect back to the referrer
-                        else {
-                            HttpResponse::SeeOther()
-                                .insert_header(("Location", "/"))
-                                .content_type("application/json")
-                                .body(serialized)
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("server function error: {e:#?}");
-                        HttpResponse::InternalServerError().body(e.to_string())
-                    }
-                }
-            } else {
-                HttpResponse::BadRequest().body(format!("Could not find a server function at that route."))
-            }
-        }
-
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
             let mut conn = db().await.expect("couldn't connect to DB");
@@ -107,7 +67,7 @@ cfg_if! {
             HttpServer::new(|| {
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
-                    .service(handle_server_fns)
+                    .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
                     .service(render)
                 //.wrap(middleware::Compress::default())
             })

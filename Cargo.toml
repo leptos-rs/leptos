@@ -8,6 +8,9 @@ members = [
   "leptos_reactive",
   "leptos_server",
 
+  # integrations
+  "integrations/actix",
+
   # libraries
   "meta",
   "router",

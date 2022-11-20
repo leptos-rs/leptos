@@ -1,0 +1,10 @@
+[package]
+name = "leptos_actix"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4"
+leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
+	"ssr",
+] }
