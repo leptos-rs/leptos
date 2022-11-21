@@ -177,46 +177,39 @@ where
     let value = props.action.value;
     let input = props.action.input;
 
-    let on_form_data = {
-        let action = props.action.clone();
-        Rc::new(move |form_data: &web_sys::FormData| {
-            let data = action_input_from_form_data(form_data);
-            match data {
-                Ok(data) => input.set(Some(data)),
-                Err(e) => log::error!("{e}"),
-            }
-        })
-    };
+    let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
+        let data = action_input_from_form_data(form_data);
+        match data {
+            Ok(data) => input.set(Some(data)),
+            Err(e) => log::error!("{e}"),
+        }
+    });
 
-    let on_response = {
-        let action = props.action.clone();
-        Rc::new(move |resp: &web_sys::Response| {
-            let action = action.clone();
-            let resp = resp.clone().expect("couldn't get Response");
-            spawn_local(async move {
-                let body =
-                    JsFuture::from(resp.text().expect("couldn't get .text() from Response")).await;
-                match body {
-                    Ok(json) => {
-                        log::debug!(
-                            "body is {:?}\nO is {:?}",
-                            json.as_string().unwrap(),
-                            std::any::type_name::<O>()
-                        );
-                        match O::from_json(
-                            &json.as_string().expect("couldn't get String from JsString"),
-                        ) {
-                            Ok(res) => value.set(Some(Ok(res))),
-                            Err(e) => {
-                                value.set(Some(Err(ServerFnError::Deserialization(e.to_string()))))
-                            }
+    let on_response = Rc::new(move |resp: &web_sys::Response| {
+        let resp = resp.clone().expect("couldn't get Response");
+        spawn_local(async move {
+            let body =
+                JsFuture::from(resp.text().expect("couldn't get .text() from Response")).await;
+            match body {
+                Ok(json) => {
+                    log::debug!(
+                        "body is {:?}\nO is {:?}",
+                        json.as_string().unwrap(),
+                        std::any::type_name::<O>()
+                    );
+                    match O::from_json(
+                        &json.as_string().expect("couldn't get String from JsString"),
+                    ) {
+                        Ok(res) => value.set(Some(Ok(res))),
+                        Err(e) => {
+                            value.set(Some(Err(ServerFnError::Deserialization(e.to_string()))))
                         }
                     }
-                    Err(e) => log::error!("{e:?}"),
                 }
-            });
-        })
-    };
+                Err(e) => log::error!("{e:?}"),
+            }
+        });
+    });
 
     Form(
         cx,
@@ -271,7 +264,7 @@ where
             return;
         }
 
-        let (form, method, action, enctype) = extract_form_attributes(&ev);
+        let (form, _, _, _) = extract_form_attributes(&ev);
 
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
         let data = action_input_from_form_data(&form_data);
