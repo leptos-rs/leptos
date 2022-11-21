@@ -81,7 +81,7 @@ impl MetaContext {
         Default::default()
     }
 
-    #[cfg(any(feature = "ssr", doc))]
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
     /// Converts the existing metadata tags into HTML that can be injected into the document head.
     ///
     /// This should be called *after* the app’s component tree has been rendered into HTML, so that
