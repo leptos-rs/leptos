@@ -112,6 +112,7 @@
 //!
 //! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
 //! ```
+//! # use leptos::*;
 //! # if false { // can't run in doctests
 //! pub fn main() {
 //!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
