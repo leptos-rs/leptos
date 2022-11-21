@@ -6,8 +6,9 @@
 //! apps (SPAs), server-side rendering/multi-page apps (MPAs), or to synchronize
 //! state between the two.
 //!
-//! **Note:** This is a work in progress. Docs are still being written, in particular
-//! passing client-side route [State] in [History.state](https://developer.mozilla.org/en-US/docs/Web/API/History/state))
+//! **Note:** This is a work in progress. The feature to pass client-side route [State] in
+//! [History.state](https://developer.mozilla.org/en-US/docs/Web/API/History/state), in particular,
+//! is incomplete.
 //!
 //! ## Philosophy
 //!
