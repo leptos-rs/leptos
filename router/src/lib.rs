@@ -140,13 +140,11 @@
 #![feature(type_name_of_val)]
 
 mod components;
-mod fetch;
 mod history;
 mod hooks;
 mod matching;
 
 pub use components::*;
-pub use fetch::*;
 pub use history::*;
 pub use hooks::*;
 pub use matching::Branch;

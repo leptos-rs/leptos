@@ -12,15 +12,12 @@ if #[cfg(feature = "ssr")] {
         handler::Handler,
     };
     use std::net::SocketAddr;
-    use leptos_hackernews_axum::handlers::{file_handler, get_static_file_handler, render_app};
-
-    // #[get("/static/style.css")]
-    // async fn css() -> impl Responder {
-    //     NamedFile::open_async("./style.css").await
-    // }
+    use leptos_hackernews_axum::handlers::{file_handler, get_static_file_handler};
 
     #[tokio::main]
     async fn main() {
+        use leptos_hackernews_axum::*;
+
         let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
 
         log::debug!("serving at {addr}");
@@ -32,7 +29,7 @@ if #[cfg(feature = "ssr")] {
         // `GET /` goes to `root`
         .nest("/pkg", get(file_handler))
         .nest("/static", get(get_static_file_handler))
-        .fallback(render_app.into_service());
+        .fallback(leptos_axum::render_app_to_stream("leptos_hackernews_axum", |cx| view! { cx, <App/> }).into_service());
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
@@ -41,7 +38,7 @@ if #[cfg(feature = "ssr")] {
             .serve(app.into_make_service())
             .await
             .unwrap();
-}
+    }
 }
 
     // client-only stuff for Trunk

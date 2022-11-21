@@ -1,5 +1,6 @@
 use cfg_if::cfg_if;
 use leptos::*;
+use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
 
@@ -91,6 +92,7 @@ pub fn TodoApp(cx: Scope) -> Element {
     view! {
         cx,
         <div>
+            <Stylesheet href="/style.css".into()/>
             <Router>
                 <header>
                     <h1>"My Tasks"</h1>

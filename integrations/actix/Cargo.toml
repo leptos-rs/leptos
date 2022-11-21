@@ -1,0 +1,17 @@
+[package]
+name = "leptos_actix"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+actix-web = "4"
+futures = "0.3"
+leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
+	"ssr",
+] }
+leptos_meta = { path = "../../meta", default-features = false, version = "0.0", features = [
+	"ssr",
+] }
+leptos_router = { path = "../../router", default-features = false, version = "0.0", features = [
+	"ssr",
+] }

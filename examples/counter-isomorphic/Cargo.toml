@@ -19,12 +19,12 @@ lazy_static = "1"
 leptos = { path = "../../../leptos/leptos", default-features = false, features = [
 	"serde",
 ] }
+leptos_actix = { path = "../../../leptos/integrations/actix", optional = true }
 leptos_meta = { path = "../../../leptos/meta", default-features = false }
 leptos_router = { path = "../../../leptos/router", default-features = false }
 log = "0.4"
 simple_logger = "2"
 gloo = { git = "https://github.com/rustwasm/gloo" }
-#counter = { path = "../counter",  default-features = false}
 
 [features]
 default = ["csr"]
@@ -34,10 +34,11 @@ ssr = [
 	"dep:actix-files",
 	"dep:actix-web",
 	"leptos/ssr",
+	"leptos_actix",
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
 
 [package.metadata.cargo-all-features]
-denylist = ["actix-files", "actix-web"]
+denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
