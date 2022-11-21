@@ -16,7 +16,7 @@ pub fn App(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <Stylesheet href="/static/style.css".into()/>
+            <Stylesheet href="/static/style.css"/>
             <Router>
                 <Nav />
                 <main>

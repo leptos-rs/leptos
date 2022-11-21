@@ -92,7 +92,7 @@ pub fn TodoApp(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <Stylesheet href="/style.css".into()/>
+            <Stylesheet href="/style.css"/>
             <Router>
                 <header>
                     <h1>"My Tasks"</h1>

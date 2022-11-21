@@ -8,15 +8,13 @@ repository = "https://github.com/gbj/leptos"
 description = "Tools to set HTML metadata in the Leptos web framework."
 
 [dependencies]
+cfg-if = "1"
 leptos = { path = "../leptos", version = "0.0", default-features = false }
-log = "0.4"
+typed-builder = "0.11"
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-	"HtmlLinkElement",
-	"HtmlTitleElement"
-]
+features = ["HtmlLinkElement", "HtmlTitleElement"]
 
 [features]
 default = ["csr"]
