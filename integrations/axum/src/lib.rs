@@ -4,18 +4,16 @@ use axum::{
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
 };
-use axum_macros::debug_handler;
 use futures::{Future, SinkExt, Stream, StreamExt};
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
-use std::io;
-use std::pin::Pin;
+use std::{io, pin::Pin, sync::Arc};
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
-/// This provides the [HeaderMap] to the server [Scope](leptos_reactive::Scope).
+/// This provides an `Arc<[Request<Body>](axum::http::Request)>` [Scope](leptos_reactive::Scope).
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -41,11 +39,11 @@ use std::pin::Pin;
 ///         .unwrap();
 /// }
 /// # }
-#[debug_handler]
 pub async fn handle_server_fns(
     Path(path): Path<String>,
     headers: HeaderMap<HeaderValue>,
     body: Bytes,
+    req: Request<Body>,
 ) -> impl IntoResponse {
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
@@ -60,8 +58,8 @@ pub async fn handle_server_fns(
                             // TODO this leaks a runtime once per invocation
                             let (cx, disposer) = raw_scope_and_disposer();
 
-                            // provide headers as context in server scope
-                            provide_context(cx, headers.clone());
+                            // provide request as context in server scope
+                            provide_context(cx, Arc::new(req));
 
                             match server_fn(cx, body).await {
                                 Ok(serialized) => {
