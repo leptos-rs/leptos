@@ -72,7 +72,7 @@ where
 {
     /// Wraps a derived signal, i.e., any computation that accesses one or more
     /// reactive signals.
-    /// /// ```rust
+    /// ```rust
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);
@@ -316,7 +316,7 @@ where
 {
     /// Wraps a derived signal, i.e., any computation that accesses one or more
     /// reactive signals.
-    /// /// ```rust
+    /// ```rust
     /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
     /// # create_scope(|cx| {
     /// let (count, set_count) = create_signal(cx, 2);

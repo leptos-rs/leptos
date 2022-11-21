@@ -28,6 +28,8 @@ impl Mountable for Vec<Element> {
                 for element in self {
                     parent.append_child(element).unwrap_throw();
                 }
+            } else {
+                _ = parent; // to clear warning
             }
         }
     }

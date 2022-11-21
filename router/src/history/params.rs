@@ -140,7 +140,7 @@ where
     }
 }
 
-/// Errors that can occur while parsing params using [IntoParams].
+/// Errors that can occur while parsing params using [Params](crate::Params).
 #[derive(Error, Debug, Clone)]
 pub enum ParamsError {
     /// A field was missing from the route params.

@@ -71,11 +71,11 @@
 //! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
 //!   of calling signals as functions. If you need to use `stable`, you will need to call `.get()`
 //!   and `.set()` manually.
-//! - `serde` (*Default*) In SSR/hydrate mode, uses [serde] to serialize resources and send them
+//! - `serde` (*Default*) In SSR/hydrate mode, uses [serde](https://docs.rs/serde/latest/serde/) to serialize resources and send them
 //!   from the server to the client.
-//! - `serde-lite` In SSR/hydrate mode, uses [serde-lite] to serialize resources and send them
+//! - `serde-lite` In SSR/hydrate mode, uses [serde-lite](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
 //!   from the server to the client.
-//! - `miniserde` In SSR/hydrate mode, uses [miniserde] to serialize resources and send them
+//! - `miniserde` In SSR/hydrate mode, uses [miniserde](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
 //!   from the server to the client.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
@@ -111,10 +111,12 @@
 //! ```
 //!
 //! Leptos is easy to use with [Trunk](https://trunkrs.dev/) (or with a simple wasm-bindgen setup):
-//! ```ignore
+//! ```
+//! # if false { // can't run in doctests
 //! pub fn main() {
 //!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
 //! }
+//! # }
 //! ```
 
 pub use leptos_core::*;

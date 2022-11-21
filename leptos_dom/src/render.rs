@@ -42,7 +42,7 @@ impl std::fmt::Debug for Marker {
 }
 
 /// Binds the `value` to the attribute `attr_name` on this `el`. If the attribute is reactive,
-/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// it will [create an effect](leptos_reactive::create_effect) to make fine-grained reactive updates
 /// to the attribute value.
 ///
 /// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
@@ -94,7 +94,7 @@ fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute
 }
 
 /// Binds the `value` to the property `prop_name` on this `el`. If the property is reactive,
-/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// it will [create an effect](leptos_reactive::create_effect) to make fine-grained reactive updates
 /// to the property.
 ///
 /// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
@@ -120,7 +120,7 @@ fn property_expression(el: &web_sys::Element, prop_name: &str, value: JsValue) {
 }
 
 /// Binds the `value` to the class `class_name` on this `el`'s `classList`. If the class value is reactive,
-/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// it will [create an effect](leptos_reactive::create_effect) to make fine-grained reactive updates
 /// to the class list.
 ///
 /// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.
@@ -151,7 +151,7 @@ fn class_expression(el: &web_sys::Element, class_name: &str, value: bool) {
 }
 
 /// Inserts a child into the DOM, relative to the `before` marker. If the child is reactive,
-/// it will create an [Effect](leptos_reactive::Effect) to make fine-grained reactive updates
+/// it will [create an effect](leptos_reactive::create_effect) to make fine-grained reactive updates
 /// to the DOM value.
 ///
 /// This is used by the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html) macro.

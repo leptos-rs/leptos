@@ -38,7 +38,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// The input to the `async` function should always be a single value,
 /// but it can be of any type. The argument is always passed by reference to the
-/// function, because it is stored in [MultiAction::input] as well.
+/// function, because it is stored in [Submission::input] as well.
 ///
 /// ```rust
 /// # use leptos_reactive::run_scope;
@@ -211,7 +211,7 @@ where
 ///
 /// The input to the `async` function should always be a single value,
 /// but it can be of any type. The argument is always passed by reference to the
-/// function, because it is stored in [MultiAction::input] as well.
+/// function, because it is stored in [Submission::input] as well.
 ///
 /// ```rust
 /// # use leptos_reactive::run_scope;

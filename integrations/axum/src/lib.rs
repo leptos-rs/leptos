@@ -13,7 +13,7 @@ use std::{io, pin::Pin, sync::Arc};
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
-/// This provides an `Arc<[Request<Body>](axum::http::Request)>` [Scope](leptos_reactive::Scope).
+/// This provides an `Arc<[Request<Body>](axum::http::Request)>` [Scope](leptos::Scope).
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -107,7 +107,7 @@ pub async fn handle_server_fns(
 
 pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 
-/// Returns an Axum [Handler](axum::Handler) that listens for a `GET` request and tries
+/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
