@@ -114,6 +114,12 @@
 //! ```
 //! # use leptos::*;
 //! # if false { // can't run in doctests
+//!
+//! #[component]
+//! fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+//!   todo!()
+//! }
+//!
 //! pub fn main() {
 //!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
 //! }
