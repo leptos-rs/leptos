@@ -68,7 +68,6 @@ where
         if ev.default_prevented() {
             return;
         }
-        ev.prevent_default();
         let navigate = use_navigate(cx);
 
         let (form, method, action, enctype) = extract_form_attributes(&ev);
@@ -84,6 +83,8 @@ where
             .unwrap_or_default();
         // POST
         if method == "post" {
+            ev.prevent_default();
+
             let on_response = on_response.clone();
             spawn_local(async move {
                 let res = gloo_net::http::Request::post(&action)
@@ -122,7 +123,9 @@ where
         // otherwise, GET
         else {
             let params = params.to_string().as_string().unwrap_or_default();
-            navigate(&format!("{action}?{params}"), Default::default());
+            if navigate(&format!("{action}?{params}"), Default::default()).is_ok() {
+                ev.prevent_default();
+            }
         }
     };
 
