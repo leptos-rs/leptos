@@ -1,13 +1,111 @@
 use axum::{
     body::{Body, Bytes, StreamBody},
-    http::Request,
+    extract::Path,
+    http::{HeaderMap, HeaderValue, Request, StatusCode},
+    response::{IntoResponse, Response},
 };
+use axum_macros::debug_handler;
 use futures::{Future, SinkExt, Stream, StreamExt};
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::io;
 use std::pin::Pin;
+
+/// An Axum handlers to listens for a request with Leptos server function arguments in the body,
+/// run the server function if found, and return the resulting [Response].
+///
+/// This provides the [HeaderMap] to the server [Scope](leptos_reactive::Scope).
+///
+/// This can then be set up at an appropriate route in your application:
+///
+/// ```
+/// use axum::{handler::Handler, routing::post, Router};
+/// use std::net::SocketAddr;
+/// use leptos::*;
+///
+/// # if false { // don't actually try to run a server in a doctest...
+/// #[tokio::main]
+/// async fn main() {
+///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
+///
+///     // build our application with a route
+///     let app = Router::new()
+///       .route("/api/tail*", post(leptos_axum::handle_server_fns));
+///
+///     // run our app with hyper
+///     // `axum::Server` is a re-export of `hyper::Server`
+///     axum::Server::bind(&addr)
+///         .serve(app.into_make_service())
+///         .await
+///         .unwrap();
+/// }
+/// # }
+#[debug_handler]
+pub async fn handle_server_fns(
+    Path(path): Path<String>,
+    headers: HeaderMap<HeaderValue>,
+    body: Bytes,
+) -> impl IntoResponse {
+    let (tx, rx) = futures::channel::oneshot::channel();
+    std::thread::spawn({
+        move || {
+            tokio::runtime::Runtime::new()
+                .expect("couldn't spawn runtime")
+                .block_on({
+                    async move {
+                        let body: &[u8] = &body;
+
+                        let res = if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+                            // TODO this leaks a runtime once per invocation
+                            let (cx, disposer) = raw_scope_and_disposer();
+
+                            // provide headers as context in server scope
+                            provide_context(cx, headers.clone());
+
+                            match server_fn(cx, body).await {
+                                Ok(serialized) => {
+                                    // clean up the scope, which we only needed to run the server fn
+                                    disposer.dispose();
+
+                                    // if this is Accept: application/json then send a serialized JSON response
+                                    let accept_header =
+                                        headers.get("Accept").and_then(|value| value.to_str().ok());
+                                    if let Some("application/json") = accept_header {
+                                        Response::builder().status(StatusCode::OK).body(serialized)
+                                    }
+                                    // otherwise, it's probably a <form> submit or something: redirect back to the referrer
+                                    else {
+                                        let referer = headers
+                                            .get("Referer")
+                                            .and_then(|value| value.to_str().ok())
+                                            .unwrap_or("/");
+                                        Response::builder()
+                                            .status(StatusCode::SEE_OTHER)
+                                            .header("Location", referer)
+                                            .header("Content-Type", "application/json")
+                                            .body(serialized)
+                                    }
+                                }
+                                Err(e) => Response::builder()
+                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                    .body(e.to_string()),
+                            }
+                        } else {
+                            Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body("Could not find a server function at that route.".to_string())
+                        }
+                        .expect("could not build Response");
+
+                        _ = tx.send(res);
+                    }
+                })
+        }
+    });
+
+    rx.await.unwrap()
+}
 
 pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 
@@ -125,7 +223,7 @@ pub fn render_app_to_stream(
                                                 }
                                             }));
                                             while let Some(fragment) = shell.next().await {
-                                                tx.send(fragment).await;
+                                                _ = tx.send(fragment).await;
                                             }
                                             tx.close_channel();
                                         })

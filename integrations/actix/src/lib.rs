@@ -8,7 +8,7 @@ use leptos_router::*;
 /// Leptos server function arguments in the body, runs the server function if found,
 /// and returns the resulting [HttpResponse].
 ///
-/// The provides the [HttpRequest] to the server [Scope](leptos_reactive::Scope).
+/// This provides the [HttpRequest] to the server [Scope](leptos_reactive::Scope).
 ///
 /// This can then be set up at an appropriate route in your application:
 ///

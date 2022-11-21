@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
+axum-macros = "0.2"
 axum = "0.5"
 futures = "0.3"
 leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
