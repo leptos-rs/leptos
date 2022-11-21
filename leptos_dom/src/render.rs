@@ -302,7 +302,7 @@ fn insert_expression(
                         Child::Nodes(new_nodes.to_vec())
                     }
                 } else {
-                    clean_children(&parent, Child::Null, before, None);
+                    clean_children(&parent, current, before, None);
                     append_nodes(parent, new_nodes.to_vec(), before.as_some_node().cloned());
                     Child::Nodes(new_nodes.to_vec())
                 }
@@ -427,7 +427,10 @@ fn clean_children(
         match current {
             Child::Null => Child::Node(insert_before(parent, &node, marker.as_some_node())),
             Child::Text(_) => Child::Node(insert_before(parent, &node, marker.as_some_node())),
-            Child::Node(_) => Child::Node(insert_before(parent, &node, marker.as_some_node())),
+            Child::Node(current) => {
+                replace_child(parent, &node, &current);
+                Child::Node(node)
+            }
             Child::Nodes(nodes) => {
                 if nodes.is_empty() {
                     Child::Node(insert_before(parent, &node, marker.as_some_node()))
