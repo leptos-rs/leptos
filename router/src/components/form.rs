@@ -113,7 +113,7 @@ where
 
                         if resp.status() == 303 {
                             if let Some(redirect_url) = resp.headers().get("Location") {
-                                navigate(&redirect_url, Default::default());
+                                _ = navigate(&redirect_url, Default::default());
                             }
                         }
                     }
