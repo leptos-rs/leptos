@@ -26,9 +26,11 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let ServerFnName {
         struct_name,
         prefix,
+        encoding,
         ..
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
+    let encoding = encoding.unwrap_or_else(|| Literal::string("URL"));
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;
@@ -170,6 +172,8 @@ pub struct ServerFnName {
     struct_name: Ident,
     _comma: Option<Token![,]>,
     prefix: Option<Literal>,
+    _comma2: Option<Token![,]>,
+    encoding: Option<Literal>,
 }
 
 impl Parse for ServerFnName {
@@ -177,11 +181,15 @@ impl Parse for ServerFnName {
         let struct_name = input.parse()?;
         let _comma = input.parse()?;
         let prefix = input.parse()?;
+        let _comma2 = input.parse()?;
+        let encoding = input.parse()?;
 
         Ok(Self {
             struct_name,
             _comma,
             prefix,
+            _comma2,
+            encoding,
         })
     }
 }
