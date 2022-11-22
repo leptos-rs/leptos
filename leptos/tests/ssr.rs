@@ -30,7 +30,7 @@ fn ssr_test_with_components() {
     use leptos_core::Prop;
     use leptos_dom::*;
     use leptos_macro::*;
-    use leptos_reactive::{create_scope, create_signal, Scope};
+    use leptos_reactive::{create_runtime, create_scope, create_signal, Scope};
 
     #[component]
     fn Counter(cx: Scope, initial_value: i32) -> Element {
