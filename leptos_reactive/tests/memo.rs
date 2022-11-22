@@ -1,10 +1,10 @@
 #[cfg(not(feature = "stable"))]
-use leptos_reactive::{create_memo, create_scope, create_signal};
+use leptos_reactive::{create_memo, create_runtime, create_scope, create_signal};
 
 #[cfg(not(feature = "stable"))]
 #[test]
 fn basic_memo() {
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let a = create_memo(cx, |_| 5);
         assert_eq!(a(), 5);
     })
@@ -14,7 +14,7 @@ fn basic_memo() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn memo_with_computed_value() {
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, 0);
         let (b, set_b) = create_signal(cx, 0);
         let c = create_memo(cx, move |_| a() + b());
@@ -30,7 +30,7 @@ fn memo_with_computed_value() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn nested_memos() {
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, 0);
         let (b, set_b) = create_signal(cx, 0);
         let c = create_memo(cx, move |_| a() + b());
@@ -54,7 +54,7 @@ fn nested_memos() {
 fn memo_runs_only_when_inputs_change() {
     use std::{cell::Cell, rc::Rc};
 
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let call_count = Rc::new(Cell::new(0));
         let (a, set_a) = create_signal(cx, 0);
         let (b, _) = create_signal(cx, 0);

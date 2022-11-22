@@ -11,8 +11,10 @@ use std::{
 
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
-    runtime::Runtime, serialization::Serializable, spawn::spawn_local, use_context, Memo,
-    ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
+    runtime::{with_runtime, RuntimeId},
+    serialization::Serializable,
+    spawn::spawn_local,
+    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -31,7 +33,7 @@ use crate::{
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
 ///   // pretend we're fetching cat pics
@@ -121,7 +123,9 @@ where
         suspense_contexts: Default::default(),
     });
 
-    let id = cx.runtime.create_serializable_resource(Rc::clone(&r));
+    let id = with_runtime(cx.runtime, |runtime| {
+        runtime.create_serializable_resource(Rc::clone(&r))
+    });
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
@@ -153,7 +157,7 @@ where
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
 /// struct ComplicatedUnserializableStruct {
 ///   // something here that can't be serialized
@@ -223,7 +227,9 @@ where
         suspense_contexts: Default::default(),
     });
 
-    let id = cx.runtime.create_unserializable_resource(Rc::clone(&r));
+    let id = with_runtime(cx.runtime, |runtime| {
+        runtime.create_unserializable_resource(Rc::clone(&r))
+    });
 
     create_effect(cx, {
         let r = Rc::clone(&r);
@@ -259,61 +265,63 @@ where
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-    if let Some(ref mut context) = *cx.runtime.shared_context.borrow_mut() {
-        if let Some(data) = context.resolved_resources.remove(&id) {
-            // The server already sent us the serialized resource value, so
-            // deserialize & set it now
-            context.pending_resources.remove(&id); // no longer pending
-            r.resolved.set(true);
+    with_runtime(cx.runtime, |runtime| {
+        if let Some(ref mut context) = *runtime.shared_context.borrow_mut() {
+            if let Some(data) = context.resolved_resources.remove(&id) {
+                // The server already sent us the serialized resource value, so
+                // deserialize & set it now
+                context.pending_resources.remove(&id); // no longer pending
+                r.resolved.set(true);
 
-            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
-            r.set_value.update(|n| *n = Some(res));
-            r.set_loading.update(|n| *n = false);
+                let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
+                r.set_value.update(|n| *n = Some(res));
+                r.set_loading.update(|n| *n = false);
 
-            // for reactivity
-            r.source.subscribe();
-        } else if context.pending_resources.remove(&id) {
-            // We're still waiting for the resource, add a "resolver" closure so
-            // that it will be set as soon as the server sends the serialized
-            // value
-            r.set_loading.update(|n| *n = true);
+                // for reactivity
+                r.source.subscribe();
+            } else if context.pending_resources.remove(&id) {
+                // We're still waiting for the resource, add a "resolver" closure so
+                // that it will be set as soon as the server sends the serialized
+                // value
+                r.set_loading.update(|n| *n = true);
 
-            let resolve = {
-                let resolved = r.resolved.clone();
-                let set_value = r.set_value;
-                let set_loading = r.set_loading;
-                move |res: String| {
-                    let res =
-                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
-                    resolved.set(true);
-                    set_value.update(|n| *n = Some(res));
-                    set_loading.update(|n| *n = false);
-                }
-            };
-            let resolve =
-                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
-            let resource_resolvers = js_sys::Reflect::get(
-                &web_sys::window().unwrap(),
-                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
-            )
-            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
-            _ = js_sys::Reflect::set(
-                &resource_resolvers,
-                &wasm_bindgen::JsValue::from_str(&id),
-                resolve.as_ref().unchecked_ref(),
-            );
+                let resolve = {
+                    let resolved = r.resolved.clone();
+                    let set_value = r.set_value;
+                    let set_loading = r.set_loading;
+                    move |res: String| {
+                        let res =
+                            T::from_json(&res).expect_throw("could not deserialize Resource JSON");
+                        resolved.set(true);
+                        set_value.update(|n| *n = Some(res));
+                        set_loading.update(|n| *n = false);
+                    }
+                };
+                let resolve =
+                    wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+                let resource_resolvers = js_sys::Reflect::get(
+                    &web_sys::window().unwrap(),
+                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
+                )
+                .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
+                let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
+                _ = js_sys::Reflect::set(
+                    &resource_resolvers,
+                    &wasm_bindgen::JsValue::from_str(&id),
+                    resolve.as_ref().unchecked_ref(),
+                );
 
-            // for reactivity
-            r.source.subscribe()
+                // for reactivity
+                r.source.subscribe()
+            } else {
+                // Server didn't mark the resource as pending, so load it on the
+                // client
+                r.load(false);
+            }
         } else {
-            // Server didn't mark the resource as pending, so load it on the
-            // client
-            r.load(false);
+            r.load(false)
         }
-    } else {
-        r.load(false)
-    }
+    })
 }
 
 impl<S, T> Resource<S, T>
@@ -331,8 +339,9 @@ where
     where
         T: Clone,
     {
-        self.runtime
-            .resource(self.id, |resource: &ResourceState<S, T>| resource.read())
+        with_runtime(self.runtime, |runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.read())
+        })
     }
 
     /// Applies a function to the current value of the resource, and subscribes
@@ -343,20 +352,23 @@ where
     /// If you want to get the value by cloning it, you can use
     /// [Resource::read].
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
-        self.runtime
-            .resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
+        with_runtime(self.runtime, |runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
+        })
     }
 
     /// Returns a signal that indicates whether the resource is currently loading.
     pub fn loading(&self) -> ReadSignal<bool> {
-        self.runtime
-            .resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
+        with_runtime(self.runtime, |runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
+        })
     }
 
     /// Re-runs the async function with the current source data.
     pub fn refetch(&self) {
-        self.runtime
-            .resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
+        with_runtime(self.runtime, |runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
+        });
     }
 
     /// Returns a [std::future::Future] that will resolve when the resource has loaded,
@@ -366,11 +378,12 @@ where
     where
         T: Serializable,
     {
-        self.runtime
-            .resource(self.id, |resource: &ResourceState<S, T>| {
+        with_runtime(self.runtime, |runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.to_serialization_resolver(self.id)
             })
-            .await
+        })
+        .await
     }
 }
 
@@ -390,7 +403,7 @@ where
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn fetch_cat_picture_urls(how_many: i32) -> Vec<String> {
 ///   // pretend we're fetching cat pics
@@ -423,7 +436,7 @@ where
     S: Debug + 'static,
     T: Debug + 'static,
 {
-    runtime: &'static Runtime,
+    runtime: RuntimeId,
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,

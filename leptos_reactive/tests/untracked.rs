@@ -1,6 +1,6 @@
 //#[cfg(not(feature = "stable"))]
 use leptos_reactive::{
-    create_isomorphic_effect, create_scope, create_signal, UntrackedGettableSignal,
+    create_isomorphic_effect, create_runtime, create_scope, create_signal, UntrackedGettableSignal,
     UntrackedSettableSignal,
 };
 
@@ -10,7 +10,7 @@ fn untracked_set_doesnt_trigger_effect() {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
 
         // simulate an arbitrary side effect
@@ -42,7 +42,7 @@ fn untracked_get_doesnt_trigger_effect() {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
         let (a2, set_a2) = create_signal(cx, 1);
 
