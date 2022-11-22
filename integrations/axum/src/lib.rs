@@ -55,8 +55,8 @@ pub async fn handle_server_fns(
                         let body: &[u8] = &body;
 
                         let res = if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-                            // TODO this leaks a runtime once per invocation
-                            let (cx, disposer) = raw_scope_and_disposer();
+                            let runtime = create_runtime();
+                            let (cx, disposer) = raw_scope_and_disposer(runtime);
 
                             // provide request as context in server scope
                             provide_context(cx, Arc::new(req));
@@ -65,6 +65,7 @@ pub async fn handle_server_fns(
                                 Ok(serialized) => {
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
+                                    runtime.dispose();
 
                                     // if this is Accept: application/json then send a serialized JSON response
                                     let accept_header =

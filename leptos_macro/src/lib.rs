@@ -42,7 +42,7 @@ mod server;
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <p>"Here’s some text"</p> };
 /// # }
@@ -52,7 +52,7 @@ mod server;
 /// 2. Self-closing tags need an explicit `/` as in XML/XHTML
 /// ```rust,compile_fail
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ❌ not like this
 /// view! { cx, <input type="text" name="name"> }
@@ -62,7 +62,7 @@ mod server;
 /// ```
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ✅ add that slash
 /// view! { cx, <input type="text" name="name" /> }
@@ -76,7 +76,7 @@ mod server;
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use typed_builder::TypedBuilder; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
 /// # #[derive(TypedBuilder)] struct CounterProps { initial_value: i32 }
 /// # fn Counter(cx: Scope, props: CounterProps) -> Element { view! { cx, <p></p>} }
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <div><Counter initial_value=3 /></div> }
 /// # ;
@@ -94,7 +94,7 @@ mod server;
 ///
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
@@ -114,7 +114,7 @@ mod server;
 /// 5. Event handlers can be added with `on:` attributes.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
@@ -134,7 +134,7 @@ mod server;
 ///    and `None` deletes the property.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
 ///
@@ -156,7 +156,7 @@ mod server;
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// view! { cx, <div class:hidden-div={move || count() < 3}>"Now you see me, now you don’t."</div> }
@@ -168,7 +168,7 @@ mod server;
 /// Class names can include dashes, but cannot (at the moment) include a dash-separated segment of only numbers.
 /// ```rust,compile_fail
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// // `hidden-div-25` is invalid at the moment
@@ -181,7 +181,7 @@ mod server;
 /// 8. You can use the `_ref` attribute to store a reference to its DOM element in a variable to use later.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (value, set_value) = create_signal(cx, 0);
 /// let my_input: Element;

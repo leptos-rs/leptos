@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
 };
 
-use crate::Scope;
+use crate::{runtime::with_runtime, Scope};
 
 /// Provides a context value of type `T` to the current reactive [Scope](crate::Scope)
 /// and all of its descendants. This can be consumed using [use_context](crate::use_context).
@@ -14,7 +14,7 @@ use crate::Scope;
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 ///
 /// // Note: this example doesn’t use Leptos’s DOM model or component structure,
 /// // so it ends up being a little silly.
@@ -48,9 +48,11 @@ where
     T: Clone + 'static,
 {
     let id = value.type_id();
-    let mut contexts = cx.runtime.scope_contexts.borrow_mut();
-    let context = contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
-    context.insert(id, Box::new(value) as Box<dyn Any>);
+    with_runtime(cx.runtime, |runtime| {
+        let mut contexts = runtime.scope_contexts.borrow_mut();
+        let context = contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
+        context.insert(id, Box::new(value) as Box<dyn Any>);
+    });
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
@@ -64,7 +66,7 @@ where
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 ///
 /// // Note: this example doesn’t use Leptos’s DOM model or component structure,
 /// // so it ends up being a little silly.
@@ -98,25 +100,26 @@ where
     T: Clone + 'static,
 {
     let id = TypeId::of::<T>();
-    let local_value = {
-        let contexts = cx.runtime.scope_contexts.borrow();
-        let context = contexts.get(cx.id);
-        context
-            .and_then(|context| context.get(&id).and_then(|val| val.downcast_ref::<T>()))
-            .cloned()
-    };
-    match local_value {
-        Some(val) => Some(val),
-        None => cx
-            .runtime
-            .scope_parents
-            .borrow()
-            .get(cx.id)
-            .and_then(|parent| {
-                use_context::<T>(Scope {
-                    runtime: cx.runtime,
-                    id: *parent,
-                })
-            }),
-    }
+    with_runtime(cx.runtime, |runtime| {
+        let local_value = {
+            let contexts = runtime.scope_contexts.borrow();
+            let context = contexts.get(cx.id);
+            context
+                .and_then(|context| context.get(&id).and_then(|val| val.downcast_ref::<T>()))
+                .cloned()
+        };
+        match local_value {
+            Some(val) => Some(val),
+            None => runtime
+                .scope_parents
+                .borrow()
+                .get(cx.id)
+                .and_then(|parent| {
+                    use_context::<T>(Scope {
+                        runtime: cx.runtime,
+                        id: *parent,
+                    })
+                }),
+        }
+    })
 }
