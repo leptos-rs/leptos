@@ -34,12 +34,6 @@ where
 
     /// Deserializes the object from JSON.
     fn from_json(json: &str) -> Result<Self, SerializationError>;
-
-    /// Serializes the object to MsgPack.
-    fn to_mpk(&self) -> Result<Vec<u8>, SerializationError>;
-
-    /// Deserializes the object from MsgPack.
-    fn from_mpk(mpk: &[u8]) -> Result<Self, SerializationError>;
 }
 
 cfg_if! {
@@ -100,13 +94,6 @@ cfg_if! {
                 serde_json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
             }
 
-            fn to_mpk(&self) -> Result<Vec<u8>, SerializationError> {
-                rmp_serde::to_vec(&self).map_err(|e| SerializationError::Serialize(Rc::new(e)))
-            }
-
-            fn from_mpk(mpk: &[u8]) -> Result<Self, SerializationError> {
-                rmp_serde::from_read_ref(mpk).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
-            }
         }
     }
 }

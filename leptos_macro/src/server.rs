@@ -1,6 +1,8 @@
 use cfg_if::cfg_if;
+use leptos_server::Encoding;
 use proc_macro2::{Literal, TokenStream as TokenStream2};
 use quote::quote;
+use std::str::FromStr;
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -31,6 +33,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = encoding.unwrap_or_else(|| Literal::string("URL"));
+    let encoding = Encoding::from_str(encoding).unwrap();
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;

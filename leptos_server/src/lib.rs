@@ -69,8 +69,12 @@
 
 pub use form_urlencoded;
 use leptos_reactive::*;
+use rmp_serde::Deserializer;
+use serde_json::Deserializer as JSONDeserializer;
+
+use leptos_dom::js_sys::Uint8Array;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, str::FromStr};
 use thiserror::Error;
 
 mod action;
@@ -147,11 +151,24 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
 
 /// Holds the current options for encoding types.
 /// More could be added, but they need to be serde
+#[derive(Debug, PartialEq)]
 pub enum Encoding {
     /// A Binary Encoding Scheme Called MessagePack
     MessagePack,
     /// The Default URL-encoded encoding method
     URL,
+}
+
+impl FromStr for Encoding {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Encoding, Self::Err> {
+        match input {
+            "URL" => Ok(Encoding::URL),
+            "MessagePack" => Ok(Encoding::MessagePack),
+            _ => Err(()),
+        }
+    }
 }
 
 /// Defines a "server function." A server function can be called from the server or the client,
@@ -268,20 +285,27 @@ pub enum ServerFnError {
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
 // #[cfg(not(feature = "ssr"))]
-pub async fn call_server_fn<T>(
+pub async fn call_server_fn<'a, T>(
     url: &str,
     args: impl ServerFn,
     enc: Encoding,
 ) -> Result<T, ServerFnError>
 where
-    T: Serializable + Sized,
+    T: serde::Serialize + serde::Deserialize<'a> + Sized,
 {
+    enum Payload {
+        Binary(Vec<u8>),
+        URL(String),
+    }
+
     let args_encoded = match &enc {
-        URL => serde_urlencoded::to_string(&args)
-            .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
-        MessagePack => {
-            rmp_serde::to_vec(&args).map_err(|e| ServerFnError::Serialization(e.to_string()))?
-        }
+        URL => Payload::URL(
+            serde_urlencoded::to_string(&args)
+                .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
+        ),
+        MessagePack => Payload::Binary(
+            rmp_serde::to_vec(&args).map_err(|e| ServerFnError::Serialization(e.to_string()))?,
+        ),
     };
 
     let content_type_header = match &enc {
@@ -294,13 +318,27 @@ where
         MessagePack => "application/msgpack+octet-stream",
     };
 
-    let resp = gloo_net::http::Request::post(url)
-        .header("Content-Type", content_type_header)
-        .header("Accept", accept_header)
-        .body(args_encoded)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::Request(e.to_string()))?;
+    let resp = match args_encoded {
+        Payload::Binary(b) => {
+            let vec_ref: &Vec<u8> = &b;
+            let slice_ref: &[u8] = &vec_ref;
+            let js_array = Uint8Array::from(slice_ref).buffer();
+            gloo_net::http::Request::post(url)
+                .header("Content-Type", content_type_header)
+                .header("Accept", accept_header)
+                .body(js_array)
+                .send()
+                .await
+                .map_err(|e| ServerFnError::Request(e.to_string()))?
+        }
+        Payload::URL(s) => gloo_net::http::Request::post(url)
+            .header("Content-Type", content_type_header)
+            .header("Accept", accept_header)
+            .body(s)
+            .send()
+            .await
+            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+    };
 
     // check for error status
     let status = resp.status();
@@ -308,18 +346,20 @@ where
         return Err(ServerFnError::ServerError(resp.status_text()));
     }
 
-    let mut result;
     if enc == Encoding::MessagePack {
         let binary = resp
             .binary()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-        result = T::from_mpk(&binary).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+
+        let mut deseralizer = Deserializer::from_read_ref(&binary);
+        T::deserialize(&mut deseralizer).map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
         let text = resp
             .text()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-        result = T::from_json(&text).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        let mut deserializer = JSONDeserializer::from_str(&text);
+        T::deserialize(&mut deserializer).map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
 }
