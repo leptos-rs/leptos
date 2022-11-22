@@ -3,9 +3,9 @@
 fn simple_ssr_test() {
     use leptos_dom::*;
     use leptos_macro::view;
-    use leptos_reactive::{create_scope, create_signal};
+    use leptos_reactive::{create_runtime, create_scope, create_signal};
 
-    _ = create_scope(|cx| {
+    _ = create_scope(create_runtime(), |cx| {
         let (value, set_value) = create_signal(cx, 0);
         let rendered = view! {
             cx,
@@ -45,7 +45,7 @@ fn ssr_test_with_components() {
         }
     }
 
-    _ = create_scope(|cx| {
+    _ = create_scope(create_runtime(), |cx| {
         let rendered = view! {
             cx,
             <div class="counters">
@@ -66,9 +66,9 @@ fn ssr_test_with_components() {
 fn test_classes() {
     use leptos_dom::*;
     use leptos_macro::view;
-    use leptos_reactive::{create_scope, create_signal};
+    use leptos_reactive::{create_runtime, create_scope, create_signal};
 
-    _ = create_scope(|cx| {
+    _ = create_scope(create_runtime(), |cx| {
         let (value, set_value) = create_signal(cx, 5);
         let rendered = view! {
             cx,

@@ -22,7 +22,7 @@ pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 cfg_if! {
     if #[cfg(any(feature = "csr", feature = "hydrate"))] {
         thread_local! {
-            pub(crate) static RUNTIME: Runtime = Default::default();
+            pub(crate) static RUNTIME: Runtime = Runtime::new();
         }
     } else {
         thread_local! {
