@@ -1,7 +1,7 @@
 use leptos::*;
 
 fn main() {
-    run_scope(|cx| {
+    run_scope(create_runtime(), |cx| {
         // signal
         let (count, set_count) = create_signal(cx, 1);
 
