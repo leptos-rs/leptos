@@ -145,6 +145,15 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
         .and_then(|fns| fns.get(path).cloned())
 }
 
+/// Holds the current options for encoding types.
+/// More could be added, but they need to be serde
+pub enum Encoding {
+    /// A Binary Encoding Scheme Called MessagePack
+    MessagePack,
+    /// The Default URL-encoded encoding method
+    URL,
+}
+
 /// Defines a "server function." A server function can be called from the server or the client,
 /// but the body of its code will only be run on the server, i.e., if a crate feature `ssr` is enabled.
 ///
@@ -169,6 +178,9 @@ where
 
     /// The path at which the server function can be reached on the server.
     fn url() -> &'static str;
+
+    /// The path at which the server function can be reached on the server.
+    fn encoding() -> Encoding;
 
     /// Runs the function on the server.
     #[cfg(any(feature = "ssr", doc))]
@@ -255,18 +267,37 @@ pub enum ServerFnError {
 }
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
-#[cfg(not(feature = "ssr"))]
-pub async fn call_server_fn<T>(url: &str, args: impl ServerFn) -> Result<T, ServerFnError>
+// #[cfg(not(feature = "ssr"))]
+pub async fn call_server_fn<T>(
+    url: &str,
+    args: impl ServerFn,
+    enc: Encoding,
+) -> Result<T, ServerFnError>
 where
     T: Serializable + Sized,
 {
-    let args_form_data = serde_urlencoded::to_string(&args)
-        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    let args_encoded = match &enc {
+        URL => serde_urlencoded::to_string(&args)
+            .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
+        MessagePack => {
+            rmp_serde::to_vec(&args).map_err(|e| ServerFnError::Serialization(e.to_string()))?
+        }
+    };
+
+    let content_type_header = match &enc {
+        URL => "application/x-www-form-urlencoded",
+        MessagePack => "application/msgpack+octet-stream",
+    };
+
+    let accept_header = match &enc {
+        URL => "application/x-www-form-urlencoded",
+        MessagePack => "application/msgpack+octet-stream",
+    };
 
     let resp = gloo_net::http::Request::post(url)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Accept", "application/json")
-        .body(args_form_data)
+        .header("Content-Type", content_type_header)
+        .header("Accept", accept_header)
+        .body(args_encoded)
         .send()
         .await
         .map_err(|e| ServerFnError::Request(e.to_string()))?;
@@ -277,10 +308,18 @@ where
         return Err(ServerFnError::ServerError(resp.status_text()));
     }
 
-    let text = resp
-        .text()
-        .await
-        .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-
-    T::from_json(&text).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    let mut result;
+    if enc == Encoding::MessagePack {
+        let binary = resp
+            .binary()
+            .await
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        result = T::from_mpk(&binary).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    } else {
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        result = T::from_json(&text).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    }
 }

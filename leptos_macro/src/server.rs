@@ -135,6 +135,10 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
                 #url
             }
 
+            fn encoding() -> Encoding{
+                #encoding
+            }
+
             #[cfg(feature = "ssr")]
             fn call_fn(self, cx: ::leptos::Scope) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;

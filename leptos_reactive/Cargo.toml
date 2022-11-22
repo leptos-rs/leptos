@@ -30,6 +30,7 @@ web-sys = { version = "0.3", features = [
   "Window",
 ] }
 cfg-if = "1.0.0"
+rmp-serde = "1.1.1"
 
 [dev-dependencies]
 tokio-test = "0.4"
