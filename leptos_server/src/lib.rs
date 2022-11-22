@@ -69,12 +69,19 @@
 
 pub use form_urlencoded;
 use leptos_reactive::*;
-use rmp_serde::Deserializer;
-use serde_json::Deserializer as JSONDeserializer;
 
-use leptos_dom::js_sys::Uint8Array;
+use proc_macro2::{
+    Literal, Punct,
+    Spacing::{Alone, Joint},
+    TokenStream,
+};
+use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{future::Future, pin::Pin, str::FromStr};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_quote,
+};
 use thiserror::Error;
 
 mod action;
@@ -156,7 +163,7 @@ pub enum Encoding {
     /// A Binary Encoding Scheme Called MessagePack
     MessagePack,
     /// The Default URL-encoded encoding method
-    URL,
+    Url,
 }
 
 impl FromStr for Encoding {
@@ -164,9 +171,34 @@ impl FromStr for Encoding {
 
     fn from_str(input: &str) -> Result<Encoding, Self::Err> {
         match input {
-            "URL" => Ok(Encoding::URL),
+            "URL" => Ok(Encoding::Url),
             "MessagePack" => Ok(Encoding::MessagePack),
             _ => Err(()),
+        }
+    }
+}
+
+impl quote::ToTokens for Encoding {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let option: syn::Ident = match *self {
+            Encoding::MessagePack => parse_quote!(MessagePack),
+            Encoding::Url => parse_quote!(Url),
+        };
+        let expansion: syn::Ident = syn::parse_quote! {
+          Encoding::#option
+        };
+        tokens.append(expansion);
+    }
+}
+
+impl Parse for Encoding {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let variant_name: String = input.parse::<Literal>()?.to_string();
+
+        match variant_name.as_ref() {
+            "Url" => Ok(Self::Url),
+            "MessagePack" => Ok(Self::MessagePack),
+            _ => panic!("Encoding Not Found"),
         }
     }
 }
@@ -284,44 +316,47 @@ pub enum ServerFnError {
 }
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
-// #[cfg(not(feature = "ssr"))]
-pub async fn call_server_fn<'a, T>(
+#[cfg(not(feature = "ssr"))]
+pub async fn call_server_fn<T>(
     url: &str,
     args: impl ServerFn,
     enc: Encoding,
 ) -> Result<T, ServerFnError>
 where
-    T: serde::Serialize + serde::Deserialize<'a> + Sized,
+    T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
+    use leptos_dom::js_sys::Uint8Array;
+    use rmp_serde::Deserializer;
+    use serde_json::Deserializer as JSONDeserializer;
+
     enum Payload {
         Binary(Vec<u8>),
-        URL(String),
+        Url(String),
     }
 
     let args_encoded = match &enc {
-        URL => Payload::URL(
+        Encoding::Url => Payload::Url(
             serde_urlencoded::to_string(&args)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
         ),
-        MessagePack => Payload::Binary(
+        Encoding::MessagePack => Payload::Binary(
             rmp_serde::to_vec(&args).map_err(|e| ServerFnError::Serialization(e.to_string()))?,
         ),
     };
 
     let content_type_header = match &enc {
-        URL => "application/x-www-form-urlencoded",
-        MessagePack => "application/msgpack+octet-stream",
+        Encoding::Url => "application/x-www-form-urlencoded",
+        Encoding::MessagePack => "application/msgpack+octet-stream",
     };
 
     let accept_header = match &enc {
-        URL => "application/x-www-form-urlencoded",
-        MessagePack => "application/msgpack+octet-stream",
+        Encoding::Url => "application/x-www-form-urlencoded",
+        Encoding::MessagePack => "application/msgpack+octet-stream",
     };
 
     let resp = match args_encoded {
         Payload::Binary(b) => {
-            let vec_ref: &Vec<u8> = &b;
-            let slice_ref: &[u8] = &vec_ref;
+            let slice_ref: &[u8] = &b;
             let js_array = Uint8Array::from(slice_ref).buffer();
             gloo_net::http::Request::post(url)
                 .header("Content-Type", content_type_header)
@@ -331,7 +366,7 @@ where
                 .await
                 .map_err(|e| ServerFnError::Request(e.to_string()))?
         }
-        Payload::URL(s) => gloo_net::http::Request::post(url)
+        Payload::Url(s) => gloo_net::http::Request::post(url)
             .header("Content-Type", content_type_header)
             .header("Accept", accept_header)
             .body(s)
