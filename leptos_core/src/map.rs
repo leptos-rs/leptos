@@ -168,7 +168,7 @@ mod tests {
     fn test_map_keyed() {
         // we can really only run this in SSR mode, so just ignore if we're in CSR or hydrate
         if !cfg!(any(feature = "csr", feature = "hydrate")) {
-            create_scope(|cx| {
+            create_scope(create_runtime(), |cx| {
                 let (rows, set_rows) =
                     create_signal::<Vec<(usize, ReadSignal<i32>, WriteSignal<i32>)>>(cx, vec![]);
 
