@@ -582,26 +582,26 @@ fn attr_to_tokens(
             .expect("event listener attributes need a value")
             .as_ref();
 
+        let name = name.replacen("on:", "", 1);
+        let event_type = EVENTS.get(&name.as_str()).copied().unwrap_or("Event");
+        let event_type = event_type.parse::<TokenStream>().expect("couldn't parse event name");
+
         if mode != Mode::Ssr {
-            let name = name.replacen("on:", "", 1);
             if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
-                });
-            } else if let Some(event_type) = EVENTS.get(&name.as_str()).map(|&e| e.parse::<TokenStream>().unwrap_or_default()) {
-                expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener_undelegated::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
                 });
             } else {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener::<web_sys::Event>(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
                 });
             }
         } else {
+            
             // this is here to avoid warnings about unused signals
             // that are used in event listeners. I'm open to better solutions.
             expressions.push(quote_spanned! {
-                span => let _  = ssr_event_listener(#handler);
+                span => let _  = ssr_event_listener::<web_sys::#event_type>(#handler);
             });
         }
     }

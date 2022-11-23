@@ -269,18 +269,23 @@ pub fn add_event_listener<E>(
 }
 
 #[doc(hidden)]
-pub fn add_event_listener_undelegated(
+pub fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &'static str,
-    cb: impl FnMut(web_sys::Event) + 'static,
-) {
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+    cb: impl FnMut(E) + 'static,
+) where
+    E: FromWasmAbi + 'static,
+{
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
     _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
 }
 
 #[doc(hidden)]
 #[inline(always)]
-pub fn ssr_event_listener(_cb: impl FnMut(web_sys::Event) + 'static) {
+pub fn ssr_event_listener<E>(_cb: impl FnMut(E) + 'static)
+where
+    E: FromWasmAbi + 'static,
+{
     // this function exists only for type inference in templates for SSR
 }
 
