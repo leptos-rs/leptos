@@ -590,11 +590,11 @@ fn attr_to_tokens(
                 });
             } else if let Some(event_type) = EVENTS.get(&name.as_str()).map(|&e| e.parse::<TokenStream>().unwrap_or_default()) {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener::<#event_type>(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
                 });
             } else {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener::<Event>(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener::<web_sys::Event>(#el_id.unchecked_ref(), #name, #handler);
                 });
             }
         } else {
@@ -1117,7 +1117,7 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
                 })
             } else {
                 Some(quote_spanned! {
-                    span => ::leptos::add_event_listener::<Event>(#component_name.unchecked_ref(), #event_name, #handler)
+                    span => ::leptos::add_event_listener::<web_sys::Event>(#component_name.unchecked_ref(), #event_name, #handler)
                 })
             }
         }

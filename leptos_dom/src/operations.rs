@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen::convert::FromWasmAbi;
+use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
 use crate::{debug_warn, event_delegation, is_server};
 
@@ -182,8 +182,12 @@ where
 /// Helper function to extract `event.target.value` from an event.
 ///
 /// This is useful in the `on:input` or `on:change` listeners for an `<input>` element.
-pub fn event_target_value(event: &web_sys::Event) -> String {
+pub fn event_target_value<T>(event: &T) -> String
+where
+    T: JsCast,
+{
     event
+        .unchecked_ref::<web_sys::Event>()
         .target()
         .unwrap_throw()
         .unchecked_into::<web_sys::HtmlInputElement>()
@@ -255,7 +259,9 @@ pub fn add_event_listener<E>(
     target: &web_sys::Element,
     event_name: &'static str,
     cb: impl FnMut(E) + 'static,
-) where E: FromWasmAbi + 'static {
+) where
+    E: FromWasmAbi + 'static,
+{
     let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
     let key = event_delegation::event_delegation_key(event_name);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
