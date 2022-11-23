@@ -64,7 +64,7 @@ where
     let action_version = version;
     let action = use_resolved_path(cx, move || action.to_href()());
 
-    let on_submit = move |ev: web_sys::Event| {
+    let on_submit = move |ev: web_sys::SubmitEvent| {
         if ev.default_prevented() {
             return;
         }
@@ -262,7 +262,7 @@ where
         ""
     }.to_string();
 
-    let on_submit = move |ev: web_sys::Event| {
+    let on_submit = move |ev: web_sys::SubmitEvent| {
         if ev.default_prevented() {
             return;
         }
