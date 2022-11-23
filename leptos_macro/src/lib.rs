@@ -243,6 +243,60 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Annotates a function so that it can be used with your template as a <Component/>
+///
+/// Here are some things you should know.
+/// 1. The component name should be `CamelCase` instead of `snake_case`. This is how the renderer
+///    recognizes that a particular tag is a component, not an HTML element.
+///
+/// ```
+/// # use leptos::*;
+/// // ❌ not snake_case
+/// #[component]
+/// fn my_component(cx: Scope) -> Element { todo!() }
+///
+/// // ✅ CamelCase
+/// #[component]
+/// fn MyComponent(cx: Scope) -> Element { todo!() }
+/// ```
+///
+/// 2. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
+///   `Button` generates `ButtonProps`, etc.) When you’re importing the component, you also need to **explicitly import
+///   the prop type.**
+///
+/// ```
+/// # use leptos::*;
+///
+/// use component::{MyComponent, MyComponentProps};
+///
+/// mod component {
+///   use leptos::*;
+///
+///   #[component]
+///   pub fn MyComponent(cx: Scope) -> Element { todo!() }
+/// }
+/// ```
+///
+/// 3. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
+///
+/// ```compile_error
+/// # use leptos::*;
+/// #[component]
+/// fn MyComponent<T: Fn() -> Element>(cx: Scope, render_prop: T) -> Element {
+///   todo!()
+/// }
+/// ```
+///
+/// ```
+/// # use leptos::*;
+/// #[component]
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> Element
+/// where
+///     T: Fn() -> Element,
+/// {
+///     todo!()
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match syn::parse::<component::InlinePropsBody>(s) {
