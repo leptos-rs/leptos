@@ -32,6 +32,10 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         ..
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
+    let encoding = match encoding {
+        Encoding::MessagePack => quote! { ::leptos::Encoding::MessagePack },
+        Encoding::Url => quote! { ::leptos::Encoding::Url },
+    };
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;
@@ -138,7 +142,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
                 #url
             }
 
-            fn encoding() -> Encoding{
+            fn encoding() -> ::leptos::Encoding {
                 #encoding
             }
 
@@ -164,7 +168,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
-            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }).await
+            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
         }
     })
 }
