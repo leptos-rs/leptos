@@ -83,7 +83,7 @@ impl Scope {
         self.id
     }
 
-    /// Creates a child scope and runs the given function within it.
+    /// Creates a child scope and runs the given function within it, returning a handle to dispose of it.
     ///
     /// The child scope has its own lifetime and disposer, but will be disposed when the parent is
     /// disposed, if it has not been already.
@@ -92,7 +92,21 @@ impl Scope {
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
-        let (_, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
+        let (_, disposer) = self.run_child_scope(f);
+        disposer
+    }
+
+    /// Creates a child scope and runs the given function within it, returning the function's return
+    /// type and a handle to dispose of it.
+    ///
+    /// The child scope has its own lifetime and disposer, but will be disposed when the parent is
+    /// disposed, if it has not been already.
+    ///
+    /// This is useful for applications like a list or a router, which may want to create child scopes and
+    /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
+    /// has navigated away from the route.)
+    pub fn run_child_scope<T>(self, f: impl FnOnce(Scope) -> T) -> (T, ScopeDisposer) {
+        let (res, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
         with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
@@ -100,8 +114,8 @@ impl Scope {
                 .expect("trying to add a child to a Scope that has already been disposed")
                 .or_default()
                 .push(child_id);
-            disposer
-        })
+        });
+        (res, disposer)
     }
 
     /// Suspends reactive tracking while running the given function.
