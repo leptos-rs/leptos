@@ -16,7 +16,7 @@ pub enum SerializationError {
 }
 
 /// Describes an object that can be serialized to or from a supported format
-/// Currently those are JSON and MessagePack
+/// Currently those are JSON and Cbor
 ///
 /// This is primarily used for serializing and deserializing [Resource](crate::Resource)s
 /// so they can begin on the server and be resolved on the client, but can be used

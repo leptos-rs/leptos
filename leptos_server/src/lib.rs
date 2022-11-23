@@ -160,8 +160,8 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
 /// More could be added, but they need to be serde
 #[derive(Debug, PartialEq)]
 pub enum Encoding {
-    /// A Binary Encoding Scheme Called MessagePack
-    MessagePack,
+    /// A Binary Encoding Scheme Called Cbor
+    Cbor,
     /// The Default URL-encoded encoding method
     Url,
 }
@@ -172,7 +172,7 @@ impl FromStr for Encoding {
     fn from_str(input: &str) -> Result<Encoding, Self::Err> {
         match input {
             "URL" => Ok(Encoding::Url),
-            "MessagePack" => Ok(Encoding::MessagePack),
+            "Cbor" => Ok(Encoding::Cbor),
             _ => Err(()),
         }
     }
@@ -181,7 +181,7 @@ impl FromStr for Encoding {
 impl quote::ToTokens for Encoding {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let option: syn::Ident = match *self {
-            Encoding::MessagePack => parse_quote!(MessagePack),
+            Encoding::Cbor => parse_quote!(Cbor),
             Encoding::Url => parse_quote!(Url),
         };
         let expansion: syn::Ident = syn::parse_quote! {
@@ -195,9 +195,10 @@ impl Parse for Encoding {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let variant_name: String = input.parse::<Literal>()?.to_string();
 
+        // Need doubled quotes because variant_name doubles it
         match variant_name.as_ref() {
-            "Url" => Ok(Self::Url),
-            "MessagePack" => Ok(Self::MessagePack),
+            "\"Url\"" => Ok(Self::Url),
+            "\"Cbor\"" => Ok(Self::Cbor),
             _ => panic!("Encoding Not Found"),
         }
     }
@@ -250,12 +251,23 @@ where
     fn register() -> Result<(), ServerFnError> {
         // create the handler for this server function
         // takes a String -> returns its async value
+
         let run_server_fn = Arc::new(|cx: Scope, data: &[u8]| {
             // decode the args
-            let value = serde_urlencoded::from_bytes::<Self>(data)
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()));
+            let value = match Self::encoding() {
+                Encoding::Url => serde_urlencoded::from_bytes(data)
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
+                Encoding::Cbor => {
+                    println!("Deserialize Cbor!: {:x?}", &data);
+                    ciborium::de::from_reader(data)
+                        .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+                    // let mut deserializer = Deserializer::from_read_ref(data);
+                    // Self::deserialize(&mut deserializer)
+                    //     .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+                }
+            };
             Box::pin(async move {
-                let value = match value {
+                let value: Self = match value {
                     Ok(v) => v,
                     Err(e) => return Err(e),
                 };
@@ -325,33 +337,41 @@ pub async fn call_server_fn<T>(
 where
     T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
+    use ciborium::{de::from_reader, ser::into_writer};
     use leptos_dom::js_sys::Uint8Array;
+    use leptos_dom::log;
     use rmp_serde::Deserializer;
     use serde_json::Deserializer as JSONDeserializer;
 
+    #[derive(Debug)]
     enum Payload {
         Binary(Vec<u8>),
         Url(String),
     }
-
+    // log!("ARGS TO ENCODE: {:#}", &args);
     let args_encoded = match &enc {
         Encoding::Url => Payload::Url(
             serde_urlencoded::to_string(&args)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
         ),
-        Encoding::MessagePack => Payload::Binary(
-            rmp_serde::to_vec(&args).map_err(|e| ServerFnError::Serialization(e.to_string()))?,
-        ),
+        Encoding::Cbor => {
+            let mut buffer: Vec<u8> = Vec::new();
+            into_writer(&args, &mut buffer)
+                .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+            Payload::Binary(buffer)
+        }
     };
+
+    log!("ENCODED DATA: {:#?}", args_encoded);
 
     let content_type_header = match &enc {
         Encoding::Url => "application/x-www-form-urlencoded",
-        Encoding::MessagePack => "application/msgpack+octet-stream",
+        Encoding::Cbor => "application/cbor",
     };
 
     let accept_header = match &enc {
         Encoding::Url => "application/x-www-form-urlencoded",
-        Encoding::MessagePack => "application/msgpack+octet-stream",
+        Encoding::Cbor => "application/cbor",
     };
 
     let resp = match args_encoded {
@@ -381,14 +401,14 @@ where
         return Err(ServerFnError::ServerError(resp.status_text()));
     }
 
-    if enc == Encoding::MessagePack {
+    if enc == Encoding::Cbor {
         let binary = resp
             .binary()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
 
-        let mut deseralizer = Deserializer::from_read_ref(&binary);
-        T::deserialize(&mut deseralizer).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        ciborium::de::from_reader(binary.as_slice())
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
         let text = resp
             .text()

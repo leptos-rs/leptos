@@ -33,7 +33,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = match encoding {
-        Encoding::MessagePack => quote! { ::leptos::Encoding::MessagePack },
+        Encoding::Cbor => quote! { ::leptos::Encoding::Cbor },
         Encoding::Url => quote! { ::leptos::Encoding::Url },
     };
 

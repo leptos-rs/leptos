@@ -23,6 +23,7 @@ serde_json = "1.0.89"
 quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1.0.47"
+ciborium = "0.2.0"
 
 [dev-dependencies]
 leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }

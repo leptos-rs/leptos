@@ -28,6 +28,7 @@ members = [
   "examples/router",
   "examples/todomvc",
   "examples/todo-app-sqlite",
+  "examples/todo-app-cbor",
   "examples/view-tests",
 
   # book
