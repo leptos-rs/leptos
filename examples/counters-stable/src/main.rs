@@ -7,6 +7,8 @@ fn main() {
     mount_to_body(|cx| view! { cx,  <Counters/> })
 }
 
+const MANY_COUNTERS: usize = 1000;
+
 type CounterHolder = Vec<(usize, (ReadSignal<i32>, WriteSignal<i32>))>;
 
 #[derive(Copy, Clone)]
@@ -28,12 +30,14 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
     };
 
     let add_many_counters = move |_| {
-        let mut new_counters = vec![];
-        for next_id in 0..1000 {
+        let next_id = next_counter_id.get();
+        let new_counters = (next_id..next_id + MANY_COUNTERS).map(|id| {
             let signal = create_signal(cx, 0);
-            new_counters.push((next_id, signal));
-        }
-        set_counters.update(|counters| counters.extend(new_counters.iter()));
+            (id, signal)
+        });
+
+        set_counters.update(move |counters| counters.extend(new_counters));
+        set_next_counter_id.update(|id| *id += MANY_COUNTERS);
     };
 
     let clear_counters = move |_| {
@@ -46,7 +50,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
                 "Add Counter"
             </button>
             <button on:click=add_many_counters>
-                "Add 1000 Counters"
+                {format!("Add {MANY_COUNTERS} Counters")}
             </button>
             <button on:click=clear_counters>
                 "Clear Counters"
