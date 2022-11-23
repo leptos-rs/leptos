@@ -12,11 +12,27 @@ pub fn escape_attr(text: &str) -> Cow<'_, str> {
 }
 
 cfg_if! {
-    if #[cfg(feature = "ssr")] {
+    if #[cfg(any(doc, feature = "ssr"))] {
         use leptos_reactive::*;
 
         use crate::Element;
         use futures::{stream::FuturesUnordered, Stream, StreamExt};
+
+        /// Renders a component to a static HTML string.
+        ///
+        /// ```
+        /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+        /// let html = render_to_string(|cx| view! { cx,
+        ///   <p>"Hello, world!"</p>
+        /// });
+        /// assert_eq!(html, r#"<p data-hk="0-0">Hello, world!</p>"#);
+        /// ```
+        pub fn render_to_string(view: impl FnOnce(Scope) -> Element + 'static) -> String {
+            let runtime = create_runtime();
+            let html = run_scope(runtime, move |cx| view(cx));
+            runtime.dispose();
+            html
+        }
 
         /// Renders a component to a stream of HTML strings.
         ///
@@ -30,7 +46,7 @@ cfg_if! {
         ///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
         /// 3) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
         ///    read under that `<Suspense/>` resolve.
-        pub fn render_to_stream(view: impl Fn(Scope) -> Element + 'static) -> impl Stream<Item = String> {
+        pub fn render_to_stream(view: impl FnOnce(Scope) -> Element + 'static) -> impl Stream<Item = String> {
             // create the runtime
             let runtime = create_runtime();
 
