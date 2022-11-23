@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
@@ -19,6 +20,79 @@ const NON_BUBBLING_EVENTS: [&str; 11] = [
     "load",
     "loadend",
 ];
+
+lazy_static::lazy_static! {
+    // Specialized event type
+    // https://github.com/yewstack/yew/blob/d422b533ea19a09cddf9b31ecd6cd5e5ce35ce3f/packages/yew/src/html/listener/events.rs
+    static ref EVENTS: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("auxclick", "MouseEvent");
+        m.insert("click", "MouseEvent");
+
+        m.insert("contextmenu", "MouseEvent");
+        m.insert("dblclick", "MouseEvent");
+
+        m.insert("drag", "DragEvent");
+        m.insert("dragend", "DragEvent");
+        m.insert("dragenter", "DragEvent");
+        m.insert("dragexit", "DragEvent");
+        m.insert("dragleave", "DragEvent");
+        m.insert("dragover", "DragEvent");
+        m.insert("dragstart", "DragEvent");
+        m.insert("drop", "DragEvent");
+
+        m.insert("blur", "FocusEvent");
+        m.insert("focus", "FocusEvent");
+        m.insert("focusin", "FocusEvent");
+        m.insert("focusout", "FocusEvent");
+
+        m.insert("keydown", "KeyboardEvent");
+        m.insert("keypress", "KeyboardEvent");
+        m.insert("keyup", "KeyboardEvent");
+
+        m.insert("loadstart", "ProgressEvent");
+        m.insert("progress", "ProgressEvent");
+        m.insert("loadend", "ProgressEvent");
+
+        m.insert("mousedown", "MouseEvent");
+        m.insert("mouseenter", "MouseEvent");
+        m.insert("mouseleave", "MouseEvent");
+        m.insert("mousemove", "MouseEvent");
+        m.insert("mouseout", "MouseEvent");
+        m.insert("mouseover", "MouseEvent");
+        m.insert("mouseup", "MouseEvent");
+        m.insert("wheel", "WheelEvent");
+
+        m.insert("input", "InputEvent");
+
+        m.insert("submit", "SubmitEvent");
+
+        m.insert("animationcancel", "AnimationEvent");
+        m.insert("animationend", "AnimationEvent");
+        m.insert("animationiteration", "AnimationEvent");
+        m.insert("animationstart", "AnimationEvent");
+
+        m.insert("gotpointercapture", "PointerEvent");
+        m.insert("lostpointercapture", "PointerEvent");
+        m.insert("pointercancel", "PointerEvent");
+        m.insert("pointerdown", "PointerEvent");
+        m.insert("pointerenter", "PointerEvent");
+        m.insert("pointerleave", "PointerEvent");
+        m.insert("pointermove", "PointerEvent");
+        m.insert("pointerout", "PointerEvent");
+        m.insert("pointerover", "PointerEvent");
+        m.insert("pointerup", "PointerEvent");
+
+        m.insert("touchcancel", "TouchEvent");
+        m.insert("touchend", "TouchEvent");
+
+        m.insert("transitioncancel", "TransitionEvent");
+        m.insert("transitionend", "TransitionEvent");
+        m.insert("transitionrun", "TransitionEvent");
+        m.insert("transitionstart", "TransitionEvent");
+        m
+    };
+}
 
 pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
@@ -514,9 +588,13 @@ fn attr_to_tokens(
                 expressions.push(quote_spanned! {
                     span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
                 });
+            } else if let Some(event_type) = EVENTS.get(&name.as_str()).map(|&e| e.parse::<TokenStream>().unwrap_or_default()) {
+                expressions.push(quote_spanned! {
+                    span => ::leptos::add_event_listener::<#event_type>(#el_id.unchecked_ref(), #name, #handler);
+                });
             } else {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener::<Event>(#el_id.unchecked_ref(), #name, #handler);
                 });
             }
         } else {
@@ -1033,9 +1111,13 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
                 Some(quote_spanned! {
                     span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
                 })
+            } else if let Some(event_type) = EVENTS.get(event_name).map(|&e| e.parse::<TokenStream>().unwrap_or_default()) {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener::<#event_type>(#component_name.unchecked_ref(), #event_name, #handler);
+                })
             } else {
                 Some(quote_spanned! {
-                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+                    span => ::leptos::add_event_listener::<Event>(#component_name.unchecked_ref(), #event_name, #handler)
                 })
             }
         }

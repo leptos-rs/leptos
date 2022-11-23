@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{debug_warn, event_delegation, is_server};
 
@@ -250,12 +251,12 @@ pub fn set_interval(
 }
 
 /// Adds an event listener to the target DOM element using implicit event delegation.
-pub fn add_event_listener(
+pub fn add_event_listener<E>(
     target: &web_sys::Element,
     event_name: &'static str,
-    cb: impl FnMut(web_sys::Event) + 'static,
-) {
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+    cb: impl FnMut(E) + 'static,
+) where E: FromWasmAbi + 'static {
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
     let key = event_delegation::event_delegation_key(event_name);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     event_delegation::add_event_listener(event_name);
