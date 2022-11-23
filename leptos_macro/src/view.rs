@@ -309,14 +309,14 @@ fn element_to_tokens(
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     //log::debug!("next_sibling ({})", #debug_name);
-                    let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
+                    let #this_el_ident = #prev_sib.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#debug_name, "nextSibling"));
                     //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     //log::debug!("first_child ({})", #debug_name);
-                    let #this_el_ident = #parent.first_child().unwrap_throw();
+                    let #this_el_ident = #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#debug_name, "firstChild"));
                     //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
@@ -738,13 +738,13 @@ fn block_to_tokens(
         let location = if let Some(sibling) = &prev_sib {
             quote_spanned! {
                 span => //log::debug!("-> next sibling");
-                        let #name = #sibling.next_sibling().unwrap_throw();
+                        let #name = #sibling.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error("{block}", "nextSibling"));
                         //log::debug!("\tnext sibling = {}", #name.node_name());
             }
         } else {
             quote_spanned! {
                 span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                        let #name = #parent.first_child().unwrap_throw();
+                        let #name = #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error("{block}", "firstChild"));
                         //log::debug!("\tfirst child = {}", #name.node_name());
             }
         };
@@ -860,6 +860,8 @@ fn component_to_tokens(
     mode: Mode,
     is_first_child: bool,
 ) -> PrevSibChange {
+    let component_name = ident_from_tag_name(&node.name);
+    let component_name = format!("<{component_name}/>");
     let create_component = create_component(cx, node, mode);
     let span = node.name.span();
 
@@ -896,13 +898,13 @@ fn component_to_tokens(
             let starts_at = if let Some(prev_sib) = prev_sib {
                 quote::quote! {{
                     //log::debug!("starts_at = next_sibling");
-                    #prev_sib.next_sibling().unwrap_throw()
+                    #prev_sib.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#component_name, "nextSibling"))
                     //log::debug!("ok starts_at");
                 }}
             } else {
                 quote::quote! {{
                     //log::debug!("starts_at first_child");
-                    #parent.first_child().unwrap_throw()
+                    #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#component_name, "firstChild"))
                     //log::debug!("starts_at ok");
                 }}
             };

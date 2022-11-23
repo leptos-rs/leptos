@@ -140,3 +140,15 @@ macro_rules! is_dev {
         cfg!(debug_assertions)
     };
 }
+
+#[doc(hidden)]
+pub fn __leptos_renderer_error(expected: &'static str, location: &'static str) -> web_sys::Node {
+    cfg_if! {
+        if #[cfg(debug_assertions)] {
+            panic!("Yikes! Something went wrong while Leptos was trying to traverse the DOM to set up the reactive system.\n\nThe renderer expected {expected:?} as {location} and couldn't get it.\n\nThis is almost certainly a bug in the framework, not your application. Please open an issue on GitHub and provide example code if possible.\n\nIn the meantime, these bugs are often related to <Component/>s or {{block}}s when they are siblings of each other. Try wrapping those in a <span> or <div> for now. Sorry for the pain!")
+        } else {
+            _ = expected;
+            panic!("Renderer error. You can find a more detailed error message if you compile in debug mode.".to_string())
+        }
+    }
+}
