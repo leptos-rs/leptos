@@ -21,11 +21,13 @@ cfg_if! {
         /// Renders a component to a static HTML string.
         ///
         /// ```
+        /// # cfg_if::cfg_if! { if #[cfg(feature = "ssr")] {
         /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
         /// let html = render_to_string(|cx| view! { cx,
         ///   <p>"Hello, world!"</p>
         /// });
         /// assert_eq!(html, r#"<p data-hk="0-0">Hello, world!</p>"#);
+        /// # }}
         /// ```
         pub fn render_to_string(view: impl FnOnce(Scope) -> Element + 'static) -> String {
             let runtime = create_runtime();
