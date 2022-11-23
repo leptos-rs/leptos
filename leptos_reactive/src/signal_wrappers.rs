@@ -10,8 +10,8 @@ use crate::{Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
 /// function call, `with()`, and `get()` APIs as over signals.
 ///
 /// ```rust
-/// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
-/// # create_scope(|cx| {
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
 /// let double_count = Signal::derive(cx, move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
@@ -73,8 +73,8 @@ where
     /// Wraps a derived signal, i.e., any computation that accesses one or more
     /// reactive signals.
     /// ```rust
-    /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
-    /// # create_scope(|cx| {
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
     /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
@@ -95,7 +95,7 @@ where
     /// the running effect to this signal.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
     /// let name_upper = Signal::derive(cx, move || name.with(|n| n.to_uppercase()));
     /// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
@@ -134,8 +134,8 @@ where
     /// If you want to get the value without cloning it, use [ReadSignal::with].
     /// (There’s no difference in behavior for derived signals: they re-run in any case.)
     /// ```
-    /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
-    /// # create_scope(|cx| {
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
     /// let double_count = Signal::derive(cx, move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
@@ -258,7 +258,7 @@ where
 ///
 /// ```rust
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
 /// let double_count = MaybeSignal::derive(cx, move || count() * 2);
 /// let memoized_double_count = create_memo(cx, move |_| count() * 2);
@@ -317,8 +317,8 @@ where
     /// Wraps a derived signal, i.e., any computation that accesses one or more
     /// reactive signals.
     /// ```rust
-    /// # use leptos_reactive::{create_scope, create_signal, create_rw_signal, create_memo, Signal};
-    /// # create_scope(|cx| {
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
     /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
@@ -339,7 +339,7 @@ where
     /// the running effect to this signal.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
     /// let name_upper = MaybeSignal::derive(cx, move || name.with(|n| n.to_uppercase()));
     /// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
@@ -381,7 +381,7 @@ where
     /// (There’s no difference in behavior for derived signals: they re-run in any case.)
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
     /// let double_count = MaybeSignal::derive(cx, move || count() * 2);
     /// let memoized_double_count = create_memo(cx, move |_| count() * 2);

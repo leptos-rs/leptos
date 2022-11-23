@@ -20,7 +20,7 @@ use std::fmt::Debug;
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (value, set_value) = create_signal(cx, 0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
@@ -80,7 +80,7 @@ where
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (value, set_value) = create_signal(cx, 0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
@@ -155,7 +155,7 @@ where
     /// the running effect to the memo.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 0);
     /// let double_count = create_memo(cx, move |_| count() * 2);
     ///
@@ -178,7 +178,7 @@ where
     /// the running effect to this memo.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
     /// let name_upper = create_memo(cx, move |_| name().to_uppercase());
     ///

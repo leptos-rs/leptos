@@ -37,7 +37,7 @@
 //! // creates a new reactive Scope
 //! // this is omitted from most of the examples in the docs
 //! // you usually won't need to call it yourself
-//! create_scope(|cx| {
+//! create_scope(create_runtime(), |cx| {
 //!   // a signal: returns a (getter, setter) pair
 //!   let (count, set_count) = create_signal(cx, 0);
 //!
@@ -85,6 +85,7 @@ pub use effect::*;
 pub use memo::*;
 pub use resource::*;
 use runtime::*;
+pub use runtime::{create_runtime, RuntimeId};
 pub use scope::*;
 pub use selector::*;
 pub use serialization::*;

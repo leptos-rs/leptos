@@ -71,11 +71,11 @@ where
     F: Fn(Scope) -> T + 'static,
     T: Mountable,
 {
-    use leptos_reactive::create_scope;
+    use leptos_reactive::{create_runtime, create_scope};
 
-    // running "mount" intentionally leaks the memory,
-    // as the "mount" has no parent that can clean it up
-    let _ = create_scope(move |cx| {
+    // this is not a leak
+    // CSR and hydrate mode define a single, thread-local Runtime
+    let _ = create_scope(create_runtime(), move |cx| {
         (f(cx)).mount(&parent);
     });
 }
@@ -100,9 +100,11 @@ where
     F: Fn(Scope) -> T + 'static,
     T: Mountable,
 {
-    // running "hydrate" intentionally leaks the memory,
-    // as the "hydrate" has no parent that can clean it up
-    let _ = leptos_reactive::create_scope(move |cx| {
+    use leptos_reactive::create_runtime;
+
+    // this is not a leak
+    // CSR and hydrate mode define a single, thread-local Runtime
+    let _ = leptos_reactive::create_scope(create_runtime(), move |cx| {
         cx.start_hydration(&parent);
         (f(cx));
         cx.end_hydration();
