@@ -96,13 +96,24 @@ use std::{
 };
 
 #[cfg(any(feature = "ssr", doc))]
-type ServerFnTraitObj = dyn Fn(Scope, &[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>>
+type ServerFnTraitObj = dyn Fn(Scope, &[u8]) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
     + Send
     + Sync;
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
     static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
+}
+
+/// A dual type to hold the possible Response datatypes
+#[derive(Debug)]
+pub enum Payload {
+    ///Encodes Data using CBOR
+    Binary(Vec<u8>),
+    ///Encodes data in the URL
+    Url(String),
+    ///Encodes Data using Json
+    Json(String),
 }
 
 /// Attempts to find a server function registered at the given path.
@@ -221,7 +232,7 @@ where
     Self: Serialize + DeserializeOwned + Sized + 'static,
 {
     /// The return type of the function.
-    type Output: Serializable;
+    type Output: Serialize;
 
     /// URL prefix that should be prepended by the client to the generated URL.
     fn prefix() -> &'static str;
@@ -261,9 +272,6 @@ where
                     println!("Deserialize Cbor!: {:x?}", &data);
                     ciborium::de::from_reader(data)
                         .map_err(|e| ServerFnError::Deserialization(e.to_string()))
-                    // let mut deserializer = Deserializer::from_read_ref(data);
-                    // Self::deserialize(&mut deserializer)
-                    //     .map_err(|e| ServerFnError::Deserialization(e.to_string()))
                 }
             };
             Box::pin(async move {
@@ -279,16 +287,26 @@ where
                 };
 
                 // serialize the output
-                let result = match result
-                    .to_json()
-                    .map_err(|e| ServerFnError::Serialization(e.to_string()))
-                {
-                    Ok(r) => r,
-                    Err(e) => return Err(e),
+                let result = match Self::encoding() {
+                    Encoding::Url => match serde_json::to_string(&result)
+                        .map_err(|e| ServerFnError::Serialization(e.to_string()))
+                    {
+                        Ok(r) => Payload::Url(r),
+                        Err(e) => return Err(e),
+                    },
+                    Encoding::Cbor => {
+                        let mut buffer: Vec<u8> = Vec::new();
+                        match ciborium::ser::into_writer(&result, &mut buffer)
+                            .map_err(|e| ServerFnError::Serialization(e.to_string()))
+                        {
+                            Ok(_) => Payload::Binary(buffer),
+                            Err(e) => return Err(e),
+                        }
+                    }
                 };
 
                 Ok(result)
-            }) as Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>>
+            }) as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
         });
 
         // store it in the hashmap
@@ -340,7 +358,6 @@ where
     use ciborium::{de::from_reader, ser::into_writer};
     use leptos_dom::js_sys::Uint8Array;
     use leptos_dom::log;
-    use rmp_serde::Deserializer;
     use serde_json::Deserializer as JSONDeserializer;
 
     #[derive(Debug)]
@@ -402,13 +419,17 @@ where
     }
 
     if enc == Encoding::Cbor {
+        log!("FUNCTION RESPONSE CBOR");
         let binary = resp
             .binary()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        log!("REAL SERVER RESPONSE: {:#?}", &binary);
 
-        ciborium::de::from_reader(binary.as_slice())
-            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        ciborium::de::from_reader(binary.as_slice()).map_err(|e| {
+            log!("Failed to DECODE: {}", &e);
+            ServerFnError::Deserialization(e.to_string())
+        })
     } else {
         let text = resp
             .text()
