@@ -8,13 +8,20 @@ repository = "https://github.com/gbj/leptos"
 description = "DOM operations for the Leptos web framework."
 
 [dependencies]
+cfg-if = "1"
+educe = "0.4"
+gloo = "0.8"
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }wasm-bindgen = "0.2"
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
+wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.31"
 
 [dependencies.web-sys]
 version = "0.3"
 features = [
+  "Comment",
+  "Text",
+  
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
   "MouseEvent",
   "DragEvent",
@@ -31,7 +38,9 @@ features = [
 ]
 
 [features]
-csr = ["leptos_reactive/csr", "leptos_macro/csr", "leptos/csr"]
-hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate", "leptos/hydrate"]
-ssr = ["leptos_reactive/ssr", "leptos_macro/ssr", "leptos/ssr"]
-stable = ["leptos_reactive/stable", "leptos_macro/stable", "leptos/stable"]
+default = ["web"]
+web = []
+csr = ["leptos_reactive/csr"]
+hydrate = ["leptos_reactive/hydrate"]
+ssr = ["leptos_reactive/ssr"]
+stable = ["leptos_reactive/stable"]
