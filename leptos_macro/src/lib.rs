@@ -247,7 +247,13 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// Annotates a function so that it can be used with your template as a <Component/>
 ///
 /// Here are some things you should know.
-/// 1. The component name should be `CamelCase` instead of `snake_case`. This is how the renderer
+/// 1. **The component function only runs once.** Your component function is not a “render” function
+///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
+///    create the user interface, and sets up a reactive system to update it. This means it’s okay
+///    to do relatively expensive work within the component function, as it will only happen once,
+///    not on every state change.
+///
+/// 2. The component name should be `CamelCase` instead of `snake_case`. This is how the renderer
 ///    recognizes that a particular tag is a component, not an HTML element.
 ///
 /// ```
@@ -261,7 +267,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// fn MyComponent(cx: Scope) -> Element { todo!() }
 /// ```
 ///
-/// 2. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
+/// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
 ///   `Button` generates `ButtonProps`, etc.) When you’re importing the component, you also need to **explicitly import
 ///   the prop type.**
 ///
@@ -278,13 +284,53 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// 3. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
+/// 4. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
 ///
 /// ```compile_error
+/// // ❌ This won't work.
 /// # use leptos::*;
 /// #[component]
 /// fn MyComponent<T: Fn() -> Element>(cx: Scope, render_prop: T) -> Element {
 ///   todo!()
+/// }
+/// ```
+///
+/// ```
+/// // ✅ Do this instead
+/// # use leptos::*;
+/// #[component]
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> Element where T: Fn() -> Element {
+///   todo!()
+/// }
+/// ```
+///
+/// 5. You can access the children passed into the component with the `children` property, which takes
+///    an argument of the form `Box<dyn Fn() -> Vec<T>>` where `T` is the child type (usually `Element`).
+///
+/// ```
+/// # use leptos::*;
+/// #[component]
+/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn() -> Vec<Element>>) -> Element {
+///   // wrap each child in a <strong> element
+///   let children = children()
+///     .into_iter()
+///     .map(|child| view! { cx, <strong>{child}</strong> })
+///     .collect::<Vec<_>>();
+///
+///   // wrap the whole set in a fancy wrapper
+///   view! { cx,
+///     <p class="fancy-wrapper">{children}</p>
+///   }
+/// }
+///
+/// #[component]
+/// fn WrapSomeChildren(cx: Scope) -> Element {
+///   view! { cx,
+///     <ComponentWithChildren>
+///       <span>"Ooh, look at us!"</span>
+///       <span>"We're being projected!"</span>
+///     </ComponentWithChildren>
+///   }
 /// }
 /// ```
 ///
