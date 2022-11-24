@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
 use crate::{debug_warn, event_delegation, is_server};
@@ -181,8 +182,12 @@ where
 /// Helper function to extract `event.target.value` from an event.
 ///
 /// This is useful in the `on:input` or `on:change` listeners for an `<input>` element.
-pub fn event_target_value(event: &web_sys::Event) -> String {
+pub fn event_target_value<T>(event: &T) -> String
+where
+    T: JsCast,
+{
     event
+        .unchecked_ref::<web_sys::Event>()
         .target()
         .unwrap_throw()
         .unchecked_into::<web_sys::HtmlInputElement>()
@@ -250,30 +255,37 @@ pub fn set_interval(
 }
 
 /// Adds an event listener to the target DOM element using implicit event delegation.
-pub fn add_event_listener(
+pub fn add_event_listener<E>(
     target: &web_sys::Element,
     event_name: &'static str,
-    cb: impl FnMut(web_sys::Event) + 'static,
-) {
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+    cb: impl FnMut(E) + 'static,
+) where
+    E: FromWasmAbi + 'static,
+{
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
     let key = event_delegation::event_delegation_key(event_name);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     event_delegation::add_event_listener(event_name);
 }
 
 #[doc(hidden)]
-pub fn add_event_listener_undelegated(
+pub fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &'static str,
-    cb: impl FnMut(web_sys::Event) + 'static,
-) {
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+    cb: impl FnMut(E) + 'static,
+) where
+    E: FromWasmAbi + 'static,
+{
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
     _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
 }
 
 #[doc(hidden)]
 #[inline(always)]
-pub fn ssr_event_listener(_cb: impl FnMut(web_sys::Event) + 'static) {
+pub fn ssr_event_listener<E>(_cb: impl FnMut(E) + 'static)
+where
+    E: FromWasmAbi + 'static,
+{
     // this function exists only for type inference in templates for SSR
 }
 

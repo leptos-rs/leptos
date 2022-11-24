@@ -111,14 +111,15 @@ mod server;
 /// # });
 /// ```
 ///
-/// 5. Event handlers can be added with `on:` attributes.
+/// 5. Event handlers can be added with `on:` attributes. In most cases, the events are given the correct type
+///    based on the event name.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
-///   <button on:click=|ev: web_sys::Event| {
+///   <button on:click=|ev: web_sys::MouseEvent| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
 ///     "Click me"
@@ -203,9 +204,9 @@ mod server;
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-///     let clear = move |_ev: web_sys::Event| set_value(0);
-///     let decrement = move |_ev: web_sys::Event| set_value.update(|value| *value -= 1);
-///     let increment = move |_ev: web_sys::Event| set_value.update(|value| *value += 1);
+///     let clear = move |_ev: web_sys::MouseEvent| set_value(0);
+///     let decrement = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value -= 1);
+///     let increment = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value += 1);
 ///
 ///     // this JSX is compiled to an HTML template string for performance
 ///     view! {

@@ -12,7 +12,7 @@ pub fn escape_attr(text: &str) -> Cow<'_, str> {
 }
 
 cfg_if! {
-    if #[cfg(not(any(feature = "hydrate", feature = "csr")))] {
+    if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
         use leptos_reactive::*;
 
         use crate::Element;

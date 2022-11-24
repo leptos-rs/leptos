@@ -136,10 +136,10 @@ pub fn TodoMVC(cx: Scope) -> Element {
     });
 
     // Callback to add a todo on pressing the `Enter` key, if the field isn't empty
-    let add_todo = move |ev: web_sys::Event| {
+    let add_todo = move |ev: web_sys::KeyboardEvent| {
         let target = event_target::<HtmlInputElement>(&ev);
         ev.stop_propagation();
-        let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
+        let key_code = ev.key_code();
         if key_code == ENTER_KEY {
             let title = event_target_value(&ev);
             let title = title.trim();
@@ -311,7 +311,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     prop:value={move || todo.title.get()}
                     on:focusout=move |ev| save(&event_target_value(&ev))
                     on:keyup={move |ev| {
-                        let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
+                        let key_code = ev.key_code();
                         if key_code == ENTER_KEY {
                             save(&event_target_value(&ev));
                         } else if key_code == ESCAPE_KEY {

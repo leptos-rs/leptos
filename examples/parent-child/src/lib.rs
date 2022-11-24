@@ -1,5 +1,5 @@
 use leptos::*;
-use web_sys::Event;
+use web_sys::MouseEvent;
 
 // This highlights four different ways that child components can communicate
 // with their parent:
@@ -71,7 +71,7 @@ pub fn ButtonA(cx: Scope, setter: WriteSignal<bool>) -> Element {
 #[component]
 pub fn ButtonB<F>(cx: Scope, on_click: F) -> Element
 where
-    F: Fn(Event) + 'static,
+    F: Fn(MouseEvent) + 'static,
 {
     view! {
         cx,
@@ -82,11 +82,11 @@ where
         </button>
     }
 
-    // just a note: in an ordinary function ButtonB could take on_click: impl Fn(Event) + 'static
+    // just a note: in an ordinary function ButtonB could take on_click: impl Fn(MouseEvent) + 'static
     // and save you from typing out the generic
     // the component macro actually expands to define a
     //
-    // struct ButtonBProps<F> where F: Fn(Event) + 'static {
+    // struct ButtonBProps<F> where F: Fn(MouseEvent) + 'static {
     //   on_click: F
     // }
     //
