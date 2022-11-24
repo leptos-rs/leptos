@@ -70,11 +70,12 @@ features = [
 ]
 
 [dev-dependencies]
+leptos = { path = "../leptos", default-features = false, version = "0.0" }
 leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }
 
 
 [features]
-csr = ["leptos_reactive/csr", "leptos_macro/csr"]
-hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate"]
-ssr = ["leptos_reactive/ssr", "leptos_macro/ssr"]
-stable = ["leptos_reactive/stable", "leptos_macro/stable"]
+csr = ["leptos_reactive/csr", "leptos_macro/csr", "leptos/csr"]
+hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate", "leptos/hydrate"]
+ssr = ["leptos_reactive/ssr", "leptos_macro/ssr", "leptos/ssr"]
+stable = ["leptos_reactive/stable", "leptos_macro/stable", "leptos/stable"]
