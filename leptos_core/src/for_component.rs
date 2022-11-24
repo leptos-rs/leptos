@@ -15,7 +15,7 @@ where
     G: Fn(Scope, &T) -> Element,
     I: Fn(&T) -> K,
     K: Eq + Hash,
-    T: Eq + 'static,
+    T: 'static,
 {
     /// Items over which the component should iterate.
     pub each: E,
