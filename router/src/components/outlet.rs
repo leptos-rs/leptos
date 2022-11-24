@@ -6,14 +6,11 @@ use leptos::*;
 #[component]
 pub fn Outlet(cx: Scope) -> Child {
     let route = use_route(cx);
-    (create_memo(cx, move |prev| {
-        route
-            .child()
-            .map(|child| {
-                provide_context(child.cx(), child.clone());
-                child.outlet().into_child(cx)
-            })
-            .unwrap_or(Child::Null)
-    }))
+    (move || {
+        route.child().map(|child| {
+            provide_context(child.cx(), child.clone());
+            child.outlet()
+        })
+    })
     .into_child(cx)
 }
