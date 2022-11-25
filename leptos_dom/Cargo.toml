@@ -14,6 +14,8 @@ gloo = "0.8"
 js-sys = "0.3"
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
 paste = "1"
+smallvec = "1"
+tracing = "0.1"
 typed-builder = "0.11"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.31"

@@ -1,0 +1,15 @@
+[package]
+name = "test-bench"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+console_error_panic_hook = "0.1"
+gloo = "0.8"
+leptos_dom = { path = "../../" }
+leptos_reactive = { path = "../../../leptos_reactive" }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+wasm-bindgen-futures = "0.4"

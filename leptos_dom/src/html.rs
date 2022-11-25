@@ -1,13 +1,11 @@
-use crate::{
-    components::{DynChild, DynText},
-    mount_child, Element, Fragment, IntoNode, Node, Text,
-};
+use crate::{components::DynChild, mount_child, Element, Fragment, IntoNode, Node, Text};
 use leptos_reactive::Scope;
+use std::{borrow::Cow, fmt};
 
 /// Trait which allows creating an element tag.
-pub trait IntoElement {
+pub trait IntoElement: fmt::Debug {
     /// The name of the element, i.e., `div`, `p`, `custom-element`.
-    fn name(&self) -> String;
+    fn name(&self) -> Cow<'static, str>;
 
     /// Determains if the tag is void, i.e., `<input>` and `<br>`.
     fn is_void(&self) -> bool {
@@ -17,13 +15,14 @@ pub trait IntoElement {
 
 /// Represents potentially any element, which you can change
 /// at any time before calling [`HtmlElement::into_node`].
+#[derive(Clone, Debug)]
 pub struct AnyElement {
-    name: String,
+    name: Cow<'static, str>,
     is_void: bool,
 }
 
 impl IntoElement for AnyElement {
-    fn name(&self) -> String {
+    fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
 
@@ -33,19 +32,23 @@ impl IntoElement for AnyElement {
 }
 
 /// Represents a custom HTML element, such as `<my-element>`.
+#[derive(Clone, Debug)]
 pub struct Custom {
-    name: String,
+    name: Cow<'static, str>,
 }
 
 impl IntoElement for Custom {
-    fn name(&self) -> String {
+    fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
 }
 
 /// Represents an HTML element.
+#[derive(educe::Educe)]
+#[educe(Debug)]
 pub struct HtmlElement<El: IntoElement> {
     element: El,
+    #[educe(Debug(ignore))]
     children: Vec<Box<dyn FnOnce(Scope) -> Node>>,
 }
 
@@ -89,36 +92,10 @@ impl<El: IntoElement> HtmlElement<El> {
 
         self
     }
-
-    /// Creates a text node on this element.
-    pub fn text(mut self, text: impl ToString) -> Self {
-        let text = Text::new(&text.to_string());
-
-        let node = Node::Text(text);
-
-        self.children.push(Box::new(move |_| node));
-
-        self
-    }
-
-    /// Creates text which will automatically re-render when
-    /// it's signal dependencies change.
-    pub fn dyn_text<TF, Txt>(mut self, text_fn: TF) -> Self
-    where
-        TF: Fn() -> Txt + 'static,
-        Txt: ToString,
-    {
-        self.children.push(Box::new(move |cx| {
-            let dyn_text = DynText::new(text_fn);
-
-            dyn_text.into_node(cx)
-        }));
-
-        self
-    }
 }
 
 impl<El: IntoElement> IntoNode for HtmlElement<El> {
+    #[instrument(level = "trace")]
     fn into_node(self, cx: Scope) -> Node {
         let Self { element, children } = self;
 
@@ -137,16 +114,22 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
 }
 
 impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
+    #[instrument(level = "trace")]
     fn into_node(self, cx: Scope) -> Node {
         Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect()).into_node(cx)
     }
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: IntoElement>(name: &str) -> HtmlElement<Custom> {
-    HtmlElement::new(Custom {
-        name: name.to_owned(),
-    })
+pub fn custom<El: IntoElement>(name: impl Into<Cow<'static, str>>) -> HtmlElement<Custom> {
+    HtmlElement::new(Custom { name: name.into() })
+}
+
+/// Creates a text node.
+pub fn text(text: impl Into<Cow<'static, str>>) -> Node {
+    let text = Text::new(text.into());
+
+    Node::Text(text)
 }
 
 macro_rules! generate_html_tags {
@@ -157,13 +140,13 @@ macro_rules! generate_html_tags {
     ),* $(,)?) => {
         paste::paste! {
             $(
-                #[derive(Clone, Copy)]
+                #[derive(Clone, Copy, Debug)]
                 #[$meta]
                 pub struct [<$tag:camel $($trailing_)?>];
 
                 impl IntoElement for [<$tag:camel $($trailing_)?>] {
-                    fn name(&self) -> String {
-                        stringify!([<$tag:camel $($trailing_)?>]).to_string()
+                    fn name(&self) -> Cow<'static, str> {
+                        stringify!([<$tag:camel $($trailing_)?>]).into()
                     }
 
                     generate_html_tags! { @void $($void)? }

@@ -1,6 +1,7 @@
-use crate::{Component, IntoNode, Node};
+use crate::{mount_child, Component, IntoNode, MountKind, Node};
 
 /// Represents a group of [`Nodes`](Node).
+#[derive(Debug)]
 pub struct Fragment(Vec<Node>);
 
 impl Fragment {
@@ -11,8 +12,17 @@ impl Fragment {
 }
 
 impl IntoNode for Fragment {
-    fn into_node(self, cx: leptos_reactive::Scope) -> Node {
+    #[instrument(level = "trace")]
+    fn into_node(self, _cx: leptos_reactive::Scope) -> Node {
         let frag = Component::new("Fragment");
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        let closing = &frag.closing.node.0;
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        for child in &self.0 {
+            mount_child(MountKind::Component(closing), child);
+        }
 
         *frag.children.borrow_mut() = self.0;
 
