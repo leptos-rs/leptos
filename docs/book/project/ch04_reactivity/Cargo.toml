@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-leptos = "0.0.18"
+leptos = { path = "../../../../leptos" }

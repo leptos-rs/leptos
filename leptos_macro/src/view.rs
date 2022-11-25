@@ -537,34 +537,13 @@ fn attr_to_tokens(
 
     // refs
     if name == "ref" {
-        let ident = match &node.value {
-            Some(expr) => {
-                if let Some(ident) = expr_to_ident(expr) {
-                    quote_spanned! { span => #ident }
-                } else {
-                    quote_spanned! { span => compile_error!("'ref' needs to be passed a variable name") }
-                }
-            }
-            None => {
-                quote_spanned! { span => compile_error!("'ref' needs to be passed a variable name") }
-            }
-        };
-
-        if mode == Mode::Ssr {
-            // fake the initialization; should only be used in effects or event handlers, which will never run on the server
-            // but if we don't initialize it, the compiler will complain
-            navigations.push(quote_spanned! {
-                span => #ident = String::new();
-            });
-        } else {
+        if mode != Mode::Ssr {
             expressions.push(match &node.value {
                 Some(expr) => {
                     if let Some(ident) = expr_to_ident(expr) {
                         quote_spanned! {
                             span =>
-                                // we can't pass by reference because the _el won't live long enough (it's dropped when template returns)
-                                // so we clone here; this will be unnecessary if it's the last attribute, but very necessary otherwise
-                                #ident = #el_id.clone().unchecked_into::<web_sys::Element>();
+                                #ident.load(#el_id.unchecked_ref::<web_sys::Element>());
                         }
                     } else {
                         panic!("'ref' needs to be passed a variable name")

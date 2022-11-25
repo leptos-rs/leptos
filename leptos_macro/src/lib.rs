@@ -179,13 +179,13 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a variable to use later.
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a [NodeRef](leptos::NodeRef) to use later.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (value, set_value) = create_signal(cx, 0);
-/// let my_input: Element;
+/// let my_input = NodeRef::new(cx);
 /// view! { cx, <input type="text" _ref=my_input/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
 /// # ;
