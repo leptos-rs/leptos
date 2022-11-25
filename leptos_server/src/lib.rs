@@ -70,11 +70,7 @@
 pub use form_urlencoded;
 use leptos_reactive::*;
 
-use proc_macro2::{
-    Literal, Punct,
-    Spacing::{Alone, Joint},
-    TokenStream,
-};
+use proc_macro2::{Literal, TokenStream};
 use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{future::Future, pin::Pin, str::FromStr};

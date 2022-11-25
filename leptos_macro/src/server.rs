@@ -2,7 +2,6 @@ use cfg_if::cfg_if;
 use leptos_server::Encoding;
 use proc_macro2::{Literal, TokenStream as TokenStream2};
 use quote::quote;
-use std::str::FromStr;
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
