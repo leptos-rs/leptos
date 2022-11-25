@@ -152,8 +152,7 @@ impl Component {
     pub fn new(name: &str) -> Self {
         let name = name.to_owned();
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        let (document_fragment, opening, closing) = {
+        let parts = {
             let fragment = gloo::utils::document().create_document_fragment();
 
             let opening = Comment::new(&format!("<{name}>"));
@@ -162,18 +161,24 @@ impl Component {
             // Insert the comments into the document fragment
             // so they can serve as our references when inserting
             // future nodes
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
             fragment
                 .append_with_node_2(&opening.node.0, &closing.node.0)
                 .expect("append to not err");
 
-            (fragment, opening, closing)
+            (
+                opening,
+                closing,
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                fragment,
+            )
         };
 
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            document_fragment,
-            opening,
-            closing,
+            document_fragment: parts.2,
+            opening: parts.0,
+            closing: parts.1,
             name,
             children: Default::default(),
         }

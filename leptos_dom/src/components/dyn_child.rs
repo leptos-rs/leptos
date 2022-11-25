@@ -5,24 +5,22 @@ use crate::{mount_child, Component, IntoNode, MountKind, Node};
 /// Represents any [`Node`] that can change over time.
 pub struct DynChild<CF, N>
 where
-    CF: Fn(Scope) -> N + 'static,
+    CF: Fn() -> N + 'static,
     N: IntoNode,
 {
-    cx: Scope,
     name: String,
     child_fn: CF,
 }
 
 impl<CF, N> DynChild<CF, N>
 where
-    CF: Fn(Scope) -> N + 'static,
+    CF: Fn() -> N + 'static,
     N: IntoNode,
 {
     /// Creates a new dynamic child which will re-render whenever it's
     /// signal dependencies change.
-    pub fn new(cx: Scope, child_fn: CF) -> Self {
+    pub fn new(child_fn: CF) -> Self {
         Self {
-            cx,
             child_fn,
             name: "DynChild".into(),
         }
@@ -37,15 +35,11 @@ where
 
 impl<CF, N> IntoNode for DynChild<CF, N>
 where
-    CF: Fn(Scope) -> N + 'static,
+    CF: Fn() -> N + 'static,
     N: IntoNode,
 {
     fn into_node(self, cx: Scope) -> crate::Node {
-        let Self {
-            cx: _,
-            child_fn,
-            name,
-        } = self;
+        let Self { child_fn, name } = self;
 
         let component = Component::new(&name);
 
@@ -56,7 +50,7 @@ where
         let children = component.children.clone();
 
         create_effect(cx, move |_| {
-            let new_child = child_fn(cx).into_node(cx);
+            let new_child = child_fn().into_node(cx);
 
             mount_child(MountKind::Component(&closing), &new_child);
 

@@ -5,31 +5,38 @@ use crate::{IntoNode, Node, Text};
 use super::DynChild;
 
 /// Represents text which can change over time.
-pub struct DynText(Node);
+pub struct DynText<TF, Txt>(TF)
+where
+    TF: Fn() -> Txt + 'static,
+    Txt: ToString;
 
-impl DynText {
+impl<TF, Txt> DynText<TF, Txt>
+where
+    TF: Fn() -> Txt + 'static,
+    Txt: ToString,
+{
     /// Creates a new [`DynText`] component.
-    pub fn new<TF, Txt>(cx: Scope, text_fn: TF) -> Self
-    where
-        TF: Fn(Scope) -> Txt + 'static,
-        Txt: ToString,
-    {
-        let mut dyn_child = DynChild::new(cx, move |cx| {
-            let text = text_fn(cx).to_string();
+    pub fn new(text_fn: TF) -> Self {
+        Self(text_fn)
+    }
+}
+
+impl<TF, Txt> IntoNode for DynText<TF, Txt>
+where
+    TF: Fn() -> Txt + 'static,
+    Txt: ToString,
+{
+    fn into_node(self, cx: Scope) -> Node {
+        let mut dyn_text = DynChild::new(move || {
+            let text = self.0().to_string();
 
             let text = Text::new(&text);
 
             Node::Text(text)
         });
 
-        dyn_child.rename("DynText");
+        dyn_text.rename("DynChild");
 
-        Self(dyn_child.into_node(cx))
-    }
-}
-
-impl IntoNode for DynText {
-    fn into_node(self, _: Scope) -> Node {
-        self.0
+        dyn_text.into_node(cx)
     }
 }

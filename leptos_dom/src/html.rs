@@ -45,15 +45,13 @@ impl IntoElement for Custom {
 
 /// Represents an HTML element.
 pub struct HtmlElement<El: IntoElement> {
-    cx: Scope,
     element: El,
-    children: Vec<Node>,
+    children: Vec<Box<dyn FnOnce(Scope) -> Node>>,
 }
 
 impl<El: IntoElement> HtmlElement<El> {
-    fn new(cx: Scope, element: El) -> Self {
+    fn new(element: El) -> Self {
         Self {
-            cx,
             children: vec![],
             element,
         }
@@ -61,14 +59,9 @@ impl<El: IntoElement> HtmlElement<El> {
 
     /// Converts this element into [`HtmlElement<AnyElement>`].
     pub fn into_any(self) -> HtmlElement<AnyElement> {
-        let Self {
-            cx,
-            children,
-            element,
-        } = self;
+        let Self { children, element } = self;
 
         HtmlElement {
-            cx,
             children,
             element: AnyElement {
                 name: element.name(),
@@ -78,8 +71,8 @@ impl<El: IntoElement> HtmlElement<El> {
     }
 
     /// Inserts a child into this element.
-    pub fn child<C: IntoNode>(mut self, child: C) -> Self {
-        self.children.push(child.into_node(self.cx));
+    pub fn child<C: IntoNode + 'static>(mut self, child: C) -> Self {
+        self.children.push(Box::new(move |cx| child.into_node(cx)));
 
         self
     }
@@ -88,11 +81,11 @@ impl<El: IntoElement> HtmlElement<El> {
     /// it's signal dependencies change.
     pub fn dyn_child<CF, N>(mut self, child_fn: CF) -> Self
     where
-        CF: Fn(Scope) -> N + 'static,
+        CF: Fn() -> N + 'static,
         N: IntoNode,
     {
         self.children
-            .push(DynChild::new(self.cx, child_fn).into_node(self.cx));
+            .push(Box::new(move |cx| DynChild::new(child_fn).into_node(cx)));
 
         self
     }
@@ -103,7 +96,7 @@ impl<El: IntoElement> HtmlElement<El> {
 
         let node = Node::Text(text);
 
-        self.children.push(node);
+        self.children.push(Box::new(move |_| node));
 
         self
     }
@@ -112,26 +105,26 @@ impl<El: IntoElement> HtmlElement<El> {
     /// it's signal dependencies change.
     pub fn dyn_text<TF, Txt>(mut self, text_fn: TF) -> Self
     where
-        TF: Fn(Scope) -> Txt + 'static,
+        TF: Fn() -> Txt + 'static,
         Txt: ToString,
     {
-        let dyn_text = DynText::new(self.cx, text_fn);
+        self.children.push(Box::new(move |cx| {
+            let dyn_text = DynText::new(text_fn);
 
-        self.children.push(dyn_text.into_node(self.cx));
+            dyn_text.into_node(cx)
+        }));
 
         self
     }
 }
 
 impl<El: IntoElement> IntoNode for HtmlElement<El> {
-    fn into_node(self, _: Scope) -> Node {
-        let Self {
-            cx: _,
-            element,
-            children,
-        } = self;
+    fn into_node(self, cx: Scope) -> Node {
+        let Self { element, children } = self;
 
         let mut element = Element::new(element);
+
+        let children = children.into_iter().map(|c| c(cx)).collect::<Vec<_>>();
 
         for child in &children {
             mount_child(crate::MountKind::Element(&element.node), child);
@@ -144,13 +137,10 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: IntoElement>(cx: Scope, name: &str) -> HtmlElement<Custom> {
-    HtmlElement::new(
-        cx,
-        Custom {
-            name: name.to_owned(),
-        },
-    )
+pub fn custom<El: IntoElement>(name: &str) -> HtmlElement<Custom> {
+    HtmlElement::new(Custom {
+        name: name.to_owned(),
+    })
 }
 
 macro_rules! generate_html_tags {
@@ -174,8 +164,8 @@ macro_rules! generate_html_tags {
                 }
 
                 #[$meta]
-                pub fn $tag(cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
-                    HtmlElement::new(cx, [<$tag:camel $($trailing_)?>])
+                pub fn $tag() -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
+                    HtmlElement::new([<$tag:camel $($trailing_)?>])
                 }
             )*
         }
