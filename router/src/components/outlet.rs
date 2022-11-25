@@ -7,9 +7,11 @@ use leptos::*;
 pub fn Outlet(cx: Scope) -> Child {
     let route = use_route(cx);
     (move || {
-        route.child().map(|child| {
-            provide_context(child.cx(), child.clone());
-            cx.untrack(move || child.outlet())
+        cx.untrack(|| {
+            route.child().map(|child| {
+                provide_context(child.cx(), child.clone());
+                child.outlet()
+            })
         })
     })
     .into_child(cx)
