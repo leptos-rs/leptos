@@ -11,10 +11,10 @@ use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope, WriteSig
 /// because it reduces them from `O(n)` to `O(1)`.
 ///
 /// ```
-/// # use leptos_reactive::{create_isomorphic_effect, create_scope, create_selector, create_signal};
+/// # use leptos_reactive::*;
 /// # use std::rc::Rc;
 /// # use std::cell::RefCell;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 ///    let (a, set_a) = create_signal(cx, 0);
 ///    let is_selected = create_selector(cx, a);
 ///    let total_notifications = Rc::new(RefCell::new(0));

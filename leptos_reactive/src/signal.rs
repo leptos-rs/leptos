@@ -1,6 +1,7 @@
 use crate::{
-    debug_warn, spawn_local, Runtime, Scope, ScopeProperty, UntrackedGettableSignal,
-    UntrackedSettableSignal,
+    debug_warn,
+    runtime::{with_runtime, RuntimeId},
+    spawn_local, Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
 };
 use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
@@ -18,7 +19,7 @@ use thiserror::Error;
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -85,7 +86,7 @@ pub fn create_signal_from_stream<T>(
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the getter clones and returns the value
@@ -116,7 +117,7 @@ pub struct ReadSignal<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: &'static Runtime,
+    pub(crate) runtime: RuntimeId,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
 }
@@ -142,7 +143,7 @@ where
     /// the running effect to this signal.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (name, set_name) = create_signal(cx, "Alice".to_string());
     ///
     /// // ❌ unnecessarily clones the string
@@ -166,7 +167,7 @@ where
 
     #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
-        self.id.subscribe(self.runtime);
+        with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
     }
 
     /// Clones and returns the current value of the signal, and subscribes
@@ -176,7 +177,7 @@ where
     /// (`value.get()` is equivalent to `value.with(T::clone)`.)
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 0);
     ///
     /// // calling the getter clones and returns the value
@@ -193,7 +194,7 @@ where
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
     pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        self.id.try_with(self.runtime, f)
+        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
     }
 
     /// Generates a [Stream] that emits the new value of the signal whenever it changes.
@@ -273,7 +274,7 @@ where
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the setter sets the value
@@ -294,7 +295,7 @@ pub struct WriteSignal<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: &'static Runtime,
+    pub(crate) runtime: RuntimeId,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
 }
@@ -324,7 +325,7 @@ where
     /// even if the value has not actually changed.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 0);
     ///
     /// // notifies subscribers
@@ -347,7 +348,7 @@ where
     /// even if the value has not actually changed.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 0);
     ///
     /// // notifies subscribers
@@ -414,7 +415,7 @@ where
 /// or as a function argument.
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let count = create_rw_signal(cx, 0);
 ///
 /// // ✅ set the value
@@ -441,7 +442,7 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// its style, or it may be easier to pass around in a context or as a function argument.
 /// ```
 /// # use leptos_reactive::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let count = create_rw_signal(cx, 0);
 ///
 /// // ✅ set the value
@@ -462,7 +463,7 @@ pub struct RwSignal<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: &'static Runtime,
+    pub(crate) runtime: RuntimeId,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
 }
@@ -496,11 +497,11 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
 impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
     fn set_untracked(&self, new_value: T) {
         self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value);
+            .update_with_no_effect(self.runtime, |v| *v = new_value)
     }
 
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
-        self.id.update_with_no_effect(self.runtime, f);
+        self.id.update_with_no_effect(self.runtime, f)
     }
 }
 
@@ -512,7 +513,7 @@ where
     /// the running effect to this signal.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let name = create_rw_signal(cx, "Alice".to_string());
     ///
     /// // ❌ unnecessarily clones the string
@@ -535,7 +536,7 @@ where
     /// the running effect to this signal.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     ///
     /// assert_eq!(count.get(), 0);
@@ -556,7 +557,7 @@ where
     /// and notifies subscribers that the signal has changed.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     ///
     /// // notifies subscribers
@@ -579,7 +580,7 @@ where
     /// even if the value has not actually changed.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     ///
     /// assert_eq!(count(), 0);
@@ -597,7 +598,7 @@ where
     /// to the signal and cause other parts of the DOM to update.
     /// ```
     /// # use leptos_reactive::*;
-    /// # create_scope(|cx| {
+    /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let read_count = count.read_only();
     /// assert_eq!(count(), 0);
@@ -726,78 +727,88 @@ impl SignalId {
         self.try_with_no_subscription(runtime, f)
     }
 
-    pub(crate) fn with_no_subscription<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    pub(crate) fn with_no_subscription<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&T) -> U,
+    ) -> U
     where
         T: 'static,
     {
-        self.try_with_no_subscription(runtime, f).unwrap()
+        with_runtime(runtime, |runtime| {
+            self.try_with_no_subscription(runtime, f).unwrap()
+        })
     }
 
-    pub(crate) fn with<T, U>(&self, runtime: &Runtime, f: impl FnOnce(&T) -> U) -> U
+    pub(crate) fn with<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&T) -> U) -> U
     where
         T: 'static,
     {
-        self.try_with(runtime, f).unwrap()
+        with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
     }
 
-    fn update_value<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T)) -> bool
+    fn update_value<T>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T)) -> bool
     where
         T: 'static,
     {
-        let value = {
-            let signals = runtime.signals.borrow();
-            signals.get(*self).cloned()
-        };
-        if let Some(value) = value {
-            let mut value = value.borrow_mut();
-            if let Some(value) = value.downcast_mut::<T>() {
-                f(value);
-                true
+        with_runtime(runtime, |runtime| {
+            let value = {
+                let signals = runtime.signals.borrow();
+                signals.get(*self).cloned()
+            };
+            if let Some(value) = value {
+                let mut value = value.borrow_mut();
+                if let Some(value) = value.downcast_mut::<T>() {
+                    f(value);
+                    true
+                } else {
+                    debug_warn!(
+                        "[Signal::update] failed when downcasting to Signal<{}>",
+                        std::any::type_name::<T>()
+                    );
+                    false
+                }
             } else {
                 debug_warn!(
-                    "[Signal::update] failed when downcasting to Signal<{}>",
+                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
                     std::any::type_name::<T>()
                 );
                 false
             }
-        } else {
-            debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
-                    std::any::type_name::<T>()
-                );
-            false
-        }
+        })
     }
 
-    pub(crate) fn update<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T))
+    pub(crate) fn update<T>(&self, runtime_id: RuntimeId, f: impl FnOnce(&mut T))
     where
         T: 'static,
     {
-        // update the value
-        let updated = self.update_value(runtime, f);
+        with_runtime(runtime_id, |runtime| {
+            // update the value
+            let updated = self.update_value(runtime_id, f);
 
-        // notify subscribers
-        if updated {
-            let subs = {
-                let subs = runtime.signal_subscribers.borrow();
-                let subs = subs.get(*self);
-                subs.map(|subs| subs.borrow().clone())
-            };
-            if let Some(subs) = subs {
-                for sub in subs {
-                    let effect = {
-                        let effects = runtime.effects.borrow();
-                        effects.get(sub).cloned()
-                    };
-                    if let Some(effect) = effect {
-                        effect.run(sub, runtime);
+            // notify subscribers
+            if updated {
+                let subs = {
+                    let subs = runtime.signal_subscribers.borrow();
+                    let subs = subs.get(*self);
+                    subs.map(|subs| subs.borrow().clone())
+                };
+                if let Some(subs) = subs {
+                    for sub in subs {
+                        let effect = {
+                            let effects = runtime.effects.borrow();
+                            effects.get(sub).cloned()
+                        };
+                        if let Some(effect) = effect {
+                            effect.run(sub, runtime_id);
+                        }
                     }
                 }
             }
-        }
+        })
     }
 
-    pub(crate) fn update_with_no_effect<T>(&self, runtime: &Runtime, f: impl FnOnce(&mut T))
+    pub(crate) fn update_with_no_effect<T>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T))
     where
         T: 'static,
     {

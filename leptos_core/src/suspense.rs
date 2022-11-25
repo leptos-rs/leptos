@@ -31,7 +31,7 @@ where
 /// # use leptos_core::*;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if cfg!(not(any(feature = "csr", feature = "hydrate", feature = "ssr"))) {
 /// async fn fetch_cats(how_many: u32) -> Result<Vec<String>, ()> { Ok(vec![]) }
 ///

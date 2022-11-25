@@ -92,7 +92,7 @@ impl MetaContext {
     /// use leptos_meta::*;
     ///
     /// # #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-    /// run_scope(|cx| {
+    /// run_scope(create_runtime(), |cx| {
     ///   provide_context(cx, MetaContext::new());
     ///
     ///   let app = view! { cx,

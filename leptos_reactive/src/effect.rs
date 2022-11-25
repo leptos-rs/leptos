@@ -1,3 +1,4 @@
+use crate::runtime::{with_runtime, RuntimeId};
 use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
 use std::cell::RefCell;
@@ -22,7 +23,7 @@ use std::fmt::Debug;
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (a, set_a) = create_signal(cx, 0);
 /// let (b, set_b) = create_signal(cx, 0);
 ///
@@ -66,7 +67,7 @@ where
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
-/// # create_scope(|cx| {
+/// # create_scope(create_runtime(), |cx| {
 /// let (a, set_a) = create_signal(cx, 0);
 /// let (b, set_b) = create_signal(cx, 0);
 ///
@@ -118,7 +119,7 @@ where
 }
 
 pub(crate) trait AnyEffect {
-    fn run(&self, id: EffectId, runtime: &Runtime);
+    fn run(&self, id: EffectId, runtime: RuntimeId);
 }
 
 impl<T, F> AnyEffect for Effect<T, F>
@@ -126,35 +127,39 @@ where
     T: 'static,
     F: Fn(Option<T>) -> T,
 {
-    fn run(&self, id: EffectId, runtime: &Runtime) {
-        // clear previous dependencies
-        id.cleanup(runtime);
+    fn run(&self, id: EffectId, runtime: RuntimeId) {
+        with_runtime(runtime, |runtime| {
+            // clear previous dependencies
+            id.cleanup(runtime);
 
-        // set this as the current observer
-        let prev_observer = runtime.observer.take();
-        runtime.observer.set(Some(id));
+            // set this as the current observer
+            let prev_observer = runtime.observer.take();
+            runtime.observer.set(Some(id));
 
-        // run the effect
-        let value = self.value.take();
-        let new_value = (self.f)(value);
-        *self.value.borrow_mut() = Some(new_value);
+            // run the effect
+            let value = self.value.take();
+            let new_value = (self.f)(value);
+            *self.value.borrow_mut() = Some(new_value);
 
-        // restore the previous observer
-        runtime.observer.set(prev_observer);
+            // restore the previous observer
+            runtime.observer.set(prev_observer);
+        })
     }
 }
 
 impl EffectId {
-    pub(crate) fn run<T>(&self, runtime: &Runtime) {
-        let effect = {
-            let effects = runtime.effects.borrow();
-            effects.get(*self).cloned()
-        };
-        if let Some(effect) = effect {
-            effect.run(*self, runtime);
-        } else {
-            debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
-        }
+    pub(crate) fn run<T>(&self, runtime_id: RuntimeId) {
+        with_runtime(runtime_id, |runtime| {
+            let effect = {
+                let effects = runtime.effects.borrow();
+                effects.get(*self).cloned()
+            };
+            if let Some(effect) = effect {
+                effect.run(*self, runtime_id);
+            } else {
+                debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
+            }
+        })
     }
 
     pub(crate) fn cleanup(&self, runtime: &Runtime) {

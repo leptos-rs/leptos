@@ -119,7 +119,7 @@ impl History for BrowserIntegration {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// let integration = ServerIntegration { path: "insert/current/path/here".to_string() };
 /// provide_context(cx, RouterIntegrationContext::new(integration));
 /// # });

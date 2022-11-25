@@ -1,5 +1,7 @@
 #[cfg(not(feature = "stable"))]
-use leptos_reactive::{create_isomorphic_effect, create_memo, create_scope, create_signal};
+use leptos_reactive::{
+    create_isomorphic_effect, create_memo, create_runtime, create_scope, create_signal,
+};
 
 #[cfg(not(feature = "stable"))]
 #[test]
@@ -7,7 +9,7 @@ fn effect_runs() {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
 
         // simulate an arbitrary side effect
@@ -36,7 +38,7 @@ fn effect_tracks_memo() {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
         let b = create_memo(cx, move |_| format!("Value is {}", a()));
 
@@ -67,7 +69,7 @@ fn untrack_mutes_effect() {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
 
         // simulate an arbitrary side effect
