@@ -65,14 +65,12 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     // fake API delay
     std::thread::sleep(std::time::Duration::from_millis(1250));
 
-    match sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
+    sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
         .bind(title)
         .execute(&mut conn)
         .await
-    {
-        Ok(row) => Ok(()),
-        Err(e) => Err(ServerFnError::ServerError(e.to_string())),
-    }
+        .map(|_| ())
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))
 }
 
 #[server(DeleteTodo, "/api")]
@@ -168,7 +166,7 @@ pub fn Todos(cx: Scope) -> Element {
                                                                 <li>
                                                                     {todo.title}
                                                                     <ActionForm action=delete_todo.clone()>
-                                                                        <input type="hidden" name="id" value={todo.id}/>
+                                                                        <input type="hidden" name="id" value=todo.id/>
                                                                         <input type="submit" value="X"/>
                                                                     </ActionForm>
                                                                 </li>
