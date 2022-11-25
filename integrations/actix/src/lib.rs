@@ -77,9 +77,18 @@ pub fn handle_server_fns() -> Route {
                                     .content_type("application/json");
                             };
                             match serialized {
-                                Payload::Binary(data) => res.body(Bytes::from(data)),
-                                Payload::Url(data) => res.body(data),
-                                Payload::Json(data) => res.body(data),
+                                Payload::Binary(data) => {
+                                    res.content_type("application/cbor");
+                                    res.body(Bytes::from(data))
+                                }
+                                Payload::Url(data) => {
+                                    res.content_type("application/x-www-form-urlencoded");
+                                    res.body(data)
+                                }
+                                Payload::Json(data) => {
+                                    res.content_type("application/jsoon");
+                                    res.body(data)
+                                }
                             }
                         }
                         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
