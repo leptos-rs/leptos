@@ -23,6 +23,29 @@ impl IntoNode for () {
     }
 }
 
+impl<T> IntoNode for Option<T>
+where
+    T: IntoNode,
+{
+    fn into_node(self, cx: Scope) -> Node {
+        if let Some(t) = self {
+            t.into_node(cx)
+        } else {
+            Unit.into_node(cx)
+        }
+    }
+}
+
+impl<F, N> IntoNode for F
+where
+    F: Fn() -> N + 'static,
+    N: IntoNode,
+{
+    fn into_node(self, cx: Scope) -> Node {
+        DynChild::new(self).into_node(cx)
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         #[derive(Clone, educe::Educe)]
@@ -57,6 +80,12 @@ pub struct Element {
     node: WebSysNode,
     attributes: HashMap<String, String>,
     children: Vec<Node>,
+}
+
+impl IntoNode for Element {
+    fn into_node(self, _: Scope) -> Node {
+        Node::Element(self)
+    }
 }
 
 impl Element {
@@ -117,6 +146,12 @@ pub struct Text {
     content: String,
 }
 
+impl IntoNode for Text {
+    fn into_node(self, _: Scope) -> Node {
+        Node::Text(self)
+    }
+}
+
 impl Text {
     /// Creates a new [`Text`].
     pub fn new(content: &str) -> Self {
@@ -145,6 +180,12 @@ pub struct Component {
     opening: Comment,
     children: Rc<RefCell<Vec<Node>>>,
     closing: Comment,
+}
+
+impl IntoNode for Component {
+    fn into_node(self, _: Scope) -> Node {
+        Node::Component(self)
+    }
 }
 
 impl Component {
@@ -198,6 +239,12 @@ pub enum Node {
 impl IntoNode for Node {
     fn into_node(self, _: Scope) -> Node {
         self
+    }
+}
+
+impl IntoNode for Vec<Node> {
+    fn into_node(self, cx: Scope) -> Node {
+        Fragment::new(self).into_node(cx)
     }
 }
 

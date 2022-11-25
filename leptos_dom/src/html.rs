@@ -1,6 +1,6 @@
 use crate::{
     components::{DynChild, DynText},
-    mount_child, Element, IntoNode, Node, Text,
+    mount_child, Element, Fragment, IntoNode, Node, Text,
 };
 use leptos_reactive::Scope;
 
@@ -133,6 +133,12 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
         element.children.extend(children);
 
         Node::Element(element)
+    }
+}
+
+impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
+    fn into_node(self, cx: Scope) -> Node {
+        Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect()).into_node(cx)
     }
 }
 
