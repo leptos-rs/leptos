@@ -174,7 +174,7 @@ macro_rules! generate_html_tags {
                 }
 
                 #[$meta]
-                pub fn [<$tag $($trailing_)?>](cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
+                pub fn $tag(cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
                     HtmlElement::new(cx, [<$tag:camel $($trailing_)?>])
                 }
             )*
