@@ -1,4 +1,4 @@
-use actix_web::*;
+use actix_web::{body::MessageBody, web::Bytes, *};
 use futures::StreamExt;
 use leptos::*;
 use leptos_meta::*;
@@ -61,9 +61,9 @@ pub fn handle_server_fns() -> Route {
                             // clean up the scope, which we only needed to run the server fn
                             disposer.dispose();
 
-                            // if this is Accept: application/json then send a serialized JSON response
-                            if let Some("application/json") = accept_header {
-                                HttpResponse::Ok().body(serialized)
+                            let mut res: HttpResponseBuilder;
+                            if accept_header.is_some() {
+                                res = HttpResponse::Ok()
                             }
                             // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                             else {
@@ -72,10 +72,14 @@ pub fn handle_server_fns() -> Route {
                                     .get("Referer")
                                     .and_then(|value| value.to_str().ok())
                                     .unwrap_or("/");
-                                HttpResponse::SeeOther()
-                                    .insert_header(("Location", referer))
-                                    .content_type("application/json")
-                                    .body(serialized)
+                                res = HttpResponse::SeeOther();
+                                res.insert_header(("Location", referer))
+                                    .content_type("application/json");
+                            };
+                            match serialized {
+                                Payload::Binary(data) => res.body(Bytes::from(data)),
+                                Payload::Url(data) => res.body(data),
+                                Payload::Json(data) => res.body(data),
                             }
                         }
                         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
