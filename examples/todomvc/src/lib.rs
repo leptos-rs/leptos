@@ -295,7 +295,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     set_editing(true);
 
                     // guard against the fact that in SSR mode, that ref is actually to a String
-                    if let Some(input) = input.get().dyn_ref::<HtmlInputElement>() {
+                    if let Some(input) = input.get().expect("should have loaded input already").dyn_ref::<HtmlInputElement>() {
                         input.focus();
                     }
                 }>
