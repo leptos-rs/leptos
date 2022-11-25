@@ -87,9 +87,22 @@ impl RouteContext {
         self.inner.cx
     }
 
-    /// Returns the URL path of the current route.
+    /// Returns the URL path of the current route,
+    /// including param values in their places.
+    ///
+    /// e.g., this will return `/article/0` rather than `/article/:id`.
+    /// For the opposite behavior, see [RouteContext::original_path].
     pub fn path(&self) -> &str {
         &self.inner.path
+    }
+
+    /// Returns the original URL path of the current route,
+    /// with the param name rather than the matched parameter itself.
+    ///
+    /// e.g., this will return `/article/:id` rather than `/article/0`
+    /// For the opposite behavior, see [RouteContext::path].
+    pub fn original_path(&self) -> &str {
+        &self.inner.original_path
     }
 
     /// A reactive wrapper for the route parameters that are currently matched.
