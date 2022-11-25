@@ -357,7 +357,7 @@ where
 {
     use ciborium::{de::from_reader, ser::into_writer};
     use leptos_dom::js_sys::Uint8Array;
-    use leptos_dom::log;
+    //use leptos_dom::log;
     use serde_json::Deserializer as JSONDeserializer;
 
     #[derive(Debug)]
@@ -379,7 +379,7 @@ where
         }
     };
 
-    log!("ENCODED DATA: {:#?}", args_encoded);
+    //log!("ENCODED DATA: {:#?}", args_encoded);
 
     let content_type_header = match &enc {
         Encoding::Url => "application/x-www-form-urlencoded",
@@ -419,15 +419,15 @@ where
     }
 
     if enc == Encoding::Cbor {
-        log!("FUNCTION RESPONSE CBOR");
+        //log!("FUNCTION RESPONSE CBOR");
         let binary = resp
             .binary()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-        log!("REAL SERVER RESPONSE: {:#?}", &binary);
+        //log!("REAL SERVER RESPONSE: {:#?}", &binary);
 
         ciborium::de::from_reader(binary.as_slice()).map_err(|e| {
-            log!("Failed to DECODE: {}", &e);
+            //log!("Failed to DECODE: {}", &e);
             ServerFnError::Deserialization(e.to_string())
         })
     } else {
