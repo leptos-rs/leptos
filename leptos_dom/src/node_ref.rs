@@ -53,7 +53,7 @@ impl NodeRef {
 cfg_if::cfg_if! {
     if #[cfg(not(feature = "stable"))] {
         impl FnOnce<()> for NodeRef {
-            type Output = Option<Element>;
+            type Output = Option<web_sys::Element>;
 
             extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
                 self.get()
@@ -66,7 +66,7 @@ cfg_if::cfg_if! {
             }
         }
 
-        impl Fn<()> for RwSignal {
+        impl Fn<()> for NodeRef {
             extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                 self.get()
             }
