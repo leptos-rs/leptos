@@ -1,10 +1,10 @@
 #[cfg(not(feature = "stable"))]
-use leptos_reactive::{create_scope, create_signal};
+use leptos_reactive::{create_runtime, create_scope, create_signal};
 
 #[cfg(not(feature = "stable"))]
 #[test]
 fn basic_signal() {
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, 0);
         assert_eq!(a(), 0);
         set_a(5);
@@ -16,7 +16,7 @@ fn basic_signal() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn derived_signals() {
-    create_scope(|cx| {
+    create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, 0);
         let (b, set_b) = create_signal(cx, 0);
         let c = move || a() + b();

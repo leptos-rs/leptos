@@ -27,7 +27,7 @@ But that’s _exactly_ how reactive programming works.
 ```rust
 use leptos::*;
 
-run_scope(|cx| {
+run_scope(create_runtime(), |cx| {
     let (a, set_a) = create_signal(cx, 0);
     let (b, set_b) = create_signal(cx, 0);
     let c = move || a() + b();
@@ -46,7 +46,7 @@ Hopefully, this makes some intuitive sense. After all, `c` is a closure. Calling
 ```rust
 use leptos::*;
 
-run_scope(|cx| {
+run_scope(create_runtime(), |cx| {
     let (a, set_a) = create_signal(cx, 0);
     let (b, set_b) = create_signal(cx, 0);
     let c = move || a() + b();

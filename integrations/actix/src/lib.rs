@@ -50,8 +50,8 @@ pub fn handle_server_fns() -> Route {
                 if let Some(server_fn) = server_fn_by_path(path.as_str()) {
                     let body: &[u8] = &body;
 
-                    // TODO this leaks a runtime once per invocation
-                    let (cx, disposer) = raw_scope_and_disposer();
+                    let runtime = create_runtime();
+                    let (cx, disposer) = raw_scope_and_disposer(runtime);
 
                     // provide HttpRequest as context in server scope
                     provide_context(cx, req.clone());
@@ -60,6 +60,7 @@ pub fn handle_server_fns() -> Route {
                         Ok(serialized) => {
                             // clean up the scope, which we only needed to run the server fn
                             disposer.dispose();
+                            runtime.dispose();
 
                             let mut res: HttpResponseBuilder;
                             if accept_header.is_some() {

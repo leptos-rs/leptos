@@ -2,6 +2,10 @@
 name = "leptos_axum"
 version = "0.0.1"
 edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+repository = "https://github.com/gbj/leptos"
+description = "Axum integrations for the Leptos web framework."
 
 [dependencies]
 axum = "0.5"

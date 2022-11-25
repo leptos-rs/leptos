@@ -42,7 +42,7 @@ mod server;
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <p>"Here’s some text"</p> };
 /// # }
@@ -52,7 +52,7 @@ mod server;
 /// 2. Self-closing tags need an explicit `/` as in XML/XHTML
 /// ```rust,compile_fail
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ❌ not like this
 /// view! { cx, <input type="text" name="name"> }
@@ -62,7 +62,7 @@ mod server;
 /// ```
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ✅ add that slash
 /// view! { cx, <input type="text" name="name" /> }
@@ -76,7 +76,7 @@ mod server;
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use typed_builder::TypedBuilder; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
 /// # #[derive(TypedBuilder)] struct CounterProps { initial_value: i32 }
 /// # fn Counter(cx: Scope, props: CounterProps) -> Element { view! { cx, <p></p>} }
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <div><Counter initial_value=3 /></div> }
 /// # ;
@@ -94,7 +94,7 @@ mod server;
 ///
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
@@ -111,14 +111,15 @@ mod server;
 /// # });
 /// ```
 ///
-/// 5. Event handlers can be added with `on:` attributes.
+/// 5. Event handlers can be added with `on:` attributes. In most cases, the events are given the correct type
+///    based on the event name.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
-///   <button on:click=|ev: web_sys::Event| {
+///   <button on:click=|ev: web_sys::MouseEvent| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
 ///     "Click me"
@@ -134,7 +135,7 @@ mod server;
 ///    and `None` deletes the property.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
 ///
@@ -156,7 +157,7 @@ mod server;
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// view! { cx, <div class:hidden-div={move || count() < 3}>"Now you see me, now you don’t."</div> }
@@ -168,7 +169,7 @@ mod server;
 /// Class names can include dashes, but cannot (at the moment) include a dash-separated segment of only numbers.
 /// ```rust,compile_fail
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// // `hidden-div-25` is invalid at the moment
@@ -181,7 +182,7 @@ mod server;
 /// 8. You can use the `_ref` attribute to store a reference to its DOM element in a variable to use later.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
-/// # run_scope(|cx| {
+/// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (value, set_value) = create_signal(cx, 0);
 /// let my_input: Element;
@@ -203,9 +204,9 @@ mod server;
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-///     let clear = move |_ev: web_sys::Event| set_value(0);
-///     let decrement = move |_ev: web_sys::Event| set_value.update(|value| *value -= 1);
-///     let increment = move |_ev: web_sys::Event| set_value.update(|value| *value += 1);
+///     let clear = move |_ev: web_sys::MouseEvent| set_value(0);
+///     let decrement = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value -= 1);
+///     let increment = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value += 1);
 ///
 ///     // this JSX is compiled to an HTML template string for performance
 ///     view! {
@@ -243,6 +244,106 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Annotates a function so that it can be used with your template as a <Component/>
+///
+/// Here are some things you should know.
+/// 1. **The component function only runs once.** Your component function is not a “render” function
+///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
+///    create the user interface, and sets up a reactive system to update it. This means it’s okay
+///    to do relatively expensive work within the component function, as it will only happen once,
+///    not on every state change.
+///
+/// 2. The component name should be `CamelCase` instead of `snake_case`. This is how the renderer
+///    recognizes that a particular tag is a component, not an HTML element.
+///
+/// ```
+/// # use leptos::*;
+/// // ❌ not snake_case
+/// #[component]
+/// fn my_component(cx: Scope) -> Element { todo!() }
+///
+/// // ✅ CamelCase
+/// #[component]
+/// fn MyComponent(cx: Scope) -> Element { todo!() }
+/// ```
+///
+/// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
+///   `Button` generates `ButtonProps`, etc.) When you’re importing the component, you also need to **explicitly import
+///   the prop type.**
+///
+/// ```
+/// # use leptos::*;
+///
+/// use component::{MyComponent, MyComponentProps};
+///
+/// mod component {
+///   use leptos::*;
+///
+///   #[component]
+///   pub fn MyComponent(cx: Scope) -> Element { todo!() }
+/// }
+/// ```
+///
+/// 4. You can pass generic arguments, but they should be defined in a `where` clause and not inline.
+///
+/// ```compile_error
+/// // ❌ This won't work.
+/// # use leptos::*;
+/// #[component]
+/// fn MyComponent<T: Fn() -> Element>(cx: Scope, render_prop: T) -> Element {
+///   todo!()
+/// }
+/// ```
+///
+/// ```
+/// // ✅ Do this instead
+/// # use leptos::*;
+/// #[component]
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> Element where T: Fn() -> Element {
+///   todo!()
+/// }
+/// ```
+///
+/// 5. You can access the children passed into the component with the `children` property, which takes
+///    an argument of the form `Box<dyn Fn() -> Vec<T>>` where `T` is the child type (usually `Element`).
+///
+/// ```
+/// # use leptos::*;
+/// #[component]
+/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn() -> Vec<Element>>) -> Element {
+///   // wrap each child in a <strong> element
+///   let children = children()
+///     .into_iter()
+///     .map(|child| view! { cx, <strong>{child}</strong> })
+///     .collect::<Vec<_>>();
+///
+///   // wrap the whole set in a fancy wrapper
+///   view! { cx,
+///     <p class="fancy-wrapper">{children}</p>
+///   }
+/// }
+///
+/// #[component]
+/// fn WrapSomeChildren(cx: Scope) -> Element {
+///   view! { cx,
+///     <ComponentWithChildren>
+///       <span>"Ooh, look at us!"</span>
+///       <span>"We're being projected!"</span>
+///     </ComponentWithChildren>
+///   }
+/// }
+/// ```
+///
+/// ```
+/// # use leptos::*;
+/// #[component]
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> Element
+/// where
+///     T: Fn() -> Element,
+/// {
+///     todo!()
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match syn::parse::<component::InlinePropsBody>(s) {

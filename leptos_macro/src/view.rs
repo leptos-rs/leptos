@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
@@ -19,6 +20,79 @@ const NON_BUBBLING_EVENTS: [&str; 11] = [
     "load",
     "loadend",
 ];
+
+lazy_static::lazy_static! {
+    // Specialized event type
+    // https://github.com/yewstack/yew/blob/d422b533ea19a09cddf9b31ecd6cd5e5ce35ce3f/packages/yew/src/html/listener/events.rs
+    static ref EVENTS: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("auxclick", "MouseEvent");
+        m.insert("click", "MouseEvent");
+
+        m.insert("contextmenu", "MouseEvent");
+        m.insert("dblclick", "MouseEvent");
+
+        m.insert("drag", "DragEvent");
+        m.insert("dragend", "DragEvent");
+        m.insert("dragenter", "DragEvent");
+        m.insert("dragexit", "DragEvent");
+        m.insert("dragleave", "DragEvent");
+        m.insert("dragover", "DragEvent");
+        m.insert("dragstart", "DragEvent");
+        m.insert("drop", "DragEvent");
+
+        m.insert("blur", "FocusEvent");
+        m.insert("focus", "FocusEvent");
+        m.insert("focusin", "FocusEvent");
+        m.insert("focusout", "FocusEvent");
+
+        m.insert("keydown", "KeyboardEvent");
+        m.insert("keypress", "KeyboardEvent");
+        m.insert("keyup", "KeyboardEvent");
+
+        m.insert("loadstart", "ProgressEvent");
+        m.insert("progress", "ProgressEvent");
+        m.insert("loadend", "ProgressEvent");
+
+        m.insert("mousedown", "MouseEvent");
+        m.insert("mouseenter", "MouseEvent");
+        m.insert("mouseleave", "MouseEvent");
+        m.insert("mousemove", "MouseEvent");
+        m.insert("mouseout", "MouseEvent");
+        m.insert("mouseover", "MouseEvent");
+        m.insert("mouseup", "MouseEvent");
+        m.insert("wheel", "WheelEvent");
+
+        m.insert("input", "InputEvent");
+
+        m.insert("submit", "SubmitEvent");
+
+        m.insert("animationcancel", "AnimationEvent");
+        m.insert("animationend", "AnimationEvent");
+        m.insert("animationiteration", "AnimationEvent");
+        m.insert("animationstart", "AnimationEvent");
+
+        m.insert("gotpointercapture", "PointerEvent");
+        m.insert("lostpointercapture", "PointerEvent");
+        m.insert("pointercancel", "PointerEvent");
+        m.insert("pointerdown", "PointerEvent");
+        m.insert("pointerenter", "PointerEvent");
+        m.insert("pointerleave", "PointerEvent");
+        m.insert("pointermove", "PointerEvent");
+        m.insert("pointerout", "PointerEvent");
+        m.insert("pointerover", "PointerEvent");
+        m.insert("pointerup", "PointerEvent");
+
+        m.insert("touchcancel", "TouchEvent");
+        m.insert("touchend", "TouchEvent");
+
+        m.insert("transitioncancel", "TransitionEvent");
+        m.insert("transitionend", "TransitionEvent");
+        m.insert("transitionrun", "TransitionEvent");
+        m.insert("transitionstart", "TransitionEvent");
+        m
+    };
+}
 
 pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
     let template_uid = Ident::new(
@@ -309,14 +383,14 @@ fn element_to_tokens(
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     //log::debug!("next_sibling ({})", #debug_name);
-                    let #this_el_ident = #prev_sib.next_sibling().unwrap_throw();
+                    let #this_el_ident = #prev_sib.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#debug_name, "nextSibling"));
                     //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         } else {
             quote_spanned! {
                 span => let #this_el_ident = #debug_name;
                     //log::debug!("first_child ({})", #debug_name);
-                    let #this_el_ident = #parent.first_child().unwrap_throw();
+                    let #this_el_ident = #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#debug_name, "firstChild"));
                     //log::debug!("=> got {}", #this_el_ident.node_name());
             }
         };
@@ -508,22 +582,26 @@ fn attr_to_tokens(
             .expect("event listener attributes need a value")
             .as_ref();
 
+        let name = name.replacen("on:", "", 1);
+        let event_type = EVENTS.get(&name.as_str()).copied().unwrap_or("Event");
+        let event_type = event_type.parse::<TokenStream>().expect("couldn't parse event name");
+
         if mode != Mode::Ssr {
-            let name = name.replacen("on:", "", 1);
             if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener_undelegated::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
                 });
             } else {
                 expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener(#el_id.unchecked_ref(), #name, #handler);
+                    span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
                 });
             }
         } else {
+            
             // this is here to avoid warnings about unused signals
             // that are used in event listeners. I'm open to better solutions.
             expressions.push(quote_spanned! {
-                span => let _  = ssr_event_listener(#handler);
+                span => let _  = ssr_event_listener::<web_sys::#event_type>(#handler);
             });
         }
     }
@@ -738,13 +816,13 @@ fn block_to_tokens(
         let location = if let Some(sibling) = &prev_sib {
             quote_spanned! {
                 span => //log::debug!("-> next sibling");
-                        let #name = #sibling.next_sibling().unwrap_throw();
+                        let #name = #sibling.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error("{block}", "nextSibling"));
                         //log::debug!("\tnext sibling = {}", #name.node_name());
             }
         } else {
             quote_spanned! {
                 span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                        let #name = #parent.first_child().unwrap_throw();
+                        let #name = #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error("{block}", "firstChild"));
                         //log::debug!("\tfirst child = {}", #name.node_name());
             }
         };
@@ -860,6 +938,8 @@ fn component_to_tokens(
     mode: Mode,
     is_first_child: bool,
 ) -> PrevSibChange {
+    let component_name = ident_from_tag_name(&node.name);
+    let component_name = format!("<{component_name}/>");
     let create_component = create_component(cx, node, mode);
     let span = node.name.span();
 
@@ -896,13 +976,13 @@ fn component_to_tokens(
             let starts_at = if let Some(prev_sib) = prev_sib {
                 quote::quote! {{
                     //log::debug!("starts_at = next_sibling");
-                    #prev_sib.next_sibling().unwrap_throw()
+                    #prev_sib.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#component_name, "nextSibling"))
                     //log::debug!("ok starts_at");
                 }}
             } else {
                 quote::quote! {{
                     //log::debug!("starts_at first_child");
-                    #parent.first_child().unwrap_throw()
+                    #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#component_name, "firstChild"))
                     //log::debug!("starts_at ok");
                 }}
             };
@@ -1033,9 +1113,13 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
                 Some(quote_spanned! {
                     span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
                 })
+            } else if let Some(event_type) = EVENTS.get(event_name).map(|&e| e.parse::<TokenStream>().unwrap_or_default()) {
+                Some(quote_spanned! {
+                    span => ::leptos::add_event_listener::<#event_type>(#component_name.unchecked_ref(), #event_name, #handler);
+                })
             } else {
                 Some(quote_spanned! {
-                    span => ::leptos::add_event_listener(#component_name.unchecked_ref(), #event_name, #handler)
+                    span => ::leptos::add_event_listener::<web_sys::Event>(#component_name.unchecked_ref(), #event_name, #handler)
                 })
             }
         }
