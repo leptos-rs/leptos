@@ -28,6 +28,7 @@ use leptos_reactive::{
 ///     <button on:click=on_click>"Click me"</button>
 ///     </div>
 ///   }
+/// }
 /// ```
 #[derive(Copy, Clone, PartialEq)]
 pub struct NodeRef(RwSignal<Option<web_sys::Element>>);
