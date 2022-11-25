@@ -127,13 +127,18 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
                 }
             }
 
-            // TODO dispose of extra routes from previous matches if they're longer than new ones
+            if disposers.borrow().len() > next_matches.len() {
+                let surplus_disposers = disposers.borrow_mut().split_off(next_matches.len() + 1);
+                for disposer in surplus_disposers {
+                    disposer.dispose();
+                }
+            }
 
             if let Some(prev) = &prev && equal {
                 RouterState {
                     matches: next_matches.to_vec(),
                     routes: prev_routes.cloned().unwrap_or_default(),
-                    root: prev.root.clone()
+                    root: prev.root.clone(),
                 }
             } else {
                 let root = next.borrow().get(0).cloned();
@@ -157,7 +162,9 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
             }
 
             if prev.is_none() || !root_equal.get() {
-                root.as_ref().map(|route| route.outlet().into_child(cx))
+                root.as_ref().map(|route| {
+                    route.outlet().into_child(cx)
+                })
             } else {
                 prev.cloned().unwrap()
             }

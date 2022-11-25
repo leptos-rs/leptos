@@ -49,6 +49,7 @@ pub fn router_example(cx: Scope) -> Element {
 
 #[component]
 pub fn ContactList(cx: Scope) -> Element {
+    log!("rendering ContactList");
     let location = use_location(cx);
     let contacts = create_resource(cx, move || location.search.get(), get_contacts);
     let contacts = move || {
@@ -78,6 +79,7 @@ pub fn ContactList(cx: Scope) -> Element {
 
 #[component]
 pub fn Contact(cx: Scope) -> Element {
+    log!("rendering <Contact/> page");
     let params = use_params_map(cx);
     let contact = create_resource(
         cx,
@@ -122,6 +124,7 @@ pub fn Contact(cx: Scope) -> Element {
 
 #[component]
 pub fn About(_cx: Scope) -> Element {
+    log!("rendering About page");
     view! { cx,
         <div>
             <h1>"About"</h1>
@@ -132,6 +135,7 @@ pub fn About(_cx: Scope) -> Element {
 
 #[component]
 pub fn Settings(_cx: Scope) -> Element {
+    log!("rendering Settings page");
     view! { cx,
         <div>
             <h1>"Settings"</h1>
