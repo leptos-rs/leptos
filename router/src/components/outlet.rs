@@ -9,7 +9,7 @@ pub fn Outlet(cx: Scope) -> Child {
     (move || {
         route.child().map(|child| {
             provide_context(child.cx(), child.clone());
-            child.outlet()
+            cx.untrack(move || child.outlet())
         })
     })
     .into_child(cx)
