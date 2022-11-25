@@ -22,6 +22,7 @@ mod class;
 mod event_delegation;
 mod logging;
 mod mount;
+mod node_ref;
 mod operations;
 mod property;
 
@@ -80,6 +81,7 @@ pub use child::*;
 pub use class::*;
 pub use logging::*;
 pub use mount::*;
+pub use node_ref::*;
 pub use operations::*;
 pub use property::*;
 

@@ -262,7 +262,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let input: Element;
+    let input = NodeRef::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -295,8 +295,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     set_editing(true);
 
                     // guard against the fact that in SSR mode, that ref is actually to a String
-                    #[cfg(any(feature = "csr", feature = "hydrate"))]
-                    if let Some(input) = input.dyn_ref::<HtmlInputElement>() {
+                    if let Some(input) = input.get().dyn_ref::<HtmlInputElement>() {
                         input.focus();
                     }
                 }>

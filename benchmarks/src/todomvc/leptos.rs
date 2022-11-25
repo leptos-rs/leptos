@@ -222,7 +222,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
 pub fn Todo(cx: Scope, todo: Todo) -> Element {
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
-    let input: Element;
+    let input = NodeRef::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
