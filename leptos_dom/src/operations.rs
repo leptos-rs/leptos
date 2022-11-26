@@ -206,8 +206,8 @@ pub fn event_target_checked(ev: &web_sys::Event) -> bool {
 
 /// Runs the given function between the next repaint
 /// using [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame).
-pub fn request_animation_frame(cb: impl Fn() + 'static) {
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
+pub fn request_animation_frame(cb: impl FnMut() + 'static) {
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut()>).into_js_value();
     _ = window().request_animation_frame(cb.as_ref().unchecked_ref());
 }
 

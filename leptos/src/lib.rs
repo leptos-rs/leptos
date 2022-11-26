@@ -77,6 +77,10 @@
 //!   from the server to the client.
 //! - `miniserde` In SSR/hydrate mode, uses [miniserde](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
 //!   from the server to the client.
+//! - `interning` (*Default*) When client-side rendering, Leptos uses [`wasm_bindgen::intern`](https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/fn.intern.html)
+//!   to reduce the cost of copying class names, attribute names, attribute values, and properties through JavaScript to the DOM. This feature
+//!   (included by default) makes DOM updates marginally faster and WASM binary size marginally larger. Disabling the feature makes binary sizes
+//!   marginally smaller at the cost of a small decrease in speed.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in.

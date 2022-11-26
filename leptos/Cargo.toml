@@ -16,7 +16,7 @@ leptos_reactive = { path = "../leptos_reactive", default-features = false, versi
 leptos_server = { path = "../leptos_server", default-features = false, version = "0.0.18" }
 
 [features]
-default = ["csr", "serde"]
+default = ["csr", "serde", "interning"]
 csr = [
 	"leptos_core/csr",
 	"leptos_dom/csr",
@@ -48,6 +48,7 @@ stable = [
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
+interning = ["leptos_dom/interning"]
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]

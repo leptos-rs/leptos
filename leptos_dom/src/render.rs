@@ -66,9 +66,11 @@ pub fn attribute(cx: Scope, el: &web_sys::Element, attr_name: &'static str, valu
 fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute) {
     match value {
         Attribute::String(value) => {
+            let value = wasm_bindgen::intern(&value);
             if attr_name == "inner_html" {
                 el.set_inner_html(&value);
             } else {
+                let attr_name = wasm_bindgen::intern(attr_name);
                 set_attribute(el, attr_name, &value)
             }
         }
@@ -76,13 +78,18 @@ fn attribute_expression(el: &web_sys::Element, attr_name: &str, value: Attribute
             if attr_name == "inner_html" {
                 el.set_inner_html(&value.unwrap_or_default());
             } else {
+                let attr_name = wasm_bindgen::intern(attr_name);
                 match value {
-                    Some(value) => set_attribute(el, attr_name, &value),
+                    Some(value) => {
+                        let value = wasm_bindgen::intern(&value);
+                        set_attribute(el, attr_name, &value)
+                    }
                     None => remove_attribute(el, attr_name),
                 }
             }
         }
         Attribute::Bool(value) => {
+            let attr_name = wasm_bindgen::intern(attr_name);
             if value {
                 set_attribute(el, attr_name, attr_name);
             } else {
@@ -106,12 +113,16 @@ pub fn property(cx: Scope, el: &web_sys::Element, prop_name: &'static str, value
             create_render_effect(cx, move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) && !(old == None && new == JsValue::UNDEFINED) {
+                    wasm_bindgen::intern(prop_name);
                     property_expression(&el, prop_name, new.clone())
                 }
                 new
             });
         }
-        Property::Value(value) => property_expression(el, prop_name, value),
+        Property::Value(value) => {
+            wasm_bindgen::intern(prop_name);
+            property_expression(el, prop_name, value)
+        }
     }
 }
 
@@ -143,6 +154,7 @@ pub fn class(cx: Scope, el: &web_sys::Element, class_name: &'static str, value: 
 
 fn class_expression(el: &web_sys::Element, class_name: &str, value: bool) {
     let class_list = el.class_list();
+    let class_name = wasm_bindgen::intern(class_name);
     if value {
         class_list.add_1(class_name).unwrap_throw();
     } else {
