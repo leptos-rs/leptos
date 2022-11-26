@@ -364,7 +364,6 @@ fn element_to_tokens(
                 &this_el_ident,
                 template,
                 expressions,
-                navigations,
                 mode,
             );
         }
@@ -505,7 +504,6 @@ fn attr_to_tokens(
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
-    navigations: &mut Vec<TokenStream>,
     mode: Mode,
 ) {
     let name = node.key.to_string();

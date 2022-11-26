@@ -27,8 +27,9 @@
 //!
 //! ### `#[server]`
 //!
-//! The `#[server]` macro allows you to annotate a function to indicate that it should only run
-//! on the server (i.e., when you have an `ssr` feature in your crate that is enabled).
+//! The [`#[server]` macro](leptos::leptos_macro::server) allows you to annotate a function to 
+//! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your 
+//! crate that is enabled).
 //!
 //! ```rust,ignore
 //! # use leptos_reactive::*;
@@ -62,7 +63,8 @@
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
 //! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
-//!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/).
+//!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
+//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 //! - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
 //!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
 //!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
@@ -351,7 +353,7 @@ pub async fn call_server_fn<T>(
 where
     T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
-    use ciborium::{de::from_reader, ser::into_writer};
+    use ciborium::{ser::into_writer};
     use leptos_dom::js_sys::Uint8Array;
     //use leptos_dom::log;
     use serde_json::Deserializer as JSONDeserializer;
