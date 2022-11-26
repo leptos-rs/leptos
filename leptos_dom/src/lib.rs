@@ -138,9 +138,15 @@ impl Comment {
         let content = content.into();
 
         let node = 'label: {
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
             break 'label gloo::utils::document()
                 .create_comment(&format!(" {content} "))
+                .unchecked_into::<web_sys::Node>()
+                .into();
+
+            #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
+            break 'label gloo::utils::document()
+                .create_comment("")
                 .unchecked_into::<web_sys::Node>()
                 .into();
 
@@ -191,9 +197,11 @@ impl Text {
 pub struct Component {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     document_fragment: web_sys::DocumentFragment,
+    #[cfg(debug_assertions)]
     name: Cow<'static, str>,
+    #[cfg(debug_assertions)]
     opening: Comment,
-    children: Rc<RefCell<Vec<Node>>>,
+    children: Vec<Node>,
     closing: Comment,
 }
 
@@ -209,33 +217,43 @@ impl Component {
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
 
-        let parts = {
-            let fragment = gloo::utils::document().create_document_fragment();
-
+        #[cfg(debug_assertions)]
+        let (opening, closing) = {
             let opening = Comment::new(Cow::Owned(format!("<{name}>")));
             let closing = Comment::new(Cow::Owned(format!("</{name}>")));
+
+            (opening, closing)
+        };
+        #[cfg(not(debug_assertions))]
+        let closing = Comment::new("");
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        let document_fragment = {
+            let fragment = gloo::utils::document().create_document_fragment();
 
             // Insert the comments into the document fragment
             // so they can serve as our references when inserting
             // future nodes
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            #[cfg(debug_assertions)]
             fragment
-                .append_with_node_2(&opening.node.0, &closing.node.0)
+                .append_with_node_2(&opening.node, &closing.node)
                 .expect("append to not err");
 
-            (
-                opening,
-                closing,
-                #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                fragment,
-            )
+            #[cfg(not(debug_assertions))]
+            fragment
+                .append_with_node_1(&closing.node)
+                .expect("append to not err");
+
+            fragment
         };
 
         Self {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            document_fragment: parts.2,
-            opening: parts.0,
-            closing: parts.1,
+            document_fragment,
+            #[cfg(debug_assertions)]
+            opening,
+            closing,
+            #[cfg(debug_assertions)]
             name,
             children: Default::default(),
         }
@@ -251,6 +269,15 @@ pub enum Node {
     Text(Text),
     /// Custom leptos component.
     Component(Component),
+    /// leptos core-component.
+    CoreComponent(CoreComponent),
+}
+
+/// The default [`Node`] is the [`Unit`] core-component.
+impl Default for Node {
+    fn default() -> Self {
+        Self::CoreComponent(Default::default())
+    }
 }
 
 impl IntoNode for Node {
@@ -273,12 +300,24 @@ impl Node {
         match self {
             Self::Element(node) => node.node.0.clone(),
             Self::Text(t) => t.node.0.clone(),
-            Self::Component(c) => c
-                .document_fragment
-                .clone()
-                .unchecked_into::<web_sys::Node>(),
+            Self::CoreComponent(c) => match c {
+                CoreComponent::Unit(u) => u.get_web_sys_node(),
+                CoreComponent::DynChild(dc) => dc.get_web_sys_node(),
+            },
+            Self::Component(c) => c.document_fragment.clone().unchecked_into(),
         }
     }
+}
+
+/// The core foundational leptos components.
+#[derive(Debug, educe::Educe)]
+#[educe(Default)]
+pub enum CoreComponent {
+    /// The [`Unit`] component.
+    #[educe(Default)]
+    Unit(UnitRepr),
+    /// The [`DynChild`] component.
+    DynChild(DynChildRepr),
 }
 
 #[instrument]
@@ -325,7 +364,7 @@ where
 
         let node = f(cx).into_node(cx);
 
-        root.append_child(&node.get_web_sys_node());
+        root.append_child(&node.get_web_sys_node()).unwrap();
 
         std::mem::forget(node);
     });
