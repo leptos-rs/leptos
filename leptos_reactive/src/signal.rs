@@ -616,6 +616,28 @@ where
         }
     }
 
+    /// Returns a write-only handle to the signal.
+    ///
+    /// Useful if you're trying to give write access to another component, or split an
+    /// `RwSignal` into a [ReadSignal] and a [WriteSignal].
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    /// let count = create_rw_signal(cx, 0);
+    /// let set_count = count.write_only();
+    /// assert_eq!(count(), 0);
+    /// set_count(1);
+    /// assert_eq!(count.get(), 1);
+    /// # }).dispose();
+    /// ```
+    pub fn write_only(&self) -> WriteSignal<T> {
+        WriteSignal {
+            runtime: self.runtime,
+            id: self.id,
+            ty: PhantomData,
+        }
+    }
+
     /// Generates a [Stream] that emits the new value of the signal whenever it changes.
     pub fn to_stream(&self) -> impl Stream<Item = T>
     where
