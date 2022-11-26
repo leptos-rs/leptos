@@ -627,7 +627,7 @@ where
     /// let set_count = count.write_only();
     /// assert_eq!(count(), 0);
     /// set_count(1);
-    /// assert_eq!(count.get(), 1);
+    /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
     pub fn write_only(&self) -> WriteSignal<T> {
@@ -636,6 +636,34 @@ where
             id: self.id,
             ty: PhantomData,
         }
+    }
+
+    /// Splits an `RwSignal` into its getter and setter.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    /// let count = create_rw_signal(cx, 0);
+    /// let (get_count, set_count) = count.split();
+    /// assert_eq!(count(), 0);
+    /// assert_eq!(get_count(), 0);
+    /// set_count(1);
+    /// assert_eq!(count(), 1);
+    /// assert_eq!(get_count(), 1);
+    /// # }).dispose();
+    /// ```
+    pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
+        (
+            ReadSignal {
+                runtime: self.runtime,
+                id: self.id,
+                ty: PhantomData,
+            },
+            WriteSignal {
+                runtime: self.runtime,
+                id: self.id,
+                ty: PhantomData,
+            },
+        )
     }
 
     /// Generates a [Stream] that emits the new value of the signal whenever it changes.
