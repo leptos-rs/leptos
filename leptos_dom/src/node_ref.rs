@@ -1,5 +1,5 @@
 use leptos_reactive::{
-    create_rw_signal, RwSignal, Scope, UntrackedGettableSignal, UntrackedSettableSignal,
+    create_rw_signal, RwSignal, Scope
 };
 
 /// Contains a shared reference to a DOM node creating while using the [view](leptos::view)
