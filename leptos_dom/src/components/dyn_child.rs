@@ -65,7 +65,6 @@ where
     CF: Fn() -> N + 'static,
     N: IntoNode,
 {
-    name: Cow<'static, str>,
     child_fn: CF,
 }
 
@@ -77,16 +76,7 @@ where
     /// Creates a new dynamic child which will re-render whenever it's
     /// signal dependencies change.
     pub fn new(child_fn: CF) -> Self {
-        Self {
-            child_fn,
-            name: "DynChild".into(),
-        }
-    }
-
-    /// Renames this component so you can use it as a primitive for
-    /// something else, such as [`DynText`](crate::DynText).
-    pub fn rename(&mut self, new_name: impl Into<Cow<'static, str>>) {
-        self.name = new_name.into()
+        Self { child_fn }
     }
 }
 
@@ -97,7 +87,7 @@ where
 {
     #[instrument(level = "trace", skip_all)]
     fn into_node(self, cx: Scope) -> crate::Node {
-        let Self { name, child_fn } = self;
+        let Self { child_fn } = self;
 
         let component = DynChildRepr::default();
 
