@@ -140,7 +140,7 @@ macro_rules! generate_html_tags {
     ),* $(,)?) => {
         paste::paste! {
             $(
-                #[derive(Clone, Copy, Debug)]
+                #[derive(Clone, Copy, Debug, Default)]
                 #[$meta]
                 pub struct [<$tag:camel $($trailing_)?>];
 
