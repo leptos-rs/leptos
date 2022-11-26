@@ -44,4 +44,29 @@ lto = true
 opt-level = 'z'
 
 [workspace.metadata.cargo-all-features]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [
+  [
+    "csr",
+    "ssr",
+  ],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "serde",
+    "serde-lite",
+  ],
+  [
+    "serde-lite",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "miniserde",
+  ],
+]

@@ -47,3 +47,29 @@ miniserde = ["dep:miniserde"]
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]
+skip_feature_sets = [
+  [
+    "csr",
+    "ssr",
+  ],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "serde",
+    "serde-lite",
+  ],
+  [
+    "serde-lite",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "miniserde",
+  ],
+]
