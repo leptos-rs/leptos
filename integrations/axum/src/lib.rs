@@ -1,5 +1,5 @@
 use axum::{
-    body::{Body, BoxBody, Bytes, StreamBody},
+    body::{Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -85,31 +85,28 @@ pub async fn handle_server_fns(
                                             .header("Location", referer);
                                     }
                                     match serialized {
-                                        Payload::Binary(data) => {
-                                            res.header("Content-Type", "application/cbor");
-                                            res.body(BoxBody::new(data))
-                                        }
-                                        Payload::Url(data) => {
-                                            res.header(
+                                        Payload::Binary(data) => res
+                                            .header("Content-Type", "application/cbor")
+                                            .body(Full::from(data)),
+                                        Payload::Url(data) => res
+                                            .header(
                                                 "Content-Type",
                                                 "application/x-www-form-urlencoded",
-                                            );
-                                            res.body(BoxBody::new(data))
-                                        }
-                                        Payload::Json(data) => {
-                                            res.header("Content-Type", "application/jsoon");
-                                            res.body(BoxBody::new(data))
-                                        }
+                                            )
+                                            .body(Full::from(data)),
+                                        Payload::Json(data) => res
+                                            .header("Content-Type", "application/json")
+                                            .body(Full::from(data)),
                                     }
                                 }
                                 Err(e) => Response::builder()
                                     .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                    .body(BoxBody::new(e.to_string())),
+                                    .body(Full::from(e.to_string())),
                             }
                         } else {
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
-                                .body(BoxBody::new(
+                                .body(Full::from(
                                     "Could not find a server function at that route.".to_string(),
                                 ))
                         }
@@ -253,7 +250,7 @@ pub fn render_app_to_stream(
                 let stream = futures::stream::once(async move { head.clone() })
                     .chain(rx)
                     .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(BoxBody::new(html)) as io::Result<Bytes>);
+                    .map(|html| Ok(Bytes::from(html)));
                 StreamBody::new(Box::pin(stream) as PinnedHtmlStream)
             }
         })
