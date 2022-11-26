@@ -40,14 +40,20 @@ impl NodeRef {
     }
 
     /// Gets the element that is currently stored in the reference.
+    ///
+    /// This tracks reactively, so that node references can be used in effects.
+    /// Initially, the value will be `None`, but once it is loaded the effect
+    /// will rerun and its value will be `Some(Element)`.
     pub fn get(&self) -> Option<web_sys::Element> {
-        self.0.get_untracked()
+        self.0.get()
     }
 
     #[doc(hidden)]
-    /// Loads an element into the reference/
+    /// Loads an element into the reference. This tracks reactively,
+    /// so that effects that use the node reference will rerun once it is loaded,
+    /// i.e., effects can be forward-declared.
     pub fn load(&self, node: &web_sys::Element) {
-        self.0.set_untracked(Some(node.clone()))
+        self.0.set(Some(node.clone()))
     }
 }
 
