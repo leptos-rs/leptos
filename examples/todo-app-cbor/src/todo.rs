@@ -34,7 +34,7 @@ cfg_if! {
     }
 }
 
-#[server(GetTodos, "/api")]
+#[server(GetTodos, "/api", "Url")]
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req =
@@ -58,7 +58,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     Ok(todos)
 }
 
-#[server(AddTodo, "/api")]
+#[server(AddTodo, "/api", "Cbor")]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 

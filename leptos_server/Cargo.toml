@@ -18,36 +18,22 @@ log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_urlencoded = "0.7"
 thiserror = "1"
+rmp-serde = "1.1.1"
+serde_json = "1.0.89"
+quote = "1"
+syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
+proc-macro2 = "1.0.47"
+ciborium = "0.2.0"
 
 [dev-dependencies]
 leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }
 leptos = { path = "../leptos", default-features = false, version = "0.0" }
 
 [features]
-csr = [
-	"leptos_dom/csr",
-	"leptos_reactive/csr",
-	"leptos_macro/csr",
-	"leptos/csr",
-]
-hydrate = [
-	"leptos_dom/hydrate",
-	"leptos_reactive/hydrate",
-	"leptos_macro/hydrate",
-	"leptos/hydrate",
-]
-ssr = [
-	"leptos_dom/ssr",
-	"leptos_reactive/ssr",
-	"leptos_macro/ssr",
-	"leptos/csr",
-]
-stable = [
-	"leptos_dom/stable",
-	"leptos_reactive/stable",
-	"leptos_macro/stable",
-	"leptos/stable",
-]
+csr = ["leptos_dom/csr", "leptos_reactive/csr", "leptos_macro/csr", "leptos/csr"]
+hydrate = ["leptos_dom/hydrate", "leptos_reactive/hydrate", "leptos_macro/hydrate", "leptos/hydrate"]
+ssr = ["leptos_dom/ssr", "leptos_reactive/ssr", "leptos_macro/ssr", "leptos/csr"]
+stable = ["leptos_dom/stable", "leptos_reactive/stable", "leptos_macro/stable", "leptos/stable"]
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]

@@ -15,7 +15,8 @@ pub enum SerializationError {
     Deserialize(Rc<dyn std::error::Error>),
 }
 
-/// Describes an object that can be serialized to or from JSON.
+/// Describes an object that can be serialized to or from a supported format
+/// Currently those are JSON and Cbor
 ///
 /// This is primarily used for serializing and deserializing [Resource](crate::Resource)s
 /// so they can begin on the server and be resolved on the client, but can be used
@@ -92,6 +93,7 @@ cfg_if! {
             fn from_json(json: &str) -> Result<Self, SerializationError> {
                 serde_json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
             }
+
         }
     }
 }

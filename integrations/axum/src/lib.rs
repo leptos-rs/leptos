@@ -1,5 +1,5 @@
 use axum::{
-    body::{Body, Bytes, StreamBody},
+    body::{Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -70,8 +70,9 @@ pub async fn handle_server_fns(
                                     // if this is Accept: application/json then send a serialized JSON response
                                     let accept_header =
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
+                                    let mut res = Response::builder();
                                     if let Some("application/json") = accept_header {
-                                        Response::builder().status(StatusCode::OK).body(serialized)
+                                        res = res.status(StatusCode::OK);
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                                     else {
@@ -79,21 +80,35 @@ pub async fn handle_server_fns(
                                             .get("Referer")
                                             .and_then(|value| value.to_str().ok())
                                             .unwrap_or("/");
-                                        Response::builder()
+                                        res = res
                                             .status(StatusCode::SEE_OTHER)
-                                            .header("Location", referer)
+                                            .header("Location", referer);
+                                    }
+                                    match serialized {
+                                        Payload::Binary(data) => res
+                                            .header("Content-Type", "application/cbor")
+                                            .body(Full::from(data)),
+                                        Payload::Url(data) => res
+                                            .header(
+                                                "Content-Type",
+                                                "application/x-www-form-urlencoded",
+                                            )
+                                            .body(Full::from(data)),
+                                        Payload::Json(data) => res
                                             .header("Content-Type", "application/json")
-                                            .body(serialized)
+                                            .body(Full::from(data)),
                                     }
                                 }
                                 Err(e) => Response::builder()
                                     .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                    .body(e.to_string()),
+                                    .body(Full::from(e.to_string())),
                             }
                         } else {
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
-                                .body("Could not find a server function at that route.".to_string())
+                                .body(Full::from(
+                                    "Could not find a server function at that route.".to_string(),
+                                ))
                         }
                         .expect("could not build Response");
 
@@ -235,7 +250,7 @@ pub fn render_app_to_stream(
                 let stream = futures::stream::once(async move { head.clone() })
                     .chain(rx)
                     .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(Bytes::from(html)) as io::Result<Bytes>);
+                    .map(|html| Ok(Bytes::from(html)));
                 StreamBody::new(Box::pin(stream) as PinnedHtmlStream)
             }
         })
