@@ -14,7 +14,7 @@ impl Fragment {
 impl IntoNode for Fragment {
     #[instrument(level = "trace")]
     fn into_node(self, _cx: leptos_reactive::Scope) -> Node {
-        let frag = Component::new("Fragment");
+        let frag = Component::new("");
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         let closing = &frag.closing.node.0;
