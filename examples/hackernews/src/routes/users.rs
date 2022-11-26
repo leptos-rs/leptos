@@ -8,7 +8,13 @@ pub fn User(cx: Scope) -> Element {
     let user = create_resource(
         cx,
         move || params().get("id").cloned().unwrap_or_default(),
-        move |id| async move { api::fetch_api::<User>(&api::user(&id)).await },
+        move |id| async move {
+            if id.is_empty() {
+                None
+            } else {
+                api::fetch_api::<User>(cx, &api::user(&id)).await
+            }
+        },
     );
     view! { cx,
         <div class="user-view">

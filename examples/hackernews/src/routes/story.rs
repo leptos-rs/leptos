@@ -8,7 +8,13 @@ pub fn Story(cx: Scope) -> Element {
     let story = create_resource(
         cx,
         move || params().get("id").cloned().unwrap_or_default(),
-        move |id| async move { api::fetch_api::<api::Story>(&api::story(&format!("item/{id}"))).await },
+        move |id| async move {
+            if id.is_empty() {
+                None
+            } else {
+                api::fetch_api::<api::Story>(cx, &api::story(&format!("item/{id}"))).await
+            }
+        },
     );
 
     view! { cx,

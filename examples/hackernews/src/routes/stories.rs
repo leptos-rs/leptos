@@ -32,7 +32,7 @@ pub fn Stories(cx: Scope) -> Element {
         move || (page(), story_type()),
         move |(page, story_type)| async move {
             let path = format!("{}?page={}", category(&story_type), page);
-            api::fetch_api::<Vec<api::Story>>(&api::story(&path)).await
+            api::fetch_api::<Vec<api::Story>>(cx, &api::story(&path)).await
         },
     );
 

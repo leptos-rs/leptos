@@ -26,6 +26,7 @@ serde_json = "1"
 gloo-net = { version = "0.2", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"] }
 # openssl = { version = "0.10", features = ["v110"] }
+web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 
 [features]
 default = ["csr"]
