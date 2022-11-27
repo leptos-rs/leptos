@@ -213,7 +213,8 @@ pub struct Component {
   name: Cow<'static, str>,
   #[cfg(debug_assertions)]
   opening: Comment,
-  children: Vec<Node>,
+  /// The children of the component.
+  pub children: Vec<Node>,
   closing: Comment,
 }
 

@@ -75,8 +75,23 @@ fn view_fn(cx: Scope) -> impl IntoNode {
     input()
       .dyn_attr("disabled", move || disabled().then_some(""))
       .into_node(cx),
+    MyComponent.into_node(cx),
     h3()
       .dyn_child(move || show().then(|| text("Now you see me...")))
       .into_node(cx),
   ]
+}
+
+struct MyComponent;
+
+impl IntoNode for MyComponent {
+  fn into_node(self, cx: Scope) -> Node {
+    let mut component = Component::new("MyComponent");
+
+    let view = [h2().child(text("MyComponent"))].into_node(cx);
+
+    component.children.push(view);
+
+    component.into_node(cx)
+  }
 }
