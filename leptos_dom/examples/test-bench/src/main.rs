@@ -30,7 +30,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
   let (count, set_count) = create_signal(cx, 0);
   let (show, set_show) = create_signal(cx, true);
   let (iterable, set_iterable) =
-    create_signal(cx, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+    create_signal(cx, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   let (disabled, set_disabled) = create_signal(cx, false);
 
   wasm_bindgen_futures::spawn_local(async move {
