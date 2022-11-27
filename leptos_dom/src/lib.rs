@@ -12,6 +12,7 @@ pub use components::*;
 pub use html::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
+use std::fmt;
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
 
@@ -19,6 +20,11 @@ use wasm_bindgen::JsCast;
 pub trait IntoNode {
     /// Converts the value into [`Node`].
     fn into_node(self, cx: Scope) -> Node;
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+trait GetWebSysNode {
+    fn get_web_sys_node(&self) -> web_sys::Node;
 }
 
 impl IntoNode for () {
@@ -294,8 +300,8 @@ impl IntoNode for Vec<Node> {
     }
 }
 
-impl Node {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl GetWebSysNode for Node {
     fn get_web_sys_node(&self) -> web_sys::Node {
         match self {
             Self::Element(node) => node.node.0.clone(),
@@ -303,9 +309,16 @@ impl Node {
             Self::CoreComponent(c) => match c {
                 CoreComponent::Unit(u) => u.get_web_sys_node(),
                 CoreComponent::DynChild(dc) => dc.get_web_sys_node(),
+                CoreComponent::Each(e) => e.get_web_sys_node(),
             },
             Self::Component(c) => c.document_fragment.clone().unchecked_into(),
         }
+    }
+}
+
+impl Node {
+    fn is_unit(&self) -> bool {
+        matches!(self, Node::CoreComponent(CoreComponent::Unit(_)))
     }
 }
 
@@ -318,12 +331,14 @@ pub enum CoreComponent {
     Unit(UnitRepr),
     /// The [`DynChild`] component.
     DynChild(DynChildRepr),
+    /// The [`Each`] component.
+    Each(EachRepr),
 }
 
 #[instrument]
 #[track_caller]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-fn mount_child(kind: MountKind, child: &Node) {
+fn mount_child<GWSN: GetWebSysNode + fmt::Debug>(kind: MountKind, child: &GWSN) {
     let child = child.get_web_sys_node();
 
     match kind {
@@ -334,7 +349,7 @@ fn mount_child(kind: MountKind, child: &Node) {
                 .expect("before to not err");
         }
         MountKind::Element(el) => {
-            el.0.append_child(&child)
+            el.append_child(&child)
                 .expect("append operation to not err");
         }
     }
@@ -347,7 +362,7 @@ enum MountKind<'a> {
         // The closing node
         &'a web_sys::Node,
     ),
-    Element(&'a WebSysNode),
+    Element(&'a web_sys::Node),
 }
 
 /// Runs the provided closure and mounts the result to eht `<body>`.
@@ -364,7 +379,7 @@ where
 
         let node = f(cx).into_node(cx);
 
-        root.append_child(&node.get_web_sys_node()).unwrap();
+        root.append_child(&(&node).get_web_sys_node()).unwrap();
 
         std::mem::forget(node);
     });
