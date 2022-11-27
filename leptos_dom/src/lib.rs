@@ -220,6 +220,11 @@ pub struct Component {
 impl IntoNode for Component {
   #[instrument(level = "trace")]
   fn into_node(self, _: Scope) -> Node {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    for child in &self.children {
+      mount_child(MountKind::Component(&self.closing.node), child);
+    }
+
     Node::Component(self)
   }
 }
