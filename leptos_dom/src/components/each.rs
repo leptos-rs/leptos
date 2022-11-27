@@ -152,7 +152,7 @@ impl EachItem {
 
         let r = web_sys::Range::new().unwrap();
 
-        r.set_start(start, 0).unwrap();
+        r.set_start_before(start).unwrap();
         r.set_end_after(end).unwrap();
 
         let frag = r.extract_contents().unwrap();
