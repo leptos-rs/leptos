@@ -2,7 +2,9 @@ use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
 use leptos_reactive::Scope;
-use std::{borrow::Cow, fmt};
+use smallvec::{smallvec, SmallVec};
+use std::{borrow::Cow, cell::OnceCell, fmt};
+use wasm_bindgen::JsCast;
 
 /// Trait which allows creating an element tag.
 pub trait IntoElement: fmt::Debug {
@@ -50,6 +52,8 @@ impl IntoElement for Custom {
 #[educe(Debug)]
 pub struct HtmlElement<El: IntoElement> {
     element: El,
+    id: OnceCell<Cow<'static, str>>,
+    attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
     #[educe(Debug(ignore))]
     children: Vec<Box<dyn FnOnce(Scope) -> Node>>,
 }
@@ -57,6 +61,8 @@ pub struct HtmlElement<El: IntoElement> {
 impl<El: IntoElement> HtmlElement<El> {
     fn new(element: El) -> Self {
         Self {
+            id: Default::default(),
+            attrs: smallvec![],
             children: vec![],
             element,
         }
@@ -64,15 +70,58 @@ impl<El: IntoElement> HtmlElement<El> {
 
     /// Converts this element into [`HtmlElement<AnyElement>`].
     pub fn into_any(self) -> HtmlElement<AnyElement> {
-        let Self { children, element } = self;
+        let Self {
+            id,
+            attrs,
+            children,
+            element,
+        } = self;
 
         HtmlElement {
+            id,
+            attrs,
             children,
             element: AnyElement {
                 name: element.name(),
                 is_void: element.is_void(),
             },
         }
+    }
+
+    /// Adds an `id` to the element.
+    #[track_caller]
+    pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
+        self.id.set(id.into()).expect("`id` can only be set once");
+
+        self
+    }
+
+    /// Adds an attribute to the element.
+    #[track_caller]
+    pub fn attr(
+        mut self,
+        name: impl Into<Cow<'static, str>>,
+        value: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        let name = name.into();
+        let value = value.into();
+
+        #[cfg(debug_assertions)]
+        {
+            assert_ne!(
+                name, "id",
+                "to set the `id`, please use `HtmlElement::id` instead"
+            );
+
+            assert!(
+                !self.attrs.iter().any(|(n, _)| n == &name),
+                "attribute `{name}` already set"
+            );
+        }
+
+        self.attrs.push((name, value));
+
+        self
     }
 
     /// Inserts a child into this element.
@@ -99,17 +148,43 @@ impl<El: IntoElement> HtmlElement<El> {
 impl<El: IntoElement> IntoNode for HtmlElement<El> {
     #[instrument(level = "trace")]
     fn into_node(self, cx: Scope) -> Node {
-        let Self { element, children } = self;
+        let Self {
+            element,
+            id,
+            attrs,
+            children,
+        } = self;
 
         let mut element = Element::new(element);
 
         let children = children.into_iter().map(|c| c(cx)).collect::<Vec<_>>();
 
-        for child in &children {
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            mount_child(MountKind::Element(&element.node), child);
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            if let Some(id) = id.get() {
+                element
+                    .node
+                    .0
+                    .unchecked_ref::<web_sys::Element>()
+                    .set_attribute("id", id)
+                    .unwrap();
+            }
+
+            for (name, value) in &attrs {
+                element
+                    .node
+                    .0
+                    .unchecked_ref::<web_sys::Element>()
+                    .set_attribute(name, value)
+                    .unwrap();
+            }
+
+            for child in &children {
+                mount_child(MountKind::Element(&element.node), child);
+            }
         }
 
+        element.attrs = attrs;
         element.children.extend(children);
 
         Node::Element(element)

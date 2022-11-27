@@ -1,4 +1,5 @@
 #![deny(missing_docs)]
+#![feature(once_cell)]
 
 //! The DOM implementation for `leptos`.
 
@@ -95,7 +96,7 @@ pub struct Element {
     _name: Cow<'static, str>,
     is_void: bool,
     node: WebSysNode,
-    attributes: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+    attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
     children: Vec<Node>,
 }
 
@@ -127,7 +128,7 @@ impl Element {
             _name: name,
             is_void: el.is_void(),
             node,
-            attributes: Default::default(),
+            attrs: Default::default(),
             children: Default::default(),
         }
     }
