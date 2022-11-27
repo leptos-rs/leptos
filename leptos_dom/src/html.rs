@@ -113,6 +113,11 @@ impl<El: IntoElement> HtmlElement<El> {
                 "to set the `id`, please use `HtmlElement::id` instead"
             );
 
+            assert_ne!(
+                name, "class",
+                "to set classes, please use `HtmlElement::class` instead"
+            );
+
             assert!(
                 !self.attrs.iter().any(|(n, _)| n == &name),
                 "attribute `{name}` already set"
@@ -122,6 +127,13 @@ impl<El: IntoElement> HtmlElement<El> {
         self.attrs.push((name, value));
 
         self
+    }
+
+    /// Sets a boolean attribute on the element, i.e., `checked`, or `disabled` in
+    /// `<input type="checkbox" checked disabled />`
+    #[track_caller]
+    pub fn attr_bool(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.attr(name, "")
     }
 
     /// Inserts a child into this element.
