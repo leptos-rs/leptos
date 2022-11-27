@@ -210,6 +210,13 @@ impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
     }
 }
 
+impl<El: IntoElement, const N: usize> IntoNode for [HtmlElement<El>; N] {
+    #[instrument(level = "trace")]
+    fn into_node(self, cx: Scope) -> Node {
+        Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect()).into_node(cx)
+    }
+}
+
 /// Creates any custom element, such as `<my-element>`.
 pub fn custom<El: IntoElement>(name: impl Into<Cow<'static, str>>) -> HtmlElement<Custom> {
     HtmlElement::new(Custom { name: name.into() })

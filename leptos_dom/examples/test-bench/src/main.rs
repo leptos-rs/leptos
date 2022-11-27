@@ -38,7 +38,8 @@ fn view_fn(cx: Scope) -> impl IntoNode {
     wasm_bindgen_futures::spawn_local(async move { set_iterable.update(|i| i.reverse()) });
 
     vec![
-        h1().dyn_child(move || show().then(|| text("Now you see me...")))
+        h1().id("h1")
+            .dyn_child(move || show().then(|| text("Now you see me...")))
             .into_node(cx),
         h1().dyn_child(move || text(count().to_string()))
             .into_node(cx),

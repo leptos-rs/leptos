@@ -301,6 +301,13 @@ impl IntoNode for Vec<Node> {
     }
 }
 
+impl<const N: usize> IntoNode for [Node; N] {
+    #[instrument(level = "trace")]
+    fn into_node(self, cx: Scope) -> Node {
+        Fragment::new(self.into_iter().collect()).into_node(cx)
+    }
+}
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl GetWebSysNode for Node {
     fn get_web_sys_node(&self) -> web_sys::Node {
