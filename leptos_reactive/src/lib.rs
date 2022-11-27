@@ -76,7 +76,7 @@ mod scope;
 mod selector;
 mod serialization;
 mod signal;
-mod signal_wrappers;
+mod signal_wrappers_read;
 mod spawn;
 mod suspense;
 
@@ -90,7 +90,7 @@ pub use scope::*;
 pub use selector::*;
 pub use serialization::*;
 pub use signal::*;
-pub use signal_wrappers::*;
+pub use signal_wrappers_read::*;
 pub use spawn::*;
 pub use suspense::*;
 
