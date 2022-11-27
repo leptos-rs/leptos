@@ -381,7 +381,7 @@ impl<T> Copy for WriteSignal<T> {}
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<(T,)> for WriteSignal<T>
 where
-    T: Clone + 'static,
+    T: 'static,
 {
     type Output = ();
 
@@ -393,7 +393,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<(T,)> for WriteSignal<T>
 where
-    T: Clone + 'static,
+    T: 'static,
 {
     extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
         self.update(move |n| *n = args.0)
@@ -403,7 +403,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<(T,)> for WriteSignal<T>
 where
-    T: Clone + 'static,
+    T: 'static,
 {
     extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
         self.update(move |n| *n = args.0)
