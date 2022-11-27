@@ -24,6 +24,7 @@ wasm-bindgen-futures = "0.4.31"
 version = "0.3"
 features = [
   "Comment",
+  "Range",
   "Text",
   
   # Events we cast to in leptos_macro -- added here so we don't force users to import them

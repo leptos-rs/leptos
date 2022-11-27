@@ -148,20 +148,16 @@ impl EachItem {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     fn prepare_for_move(&self) {
         let start = &self.opening.node;
-        let end = &self.closing.node.0;
+        let end = &self.closing.node;
 
-        self.document_fragment.append_child(start).unwrap();
-        self.document_fragment.append_child(end).unwrap();
+        let r = web_sys::Range::new().unwrap();
 
-        let mut next_child = start.next_sibling().unwrap();
+        r.set_start(start, 0).unwrap();
+        r.set_end_after(end).unwrap();
 
-        while next_child != *end {
-            next_child = next_child.next_sibling().unwrap();
+        let frag = r.extract_contents().unwrap();
 
-            end.unchecked_ref::<web_sys::Element>()
-                .before_with_node_1(&next_child)
-                .unwrap();
-        }
+        self.document_fragment.append_child(&frag).unwrap();
     }
 }
 
@@ -383,7 +379,7 @@ fn apply_cmds<T, EF, N>(
     for cmd in cmds.ops {
         match cmd {
             DiffOp::Remove { at } => {
-                children[at].child = None;
+                children[at] = EachItem::default();
             }
             DiffOp::Move { from, to } => {
                 let item = std::mem::replace(&mut children[from], EachItem::default());
