@@ -1,4 +1,6 @@
-use crate::{mount_child, Component, IntoNode, MountKind, Node};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::{mount_child, MountKind};
+use crate::{Component, IntoNode, Node};
 
 /// Represents a group of [`Nodes`](Node).
 #[derive(Debug)]

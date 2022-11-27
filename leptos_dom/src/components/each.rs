@@ -1,6 +1,7 @@
-use crate::{
-    mount_child, Comment, Component, CoreComponent, GetWebSysNode, IntoNode, MountKind, Node,
-};
+use crate::Comment;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::{mount_child, GetWebSysNode, MountKind};
+use crate::{Component, CoreComponent, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::borrow::Cow;
 use std::cmp;
@@ -351,7 +352,7 @@ enum DiffOp {
 
 fn apply_cmds<T, EF, N>(
     cx: Scope,
-    closing: &web_sys::Node,
+    #[cfg(all(target_arch = "wasm32", feature = "web"))] closing: &web_sys::Node,
     cmds: Diff,
     children: &mut Vec<EachItem>,
     mut items: Vec<Option<T>>,
@@ -401,10 +402,13 @@ fn apply_cmds<T, EF, N>(
 
                 each_item.child = Some(child);
 
-                let opening = children.get_next_closest_mounted_sibling(at + 1, closing.to_owned());
-
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                mount_child(MountKind::Component(&opening), &each_item);
+                {
+                    let opening =
+                        children.get_next_closest_mounted_sibling(at + 1, closing.to_owned());
+
+                    mount_child(MountKind::Component(&opening), &each_item);
+                }
 
                 children[at] = each_item;
             }

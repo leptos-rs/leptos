@@ -1,9 +1,9 @@
 use crate::Comment;
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
-
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::{mount_child, MountKind};
+use crate::{IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
-
-use crate::{mount_child, Component, IntoNode, MountKind, Node};
+use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 /// The internal representation of the [`DynChild`] core-component.
 #[derive(Debug)]
@@ -103,6 +103,7 @@ where
 
             let new_child = child_fn().into_node(cx);
 
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
             mount_child(MountKind::Component(&closing), &new_child);
 
             **child.borrow_mut() = new_child;

@@ -1,4 +1,6 @@
-use crate::{components::DynChild, mount_child, Element, Fragment, IntoNode, Node, Text};
+use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::{mount_child, MountKind};
 use leptos_reactive::Scope;
 use std::{borrow::Cow, fmt};
 
@@ -104,7 +106,8 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
         let children = children.into_iter().map(|c| c(cx)).collect::<Vec<_>>();
 
         for child in &children {
-            mount_child(crate::MountKind::Element(&element.node), child);
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            mount_child(MountKind::Element(&element.node), child);
         }
 
         element.children.extend(children);
