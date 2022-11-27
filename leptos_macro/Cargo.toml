@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.0.18"
+version = "0.0.19"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -18,9 +18,9 @@ quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
-leptos_dom = { path = "../leptos_dom", version = "0.0.18" }
-leptos_reactive = { path = "../leptos_reactive", version = "0.0.18" }
-leptos_server = { path = "../leptos_server", version = "0.0.18" }
+leptos_dom = { path = "../leptos_dom", version = "0.0.19" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.0.19" }
+leptos_server = { path = "../leptos_server", version = "0.0.19" }
 lazy_static = "1.4"
 
 [dev-dependencies]
