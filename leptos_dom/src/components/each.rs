@@ -1,13 +1,11 @@
 use crate::Comment;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, GetWebSysNode, MountKind};
-use crate::{Component, CoreComponent, IntoNode, Node};
+use crate::{CoreComponent, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::borrow::Cow;
-use std::cmp;
 use std::collections::HashSet;
-use std::mem::MaybeUninit;
-use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
+use std::{cell::RefCell, hash::Hash, rc::Rc};
 use wasm_bindgen::JsCast;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -24,7 +22,7 @@ impl VecExt for Vec<EachItem> {
         or: web_sys::Node,
     ) -> web_sys::Node {
         self[start_at..]
-            .into_iter()
+            .iter()
             .find_map(|s| s.child.is_some().then_some(s.opening.node.clone()))
             .unwrap_or(or)
     }
@@ -233,7 +231,7 @@ where
             let hashed_items = items
                 .iter()
                 .enumerate()
-                .map(|(idx, i)| HashKey(key_fn(&i), idx))
+                .map(|(idx, i)| HashKey(key_fn(i), idx))
                 .collect::<HashSet<_, _>>();
 
             if let Some(HashRun(prev_hash_run)) = prev_hash_run {
@@ -383,7 +381,7 @@ fn apply_cmds<T, EF, N>(
                 children[at] = EachItem::default();
             }
             DiffOp::Move { from, to } => {
-                let item = std::mem::replace(&mut children[from], EachItem::default());
+                let item = std::mem::take(&mut children[from]);
 
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 item.prepare_for_move();

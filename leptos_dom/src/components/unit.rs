@@ -1,5 +1,5 @@
 use crate::{Comment, CoreComponent};
-use crate::{Component, IntoNode, Node};
+use crate::{IntoNode, Node};
 
 /// The internal representation of the [`Unit`] core-component.
 #[derive(Debug)]

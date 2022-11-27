@@ -12,8 +12,8 @@ pub use components::*;
 pub use html::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
+use std::borrow::Cow;
 use std::fmt;
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
 
 /// Converts the value into a [`Node`].
@@ -316,12 +316,6 @@ impl GetWebSysNode for Node {
     }
 }
 
-impl Node {
-    fn is_unit(&self) -> bool {
-        matches!(self, Node::CoreComponent(CoreComponent::Unit(_)))
-    }
-}
-
 /// The core foundational leptos components.
 #[derive(Debug, educe::Educe)]
 #[educe(Default)]
@@ -379,7 +373,7 @@ where
 
         let node = f(cx).into_node(cx);
 
-        root.append_child(&(&node).get_web_sys_node()).unwrap();
+        root.append_child(&node.get_web_sys_node()).unwrap();
 
         std::mem::forget(node);
     });
