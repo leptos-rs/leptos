@@ -164,7 +164,7 @@ impl EachItem {
 struct EachProps {}
 
 /// A component for efficiently rendering an iterable.
-pub struct Each<IF, I, T, EF, N, KF, K>
+pub struct EachKey<IF, I, T, EF, N, KF, K>
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
@@ -179,7 +179,7 @@ where
     key_fn: KF,
 }
 
-impl<IF, I, T, EF, N, KF, K> Each<IF, I, T, EF, N, KF, K>
+impl<IF, I, T, EF, N, KF, K> EachKey<IF, I, T, EF, N, KF, K>
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
@@ -199,7 +199,7 @@ where
     }
 }
 
-impl<IF, I, T, EF, N, KF, K> IntoNode for Each<IF, I, T, EF, N, KF, K>
+impl<IF, I, T, EF, N, KF, K> IntoNode for EachKey<IF, I, T, EF, N, KF, K>
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
