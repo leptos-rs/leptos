@@ -28,7 +28,7 @@ impl UnitRepr {
 pub struct Unit;
 
 impl IntoNode for Unit {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "<() />", skip_all)]
   fn into_node(self, _: leptos_reactive::Scope) -> crate::Node {
     let component = UnitRepr::default();
 

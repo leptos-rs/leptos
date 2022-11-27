@@ -3,7 +3,7 @@ use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
 use crate::{mount_child, MountKind};
 use leptos_reactive::{create_effect, Scope};
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, cell::OnceCell, fmt, rc::Rc};
+use std::{borrow::Cow, cell::OnceCell, collections::HashSet, fmt, rc::Rc};
 use wasm_bindgen::JsCast;
 
 /// Trait which allows creating an element tag.
@@ -27,6 +27,12 @@ type BoxedAttrFn = Box<
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 type BoxedAttrFn =
   Box<dyn FnOnce(Scope) -> Option<(Cow<'static, str>, Cow<'static, str>)>>;
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+type BoxedClassFn =
+  Box<dyn FnOnce(Scope, web_sys::Node) -> Option<Cow<'static, str>>>;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+type BoxedClassFn = Box<dyn FnOnce(Scope) -> Option<Cow<'static, str>>>;
 
 /// Represents potentially any element, which you can change
 /// at any time before calling [`HtmlElement::into_node`].
@@ -67,6 +73,8 @@ pub struct HtmlElement<El: IntoElement> {
   #[educe(Debug(ignore))]
   attrs: SmallVec<[BoxedAttrFn; 4]>,
   #[educe(Debug(ignore))]
+  classes: SmallVec<[BoxedClassFn; 4]>,
+  #[educe(Debug(ignore))]
   #[allow(clippy::type_complexity)]
   children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
 }
@@ -76,6 +84,7 @@ impl<El: IntoElement> HtmlElement<El> {
     Self {
       id: Default::default(),
       attrs: smallvec![],
+      classes: Default::default(),
       children: smallvec![],
       element,
     }
@@ -86,6 +95,7 @@ impl<El: IntoElement> HtmlElement<El> {
     let Self {
       id,
       attrs,
+      classes,
       children,
       element,
     } = self;
@@ -93,6 +103,7 @@ impl<El: IntoElement> HtmlElement<El> {
     HtmlElement {
       id,
       attrs,
+      classes,
       children,
       element: AnyElement {
         name: element.name(),
@@ -150,6 +161,7 @@ impl<El: IntoElement> HtmlElement<El> {
   }
 
   /// Creates an attribute which will update itself when the signal changes.
+  #[track_caller]
   pub fn dyn_attr<F, A>(
     mut self,
     name: impl Into<Cow<'static, str>>,
@@ -177,34 +189,188 @@ impl<El: IntoElement> HtmlElement<El> {
 
     self.attrs.push(Box::new(
       |cx, #[cfg(all(target_arch = "wasm32", feature = "web"))] el_node| {
-        let initial_value = Rc::new(OnceCell::<Cow<'static, str>>::default());
+        let apply_attr = clone!([name], move |attr: Option<A>| {
+          if let Some(value) = attr {
+            let value = value.into();
+
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            el_node
+              .unchecked_ref::<web_sys::Element>()
+              .set_attribute(&name, &value)
+              .unwrap();
+
+            Some(value)
+          } else {
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            el_node
+              .unchecked_ref::<web_sys::Element>()
+              .remove_attribute(&name)
+              .unwrap();
+
+            None
+          }
+        });
+
+        let initial_value = apply_attr(f());
+
+        create_effect(cx, move |first_run| {
+          let v = f();
+
+          if first_run.is_some() {
+            apply_attr(v);
+          }
+        });
+
+        initial_value.map(|v| (name, v))
+      },
+    ));
+
+    self
+  }
+
+  /// Creates a boolean attribute which changes automatically when it's
+  /// signal changes.
+  #[track_caller]
+  pub fn dyn_attr_bool<F>(
+    self,
+    name: impl Into<Cow<'static, str>>,
+    f: F,
+  ) -> Self
+  where
+    F: Fn() -> bool + 'static,
+  {
+    self.dyn_attr(name, move || f().then_some(""))
+  }
+
+  /// Addes the provided classes to the element. You can call this
+  /// as many times as needed, seperating the classes by spaces.
+  #[track_caller]
+  pub fn class(mut self, classes: impl Into<Cow<'static, str>>) -> Self {
+    let classes = classes.into();
+
+    self.classes.push(Box::new(
+      |_, #[cfg(all(target_arch = "wasm32", feature = "web"))] _| Some(classes),
+    ));
+
+    self
+  }
+
+  /// Addes the provided classes to the element when the predicate is true.
+  ///  You can call this as many times as needed, seperating the classes
+  /// by spaces.
+  #[track_caller]
+  pub fn class_bool(
+    mut self,
+    classes: impl Into<Cow<'static, str>>,
+    predicate: bool,
+  ) -> Self {
+    let classes = classes.into();
+
+    if predicate {
+      self.classes.push(Box::new(
+        |_, #[cfg(all(target_arch = "wasm32", feature = "web"))] _| {
+          Some(classes)
+        },
+      ));
+    }
+
+    self
+  }
+
+  /// Addes the provided classes to the element when the signal yields
+  /// true. You can call this as many times as needed, seperating the
+  /// classes by spaces.
+  #[track_caller]
+  pub fn dyn_class<F, C>(mut self, f: F) -> Self
+  where
+    F: Fn() -> Option<C> + 'static,
+    C: Into<Cow<'static, str>>,
+  {
+    self.classes.push(Box::new(
+      |cx, #[cfg(all(target_arch = "wasm32", feature = "web"))] el_node| {
+        let apply_class =
+          move |class: Option<C>, prev_run: Option<Cow<'static, str>>| {
+            let _guard = debug_span!("apply_class", ?prev_run).entered();
+
+            if let Some(class) = class {
+              let class = class.into();
+
+              debug!(new_class = ?class);
+
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              if let Some(prev_class) = prev_run {
+                let prev_class_set =
+                  prev_class.split_ascii_whitespace().collect::<HashSet<_>>();
+
+                let class_set =
+                  class.split_ascii_whitespace().collect::<HashSet<_>>();
+
+                // Remove removed classes
+                prev_class_set.difference(&class_set).for_each(|c| {
+                  el_node
+                    .unchecked_ref::<web_sys::Element>()
+                    .class_list()
+                    .remove_1(c)
+                    .expect("class removal to not err");
+                });
+
+                // Add the new classes
+                class_set.difference(&prev_class_set).for_each(|c| {
+                  el_node
+                    .unchecked_ref::<web_sys::Element>()
+                    .class_list()
+                    .add_1(c)
+                    .expect("class addition to not err");
+                })
+              } else {
+                for class in class.split_ascii_whitespace() {
+                  el_node
+                    .unchecked_ref::<web_sys::Element>()
+                    .class_list()
+                    .add_1(class)
+                    .expect("adding class to not err");
+                }
+              }
+
+              Some(class)
+            } else {
+              debug!(new_class = "None");
+
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              if let Some(prev_class) = prev_run {
+                for class in prev_class.split_ascii_whitespace() {
+                  el_node
+                    .unchecked_ref::<web_sys::Element>()
+                    .class_list()
+                    .remove_1(class)
+                    .expect("class removal to not err");
+                }
+              }
+
+              None
+            }
+          };
+
+        let initial_value = apply_class(f(), None);
 
         create_effect(
           cx,
-          clone!([name, initial_value], move |_| {
-            if let Some(value) = f() {
-              let value = value.into();
+          clone!([initial_value], move |prev_run: Option<
+            Option<Cow<'static, str>>,
+          >| {
+            let mut initial_value = initial_value.clone();
 
-              if initial_value.get().is_none() {
-                initial_value.set(value.clone()).unwrap();
-              }
+            let v = f();
 
-              #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              el_node
-                .unchecked_ref::<web_sys::Element>()
-                .set_attribute(&name, &value)
-                .unwrap();
+            if let Some(prev_run) = prev_run {
+              apply_class(v, prev_run)
             } else {
-              #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              el_node
-                .unchecked_ref::<web_sys::Element>()
-                .remove_attribute(&name)
-                .unwrap();
+              apply_class(v, initial_value.take())
             }
           }),
         );
 
-        initial_value.get().cloned().map(|v| (name, v))
+        initial_value
       },
     ));
 
@@ -234,16 +400,35 @@ impl<El: IntoElement> HtmlElement<El> {
 }
 
 impl<El: IntoElement> IntoNode for HtmlElement<El> {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name()))]
   fn into_node(self, cx: Scope) -> Node {
     let Self {
       element,
       id,
       attrs,
+      classes,
       children,
     } = self;
 
     let mut element = Element::new(element);
+
+    let classes = classes
+      .into_iter()
+      .filter_map(|c| {
+        c(
+          cx,
+          #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          element.node.clone(),
+        )
+      })
+      .intersperse(" ".into())
+      .collect::<String>();
+
+    let classes = if classes.is_empty() {
+      None
+    } else {
+      Some(("class".into(), classes.into()))
+    };
 
     let attrs = attrs
       .into_iter()
@@ -254,6 +439,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
           element.node.clone(),
         )
       })
+      .chain(classes)
       .collect::<SmallVec<[_; 4]>>();
     let children = children
       .into_iter()
@@ -293,7 +479,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
 }
 
 impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "Vec<HtmlElement>", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect())
       .into_node(cx)
@@ -301,7 +487,7 @@ impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
 }
 
 impl<El: IntoElement, const N: usize> IntoNode for [HtmlElement<El>; N] {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "[HtmlElement; N]", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect())
       .into_node(cx)
@@ -336,7 +522,7 @@ macro_rules! generate_html_tags {
 
                 impl IntoElement for [<$tag:camel $($trailing_)?>] {
                     fn name(&self) -> Cow<'static, str> {
-                        stringify!([<$tag:camel $($trailing_)?>]).into()
+                        stringify!([<$tag:lower $($trailing_)?>]).into()
                     }
 
                     generate_html_tags! { @void $($void)? }

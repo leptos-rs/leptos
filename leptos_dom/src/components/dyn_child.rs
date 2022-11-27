@@ -84,7 +84,7 @@ where
   CF: Fn() -> N + 'static,
   N: IntoNode,
 {
-  #[instrument(level = "trace", skip_all)]
+  #[instrument(level = "trace", name = "<DynChild />", skip_all)]
   fn into_node(self, cx: Scope) -> crate::Node {
     let Self { child_fn } = self;
 

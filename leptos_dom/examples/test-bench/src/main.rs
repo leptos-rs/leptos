@@ -27,45 +27,54 @@ fn main() {
 }
 
 fn view_fn(cx: Scope) -> impl IntoNode {
+  let (tick, set_tick) = create_signal(cx, false);
   let (count, set_count) = create_signal(cx, 0);
   let (show, set_show) = create_signal(cx, true);
   let (iterable, set_iterable) =
-    create_signal(cx, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    create_signal(cx, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
   let (disabled, set_disabled) = create_signal(cx, false);
+  let (apply_default_class_set, set_apply_default_class_set) =
+    create_signal(cx, false);
 
   wasm_bindgen_futures::spawn_local(async move {
     loop {
-      gloo::timers::future::sleep(std::time::Duration::from_secs(1)).await;
+      gloo::timers::future::sleep(std::time::Duration::from_secs(5)).await;
 
-      set_count.update(|c| *c += 1);
+      set_tick.update(|t| *t = !*t);
     }
   });
 
-  wasm_bindgen_futures::spawn_local(async move {
-    loop {
-      gloo::timers::future::sleep(std::time::Duration::from_secs(1)).await;
+  create_effect(cx, move |_| {
+    tick();
 
-      set_show.update(|s| *s = !*s);
-    }
+    set_count.update(|c| *c += 1);
   });
 
-  wasm_bindgen_futures::spawn_local(async move {
-    loop {
-      gloo::timers::future::sleep(std::time::Duration::from_secs(1)).await;
+  create_effect(cx, move |_| {
+    tick();
 
-      set_iterable.update(|i| i.reverse())
-    }
+    set_show.update(|s| *s = !*s);
   });
 
-  wasm_bindgen_futures::spawn_local(async move {
-    loop {
-      gloo::timers::future::sleep(std::time::Duration::from_secs(1)).await;
+  create_effect(cx, move |_| {
+    tick();
 
-      set_disabled.update(|d| *d = !*d);
-    }
+    set_iterable.update(|i| i.reverse())
   });
 
-  vec![
+  create_effect(cx, move |_| {
+    tick();
+
+    set_disabled.update(|d| *d = !*d);
+  });
+
+  create_effect(cx, move |_| {
+    tick();
+
+    set_apply_default_class_set.update(|cs| *cs = !*cs);
+  });
+
+  [
     h1()
       .dyn_child(move || text(count().to_string()))
       .into_node(cx),
@@ -73,6 +82,14 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .child(EachKey::new(iterable, |i| *i, |i| text(format!("{i}, "))))
       .into_node(cx),
     input()
+      .class("input input-primary")
+      .dyn_class(move || {
+        if apply_default_class_set() {
+          Some("a b")
+        } else {
+          Some("b c")
+        }
+      })
       .dyn_attr("disabled", move || disabled().then_some(""))
       .into_node(cx),
     MyComponent.into_node(cx),

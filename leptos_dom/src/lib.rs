@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(once_cell)]
+#![feature(once_cell, iter_intersperse)]
 
 //! The DOM implementation for `leptos`.
 
@@ -30,7 +30,7 @@ trait GetWebSysNode {
 }
 
 impl IntoNode for () {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "<() />", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     Unit.into_node(cx)
   }
@@ -40,7 +40,7 @@ impl<T> IntoNode for Option<T>
 where
   T: IntoNode,
 {
-  #[instrument(level = "trace", skip_all)]
+  #[instrument(level = "trace", name = "Option<T>", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     if let Some(t) = self {
       t.into_node(cx)
@@ -55,7 +55,7 @@ where
   F: Fn() -> N + 'static,
   N: IntoNode,
 {
-  #[instrument(level = "trace", skip_all)]
+  #[instrument(level = "trace", name = "Fn() -> N", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     DynChild::new(self).into_node(cx)
   }
@@ -70,12 +70,7 @@ cfg_if::cfg_if! {
         struct WebSysNode(web_sys::Node);
 
         impl Drop for WebSysNode {
-            #[instrument(level = "trace")]
             fn drop(&mut self) {
-                let text_content = self.0.text_content();
-
-                tracing::debug!(text_content, "dropping node");
-
                 self.0.unchecked_ref::<web_sys::Element>().remove();
             }
         }
@@ -94,7 +89,7 @@ cfg_if::cfg_if! {
 /// HTML element.
 #[derive(Debug)]
 pub struct Element {
-  _name: Cow<'static, str>,
+  name: Cow<'static, str>,
   is_void: bool,
   node: WebSysNode,
   attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
@@ -102,7 +97,7 @@ pub struct Element {
 }
 
 impl IntoNode for Element {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name))]
   fn into_node(self, _: Scope) -> Node {
     Node::Element(self)
   }
@@ -126,7 +121,7 @@ impl Element {
     };
 
     Self {
-      _name: name,
+      name,
       is_void: el.is_void(),
       node,
       attrs: Default::default(),
@@ -178,7 +173,7 @@ pub struct Text {
 }
 
 impl IntoNode for Text {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "#text", skip_all, fields(content = %self.content))]
   fn into_node(self, _: Scope) -> Node {
     Node::Text(self)
   }
@@ -219,7 +214,7 @@ pub struct Component {
 }
 
 impl IntoNode for Component {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name))]
   fn into_node(self, _: Scope) -> Node {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.children {
@@ -291,6 +286,13 @@ pub enum Node {
   CoreComponent(CoreComponent),
 }
 
+impl Drop for Node {
+  #[instrument(level = "trace", skip_all, fields(kind = self.kind_name()))]
+  fn drop(&mut self) {
+    trace!("dropping node");
+  }
+}
+
 /// The default [`Node`] is the [`Unit`] core-component.
 impl Default for Node {
   fn default() -> Self {
@@ -299,21 +301,21 @@ impl Default for Node {
 }
 
 impl IntoNode for Node {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "Node", skip_all, fields(kind = self.kind_name()))]
   fn into_node(self, _: Scope) -> Node {
     self
   }
 }
 
 impl IntoNode for Vec<Node> {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "Vec<Node>", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self).into_node(cx)
   }
 }
 
 impl<const N: usize> IntoNode for [Node; N] {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "[Node; N]", skip_all)]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self.into_iter().collect()).into_node(cx)
   }
@@ -331,6 +333,21 @@ impl GetWebSysNode for Node {
         CoreComponent::Each(e) => e.get_web_sys_node(),
       },
       Self::Component(c) => c.document_fragment.clone().unchecked_into(),
+    }
+  }
+}
+
+impl Node {
+  fn kind_name(&self) -> &'static str {
+    match self {
+      Self::Component(..) => "Component",
+      Self::Element(..) => "Element",
+      Self::Text(..) => "Text",
+      Self::CoreComponent(c) => match c {
+        CoreComponent::DynChild(..) => "DynChild",
+        CoreComponent::Each(..) => "Each",
+        CoreComponent::Unit(..) => "Unit",
+      },
     }
   }
 }

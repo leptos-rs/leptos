@@ -25,6 +25,7 @@ wasm-bindgen-futures = "0.4.31"
 version = "0.3"
 features = [
   "Comment",
+  "DomTokenList",
   "Range",
   "Text",
   

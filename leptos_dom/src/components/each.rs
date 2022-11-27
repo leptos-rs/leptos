@@ -211,6 +211,7 @@ where
   K: Eq + Hash + 'static,
   T: 'static,
 {
+  #[instrument(level = "trace", name = "<Each />", skip_all)]
   fn into_node(self, cx: leptos_reactive::Scope) -> crate::Node {
     let Self {
       items_fn,

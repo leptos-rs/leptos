@@ -14,7 +14,7 @@ impl Fragment {
 }
 
 impl IntoNode for Fragment {
-  #[instrument(level = "trace")]
+  #[instrument(level = "trace", name = "</>", skip_all, fields(children = self.0.len()))]
   fn into_node(self, _cx: leptos_reactive::Scope) -> Node {
     let mut frag = Component::new("");
 
