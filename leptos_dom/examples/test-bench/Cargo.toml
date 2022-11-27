@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 console_error_panic_hook = "0.1"
-gloo = "0.8"
+gloo = { version = "0.8", features = ["futures"] }
 leptos_dom = { path = "../../" }
 leptos_reactive = { path = "../../../leptos_reactive" }
 tracing = "0.1"

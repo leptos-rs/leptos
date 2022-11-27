@@ -1,0 +1,4 @@
+max_width = 80
+imports_granularity = "Crate"
+tab_spaces = 2
+format_strings = true
