@@ -56,9 +56,6 @@ pub async fn handle_server_fns(
                 .expect("couldn't spawn runtime")
                 .block_on({
                     async move {
-                        // let body: &[u8] = &body;
-                        println!("Body 2: {:#?}", &body);
-
                         let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                             let runtime = create_runtime();
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
@@ -76,7 +73,8 @@ pub async fn handle_server_fns(
                                     let accept_header =
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
-                                    if let Some("application/json") = accept_header {
+
+                                    if accept_header.is_some() {
                                         res = res.status(StatusCode::OK);
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
