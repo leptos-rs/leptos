@@ -7,7 +7,7 @@ use crate::{mount_child, MountKind};
 use leptos_reactive::{create_effect, Scope};
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, cell::OnceCell, collections::HashSet, fmt, rc::Rc};
-use wasm_bindgen::{convert::FromWasmAbi, JsCast};
+use wasm_bindgen::{convert::FromWasmAbi, JsCast, intern};
 
 /// Trait which allows creating an element tag.
 pub trait IntoElement: fmt::Debug {
@@ -210,7 +210,7 @@ impl<El: IntoElement> HtmlElement<El> {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             el_node
               .unchecked_ref::<web_sys::Element>()
-              .set_attribute(&name, &value)
+              .set_attribute(intern(&name), intern(&value))
               .unwrap();
 
             Some(value)
@@ -218,7 +218,7 @@ impl<El: IntoElement> HtmlElement<El> {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             el_node
               .unchecked_ref::<web_sys::Element>()
-              .remove_attribute(&name)
+              .remove_attribute(intern(&name))
               .unwrap();
 
             None
@@ -515,7 +515,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
           .node
           .0
           .unchecked_ref::<web_sys::Element>()
-          .set_attribute("id", id)
+          .set_attribute(intern("id"), id)
           .unwrap();
       }
 
@@ -524,7 +524,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
           .node
           .0
           .unchecked_ref::<web_sys::Element>()
-          .set_attribute(name, value)
+          .set_attribute(intern(name), intern(value))
           .unwrap();
       }
 

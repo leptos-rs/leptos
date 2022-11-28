@@ -54,7 +54,7 @@ impl Default for EachRepr {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
-      let fragment = gloo::utils::document().create_document_fragment();
+      let fragment = crate::document().create_document_fragment();
 
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
@@ -75,7 +75,7 @@ impl Default for EachRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      #[cfg(debug_assertions)]
+      //#[cfg(debug_assertions)]
       opening,
       children: Default::default(),
       closing,
@@ -113,7 +113,7 @@ impl Default for EachItem {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
-      let fragment = gloo::utils::document().create_document_fragment();
+      let fragment = crate::document().create_document_fragment();
 
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting

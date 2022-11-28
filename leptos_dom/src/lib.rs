@@ -17,7 +17,7 @@ pub use html::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{borrow::Cow, fmt};
-use wasm_bindgen::{JsCast, UnwrapThrowExt};
+use wasm_bindgen::{intern, JsCast, UnwrapThrowExt};
 
 /// Converts the value into a [`Node`].
 pub trait IntoNode {
@@ -111,8 +111,8 @@ impl Element {
 
     let node = 'label: {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      break 'label gloo::utils::document()
-        .create_element(&name)
+      break 'label crate::document()
+        .create_element(intern(&name))
         .expect("element creation to not fail")
         .unchecked_into::<web_sys::Node>()
         .into();
@@ -143,7 +143,7 @@ impl Comment {
 
     let node = 'label: {
       #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
-      break 'label gloo::utils::document()
+      break 'label crate::document()
         .create_comment(&format!(" {content} "))
         .unchecked_into::<web_sys::Node>()
         .into();
@@ -153,7 +153,7 @@ impl Comment {
         target_arch = "wasm32",
         feature = "web"
       ))]
-      break 'label gloo::utils::document()
+      break 'label crate::document()
         .create_comment("")
         .unchecked_into::<web_sys::Node>()
         .into();
@@ -187,7 +187,7 @@ impl Text {
 
     let node = 'label: {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      break 'label gloo::utils::document()
+      break 'label crate::document()
         .create_text_node(&content)
         .unchecked_into::<web_sys::Node>()
         .into();
@@ -207,7 +207,6 @@ pub struct Component {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   name: Cow<'static, str>,
-  #[cfg(debug_assertions)]
   opening: Comment,
   /// The children of the component.
   pub children: Vec<Node>,
@@ -215,7 +214,7 @@ pub struct Component {
 }
 
 impl IntoNode for Component {
-  #[instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name))]
+  #[instrument(level = "trace", name = "<Component />", skip_all, #fields(name = %self.name))]
   fn into_node(self, _: Scope) -> Node {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.children {
@@ -231,7 +230,6 @@ impl Component {
   pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     let name = name.into();
 
-    #[cfg(debug_assertions)]
     let (opening, closing) = {
       let opening = Comment::new(Cow::Owned(format!("<{name}>")));
       let closing = Comment::new(Cow::Owned(format!("</{name}>")));
@@ -243,7 +241,7 @@ impl Component {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
-      let fragment = gloo::utils::document().create_document_fragment();
+      let fragment = crate::document().create_document_fragment();
 
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
@@ -264,7 +262,7 @@ impl Component {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      #[cfg(debug_assertions)]
+      //#[cfg(debug_assertions)]
       opening,
       closing,
       #[cfg(debug_assertions)]
@@ -406,18 +404,31 @@ where
   F: FnOnce(Scope) -> N + 'static,
   N: IntoNode,
 {
-  let disposer =
-    leptos_reactive::create_scope(leptos_reactive::create_runtime(), |cx| {
-      let root = gloo::utils::document()
-        .body()
-        .expect("body element to exist");
+  mount_to(
+    crate::document()
+      .body()
+      .expect("body element to exist"),
+    f,
+  )
+}
 
+/// Runs the provided closure and mounts the result to the provided element.
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
+where
+  F: FnOnce(Scope) -> N + 'static,
+  N: IntoNode,
+{
+  let disposer = leptos_reactive::create_scope(
+    leptos_reactive::create_runtime(),
+    move |cx| {
       let node = f(cx).into_node(cx);
 
-      root.append_child(&node.get_web_sys_node()).unwrap();
+      parent.append_child(&node.get_web_sys_node()).unwrap();
 
       std::mem::forget(node);
-    });
+    },
+  );
 
   std::mem::forget(disposer);
 }
@@ -433,7 +444,7 @@ thread_local! {
 /// This is cached as a thread-local variable, so calling `window()` multiple times
 /// requires only one call out to JavaScript.
 pub fn window() -> web_sys::Window {
-    WINDOW.with(|window| window.clone())
+  WINDOW.with(|window| window.clone())
 }
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
@@ -441,5 +452,5 @@ pub fn window() -> web_sys::Window {
 /// This is cached as a thread-local variable, so calling `window()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
-    DOCUMENT.with(|document| document.clone())
+  DOCUMENT.with(|document| document.clone())
 }
