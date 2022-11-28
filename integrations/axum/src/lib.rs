@@ -214,25 +214,17 @@ pub fn render_app_to_stream(
                                             let mut shell = Box::pin(render_to_stream({
                                                 let full_path = full_path.clone();
                                                 move |cx| {
-                                                    let app = {
-                                                        let full_path = full_path.clone();
-                                                        let app_fn = app_fn.clone();
-                                                        move |cx| {
-                                                            let integration = ServerIntegration {
-                                                                path: full_path.clone(),
-                                                            };
-                                                            provide_context(
-                                                                cx,
-                                                                RouterIntegrationContext::new(
-                                                                    integration,
-                                                                ),
-                                                            );
-                                                            provide_context(cx, MetaContext::new());
-
-                                                            (app_fn)(cx)
-                                                        }
+                                                    let integration = ServerIntegration {
+                                                        path: full_path.clone(),
                                                     };
-                                                    let app = app(cx);
+                                                    provide_context(
+                                                        cx,
+                                                        RouterIntegrationContext::new(
+                                                            integration,
+                                                        ),
+                                                    );
+                                                    provide_context(cx, MetaContext::new());
+                                                    let app = app_fn(cx);
                                                     let head = use_context::<MetaContext>(cx)
                                                         .map(|meta| meta.dehydrate())
                                                         .unwrap_or_default();
