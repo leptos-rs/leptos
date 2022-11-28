@@ -224,7 +224,10 @@ where
     let children = component.children.clone();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let closing = component.closing.node.clone();
+    let (opening, closing) = (
+      component.opening.node.clone(),
+      component.closing.node.clone(),
+    );
 
     create_effect(cx, move |prev_hash_run| {
       let items = items_fn();
@@ -245,6 +248,7 @@ where
         apply_cmds(
           cx,
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          &opening,
           &closing,
           cmds,
           &mut children.borrow_mut(),
@@ -314,6 +318,10 @@ fn diff<K: Eq + Hash>(
   let added_amount = cmds.len() - moved_amount - removed_amount;
   let delta = (added_amount as isize) - (removed_amount as isize);
 
+  if cmds.is_empty() {
+    cmds.push(DiffOp::Clear);
+  }
+
   Diff {
     added_delta: delta,
     moving: moved_amount,
@@ -352,10 +360,12 @@ enum DiffOp {
   Move { from: usize, to: usize },
   Add { at: usize },
   Remove { at: usize },
+  Clear,
 }
 
 fn apply_cmds<T, EF, N>(
   cx: Scope,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))] opening: &web_sys::Node,
   #[cfg(all(target_arch = "wasm32", feature = "web"))] closing: &web_sys::Node,
   cmds: Diff,
   children: &mut Vec<EachItem>,
@@ -427,6 +437,19 @@ fn apply_cmds<T, EF, N>(
         }
 
         children[at] = each_item;
+      }
+      DiffOp::Clear => {
+        children.clear();
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+          let range = web_sys::Range::new().unwrap();
+
+          range.set_start_after(opening).unwrap();
+          range.set_end_before(closing).unwrap();
+
+          range.delete_contents().unwrap();
+        }
       }
     }
   }
