@@ -34,7 +34,7 @@ if #[cfg(feature = "ssr")] {
         .route("/api/*path", post(leptos_axum::handle_server_fns))
         .nest("/pkg", get(file_handler))
         .nest("/static", get(get_static_file_handler))
-        .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <Todos/> }).into_service());
+        .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }).into_service());
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
@@ -55,7 +55,7 @@ if #[cfg(feature = "ssr")] {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
             mount_to_body(|cx| {
-                view! { cx, <App/> }
+                view! { cx, <TodoApp/> }
             });
         }
     }
