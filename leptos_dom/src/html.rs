@@ -1,10 +1,13 @@
+use cfg_if::cfg_if;
 use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::events::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
 use leptos_reactive::{create_effect, Scope};
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, cell::OnceCell, collections::HashSet, fmt, rc::Rc};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{convert::FromWasmAbi, JsCast};
 
 /// Trait which allows creating an element tag.
 pub trait IntoElement: fmt::Debug {
@@ -33,6 +36,12 @@ type BoxedClassFn =
   Box<dyn FnOnce(Scope, web_sys::Node) -> Option<Cow<'static, str>>>;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 type BoxedClassFn = Box<dyn FnOnce(Scope) -> Option<Cow<'static, str>>>;
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+type BoxedEventSetupFn =
+  Box<dyn FnOnce(&web_sys::Element)>;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+type BoxedEventSetupFn = Box<dyn FnOnce()>;
 
 /// Represents potentially any element, which you can change
 /// at any time before calling [`HtmlElement::into_node`].
@@ -75,6 +84,8 @@ pub struct HtmlElement<El: IntoElement> {
   #[educe(Debug(ignore))]
   classes: SmallVec<[BoxedClassFn; 4]>,
   #[educe(Debug(ignore))]
+  events: SmallVec<[BoxedEventSetupFn; 4]>,
+  #[educe(Debug(ignore))]
   #[allow(clippy::type_complexity)]
   children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
 }
@@ -86,6 +97,7 @@ impl<El: IntoElement> HtmlElement<El> {
       attrs: smallvec![],
       classes: Default::default(),
       children: smallvec![],
+      events: smallvec![],
       element,
     }
   }
@@ -97,6 +109,7 @@ impl<El: IntoElement> HtmlElement<El> {
       attrs,
       classes,
       children,
+      events,
       element,
     } = self;
 
@@ -105,6 +118,7 @@ impl<El: IntoElement> HtmlElement<El> {
       attrs,
       classes,
       children,
+      events,
       element: AnyElement {
         name: element.name(),
         is_void: element.is_void(),
@@ -377,6 +391,52 @@ impl<El: IntoElement> HtmlElement<El> {
     self
   }
 
+  /// Adds an event listener to this element.
+  #[track_caller]
+  pub fn on<E, N, F>(mut self, event_name: N, event_handler: F) -> Self
+  where
+    N: Into<Cow<'static, str>>,
+    F: FnMut(E) + 'static,
+    E: FromWasmAbi + 'static
+  {
+    cfg_if! { 
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let event_name = event_name.into();
+        self.events.push(Box::new(move |el| {
+          add_event_listener_undelegated(el, &event_name, event_handler);
+        }));
+      } else {
+        _ = event_name;
+        _ = event_handler;
+      }
+    }
+
+    self
+  }
+
+  /// Adds an event listener to this element, using event delegation.
+  #[track_caller]
+  pub fn on_delegated<E, N, F>(mut self, event_name: N, event_handler: F) -> Self
+  where
+    N: Into<Cow<'static, str>>,
+    F: FnMut(E) + 'static,
+    E: FromWasmAbi + 'static
+  {
+    cfg_if! { 
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let event_name = event_name.into();
+        self.events.push(Box::new(move |el| {
+          add_event_listener(el, event_name, event_handler);
+        }));
+      } else {
+        _ = event_name;
+        _ = event_handler;
+      }
+    }
+
+    self
+  }
+
   /// Inserts a child into this element.
   pub fn child<C: IntoNode + 'static>(mut self, child: C) -> Self {
     self.children.push(Box::new(move |cx| child.into_node(cx)));
@@ -407,6 +467,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       id,
       attrs,
       classes,
+      events,
       children,
     } = self;
 
@@ -441,6 +502,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       })
       .chain(classes)
       .collect::<SmallVec<[_; 4]>>();
+
     let children = children
       .into_iter()
       .map(|c| c(cx))
@@ -464,6 +526,10 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
           .unchecked_ref::<web_sys::Element>()
           .set_attribute(name, value)
           .unwrap();
+      }
+
+      for event_setup in events {
+        (event_setup)(element.node.0.unchecked_ref::<web_sys::Element>())
       }
 
       for child in &children {

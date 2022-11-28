@@ -78,7 +78,13 @@ fn view_fn(cx: Scope) -> impl IntoNode {
     h1()
       .dyn_child(move || text(count().to_string()))
       .into_node(cx),
-    p()
+    button().on("click", move |_: web_sys::Event| set_count.update(|n| *n += 1))
+      .child(text("Click me"))
+      .into_node(cx),
+      button().on_delegated("click", move |_: web_sys::Event| set_count.update(|n| *n += 1))
+      .child(text("Click me (delegated)"))
+      .into_node(cx)
+    /* p()
       .child(EachKey::new(iterable, |i| *i, |i| text(format!("{i}, "))))
       .into_node(cx),
     input()
@@ -95,7 +101,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
     MyComponent.into_node(cx),
     h3()
       .dyn_child(move || show().then(|| text("Now you see me...")))
-      .into_node(cx),
+      .into_node(cx), */
   ]
 }
 

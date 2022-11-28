@@ -9,6 +9,7 @@ extern crate clone_macro;
 extern crate tracing;
 
 mod components;
+mod events;
 mod html;
 
 pub use components::*;
@@ -16,7 +17,7 @@ pub use html::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{borrow::Cow, fmt};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 /// Converts the value into a [`Node`].
 pub trait IntoNode {
@@ -419,4 +420,26 @@ where
     });
 
   std::mem::forget(disposer);
+}
+
+thread_local! {
+    pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
+
+    pub(crate) static DOCUMENT: web_sys::Document = web_sys::window().unwrap_throw().document().unwrap_throw();
+}
+
+/// Returns the [`Window`](https://developer.mozilla.org/en-US/docs/Web/API/Window).
+///
+/// This is cached as a thread-local variable, so calling `window()` multiple times
+/// requires only one call out to JavaScript.
+pub fn window() -> web_sys::Window {
+    WINDOW.with(|window| window.clone())
+}
+
+/// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
+///
+/// This is cached as a thread-local variable, so calling `window()` multiple times
+/// requires only one call out to JavaScript.
+pub fn document() -> web_sys::Document {
+    DOCUMENT.with(|document| document.clone())
 }
