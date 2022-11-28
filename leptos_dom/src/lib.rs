@@ -14,7 +14,7 @@ mod html;
 
 pub use components::*;
 pub use html::*;
-use leptos_reactive::Scope;
+use leptos_reactive::{Scope, ScopeDisposer};
 use smallvec::SmallVec;
 use std::{borrow::Cow, fmt};
 use wasm_bindgen::{intern, JsCast, UnwrapThrowExt};
@@ -200,78 +200,6 @@ impl Text {
   }
 }
 
-/// Custom leptos component.
-#[derive(Debug)]
-pub struct Component {
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  document_fragment: web_sys::DocumentFragment,
-  #[cfg(debug_assertions)]
-  name: Cow<'static, str>,
-  opening: Comment,
-  /// The children of the component.
-  pub children: Vec<Node>,
-  closing: Comment,
-}
-
-impl IntoNode for Component {
-  #[instrument(level = "trace", name = "<Component />", skip_all, #fields(name = %self.name))]
-  fn into_node(self, _: Scope) -> Node {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    for child in &self.children {
-      mount_child(MountKind::Component(&self.closing.node), child);
-    }
-
-    Node::Component(self)
-  }
-}
-
-impl Component {
-  /// Creates a new [`Component`].
-  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-    let name = name.into();
-
-    let (opening, closing) = {
-      let opening = Comment::new(Cow::Owned(format!("<{name}>")));
-      let closing = Comment::new(Cow::Owned(format!("</{name}>")));
-
-      (opening, closing)
-    };
-    #[cfg(not(debug_assertions))]
-    let closing = Comment::new("");
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let document_fragment = {
-      let fragment = crate::document().create_document_fragment();
-
-      // Insert the comments into the document fragment
-      // so they can serve as our references when inserting
-      // future nodes
-      #[cfg(debug_assertions)]
-      fragment
-        .append_with_node_2(&opening.node, &closing.node)
-        .expect("append to not err");
-
-      #[cfg(not(debug_assertions))]
-      fragment
-        .append_with_node_1(&closing.node)
-        .expect("append to not err");
-
-      fragment
-    };
-
-    Self {
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      document_fragment,
-      //#[cfg(debug_assertions)]
-      opening,
-      closing,
-      #[cfg(debug_assertions)]
-      name,
-      children: Default::default(),
-    }
-  }
-}
-
 /// A leptos Node.
 #[derive(Debug)]
 pub enum Node {
@@ -280,7 +208,7 @@ pub enum Node {
   /// HTML text node.
   Text(Text),
   /// Custom leptos component.
-  Component(Component),
+  Component(ComponentRepr),
   /// leptos core-component.
   CoreComponent(CoreComponent),
 }
@@ -331,7 +259,7 @@ impl GetWebSysNode for Node {
         CoreComponent::DynChild(dc) => dc.get_web_sys_node(),
         CoreComponent::Each(e) => e.get_web_sys_node(),
       },
-      Self::Component(c) => c.document_fragment.clone().unchecked_into(),
+      Self::Component(c) => c.get_web_sys_node(),
     }
   }
 }
@@ -349,19 +277,6 @@ impl Node {
       },
     }
   }
-}
-
-/// The core foundational leptos components.
-#[derive(Debug, educe::Educe)]
-#[educe(Default)]
-pub enum CoreComponent {
-  /// The [`Unit`] component.
-  #[educe(Default)]
-  Unit(UnitRepr),
-  /// The [`DynChild`] component.
-  DynChild(DynChildRepr),
-  /// The [`Each`] component.
-  Each(EachRepr),
 }
 
 #[instrument]
@@ -404,12 +319,7 @@ where
   F: FnOnce(Scope) -> N + 'static,
   N: IntoNode,
 {
-  mount_to(
-    crate::document()
-      .body()
-      .expect("body element to exist"),
-    f,
-  )
+  mount_to(crate::document().body().expect("body element to exist"), f)
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
