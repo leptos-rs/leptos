@@ -29,7 +29,7 @@ use std::{io, pin::Pin, sync::Arc};
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///       .route("/api/tail*", post(leptos_axum::handle_server_fns));
+///       .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -40,11 +40,14 @@ use std::{io, pin::Pin, sync::Arc};
 /// }
 /// # }
 pub async fn handle_server_fns(
-    Path(path): Path<String>,
+    Path(fn_name): Path<String>,
     headers: HeaderMap<HeaderValue>,
     body: Bytes,
-    req: Request<Body>,
+    // req: Request<Body>,
 ) -> impl IntoResponse {
+    // Axum Path extractor doesn't remove the first slash from the path, while Actix does
+    let fn_name = fn_name.replace("/", "");
+
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
         move || {
@@ -54,12 +57,12 @@ pub async fn handle_server_fns(
                     async move {
                         let body: &[u8] = &body;
 
-                        let res = if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+                        let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                             let runtime = create_runtime();
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
 
                             // provide request as context in server scope
-                            provide_context(cx, Arc::new(req));
+                            // provide_context(cx, Arc::new(req));
 
                             match server_fn(cx, body).await {
                                 Ok(serialized) => {
