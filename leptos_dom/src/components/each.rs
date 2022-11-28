@@ -224,7 +224,7 @@ where
     let children = component.children.clone();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let closing = component.closing.node.0.clone();
+    let closing = component.closing.node.clone();
 
     create_effect(cx, move |prev_hash_run| {
       let items = items_fn();
@@ -384,7 +384,19 @@ fn apply_cmds<T, EF, N>(
   for cmd in cmds.ops {
     match cmd {
       DiffOp::Remove { at } => {
-        children[at] = EachItem::default();
+        let item_to_remove = std::mem::take(&mut children[at]);
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+          let range = web_sys::Range::new().unwrap();
+
+          range
+            .set_start_before(&item_to_remove.opening.node)
+            .unwrap();
+          range.set_end_after(&item_to_remove.closing.node).unwrap();
+
+          range.delete_contents().unwrap();
+        }
       }
       DiffOp::Move { from, to } => {
         let item = std::mem::take(&mut children[from]);

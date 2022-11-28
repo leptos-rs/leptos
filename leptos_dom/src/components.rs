@@ -4,8 +4,8 @@ mod fragment;
 mod unit;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind};
-use crate::{Comment, GetWebSysNode, IntoNode, Node};
+use crate::{mount_child, GetWebSysNode, MountKind};
+use crate::{Comment, IntoNode, Node};
 pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
@@ -131,9 +131,9 @@ where
   F: FnOnce(Scope) -> Vec<Node>,
 {
   /// Creates a new component.
-  pub fn new(name: Cow<'static, str>, f: F) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
     Self {
-      name,
+      name: name.into(),
       children_fn: f,
     }
   }

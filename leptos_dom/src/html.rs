@@ -1,13 +1,13 @@
-use cfg_if::cfg_if;
-use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
+use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
+use cfg_if::cfg_if;
 use leptos_reactive::{create_effect, Scope};
 use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, cell::OnceCell, collections::HashSet, fmt, rc::Rc};
-use wasm_bindgen::{convert::FromWasmAbi, JsCast, intern};
+use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast};
 
 /// Trait which allows creating an element tag.
 pub trait IntoElement: fmt::Debug {
@@ -38,8 +38,7 @@ type BoxedClassFn =
 type BoxedClassFn = Box<dyn FnOnce(Scope) -> Option<Cow<'static, str>>>;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-type BoxedEventSetupFn =
-  Box<dyn FnOnce(&web_sys::Element)>;
+type BoxedEventSetupFn = Box<dyn FnOnce(&web_sys::Element)>;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 type BoxedEventSetupFn = Box<dyn FnOnce()>;
 
@@ -397,9 +396,9 @@ impl<El: IntoElement> HtmlElement<El> {
   where
     N: Into<Cow<'static, str>>,
     F: FnMut(E) + 'static,
-    E: FromWasmAbi + 'static
+    E: FromWasmAbi + 'static,
   {
-    cfg_if! { 
+    cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let event_name = event_name.into();
         self.events.push(Box::new(move |el| {
@@ -416,13 +415,17 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element, using event delegation.
   #[track_caller]
-  pub fn on_delegated<E, N, F>(mut self, event_name: N, event_handler: F) -> Self
+  pub fn on_delegated<E, N, F>(
+    mut self,
+    event_name: N,
+    event_handler: F,
+  ) -> Self
   where
     N: Into<Cow<'static, str>>,
     F: FnMut(E) + 'static,
-    E: FromWasmAbi + 'static
+    E: FromWasmAbi + 'static,
   {
-    cfg_if! { 
+    cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let event_name = event_name.into();
         self.events.push(Box::new(move |el| {
@@ -513,7 +516,6 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       if let Some(id) = id.get() {
         element
           .node
-          .0
           .unchecked_ref::<web_sys::Element>()
           .set_attribute(intern("id"), id)
           .unwrap();
@@ -522,14 +524,13 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       for (name, value) in &attrs {
         element
           .node
-          .0
           .unchecked_ref::<web_sys::Element>()
           .set_attribute(intern(name), intern(value))
           .unwrap();
       }
 
       for event_setup in events {
-        (event_setup)(element.node.0.unchecked_ref::<web_sys::Element>())
+        (event_setup)(element.node.unchecked_ref::<web_sys::Element>())
       }
 
       for child in &children {

@@ -91,14 +91,27 @@ where
     let component = DynChildRepr::default();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let closing = component.closing.node.0.clone();
+    let (opening, closing) = (
+      component.opening.node.clone(),
+      component.closing.node.clone(),
+    );
     let child = component.child.clone();
 
     let span = tracing::Span::current();
 
-    create_effect(cx, move |_| {
+    create_effect(cx, move |prev_run| {
       let _guard = span.enter();
       let _guard = trace_span!("DynChild reactive").entered();
+
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      if prev_run.is_some() {
+        let range = web_sys::Range::new().unwrap();
+
+        range.set_start_after(&opening).unwrap();
+        range.set_end_before(&closing).unwrap();
+
+        range.delete_contents();
+      }
 
       let new_child = child_fn().into_node(cx);
 

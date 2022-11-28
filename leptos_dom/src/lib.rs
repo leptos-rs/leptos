@@ -62,37 +62,13 @@ where
   }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        #[derive(Debug, educe::Educe)]
-        #[educe(Deref)]
-        // Be careful not to drop this until you want to unmount
-        // the node from the DOM.
-        struct WebSysNode(web_sys::Node);
-
-        impl Drop for WebSysNode {
-            fn drop(&mut self) {
-                self.0.unchecked_ref::<web_sys::Element>().remove();
-            }
-        }
-
-        impl From<web_sys::Node> for WebSysNode {
-            fn from(node: web_sys::Node) -> Self {
-                Self(node)
-            }
-        }
-    } else {
-        #[derive(Debug)]
-        struct WebSysNode();
-    }
-}
-
 /// HTML element.
 #[derive(Debug)]
 pub struct Element {
   name: Cow<'static, str>,
   is_void: bool,
-  node: WebSysNode,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  node: web_sys::Node,
   attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
   children: Vec<Node>,
 }
@@ -109,21 +85,17 @@ impl Element {
   fn new<El: IntoElement>(el: El) -> Self {
     let name = el.name();
 
-    let node = 'label: {
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      break 'label crate::document()
-        .create_element(intern(&name))
-        .expect("element creation to not fail")
-        .unchecked_into::<web_sys::Node>()
-        .into();
-
-      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-      break 'label WebSysNode();
-    };
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    let node = crate::document()
+      .create_element(intern(&name))
+      .expect("element creation to not fail")
+      .unchecked_into::<web_sys::Node>()
+      .into();
 
     Self {
       name,
       is_void: el.is_void(),
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
       node,
       attrs: Default::default(),
       children: Default::default(),
@@ -133,7 +105,8 @@ impl Element {
 
 #[derive(Debug)]
 struct Comment {
-  node: WebSysNode,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  node: web_sys::Node,
   content: Cow<'static, str>,
 }
 
@@ -141,35 +114,25 @@ impl Comment {
   fn new(content: impl Into<Cow<'static, str>>) -> Self {
     let content = content.into();
 
-    let node = 'label: {
-      #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
-      break 'label crate::document()
-        .create_comment(&format!(" {content} "))
-        .unchecked_into::<web_sys::Node>()
-        .into();
+    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
+    let node = crate::document()
+      .create_comment(&format!(" {content} "))
+      .unchecked_into::<web_sys::Node>()
+      .into();
 
-      #[cfg(all(
-        not(debug_assertions),
-        target_arch = "wasm32",
-        feature = "web"
-      ))]
-      break 'label crate::document()
-        .create_comment("")
-        .unchecked_into::<web_sys::Node>()
-        .into();
-
-      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-      break 'label WebSysNode();
-    };
-
-    Self { node, content }
+    Self {
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      node,
+      content,
+    }
   }
 }
 
 /// HTML text
 #[derive(Debug)]
 pub struct Text {
-  node: WebSysNode,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  node: web_sys::Node,
   content: Cow<'static, str>,
 }
 
@@ -185,18 +148,17 @@ impl Text {
   pub fn new(content: impl Into<Cow<'static, str>>) -> Self {
     let content = content.into();
 
-    let node = 'label: {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    let node = crate::document()
+      .create_text_node(&content)
+      .unchecked_into::<web_sys::Node>()
+      .into();
+
+    Self {
+      content,
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      break 'label crate::document()
-        .create_text_node(&content)
-        .unchecked_into::<web_sys::Node>()
-        .into();
-
-      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-      break 'label WebSysNode();
-    };
-
-    Self { content, node }
+      node,
+    }
   }
 }
 
@@ -252,8 +214,8 @@ impl<const N: usize> IntoNode for [Node; N] {
 impl GetWebSysNode for Node {
   fn get_web_sys_node(&self) -> web_sys::Node {
     match self {
-      Self::Element(node) => node.node.0.clone(),
-      Self::Text(t) => t.node.0.clone(),
+      Self::Element(node) => node.node.clone(),
+      Self::Text(t) => t.node.clone(),
       Self::CoreComponent(c) => match c {
         CoreComponent::Unit(u) => u.get_web_sys_node(),
         CoreComponent::DynChild(dc) => dc.get_web_sys_node(),
