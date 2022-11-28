@@ -33,7 +33,7 @@ cfg_if! {
                     .route("/{tail:.*}", leptos_actix::render_app_to_stream("todo_app_sqlite", |cx| view! { cx, <TodoApp/> }))
                 //.wrap(middleware::Compress::default())
             })
-            .bind(("127.0.0.1", 8081))?
+            .bind(("127.0.0.1", 8083))?
             .run()
             .await
         }

@@ -84,10 +84,8 @@ cfg_if! {
                     format!(
                         r#"<script>
                                 if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                                    console.log("(create_resource) calling resolver");
                                     __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
                                 }} else {{
-                                    console.log("(create_resource) saving data for resource creation");
                                     __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
                                 }}
                             </script>"#,
@@ -101,8 +99,7 @@ cfg_if! {
                             <script>
                                 var frag = document.querySelector(`[data-fragment-id="{fragment_id}"]`);
                                 var tpl = document.getElementById("{fragment_id}");
-                                console.log("replace", frag, "with", tpl.content.cloneNode(true));
-                                frag.replaceWith(tpl.content.cloneNode(true));
+                                if(frag) frag.replaceWith(tpl.content.cloneNode(true));
                             </script>
                             "#
                     )

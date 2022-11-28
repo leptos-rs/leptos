@@ -27,8 +27,8 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]` macro](leptos::leptos_macro::server) allows you to annotate a function to 
-//! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your 
+//! The [`#[server]` macro](leptos::leptos_macro::server) allows you to annotate a function to
+//! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
 //! ```rust,ignore
@@ -353,9 +353,8 @@ pub async fn call_server_fn<T>(
 where
     T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
-    use ciborium::{ser::into_writer};
+    use ciborium::ser::into_writer;
     use leptos_dom::js_sys::Uint8Array;
-    //use leptos_dom::log;
     use serde_json::Deserializer as JSONDeserializer;
 
     #[derive(Debug)]
@@ -417,22 +416,19 @@ where
     }
 
     if enc == Encoding::Cbor {
-        //log!("FUNCTION RESPONSE CBOR");
         let binary = resp
             .binary()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
-        //log!("REAL SERVER RESPONSE: {:#?}", &binary);
 
-        ciborium::de::from_reader(binary.as_slice()).map_err(|e| {
-            //log!("Failed to DECODE: {}", &e);
-            ServerFnError::Deserialization(e.to_string())
-        })
+        ciborium::de::from_reader(binary.as_slice())
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
         let text = resp
             .text()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+
         let mut deserializer = JSONDeserializer::from_str(&text);
         T::deserialize(&mut deserializer).map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
