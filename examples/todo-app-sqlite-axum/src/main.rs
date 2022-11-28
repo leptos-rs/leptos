@@ -4,8 +4,6 @@ use leptos::*;
 // boilerplate to run in different modes
 cfg_if! {
 if #[cfg(feature = "ssr")] {
-    // use actix_files::{Files, NamedFile};
-    // use actix_web::*;
     use axum::{
         routing::{get, post},
         Router,
@@ -50,7 +48,7 @@ if #[cfg(feature = "ssr")] {
 
     // client-only stuff for Trunk
     else {
-        use leptos_hackernews_axum::*;
+        use todo_app_sqlite_axum::*;
 
         pub fn main() {
             console_error_panic_hook::set_once();
