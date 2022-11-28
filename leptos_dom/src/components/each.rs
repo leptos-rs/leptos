@@ -321,10 +321,6 @@ fn diff<K: Eq + Hash>(
   let added_amount = cmds.len() - moved_amount - removed_amount;
   let delta = (added_amount as isize) - (removed_amount as isize);
 
-  if cmds.is_empty() {
-    cmds.push(DiffOp::Clear);
-  }
-
   Diff {
     added_delta: delta,
     moving: moved_amount,
@@ -392,6 +388,13 @@ fn apply_cmds<T, EF, N>(
   // we can only perform the omve after all commands have run, otherwise,
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moving);
+
+  // We can optimize for the case when the items are cleared
+  if items.is_empty() && !cmds.ops.is_empty() {
+    cmds.ops.clear();
+
+    cmds.ops.push(DiffOp::Clear);
+  }
 
   // We can optimize the case of replacing all items
   if !children.is_empty() && cmds.removing == children.len() {
