@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(once_cell, iter_intersperse)]
+#![feature(once_cell, iter_intersperse, drain_filter)]
 
 //! The DOM implementation for `leptos`.
 

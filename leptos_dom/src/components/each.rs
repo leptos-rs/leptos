@@ -2,6 +2,7 @@
 use crate::{mount_child, GetWebSysNode, MountKind};
 use crate::{Comment, CoreComponent, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
+use smallvec::SmallVec;
 use std::{
   borrow::Cow, cell::RefCell, collections::HashSet, hash::Hash, rc::Rc,
 };
@@ -325,6 +326,7 @@ fn diff<K: Eq + Hash>(
   Diff {
     added_delta: delta,
     moving: moved_amount,
+    removing: removed_amount,
     ops: cmds,
   }
 }
@@ -350,8 +352,10 @@ struct Diff {
   /// The number of items added minus the number of items removed, used
   /// for optimizing reallocations for children.
   added_delta: isize,
-  /// Items that will need to be moved.
+  /// Number of items that will need to be moved.
   moving: usize,
+  /// Number of items that will be removed.
+  removing: usize,
   ops: Vec<DiffOp>,
 }
 
@@ -367,7 +371,7 @@ fn apply_cmds<T, EF, N>(
   cx: Scope,
   #[cfg(all(target_arch = "wasm32", feature = "web"))] opening: &web_sys::Node,
   #[cfg(all(target_arch = "wasm32", feature = "web"))] closing: &web_sys::Node,
-  cmds: Diff,
+  mut cmds: Diff,
   children: &mut Vec<EachItem>,
   mut items: Vec<Option<T>>,
   each_fn: &EF,
@@ -386,6 +390,25 @@ fn apply_cmds<T, EF, N>(
   // we can only perform the omve after all commands have run, otherwise,
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moving);
+
+  // We can optimize the case of replacing all items
+  if cmds.removing == children.len() {
+    children.clear();
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let range = web_sys::Range::new().unwrap();
+
+      range.set_start_after(opening).unwrap();
+      range.set_end_before(opening).unwrap();
+
+      range.delete_contents().unwrap();
+    }
+
+    cmds
+      .ops
+      .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
+  }
 
   // The order of cmds needs to be:
   // 1. Removed
