@@ -48,7 +48,7 @@ if #[cfg(feature = "ssr")] {
 
     // client-only stuff for Trunk
     else {
-        use todo_app_sqlite_axum::*;
+        use todo_app_sqlite_axum::todo::*;
 
         pub fn main() {
             console_error_panic_hook::set_once();
