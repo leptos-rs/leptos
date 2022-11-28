@@ -22,15 +22,15 @@ quote = "1"
 syn = { version = "1", features = ["full"] }
 syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
-leptos_dom = { path = "../leptos_dom", version = "0.1.0-beta" }
-leptos_reactive = { path = "../leptos_reactive", version = "0.1.0-beta" }
-leptos_server = { path = "../leptos_server", version = "0.1.0-beta" }
+leptos_dom.workspace = true
+leptos_reactive.workspace = true
+leptos_server.workspace = true
 lazy_static = "1.4"
 
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.10"
-leptos = { path = "../leptos" }
+leptos.workspace = true
 
 [features]
 default = ["ssr"]

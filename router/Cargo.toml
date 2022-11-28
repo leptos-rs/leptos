@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Router for the Leptos web framework."
 
 [dependencies]
-leptos = { path = "../leptos", version = "0.1.0-beta", default-features = false }
+leptos.workspace = true
 cfg-if = "1"
 common_macros = "0.1"
 gloo-net = "0.2"

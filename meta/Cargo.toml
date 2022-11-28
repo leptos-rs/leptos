@@ -9,7 +9,7 @@ description = "Tools to set HTML metadata in the Leptos web framework."
 
 [dependencies]
 cfg-if = "1"
-leptos = { path = "../leptos", version = "0.1.0-beta", default-features = false }
+leptos.workspace = true
 tracing = "0.1"
 typed-builder = "0.11"
 

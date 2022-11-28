@@ -17,7 +17,7 @@ html-escape = "0.2"
 indexmap = "1.9"
 itertools = "0.10"
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.1.0-beta" }
+leptos_reactive.workspace = true
 once_cell = "1"
 pad-adapter = "0.1"
 paste = "1"
