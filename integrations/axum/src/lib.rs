@@ -29,7 +29,7 @@ use std::{io, pin::Pin, sync::Arc};
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///       .route("/api/tail*", post(leptos_axum::handle_server_fns));
+///       .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -40,11 +40,15 @@ use std::{io, pin::Pin, sync::Arc};
 /// }
 /// # }
 pub async fn handle_server_fns(
-    Path(path): Path<String>,
+    Path(fn_name): Path<String>,
     headers: HeaderMap<HeaderValue>,
     body: Bytes,
-    req: Request<Body>,
+    // req: Request<Body>,
 ) -> impl IntoResponse {
+    // Axum Path extractor doesn't remove the first slash from the path, while Actix does
+    let fn_name = fn_name.replace("/", "");
+    println!("Body: {:#?}", &body);
+
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
         move || {
@@ -52,16 +56,14 @@ pub async fn handle_server_fns(
                 .expect("couldn't spawn runtime")
                 .block_on({
                     async move {
-                        let body: &[u8] = &body;
-
-                        let res = if let Some(server_fn) = server_fn_by_path(path.as_str()) {
+                        let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                             let runtime = create_runtime();
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
 
                             // provide request as context in server scope
-                            provide_context(cx, Arc::new(req));
+                            // provide_context(cx, Arc::new(req));
 
-                            match server_fn(cx, body).await {
+                            match server_fn(cx, body.as_ref()).await {
                                 Ok(serialized) => {
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
@@ -71,7 +73,8 @@ pub async fn handle_server_fns(
                                     let accept_header =
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
-                                    if let Some("application/json") = accept_header {
+
+                                    if accept_header.is_some() {
                                         res = res.status(StatusCode::OK);
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
@@ -211,25 +214,17 @@ pub fn render_app_to_stream(
                                             let mut shell = Box::pin(render_to_stream({
                                                 let full_path = full_path.clone();
                                                 move |cx| {
-                                                    let app = {
-                                                        let full_path = full_path.clone();
-                                                        let app_fn = app_fn.clone();
-                                                        move |cx| {
-                                                            let integration = ServerIntegration {
-                                                                path: full_path.clone(),
-                                                            };
-                                                            provide_context(
-                                                                cx,
-                                                                RouterIntegrationContext::new(
-                                                                    integration,
-                                                                ),
-                                                            );
-                                                            provide_context(cx, MetaContext::new());
-
-                                                            (app_fn)(cx)
-                                                        }
+                                                    let integration = ServerIntegration {
+                                                        path: full_path.clone(),
                                                     };
-                                                    let app = app(cx);
+                                                    provide_context(
+                                                        cx,
+                                                        RouterIntegrationContext::new(
+                                                            integration,
+                                                        ),
+                                                    );
+                                                    provide_context(cx, MetaContext::new());
+                                                    let app = app_fn(cx);
                                                     let head = use_context::<MetaContext>(cx)
                                                         .map(|meta| meta.dehydrate())
                                                         .unwrap_or_default();
