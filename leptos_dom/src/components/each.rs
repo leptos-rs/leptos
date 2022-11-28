@@ -392,7 +392,7 @@ fn apply_cmds<T, EF, N>(
   let mut items_to_move = Vec::with_capacity(cmds.moving);
 
   // We can optimize the case of replacing all items
-  if cmds.removing == children.len() {
+  if !children.is_empty() && cmds.removing == children.len() {
     children.clear();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
