@@ -31,7 +31,10 @@ trait GetWebSysNode {
 }
 
 impl IntoNode for () {
-  #[instrument(level = "trace", name = "<() />", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "<() />", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     Unit.into_node(cx)
   }
@@ -41,7 +44,10 @@ impl<T> IntoNode for Option<T>
 where
   T: IntoNode,
 {
-  #[instrument(level = "trace", name = "Option<T>", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "Option<T>", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     if let Some(t) = self {
       t.into_node(cx)
@@ -56,7 +62,10 @@ where
   F: Fn() -> N + 'static,
   N: IntoNode,
 {
-  #[instrument(level = "trace", name = "Fn() -> N", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "Fn() -> N", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     DynChild::new(self).into_node(cx)
   }
@@ -74,7 +83,7 @@ pub struct Element {
 }
 
 impl IntoNode for Element {
-  #[instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name))]
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name)))]
   fn into_node(self, _: Scope) -> Node {
     Node::Element(self)
   }
@@ -120,6 +129,12 @@ impl Comment {
       .unchecked_into::<web_sys::Node>()
       .into();
 
+    #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
+    let node = crate::document()
+      .create_comment(&format!(""))
+      .unchecked_into::<web_sys::Node>()
+      .into();
+
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       node,
@@ -137,7 +152,7 @@ pub struct Text {
 }
 
 impl IntoNode for Text {
-  #[instrument(level = "trace", name = "#text", skip_all, fields(content = %self.content))]
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all, fields(content = %self.content)))]
   fn into_node(self, _: Scope) -> Node {
     Node::Text(self)
   }
@@ -176,7 +191,7 @@ pub enum Node {
 }
 
 impl Drop for Node {
-  #[instrument(level = "trace", skip_all, fields(kind = self.kind_name()))]
+  #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all, fields(kind = self.kind_name())))]
   fn drop(&mut self) {
     trace!("dropping node");
   }
@@ -190,21 +205,27 @@ impl Default for Node {
 }
 
 impl IntoNode for Node {
-  #[instrument(level = "trace", name = "Node", skip_all, fields(kind = self.kind_name()))]
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "Node", skip_all, fields(kind = self.kind_name())))]
   fn into_node(self, _: Scope) -> Node {
     self
   }
 }
 
 impl IntoNode for Vec<Node> {
-  #[instrument(level = "trace", name = "Vec<Node>", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "Vec<Node>", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self).into_node(cx)
   }
 }
 
 impl<const N: usize> IntoNode for [Node; N] {
-  #[instrument(level = "trace", name = "[Node; N]", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "[Node; N]", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self.into_iter().collect()).into_node(cx)
   }
@@ -241,7 +262,7 @@ impl Node {
   }
 }
 
-#[instrument]
+#[cfg_attr(debug_assertions, instrument)]
 #[track_caller]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn mount_child<GWSN: GetWebSysNode + fmt::Debug>(

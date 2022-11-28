@@ -58,7 +58,7 @@ impl GetWebSysNode for ComponentRepr {
 }
 
 impl IntoNode for ComponentRepr {
-  #[instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name))]
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
   fn into_node(self, _: Scope) -> Node {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.children {

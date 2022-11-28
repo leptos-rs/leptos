@@ -463,7 +463,7 @@ impl<El: IntoElement> HtmlElement<El> {
 }
 
 impl<El: IntoElement> IntoNode for HtmlElement<El> {
-  #[instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name()))]
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
   fn into_node(self, cx: Scope) -> Node {
     let Self {
       element,
@@ -546,7 +546,10 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
 }
 
 impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
-  #[instrument(level = "trace", name = "Vec<HtmlElement>", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "Vec<HtmlElement>", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect())
       .into_node(cx)
@@ -554,7 +557,10 @@ impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
 }
 
 impl<El: IntoElement, const N: usize> IntoNode for [HtmlElement<El>; N] {
-  #[instrument(level = "trace", name = "[HtmlElement; N]", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> Node {
     Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect())
       .into_node(cx)

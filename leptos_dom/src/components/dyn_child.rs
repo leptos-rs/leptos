@@ -84,7 +84,10 @@ where
   CF: Fn() -> N + 'static,
   N: IntoNode,
 {
-  #[instrument(level = "trace", name = "<DynChild />", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "<DynChild />", skip_all)
+  )]
   fn into_node(self, cx: Scope) -> crate::Node {
     let Self { child_fn } = self;
 

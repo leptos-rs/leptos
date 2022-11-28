@@ -36,7 +36,6 @@ impl VecExt for Vec<EachItem> {
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
-  #[cfg(debug_assertions)]
   opening: Comment,
   children: Rc<RefCell<Vec<EachItem>>>,
   closing: Comment,
@@ -212,7 +211,10 @@ where
   K: Eq + Hash + 'static,
   T: 'static,
 {
-  #[instrument(level = "trace", name = "<Each />", skip_all)]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "<Each />", skip_all)
+  )]
   fn into_node(self, cx: leptos_reactive::Scope) -> crate::Node {
     let Self {
       items_fn,

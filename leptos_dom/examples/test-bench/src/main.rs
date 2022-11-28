@@ -7,7 +7,7 @@ use leptos_dom::*;
 use leptos_reactive::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
-#[instrument]
+#[cfg_attr(debug_assertions, instrument]
 fn main() {
   console_error_panic_hook::set_once();
 
