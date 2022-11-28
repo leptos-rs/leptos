@@ -23,6 +23,9 @@ members = [
 ]
 exclude = ["benchmarks", "examples"]
 
+[workspace.package]
+version = "0.1.0-beta"
+
 [profile.release]
 codegen-units = 1
 lto = true
