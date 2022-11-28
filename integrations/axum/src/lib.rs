@@ -47,6 +47,7 @@ pub async fn handle_server_fns(
 ) -> impl IntoResponse {
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
     let fn_name = fn_name.replace("/", "");
+    println!("Body: {:#?}", &body);
 
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
@@ -55,7 +56,8 @@ pub async fn handle_server_fns(
                 .expect("couldn't spawn runtime")
                 .block_on({
                     async move {
-                        let body: &[u8] = &body;
+                        // let body: &[u8] = &body;
+                        println!("Body 2: {:#?}", &body);
 
                         let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
                             let runtime = create_runtime();
@@ -64,7 +66,7 @@ pub async fn handle_server_fns(
                             // provide request as context in server scope
                             // provide_context(cx, Arc::new(req));
 
-                            match server_fn(cx, body).await {
+                            match server_fn(cx, body.as_ref()).await {
                                 Ok(serialized) => {
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
