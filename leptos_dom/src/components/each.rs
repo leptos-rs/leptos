@@ -289,6 +289,15 @@ fn diff<K: Eq + Hash>(
   from: &HashSet<HashKey<K>>,
   to: &HashSet<HashKey<K>>,
 ) -> Diff {
+  if to.is_empty() {
+    return Diff {
+      added_delta: 0,
+      moving: 0,
+      removing: from.len(),
+      ops: Default::default(),
+    };
+  }
+
   let mut cmds = Vec::with_capacity(to.len());
 
   // Get removed items
@@ -383,7 +392,7 @@ fn apply_cmds<T, EF, N>(
   let mut items_to_move = Vec::with_capacity(cmds.moving);
 
   // We can optimize for the case when the items are cleared
-  if items.is_empty() && !cmds.ops.is_empty() {
+  if items.is_empty() {
     cmds.ops.clear();
 
     cmds.ops.push(DiffOp::Clear);
@@ -463,12 +472,23 @@ fn apply_cmds<T, EF, N>(
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-          let range = web_sys::Range::new().unwrap();
+          if opening.previous_sibling().is_none()
+            && closing.next_sibling().is_none()
+          {
+            let parent = opening
+              .parent_node()
+              .unwrap()
+              .unchecked_into::<web_sys::Element>();
+            parent.set_text_content(Some(""));
+            parent.append_with_node_2(&opening, &closing);
+          } else {
+            let range = web_sys::Range::new().unwrap();
 
-          range.set_start_after(opening).unwrap();
-          range.set_end_before(closing).unwrap();
+            range.set_start_after(opening).unwrap();
+            range.set_end_before(closing).unwrap();
 
-          range.delete_contents().unwrap();
+            range.delete_contents().unwrap();
+          }
         }
       }
     }
