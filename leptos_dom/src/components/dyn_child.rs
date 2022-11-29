@@ -1,5 +1,5 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind};
+use crate::{mount_child, MountKind, RANGE};
 use crate::{Comment, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
@@ -108,12 +108,10 @@ where
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       if prev_run.is_some() {
-        let range = web_sys::Range::new().unwrap();
+        RANGE.set_start_after(&opening).unwrap();
+        RANGE.set_end_before(&closing).unwrap();
 
-        range.set_start_after(&opening).unwrap();
-        range.set_end_before(&closing).unwrap();
-
-        range.delete_contents();
+        RANGE.delete_contents();
       }
 
       let new_child = child_fn().into_node(cx);

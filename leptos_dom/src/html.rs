@@ -6,7 +6,13 @@ use crate::{mount_child, MountKind};
 use cfg_if::cfg_if;
 use leptos_reactive::{create_effect, Scope};
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, cell::OnceCell, collections::HashSet, fmt, rc::Rc};
+use std::{
+  borrow::Cow,
+  cell::{LazyCell, OnceCell},
+  collections::HashSet,
+  fmt,
+  rc::Rc,
+};
 use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast};
 
 /// Trait which allows creating an element tag.
@@ -89,8 +95,6 @@ pub struct HtmlElement<El: IntoElement> {
   #[educe(Debug(ignore))]
   attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
   #[educe(Debug(ignore))]
-  classes: SmallVec<[BoxedClassFn; 4]>,
-  #[educe(Debug(ignore))]
   events: SmallVec<[BoxedEventSetupFn; 4]>,
   #[educe(Debug(ignore))]
   #[allow(clippy::type_complexity)]
@@ -103,7 +107,6 @@ impl<El: IntoElement> HtmlElement<El> {
       cx,
       id: Default::default(),
       attrs: smallvec![],
-      classes: Default::default(),
       children: smallvec![],
       events: smallvec![],
       element,
@@ -116,7 +119,6 @@ impl<El: IntoElement> HtmlElement<El> {
       cx,
       id,
       attrs,
-      classes,
       children,
       events,
       element,
@@ -126,7 +128,6 @@ impl<El: IntoElement> HtmlElement<El> {
       cx,
       id,
       attrs,
-      classes,
       children,
       events,
       element: AnyElement {
@@ -162,20 +163,32 @@ impl<El: IntoElement> HtmlElement<El> {
         name, "id",
         "to set the `id`, please use `HtmlElement::id` instead"
       );
-
-      assert_ne!(
-        name, "class",
-        "to set classes, please use `HtmlElement::class` or \
-         `HtmlElement::dyn_class` instead",
-      );
     }
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      self.element.get_element().set_attribute(&name, &value);
-    }
+    if name == "class" && !value.is_empty() {
+      if let Some((_, class_list)) =
+        self.attrs.iter_mut().find(|(n, _)| n == "class")
+      {
+        let class_list = class_list.to_mut();
 
-    self.attrs.push((name, value));
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        self.element.get_element().set_class_name(&class_list);
+
+        *class_list = format!("{class_list} {value}");
+      } else {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        self.element.get_element().set_class_name(&value);
+
+        self.attrs.push((name, value))
+      }
+    } else if !value.is_empty() {
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      {
+        self.element.get_element().set_attribute(&name, &value);
+      }
+
+      self.attrs.push((name, value));
+    }
 
     self
   }
@@ -205,12 +218,6 @@ impl<El: IntoElement> HtmlElement<El> {
       assert_ne!(
         name, "id",
         "to set the `id`, please use `HtmlElement::id` instead"
-      );
-
-      assert_ne!(
-        name, "class",
-        "to set classes, please use `HtmlElement::class` or \
-         `HtmlElement::dyn_class` instead"
       );
     }
 
@@ -256,14 +263,8 @@ impl<El: IntoElement> HtmlElement<El> {
   /// Addes the provided classes to the element. You can call this
   /// as many times as needed, seperating the classes by spaces.
   #[track_caller]
-  pub fn class(mut self, classes: impl Into<Cow<'static, str>>) -> Self {
-    let classes = classes.into();
-
-    self.classes.push(Box::new(
-      |_, #[cfg(all(target_arch = "wasm32", feature = "web"))] _| Some(classes),
-    ));
-
-    self
+  pub fn class(self, classes: impl Into<Cow<'static, str>>) -> Self {
+    self.attr("class", classes)
   }
 
   /// Addes the provided classes to the element when the predicate is true.
@@ -271,21 +272,15 @@ impl<El: IntoElement> HtmlElement<El> {
   /// by spaces.
   #[track_caller]
   pub fn class_bool(
-    mut self,
+    self,
     classes: impl Into<Cow<'static, str>>,
     predicate: bool,
   ) -> Self {
-    let classes = classes.into();
-
     if predicate {
-      self.classes.push(Box::new(
-        |_, #[cfg(all(target_arch = "wasm32", feature = "web"))] _| {
-          Some(classes)
-        },
-      ));
+      self.class(classes)
+    } else {
+      self
     }
-
-    self
   }
 
   /// Addes the provided classes to the element when the signal yields
@@ -297,91 +292,7 @@ impl<El: IntoElement> HtmlElement<El> {
     F: Fn() -> Option<C> + 'static,
     C: Into<Cow<'static, str>>,
   {
-    self.classes.push(Box::new(
-      |cx, #[cfg(all(target_arch = "wasm32", feature = "web"))] el_node| {
-        let apply_class =
-          move |class: Option<C>, prev_run: Option<Cow<'static, str>>| {
-            let _guard = debug_span!("apply_class", ?prev_run).entered();
-
-            if let Some(class) = class {
-              let class = class.into();
-
-              #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              if let Some(prev_class) = prev_run {
-                let prev_class_set =
-                  prev_class.split_ascii_whitespace().collect::<HashSet<_>>();
-
-                let class_set =
-                  class.split_ascii_whitespace().collect::<HashSet<_>>();
-
-                // Remove removed classes
-                prev_class_set.difference(&class_set).for_each(|c| {
-                  el_node
-                    .unchecked_ref::<web_sys::Element>()
-                    .class_list()
-                    .remove_1(c)
-                    .expect("class removal to not err");
-                });
-
-                // Add the new classes
-                class_set.difference(&prev_class_set).for_each(|c| {
-                  el_node
-                    .unchecked_ref::<web_sys::Element>()
-                    .class_list()
-                    .add_1(c)
-                    .expect("class addition to not err");
-                })
-              } else {
-                for class in class.split_ascii_whitespace() {
-                  el_node
-                    .unchecked_ref::<web_sys::Element>()
-                    .class_list()
-                    .add_1(class)
-                    .expect("adding class to not err");
-                }
-              }
-
-              Some(class)
-            } else {
-              #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              if let Some(prev_class) = prev_run {
-                for class in prev_class.split_ascii_whitespace() {
-                  el_node
-                    .unchecked_ref::<web_sys::Element>()
-                    .class_list()
-                    .remove_1(class)
-                    .expect("class removal to not err");
-                }
-              }
-
-              None
-            }
-          };
-
-        let initial_value = apply_class(f(), None);
-
-        create_effect(
-          cx,
-          clone!([initial_value], move |prev_run: Option<
-            Option<Cow<'static, str>>,
-          >| {
-            let mut initial_value = initial_value.clone();
-
-            let v = f();
-
-            if let Some(prev_run) = prev_run {
-              apply_class(v, prev_run)
-            } else {
-              apply_class(v, initial_value.take())
-            }
-          }),
-        );
-
-        initial_value
-      },
-    ));
-
-    self
+    self.dyn_attr("class", f)
   }
 
   /// Adds an event listener to this element.
@@ -464,34 +375,11 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       element,
       id,
       mut attrs,
-      classes,
       events,
       children,
     } = self;
 
     let mut element = Element::new(element);
-
-    let classes = classes
-      .into_iter()
-      .filter_map(|c| {
-        c(
-          cx,
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          element.element.clone(),
-        )
-      })
-      .intersperse(" ".into())
-      .collect::<String>();
-
-    let classes = if classes.is_empty() {
-      None
-    } else {
-      Some(("class".into(), classes.into()))
-    };
-
-    if let Some(classes) = classes {
-      attrs.push(classes);
-    }
 
     let children = children
       .into_iter()
@@ -573,6 +461,11 @@ macro_rules! generate_html_tags {
   ),* $(,)?) => {
     paste::paste! {
       $(
+        #[thread_local]
+        static [<$tag:upper>]: LazyCell<web_sys::Element> = LazyCell::new(|| {
+          crate::document().create_element(stringify!($tag)).unwrap()
+        });
+
         #[derive(Clone, Debug)]
         #[$meta]
         pub struct [<$tag:camel $($trailing_)?>] {
@@ -582,11 +475,10 @@ macro_rules! generate_html_tags {
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
-            let element = crate::document().create_element(
-              stringify!([<$tag:lower>])
-            ).unwrap();
+            let element = [<$tag:upper>].clone();
 
             Self {
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
               element
             }
           }
@@ -594,7 +486,7 @@ macro_rules! generate_html_tags {
 
         impl IntoElement for [<$tag:camel $($trailing_)?>] {
           fn name(&self) -> Cow<'static, str> {
-            stringify!([<$tag:lower>]).into()
+            stringify!($tag).into()
           }
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]

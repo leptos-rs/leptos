@@ -22,6 +22,10 @@ use wasm_bindgen::{intern, JsCast, UnwrapThrowExt};
 #[thread_local]
 static COMMENT: LazyCell<web_sys::Node> =
   LazyCell::new(|| document().create_comment("").unchecked_into());
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[thread_local]
+static RANGE: LazyCell<web_sys::Range> =
+  LazyCell::new(|| web_sys::Range::new().unwrap());
 
 /// Converts the value into a [`Node`].
 pub trait IntoNode {
@@ -123,7 +127,7 @@ impl Comment {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let node = COMMENT.clone_node().unwrap();
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     node.set_text_content(Some(&format!(" {content} ")));
 
     Self {

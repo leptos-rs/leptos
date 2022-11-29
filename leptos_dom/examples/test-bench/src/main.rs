@@ -79,25 +79,25 @@ fn view_fn(cx: Scope) -> impl IntoNode {
   });
 
   [
-    h1()
+    h1(cx)
       .dyn_child(move || text(count().to_string()))
       .into_node(cx),
-    button()
+    button(cx)
       .on("click", move |_: web_sys::Event| {
         set_count.update(|n| *n += 1)
       })
       .child(text("Click me"))
       .into_node(cx),
-    button()
+    button(cx)
       .on_delegated("click", move |_: web_sys::Event| {
         set_count.update(|n| *n += 1)
       })
       .child(text("Click me (delegated)"))
       .into_node(cx),
-    p()
+    p(cx)
       .child(EachKey::new(iterable, |i| *i, |i| text(format!("{i}, "))))
       .into_node(cx),
-    input()
+    input(cx)
       .class("input input-primary")
       .dyn_class(move || {
         if apply_default_class_set() {
@@ -109,7 +109,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .dyn_attr("disabled", move || disabled().then_some(""))
       .into_node(cx),
     MyComponent.into_node(cx),
-    h3()
+    h3(cx)
       .dyn_child(move || show().then(|| text("Now you see me...")))
       .into_node(cx),
   ]
@@ -120,7 +120,7 @@ struct MyComponent;
 impl IntoNode for MyComponent {
   fn into_node(self, cx: Scope) -> Node {
     let component = Component::new("MyComponent", |cx| {
-      vec![[h2().child(text("MyComponent"))].into_node(cx)]
+      vec![[h2(cx).child(text("MyComponent"))].into_node(cx)]
     });
 
     component.into_node(cx)

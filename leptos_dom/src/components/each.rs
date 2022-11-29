@@ -1,5 +1,5 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, GetWebSysNode, MountKind};
+use crate::{mount_child, GetWebSysNode, MountKind, RANGE};
 use crate::{Comment, CoreComponent, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use smallvec::SmallVec;
@@ -384,6 +384,9 @@ fn apply_cmds<T, EF, N>(
   EF: Fn(T) -> N,
   N: IntoNode,
 {
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  let range = &RANGE;
+
   // Resize children if needed
   if cmds.added_delta >= 0 {
     children.resize_with(children.len() + cmds.added_delta as usize, || None);
@@ -406,8 +409,6 @@ fn apply_cmds<T, EF, N>(
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-      let range = web_sys::Range::new().unwrap();
-
       range.set_start_after(opening).unwrap();
       range.set_end_before(closing).unwrap();
 
@@ -443,9 +444,6 @@ fn apply_cmds<T, EF, N>(
       }
     }
   }
-
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  let range = web_sys::Range::new().unwrap();
 
   // The order of cmds needs to be:
   // 1. Removed
@@ -516,8 +514,6 @@ fn apply_cmds<T, EF, N>(
             parent.set_text_content(Some(""));
             parent.append_with_node_2(&opening, &closing);
           } else {
-            let range = web_sys::Range::new().unwrap();
-
             range.set_start_after(opening).unwrap();
             range.set_end_before(closing).unwrap();
 
