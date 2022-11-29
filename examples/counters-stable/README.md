@@ -1,0 +1,8 @@
+# Leptos Counters Example on Rust Stable
+
+This example showcases a basic leptos app with many counters. It is a good example of how to setup a basic reactive app with signals and effects, and how to interact with browser events. Unlike the other counters example, it will compile on Rust stable
+
+## Client Side Rendering
+To run it as a Client Side App, you can issue  `trunk serve --open` in the root. This will build the entire
+app into one CSR bundle
+

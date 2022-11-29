@@ -1,8 +1,8 @@
 # Leptos Router Example
 
-This example demonstrates how Leptos' router works
+This example demonstrates how Leptos' router for client side routing.
 
-## Run it
+## Build and Run it
 ```bash
 trunk serve --open
 ```

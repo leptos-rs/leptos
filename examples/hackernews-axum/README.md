@@ -4,7 +4,7 @@ This example creates a basic clone of the Hacker News site. It showcases Leptos'
 
 ## Client Side Rendering
 To run it as a Client Side App, you can issue  `trunk serve --open` in the root. This will build the entire
-app into one CRS bundle
+app into one CSR bundle
 
 ## Server Side Rendering With Hydration
 To run it as a server side app with hydration, first you should run 
