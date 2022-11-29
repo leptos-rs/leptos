@@ -365,6 +365,7 @@ enum DiffOp {
   Add { at: usize },
   Remove { at: usize },
   Clear,
+  Append,
 }
 
 fn apply_cmds<T, EF, N>(
@@ -406,7 +407,7 @@ fn apply_cmds<T, EF, N>(
       let range = web_sys::Range::new().unwrap();
 
       range.set_start_after(opening).unwrap();
-      range.set_end_before(opening).unwrap();
+      range.set_end_before(closing).unwrap();
 
       range.delete_contents().unwrap();
     }
@@ -414,6 +415,8 @@ fn apply_cmds<T, EF, N>(
     cmds
       .ops
       .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
+
+    children.resize_with(cmds.ops.len(), Default::default);
   }
 
   // The order of cmds needs to be:
@@ -491,6 +494,7 @@ fn apply_cmds<T, EF, N>(
           }
         }
       }
+      DiffOp::Append => todo!(),
     }
   }
 
