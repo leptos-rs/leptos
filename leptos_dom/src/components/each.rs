@@ -252,6 +252,7 @@ where
           cx,
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           &opening,
+          #[cfg(all(target_arch = "wasm32", feature = "web"))]
           &closing,
           cmds,
           &mut children.borrow_mut(),

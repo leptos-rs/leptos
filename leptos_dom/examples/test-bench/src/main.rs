@@ -7,7 +7,6 @@ use leptos_dom::*;
 use leptos_reactive::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
-#[cfg_attr(debug_assertions, instrument]
 fn main() {
   console_error_panic_hook::set_once();
 
@@ -27,11 +26,10 @@ fn main() {
 }
 
 fn view_fn(cx: Scope) -> impl IntoNode {
-  let (tick, set_tick) = create_signal(cx, false);
+  let (tick, set_tick) = create_signal(cx, 0);
   let (count, set_count) = create_signal(cx, 0);
   let (show, set_show) = create_signal(cx, true);
-  let (iterable, set_iterable) =
-    create_signal(cx, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  let (iterable, set_iterable) = create_signal(cx, vec![]);
   let (disabled, set_disabled) = create_signal(cx, false);
   let (apply_default_class_set, set_apply_default_class_set) =
     create_signal(cx, false);
@@ -40,7 +38,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
     loop {
       gloo::timers::future::sleep(std::time::Duration::from_secs(5)).await;
 
-      set_tick.update(|t| *t = !*t);
+      set_tick.update(|t| *t += 1);
     }
   });
 
@@ -59,7 +57,13 @@ fn view_fn(cx: Scope) -> impl IntoNode {
   create_effect(cx, move |_| {
     tick();
 
-    set_iterable.update(|i| i.reverse())
+    set_iterable.update(|i| {
+      if tick() % 2 == 0 {
+        *i = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+      } else {
+        i.clear();
+      }
+    })
   });
 
   create_effect(cx, move |_| {
