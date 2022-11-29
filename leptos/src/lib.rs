@@ -27,7 +27,7 @@
 //! the [examples](https://github.com/gbj/leptos/tree/main/examples):
 //! - [`counter`](https://github.com/gbj/leptos/tree/main/examples/counter) is the classic
 //!   counter example, showing the basics of client-side rendering and reactive DOM updates
-//! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counter) introduces parent-child
+//! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counters) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
 //! - [`parent-child`](https://github.com/gbj/leptos/tree/main/examples/parent-child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
