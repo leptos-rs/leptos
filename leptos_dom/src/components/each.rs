@@ -59,15 +59,15 @@ impl Default for EachRepr {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
-      #[cfg(debug_assertions)]
+      //#[cfg(debug_assertions)]
       fragment
         .append_with_node_2(&opening.node, &closing.node)
         .expect("append to not err");
 
-      #[cfg(not(debug_assertions))]
+      /* #[cfg(not(debug_assertions))]
       fragment
         .append_with_node_1(&closing.node)
-        .expect("append to not err");
+        .expect("append to not err"); */
 
       fragment
     };
@@ -118,7 +118,7 @@ impl Default for EachItem {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
-      #[cfg(debug_assertions)]
+      //#[cfg(debug_assertions)]
       fragment
         .append_with_node_2(&opening.node, &closing.node)
         .expect("append to not err");

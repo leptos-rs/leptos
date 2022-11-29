@@ -123,17 +123,17 @@ impl Comment {
   fn new(content: impl Into<Cow<'static, str>>) -> Self {
     let content = content.into();
 
-    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
+    //#[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     let node = crate::document()
       .create_comment(&format!(" {content} "))
       .unchecked_into::<web_sys::Node>()
       .into();
 
-    #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
+    /* #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
     let node = crate::document()
       .create_comment(&format!(""))
       .unchecked_into::<web_sys::Node>()
-      .into();
+      .into(); */
 
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
