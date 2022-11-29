@@ -1018,36 +1018,14 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
     let span = node.name.span();
     let component_props_name = Ident::new(&format!("{component_name}Props"), span);
 
-    let (initialize_children, children) = if node.children.is_empty() {
-        (quote! {}, quote! {})
+    let children = if node.children.is_empty() {
+        quote! {}
     } else if node.children.len() == 1 {
         let child = render_view(cx, &node.children, mode);
-
-        if mode == Mode::Hydrate {
-            (
-                quote_spanned! { span => let children = vec![#child]; },
-                quote_spanned! { span => .children(Box::new(move || children.clone())) },
-            )
-        } else {
-            (
-                quote! {},
-                quote_spanned! { span => .children(Box::new(move || vec![#child])) },
-            )
-        }
+        quote_spanned! { span => .children(Box::new(move || vec![#child])) }
     } else {
         let children = render_view(cx, &node.children, mode);
-
-        if mode == Mode::Hydrate {
-            (
-                quote_spanned! { span => let children = Box::new(move || #children); },
-                quote_spanned! { span => .children(children) },
-            )
-        } else {
-            (
-                quote! {},
-                quote_spanned! { span => .children(Box::new(move || #children)) },
-            )
-        }
+        quote_spanned! { span => .children(Box::new(move || #children)) }
     };
 
     let props = attributes(node).filter_map(|attr| {
@@ -1121,7 +1099,6 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
     if other_attrs.peek().is_none() {
         quote_spanned! {
             span => create_component(#cx, move || {
-                #initialize_children
                 #component_name(
                     #cx,
                     #component_props_name::builder()
@@ -1134,7 +1111,6 @@ fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
     } else {
         quote_spanned! {
             span => create_component(#cx, move || {
-                #initialize_children
                 let #component_name = #component_name(
                     #cx,
                     #component_props_name::builder()
