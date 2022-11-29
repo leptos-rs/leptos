@@ -90,14 +90,8 @@ impl ComponentRepr {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
-      #[cfg(debug_assertions)]
       fragment
         .append_with_node_2(&opening.node, &closing.node)
-        .expect("append to not err");
-
-      #[cfg(not(debug_assertions))]
-      fragment
-        .append_with_node_1(&closing.node)
         .expect("append to not err");
 
       fragment
@@ -106,7 +100,6 @@ impl ComponentRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      //#[cfg(debug_assertions)]
       opening,
       closing,
       #[cfg(debug_assertions)]
