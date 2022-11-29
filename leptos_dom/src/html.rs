@@ -475,7 +475,7 @@ macro_rules! generate_html_tags {
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
-            let element = [<$tag:upper>].clone();
+            let element = [<$tag:upper>].clone_node().unwrap().unchecked_into();
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
