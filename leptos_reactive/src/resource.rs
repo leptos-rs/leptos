@@ -70,15 +70,8 @@ where
     T: Debug + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
-    #[cfg(not(feature = "ssr"))]
+    // can't check this on the server without running the future
     let initial_value = None;
-    #[cfg(feature = "ssr")]
-    let initial_value = {
-        use futures::FutureExt;
-
-        let initial_fut = fetcher(source());
-        initial_fut.now_or_never()
-    };
 
     create_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
@@ -629,10 +622,26 @@ where
     where
         T: Serializable,
     {
-        let fut = self.source.with(|s| (self.fetcher)(s.clone()));
+        use futures::StreamExt;
+
+        let (tx, mut rx) = futures::channel::mpsc::channel(1);
+        let value = self.value;
+        create_isomorphic_effect(self.scope, {
+            let tx = tx.clone();
+            move |_| {
+                value.with({
+                    let mut tx = tx.clone();
+                    move |value| {
+                        if let Some(value) = value.as_ref() {
+                            tx.try_send((id, value.to_json().expect("could not serialize Resource")))
+                                .expect("failed while trying to write to Resource serializer");
+                        }
+                    }
+                })
+            }
+        });
         Box::pin(async move {
-            let res = fut.await;
-            (id, res.to_json().expect("could not serialize Resource"))
+            rx.next().await.expect("failed while trying to resolve Resource serializer")
         })
     }
 }
