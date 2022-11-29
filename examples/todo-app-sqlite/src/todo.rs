@@ -39,7 +39,8 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req =
         use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
-    println!("req.path = {:?}", req.path());
+    println!("\ncalling server fn");
+    println!("  req.path = {:?}", req.path());
 
     use futures::TryStreamExt;
 
@@ -54,6 +55,8 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     {
         todos.push(row);
     }
+
+    println!("  returning todos\n");
 
     Ok(todos)
 }
