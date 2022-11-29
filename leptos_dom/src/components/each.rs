@@ -439,7 +439,7 @@ fn apply_cmds<T, EF, N>(
     });
 
     if let DiffOp::Add { at, .. } = &cmds.ops[0] {
-      if *at > children.len() {
+      if *at >= children.len() {
         cmds.ops.iter_mut().for_each(|op| {
           if let DiffOp::Add { at, mode } = op {
             *mode = DiffOpAddMode::Append;
