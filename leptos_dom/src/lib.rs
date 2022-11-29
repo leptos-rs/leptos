@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(once_cell, iter_intersperse, drain_filter)]
+#![feature(once_cell, iter_intersperse, drain_filter, thread_local)]
 
 //! The DOM implementation for `leptos`.
 
@@ -16,8 +16,12 @@ pub use components::*;
 pub use html::*;
 use leptos_reactive::{Scope, ScopeDisposer};
 use smallvec::SmallVec;
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, cell::LazyCell, fmt};
 use wasm_bindgen::{intern, JsCast, UnwrapThrowExt};
+
+#[thread_local]
+static COMMENT: LazyCell<web_sys::Node> =
+  LazyCell::new(|| document().create_comment("").unchecked_into());
 
 /// Converts the value into a [`Node`].
 pub trait IntoNode {
@@ -123,17 +127,11 @@ impl Comment {
   fn new(content: impl Into<Cow<'static, str>>) -> Self {
     let content = content.into();
 
-    //#[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
-    let node = crate::document()
-      .create_comment(&format!(" {content} "))
-      .unchecked_into::<web_sys::Node>()
-      .into();
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    let node = COMMENT.clone_node().unwrap();
 
-    /* #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
-    let node = crate::document()
-      .create_comment(&format!(""))
-      .unchecked_into::<web_sys::Node>()
-      .into(); */
+    #[cfg(debug_assertions)]
+    node.set_text_content(Some(&format!(" {content} ")));
 
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
