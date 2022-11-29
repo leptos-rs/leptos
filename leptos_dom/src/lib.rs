@@ -270,15 +270,21 @@ fn mount_child<GWSN: GetWebSysNode + fmt::Debug>(
   let child = child.get_web_sys_node();
 
   match kind {
-    MountKind::Component(closing) => {
+    MountKind::Append(el) => {
+      el.append_child(&child)
+        .expect("append operation to not err");
+    }
+    MountKind::Before(closing) => {
       closing
         .unchecked_ref::<web_sys::Element>()
         .before_with_node_1(&child)
         .expect("before to not err");
     }
-    MountKind::Element(el) => {
-      el.append_child(&child)
-        .expect("append operation to not err");
+    MountKind::After(closing) => {
+      closing
+        .unchecked_ref::<web_sys::Element>()
+        .after_with_node_1(&child)
+        .expect("before to not err");
     }
   }
 }
@@ -286,11 +292,15 @@ fn mount_child<GWSN: GetWebSysNode + fmt::Debug>(
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug)]
 enum MountKind<'a> {
-  Component(
+  Before(
     // The closing node
     &'a web_sys::Node,
   ),
-  Element(&'a web_sys::Node),
+  Append(&'a web_sys::Node),
+  After(
+    // The opening node
+    &'a web_sys::Node,
+  ),
 }
 
 /// Runs the provided closure and mounts the result to eht `<body>`.

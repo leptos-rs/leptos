@@ -119,7 +119,7 @@ where
       let new_child = child_fn().into_node(cx);
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      mount_child(MountKind::Component(&closing), &new_child);
+      mount_child(MountKind::Before(&closing), &new_child);
 
       **child.borrow_mut() = new_child;
     });

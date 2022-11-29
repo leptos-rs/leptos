@@ -530,7 +530,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       }
 
       for child in &children {
-        mount_child(MountKind::Element(&element.node), child);
+        mount_child(MountKind::Append(&element.node), child);
       }
     }
 

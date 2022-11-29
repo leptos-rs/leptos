@@ -62,7 +62,7 @@ impl IntoNode for ComponentRepr {
   fn into_node(self, _: Scope) -> Node {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.children {
-      mount_child(MountKind::Component(&self.closing.node), child);
+      mount_child(MountKind::Before(&self.closing.node), child);
     }
 
     Node::Component(self)

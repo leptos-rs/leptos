@@ -238,8 +238,6 @@ where
       if let Some(HashRun(prev_hash_run)) = prev_hash_run {
         let cmds = diff(&prev_hash_run, &hashed_items);
 
-        debug!(diff = ?cmds);
-
         apply_cmds(
           cx,
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -262,12 +260,12 @@ where
           let child = each_fn(item).into_node(cx);
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          mount_child(MountKind::Component(&each_item.closing.node), &child);
+          mount_child(MountKind::Before(&each_item.closing.node), &child);
 
           each_item.child = Some(child);
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          mount_child(MountKind::Component(&closing), &each_item);
+          mount_child(MountKind::Before(&closing), &each_item);
 
           children_borrow.push(each_item);
         }
@@ -304,7 +302,10 @@ fn diff<K: Eq + Hash>(
   let removed = from.difference(to).map(|k| DiffOp::Remove { at: k.1 });
 
   // Get added items
-  let added = to.difference(from).map(|k| DiffOp::Add { at: k.1 });
+  let added = to.difference(from).map(|k| DiffOp::Add {
+    at: k.1,
+    mode: Default::default(),
+  });
 
   // Get maybe moved items
   let moved = from
@@ -362,10 +363,18 @@ struct Diff {
 #[derive(Debug)]
 enum DiffOp {
   Move { from: usize, to: usize },
-  Add { at: usize },
+  Add { at: usize, mode: DiffOpAddMode },
   Remove { at: usize },
   Clear,
   Append,
+}
+
+#[derive(Default, Debug)]
+enum DiffOpAddMode {
+  #[default]
+  Normal,
+  Append,
+  Prepend,
 }
 
 fn apply_cmds<T, EF, N>(
@@ -418,6 +427,29 @@ fn apply_cmds<T, EF, N>(
 
     children.resize_with(cmds.ops.len(), Default::default);
   }
+  // We can optimize for the case where were are only appending
+  // items
+  else if cmds.added_delta > 0 && cmds.removing == 0 && cmds.moving == 0 {
+    cmds.ops.sort_unstable_by_key(|op| {
+      if let DiffOp::Add { at, .. } = op {
+        *at
+      } else {
+        unreachable!()
+      }
+    });
+
+    if let DiffOp::Add { at, .. } = &cmds.ops[0] {
+      if *at > children.len() {
+        cmds.ops.iter_mut().for_each(|op| {
+          if let DiffOp::Add { at, mode } = op {
+            *mode = DiffOpAddMode::Append;
+          } else {
+            unreachable!()
+          }
+        })
+      }
+    }
+  }
 
   // The order of cmds needs to be:
   // 1. Removed
@@ -448,7 +480,7 @@ fn apply_cmds<T, EF, N>(
 
         items_to_move.push((to, item));
       }
-      DiffOp::Add { at } => {
+      DiffOp::Add { at, mode } => {
         let item = std::mem::replace(&mut items[at], None).unwrap();
 
         let child = each_fn(item).into_node(cx);
@@ -456,16 +488,26 @@ fn apply_cmds<T, EF, N>(
         let mut each_item = EachItem::default();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        mount_child(MountKind::Component(&each_item.closing.node), &child);
+        mount_child(MountKind::Before(&each_item.closing.node), &child);
 
         each_item.child = Some(child);
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-          let opening = children
-            .get_next_closest_mounted_sibling(at + 1, closing.to_owned());
+          match mode {
+            DiffOpAddMode::Normal => {
+              let opening = children
+                .get_next_closest_mounted_sibling(at + 1, closing.to_owned());
 
-          mount_child(MountKind::Component(&opening), &each_item);
+              mount_child(MountKind::Before(&opening), &each_item);
+            }
+            DiffOpAddMode::Append => {
+              mount_child(MountKind::Before(closing), &each_item);
+            }
+            DiffOpAddMode::Prepend => {
+              mount_child(MountKind::After(opening), &each_item);
+            }
+          }
         }
 
         children[at] = each_item;
@@ -504,7 +546,7 @@ fn apply_cmds<T, EF, N>(
       let opening =
         children.get_next_closest_mounted_sibling(to + 1, closing.to_owned());
 
-      mount_child(MountKind::Component(&opening), &each_item);
+      mount_child(MountKind::Before(&opening), &each_item);
 
       children[to] = each_item;
     }

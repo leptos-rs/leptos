@@ -23,7 +23,7 @@ impl IntoNode for Fragment {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.0 {
-      mount_child(MountKind::Component(closing), child);
+      mount_child(MountKind::Before(closing), child);
     }
 
     frag.children = self.0;

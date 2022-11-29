@@ -61,7 +61,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       if tick() % 2 == 0 {
         *i = vec![1, 2, 3];
       } else {
-        *i = vec![4, 5, 6];
+        *i = vec![1, 2, 3, 4, 5, 6];
       }
     })
   });
