@@ -308,8 +308,6 @@ impl<El: IntoElement> HtmlElement<El> {
             if let Some(class) = class {
               let class = class.into();
 
-              debug!(new_class = ?class);
-
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               if let Some(prev_class) = prev_run {
                 let prev_class_set =
@@ -347,8 +345,6 @@ impl<El: IntoElement> HtmlElement<El> {
 
               Some(class)
             } else {
-              debug!(new_class = "None");
-
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               if let Some(prev_class) = prev_run {
                 for class in prev_class.split_ascii_whitespace() {

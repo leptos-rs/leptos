@@ -395,9 +395,8 @@ fn apply_cmds<T, EF, N>(
 
     cmds.ops.push(DiffOp::Clear);
   }
-
   // We can optimize the case of replacing all items
-  if !children.is_empty() && cmds.removing == children.len() {
+  else if !items.is_empty() && cmds.removing == children.len() {
     children.clear();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -476,7 +475,9 @@ fn apply_cmds<T, EF, N>(
           range.set_start_after(opening).unwrap();
           range.set_end_before(closing).unwrap();
 
-          range.delete_contents().unwrap();
+          let contents = range.extract_contents().unwrap();
+
+          gloo::console::log!(contents);
         }
       }
     }
