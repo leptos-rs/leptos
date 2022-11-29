@@ -81,7 +81,7 @@ pub struct Element {
   name: Cow<'static, str>,
   is_void: bool,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  node: web_sys::Node,
+  element: web_sys::Element,
   attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
   children: Vec<Node>,
 }
@@ -98,18 +98,11 @@ impl Element {
   fn new<El: IntoElement>(el: El) -> Self {
     let name = el.name();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let node = crate::document()
-      .create_element(intern(&name))
-      .expect("element creation to not fail")
-      .unchecked_into::<web_sys::Node>()
-      .into();
-
     Self {
       name,
       is_void: el.is_void(),
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      node,
+      element: el.get_element().clone(),
       attrs: Default::default(),
       children: Default::default(),
     }
@@ -233,7 +226,9 @@ impl<const N: usize> IntoNode for [Node; N] {
 impl GetWebSysNode for Node {
   fn get_web_sys_node(&self) -> web_sys::Node {
     match self {
-      Self::Element(node) => node.node.clone(),
+      Self::Element(element) => {
+        element.element.unchecked_ref::<web_sys::Node>().clone()
+      }
       Self::Text(t) => t.node.clone(),
       Self::CoreComponent(c) => match c {
         CoreComponent::Unit(u) => u.get_web_sys_node(),

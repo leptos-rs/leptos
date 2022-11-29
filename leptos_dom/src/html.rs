@@ -14,6 +14,10 @@ pub trait IntoElement: fmt::Debug {
   /// The name of the element, i.e., `div`, `p`, `custom-element`.
   fn name(&self) -> Cow<'static, str>;
 
+  /// Get a reference to the underlying [`web_sys::Element`].
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  fn get_element(&self) -> &web_sys::Element;
+
   /// Determains if the tag is void, i.e., `<input>` and `<br>`.
   fn is_void(&self) -> bool {
     false
@@ -21,19 +25,8 @@ pub trait IntoElement: fmt::Debug {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-type BoxedAttrFn = Box<
-  dyn FnOnce(
-    Scope,
-    web_sys::Node,
-  ) -> Option<(Cow<'static, str>, Cow<'static, str>)>,
->;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-type BoxedAttrFn =
-  Box<dyn FnOnce(Scope) -> Option<(Cow<'static, str>, Cow<'static, str>)>>;
-
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 type BoxedClassFn =
-  Box<dyn FnOnce(Scope, web_sys::Node) -> Option<Cow<'static, str>>>;
+  Box<dyn FnOnce(Scope, web_sys::Element) -> Option<Cow<'static, str>>>;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 type BoxedClassFn = Box<dyn FnOnce(Scope) -> Option<Cow<'static, str>>>;
 
@@ -47,12 +40,19 @@ type BoxedEventSetupFn = Box<dyn FnOnce()>;
 #[derive(Clone, Debug)]
 pub struct AnyElement {
   name: Cow<'static, str>,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  element: web_sys::Element,
   is_void: bool,
 }
 
 impl IntoElement for AnyElement {
   fn name(&self) -> Cow<'static, str> {
     self.name.clone()
+  }
+
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  fn get_element(&self) -> &web_sys::Element {
+    &self.element
   }
 
   fn is_void(&self) -> bool {
@@ -64,11 +64,18 @@ impl IntoElement for AnyElement {
 #[derive(Clone, Debug)]
 pub struct Custom {
   name: Cow<'static, str>,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  element: web_sys::Element,
 }
 
 impl IntoElement for Custom {
   fn name(&self) -> Cow<'static, str> {
     self.name.clone()
+  }
+
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  fn get_element(&self) -> &web_sys::Element {
+    &self.element
   }
 }
 
@@ -76,10 +83,11 @@ impl IntoElement for Custom {
 #[derive(educe::Educe)]
 #[educe(Debug)]
 pub struct HtmlElement<El: IntoElement> {
+  cx: Scope,
   element: El,
   id: OnceCell<Cow<'static, str>>,
   #[educe(Debug(ignore))]
-  attrs: SmallVec<[BoxedAttrFn; 4]>,
+  attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
   #[educe(Debug(ignore))]
   classes: SmallVec<[BoxedClassFn; 4]>,
   #[educe(Debug(ignore))]
@@ -90,8 +98,9 @@ pub struct HtmlElement<El: IntoElement> {
 }
 
 impl<El: IntoElement> HtmlElement<El> {
-  fn new(element: El) -> Self {
+  fn new(cx: Scope, element: El) -> Self {
     Self {
+      cx,
       id: Default::default(),
       attrs: smallvec![],
       classes: Default::default(),
@@ -104,6 +113,7 @@ impl<El: IntoElement> HtmlElement<El> {
   /// Converts this element into [`HtmlElement<AnyElement>`].
   pub fn into_any(self) -> HtmlElement<AnyElement> {
     let Self {
+      cx,
       id,
       attrs,
       classes,
@@ -113,6 +123,7 @@ impl<El: IntoElement> HtmlElement<El> {
     } = self;
 
     HtmlElement {
+      cx,
       id,
       attrs,
       classes,
@@ -120,6 +131,8 @@ impl<El: IntoElement> HtmlElement<El> {
       events,
       element: AnyElement {
         name: element.name(),
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        element: element.get_element().clone(),
         is_void: element.is_void(),
       },
     }
@@ -157,11 +170,12 @@ impl<El: IntoElement> HtmlElement<El> {
       );
     }
 
-    self.attrs.push(Box::new(
-      |_, #[cfg(all(target_arch = "wasm32", feature = "web"))] _| {
-        Some((name, value))
-      },
-    ));
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      self.element.get_element().set_attribute(&name, &value);
+    }
+
+    self.attrs.push((name, value));
 
     self
   }
@@ -200,43 +214,27 @@ impl<El: IntoElement> HtmlElement<El> {
       );
     }
 
-    self.attrs.push(Box::new(
-      |cx, #[cfg(all(target_arch = "wasm32", feature = "web"))] el_node| {
-        let apply_attr = clone!([name], move |attr: Option<A>| {
-          if let Some(value) = attr {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      create_effect(
+        self.cx,
+        clone!([{ *self.element.get_element() } as element], move |_| {
+          if let Some(value) = f() {
             let value = value.into();
 
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            el_node
-              .unchecked_ref::<web_sys::Element>()
-              .set_attribute(intern(&name), intern(&value))
-              .unwrap();
-
-            Some(value)
+            element.set_attribute(&name, &value).unwrap();
           } else {
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            el_node
-              .unchecked_ref::<web_sys::Element>()
-              .remove_attribute(intern(&name))
-              .unwrap();
-
-            None
+            element.remove_attribute(&name).unwrap();
           }
-        });
+        }),
+      );
+    }
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    if let Some(value) = f() {
+      let value = value.into();
 
-        let initial_value = apply_attr(f());
-
-        create_effect(cx, move |first_run| {
-          let v = f();
-
-          if first_run.is_some() {
-            apply_attr(v);
-          }
-        });
-
-        initial_value.map(|v| (name, v))
-      },
-    ));
+      self.attrs.push((name, value));
+    }
 
     self
   }
@@ -462,9 +460,10 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
   fn into_node(self, cx: Scope) -> Node {
     let Self {
+      cx: _,
       element,
       id,
-      attrs,
+      mut attrs,
       classes,
       events,
       children,
@@ -478,7 +477,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
         c(
           cx,
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          element.node.clone(),
+          element.element.clone(),
         )
       })
       .intersperse(" ".into())
@@ -490,17 +489,9 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       Some(("class".into(), classes.into()))
     };
 
-    let attrs = attrs
-      .into_iter()
-      .filter_map(|f| {
-        f(
-          cx,
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          element.node.clone(),
-        )
-      })
-      .chain(classes)
-      .collect::<SmallVec<[_; 4]>>();
+    if let Some(classes) = classes {
+      attrs.push(classes);
+    }
 
     let children = children
       .into_iter()
@@ -511,26 +502,18 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
     {
       if let Some(id) = id.get() {
         element
-          .node
+          .element
           .unchecked_ref::<web_sys::Element>()
           .set_attribute(intern("id"), id)
           .unwrap();
       }
 
-      for (name, value) in &attrs {
-        element
-          .node
-          .unchecked_ref::<web_sys::Element>()
-          .set_attribute(intern(name), intern(value))
-          .unwrap();
-      }
-
       for event_setup in events {
-        (event_setup)(element.node.unchecked_ref::<web_sys::Element>())
+        (event_setup)(element.element.unchecked_ref::<web_sys::Element>())
       }
 
       for child in &children {
-        mount_child(MountKind::Append(&element.node), child);
+        mount_child(MountKind::Append(&element.element), child);
       }
     }
 
@@ -564,10 +547,15 @@ impl<El: IntoElement, const N: usize> IntoNode for [HtmlElement<El>; N] {
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: IntoElement>(
-  name: impl Into<Cow<'static, str>>,
-) -> HtmlElement<Custom> {
-  HtmlElement::new(Custom { name: name.into() })
+pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
+  HtmlElement::new(
+    cx,
+    Custom {
+      name: el.name(),
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      element: el.get_element().clone(),
+    },
+  )
 }
 
 /// Creates a text node.
@@ -578,39 +566,59 @@ pub fn text(text: impl Into<Cow<'static, str>>) -> Node {
 }
 
 macro_rules! generate_html_tags {
-    ($(
-        #[$meta:meta]
-        $(#[$void:ident])?
-        $tag:ident $([$trailing_:pat])?
-    ),* $(,)?) => {
-        paste::paste! {
-            $(
-                #[derive(Clone, Copy, Debug, Default)]
-                #[$meta]
-                pub struct [<$tag:camel $($trailing_)?>];
-
-                impl IntoElement for [<$tag:camel $($trailing_)?>] {
-                    fn name(&self) -> Cow<'static, str> {
-                        stringify!([<$tag:lower $($trailing_)?>]).into()
-                    }
-
-                    generate_html_tags! { @void $($void)? }
-                }
-
-                #[$meta]
-                pub fn $tag() -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
-                    HtmlElement::new([<$tag:camel $($trailing_)?>])
-                }
-            )*
+  ($(
+    #[$meta:meta]
+    $(#[$void:ident])?
+    $tag:ident $([$trailing_:pat])?
+  ),* $(,)?) => {
+    paste::paste! {
+      $(
+        #[derive(Clone, Debug)]
+        #[$meta]
+        pub struct [<$tag:camel $($trailing_)?>] {
+          #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          element: web_sys::Element,
         }
-    };
 
-    (@void) => {};
-    (@void void) => {
-        fn is_void(&self) -> bool {
-            true
+        impl Default for [<$tag:camel $($trailing_)?>] {
+          fn default() -> Self {
+            let element = crate::document().create_element(
+              stringify!([<$tag:lower>])
+            ).unwrap();
+
+            Self {
+              element
+            }
+          }
         }
+
+        impl IntoElement for [<$tag:camel $($trailing_)?>] {
+          fn name(&self) -> Cow<'static, str> {
+            stringify!([<$tag:lower>]).into()
+          }
+
+          #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          fn get_element(&self) -> &web_sys::Element {
+            &self.element
+          }
+
+          generate_html_tags! { @void $($void)? }
+        }
+
+        #[$meta]
+        pub fn $tag(cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
+          HtmlElement::new(cx, [<$tag:camel $($trailing_)?>]::default())
+        }
+      )*
     }
+  };
+
+  (@void) => {};
+  (@void void) => {
+    fn is_void(&self) -> bool {
+      true
+    }
+  }
 }
 
 generate_html_tags![
