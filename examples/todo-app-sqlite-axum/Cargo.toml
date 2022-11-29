@@ -24,11 +24,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 gloo-net = { version = "0.2", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"] }
-axum = { version = "0.5.17", optional=true }
-tower = { version = "0.4.13", optional=true }
+axum = { version = "0.5.17", optional = true }
+tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.3.4", features = ["fs"], optional = true }
 tokio = { version = "1.0", features = ["full"], optional = true }
-http = {version = "0.2.8", optional = true}
+http = { version = "0.2.8", optional = true }
 sqlx = { version = "0.6", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
@@ -38,8 +38,27 @@ sqlx = { version = "0.6", features = [
 default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "dep:http", "dep:sqlx", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "leptos_axum"]
+ssr = [
+	"dep:axum",
+	"dep:tower",
+	"dep:tower-http",
+	"dep:tokio",
+	"dep:http",
+	"dep:sqlx",
+	"leptos/ssr",
+	"leptos_meta/ssr",
+	"leptos_router/ssr",
+	"leptos_axum",
+]
 
 [package.metadata.cargo-all-features]
-denylist = ["axum", "tower", "tower-http", "tokio", "http", "sqlx", "leptos_actix"]
+denylist = [
+	"axum",
+	"tower",
+	"tower-http",
+	"tokio",
+	"http",
+	"sqlx",
+	"leptos_axum",
+]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
