@@ -18,7 +18,7 @@ trait VecExt {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl VecExt for Vec<EachItem> {
+impl VecExt for Vec<Option<EachItem>> {
   fn get_next_closest_mounted_sibling(
     &self,
     start_at: usize,
@@ -26,7 +26,7 @@ impl VecExt for Vec<EachItem> {
   ) -> web_sys::Node {
     self[start_at..]
       .iter()
-      .find_map(|s| s.child.is_some().then_some(s.opening.node.clone()))
+      .find_map(|s| s.as_ref().map(|s| s.opening.node.clone()))
       .unwrap_or(or)
   }
 }
@@ -37,7 +37,7 @@ pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
   opening: Comment,
-  children: Rc<RefCell<Vec<EachItem>>>,
+  children: Rc<RefCell<Vec<Option<EachItem>>>>,
   closing: Comment,
 }
 
@@ -89,12 +89,12 @@ struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
   opening: Comment,
-  child: Option<Node>,
+  child: Node,
   closing: Comment,
 }
 
-impl Default for EachItem {
-  fn default() -> Self {
+impl EachItem {
+  fn new(child: Node) -> Self {
     let (opening, closing) = {
       let (opening, closing) = (
         Comment::new(Cow::Borrowed("<EachItem>")),
@@ -115,6 +115,8 @@ impl Default for EachItem {
         .append_with_node_2(&opening.node, &closing.node)
         .expect("append to not err");
 
+      mount_child(MountKind::Before(&closing.node), &child);
+
       fragment
     };
 
@@ -122,7 +124,7 @@ impl Default for EachItem {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
       opening,
-      child: Default::default(),
+      child,
       closing,
     }
   }
@@ -139,16 +141,14 @@ impl EachItem {
   /// Moves all child nodes into its' `DocumentFragment` in
   /// order to be reinserted somewhere else.
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn prepare_for_move(&self) {
+  fn prepare_for_move(&self, range: &web_sys::Range) {
     let start = &self.opening.node;
     let end = &self.closing.node;
 
-    let r = web_sys::Range::new().unwrap();
+    range.set_start_before(start).unwrap();
+    range.set_end_after(end).unwrap();
 
-    r.set_start_before(start).unwrap();
-    r.set_end_after(end).unwrap();
-
-    let frag = r.extract_contents().unwrap();
+    let frag = range.extract_contents().unwrap();
 
     self.document_fragment.append_child(&frag).unwrap();
   }
@@ -255,19 +255,14 @@ where
         *children_borrow = Vec::with_capacity(items.len());
 
         for item in items {
-          let mut each_item = EachItem::default();
-
           let child = each_fn(item).into_node(cx);
 
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          mount_child(MountKind::Before(&each_item.closing.node), &child);
-
-          each_item.child = Some(child);
+          let mut each_item = EachItem::new(child);
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           mount_child(MountKind::Before(&closing), &each_item);
 
-          children_borrow.push(each_item);
+          children_borrow.push(Some(each_item));
         }
       }
 
@@ -382,7 +377,7 @@ fn apply_cmds<T, EF, N>(
   #[cfg(all(target_arch = "wasm32", feature = "web"))] opening: &web_sys::Node,
   #[cfg(all(target_arch = "wasm32", feature = "web"))] closing: &web_sys::Node,
   mut cmds: Diff,
-  children: &mut Vec<EachItem>,
+  children: &mut Vec<Option<EachItem>>,
   mut items: Vec<Option<T>>,
   each_fn: &EF,
 ) where
@@ -391,9 +386,7 @@ fn apply_cmds<T, EF, N>(
 {
   // Resize children if needed
   if cmds.added_delta >= 0 {
-    children.resize_with(children.len() + cmds.added_delta as usize, || {
-      EachItem::default()
-    });
+    children.resize_with(children.len() + cmds.added_delta as usize, || None);
   }
 
   // We need to hold a list of items which will be moved, and
@@ -427,7 +420,7 @@ fn apply_cmds<T, EF, N>(
 
     children.resize_with(cmds.ops.len(), Default::default);
   }
-  // We can optimize for the case where were are only appending
+  // We can optimize for the case where we are only appending
   // items
   else if cmds.added_delta > 0 && cmds.removing == 0 && cmds.moving == 0 {
     cmds.ops.sort_unstable_by_key(|op| {
@@ -451,6 +444,9 @@ fn apply_cmds<T, EF, N>(
     }
   }
 
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  let range = web_sys::Range::new().unwrap();
+
   // The order of cmds needs to be:
   // 1. Removed
   // 2. Moved
@@ -458,12 +454,10 @@ fn apply_cmds<T, EF, N>(
   for cmd in cmds.ops {
     match cmd {
       DiffOp::Remove { at } => {
-        let item_to_remove = std::mem::take(&mut children[at]);
+        let item_to_remove = std::mem::take(&mut children[at]).unwrap();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-          let range = web_sys::Range::new().unwrap();
-
           range
             .set_start_before(&item_to_remove.opening.node)
             .unwrap();
@@ -473,10 +467,10 @@ fn apply_cmds<T, EF, N>(
         }
       }
       DiffOp::Move { from, to } => {
-        let item = std::mem::take(&mut children[from]);
+        let item = std::mem::take(&mut children[from]).unwrap();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        item.prepare_for_move();
+        item.prepare_for_move(&range);
 
         items_to_move.push((to, item));
       }
@@ -485,12 +479,7 @@ fn apply_cmds<T, EF, N>(
 
         let child = each_fn(item).into_node(cx);
 
-        let mut each_item = EachItem::default();
-
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        mount_child(MountKind::Before(&each_item.closing.node), &child);
-
-        each_item.child = Some(child);
+        let mut each_item = EachItem::new(child);
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -510,7 +499,7 @@ fn apply_cmds<T, EF, N>(
           }
         }
 
-        children[at] = each_item;
+        children[at] = Some(each_item);
       }
       DiffOp::Clear => {
         children.clear();
@@ -548,7 +537,7 @@ fn apply_cmds<T, EF, N>(
 
       mount_child(MountKind::Before(&opening), &each_item);
 
-      children[to] = each_item;
+      children[to] = Some(each_item);
     }
   }
 }
