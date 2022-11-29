@@ -476,9 +476,7 @@ fn apply_cmds<T, EF, N>(
           range.set_start_after(opening).unwrap();
           range.set_end_before(closing).unwrap();
 
-          let contents = range.extract_contents().unwrap();
-
-          gloo::console::log!(contents);
+          range.delete_contents().unwrap();
         }
       }
     }
