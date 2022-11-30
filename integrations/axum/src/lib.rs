@@ -1,5 +1,5 @@
 use axum::{
-    body::{Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
+    body::{Body, Bytes, Full, StreamBody},
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -219,9 +219,7 @@ pub fn render_app_to_stream(
                                                     };
                                                     provide_context(
                                                         cx,
-                                                        RouterIntegrationContext::new(
-                                                            integration,
-                                                        ),
+                                                        RouterIntegrationContext::new(integration),
                                                     );
                                                     provide_context(cx, MetaContext::new());
                                                     let app = app_fn(cx);
