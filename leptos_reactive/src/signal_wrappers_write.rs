@@ -14,13 +14,13 @@ use crate::{RwSignal, Scope, WriteSignal};
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let set_double_input = SignalSetter::map(cx, |n| set_count(n * 2));
+/// let set_double_input = SignalSetter::map(cx, move |n| set_count(n * 2));
 ///
 /// // this function takes any kind of signal setter
-/// fn set_to_4(setter: &SignalSetter<i32>) -> bool {
+/// fn set_to_4(setter: &SignalSetter<i32>) {
 ///   // ✅ calling the signal sets the value
 ///   //    it is a shorthand for arg.set()
-///   setter(4)
+///   setter(4);
 /// }
 ///
 /// set_to_4(&set_count.into());
@@ -44,10 +44,10 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
+    /// let set_double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
     ///
     /// // this function takes any kind of signal setter
-    /// fn set_to_4(setter: &SignalSetter<i32>) -> bool {
+    /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///   // ✅ calling the signal sets the value
     ///   //    it is a shorthand for arg.set()
     ///   setter(4)
@@ -55,7 +55,7 @@ where
     ///
     /// set_to_4(&set_count.into());
     /// assert_eq!(count(), 4);
-    /// set_to_4(&set_double_input);
+    /// set_to_4(&set_double_count);
     /// assert_eq!(count(), 8);
     /// # });
     /// ```
@@ -69,18 +69,18 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
+    /// let set_double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
     ///
     /// // this function takes any kind of signal setter
-    /// fn set_to_4(setter: &SignalSetter<i32>) -> bool {
+    /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///   // ✅ calling the signal sets the value
     ///   //    it is a shorthand for arg.set()
-    ///   setter(4)
+    ///   setter(4);
     /// }
     ///
     /// set_to_4(&set_count.into());
     /// assert_eq!(count(), 4);
-    /// set_to_4(&set_double_input);
+    /// set_to_4(&set_double_count);
     /// assert_eq!(count(), 8);
     /// # });
     pub fn set(&self, value: T) {
