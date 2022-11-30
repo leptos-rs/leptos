@@ -1,6 +1,6 @@
-# Leptos Counter Isomorphic Example
+# Leptos Todo App Sqlite
 
-This example demonstrates how to use a server functions and multi-actions to build a simple todo app.
+This example creates a basic todo app with an Actix backend that uses Leptos' server functions to call sqlx from the client and seamlessly run it on the server
 
 ## Server Side Rendering With Hydration
 
@@ -10,11 +10,12 @@ To run it as a server side app with hydration, first you should run
 wasm-pack build --target=web --no-default-features --features=hydrate
 ```
 
-to generate the Webassembly to provide hydration features for the server.
+to generate the WebAssembly to hydrate the HTML that is generated on the server.
+
 Then run the server with `cargo run` to serve the server side rendered HTML and the WASM bundle for hydration.
 
 ```bash
-cargo run
+cargo run --no-default-features --features=ssr
 ```
 
 > Note that if your hydration code changes, you will have to rerun the wasm-pack command above

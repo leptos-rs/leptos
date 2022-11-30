@@ -31,7 +31,7 @@ if #[cfg(feature = "ssr")] {
 
         // build our application with a route
         let app = Router::new()
-        .route("/api/*path", post(leptos_axum::handle_server_fns))
+        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .nest("/pkg", get(file_handler))
         .nest("/static", get(get_static_file_handler))
         .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }).into_service());
