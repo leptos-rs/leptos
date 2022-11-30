@@ -35,8 +35,10 @@ pub fn Stories(cx: Scope) -> Element {
             api::fetch_api::<Vec<api::Story>>(cx, &api::story(&path)).await
         },
     );
+    let (pending, set_pending) = create_signal(cx, false);
 
-    let hide_more_link = move || stories.read().unwrap_or(None).unwrap_or_default().len() < 28;
+    let hide_more_link =
+        move || pending() || stories.read().unwrap_or(None).unwrap_or_default().len() < 28;
 
     view! {
         cx,
@@ -76,7 +78,10 @@ pub fn Stories(cx: Scope) -> Element {
             </div>
             <main class="news-list">
                 <div>
-                    <Suspense fallback=view! { cx,  <p>"Loading..."</p> }>
+                    <Transition
+                        fallback=view! { cx,  <p>"Loading..."</p> }
+                        set_pending
+                    >
                         {move || match stories.read() {
                             None => None,
                             Some(None) => Some(view! { cx,  <p>"Error loading stories."</p> }),
@@ -94,7 +99,7 @@ pub fn Stories(cx: Scope) -> Element {
                                 })
                             }
                         }}
-                    </Suspense>
+                    </Transition>
                 </div>
             </main>
         </div>
