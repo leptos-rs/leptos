@@ -1,5 +1,5 @@
 use leptos_dom::{Child, IntoChild};
-use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use typed_builder::TypedBuilder;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
@@ -17,7 +17,7 @@ where
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
     #[builder(default, setter(strip_option, into))]
-    pub on_pending: Option<Box<dyn Fn(bool)>>,
+    pub set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
     pub children: Box<dyn Fn() -> Vec<G>>,
 }
@@ -49,7 +49,7 @@ where
 ///   <div>
 ///     <Transition
 ///       fallback={"Loading...".to_string()}
-///       on_pending=set_pending
+///       set_pending=set_pending
 ///     >
 ///       {move || {
 ///           cats.read().map(|data| match data {
@@ -88,7 +88,7 @@ where
 
     let child = (props.children)().swap_remove(0);
 
-    render_transition(cx, context, props.fallback, child, props.on_pending)
+    render_transition(cx, context, props.fallback, child, props.set_pending)
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -97,7 +97,7 @@ fn render_transition<'a, F, E, G>(
     context: SuspenseContext,
     fallback: F,
     child: G,
-    on_pending: Option<Box<dyn Fn(bool)>>,
+    set_pending: Option<SignalSetter<bool>>,
 ) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
@@ -114,18 +114,18 @@ where
             has_rendered_once.set(true);
             let current_child = (child)().into_child(cx);
             *prev_child.borrow_mut() = current_child.clone();
-            if let Some(pending) = &on_pending {
-                pending(false);
+            if let Some(pending) = &set_pending {
+                pending.set(false);
             }
             current_child
         } else if has_rendered_once.get() {
-            if let Some(pending) = &on_pending {
-                pending(true);
+            if let Some(pending) = &set_pending {
+                pending.set(true);
             }
             prev_child.borrow().clone()
         } else {
-            if let Some(pending) = &on_pending {
-                pending(true);
+            if let Some(pending) = &set_pending {
+                pending.set(true);
             }
             let fallback = fallback.clone().into_child(cx);
             *prev_child.borrow_mut() = fallback.clone();
@@ -140,7 +140,7 @@ fn render_transition<'a, F, E, G>(
     context: SuspenseContext,
     fallback: F,
     orig_child: G,
-    on_pending: Option<Box<dyn Fn(bool)>>,
+    set_pending: Option<SignalSetter<bool>>,
 ) -> impl Fn() -> Child
 where
     F: IntoChild + Clone,
@@ -150,7 +150,7 @@ where
     use leptos_dom::IntoAttribute;
     use leptos_macro::view;
 
-    _ = on_pending;
+    _ = set_pending;
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
