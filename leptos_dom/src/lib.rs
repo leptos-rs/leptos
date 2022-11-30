@@ -3,6 +3,8 @@
 
 //! The DOM implementation for `leptos`.
 
+use cfg_if::cfg_if;
+
 #[macro_use]
 extern crate clone_macro;
 #[macro_use]
@@ -79,15 +81,23 @@ where
   }
 }
 
-/// HTML element.
-#[derive(Debug)]
-pub struct Element {
-  name: Cow<'static, str>,
-  is_void: bool,
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  element: web_sys::Element,
-  attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-  children: Vec<Node>,
+cfg_if! {
+  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    /// HTML element.
+    #[derive(Debug)]
+    pub struct Element {
+      element: web_sys::Element,
+    }
+  } else {
+    /// HTML element.
+    #[derive(Debug)]
+    pub struct Element {
+      name: Cow<'static, str>,
+      is_void: bool,
+      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      children: Vec<Node>,
+    }
+  }
 }
 
 impl IntoNode for Element {
@@ -102,13 +112,20 @@ impl Element {
   fn new<El: IntoElement>(el: El) -> Self {
     let name = el.name();
 
-    Self {
-      name,
-      is_void: el.is_void(),
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      element: el.get_element().clone(),
-      attrs: Default::default(),
-      children: Default::default(),
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+          Self {
+            element: el.get_element().clone(),
+          }
+      }
+      else {
+        Self {
+          name,
+          is_void: el.is_void(),
+          attrs: Default::default(),
+          children: Default::default(),
+        }
+      }
     }
   }
 }

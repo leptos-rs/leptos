@@ -30,17 +30,6 @@ pub trait IntoElement: fmt::Debug {
   }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-type BoxedClassFn =
-  Box<dyn FnOnce(Scope, web_sys::Element) -> Option<Cow<'static, str>>>;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-type BoxedClassFn = Box<dyn FnOnce(Scope) -> Option<Cow<'static, str>>>;
-
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-type BoxedEventSetupFn = Box<dyn FnOnce(&web_sys::Element)>;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-type BoxedEventSetupFn = Box<dyn FnOnce()>;
-
 /// Represents potentially any element, which you can change
 /// at any time before calling [`HtmlElement::into_node`].
 #[derive(Clone, Debug)]
@@ -85,64 +74,113 @@ impl IntoElement for Custom {
   }
 }
 
-/// Represents an HTML element.
-#[derive(educe::Educe)]
-#[educe(Debug)]
-pub struct HtmlElement<El: IntoElement> {
-  cx: Scope,
-  element: El,
-  id: OnceCell<Cow<'static, str>>,
-  #[educe(Debug(ignore))]
-  attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-  #[educe(Debug(ignore))]
-  events: SmallVec<[BoxedEventSetupFn; 4]>,
-  #[educe(Debug(ignore))]
-  #[allow(clippy::type_complexity)]
-  children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
+cfg_if! {
+  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    /// Represents an HTML element.
+    #[derive(educe::Educe)]
+    #[educe(Debug)]
+    pub struct HtmlElement<El: IntoElement> {
+      cx: Scope,
+      element: El,
+      node: web_sys::HtmlElement,
+      id: OnceCell<Cow<'static, str>>,
+    }
+  // Server needs to build a virtualized DOM tree
+  } else {
+    /// Represents an HTML element.
+    #[derive(educe::Educe)]
+    #[educe(Debug)]
+    pub struct HtmlElement<El: IntoElement> {
+      cx: Scope,
+      element: El,
+      id: OnceCell<Cow<'static, str>>,
+      #[educe(Debug(ignore))]
+      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      #[educe(Debug(ignore))]
+      #[allow(clippy::type_complexity)]
+      children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
+    }
+  }
 }
 
 impl<El: IntoElement> HtmlElement<El> {
   fn new(cx: Scope, element: El) -> Self {
-    Self {
-      cx,
-      id: Default::default(),
-      attrs: smallvec![],
-      children: smallvec![],
-      events: smallvec![],
-      element,
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        Self {
+          cx,
+          id: Default::default(),
+          node: element.get_element().clone().unchecked_into(),
+          element,
+        }
+      } else {
+        Self {
+          cx,
+          id: Default::default(),
+          attrs: smallvec![],
+          children: smallvec![],
+          element,
+        }
+      }
     }
   }
 
   /// Converts this element into [`HtmlElement<AnyElement>`].
   pub fn into_any(self) -> HtmlElement<AnyElement> {
-    let Self {
-      cx,
-      id,
-      attrs,
-      children,
-      events,
-      element,
-    } = self;
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let Self {
+          cx,
+          id,
+          node,
+          element,
+        } = self;
 
-    HtmlElement {
-      cx,
-      id,
-      attrs,
-      children,
-      events,
-      element: AnyElement {
-        name: element.name(),
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        element: element.get_element().clone(),
-        is_void: element.is_void(),
-      },
+        HtmlElement {
+          cx,
+          id,
+          node,
+          element: AnyElement {
+            name: element.name(),
+            element: element.get_element().clone(),
+            is_void: element.is_void(),
+          },
+        }
+      } else {
+        let Self {
+          cx,
+          id,
+          attrs,
+          children,
+          element,
+        } = self;
+
+        HtmlElement {
+          cx,
+          id,
+          attrs,
+          children,
+          element: AnyElement {
+            name: element.name(),
+            is_void: element.is_void(),
+          },
+        }
+      }
     }
   }
 
   /// Adds an `id` to the element.
   #[track_caller]
   pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
-    self.id.set(id.into()).expect("`id` can only be set once");
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let id = id.into();
+        self.node.set_attribute(intern("id"), &id);
+      }
+      else {
+        self.id.set(id.into()).expect("`id` can only be set once");
+      }
+    }
 
     self
   }
@@ -165,29 +203,37 @@ impl<El: IntoElement> HtmlElement<El> {
       );
     }
 
-    if name == "class" && !value.is_empty() {
-      if let Some((_, class_list)) =
-        self.attrs.iter_mut().find(|(n, _)| n == "class")
-      {
-        let class_list = class_list.to_mut();
-
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        self.element.get_element().set_class_name(&class_list);
-
-        *class_list = format!("{class_list} {value}");
-      } else {
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        self.element.get_element().set_class_name(&value);
-
-        self.attrs.push((name, value))
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        if name == "class" && !value.is_empty() {
+          if let Some(mut class_list) =
+            self.node.get_attribute(intern("class"))
+          {
+            class_list.push_str(" ");
+            class_list.push_str(&value);
+            self.node.set_class_name(&class_list);
+          } else {
+            self.node.set_class_name(intern(&value));
+          }
+        } else if !value.is_empty() {
+          self.node.set_attribute(intern(&name), intern(&value));
+        }
       }
-    } else if !value.is_empty() {
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      {
-        self.element.get_element().set_attribute(&name, &value);
-      }
+      else {
+        if name == "class" && !value.is_empty() {
+          if let Some((_, class_list)) =
+            self.attrs.iter_mut().find(|(n, _)| n == "class")
+          {
+            let class_list = class_list.to_mut();
 
-      self.attrs.push((name, value));
+            *class_list = format!("{class_list} {value}");
+          } else {
+            self.attrs.push((name, value))
+          }
+        } else if !value.is_empty() {
+          self.attrs.push((name, value));
+        }
+      }
     }
 
     self
@@ -196,7 +242,7 @@ impl<El: IntoElement> HtmlElement<El> {
   /// Sets a boolean attribute on the element, i.e., `checked`, or `disabled` in
   /// `<input type="checkbox" checked disabled />`
   #[track_caller]
-  pub fn attr_bool(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+  pub fn attr_bool(self, name: impl Into<Cow<'static, str>>) -> Self {
     self.attr(name, "")
   }
 
@@ -221,26 +267,27 @@ impl<El: IntoElement> HtmlElement<El> {
       );
     }
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      create_effect(
-        self.cx,
-        clone!([{ *self.element.get_element() } as element], move |_| {
-          if let Some(value) = f() {
-            let value = value.into();
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        create_effect(
+          self.cx,
+          clone!([{ self.node } as element], move |_| {
+            if let Some(value) = f() {
+              let value = value.into();
 
-            element.set_attribute(&name, &value).unwrap();
-          } else {
-            element.remove_attribute(&name).unwrap();
-          }
-        }),
-      );
-    }
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    if let Some(value) = f() {
-      let value = value.into();
+              element.set_attribute(intern(&name), intern(&value)).unwrap();
+            } else {
+              element.remove_attribute(intern(&name)).unwrap();
+            }
+          }),
+        );
+      } else {
+        if let Some(value) = f() {
+          let value = value.into();
 
-      self.attrs.push((name, value));
+          self.attrs.push((name, value));
+        }
+      }
     }
 
     self
@@ -287,7 +334,7 @@ impl<El: IntoElement> HtmlElement<El> {
   /// true. You can call this as many times as needed, seperating the
   /// classes by spaces.
   #[track_caller]
-  pub fn dyn_class<F, C>(mut self, f: F) -> Self
+  pub fn dyn_class<F, C>(self, f: F) -> Self
   where
     F: Fn() -> Option<C> + 'static,
     C: Into<Cow<'static, str>>,
@@ -297,7 +344,7 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element.
   #[track_caller]
-  pub fn on<E, N, F>(mut self, event_name: N, event_handler: F) -> Self
+  pub fn on<E, N, F>(self, event_name: N, event_handler: F) -> Self
   where
     N: Into<Cow<'static, str>>,
     F: FnMut(E) + 'static,
@@ -306,9 +353,7 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let event_name = event_name.into();
-        self.events.push(Box::new(move |el| {
-          add_event_listener_undelegated(el, &event_name, event_handler);
-        }));
+        add_event_listener_undelegated(&self.node, &event_name, event_handler);
       } else {
         _ = event_name;
         _ = event_handler;
@@ -320,11 +365,7 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element, using event delegation.
   #[track_caller]
-  pub fn on_delegated<E, N, F>(
-    mut self,
-    event_name: N,
-    event_handler: F,
-  ) -> Self
+  pub fn on_delegated<E, N, F>(self, event_name: N, event_handler: F) -> Self
   where
     N: Into<Cow<'static, str>>,
     F: FnMut(E) + 'static,
@@ -333,9 +374,7 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let event_name = event_name.into();
-        self.events.push(Box::new(move |el| {
-          add_event_listener(el, event_name, event_handler);
-        }));
+        add_event_listener(&self.node, event_name, event_handler);
       } else {
         _ = event_name;
         _ = event_handler;
@@ -347,7 +386,14 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Inserts a child into this element.
   pub fn child<C: IntoNode + 'static>(mut self, child: C) -> Self {
-    self.children.push(Box::new(move |cx| child.into_node(cx)));
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        mount_child(MountKind::Append(&self.node), &child.into_node(self.cx))
+      }
+      else {
+        self.children.push(Box::new(move |cx| child.into_node(cx)));
+      }
+    }
 
     self
   }
@@ -359,9 +405,15 @@ impl<El: IntoElement> HtmlElement<El> {
     CF: Fn() -> N + 'static,
     N: IntoNode,
   {
-    self
-      .children
-      .push(Box::new(move |cx| DynChild::new(child_fn).into_node(cx)));
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        mount_child(MountKind::Append(&self.node), &DynChild::new(child_fn).into_node(self.cx))
+      } else {
+        self
+          .children
+          .push(Box::new(move |cx| DynChild::new(child_fn).into_node(cx)));
+      }
+    }
 
     self
   }
@@ -370,45 +422,23 @@ impl<El: IntoElement> HtmlElement<El> {
 impl<El: IntoElement> IntoNode for HtmlElement<El> {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
   fn into_node(self, cx: Scope) -> Node {
-    let Self {
-      cx: _,
-      element,
-      id,
-      mut attrs,
-      events,
-      children,
-    } = self;
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        Node::Element(Element { element: self.node.unchecked_into() })
+      } else {
+        let Self { element, attrs, children, .. } = self;
+        let mut element = Element::new(element);
+        let children = children
+          .into_iter()
+          .map(|c| c(cx))
+          .collect::<SmallVec<[_; 4]>>();
 
-    let mut element = Element::new(element);
+        element.attrs = attrs;
+        element.children.extend(children);
 
-    let children = children
-      .into_iter()
-      .map(|c| c(cx))
-      .collect::<SmallVec<[_; 4]>>();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      if let Some(id) = id.get() {
-        element
-          .element
-          .unchecked_ref::<web_sys::Element>()
-          .set_attribute(intern("id"), id)
-          .unwrap();
-      }
-
-      for event_setup in events {
-        (event_setup)(element.element.unchecked_ref::<web_sys::Element>())
-      }
-
-      for child in &children {
-        mount_child(MountKind::Append(&element.element), child);
+        Node::Element(element)
       }
     }
-
-    element.attrs = attrs;
-    element.children.extend(children);
-
-    Node::Element(element)
   }
 }
 
@@ -475,7 +505,7 @@ macro_rules! generate_html_tags {
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
-            let element = [<$tag:upper>].clone_node().unwrap().unchecked_into();
+            let element = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::Element>();
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
