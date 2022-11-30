@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
+use crate::{RwSignal, Scope, WriteSignal};
 
 /// A wrapper for any kind of settable reactive signal: a [WriteSignal](crate::WriteSignal),
 /// [RwSignal](crate::RwSignal), or closure that receives a value and sets a signal depending
@@ -86,7 +86,7 @@ where
     pub fn set(&self, value: T) {
         match &self.0 {
             SignalSetterTypes::Write(s) => s.set(value),
-            SignalSetterTypes::Wrapped(_, s) => s(value),
+            SignalSetterTypes::Mapped(_, s) => s(value),
         }
     }
 }
@@ -108,8 +108,8 @@ enum SignalSetterTypes<T>
 where
     T: 'static,
 {
-    Write(WriteSignalSetter<T>),
-    Mapped(Scope, Rc<dyn FnOnce(T)>),
+    Write(WriteSignal<T>),
+    Mapped(Scope, Rc<dyn Fn(T)>),
 }
 
 impl<T> std::fmt::Debug for SignalSetterTypes<T>
@@ -118,9 +118,8 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ReadSignal(arg0) => f.debug_tuple("ReadSignal").field(arg0).finish(),
-            Self::Memo(arg0) => f.debug_tuple("Memo").field(arg0).finish(),
-            Self::DerivedSignal(_, _) => f.debug_tuple("DerivedSignal").finish(),
+            Self::Write(arg0) => f.debug_tuple("WriteSignal").field(arg0).finish(),
+            Self::Mapped(_, _) => f.debug_tuple("Mapped").finish(),
         }
     }
 }
@@ -131,9 +130,8 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,
-            (Self::Memo(l0), Self::Memo(r0)) => l0 == r0,
-            (Self::DerivedSignal(_, l0), Self::DerivedSignal(_, r0)) => std::ptr::eq(l0, r0),
+            (Self::Write(l0), Self::Write(r0)) => l0 == r0,
+            (Self::Mapped(_, l0), Self::Mapped(_, r0)) => std::ptr::eq(l0, r0),
             _ => false,
         }
     }
