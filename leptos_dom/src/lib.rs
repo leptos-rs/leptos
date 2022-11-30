@@ -3,8 +3,6 @@
 
 //! The DOM implementation for `leptos`.
 
-use cfg_if::cfg_if;
-
 #[macro_use]
 extern crate clone_macro;
 #[macro_use]
@@ -14,6 +12,7 @@ mod components;
 mod events;
 mod html;
 
+use cfg_if::cfg_if;
 pub use components::*;
 pub use html::*;
 use leptos_reactive::Scope;
@@ -28,6 +27,9 @@ static COMMENT: LazyCell<web_sys::Node> =
 #[thread_local]
 static RANGE: LazyCell<web_sys::Range> =
   LazyCell::new(|| web_sys::Range::new().unwrap());
+/// Used for generating short `id`'s for nodes.
+#[thread_local]
+static mut ID_COUNTER: usize = 0;
 
 /// Converts the value into a [`Node`].
 pub trait IntoNode {
@@ -36,8 +38,18 @@ pub trait IntoNode {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-trait GetWebSysNode {
-  fn get_web_sys_node(&self) -> web_sys::Node;
+trait Mountable {
+  /// Gets the [`web_sys::Node`] that can be directly inserted as
+  /// a child of another node. Typically, this is a [`web_sys::DocumentFragment`]
+  /// for components, and [`web_sys::HtmlElement`] for elements.
+  fn get_mountable_node(&self) -> web_sys::Node;
+
+  /// Get's the first node of the [`Node`].
+  /// Typically, for [`HtmlElement`], this will be the
+  /// `element` node. For components, this would be the
+  /// first child node, or the `closing` marker comment node if
+  /// no children are available.
+  fn get_opening_node(&self) -> web_sys::Node;
 }
 
 impl IntoNode for () {
@@ -245,19 +257,32 @@ impl<const N: usize> IntoNode for [Node; N] {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl GetWebSysNode for Node {
-  fn get_web_sys_node(&self) -> web_sys::Node {
+impl Mountable for Node {
+  fn get_mountable_node(&self) -> web_sys::Node {
     match self {
       Self::Element(element) => {
         element.element.unchecked_ref::<web_sys::Node>().clone()
       }
       Self::Text(t) => t.node.clone(),
       Self::CoreComponent(c) => match c {
-        CoreComponent::Unit(u) => u.get_web_sys_node(),
-        CoreComponent::DynChild(dc) => dc.get_web_sys_node(),
-        CoreComponent::Each(e) => e.get_web_sys_node(),
+        CoreComponent::Unit(u) => u.get_mountable_node(),
+        CoreComponent::DynChild(dc) => dc.get_mountable_node(),
+        CoreComponent::Each(e) => e.get_mountable_node(),
       },
-      Self::Component(c) => c.get_web_sys_node(),
+      Self::Component(c) => c.get_mountable_node(),
+    }
+  }
+
+  fn get_opening_node(&self) -> web_sys::Node {
+    match self {
+      Self::Text(t) => t.node.clone(),
+      Self::Element(el) => el.element.clone().unchecked_into(),
+      Self::CoreComponent(c) => match c {
+        CoreComponent::DynChild(dc) => todo!(),
+        CoreComponent::Each(e) => e.get_opening_node(),
+        CoreComponent::Unit(u) => u.get_opening_node(),
+      },
+      Self::Component(c) => c.get_opening_node(),
     }
   }
 }
@@ -280,11 +305,8 @@ impl Node {
 #[cfg_attr(debug_assertions, instrument)]
 #[track_caller]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-fn mount_child<GWSN: GetWebSysNode + fmt::Debug>(
-  kind: MountKind,
-  child: &GWSN,
-) {
-  let child = child.get_web_sys_node();
+fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
+  let child = child.get_mountable_node();
 
   match kind {
     MountKind::Append(el) => {
@@ -342,7 +364,7 @@ where
     move |cx| {
       let node = f(cx).into_node(cx);
 
-      parent.append_child(&node.get_web_sys_node()).unwrap();
+      parent.append_child(&node.get_mountable_node()).unwrap();
 
       std::mem::forget(node);
     },
@@ -371,4 +393,12 @@ pub fn window() -> web_sys::Window {
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
   DOCUMENT.with(|document| document.clone())
+}
+
+fn get_id() -> usize {
+  let id = unsafe { ID_COUNTER };
+
+  unsafe { ID_COUNTER += 1 }
+
+  id
 }

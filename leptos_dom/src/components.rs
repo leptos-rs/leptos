@@ -4,7 +4,7 @@ mod fragment;
 mod unit;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, GetWebSysNode, MountKind};
+use crate::{mount_child, MountKind, Mountable};
 use crate::{Comment, IntoNode, Node};
 pub use dyn_child::*;
 pub use each::*;
@@ -34,6 +34,7 @@ pub struct ComponentRepr {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   name: Cow<'static, str>,
+  #[cfg(debug_assertions)]
   _opening: Comment,
   /// The children of the component.
   pub children: Vec<Node>,
@@ -48,12 +49,20 @@ impl Drop for ComponentRepr {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl GetWebSysNode for ComponentRepr {
-  fn get_web_sys_node(&self) -> web_sys::Node {
+impl Mountable for ComponentRepr {
+  fn get_mountable_node(&self) -> web_sys::Node {
     self
       .document_fragment
       .unchecked_ref::<web_sys::Node>()
       .clone()
+  }
+
+  fn get_opening_node(&self) -> web_sys::Node {
+    if let Some(child) = self.children.get(0) {
+      child.get_opening_node()
+    } else {
+      self.closing.node.clone()
+    }
   }
 }
 
@@ -74,12 +83,12 @@ impl ComponentRepr {
   pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     let name = name.into();
 
-    let (opening, closing) = {
-      let opening = Comment::new(Cow::Owned(format!("<{name}>")));
-      let closing = Comment::new(Cow::Owned(format!("</{name}>")));
+    let markers = (
+      Comment::new(Cow::Owned(format!("</{name}>"))),
+      #[cfg(debug_assertions)]
+      Comment::new(Cow::Owned(format!("<{name}>"))),
+    );
 
-      (opening, closing)
-    };
     #[cfg(not(debug_assertions))]
     let closing = Comment::new("");
 
@@ -90,8 +99,13 @@ impl ComponentRepr {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
+      #[cfg(debug_assertions)]
       fragment
-        .append_with_node_2(&opening.node, &closing.node)
+        .append_with_node_2(&markers.1.node, &markers.0.node)
+        .expect("append to not err");
+      #[cfg(not(debug_assertions))]
+      fragment
+        .append_with_node_1(&markers.0.node)
         .expect("append to not err");
 
       fragment
@@ -100,8 +114,9 @@ impl ComponentRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      _opening: opening,
-      closing,
+      #[cfg(debug_assertions)]
+      _opening: markers.1,
+      closing: markers.0,
       #[cfg(debug_assertions)]
       name,
       children: Default::default(),

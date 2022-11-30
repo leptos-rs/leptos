@@ -1,5 +1,5 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, GetWebSysNode, MountKind, RANGE};
+use crate::{mount_child, MountKind, Mountable, RANGE};
 use crate::{Comment, CoreComponent, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use smallvec::SmallVec;
@@ -26,7 +26,7 @@ impl VecExt for Vec<Option<EachItem>> {
   ) -> web_sys::Node {
     self[start_at..]
       .iter()
-      .find_map(|s| s.as_ref().map(|s| s.opening.node.clone()))
+      .find_map(|s| s.as_ref().map(|s| s.get_opening_node()))
       .unwrap_or(or)
   }
 }
@@ -36,6 +36,7 @@ impl VecExt for Vec<Option<EachItem>> {
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
+  #[cfg(debug_assertions)]
   opening: Comment,
   children: Rc<RefCell<Vec<Option<EachItem>>>>,
   closing: Comment,
@@ -43,24 +44,27 @@ pub struct EachRepr {
 
 impl Default for EachRepr {
   fn default() -> Self {
-    let (opening, closing) = {
-      let (opening, closing) = (
-        Comment::new(Cow::Borrowed("<Each>")),
-        Comment::new(Cow::Borrowed("</Each>")),
-      );
-
-      (opening, closing)
-    };
+    let markers = (
+      Comment::new(Cow::Borrowed("</Each>")),
+      #[cfg(debug_assertions)]
+      Comment::new(Cow::Borrowed("<Each>")),
+    );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
       let fragment = crate::document().create_document_fragment();
 
       // Insert the comments into the document fragment
+      #[cfg(debug_assertions)]
       // so they can serve as our references when inserting
       // future nodes
       fragment
-        .append_with_node_2(&opening.node, &closing.node)
+        .append_with_node_2(&markers.1.node, &markers.0.node)
+        .expect("append to not err");
+
+      #[cfg(not(debug_assertions))]
+      fragment
+        .append_with_node_1(&markers.0.node)
         .expect("append to not err");
 
       fragment
@@ -69,17 +73,34 @@ impl Default for EachRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      opening,
+      #[cfg(debug_assertions)]
+      opening: markers.1,
       children: Default::default(),
-      closing,
+      closing: markers.0,
     }
   }
 }
 
-impl EachRepr {
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  pub(crate) fn get_web_sys_node(&self) -> web_sys::Node {
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl Mountable for EachRepr {
+  fn get_mountable_node(&self) -> web_sys::Node {
     self.document_fragment.clone().unchecked_into()
+  }
+
+  fn get_opening_node(&self) -> web_sys::Node {
+    #[cfg(debug_assertions)]
+    return self.opening.node.clone();
+
+    #[cfg(not(debug_assertions))]
+    return {
+      let children_borrow = self.children.borrow();
+
+      if let Some(Some(child)) = children_borrow.get(0) {
+        child.get_opening_node()
+      } else {
+        self.closing.node.clone()
+      }
+    };
   }
 }
 
@@ -88,21 +109,19 @@ impl EachRepr {
 struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
+  #[cfg(debug_assertions)]
   opening: Comment,
-  _child: Node,
+  child: Node,
   closing: Comment,
 }
 
 impl EachItem {
   fn new(child: Node) -> Self {
-    let (opening, closing) = {
-      let (opening, closing) = (
-        Comment::new(Cow::Borrowed("<EachItem>")),
-        Comment::new(Cow::Borrowed("</EachItem>")),
-      );
-
-      (opening, closing)
-    };
+    let markers = (
+      Comment::new(Cow::Borrowed("</EachItem>")),
+      #[cfg(debug_assertions)]
+      Comment::new(Cow::Borrowed("<EachItem>")),
+    );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
@@ -111,11 +130,13 @@ impl EachItem {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
+      #[cfg(debug_assertions)]
       fragment
-        .append_with_node_2(&opening.node, &closing.node)
-        .expect("append to not err");
+        .append_with_node_2(&markers.1.node, &markers.0.node)
+        .unwrap();
+      fragment.append_with_node_1(&markers.0.node).unwrap();
 
-      mount_child(MountKind::Before(&closing.node), &child);
+      mount_child(MountKind::Before(&markers.0.node), &child);
 
       fragment
     };
@@ -123,17 +144,26 @@ impl EachItem {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      opening,
-      _child: child,
-      closing,
+      #[cfg(debug_assertions)]
+      opening: markers.1,
+      child,
+      closing: markers.0,
     }
   }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl GetWebSysNode for EachItem {
-  fn get_web_sys_node(&self) -> web_sys::Node {
+impl Mountable for EachItem {
+  fn get_mountable_node(&self) -> web_sys::Node {
     self.document_fragment.clone().unchecked_into()
+  }
+
+  fn get_opening_node(&self) -> web_sys::Node {
+    #[cfg(debug_assertions)]
+    return self.opening.node.clone();
+
+    #[cfg(not(debug_assertions))]
+    return self.child.get_opening_node();
   }
 }
 
@@ -142,12 +172,10 @@ impl EachItem {
   /// order to be reinserted somewhere else.
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   fn prepare_for_move(&self) {
-    let start = &self.opening.node;
+    let start = self.get_opening_node();
     let end = &self.closing.node;
 
-    let mut sibling = start.next_sibling().unwrap();
-
-    self.document_fragment.append_with_node_1(start).unwrap();
+    let mut sibling = start;
 
     while sibling != *end {
       let next_sibling = sibling.next_sibling().unwrap();
@@ -226,12 +254,24 @@ where
     let children = component.children.clone();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let (opening, closing) = (
-      component.opening.node.clone(),
-      component.closing.node.clone(),
-    );
+    let closing = component.closing.node.clone();
 
     create_effect(cx, move |prev_hash_run| {
+      let children_borrow = children.borrow();
+
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      let opening = if let Some(Some(child)) = children_borrow.get(0) {
+        child.get_opening_node()
+      } else {
+        if let Some(opening) = closing.previous_sibling() {
+          opening
+        } else {
+          closing.clone()
+        }
+      };
+
+      drop(children_borrow);
+
       let items = items_fn();
 
       let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
@@ -412,19 +452,27 @@ fn apply_cmds<T, EF, N>(
   }
   // We can optimize the case of replacing all items
   else if !items.is_empty() && cmds.removing == children.len() {
-    children.clear();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      range.set_start_after(opening).unwrap();
-      range.set_end_before(closing).unwrap();
-
-      range.delete_contents().unwrap();
-    }
-
     cmds
       .ops
       .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
+
+    cmds.ops.iter_mut().for_each(|op| {
+      if let DiffOp::Add { mode, .. } = op {
+        *mode = DiffOpAddMode::Append;
+      } else {
+        unreachable!()
+      }
+    });
+
+    cmds.ops.sort_unstable_by_key(|op| {
+      if let DiffOp::Add { at, .. } = op {
+        *at
+      } else {
+        unreachable!()
+      }
+    });
+
+    cmds.ops.insert(0, DiffOp::Clear);
 
     children.resize_with(cmds.ops.len(), Default::default);
   }
@@ -462,14 +510,7 @@ fn apply_cmds<T, EF, N>(
         let item_to_remove = std::mem::take(&mut children[at]).unwrap();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
-          range
-            .set_start_before(&item_to_remove.opening.node)
-            .unwrap();
-          range.set_end_after(&item_to_remove.closing.node).unwrap();
-
-          range.delete_contents().unwrap();
-        }
+        item_to_remove.prepare_for_move();
       }
       DiffOp::Move { from, to } => {
         let item = std::mem::take(&mut children[from]).unwrap();
@@ -498,17 +539,13 @@ fn apply_cmds<T, EF, N>(
             DiffOpAddMode::Append => {
               mount_child(MountKind::Before(closing), &each_item);
             }
-            DiffOpAddMode::_Prepend => {
-              mount_child(MountKind::After(opening), &each_item);
-            }
+            DiffOpAddMode::_Prepend => todo!(),
           }
         }
 
         children[at] = Some(each_item);
       }
       DiffOp::Clear => {
-        children.clear();
-
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
           if opening.previous_sibling().is_none()
@@ -519,9 +556,14 @@ fn apply_cmds<T, EF, N>(
               .unwrap()
               .unchecked_into::<web_sys::Element>();
             parent.set_text_content(Some(""));
+
+            #[cfg(debug_assertions)]
             parent.append_with_node_2(opening, closing).unwrap();
+
+            #[cfg(not(debug_assertions))]
+            parent.append_with_node_1(closing).unwrap();
           } else {
-            range.set_start_after(opening).unwrap();
+            range.set_start_before(opening).unwrap();
             range.set_end_before(closing).unwrap();
 
             range.delete_contents().unwrap();

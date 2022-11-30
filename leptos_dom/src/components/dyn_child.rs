@@ -1,6 +1,6 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
-use crate::{Comment, IntoNode, Node};
+use crate::{Comment, IntoNode, Mountable, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
@@ -10,6 +10,7 @@ use wasm_bindgen::JsCast;
 pub struct DynChildRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
+  #[cfg(debug_assertions)]
   opening: Comment,
   child: Rc<RefCell<Box<Node>>>,
   closing: Comment,
@@ -17,14 +18,11 @@ pub struct DynChildRepr {
 
 impl Default for DynChildRepr {
   fn default() -> Self {
-    let (opening, closing) = {
-      let (opening, closing) = (
-        Comment::new(Cow::Borrowed("<DynChild>")),
-        Comment::new(Cow::Borrowed("</DynChild>")),
-      );
-
-      (opening, closing)
-    };
+    let markers = (
+      Comment::new(Cow::Borrowed("</DynChild>")),
+      #[cfg(debug_assertions)]
+      Comment::new(Cow::Borrowed("<DynChild>")),
+    );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
@@ -33,9 +31,12 @@ impl Default for DynChildRepr {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
+      #[cfg(debug_assertions)]
       fragment
-        .append_with_node_2(&opening.node, &closing.node)
-        .expect("append to not err");
+        .append_with_node_2(&markers.1.node, &markers.0.node)
+        .unwrap();
+      #[cfg(not(debug_assertions))]
+      fragment.append_with_node_1(&markers.0.node).unwrap();
 
       fragment
     };
@@ -43,17 +44,22 @@ impl Default for DynChildRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      opening,
+      #[cfg(debug_assertions)]
+      opening: markers.1,
       child: Default::default(),
-      closing,
+      closing: markers.0,
     }
   }
 }
 
-impl DynChildRepr {
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  pub(crate) fn get_web_sys_node(&self) -> web_sys::Node {
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl Mountable for DynChildRepr {
+  fn get_mountable_node(&self) -> web_sys::Node {
     self.document_fragment.clone().unchecked_into()
+  }
+
+  fn get_opening_node(&self) -> web_sys::Node {
+    self.child.borrow().get_opening_node()
   }
 }
 
@@ -92,11 +98,14 @@ where
 
     let component = DynChildRepr::default();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     let (opening, closing) = (
       component.opening.node.clone(),
       component.closing.node.clone(),
     );
+    #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
+    let closing = component.closing.node.clone();
+
     let child = component.child.clone();
 
     let span = tracing::Span::current();
@@ -107,7 +116,9 @@ where
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       if prev_run.is_some() {
-        let mut sibling = opening.next_sibling().unwrap();
+        let opening = child.borrow().get_opening_node();
+
+        let mut sibling = opening;
 
         while sibling != closing {
           let next_sibling = sibling.next_sibling().unwrap();

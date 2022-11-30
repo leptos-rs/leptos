@@ -1,4 +1,5 @@
-use crate::{Comment, CoreComponent, IntoNode, Node};
+use crate::{Comment, CoreComponent, IntoNode, Mountable, Node};
+use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`Unit`] core-component.
 #[derive(Debug)]
@@ -14,11 +15,13 @@ impl Default for UnitRepr {
   }
 }
 
-impl UnitRepr {
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  pub(crate) fn get_web_sys_node(&self) -> web_sys::Node {
-    use wasm_bindgen::JsCast;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl Mountable for UnitRepr {
+  fn get_mountable_node(&self) -> web_sys::Node {
+    self.comment.node.clone().unchecked_into()
+  }
 
+  fn get_opening_node(&self) -> web_sys::Node {
     self.comment.node.clone().unchecked_into()
   }
 }
