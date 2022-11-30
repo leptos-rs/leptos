@@ -57,7 +57,7 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
                 // Switch the <Transition/> to <Suspense/> to fall back to "Loading..." every time
                 <Transition
                     fallback={"Loading (Suspense Fallback)...".to_string()}
-                    on_pending=set_pending
+                    set_pending
                 >
                     {move || {
                             cats.read().map(|data| match data {
