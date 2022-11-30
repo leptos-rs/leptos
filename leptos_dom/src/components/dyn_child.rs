@@ -3,6 +3,7 @@ use crate::{mount_child, MountKind, RANGE};
 use crate::{Comment, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`DynChild`] core-component.
 #[derive(Debug)]
@@ -108,10 +109,15 @@ where
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       if prev_run.is_some() {
-        RANGE.set_start_after(&opening).unwrap();
-        RANGE.set_end_before(&closing).unwrap();
+        let mut sibling = opening.next_sibling().unwrap();
 
-        RANGE.delete_contents();
+        while sibling != closing {
+          let next_sibling = sibling.next_sibling().unwrap();
+
+          sibling.unchecked_ref::<web_sys::Element>().remove();
+
+          sibling = next_sibling;
+        }
       }
 
       let new_child = child_fn().into_node(cx);

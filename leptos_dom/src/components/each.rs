@@ -141,16 +141,23 @@ impl EachItem {
   /// Moves all child nodes into its' `DocumentFragment` in
   /// order to be reinserted somewhere else.
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn prepare_for_move(&self, range: &web_sys::Range) {
+  fn prepare_for_move(&self) {
     let start = &self.opening.node;
     let end = &self.closing.node;
 
-    range.set_start_before(start).unwrap();
-    range.set_end_after(end).unwrap();
+    let mut sibling = start.next_sibling().unwrap();
 
-    let frag = range.extract_contents().unwrap();
+    self.document_fragment.append_with_node_1(start).unwrap();
 
-    self.document_fragment.append_child(&frag).unwrap();
+    while sibling != *end {
+      let next_sibling = sibling.next_sibling().unwrap();
+
+      self.document_fragment.append_child(&sibling).unwrap();
+
+      sibling = next_sibling;
+    }
+
+    self.document_fragment.append_with_node_1(end).unwrap();
   }
 }
 
@@ -468,7 +475,7 @@ fn apply_cmds<T, EF, N>(
         let item = std::mem::take(&mut children[from]).unwrap();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        item.prepare_for_move(&range);
+        item.prepare_for_move();
 
         items_to_move.push((to, item));
       }
