@@ -16,10 +16,10 @@ mod html;
 
 pub use components::*;
 pub use html::*;
-use leptos_reactive::{Scope, ScopeDisposer};
+use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{borrow::Cow, cell::LazyCell, fmt};
-use wasm_bindgen::{intern, JsCast, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 #[thread_local]
 static COMMENT: LazyCell<web_sys::Node> =
@@ -86,7 +86,9 @@ cfg_if! {
     /// HTML element.
     #[derive(Debug)]
     pub struct Element {
-      element: web_sys::Element,
+      #[cfg(debug_assertions)]
+      name: Cow<'static, str>,
+      element: web_sys::HtmlElement,
     }
   } else {
     /// HTML element.
@@ -110,17 +112,17 @@ impl IntoNode for Element {
 impl Element {
   #[track_caller]
   fn new<El: IntoElement>(el: El) -> Self {
-    let name = el.name();
-
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
           Self {
+            #[cfg(debug_assertions)]
+            name: el.name(),
             element: el.get_element().clone(),
           }
       }
       else {
         Self {
-          name,
+          name: el.name(),
           is_void: el.is_void(),
           attrs: Default::default(),
           children: Default::default(),
@@ -178,8 +180,7 @@ impl Text {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let node = crate::document()
       .create_text_node(&content)
-      .unchecked_into::<web_sys::Node>()
-      .into();
+      .unchecked_into::<web_sys::Node>();
 
     Self {
       content,

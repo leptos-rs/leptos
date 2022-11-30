@@ -9,9 +9,7 @@ use smallvec::{smallvec, SmallVec};
 use std::{
   borrow::Cow,
   cell::{LazyCell, OnceCell},
-  collections::HashSet,
   fmt,
-  rc::Rc,
 };
 use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast};
 
@@ -20,9 +18,9 @@ pub trait IntoElement: fmt::Debug {
   /// The name of the element, i.e., `div`, `p`, `custom-element`.
   fn name(&self) -> Cow<'static, str>;
 
-  /// Get a reference to the underlying [`web_sys::Element`].
+  /// Get a reference to the underlying [`web_sys::HtmlElement`].
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn get_element(&self) -> &web_sys::Element;
+  fn get_element(&self) -> &web_sys::HtmlElement;
 
   /// Determains if the tag is void, i.e., `<input>` and `<br>`.
   fn is_void(&self) -> bool {
@@ -36,7 +34,7 @@ pub trait IntoElement: fmt::Debug {
 pub struct AnyElement {
   name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  element: web_sys::Element,
+  element: web_sys::HtmlElement,
   is_void: bool,
 }
 
@@ -46,7 +44,7 @@ impl IntoElement for AnyElement {
   }
 
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn get_element(&self) -> &web_sys::Element {
+  fn get_element(&self) -> &web_sys::HtmlElement {
     &self.element
   }
 
@@ -60,7 +58,7 @@ impl IntoElement for AnyElement {
 pub struct Custom {
   name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  element: web_sys::Element,
+  element: web_sys::HtmlElement,
 }
 
 impl IntoElement for Custom {
@@ -69,7 +67,7 @@ impl IntoElement for Custom {
   }
 
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn get_element(&self) -> &web_sys::Element {
+  fn get_element(&self) -> &web_sys::HtmlElement {
     &self.element
   }
 }
@@ -82,7 +80,6 @@ cfg_if! {
     pub struct HtmlElement<El: IntoElement> {
       cx: Scope,
       element: El,
-      node: web_sys::HtmlElement,
       id: OnceCell<Cow<'static, str>>,
     }
   // Server needs to build a virtualized DOM tree
@@ -110,7 +107,6 @@ impl<El: IntoElement> HtmlElement<El> {
         Self {
           cx,
           id: Default::default(),
-          node: element.get_element().clone().unchecked_into(),
           element,
         }
       } else {
@@ -132,14 +128,12 @@ impl<El: IntoElement> HtmlElement<El> {
         let Self {
           cx,
           id,
-          node,
           element,
         } = self;
 
         HtmlElement {
           cx,
           id,
-          node,
           element: AnyElement {
             name: element.name(),
             element: element.get_element().clone(),
@@ -175,7 +169,11 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let id = id.into();
-        self.node.set_attribute(intern("id"), &id);
+        self
+          .element
+          .get_element()
+          .set_attribute(intern("id"), &id)
+          .unwrap();
       }
       else {
         self.id.set(id.into()).expect("`id` can only be set once");
@@ -207,16 +205,20 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         if name == "class" && !value.is_empty() {
           if let Some(mut class_list) =
-            self.node.get_attribute(intern("class"))
+            self.element.get_element().get_attribute(intern("class"))
           {
-            class_list.push_str(" ");
+            class_list.push(' ');
             class_list.push_str(&value);
-            self.node.set_class_name(&class_list);
+            self.element.get_element().set_class_name(&class_list);
           } else {
-            self.node.set_class_name(intern(&value));
+            self.element.get_element().set_class_name(intern(&value));
           }
         } else if !value.is_empty() {
-          self.node.set_attribute(intern(&name), intern(&value));
+          self
+            .element
+            .get_element()
+            .set_attribute(intern(&name), intern(&value))
+            .unwrap();
         }
       }
       else {
@@ -271,7 +273,7 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         create_effect(
           self.cx,
-          clone!([{ self.node } as element], move |_| {
+          clone!([{ *self.element.get_element() } as element], move |_| {
             if let Some(value) = f() {
               let value = value.into();
 
@@ -353,7 +355,7 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let event_name = event_name.into();
-        add_event_listener_undelegated(&self.node, &event_name, event_handler);
+        add_event_listener_undelegated(self.element.get_element(), &event_name, event_handler);
       } else {
         _ = event_name;
         _ = event_handler;
@@ -374,7 +376,7 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let event_name = event_name.into();
-        add_event_listener(&self.node, event_name, event_handler);
+        add_event_listener(self.element.get_element(), event_name, event_handler);
       } else {
         _ = event_name;
         _ = event_handler;
@@ -388,7 +390,7 @@ impl<El: IntoElement> HtmlElement<El> {
   pub fn child<C: IntoNode + 'static>(mut self, child: C) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(&self.node), &child.into_node(self.cx))
+        mount_child(MountKind::Append(self.element.get_element()), &child.into_node(self.cx))
       }
       else {
         self.children.push(Box::new(move |cx| child.into_node(cx)));
@@ -407,7 +409,7 @@ impl<El: IntoElement> HtmlElement<El> {
   {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(&self.node), &DynChild::new(child_fn).into_node(self.cx))
+        mount_child(MountKind::Append(self.element.get_element()), &DynChild::new(child_fn).into_node(self.cx))
       } else {
         self
           .children
@@ -424,7 +426,7 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
   fn into_node(self, cx: Scope) -> Node {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        Node::Element(Element { element: self.node.unchecked_into() })
+        Node::Element(Element::new(self.element))
       } else {
         let Self { element, attrs, children, .. } = self;
         let mut element = Element::new(element);
@@ -492,20 +494,23 @@ macro_rules! generate_html_tags {
     paste::paste! {
       $(
         #[thread_local]
-        static [<$tag:upper>]: LazyCell<web_sys::Element> = LazyCell::new(|| {
-          crate::document().create_element(stringify!($tag)).unwrap()
+        static [<$tag:upper>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
+          crate::document()
+            .create_element(stringify!($tag))
+            .unwrap()
+            .unchecked_into()
         });
 
         #[derive(Clone, Debug)]
         #[$meta]
         pub struct [<$tag:camel $($trailing_)?>] {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          element: web_sys::Element,
+          element: web_sys::HtmlElement,
         }
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
-            let element = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::Element>();
+            let element = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -520,7 +525,7 @@ macro_rules! generate_html_tags {
           }
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          fn get_element(&self) -> &web_sys::Element {
+          fn get_element(&self) -> &web_sys::HtmlElement {
             &self.element
           }
 

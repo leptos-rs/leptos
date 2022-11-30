@@ -10,7 +10,7 @@ pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
 use leptos_reactive::{Scope, ScopeDisposer};
-use std::{borrow::Cow, cell::OnceCell};
+use std::borrow::Cow;
 pub use unit::*;
 use wasm_bindgen::JsCast;
 
@@ -34,7 +34,7 @@ pub struct ComponentRepr {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   name: Cow<'static, str>,
-  opening: Comment,
+  _opening: Comment,
   /// The children of the component.
   pub children: Vec<Node>,
   closing: Comment,
@@ -100,7 +100,7 @@ impl ComponentRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      opening,
+      _opening: opening,
       closing,
       #[cfg(debug_assertions)]
       name,

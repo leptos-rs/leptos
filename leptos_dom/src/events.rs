@@ -44,7 +44,7 @@ pub fn add_event_listener_undelegated<E>(
 {
   let event_name = intern(event_name);
   let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
-  _ = target.add_event_listener_with_callback(&event_name, cb.unchecked_ref());
+  _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
 }
 
 // cf eventHandler in ryansolid/dom-expressions
@@ -77,12 +77,7 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
               js_sys::Reflect::get(&node, &key).unwrap_throw();
             if !maybe_handler.is_undefined() {
               let f = maybe_handler.unchecked_ref::<js_sys::Function>();
-              if let Err(e) = f.call1(&node, &ev) {
-                #[cfg(not(debug_assertions))]
-                {
-                  _ = e;
-                }
-              }
+              let _ = f.call1(&node, &ev);
 
               if ev.cancel_bubble() {
                 return;
@@ -111,7 +106,7 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
       window_event_listener(&event_name, handler);
 
       // register that we've created handler
-      events.insert(event_name.into());
+      events.insert(event_name);
     }
   })
 }
@@ -119,6 +114,6 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
 pub(crate) fn event_delegation_key(event_name: &str) -> String {
   let event_name = intern(event_name);
   let mut n = String::from("$$$");
-  n.push_str(&event_name);
+  n.push_str(event_name);
   n
 }

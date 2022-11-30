@@ -89,7 +89,7 @@ struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
   opening: Comment,
-  child: Node,
+  _child: Node,
   closing: Comment,
 }
 
@@ -124,7 +124,7 @@ impl EachItem {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
       opening,
-      child,
+      _child: child,
       closing,
     }
   }
@@ -234,7 +234,7 @@ where
     create_effect(cx, move |prev_hash_run| {
       let items = items_fn();
 
-      let items = items.into_iter().collect::<Vec<_>>();
+      let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
 
       let hashed_items = items
         .iter()
@@ -264,7 +264,7 @@ where
         for item in items {
           let child = each_fn(item).into_node(cx);
 
-          let mut each_item = EachItem::new(child);
+          let each_item = EachItem::new(child);
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           mount_child(MountKind::Before(&closing), &each_item);
@@ -368,7 +368,6 @@ enum DiffOp {
   Add { at: usize, mode: DiffOpAddMode },
   Remove { at: usize },
   Clear,
-  Append,
 }
 
 #[derive(Default, Debug)]
@@ -376,7 +375,8 @@ enum DiffOpAddMode {
   #[default]
   Normal,
   Append,
-  Prepend,
+  // Todo
+  _Prepend,
 }
 
 fn apply_cmds<T, EF, N>(
@@ -385,7 +385,7 @@ fn apply_cmds<T, EF, N>(
   #[cfg(all(target_arch = "wasm32", feature = "web"))] closing: &web_sys::Node,
   mut cmds: Diff,
   children: &mut Vec<Option<EachItem>>,
-  mut items: Vec<Option<T>>,
+  mut items: SmallVec<[Option<T>; 128]>,
   each_fn: &EF,
 ) where
   EF: Fn(T) -> N,
@@ -484,7 +484,7 @@ fn apply_cmds<T, EF, N>(
 
         let child = each_fn(item).into_node(cx);
 
-        let mut each_item = EachItem::new(child);
+        let each_item = EachItem::new(child);
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -498,7 +498,7 @@ fn apply_cmds<T, EF, N>(
             DiffOpAddMode::Append => {
               mount_child(MountKind::Before(closing), &each_item);
             }
-            DiffOpAddMode::Prepend => {
+            DiffOpAddMode::_Prepend => {
               mount_child(MountKind::After(opening), &each_item);
             }
           }
@@ -519,7 +519,7 @@ fn apply_cmds<T, EF, N>(
               .unwrap()
               .unchecked_into::<web_sys::Element>();
             parent.set_text_content(Some(""));
-            parent.append_with_node_2(&opening, &closing);
+            parent.append_with_node_2(opening, closing).unwrap();
           } else {
             range.set_start_after(opening).unwrap();
             range.set_end_before(closing).unwrap();
@@ -528,7 +528,6 @@ fn apply_cmds<T, EF, N>(
           }
         }
       }
-      DiffOp::Append => todo!(),
     }
   }
 

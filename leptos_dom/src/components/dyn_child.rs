@@ -1,5 +1,5 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind, RANGE};
+use crate::{mount_child, MountKind};
 use crate::{Comment, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
@@ -53,8 +53,6 @@ impl Default for DynChildRepr {
 impl DynChildRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) fn get_web_sys_node(&self) -> web_sys::Node {
-    use wasm_bindgen::JsCast;
-
     self.document_fragment.clone().unchecked_into()
   }
 }
