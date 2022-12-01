@@ -45,9 +45,6 @@ pub async fn handle_server_fns(
     body: Bytes,
     // req: Request<Body>,
 ) -> impl IntoResponse {
-    // Axum Path extractor doesn't remove the first slash from the path, while Actix does
-    let fn_name = fn_name.replace("/", "");
-
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
         move || {

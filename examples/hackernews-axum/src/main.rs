@@ -12,8 +12,6 @@ if #[cfg(feature = "ssr")] {
     use http::StatusCode;
     use std::net::SocketAddr;
     use tower_http::services::ServeDir;
-    // use leptos_hackernews_axum::handlers::{file_handler, get_static_file_handler};
-    // use leptos_hackernews_axum::handlers::{static_service, pkg_service};
 
     #[tokio::main]
     async fn main() {
