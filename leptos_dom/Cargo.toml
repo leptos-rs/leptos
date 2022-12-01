@@ -15,6 +15,7 @@ gloo = "0.8"
 js-sys = "0.3"
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
 paste = "1"
+rustc-hash = "1.1.0"
 smallvec = "1"
 tracing = "0.1"
 typed-builder = "0.11"

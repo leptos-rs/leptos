@@ -2,9 +2,10 @@
 use crate::{mount_child, MountKind, Mountable, RANGE};
 use crate::{Comment, CoreComponent, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
+use rustc_hash::FxHashSet;
 use smallvec::SmallVec;
 use std::{
-  borrow::Cow, cell::RefCell, collections::HashSet, hash::Hash, rc::Rc,
+  borrow::Cow, cell::RefCell, hash::Hash, rc::Rc,
 };
 use wasm_bindgen::JsCast;
 
@@ -276,7 +277,7 @@ where
         .iter()
         .enumerate()
         .map(|(idx, i)| HashKey(key_fn(i), idx))
-        .collect::<HashSet<_, _>>();
+        .collect::<FxHashSet<_>>();
 
       if let Some(HashRun(prev_hash_run)) = prev_hash_run {
         let cmds = diff(&prev_hash_run, &hashed_items);
@@ -322,8 +323,8 @@ struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
 fn diff<K: Eq + Hash>(
-  from: &HashSet<HashKey<K>>,
-  to: &HashSet<HashKey<K>>,
+  from: &FxHashSet<HashKey<K>>,
+  to: &FxHashSet<HashKey<K>>,
 ) -> Diff {
   if to.is_empty() {
     return Diff {
