@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use leptos::*;
-pub mod handlers;
 pub mod todo;
 
 // Needs to be in lib.rs AFAIK because wasm-bindgen needs us to be compiling a lib. I may be wrong.

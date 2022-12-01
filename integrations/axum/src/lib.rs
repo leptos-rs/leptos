@@ -1,5 +1,5 @@
 use axum::{
-    body::{Body, BoxBody, Bytes, Full, HttpBody, StreamBody},
+    body::{Body, Bytes, Full, StreamBody},
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
@@ -50,7 +50,6 @@ pub async fn handle_server_fns(
         Some(path) => path.to_string(),
         None => fn_name,
     };
-    println!("Body: {:#?}", &body);
 
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
@@ -157,7 +156,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }).into_service());
+///     .fallback(leptos_axum::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -222,9 +221,7 @@ pub fn render_app_to_stream(
                                                     };
                                                     provide_context(
                                                         cx,
-                                                        RouterIntegrationContext::new(
-                                                            integration,
-                                                        ),
+                                                        RouterIntegrationContext::new(integration),
                                                     );
                                                     provide_context(cx, MetaContext::new());
                                                     let app = app_fn(cx);

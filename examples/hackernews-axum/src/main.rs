@@ -4,32 +4,44 @@ use leptos::*;
 // boilerplate to run in different modes
 cfg_if! {
 if #[cfg(feature = "ssr")] {
-    // use actix_files::{Files, NamedFile};
-    // use actix_web::*;
     use axum::{
         routing::{get},
         Router,
-        handler::Handler,
+        error_handling::HandleError,
     };
+    use http::StatusCode;
     use std::net::SocketAddr;
-    use leptos_hackernews_axum::handlers::{file_handler, get_static_file_handler};
+    use tower_http::services::ServeDir;
 
     #[tokio::main]
     async fn main() {
         use leptos_hackernews_axum::*;
-
         let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
 
         log::debug!("serving at {addr}");
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
+        // These are Tower Services that will serve files from the static and pkg repos.
+        // HandleError is needed as Axum requires services to implement Infallible Errors
+        // because all Errors are converted into Responses
+        let static_service = HandleError::new( ServeDir::new("./static"), handle_file_error);
+        let pkg_service =HandleError::new( ServeDir::new("./pkg"), handle_file_error);
+
+        /// Convert the Errors from ServeDir to a type that implements IntoResponse
+        async fn handle_file_error(err: std::io::Error) -> (StatusCode, String) {
+            (
+                StatusCode::NOT_FOUND,
+                format!("File Not Found: {}", err),
+            )
+        }
+
         // build our application with a route
         let app = Router::new()
         // `GET /` goes to `root`
-        .nest("/pkg", get(file_handler))
-        .nest("/static", get(get_static_file_handler))
-        .fallback(leptos_axum::render_app_to_stream("leptos_hackernews_axum", |cx| view! { cx, <App/> }).into_service());
+        .nest_service("/pkg", pkg_service)
+        .nest_service("/static", static_service)
+        .fallback(leptos_axum::render_app_to_stream("leptos_hackernews_axum", |cx| view! { cx, <App/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
