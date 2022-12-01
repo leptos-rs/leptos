@@ -12,12 +12,29 @@ pub struct DynChildRepr {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   opening: Comment,
-  child: Rc<RefCell<Box<Node>>>,
+  child: Rc<RefCell<Box<Option<Node>>>>,
   closing: Comment,
 }
 
-impl Default for DynChildRepr {
-  fn default() -> Self {
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl Mountable for DynChildRepr {
+  fn get_mountable_node(&self) -> web_sys::Node {
+    self.document_fragment.clone().unchecked_into()
+  }
+
+  fn get_opening_node(&self) -> web_sys::Node {
+    self
+      .child
+      .borrow()
+      .as_ref()
+      .as_ref()
+      .unwrap()
+      .get_opening_node()
+  }
+}
+
+impl DynChildRepr {
+  fn new() -> Self {
     let markers = (
       Comment::new(Cow::Borrowed("</DynChild>")),
       #[cfg(debug_assertions)]
@@ -49,17 +66,6 @@ impl Default for DynChildRepr {
       child: Default::default(),
       closing: markers.0,
     }
-  }
-}
-
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl Mountable for DynChildRepr {
-  fn get_mountable_node(&self) -> web_sys::Node {
-    self.document_fragment.clone().unchecked_into()
-  }
-
-  fn get_opening_node(&self) -> web_sys::Node {
-    self.child.borrow().get_opening_node()
   }
 }
 
@@ -96,7 +102,7 @@ where
   fn into_node(self, cx: Scope) -> crate::Node {
     let Self { child_fn } = self;
 
-    let component = DynChildRepr::default();
+    let component = DynChildRepr::new();
 
     #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     let (opening, closing) = (
@@ -108,6 +114,9 @@ where
 
     let child = component.child.clone();
 
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    let prev_text_node = RefCell::new(None::<web_sys::Node>);
+
     let span = tracing::Span::current();
 
     create_effect(cx, move |prev_run| {
@@ -116,7 +125,8 @@ where
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       if prev_run.is_some() {
-        let opening = child.borrow().get_opening_node();
+        let opening =
+          child.borrow().as_ref().as_ref().unwrap().get_opening_node();
 
         let mut sibling = opening;
 
@@ -132,9 +142,26 @@ where
       let new_child = child_fn().into_node(cx);
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      if let Some(t) = new_child.get_text() {
+        let mut prev_text_node_borrow = prev_text_node.borrow_mut();
+
+        if let Some(prev_t) = &*prev_text_node_borrow {
+          prev_t.set_text_content(Some(&t.content));
+
+          t.node.set(prev_t.clone()).unwrap();
+        } else {
+          t.fill_node();
+
+          *prev_text_node_borrow = Some(t.node.get().unwrap().clone());
+        }
+      } else {
+        *prev_text_node.borrow_mut() = None;
+      }
+
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
       mount_child(MountKind::Before(&closing), &new_child);
 
-      **child.borrow_mut() = new_child;
+      **child.borrow_mut() = Some(new_child);
     });
 
     Node::CoreComponent(crate::CoreComponent::DynChild(component))

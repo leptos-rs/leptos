@@ -390,7 +390,13 @@ impl<El: IntoElement> HtmlElement<El> {
   pub fn child<C: IntoNode + 'static>(mut self, child: C) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &child.into_node(self.cx))
+        {
+          let child = child.into_node(self.cx);
+
+          child.fill_if_text();
+
+          mount_child(MountKind::Append(self.element.get_element()), &child)
+        }
       }
       else {
         self.children.push(Box::new(move |cx| child.into_node(cx)));

@@ -23,6 +23,8 @@ impl IntoNode for Fragment {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.0 {
+      child.fill_if_text();
+
       mount_child(MountKind::Before(closing), child);
     }
 
