@@ -50,8 +50,7 @@ pub async fn handle_server_fns(
         Some(path) => path.to_string(),
         None => fn_name,
     };
-    println!("Body: {:#?}", &body);
-    
+
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
         move || {
@@ -157,7 +156,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }).into_service());
+///     .fallback(leptos_axum::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
