@@ -61,7 +61,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       if tick() % 2 == 0 {
         *i = vec![1, 2, 3];
       } else {
-        *i = vec![1, 3, 2, 4, 5, 6];
+        *i = vec![1, 2, 3, 4, 5, 6];
       }
     })
   });
@@ -95,7 +95,17 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .child(text("Click me (delegated)"))
       .into_node(cx),
     p(cx)
-      .child(EachKey::new(iterable, |i| *i, |i| text(format!("{i}, "))))
+      .child(EachKey::new(
+        iterable,
+        |i| *i,
+        move |i| {
+          [
+            span(cx).child(text(i.to_string())),
+            span(cx).child(text((i + 1).to_string())),
+            span(cx).child(text((i + 2).to_string())),
+          ]
+        },
+      ))
       .into_node(cx),
     input(cx)
       .class("input input-primary")

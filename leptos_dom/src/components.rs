@@ -44,7 +44,9 @@ pub struct ComponentRepr {
 
 impl Drop for ComponentRepr {
   fn drop(&mut self) {
-    self.disposer.take().unwrap().dispose();
+    if let Some(disposer) = self.disposer.take() {
+      disposer.dispose();
+    }
   }
 }
 
