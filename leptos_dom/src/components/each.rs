@@ -551,7 +551,7 @@ fn apply_cmds<T, EF, N>(
           if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
           {
-            let parent = opening
+            let parent = closing
               .parent_node()
               .unwrap()
               .unchecked_into::<web_sys::Element>();
