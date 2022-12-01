@@ -50,7 +50,6 @@ pub async fn handle_server_fns(
         Some(path) => path.to_string(),
         None => fn_name,
     };
-    println!("landed at handle_server_fns, looking for {fn_name}");
     println!("Body: {:#?}", &body);
 
     let (tx, rx) = futures::channel::oneshot::channel();
