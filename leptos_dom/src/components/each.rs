@@ -263,11 +263,7 @@ where
       let opening = if let Some(Some(child)) = children_borrow.get(0) {
         child.get_opening_node()
       } else {
-        if let Some(opening) = closing.previous_sibling() {
-          opening
-        } else {
-          closing.clone()
-        }
+        closing.clone()
       };
 
       drop(children_borrow);
@@ -445,13 +441,16 @@ fn apply_cmds<T, EF, N>(
   let mut items_to_move = Vec::with_capacity(cmds.moving);
 
   // We can optimize for the case when the items are cleared
-  if items.is_empty() {
+  if items.is_empty() && !children.is_empty() {
     cmds.ops.clear();
 
     cmds.ops.push(DiffOp::Clear);
   }
   // We can optimize the case of replacing all items
-  else if !items.is_empty() && cmds.removing == children.len() {
+  else if !items.is_empty()
+    && cmds.removing == children.len()
+    && cmds.moving == 0
+  {
     cmds
       .ops
       .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
@@ -478,7 +477,7 @@ fn apply_cmds<T, EF, N>(
   }
   // We can optimize for the case where we are only appending
   // items
-  else if cmds.added_delta > 0 && cmds.removing == 0 && cmds.moving == 0 {
+  else if cmds.added_delta != 0 && cmds.removing == 0 && cmds.moving == 0 {
     cmds.ops.sort_unstable_by_key(|op| {
       if let DiffOp::Add { at, .. } = op {
         *at
@@ -487,17 +486,13 @@ fn apply_cmds<T, EF, N>(
       }
     });
 
-    if let DiffOp::Add { at, .. } = &cmds.ops[0] {
-      if *at >= children.len() {
-        cmds.ops.iter_mut().for_each(|op| {
-          if let DiffOp::Add { at, mode } = op {
-            *mode = DiffOpAddMode::Append;
-          } else {
-            unreachable!()
-          }
-        })
+    cmds.ops.iter_mut().for_each(|op| {
+      if let DiffOp::Add { at, mode } = op {
+        *mode = DiffOpAddMode::Append;
+      } else {
+        unreachable!()
       }
-    }
+    });
   }
 
   // The order of cmds needs to be:
@@ -548,26 +543,26 @@ fn apply_cmds<T, EF, N>(
       DiffOp::Clear => {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-          if opening.previous_sibling().is_none()
-            && closing.next_sibling().is_none()
-          {
-            let parent = closing
-              .parent_node()
-              .unwrap()
-              .unchecked_into::<web_sys::Element>();
-            parent.set_text_content(Some(""));
+          // if opening.previous_sibling().is_none()
+          //   && closing.next_sibling().is_none()
+          // {
+          //   let parent = closing
+          //     .parent_node()
+          //     .unwrap()
+          //     .unchecked_into::<web_sys::Element>();
+          //   parent.set_text_content(Some(""));
 
-            #[cfg(debug_assertions)]
-            parent.append_with_node_2(opening, closing).unwrap();
+          //   #[cfg(debug_assertions)]
+          //   parent.append_with_node_2(opening, closing).unwrap();
 
-            #[cfg(not(debug_assertions))]
-            parent.append_with_node_1(closing).unwrap();
-          } else {
-            range.set_start_before(opening).unwrap();
-            range.set_end_before(closing).unwrap();
+          //   #[cfg(not(debug_assertions))]
+          //   parent.append_with_node_1(closing).unwrap();
+          // } else {
+          range.set_start_before(opening).unwrap();
+          range.set_end_before(closing).unwrap();
 
-            range.delete_contents().unwrap();
-          }
+          range.delete_contents().unwrap();
+          // }
         }
       }
     }
