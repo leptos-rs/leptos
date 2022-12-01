@@ -80,7 +80,6 @@ cfg_if! {
     pub struct HtmlElement<El: IntoElement> {
       cx: Scope,
       element: El,
-      id: OnceCell<Cow<'static, str>>,
     }
   // Server needs to build a virtualized DOM tree
   } else {
@@ -106,7 +105,6 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         Self {
           cx,
-          id: Default::default(),
           element,
         }
       } else {
@@ -127,13 +125,11 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let Self {
           cx,
-          id,
           element,
         } = self;
 
         HtmlElement {
           cx,
-          id,
           element: AnyElement {
             name: element.name(),
             element: element.get_element().clone(),
