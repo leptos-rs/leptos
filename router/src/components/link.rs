@@ -10,31 +10,31 @@ use crate::{use_location, use_resolved_path, State};
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
-pub trait ToHref {
+pub trait TextProp {
     /// Converts the (static or reactive) URL into a function that can be called to
     /// return the URL.
-    fn to_href(&self) -> Box<dyn Fn() -> String + '_>;
+    fn to_value(&self) -> Box<dyn Fn() -> String + '_>;
 }
 
-impl ToHref for &str {
-    fn to_href(&self) -> Box<dyn Fn() -> String> {
+impl TextProp for &str {
+    fn to_value(&self) -> Box<dyn Fn() -> String> {
         let s = self.to_string();
         Box::new(move || s.clone())
     }
 }
 
-impl ToHref for String {
-    fn to_href(&self) -> Box<dyn Fn() -> String> {
+impl TextProp for String {
+    fn to_value(&self) -> Box<dyn Fn() -> String> {
         let s = self.clone();
         Box::new(move || s.clone())
     }
 }
 
-impl<F> ToHref for F
+impl<F> TextProp for F
 where
     F: Fn() -> String + 'static,
 {
-    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+    fn to_value(&self) -> Box<dyn Fn() -> String + '_> {
         Box::new(self)
     }
 }
@@ -46,7 +46,7 @@ where
 pub struct AProps<C, H>
 where
     C: IntoChild,
-    H: ToHref + 'static,
+    H: TextProp + 'static,
 {
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
@@ -56,7 +56,7 @@ where
     #[builder(default)]
     pub exact: bool,
     /// An object of any type that will be pushed to router state
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(strip_option, into))]
     pub state: Option<State>,
     /// If `true`, the link will not add to the browser's history (so, pressing `Back`
     /// will skip this page.)
@@ -68,14 +68,17 @@ where
 
 /// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
 /// progressively enhanced to use client-side routing.
+///
+/// Note that client-side routing also works with ordinary HTML `<a>` tags, although
+/// the `<A/>` component automatically resolves nested relative routes correctly.
 #[allow(non_snake_case)]
 pub fn A<C, H>(cx: Scope, props: AProps<C, H>) -> Element
 where
     C: IntoChild,
-    H: ToHref + 'static,
+    H: TextProp + 'static,
 {
     let location = use_location(cx);
-    let href = use_resolved_path(cx, move || props.href.to_href()());
+    let href = use_resolved_path(cx, move || props.href.to_value()());
     let is_active = create_memo(cx, move |_| match href.get() {
         None => false,
 

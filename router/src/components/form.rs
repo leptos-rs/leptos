@@ -1,4 +1,4 @@
-use crate::{use_navigate, use_resolved_path, ToHref};
+use crate::{use_navigate, use_resolved_path, TextProp};
 use leptos::*;
 use std::{error::Error, rc::Rc};
 use typed_builder::TypedBuilder;
@@ -11,7 +11,7 @@ use wasm_bindgen_futures::JsFuture;
 #[derive(TypedBuilder)]
 pub struct FormProps<A>
 where
-    A: ToHref + 'static,
+    A: TextProp + 'static,
 {
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
     /// is the HTTP method to submit the form with (`get` or `post`).
@@ -48,7 +48,7 @@ where
 #[allow(non_snake_case)]
 pub fn Form<A>(cx: Scope, props: FormProps<A>) -> Element
 where
-    A: ToHref + 'static,
+    A: TextProp + 'static,
 {
     let FormProps {
         method,
@@ -62,7 +62,7 @@ where
     } = props;
 
     let action_version = version;
-    let action = use_resolved_path(cx, move || action.to_href()());
+    let action = use_resolved_path(cx, move || action.to_value()());
 
     let on_submit = move |ev: web_sys::SubmitEvent| {
         if ev.default_prevented() {
