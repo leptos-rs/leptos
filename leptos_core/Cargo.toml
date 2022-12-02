@@ -17,6 +17,9 @@ typed-builder = "0.11"
 [dev-dependencies]
 leptos = { path = "../leptos", default-features = false, version = "0.0" }
 
+[build-dependencies]
+rustc_version = "0.4"
+
 [features]
 csr = [
 	"leptos/csr",
