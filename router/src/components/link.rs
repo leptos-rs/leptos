@@ -62,6 +62,9 @@ where
     /// will skip this page.)
     #[builder(default)]
     pub replace: bool,
+    /// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
+    #[builder(default, setter(strip_option, into))]
+    pub class: Option<MaybeSignal<String>>,
     /// The nodes or elements to be shown inside the link.
     pub children: Box<dyn Fn() -> Vec<C>>,
 }
@@ -102,6 +105,7 @@ where
         debug_warn!("[Link] Pass exactly one child to <A/>. If you want to pass more than one child, nest them within an element.");
     }
     let child = children.remove(0);
+    let class = props.class;
 
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -111,6 +115,7 @@ where
                     prop:state={props.state.map(|s| s.to_js_value())}
                     prop:replace={props.replace}
                     aria-current=move || if is_active.get() { Some("page") } else { None }
+                    class=move || class.as_ref().map(|class| class.get())
                 >
                     {child}
                 </a>
@@ -120,6 +125,7 @@ where
                 <a
                     href=move || href().unwrap_or_default()
                     aria-current=move || if is_active() { Some("page") } else { None }
+                    class=move || class.as_ref().map(|class| class.get())
                 >
                     {child}
                 </a>
