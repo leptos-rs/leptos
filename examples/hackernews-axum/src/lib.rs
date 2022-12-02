@@ -3,7 +3,6 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
-pub mod handlers;
 mod routes;
 use routes::nav::*;
 use routes::stories::*;

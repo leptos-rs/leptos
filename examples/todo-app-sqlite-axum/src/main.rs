@@ -5,14 +5,15 @@ use leptos::*;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        routing::{get, post},
+        routing::{post},
+        error_handling::HandleError,
         Router,
-        handler::Handler,
     };
     use std::net::SocketAddr;
     use crate::todo::*;
-    use todo_app_sqlite_axum::handlers::{file_handler, get_static_file_handler};
     use todo_app_sqlite_axum::*;
+    use http::StatusCode;
+    use tower_http::services::ServeDir;
 
     #[tokio::main]
     async fn main() {
@@ -29,12 +30,27 @@ if #[cfg(feature = "ssr")] {
 
         crate::todo::register_server_functions();
 
+        // These are Tower Services that will serve files from the static and pkg repos.
+        // HandleError is needed as Axum requires services to implement Infallible Errors
+        // because all Errors are converted into Responses
+        let static_service = HandleError::new( ServeDir::new("./static"), handle_file_error);
+        let pkg_service = HandleError::new( ServeDir::new("./pkg"), handle_file_error);
+
+        /// Convert the Errors from ServeDir to a type that implements IntoResponse
+        async fn handle_file_error(err: std::io::Error) -> (StatusCode, String) {
+            (
+                StatusCode::NOT_FOUND,
+                format!("File Not Found: {}", err),
+            )
+        }
+
+
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .nest("/pkg", get(file_handler))
-        .nest("/static", get(get_static_file_handler))
-        .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }).into_service());
+        .nest_service("/pkg", pkg_service)
+        .nest_service("/static", static_service)
+        .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

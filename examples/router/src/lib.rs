@@ -143,7 +143,7 @@ pub fn Settings(_cx: Scope) -> Element {
                 <fieldset>
                     <legend>"Name"</legend>
                     <input type="text" name="first_name" placeholder="First"/>
-                    <input type="text" name="first_name" placeholder="Last"/>
+                    <input type="text" name="last_name" placeholder="Last"/>
                 </fieldset>
                 <pre>"This page is just a placeholder."</pre>
             </form>
