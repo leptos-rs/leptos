@@ -30,6 +30,9 @@ leptos = { path = "../leptos", version = "0.0", default-features = false }
 leptos_router = { path = "../router", version = "0.0 " }
 serde = { version = "1", features = ["derive"] }
 
+[build-dependencies]
+rustc_version = "0.4"
+
 [features]
 default = ["ssr"]
 csr = ["leptos_dom/csr", "leptos_reactive/csr", "leptos/csr"]

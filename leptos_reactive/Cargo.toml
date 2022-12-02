@@ -45,6 +45,9 @@ serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 
+[build-dependencies]
+rustc_version = "0.4"
+
 [package.metadata.cargo-all-features]
 denylist = ["stable"]
 skip_feature_sets = [

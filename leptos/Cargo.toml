@@ -15,6 +15,9 @@ leptos_macro = { path = "../leptos_macro", default-features = false, version = "
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.19" }
 leptos_server = { path = "../leptos_server", default-features = false, version = "0.0.19" }
 
+[build-dependencies]
+rustc_version = "0.4"
+
 [features]
 default = ["csr", "serde", "interning"]
 csr = [
