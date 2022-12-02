@@ -50,7 +50,7 @@ if #[cfg(feature = "ssr")] {
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .nest_service("/pkg", pkg_service)
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }));
+        .fallback(leptos_axum::render_app_to_stream("/pkg/todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

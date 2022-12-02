@@ -30,7 +30,7 @@ cfg_if! {
                     .service(Files::new("/pkg", "./pkg"))
                     .service(css)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .route("/{tail:.*}", leptos_actix::render_app_to_stream("todo_app_sqlite", |cx| view! { cx, <TodoApp/> }))
+                    .route("/{tail:.*}", leptos_actix::render_app_to_stream("/pkg/todo_app_sqlite", |cx| view! { cx, <TodoApp/> }))
                 //.wrap(middleware::Compress::default())
             })
             .bind(("127.0.0.1", 8083))?

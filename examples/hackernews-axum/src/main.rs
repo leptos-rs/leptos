@@ -41,7 +41,7 @@ if #[cfg(feature = "ssr")] {
         // `GET /` goes to `root`
         .nest_service("/pkg", pkg_service)
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream("leptos_hackernews_axum", |cx| view! { cx, <App/> }));
+        .fallback(leptos_axum::render_app_to_stream("/pkg/leptos_hackernews_axum", |cx| view! { cx, <App/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

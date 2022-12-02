@@ -156,7 +156,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }));
+///     .fallback(leptos_axum::render_app_to_stream("/pkg/leptos_example", |cx| view! { cx, <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -168,7 +168,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// # }
 /// ```
 pub fn render_app_to_stream(
-    client_pkg_name: &'static str,
+    client_pkg_path: &'static str,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -197,7 +197,7 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <script type="module">import init, {{ hydrate }} from '/pkg/{client_pkg_name}.js'; init().then(hydrate);</script>"#
+                            <script type="module">import init, {{ hydrate }} from '{client_pkg_path}.js'; init().then(hydrate);</script>"#
                 );
                 let tail = "</body></html>";
 
