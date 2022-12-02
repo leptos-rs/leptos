@@ -51,4 +51,30 @@ miniserde = ["leptos_reactive/miniserde"]
 interning = ["leptos_dom/interning"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["stable", "interning"]
+skip_feature_sets = [
+  [
+    "csr",
+    "ssr",
+  ],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "serde",
+    "serde-lite",
+  ],
+  [
+    "serde-lite",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "miniserde",
+  ],
+]
