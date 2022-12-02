@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{Scope, create_element, create_effect, set_attribute};
+use leptos::Scope;
 use std::{rc::Rc, cell::{RefCell, Cell}, collections::HashMap};
 use typed_builder::TypedBuilder;
 
@@ -115,7 +115,7 @@ pub fn Meta(cx: Scope, props: MetaProps) {
 
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            use leptos::{document, JsCast, UnwrapThrowExt};
+            use leptos::{document, JsCast, UnwrapThrowExt, create_element, create_effect, set_attribute};
 
             let meta = use_head(cx);
 			let meta_tags = meta.meta_tags;
