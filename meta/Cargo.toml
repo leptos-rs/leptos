@@ -1,6 +1,6 @@
 [package]
 name = "leptos_meta"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -14,7 +14,7 @@ typed-builder = "0.11"
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["HtmlLinkElement", "HtmlTitleElement"]
+features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
 default = ["csr"]
