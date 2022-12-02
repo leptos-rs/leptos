@@ -12,6 +12,8 @@ cfg-if = "1"
 clone-macro = "0.1"
 educe = "0.4"
 gloo = "0.8"
+indexmap = "1.9"
+itertools = "0.10"
 js-sys = "0.3"
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
 paste = "1"

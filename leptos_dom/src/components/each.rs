@@ -1,13 +1,19 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
 use crate::{Comment, CoreComponent, IntoNode, Node};
+use itertools::Itertools;
 use leptos_reactive::{create_effect, Scope};
-use rustc_hash::FxHashSet;
-use smallvec::SmallVec;
+use rustc_hash::FxHasher;
+use smallvec::{smallvec, SmallVec};
 use std::{
-  borrow::Cow, cell::RefCell, hash::Hash, rc::Rc,
+  borrow::Cow,
+  cell::RefCell,
+  hash::{BuildHasherDefault, Hash},
+  rc::Rc,
 };
 use wasm_bindgen::JsCast;
+
+type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 trait VecExt {
@@ -277,7 +283,7 @@ where
         .iter()
         .enumerate()
         .map(|(idx, i)| HashKey(key_fn(i), idx))
-        .collect::<FxHashSet<_>>();
+        .collect::<FxIndexSet<_>>();
 
       if let Some(HashRun(prev_hash_run)) = prev_hash_run {
         let cmds = diff(&prev_hash_run, &hashed_items);
@@ -323,51 +329,102 @@ struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
 fn diff<K: Eq + Hash>(
-  from: &FxHashSet<HashKey<K>>,
-  to: &FxHashSet<HashKey<K>>,
+  from: &FxIndexSet<HashKey<K>>,
+  to: &FxIndexSet<HashKey<K>>,
 ) -> Diff {
-  if to.is_empty() {
+  if from.is_empty() && to.is_empty() {
+    return Diff::default();
+  } else if to.is_empty() {
     return Diff {
-      added_delta: 0,
-      moving: 0,
-      removing: from.len(),
-      ops: Default::default(),
+      ops: vec![DiffOp::Clear],
+      ..Default::default()
     };
   }
 
   let mut cmds = Vec::with_capacity(to.len());
 
   // Get removed items
-  let removed = from.difference(to).map(|k| DiffOp::Remove { at: k.1 });
+  let mut removed = from.difference(to);
+
+  let removed_cmds = removed.clone().map(|k| DiffOp::Remove { at: k.1 });
 
   // Get added items
-  let added = to.difference(from).map(|k| DiffOp::Add {
+  let mut added = to.difference(from);
+
+  let added_cmds = added.clone().map(|k| DiffOp::Add {
     at: k.1,
     mode: Default::default(),
   });
 
-  // Get maybe moved items
+  // Get moved items
+  //
+  // Todo: fix this move...we need to calculate to see if the value actually
+  // moved, as in, if we account for all insertions, and all deletions, are
+  // we left with a value that actually moved?
   let moved = from
     .intersection(to)
     .map(|k| (from.get(k).unwrap().1, to.get(k).unwrap().1))
     .filter(|(from, to)| from != to)
     .map(|(from, to)| DiffOp::Move { from, to });
 
-  cmds.extend(removed);
+  cmds.extend(removed_cmds);
   let removed_amount = cmds.len();
 
   cmds.extend(moved);
   let moved_amount = cmds.len() - removed_amount;
 
-  cmds.extend(added);
+  cmds.extend(added_cmds);
   let added_amount = cmds.len() - moved_amount - removed_amount;
   let delta = (added_amount as isize) - (removed_amount as isize);
 
-  Diff {
+  let mut diffs = Diff {
     added_delta: delta,
     moving: moved_amount,
     removing: removed_amount,
     ops: cmds,
+  };
+
+  apply_opts(from, to, &mut diffs);
+
+  diffs
+}
+
+fn apply_opts<K: Eq + Hash>(
+  from: &FxIndexSet<HashKey<K>>,
+  to: &FxIndexSet<HashKey<K>>,
+  cmds: &mut Diff,
+) {
+  // We can optimize the case of replacing all items
+  if !to.is_empty() && cmds.removing == from.len() && cmds.moving == 0 {
+    cmds
+      .ops
+      .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
+
+    cmds.ops.iter_mut().for_each(|op| {
+      if let DiffOp::Add { mode, .. } = op {
+        *mode = DiffOpAddMode::Append;
+      } else {
+        unreachable!()
+      }
+    });
+
+    cmds.ops.insert(0, DiffOp::Clear);
+
+    return;
+  }
+
+  // We can optimize for the case where we are only appending
+  // items
+  if cmds.added_delta != 0 && cmds.removing == 0 && cmds.moving == 0 {
+    cmds.ops.iter_mut().for_each(|op| {
+      if let DiffOp::Add { at, mode } = op {
+        *mode = DiffOpAddMode::Append;
+      } else {
+        unreachable!()
+      }
+    });
+
+    return;
   }
 }
 
@@ -387,7 +444,7 @@ impl<K: Eq> PartialEq for HashKey<K> {
 
 impl<K: Eq> Eq for HashKey<K> {}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Diff {
   /// The number of items added minus the number of items removed, used
   /// for optimizing reallocations for children.
@@ -440,61 +497,6 @@ fn apply_cmds<T, EF, N>(
   // we can only perform the omve after all commands have run, otherwise,
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moving);
-
-  // We can optimize for the case when the items are cleared
-  if items.is_empty() && !children.is_empty() {
-    cmds.ops.clear();
-
-    cmds.ops.push(DiffOp::Clear);
-  }
-  // We can optimize the case of replacing all items
-  else if !items.is_empty()
-    && cmds.removing == children.len()
-    && cmds.moving == 0
-  {
-    cmds
-      .ops
-      .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
-
-    cmds.ops.iter_mut().for_each(|op| {
-      if let DiffOp::Add { mode, .. } = op {
-        *mode = DiffOpAddMode::Append;
-      } else {
-        unreachable!()
-      }
-    });
-
-    cmds.ops.sort_unstable_by_key(|op| {
-      if let DiffOp::Add { at, .. } = op {
-        *at
-      } else {
-        unreachable!()
-      }
-    });
-
-    cmds.ops.insert(0, DiffOp::Clear);
-
-    children.resize_with(cmds.ops.len(), Default::default);
-  }
-  // We can optimize for the case where we are only appending
-  // items
-  else if cmds.added_delta != 0 && cmds.removing == 0 && cmds.moving == 0 {
-    cmds.ops.sort_unstable_by_key(|op| {
-      if let DiffOp::Add { at, .. } = op {
-        *at
-      } else {
-        unreachable!()
-      }
-    });
-
-    cmds.ops.iter_mut().for_each(|op| {
-      if let DiffOp::Add { at, mode } = op {
-        *mode = DiffOpAddMode::Append;
-      } else {
-        unreachable!()
-      }
-    });
-  }
 
   // The order of cmds needs to be:
   // 1. Removed
