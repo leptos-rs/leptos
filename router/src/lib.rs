@@ -32,6 +32,9 @@
 //!    them with server-side rendering (with or without hydration), they just work,
 //!    whether JS/WASM have loaded or not.
 //!
+//!    Note as well that client-side routing works with ordinary `<a>` tags, as well,
+//!    so you do not even need to use the `<A/>` component in most cases.
+//!
 //! ## Example
 //!
 //! ```rust

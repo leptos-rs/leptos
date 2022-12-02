@@ -10,31 +10,31 @@ use crate::{use_location, use_resolved_path, State};
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
-pub trait ToHref {
+pub trait TextProp {
     /// Converts the (static or reactive) URL into a function that can be called to
     /// return the URL.
-    fn to_href(&self) -> Box<dyn Fn() -> String + '_>;
+    fn to_value(&self) -> Box<dyn Fn() -> String + '_>;
 }
 
-impl ToHref for &str {
-    fn to_href(&self) -> Box<dyn Fn() -> String> {
+impl TextProp for &str {
+    fn to_value(&self) -> Box<dyn Fn() -> String> {
         let s = self.to_string();
         Box::new(move || s.clone())
     }
 }
 
-impl ToHref for String {
-    fn to_href(&self) -> Box<dyn Fn() -> String> {
+impl TextProp for String {
+    fn to_value(&self) -> Box<dyn Fn() -> String> {
         let s = self.clone();
         Box::new(move || s.clone())
     }
 }
 
-impl<F> ToHref for F
+impl<F> TextProp for F
 where
     F: Fn() -> String + 'static,
 {
-    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
+    fn to_value(&self) -> Box<dyn Fn() -> String + '_> {
         Box::new(self)
     }
 }
@@ -46,7 +46,7 @@ where
 pub struct AProps<C, H>
 where
     C: IntoChild,
-    H: ToHref + 'static,
+    H: TextProp + 'static,
 {
     /// Used to calculate the link's `href` attribute. Will be resolved relative
     /// to the current route.
@@ -56,26 +56,32 @@ where
     #[builder(default)]
     pub exact: bool,
     /// An object of any type that will be pushed to router state
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(strip_option, into))]
     pub state: Option<State>,
     /// If `true`, the link will not add to the browser's history (so, pressing `Back`
     /// will skip this page.)
     #[builder(default)]
     pub replace: bool,
+    /// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
+    #[builder(default, setter(strip_option, into))]
+    pub class: Option<MaybeSignal<String>>,
     /// The nodes or elements to be shown inside the link.
     pub children: Box<dyn Fn() -> Vec<C>>,
 }
 
 /// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
 /// progressively enhanced to use client-side routing.
+///
+/// Note that client-side routing also works with ordinary HTML `<a>` tags, although
+/// the `<A/>` component automatically resolves nested relative routes correctly.
 #[allow(non_snake_case)]
 pub fn A<C, H>(cx: Scope, props: AProps<C, H>) -> Element
 where
     C: IntoChild,
-    H: ToHref + 'static,
+    H: TextProp + 'static,
 {
     let location = use_location(cx);
-    let href = use_resolved_path(cx, move || props.href.to_href()());
+    let href = use_resolved_path(cx, move || props.href.to_value()());
     let is_active = create_memo(cx, move |_| match href.get() {
         None => false,
 
@@ -99,6 +105,7 @@ where
         debug_warn!("[Link] Pass exactly one child to <A/>. If you want to pass more than one child, nest them within an element.");
     }
     let child = children.remove(0);
+    let class = props.class;
 
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -108,6 +115,7 @@ where
                     prop:state={props.state.map(|s| s.to_js_value())}
                     prop:replace={props.replace}
                     aria-current=move || if is_active.get() { Some("page") } else { None }
+                    class=move || class.as_ref().map(|class| class.get())
                 >
                     {child}
                 </a>
@@ -117,6 +125,7 @@ where
                 <a
                     href=move || href().unwrap_or_default()
                     aria-current=move || if is_active() { Some("page") } else { None }
+                    class=move || class.as_ref().map(|class| class.get())
                 >
                     {child}
                 </a>
