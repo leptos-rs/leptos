@@ -519,6 +519,8 @@ fn apply_cmds<T, EF, N>(
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moving);
 
+  debug!("{cmds:#?}");
+
   // The order of cmds needs to be:
   // 1. Removed
   // 2. Moved
