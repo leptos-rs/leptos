@@ -654,6 +654,39 @@ impl<El: IntoElement> HtmlElement<El> {
 		}
   }
 
+  #[doc(hidden)]
+	#[track_caller]
+	pub fn _prop(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, value: impl IntoProperty) -> Self {
+    cfg_if! {
+		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let name = name.into();
+        let value = value.into_property(cx);
+        let el = self.element.get_element();
+        match value {
+          Property::Fn(f) => {
+            let el = el.clone();
+            create_render_effect(cx, move |old| {
+                let new = f();
+                let prop_name = wasm_bindgen::intern(&name);
+                if old.as_ref() != Some(&new) && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED) {
+                    property_expression(&el, &prop_name, new.clone())
+                }
+                new
+            });
+          }
+          Property::Value(value) => {
+            let prop_name = wasm_bindgen::intern(&name);
+            property_expression(&el, &prop_name, value)
+          },
+        };
+        self
+      }
+      else {
+        self
+      }
+    }
+  }
+
 	#[doc(hidden)]
 	#[track_caller]
 	pub fn _child(mut self, cx: Scope, child: impl IntoChild) -> Self {
