@@ -11,6 +11,7 @@ extern crate tracing;
 mod components;
 mod events;
 mod html;
+mod macro_helpers;
 
 use cfg_if::cfg_if;
 pub use components::*;

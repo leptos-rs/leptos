@@ -78,8 +78,8 @@ cfg_if! {
     #[derive(educe::Educe)]
     #[educe(Debug)]
     pub struct HtmlElement<El: IntoElement> {
-      cx: Scope,
-      element: El,
+      pub(crate) cx: Scope,
+      pub(crate) element: El,
     }
   // Server needs to build a virtualized DOM tree
   } else {
@@ -87,14 +87,14 @@ cfg_if! {
     #[derive(educe::Educe)]
     #[educe(Debug)]
     pub struct HtmlElement<El: IntoElement> {
-      cx: Scope,
-      element: El,
-      id: OnceCell<Cow<'static, str>>,
+      pub(crate) cx: Scope,
+      pub(crate) element: El,
+      pub(crate) id: OnceCell<Cow<'static, str>>,
       #[educe(Debug(ignore))]
-      attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
+      pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
       #[allow(clippy::type_complexity)]
-      children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
+      pub(crate) children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
     }
   }
 }
