@@ -1,5 +1,7 @@
 #![deny(missing_docs)]
 #![feature(once_cell, iter_intersperse, drain_filter, thread_local)]
+#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
+#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
 //! The DOM implementation for `leptos`.
 
@@ -11,11 +13,15 @@ extern crate tracing;
 mod components;
 mod events;
 mod html;
+mod logging;
 mod macro_helpers;
+mod node_ref;
 
 use cfg_if::cfg_if;
 pub use components::*;
 pub use html::*;
+pub use node_ref::*;
+pub use logging::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{
@@ -407,4 +413,40 @@ fn get_id() -> usize {
   unsafe { ID_COUNTER += 1 }
 
   id
+}
+
+/// Shorthand to test for whether an `ssr` feature is enabled.
+///
+/// In the past, this was implemented by checking whether `not(target_arch = "wasm32")`.
+/// Now that some cloud platforms are moving to run Wasm on the edge, we really can't
+/// guarantee that compiling to Wasm means browser APIs are available, or that not compiling
+/// to Wasm means we're running on the server.
+///
+/// ```
+/// # use leptos_dom::is_server;
+/// let todos = if is_server!() {
+///   // if on the server, load from DB
+/// } else {
+///   // if on the browser, do something else
+/// };
+/// ```
+#[macro_export]
+macro_rules! is_server {
+    () => {
+        cfg!(feature = "ssr")
+    };
+}
+
+/// A shorthand macro to test whether this is a debug build.
+/// ```
+/// # use leptos_dom::is_dev;
+/// if is_dev!() {
+///   // log something or whatever
+/// }
+/// ```
+#[macro_export]
+macro_rules! is_dev {
+    () => {
+        cfg!(debug_assertions)
+    };
 }

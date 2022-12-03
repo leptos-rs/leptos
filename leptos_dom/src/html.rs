@@ -369,11 +369,8 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element.
   #[track_caller]
-  pub fn on<E, N, F>(self, event_name: N, event_handler: F) -> Self
-  where
-    N: Into<Cow<'static, str>>,
-    F: FnMut(E) + 'static,
-    E: FromWasmAbi + 'static,
+  pub fn on<E>(self, event_name: impl Into<Cow<'static, str>>, event_handler: impl FnMut(E) + 'static) -> Self
+  where E: FromWasmAbi + 'static,
   {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -390,11 +387,8 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element, using event delegation.
   #[track_caller]
-  pub fn on_delegated<E, N, F>(self, event_name: N, event_handler: F) -> Self
-  where
-    N: Into<Cow<'static, str>>,
-    F: FnMut(E) + 'static,
-    E: FromWasmAbi + 'static,
+  pub fn on_delegated<E>(self, event_name: impl Into<Cow<'static, str>>, event_handler: impl FnMut(E) + 'static) -> Self
+  where E: FromWasmAbi + 'static,
   {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -625,6 +619,72 @@ impl<El: IntoElement> HtmlElement<El> {
         }
 		  }
 		}
+  }
+
+  #[doc(hidden)]
+	#[track_caller]
+	pub fn _class(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, class: impl IntoClass) -> Self {
+    let name = name.into();
+		cfg_if! {
+		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let el = self.element.get_element();
+        let class_list = el.class_list();
+        let value = class.into_class(cx);
+        match value {
+          Class::Fn(f) => {
+              create_render_effect(cx, move |old| {
+                let new = f();
+                if old.as_ref() != Some(&new) && (old.is_some() || new) {
+                  class_expression(&class_list, &name, new)
+                }
+                new
+              });
+          }
+          Class::Value(value) => class_expression(&class_list, &name, value),
+        };
+        self
+		  }
+		  else {
+        let mut class = class.into_class(cx);
+        match class {
+          Class::Value(include) => self.class_bool(name, include),
+          Class::Fn(f) => self.class_bool(name, f())
+        }
+		  }
+		}
+  }
+
+  #[doc(hidden)]
+	#[track_caller]
+	pub fn _prop(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, value: impl IntoProperty) -> Self {
+    cfg_if! {
+		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let name = name.into();
+        let value = value.into_property(cx);
+        let el = self.element.get_element();
+        match value {
+          Property::Fn(f) => {
+            let el = el.clone();
+            create_render_effect(cx, move |old| {
+                let new = f();
+                let prop_name = wasm_bindgen::intern(&name);
+                if old.as_ref() != Some(&new) && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED) {
+                    property_expression(&el, &prop_name, new.clone())
+                }
+                new
+            });
+          }
+          Property::Value(value) => {
+            let prop_name = wasm_bindgen::intern(&name);
+            property_expression(&el, &prop_name, value)
+          },
+        };
+        self
+      }
+      else {
+        self
+      }
+    }
   }
 
 	#[doc(hidden)]
