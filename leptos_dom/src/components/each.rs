@@ -128,9 +128,6 @@ impl EachItem {
       Comment::new(Cow::Borrowed("<EachItem>")),
     );
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    child.fill_if_text();
-
     let document_fragment = {
       let fragment = crate::document().create_document_fragment();
 
