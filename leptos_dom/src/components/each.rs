@@ -443,7 +443,7 @@ fn apply_opts<K: Eq + Hash>(
   }
 
   // We can optimize appends.
-  if cmds.added_delta != 0
+  if cmds.added_delta > 0
     && cmds.moving == 0
     && if let DiffOp::Add { at, .. } = cmds.ops[0] {
       at >= from.len()
