@@ -578,22 +578,70 @@ macro_rules! generate_html_tags {
 }
 
 // view! macro helpers
+use crate::macro_helpers::*;
+use leptos_reactive::create_render_effect;
 impl<El: IntoElement> HtmlElement<El> {
+  #[doc(hidden)]
+	#[track_caller]
+	pub fn _attr(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, attr: impl IntoAttribute) -> Self {
+    let name = name.into();
+		cfg_if! {
+		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let el = self.element.get_element();
+        let value = attr.into_attribute(cx);
+        match value {
+          Attribute::Fn(f) => {
+              let el = el.clone();
+              create_render_effect(cx, move |old| {
+                  let new = f();
+                  if old.as_ref() != Some(&new) {
+                      attribute_expression(&el, &name, new.clone());
+                  }
+                  new
+              });
+          }
+          _ => attribute_expression(el, &name, value),
+        };
+        self
+		  }
+		  else {
+        let mut attr = attr.into_attribute(cx);
+        while let Attribute::Fn(f) = attr {
+          attr = f();
+        }
+        match attr {
+          Attribute::String(value) => self.attr(name, value),
+          Attribute::Bool(include) => if include { 
+            self.attr_bool(name)
+          } else {
+            self
+          },
+          Attribute::Option(maybe) => if let Some(value) = maybe {
+            self.attr(name, value)
+          } else {
+            self
+          }
+          _ => unreachable!()
+        }
+		  }
+		}
+  }
+
 	#[doc(hidden)]
 	#[track_caller]
-	pub fn _child<C: crate::macro_helpers::IntoChild>(mut self, cx: Scope, child: C) -> Self {
+	pub fn _child(mut self, cx: Scope, child: impl IntoChild) -> Self {
 		let child = child.into_child(cx);
 		cfg_if! {
 		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-			mount_child(MountKind::Append(self.element.get_element()), &child.into_node(cx))
+        mount_child(MountKind::Append(self.element.get_element()), &child.into_node(cx))
 		  }
 		  else {
-			self.children.push(Box::new(move |cx| child.into_node(cx)));
+        self.children.push(Box::new(move |cx| child.into_node(cx)));
 		  }
 		}
 	
 		self
-	  }
+  }
 }
 
 generate_html_tags![
