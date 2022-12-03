@@ -1,4 +1,6 @@
-use crate::{Comment, CoreComponent, IntoNode, Mountable, Node};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::Mountable;
+use crate::{Comment, CoreComponent, IntoNode, Node};
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`Unit`] core-component.
