@@ -129,7 +129,7 @@ pub fn handle_server_fns() -> Route {
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }))
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream("/pkg/leptos_example", |cx| view! { cx, <MyApp/> }))
 ///     })
 ///     .bind(("127.0.0.1", 8080))?
 ///     .run()
