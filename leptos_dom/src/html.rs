@@ -369,11 +369,8 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element.
   #[track_caller]
-  pub fn on<E, N, F>(self, event_name: N, event_handler: F) -> Self
-  where
-    N: Into<Cow<'static, str>>,
-    F: FnMut(E) + 'static,
-    E: FromWasmAbi + 'static,
+  pub fn on<E>(self, event_name: impl Into<Cow<'static, str>>, event_handler: impl FnMut(E) + 'static) -> Self
+  where E: FromWasmAbi + 'static,
   {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -390,11 +387,8 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element, using event delegation.
   #[track_caller]
-  pub fn on_delegated<E, N, F>(self, event_name: N, event_handler: F) -> Self
-  where
-    N: Into<Cow<'static, str>>,
-    F: FnMut(E) + 'static,
-    E: FromWasmAbi + 'static,
+  pub fn on_delegated<E>(self, event_name: impl Into<Cow<'static, str>>, event_handler: impl FnMut(E) + 'static) -> Self
+  where E: FromWasmAbi + 'static,
   {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
