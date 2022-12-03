@@ -11,6 +11,7 @@ extern crate tracing;
 mod components;
 mod events;
 mod html;
+mod logging;
 mod macro_helpers;
 mod node_ref;
 
@@ -18,6 +19,7 @@ use cfg_if::cfg_if;
 pub use components::*;
 pub use html::*;
 pub use node_ref::*;
+pub use logging::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{
