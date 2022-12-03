@@ -128,9 +128,6 @@ impl EachItem {
       Comment::new(Cow::Borrowed("<EachItem>")),
     );
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    child.fill_if_text();
-
     let document_fragment = {
       let fragment = crate::document().create_document_fragment();
 
@@ -521,6 +518,8 @@ fn apply_cmds<T, EF, N>(
   // we can only perform the omve after all commands have run, otherwise,
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moving);
+
+  debug!("{cmds:#?}");
 
   // The order of cmds needs to be:
   // 1. Removed
