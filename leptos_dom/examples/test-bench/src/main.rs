@@ -34,13 +34,13 @@ fn view_fn(cx: Scope) -> impl IntoNode {
   let (apply_default_class_set, set_apply_default_class_set) =
     create_signal(cx, false);
 
-  wasm_bindgen_futures::spawn_local(async move {
-    loop {
-      gloo::timers::future::sleep(std::time::Duration::from_secs(5)).await;
+  // wasm_bindgen_futures::spawn_local(async move {
+  //   loop {
+  //     gloo::timers::future::sleep(std::time::Duration::from_secs(5)).await;
 
-      set_tick.update(|t| *t += 1);
-    }
-  });
+  //     set_tick.update(|t| *t += 1);
+  //   }
+  // });
 
   create_effect(cx, move |_| {
     tick();
@@ -59,9 +59,9 @@ fn view_fn(cx: Scope) -> impl IntoNode {
 
     set_iterable.update(|i| {
       if tick() % 2 == 0 {
-        *i = vec![1, 2, 3];
+        *i = vec![1, 2, 3, 4];
       } else {
-        *i = vec![1, 2, 3, 4, 5, 6];
+        *i = vec![1, 2, 5, 6, 7, 3, 4];
       }
     })
   });
@@ -83,6 +83,12 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .dyn_child(move || text(count().to_string()))
       .into_node(cx),
     button(cx)
+      .on("click", move |_: web_sys::MouseEvent| {
+        set_tick.update(|t| *t += 1)
+      })
+      .child(text("Tick"))
+      .into_node(cx),
+    button(cx)
       .on("click", move |_: web_sys::Event| {
         set_count.update(|n| *n += 1)
       })
@@ -95,17 +101,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .child(text("Click me (delegated)"))
       .into_node(cx),
     p(cx)
-      .child(EachKey::new(
-        iterable,
-        |i| *i,
-        move |i| {
-          [
-            span(cx).child(text(i.to_string())),
-            span(cx).child(text((i + 1).to_string())),
-            span(cx).child(text((i + 2).to_string())),
-          ]
-        },
-      ))
+      .child(EachKey::new(iterable, |i| *i, move |i| text(i.to_string())))
       .into_node(cx),
     input(cx)
       .class("input input-primary")

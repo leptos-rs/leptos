@@ -231,13 +231,6 @@ pub enum Node {
   CoreComponent(CoreComponent),
 }
 
-impl Drop for Node {
-  #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all, fields(kind = self.kind_name())))]
-  fn drop(&mut self) {
-    trace!("dropping node");
-  }
-}
-
 /// The default [`Node`] is the [`Unit`] core-component.
 impl Default for Node {
   fn default() -> Self {

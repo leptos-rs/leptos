@@ -70,9 +70,7 @@ impl Default for EachRepr {
         .expect("append to not err");
 
       #[cfg(not(debug_assertions))]
-      fragment
-        .append_with_node_1(&markers.0.node)
-        .expect("append to not err");
+      fragment.append_with_node_1(&markers.0.node).unwrap();
 
       fragment
     };
@@ -131,6 +129,8 @@ impl EachItem {
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    child.fill_if_text();
+
     let document_fragment = {
       let fragment = crate::document().create_document_fragment();
 
@@ -445,18 +445,26 @@ fn apply_opts<K: Eq + Hash>(
     return;
   }
 
-  // We can optimize for the case where we are only appending
-  // items
-  if cmds.added_delta != 0 && cmds.removing == 0 && cmds.moving == 0 {
-    cmds.ops.iter_mut().for_each(|op| {
-      if let DiffOp::Add { at, mode } = op {
-        *mode = DiffOpAddMode::Append;
-      } else {
-        unreachable!()
-      }
-    });
-
-    return;
+  // We can optimize appends.
+  if cmds.added_delta != 0
+    && cmds.moving == 0
+    && if let DiffOp::Add { at, .. } = cmds.ops[0] {
+      at >= from.len()
+    } else {
+      unreachable!()
+    }
+  {
+    cmds
+      .ops
+      .iter_mut()
+      .map(|op| {
+        if let DiffOp::Add { at, mode } = op {
+          (*at, mode)
+        } else {
+          unreachable!()
+        }
+      })
+      .for_each(|(_, mode)| *mode = DiffOpAddMode::Append);
   }
 }
 
