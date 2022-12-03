@@ -1,7 +1,7 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
 use crate::{Comment, CoreComponent, IntoNode, Node};
-use itertools::Itertools;
+use itertools::{EitherOrBoth, Itertools};
 use leptos_reactive::{create_effect, Scope};
 use rustc_hash::FxHasher;
 use smallvec::{smallvec, SmallVec};
@@ -264,7 +264,7 @@ where
     let closing = component.closing.node.clone();
 
     create_effect(cx, move |prev_hash_run| {
-      let children_borrow = children.borrow();
+      let mut children_borrow = children.borrow_mut();
 
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       let opening = if let Some(Some(child)) = children_borrow.get(0) {
@@ -273,17 +273,12 @@ where
         closing.clone()
       };
 
-      drop(children_borrow);
-
       let items = items_fn();
 
       let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
 
-      let hashed_items = items
-        .iter()
-        .enumerate()
-        .map(|(idx, i)| HashKey(key_fn(i), idx))
-        .collect::<FxIndexSet<_>>();
+      let hashed_items =
+        items.iter().map(|i| key_fn(i)).collect::<FxIndexSet<_>>();
 
       if let Some(HashRun(prev_hash_run)) = prev_hash_run {
         let cmds = diff(&prev_hash_run, &hashed_items);
@@ -295,13 +290,11 @@ where
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           &closing,
           cmds,
-          &mut children.borrow_mut(),
+          &mut children_borrow,
           items.into_iter().map(|t| Some(t)).collect(),
           &each_fn,
         );
       } else {
-        let mut children_borrow = children.borrow_mut();
-
         *children_borrow = Vec::with_capacity(items.len());
 
         for item in items {
@@ -328,10 +321,7 @@ where
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
-fn diff<K: Eq + Hash>(
-  from: &FxIndexSet<HashKey<K>>,
-  to: &FxIndexSet<HashKey<K>>,
-) -> Diff {
+fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
   if from.is_empty() && to.is_empty() {
     return Diff::default();
   } else if to.is_empty() {
@@ -346,32 +336,70 @@ fn diff<K: Eq + Hash>(
   // Get removed items
   let mut removed = from.difference(to);
 
-  let removed_cmds = removed.clone().map(|k| DiffOp::Remove { at: k.1 });
+  let removed_cmds = removed
+    .clone()
+    .map(|k| from.get_full(k).unwrap().0)
+    .map(|idx| DiffOp::Remove { at: idx });
 
   // Get added items
   let mut added = to.difference(from);
 
-  let added_cmds = added.clone().map(|k| DiffOp::Add {
-    at: k.1,
-    mode: Default::default(),
-  });
+  let added_cmds =
+    added
+      .clone()
+      .map(|k| to.get_full(k).unwrap().0)
+      .map(|idx| DiffOp::Add {
+        at: idx,
+        mode: Default::default(),
+      });
 
   // Get moved items
-  //
-  // Todo: fix this move...we need to calculate to see if the value actually
-  // moved, as in, if we account for all insertions, and all deletions, are
-  // we left with a value that actually moved?
-  let moved = from
-    .intersection(to)
-    .map(|k| (from.get(k).unwrap().1, to.get(k).unwrap().1))
-    .filter(|(from, to)| from != to)
-    .map(|(from, to)| DiffOp::Move { from, to });
+  let mut normalized_idx = 0;
+  let mut move_cmds = SmallVec::<[_; 16]>::with_capacity(to.len());
+  let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
+  let mut removed_idx = removed.next().map(|k| from.get_full(k).unwrap().0);
+
+  use gloo::console::debug;
+
+  for (idx, k) in to.iter().enumerate() {
+    if let Some(added_idx) = added_idx.as_mut().filter(|r_i| **r_i == idx) {
+      if let Some(next_added) = added.next().map(|k| to.get_full(k).unwrap().0)
+      {
+        *added_idx = next_added;
+      }
+
+      continue;
+    }
+
+    if let Some(removed_idx) = removed_idx.as_mut().filter(|r_i| **r_i == idx) {
+      normalized_idx += 1;
+
+      if let Some(next_removed) =
+        removed.next().map(|k| from.get_full(k).unwrap().0)
+      {
+        *removed_idx = next_removed;
+      }
+    }
+
+    if let Some((from_idx, _)) = from.get_full(k) {
+      if from_idx != normalized_idx {
+        let op = DiffOp::Move {
+          from: from_idx,
+          to: idx,
+        };
+
+        move_cmds.push(op);
+      }
+    }
+
+    normalized_idx += 1;
+  }
 
   cmds.extend(removed_cmds);
   let removed_amount = cmds.len();
 
-  cmds.extend(moved);
-  let moved_amount = cmds.len() - removed_amount;
+  let moved_amount = move_cmds.len();
+  cmds.extend(move_cmds);
 
   cmds.extend(added_cmds);
   let added_amount = cmds.len() - moved_amount - removed_amount;
@@ -390,12 +418,16 @@ fn diff<K: Eq + Hash>(
 }
 
 fn apply_opts<K: Eq + Hash>(
-  from: &FxIndexSet<HashKey<K>>,
-  to: &FxIndexSet<HashKey<K>>,
+  from: &FxIndexSet<K>,
+  to: &FxIndexSet<K>,
   cmds: &mut Diff,
 ) {
   // We can optimize the case of replacing all items
-  if !to.is_empty() && cmds.removing == from.len() && cmds.moving == 0 {
+  if !from.is_empty()
+    && !to.is_empty()
+    && cmds.removing == from.len()
+    && cmds.moving == 0
+  {
     cmds
       .ops
       .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
@@ -427,22 +459,6 @@ fn apply_opts<K: Eq + Hash>(
     return;
   }
 }
-
-struct HashKey<K>(K, usize);
-
-impl<K: Hash> Hash for HashKey<K> {
-  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.0.hash(state);
-  }
-}
-
-impl<K: Eq> PartialEq for HashKey<K> {
-  fn eq(&self, other: &Self) -> bool {
-    self.0 == other.0
-  }
-}
-
-impl<K: Eq> Eq for HashKey<K> {}
 
 #[derive(Debug, Default)]
 struct Diff {
@@ -546,26 +562,26 @@ fn apply_cmds<T, EF, N>(
       DiffOp::Clear => {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-          // if opening.previous_sibling().is_none()
-          //   && closing.next_sibling().is_none()
-          // {
-          //   let parent = closing
-          //     .parent_node()
-          //     .unwrap()
-          //     .unchecked_into::<web_sys::Element>();
-          //   parent.set_text_content(Some(""));
+          if opening.previous_sibling().is_none()
+            && closing.next_sibling().is_none()
+          {
+            let parent = closing
+              .parent_node()
+              .unwrap()
+              .unchecked_into::<web_sys::Element>();
+            parent.set_text_content(Some(""));
 
-          //   #[cfg(debug_assertions)]
-          //   parent.append_with_node_2(opening, closing).unwrap();
+            #[cfg(debug_assertions)]
+            parent.append_with_node_2(opening, closing).unwrap();
 
-          //   #[cfg(not(debug_assertions))]
-          //   parent.append_with_node_1(closing).unwrap();
-          // } else {
-          range.set_start_before(opening).unwrap();
-          range.set_end_before(closing).unwrap();
+            #[cfg(not(debug_assertions))]
+            parent.append_with_node_1(closing).unwrap();
+          } else {
+            range.set_start_before(opening).unwrap();
+            range.set_end_before(closing).unwrap();
 
-          range.delete_contents().unwrap();
-          // }
+            range.delete_contents().unwrap();
+          }
         }
       }
     }
@@ -582,4 +598,8 @@ fn apply_cmds<T, EF, N>(
       children[to] = Some(each_item);
     }
   }
+
+  // Now, remove the holes that might have been left from removing
+  // items
+  children.drain_filter(|c| c.is_none());
 }
