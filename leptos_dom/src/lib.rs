@@ -1,5 +1,7 @@
 #![deny(missing_docs)]
 #![feature(once_cell, iter_intersperse, drain_filter, thread_local)]
+#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
+#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
 //! The DOM implementation for `leptos`.
 
