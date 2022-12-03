@@ -20,9 +20,9 @@ mod node_ref;
 use cfg_if::cfg_if;
 pub use components::*;
 pub use html::*;
-pub use node_ref::*;
-pub use logging::*;
 use leptos_reactive::Scope;
+pub use logging::*;
+pub use node_ref::*;
 use smallvec::SmallVec;
 use std::{
   borrow::Cow,
@@ -38,9 +38,6 @@ static COMMENT: LazyCell<web_sys::Node> =
 #[thread_local]
 static RANGE: LazyCell<web_sys::Range> =
   LazyCell::new(|| web_sys::Range::new().unwrap());
-/// Used for generating short `id`'s for nodes.
-#[thread_local]
-static mut ID_COUNTER: usize = 0;
 
 /// Converts the value into a [`Node`].
 pub trait IntoNode {
@@ -407,14 +404,6 @@ pub fn document() -> web_sys::Document {
   DOCUMENT.with(|document| document.clone())
 }
 
-fn get_id() -> usize {
-  let id = unsafe { ID_COUNTER };
-
-  unsafe { ID_COUNTER += 1 }
-
-  id
-}
-
 /// Shorthand to test for whether an `ssr` feature is enabled.
 ///
 /// In the past, this was implemented by checking whether `not(target_arch = "wasm32")`.
@@ -432,9 +421,9 @@ fn get_id() -> usize {
 /// ```
 #[macro_export]
 macro_rules! is_server {
-    () => {
-        cfg!(feature = "ssr")
-    };
+  () => {
+    cfg!(feature = "ssr")
+  };
 }
 
 /// A shorthand macro to test whether this is a debug build.
@@ -446,7 +435,7 @@ macro_rules! is_server {
 /// ```
 #[macro_export]
 macro_rules! is_dev {
-    () => {
-        cfg!(debug_assertions)
-    };
+  () => {
+    cfg!(debug_assertions)
+  };
 }
