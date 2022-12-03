@@ -1,6 +1,6 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind};
-use crate::{Comment, IntoNode, Mountable, Node};
+use crate::{mount_child, MountKind, Mountable};
+use crate::{Comment, IntoNode, Node};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;

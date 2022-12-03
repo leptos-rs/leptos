@@ -10,11 +10,32 @@ use std::{
   borrow::Cow,
   cell::{LazyCell, OnceCell},
   fmt,
+  ops::Deref,
 };
 use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast};
 
+/// Trait alias for the trait bounts on [`IntoElement`].
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+pub trait IntoElementBounds:
+  fmt::Debug + Deref<Target = web_sys::HtmlElement>
+{
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl<El> IntoElementBounds for El where
+  El: fmt::Debug + Deref<Target = web_sys::HtmlElement>
+{
+}
+
+/// Trait alias for the trait bounts on [`IntoElement`].
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+pub trait IntoElementBounds: fmt::Debug {}
+
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+impl<El> IntoElementBounds for El where El: fmt::Debug {}
+
 /// Trait which allows creating an element tag.
-pub trait IntoElement: fmt::Debug {
+pub trait IntoElement: IntoElementBounds {
   /// The name of the element, i.e., `div`, `p`, `custom-element`.
   fn name(&self) -> Cow<'static, str>;
 
@@ -31,9 +52,12 @@ pub trait IntoElement: fmt::Debug {
 /// Represents potentially any element, which you can change
 /// at any time before calling [`HtmlElement::into_node`].
 #[derive(Clone, Debug)]
+#[cfg_attr(all(target_arch = "wasm32", feature = "web"), derive(educe::Educe))]
+#[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
 pub struct AnyElement {
   name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  #[educe(Deref)]
   element: web_sys::HtmlElement,
   is_void: bool,
 }
@@ -54,10 +78,12 @@ impl IntoElement for AnyElement {
 }
 
 /// Represents a custom HTML element, such as `<my-element>`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, educe::Educe)]
+#[educe(Deref)]
 pub struct Custom {
   name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  #[educe(Deref)]
   element: web_sys::HtmlElement,
 }
 
@@ -76,9 +102,10 @@ cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
     #[derive(educe::Educe)]
-    #[educe(Debug)]
+    #[educe(Debug, Deref)]
     pub struct HtmlElement<El: IntoElement> {
       pub(crate) cx: Scope,
+      #[educe(Deref)]
       pub(crate) element: El,
     }
   // Server needs to build a virtualized DOM tree
@@ -504,9 +531,12 @@ macro_rules! generate_html_tags {
         });
 
         #[derive(Clone, Debug)]
+        #[cfg_attr(all(target_arch = "wasm32", feature = "web"), derive(educe::Educe))]
+        #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
         #[$meta]
         pub struct [<$tag:camel $($trailing_)?>] {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          #[educe(Deref)]
           element: web_sys::HtmlElement,
         }
 
