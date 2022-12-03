@@ -119,49 +119,45 @@ where
 
     let span = tracing::Span::current();
 
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     create_effect(cx, move |prev_run| {
       let _guard = span.enter();
       let _guard = trace_span!("DynChild reactive").entered();
-
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      if prev_run.is_some() {
-        let opening =
-          child.borrow().as_ref().as_ref().unwrap().get_opening_node();
-
-        let mut sibling = opening;
-
-        while sibling != closing {
-          let next_sibling = sibling.next_sibling().unwrap();
-
-          sibling.unchecked_ref::<web_sys::Element>().remove();
-
-          sibling = next_sibling;
-        }
-      }
-
       let new_child = child_fn().into_node(cx);
-
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
       if let Some(t) = new_child.get_text() {
         let mut prev_text_node_borrow = prev_text_node.borrow_mut();
 
         if let Some(prev_t) = &*prev_text_node_borrow {
-          prev_t.set_text_content(Some(&t.content));
-
-          t.node.set(prev_t.clone()).unwrap();
+          prev_t.unchecked_ref::<web_sys::Text>().set_data(&t.content);
         } else {
-          t.fill_node();
-
-          *prev_text_node_borrow = Some(t.node.get().unwrap().clone());
+          closing
+            .unchecked_ref::<web_sys::Element>()
+            .before_with_node_1(&t.node)
+            .expect("before to not err");
+          *prev_text_node_borrow = Some(t.node.clone());
         }
       } else {
         *prev_text_node.borrow_mut() = None;
+        if prev_run.is_some() {
+          let opening =
+            child.borrow().as_ref().as_ref().unwrap().get_opening_node();
+
+          let mut sibling = opening;
+
+          while sibling != closing {
+            let next_sibling = sibling.next_sibling().unwrap();
+
+            sibling.unchecked_ref::<web_sys::Element>().remove();
+
+            sibling = next_sibling;
+          }
+        }
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        mount_child(MountKind::Before(&closing), &new_child);
+  
+        **child.borrow_mut() = Some(new_child);
       }
-
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      mount_child(MountKind::Before(&closing), &new_child);
-
-      **child.borrow_mut() = Some(new_child);
     });
 
     Node::CoreComponent(crate::CoreComponent::DynChild(component))
