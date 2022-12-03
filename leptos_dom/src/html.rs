@@ -104,9 +104,9 @@ cfg_if! {
     #[derive(educe::Educe)]
     #[educe(Debug, Deref)]
     pub struct HtmlElement<El: IntoElement> {
-      pub(crate) cx: Scope,
+      cx: Scope,
       #[educe(Deref)]
-      pub(crate) element: El,
+      element: El,
     }
   // Server needs to build a virtualized DOM tree
   } else {
@@ -415,9 +415,7 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         {
           let child = child.into_node(self.cx);
-
-          child.fill_if_text();
-
+          
           mount_child(MountKind::Append(self.element.get_element()), &child)
         }
       }
@@ -510,7 +508,6 @@ pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
 /// Creates a text node.
 pub fn text(text: impl Into<Cow<'static, str>>) -> Node {
   let text = Text::new(text.into());
-
   Node::Text(text)
 }
 
@@ -578,6 +575,25 @@ macro_rules! generate_html_tags {
       true
     }
   }
+}
+
+// view! macro helpers
+impl<El: IntoElement> HtmlElement<El> {
+	#[doc(hidden)]
+	#[track_caller]
+	pub fn _child<C: crate::macro_helpers::IntoChild>(mut self, cx: Scope, child: C) -> Self {
+		let child = child.into_child(cx);
+		cfg_if! {
+		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+			mount_child(MountKind::Append(self.element.get_element()), &child.into_node(cx))
+		  }
+		  else {
+			self.children.push(Box::new(move |cx| child.into_node(cx)));
+		  }
+		}
+	
+		self
+	  }
 }
 
 generate_html_tags![

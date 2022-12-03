@@ -162,10 +162,6 @@ where
 
     let children = children.unwrap();
 
-    // Fill any text nodes
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    children.iter().for_each(|c| c.fill_if_text());
-
     let mut repr = ComponentRepr::new(name);
 
     repr.disposer = Some(disposer);

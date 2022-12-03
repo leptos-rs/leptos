@@ -146,13 +146,9 @@ where
         let mut prev_text_node_borrow = prev_text_node.borrow_mut();
 
         if let Some(prev_t) = &*prev_text_node_borrow {
-          prev_t.set_text_content(Some(&t.content));
-
-          t.node.set(prev_t.clone()).unwrap();
+          prev_t.unchecked_ref::<web_sys::Text>().set_data(&t.content);
         } else {
-          t.fill_node();
-
-          *prev_text_node_borrow = Some(t.node.get().unwrap().clone());
+          *prev_text_node_borrow = Some(t.node.clone());
         }
       } else {
         *prev_text_node.borrow_mut() = None;

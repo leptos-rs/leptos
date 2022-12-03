@@ -181,7 +181,7 @@ pub struct Text {
   /// to update the node without recreating it, we need to be able
   /// to possibly reuse a previous node.
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  node: OnceCell<web_sys::Node>,
+  node: web_sys::Node,
   content: Cow<'static, str>,
 }
 
@@ -198,24 +198,12 @@ impl Text {
     let content = content.into();
 
     Self {
-      content,
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      node: Default::default(),
+      node: crate::document()
+        .create_text_node(&content)
+        .unchecked_into::<web_sys::Node>(),
+      content,
     }
-  }
-
-  /// Creates the [`web_sys::Text`] node. This is used only when
-  /// not the direct child of a `DynChild`, or when it's the first time
-  /// the [`DynChild`] is rendering a text node.
-  #[track_caller]
-  fn fill_node(&self) {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let node = crate::document()
-      .create_text_node(&self.content)
-      .unchecked_into::<web_sys::Node>();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    self.node.set(node).unwrap();
   }
 }
 
@@ -280,7 +268,7 @@ impl Mountable for Node {
       Self::Element(element) => {
         element.element.unchecked_ref::<web_sys::Node>().clone()
       }
-      Self::Text(t) => t.node.get().unwrap().clone(),
+      Self::Text(t) => t.node.clone(),
       Self::CoreComponent(c) => match c {
         CoreComponent::Unit(u) => u.get_mountable_node(),
         CoreComponent::DynChild(dc) => dc.get_mountable_node(),
@@ -292,7 +280,7 @@ impl Mountable for Node {
 
   fn get_opening_node(&self) -> web_sys::Node {
     match self {
-      Self::Text(t) => t.node.get().unwrap().clone(),
+      Self::Text(t) => t.node.clone(),
       Self::Element(el) => el.element.clone().unchecked_into(),
       Self::CoreComponent(c) => match c {
         CoreComponent::DynChild(dc) => todo!(),
@@ -323,12 +311,6 @@ impl Node {
       Some(t)
     } else {
       None
-    }
-  }
-
-  fn fill_if_text(&self) {
-    if let Some(t) = self.get_text() {
-      t.fill_node();
     }
   }
 }
