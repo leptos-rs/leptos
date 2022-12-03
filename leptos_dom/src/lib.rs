@@ -12,10 +12,12 @@ mod components;
 mod events;
 mod html;
 mod macro_helpers;
+mod node_ref;
 
 use cfg_if::cfg_if;
 pub use components::*;
 pub use html::*;
+pub use node_ref::*;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{
