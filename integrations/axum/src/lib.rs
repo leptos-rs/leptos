@@ -4,7 +4,6 @@ use axum::{
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
 };
-use derive_builder::Builder;
 use futures::{Future, SinkExt, Stream, StreamExt};
 use leptos::*;
 use leptos_meta::MetaContext;
@@ -128,14 +127,6 @@ pub async fn handle_server_fns(
 
 pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 
-#[derive(Default, Builder, Clone)]
-pub struct RenderOptions {
-    #[builder(setter(into))]
-    client_pkg_path: String,
-    #[builder(setter(strip_option), default)]
-    auto_reload: Option<u32>,
-}
-
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
@@ -201,11 +192,12 @@ pub fn render_app_to_stream(
                     full_path = "http://leptos".to_string() + &path.to_string()
                 }
 
-                let client_pkg_path = &options.client_pkg_path;
+                let pkg_path = &options.pkg_path;
 
-                let leptos_autoreload = match options.auto_reload {
-                    Some(port) => format!(
-                        r#"
+                let leptos_autoreload = match options.reload_port {
+                    Some(port) => match &options.environment {
+                        RustEnv::DEV => format!(
+                            r#"
                             <script crossorigin="">(function () {{
                                 var ws = new WebSocket('ws://127.0.0.1:{port}/autoreload');
                                 ws.onmessage = (ev) => {{
@@ -216,7 +208,9 @@ pub fn render_app_to_stream(
                             }})()
                             </script>
                         "#
-                    ),
+                        ),
+                        RustEnv::PROD => "".to_string(),
+                    },
                     None => "".to_string(),
                 };
 
@@ -226,7 +220,7 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <script type="module">import init, {{ hydrate }} from '{client_pkg_path}.js'; init().then(hydrate);</script>
+                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init().then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );

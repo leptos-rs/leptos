@@ -11,6 +11,7 @@ description = "Axum integrations for the Leptos web framework."
 axum = "0.6"
 derive_builder = "0.12.0"
 futures = "0.3"
+kdl = "4.6.0"
 leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
 	"ssr",
 ] }

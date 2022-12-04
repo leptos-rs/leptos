@@ -138,10 +138,11 @@ pub fn handle_server_fns() -> Route {
 /// # }
 /// ```
 pub fn render_app_to_stream(
-    client_pkg_path: &'static str,
+    options: RenderOptions,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + 'static,
 ) -> Route {
     web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
         let app_fn = app_fn.clone();
         async move {
             let path = req.path();
@@ -165,12 +166,39 @@ pub fn render_app_to_stream(
                 }
             };
 
-            let head = format!(r#"<!DOCTYPE html>
-                <html>
+            let pkg_path = &options.pkg_path;
+
+            let leptos_autoreload = match options.reload_port {
+                Some(port) => match &options.environment {
+                    RustEnv::DEV => format!(
+                        r#"
+                        <script crossorigin="">(function () {{
+                            var ws = new WebSocket('ws://127.0.0.1:{port}/autoreload');
+                            ws.onmessage = (ev) => {{
+                                console.log(`Reload message: `);
+                                if (ev.data === 'reload') window.location.reload();
+                            }};
+                            ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
+                        }})()
+                        </script>
+                    "#
+                    ),
+                    RustEnv::PROD => "".to_string(),
+                },
+                None => "".to_string(),
+            };
+
+            let head = format!(
+                r#"<!DOCTYPE html>
+                <html lang="en">
                     <head>
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <script type="module">import init, {{ hydrate }} from '{client_pkg_path}.js'; init().then(hydrate);</script>"#);
+                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init().then(hydrate);</script>
+                        {leptos_autoreload}
+                        "#
+            );
+            
             let tail = "</body></html>";
 
             HttpResponse::Ok().content_type("text/html").streaming(

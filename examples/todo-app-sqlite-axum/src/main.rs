@@ -14,7 +14,7 @@ if #[cfg(feature = "ssr")] {
     use todo_app_sqlite_axum::*;
     use http::StatusCode;
     use tower_http::services::ServeDir;
-    use leptos_axum::RenderOptions;
+    use std::env;
 
     #[tokio::main]
     async fn main() {
@@ -45,8 +45,9 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
-        let render_options: RenderOptions = leptos_axum::RenderOptionsBuilder::default().client_pkg_path("/pkg/todo_app_sqlite_axum").auto_reload(3001).build().expect("Failed to Parse RenderOptions");
 
+        let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite_axum").reload_port(3001).environment(&env::var("RUST_ENV")).build();
+        render_options.write_to_file();
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))

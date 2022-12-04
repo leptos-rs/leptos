@@ -12,6 +12,7 @@ if #[cfg(feature = "ssr")] {
     use http::StatusCode;
     use std::net::SocketAddr;
     use tower_http::services::ServeDir;
+    use leptos_axum::RenderOptions;
 
     #[tokio::main]
     async fn main() {
@@ -36,12 +37,14 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
+        let render_options: RenderOptions = leptos_axum::RenderOptionsBuilder::default().client_pkg_path("/pkg/leptos_hackernews_axum").auto_reload(3001).build().expect("Failed to Parse RenderOptions");
+
         // build our application with a route
         let app = Router::new()
         // `GET /` goes to `root`
         .nest_service("/pkg", pkg_service)
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream("/pkg/leptos_hackernews_axum", |cx| view! { cx, <App/> }));
+        .fallback(leptos_axum::render_app_to_stream(render_options, |cx| view! { cx, <App/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
