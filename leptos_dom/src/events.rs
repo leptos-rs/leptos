@@ -1,3 +1,5 @@
+pub mod typed;
+
 use crate::window;
 use std::{borrow::Cow, cell::RefCell, collections::HashSet};
 use wasm_bindgen::{

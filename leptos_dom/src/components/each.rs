@@ -194,9 +194,6 @@ impl EachItem {
   }
 }
 
-#[derive(typed_builder::TypedBuilder)]
-struct EachProps {}
-
 /// A component for efficiently rendering an iterable.
 pub struct EachKey<IF, I, T, EF, N, KF, K>
 where
@@ -324,12 +321,10 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     return Diff::default();
   } else if to.is_empty() {
     return Diff {
-      ops: vec![DiffOp::Clear],
+      clear: true,
       ..Default::default()
     };
   }
-
-  let mut cmds = Vec::with_capacity(to.len());
 
   // Get removed items
   let mut removed = from.difference(to);
@@ -337,7 +332,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
   let removed_cmds = removed
     .clone()
     .map(|k| from.get_full(k).unwrap().0)
-    .map(|idx| DiffOp::Remove { at: idx });
+    .map(|idx| DiffOpRemove { at: idx });
 
   // Get added items
   let mut added = to.difference(from);
@@ -346,27 +341,25 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     added
       .clone()
       .map(|k| to.get_full(k).unwrap().0)
-      .map(|idx| DiffOp::Add {
+      .map(|idx| DiffOpAdd {
         at: idx,
         mode: Default::default(),
       });
 
   // Get moved items
   let mut normalized_idx = 0;
-  let mut move_cmds = SmallVec::<[_; 16]>::with_capacity(to.len());
+  let mut move_cmds = SmallVec::<[_; 8]>::with_capacity(to.len());
   let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
   let mut removed_idx = removed.next().map(|k| from.get_full(k).unwrap().0);
-
-  use gloo::console::debug;
 
   for (idx, k) in to.iter().enumerate() {
     if let Some(added_idx) = added_idx.as_mut().filter(|r_i| **r_i == idx) {
       if let Some(next_added) = added.next().map(|k| to.get_full(k).unwrap().0)
       {
         *added_idx = next_added;
-      }
 
-      continue;
+        normalized_idx = usize::wrapping_sub(normalized_idx, 1);
+      }
     }
 
     if let Some(removed_idx) = removed_idx.as_mut().filter(|r_i| **r_i == idx) {
@@ -381,33 +374,28 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
 
     if let Some((from_idx, _)) = from.get_full(k) {
       if from_idx != normalized_idx {
-        let op = DiffOp::Move {
+        move_cmds.push(DiffOpMove {
           from: from_idx,
           to: idx,
-        };
-
-        move_cmds.push(op);
+          move_in_dom: true,
+        });
+      } else {
+        move_cmds.push(DiffOpMove {
+          from: from_idx,
+          to: idx,
+          move_in_dom: false,
+        });
       }
     }
 
     normalized_idx += 1;
   }
 
-  cmds.extend(removed_cmds);
-  let removed_amount = cmds.len();
-
-  let moved_amount = move_cmds.len();
-  cmds.extend(move_cmds);
-
-  cmds.extend(added_cmds);
-  let added_amount = cmds.len() - moved_amount - removed_amount;
-  let delta = (added_amount as isize) - (removed_amount as isize);
-
   let mut diffs = Diff {
-    added_delta: delta,
-    moving: moved_amount,
-    removing: removed_amount,
-    ops: cmds,
+    removed: removed_cmds.collect(),
+    moved: move_cmds,
+    added: added_cmds.collect(),
+    clear: false,
   };
 
   apply_opts(from, to, &mut diffs);
@@ -423,67 +411,56 @@ fn apply_opts<K: Eq + Hash>(
   // We can optimize the case of replacing all items
   if !from.is_empty()
     && !to.is_empty()
-    && cmds.removing == from.len()
-    && cmds.moving == 0
+    && cmds.removed.len() == from.len()
+    && cmds.moved.len() == 0
   {
+    cmds.clear = true;
+
     cmds
-      .ops
-      .drain_filter(|cmd| !matches!(cmd, DiffOp::Add { .. }));
-
-    cmds.ops.iter_mut().for_each(|op| {
-      if let DiffOp::Add { mode, .. } = op {
-        *mode = DiffOpAddMode::Append;
-      } else {
-        unreachable!()
-      }
-    });
-
-    cmds.ops.insert(0, DiffOp::Clear);
+      .added
+      .iter_mut()
+      .for_each(|op| op.mode = DiffOpAddMode::Append);
 
     return;
   }
 
   // We can optimize appends.
-  if cmds.added_delta > 0
-    && cmds.moving == 0
-    && if let DiffOp::Add { at, .. } = cmds.ops[0] {
-      at >= from.len()
-    } else {
-      unreachable!()
-    }
+  if cmds.added.len() != 0
+    && cmds.moved.len() == 0
+    && cmds.removed.len() == 0
+    && cmds.added[0].at >= from.len()
   {
     cmds
-      .ops
+      .added
       .iter_mut()
-      .map(|op| {
-        if let DiffOp::Add { at, mode } = op {
-          (*at, mode)
-        } else {
-          unreachable!()
-        }
-      })
-      .for_each(|(_, mode)| *mode = DiffOpAddMode::Append);
+      .for_each(|op| op.mode = DiffOpAddMode::Append);
   }
 }
 
 #[derive(Debug, Default)]
 struct Diff {
-  /// The number of items added minus the number of items removed, used
-  /// for optimizing reallocations for children.
-  added_delta: isize,
-  /// Number of items that will need to be moved.
-  moving: usize,
-  /// Number of items that will be removed.
-  removing: usize,
-  ops: Vec<DiffOp>,
+  removed: SmallVec<[DiffOpRemove; 8]>,
+  moved: SmallVec<[DiffOpMove; 8]>,
+  added: SmallVec<[DiffOpAdd; 8]>,
+  clear: bool,
 }
 
 #[derive(Debug)]
-enum DiffOp {
-  Move { from: usize, to: usize },
-  Add { at: usize, mode: DiffOpAddMode },
-  Remove { at: usize },
-  Clear,
+struct DiffOpMove {
+  from: usize,
+  to: usize,
+  move_in_dom: bool,
+}
+
+#[derive(Debug)]
+struct DiffOpAdd {
+  at: usize,
+  mode: DiffOpAddMode,
+}
+
+#[derive(Debug)]
+struct DiffOpRemove {
+  at: usize,
 }
 
 #[derive(Default, Debug)]
@@ -511,14 +488,18 @@ fn apply_cmds<T, EF, N>(
   let range = &RANGE;
 
   // Resize children if needed
-  if cmds.added_delta >= 0 {
-    children.resize_with(children.len() + cmds.added_delta as usize, || None);
+  if cmds.added.len().checked_sub(cmds.removed.len()).is_some() {
+    children.resize_with(
+      children.len()
+        + (cmds.added.len() as isize - cmds.removed.len() as isize) as usize,
+      || None,
+    );
   }
 
   // We need to hold a list of items which will be moved, and
   // we can only perform the omve after all commands have run, otherwise,
   // we risk overwriting one of the values
-  let mut items_to_move = Vec::with_capacity(cmds.moving);
+  let mut items_to_move = Vec::with_capacity(cmds.moved.len());
 
   debug!("{cmds:#?}");
 
@@ -526,85 +507,91 @@ fn apply_cmds<T, EF, N>(
   // 1. Removed
   // 2. Moved
   // 3. Add
-  for cmd in cmds.ops {
-    match cmd {
-      DiffOp::Remove { at } => {
-        let item_to_remove = std::mem::take(&mut children[at]).unwrap();
+  if cmds.clear {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      if opening.previous_sibling().is_none()
+        && closing.next_sibling().is_none()
+      {
+        let parent = closing
+          .parent_node()
+          .unwrap()
+          .unchecked_into::<web_sys::Element>();
+        parent.set_text_content(Some(""));
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        item_to_remove.prepare_for_move();
-      }
-      DiffOp::Move { from, to } => {
-        let item = std::mem::take(&mut children[from]).unwrap();
+        #[cfg(debug_assertions)]
+        parent.append_with_node_2(opening, closing).unwrap();
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        item.prepare_for_move();
+        #[cfg(not(debug_assertions))]
+        parent.append_with_node_1(closing).unwrap();
+      } else {
+        range.set_start_before(opening).unwrap();
+        range.set_end_before(closing).unwrap();
 
-        items_to_move.push((to, item));
-      }
-      DiffOp::Add { at, mode } => {
-        let item = std::mem::replace(&mut items[at], None).unwrap();
-
-        let child = each_fn(item).into_node(cx);
-
-        let each_item = EachItem::new(child);
-
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
-          match mode {
-            DiffOpAddMode::Normal => {
-              let opening = children
-                .get_next_closest_mounted_sibling(at + 1, closing.to_owned());
-
-              mount_child(MountKind::Before(&opening), &each_item);
-            }
-            DiffOpAddMode::Append => {
-              mount_child(MountKind::Before(closing), &each_item);
-            }
-            DiffOpAddMode::_Prepend => todo!(),
-          }
-        }
-
-        children[at] = Some(each_item);
-      }
-      DiffOp::Clear => {
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
-          if opening.previous_sibling().is_none()
-            && closing.next_sibling().is_none()
-          {
-            let parent = closing
-              .parent_node()
-              .unwrap()
-              .unchecked_into::<web_sys::Element>();
-            parent.set_text_content(Some(""));
-
-            #[cfg(debug_assertions)]
-            parent.append_with_node_2(opening, closing).unwrap();
-
-            #[cfg(not(debug_assertions))]
-            parent.append_with_node_1(closing).unwrap();
-          } else {
-            range.set_start_before(opening).unwrap();
-            range.set_end_before(closing).unwrap();
-
-            range.delete_contents().unwrap();
-          }
-        }
+        range.delete_contents().unwrap();
       }
     }
   }
 
-  for (to, each_item) in items_to_move {
+  for DiffOpRemove { at } in cmds.removed {
+    let item_to_remove = std::mem::take(&mut children[at]).unwrap();
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    item_to_remove.prepare_for_move();
+  }
+
+  for DiffOpMove {
+    from,
+    to,
+    move_in_dom,
+  } in cmds.moved
+  {
+    let item = std::mem::take(&mut children[from]).unwrap();
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    if move_in_dom {
+      item.prepare_for_move()
+    }
+
+    items_to_move.push((move_in_dom, to, item));
+  }
+
+  for DiffOpAdd { at, mode } in cmds.added {
+    let item = std::mem::replace(&mut items[at], None).unwrap();
+
+    let child = each_fn(item).into_node(cx);
+
+    let each_item = EachItem::new(child);
+
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
+      match mode {
+        DiffOpAddMode::Normal => {
+          let opening = children
+            .get_next_closest_mounted_sibling(at + 1, closing.to_owned());
+
+          mount_child(MountKind::Before(&opening), &each_item);
+        }
+        DiffOpAddMode::Append => {
+          mount_child(MountKind::Before(closing), &each_item);
+        }
+        DiffOpAddMode::_Prepend => todo!(),
+      }
+    }
+
+    children[at] = Some(each_item);
+  }
+
+  for (move_in_dom, to, each_item) in items_to_move {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    if move_in_dom {
       let opening =
         children.get_next_closest_mounted_sibling(to + 1, closing.to_owned());
 
       mount_child(MountKind::Before(&opening), &each_item);
-
-      children[to] = Some(each_item);
     }
+
+    children[to] = Some(each_item);
   }
 
   // Now, remove the holes that might have been left from removing
