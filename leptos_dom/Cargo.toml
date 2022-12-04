@@ -45,6 +45,7 @@ features = [
   "PointerEvent",
   "TouchEvent",
   "TransitionEvent",
+  "ClipboardEvent",
 ]
 
 [features]
