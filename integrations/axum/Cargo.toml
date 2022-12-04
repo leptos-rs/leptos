@@ -1,6 +1,6 @@
 [package]
 name = "leptos_axum"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
