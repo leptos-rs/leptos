@@ -22,6 +22,8 @@ pub use components::*;
 pub use html::*;
 pub use node_ref::*;
 pub use logging::*;
+pub use web_sys;
+pub use wasm_bindgen;
 use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{
