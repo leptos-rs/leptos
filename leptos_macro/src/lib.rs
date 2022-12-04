@@ -9,7 +9,6 @@ use syn_rsx::{parse, NodeElement};
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
     Client,
-    Hydrate,
     Ssr,
 }
 
@@ -20,9 +19,7 @@ impl Default for Mode {
         // for the sake of testing, we need to fall back to `ssr` if no flags are enabled
         // if you have `hydrate` enabled, you definitely want that rather than `csr`
         // if you have both `csr` and `ssr` we assume you want the browser
-        if cfg!(feature = "hydrate") {
-            Mode::Hydrate
-        } else if cfg!(feature = "csr") {
+        if cfg!(feature = "hydrate") || cfg!(feature = "csr") || cfg!(feature = "web") {
             Mode::Client
         } else {
             Mode::Ssr

@@ -128,6 +128,7 @@ impl EachItem {
       Comment::new(Cow::Borrowed("<EachItem>")),
     );
 
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
       let fragment = crate::document().create_document_fragment();
 
