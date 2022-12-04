@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use cfg_if::cfg_if;
 use leptos::*;
 mod todo;
@@ -26,10 +28,11 @@ cfg_if! {
 
             crate::todo::register_server_functions();
 
-            HttpServer::new(|| {
-                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite").reload_port(3001).environment(&env::var("RUST_ENV")).build();
-                render_options.write_to_file();
+            let addr = SocketAddr::from(([127,0,0,1],3000));
 
+            HttpServer::new(move || {
+                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+                render_options.write_to_file();
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
                     .service(css)
@@ -37,7 +40,7 @@ cfg_if! {
                     .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <TodoApp/> }))
                 //.wrap(middleware::Compress::default())
             })
-            .bind(("127.0.0.1", 8083))?
+            .bind(&addr)?
             .run()
             .await
         }

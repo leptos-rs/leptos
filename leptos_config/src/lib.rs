@@ -1,12 +1,14 @@
-use std::{env::VarError, str::FromStr};
+use std::{env::VarError, net::SocketAddr, str::FromStr};
 use typed_builder::TypedBuilder;
 
-#[derive(Default, TypedBuilder, Clone)]
+#[derive(TypedBuilder, Clone)]
 pub struct RenderOptions {
     #[builder(setter(into))]
     pub pkg_path: String,
-    #[builder(setter(into))]
+    #[builder(setter(into), default)]
     pub environment: RustEnv,
+    #[builder(setter(into), default=SocketAddr::from(([127,0,0,1], 3000)))]
+    pub socket_address: SocketAddr,
     #[builder(setter(strip_option), default)]
     pub reload_port: Option<u32>,
 }
