@@ -1,6 +1,6 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
-use crate::{Comment, IntoNode, Node};
+use crate::{Comment, IntoView, View};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
@@ -12,7 +12,7 @@ pub struct DynChildRepr {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   opening: Comment,
-  pub(crate) child: Rc<RefCell<Box<Option<Node>>>>,
+  pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
   closing: Comment,
 }
 
@@ -69,11 +69,11 @@ impl DynChildRepr {
   }
 }
 
-/// Represents any [`Node`] that can change over time.
+/// Represents any [`View`] that can change over time.
 pub struct DynChild<CF, N>
 where
   CF: Fn() -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
 {
   child_fn: CF,
 }
@@ -81,7 +81,7 @@ where
 impl<CF, N> DynChild<CF, N>
 where
   CF: Fn() -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
 {
   /// Creates a new dynamic child which will re-render whenever it's
   /// signal dependencies change.
@@ -90,16 +90,16 @@ where
   }
 }
 
-impl<CF, N> IntoNode for DynChild<CF, N>
+impl<CF, N> IntoView for DynChild<CF, N>
 where
   CF: Fn() -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
 {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "<DynChild />", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> crate::Node {
+  fn into_view(self, cx: Scope) -> crate::View {
     let Self { child_fn } = self;
 
     let component = DynChildRepr::new();
@@ -123,7 +123,7 @@ where
     create_effect(cx, move |prev_run| {
       let _guard = span.enter();
       let _guard = trace_span!("DynChild reactive").entered();
-      let new_child = child_fn().into_node(cx);
+      let new_child = child_fn().into_view(cx);
       if let Some(t) = new_child.get_text() {
         let mut prev_text_node_borrow = prev_text_node.borrow_mut();
 
@@ -160,6 +160,6 @@ where
       }
     });
 
-    Node::CoreComponent(crate::CoreComponent::DynChild(component))
+    View::CoreComponent(crate::CoreComponent::DynChild(component))
   }
 }

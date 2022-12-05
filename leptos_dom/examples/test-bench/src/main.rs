@@ -83,22 +83,18 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .dyn_child(move || text(count().to_string()))
       .into_node(cx),
     button(cx)
-      .on("click", move |_: web_sys::MouseEvent| {
-        set_tick.update(|t| *t += 1)
-      })
+      .on(ev::click, move |_| set_tick.update(|t| *t += 1))
       .child(text("Tick"))
       .into_node(cx),
     button(cx)
-      .on("click", move |_: web_sys::Event| {
-        set_count.update(|n| *n += 1)
-      })
+      .on(ev::click, move |_| set_count.update(|n| *n += 1))
       .child(text("Click me"))
       .into_node(cx),
     button(cx)
-      .on_delegated("click", move |_: web_sys::Event| {
+      .on(ev::Undelegated(ev::click), move |_| {
         set_count.update(|n| *n += 1)
       })
-      .child(text("Click me (delegated)"))
+      .child(text("Click me (undelegated)"))
       .into_node(cx),
     pre(cx)
       .child(EachKey::new(
@@ -133,7 +129,7 @@ struct MyComponent;
 impl IntoNode for MyComponent {
   fn into_node(self, cx: Scope) -> Node {
     let component = Component::new("MyComponent", |cx| {
-      vec![[h2(cx).child(text("MyComponent"))].into_node(cx)]
+      h2(cx).child(text("MyComponent")).into_node(cx)
     });
 
     component.into_node(cx)

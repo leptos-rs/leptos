@@ -5,7 +5,7 @@ mod unit;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
-use crate::{Comment, IntoNode, Node};
+use crate::{Comment, IntoView, View};
 pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
@@ -23,7 +23,7 @@ pub enum CoreComponent {
   Unit(UnitRepr),
   /// The [`DynChild`] component.
   DynChild(DynChildRepr),
-  /// The [`Each`] component.
+  /// The [`EachKey`] component.
   Each(EachRepr),
 }
 
@@ -37,7 +37,7 @@ pub struct ComponentRepr {
   #[cfg(debug_assertions)]
   _opening: Comment,
   /// The children of the component.
-  pub children: Vec<Node>,
+  pub children: Vec<View>,
   closing: Comment,
   disposer: Option<ScopeDisposer>,
 }
@@ -60,15 +60,15 @@ impl Mountable for ComponentRepr {
   }
 }
 
-impl IntoNode for ComponentRepr {
+impl IntoView for ComponentRepr {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
-  fn into_node(self, _: Scope) -> Node {
+  fn into_view(self, _: Scope) -> View {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     for child in &self.children {
       mount_child(MountKind::Before(&self.closing.node), child);
     }
 
-    Node::Component(self)
+    View::Component(self)
   }
 }
 
@@ -122,7 +122,7 @@ impl ComponentRepr {
 /// A user-defined `leptos` component.
 pub struct Component<F>
 where
-  F: FnOnce(Scope) -> Node,
+  F: FnOnce(Scope) -> View,
 {
   name: Cow<'static, str>,
   children_fn: F,
@@ -130,7 +130,7 @@ where
 
 impl<F> Component<F>
 where
-  F: FnOnce(Scope) -> Node,
+  F: FnOnce(Scope) -> View,
 {
   /// Creates a new component.
   pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
@@ -141,16 +141,17 @@ where
   }
 }
 
-impl<F> IntoNode for Component<F>
+impl<F> IntoView for Component<F>
 where
-  F: FnOnce(Scope) -> Node,
+  F: FnOnce(Scope) -> View,
 {
-  fn into_node(self, cx: Scope) -> Node {
+  fn into_view(self, cx: Scope) -> View {
     let Self { name, children_fn } = self;
 
     let mut children = None;
 
-    let disposer = cx.child_scope(|cx| children = Some(cx.untrack(move || children_fn(cx))));
+    let disposer =
+      cx.child_scope(|cx| children = Some(cx.untrack(move || children_fn(cx))));
 
     let children = children.unwrap();
 
@@ -160,6 +161,6 @@ where
 
     repr.children = vec![children];
 
-    repr.into_node(cx)
+    repr.into_view(cx)
   }
 }
