@@ -225,7 +225,7 @@ impl<El: IntoElement> HtmlElement<El> {
   #[track_caller]
   pub fn attr(
     mut self,
-    cx: Scope,
+
     name: impl Into<Cow<'static, str>>,
     attr: impl IntoAttribute,
   ) -> Self {
@@ -233,9 +233,9 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let el = self.element.get_element();
-        let value = attr.into_attribute(cx);
+        let value = attr.into_attribute(self.cx);
         match value {
-          Attribute::Fn(f) => {
+          Attribute::Fn(cx, f) => {
               let el = el.clone();
               create_render_effect(cx, move |old| {
                   let new = f();
