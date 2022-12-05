@@ -1,6 +1,6 @@
 //! Collection of typed events.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::IntoElement;
@@ -36,6 +36,32 @@ impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
 
   fn bubbles(&self) -> bool {
     false
+  }
+}
+
+/// A custom event.
+pub struct Custom<E: FromWasmAbi = web_sys::Event> {
+  name: Cow<'static, str>,
+  _event_type: PhantomData<E>,
+}
+
+impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
+  type EventType = E;
+
+  fn name(&self) -> Cow<'static, str> {
+    self.name.clone()
+  }
+}
+
+impl<E: FromWasmAbi> Custom<E> {
+  /// Creates a custom event type that can be used within
+  /// [`HtmlElement::on`](crate::HtmlElement::on), for events
+  /// which are not covered in the [`ev`](crate::ev) module.
+  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    Self {
+      name: name.into(),
+      _event_type: PhantomData,
+    }
   }
 }
 
