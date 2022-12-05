@@ -75,7 +75,11 @@ pub async fn handle_server_fns(
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
 
-                                    if accept_header.is_some() {
+                                    if accept_header == Some("application/json")
+                                        || accept_header
+                                            == Some("application/x-www-form-urlencoded")
+                                        || accept_header == Some("application/cbor")
+                                    {
                                         res = res.status(StatusCode::OK);
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer

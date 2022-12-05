@@ -63,7 +63,10 @@ pub fn handle_server_fns() -> Route {
                             runtime.dispose();
 
                             let mut res: HttpResponseBuilder;
-                            if accept_header.is_some() {
+                            if accept_header == Some("application/json")
+                                || accept_header == Some("application/x-www-form-urlencoded")
+                                || accept_header == Some("application/cbor")
+                            {
                                 res = HttpResponse::Ok()
                             }
                             // otherwise, it's probably a <form> submit or something: redirect back to the referrer
@@ -87,7 +90,7 @@ pub fn handle_server_fns() -> Route {
                                     res.body(data)
                                 }
                                 Payload::Json(data) => {
-                                    res.content_type("application/jsoon");
+                                    res.content_type("application/json");
                                     res.body(data)
                                 }
                             }
