@@ -51,7 +51,14 @@ impl NodeRef {
   /// so that effects that use the node reference will rerun once it is loaded,
   /// i.e., effects can be forward-declared.
   pub fn load(&self, node: &web_sys::Element) {
-    self.0.set(Some(node.clone()))
+    self.0.update(|nr| {
+      #[cfg(debug_assertions)]
+      if nr.is_some() {
+        gloo::console::warn!("NodeRef is being set more than once");
+      }
+
+      *nr = Some(node.clone());
+    })
   }
 }
 

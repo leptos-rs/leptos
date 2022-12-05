@@ -1,8 +1,8 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
 use crate::{
-  components::DynChild, ev::EventDescriptor, Element, Fragment, IntoView, Text,
-  View,
+  components::DynChild, ev::EventDescriptor, Element, Fragment, IntoView,
+  NodeRef, Text, View,
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
@@ -386,6 +386,15 @@ impl<El: IntoElement> HtmlElement<El> {
       js_sys::Reflect::set(&self, &name.into(), &value)
         .expect("set property to not err");
     }
+
+    self
+  }
+
+  ///
+  /// Binds the element reference to [`NodeRef`].
+  pub fn node_ref(self, node_ref: &NodeRef) -> Self {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    node_ref.load(&self);
 
     self
   }
