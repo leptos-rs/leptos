@@ -259,17 +259,23 @@ impl<El: IntoElement> HtmlElement<El> {
       else {
         let mut attr = attr.into_attribute(cx);
         while let Attribute::Fn(f) = attr {
+          self.dynamic = true;
           attr = f();
         }
         match attr {
-          Attribute::String(value) => self.attr(name, value),
+          Attribute::String(value) => {
+            self.attrs.push((name, value.into()));
+            self
+          },
           Attribute::Bool(include) => if include {
-            self.attr_bool(name)
+            self.attrs.push((name, "".into()));
+            self
           } else {
             self
           },
           Attribute::Option(maybe) => if let Some(value) = maybe {
-            self.attr(name, value)
+            self.attrs.push((name, value.into()));
+            self
           } else {
             self
           }
@@ -279,7 +285,7 @@ impl<El: IntoElement> HtmlElement<El> {
     }
   }
 
-  #[doc(hidden)]
+  /// Adds a class to an element.
   #[track_caller]
   pub fn class(
     mut self,
@@ -289,96 +295,87 @@ impl<El: IntoElement> HtmlElement<El> {
   ) -> Self {
     let name = name.into();
     cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        create_effect(
-          self.cx,
-          clone!([{ *self.element.get_element() } as element], move |_| {
-            if let Some(value) = f() {
-              let value = value.into();
-
-              element.set_attribute(intern(&name), intern(&value)).unwrap();
-            } else {
-              element.remove_attribute(intern(&name)).unwrap();
-            }
-          }),
-        );
-      } else {
-        if let Some(value) = f() {
-          let value = value.into();
-
-          self.attrs.push((name, value));
+    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+      let el = self.element.get_element();
+      let class_list = el.class_list();
+      let value = class.into_class(cx);
+      match value {
+        Class::Fn(f) => {
+            create_render_effect(cx, move |old| {
+              let new = f();
+              if old.as_ref() != Some(&new) && (old.is_some() || new) {
+                class_expression(&class_list, &name, new)
+              }
+              new
+            });
         }
-      }
-    }
-
-    self
-  }
-
-  /// Creates a boolean attribute which changes automatically when it's
-  /// signal changes.
-  #[track_caller]
-  pub fn dyn_attr_bool<F>(
-    self,
-    name: impl Into<Cow<'static, str>>,
-    f: F,
-  ) -> Self
-  where
-    F: Fn() -> bool + 'static,
-  {
-    self.dyn_attr(name, move || f().then_some(""))
-  }
-
-  /// Addes the provided classes to the element. You can call this
-  /// as many times as needed, seperating the classes by spaces.
-  #[track_caller]
-  pub fn class(self, classes: impl Into<Cow<'static, str>>) -> Self {
-    self.attr("class", classes)
-  }
-
-  /// Addes the provided classes to the element when the predicate is true.
-  ///  You can call this as many times as needed, seperating the classes
-  /// by spaces.
-  #[track_caller]
-  pub fn class_bool(
-    self,
-    classes: impl Into<Cow<'static, str>>,
-    predicate: bool,
-  ) -> Self {
-    if predicate {
-      self.class(classes)
-    } else {
+        Class::Value(value) => class_expression(&class_list, &name, value),
+      };
       self
     }
+    else {
+      let mut class = class.into_class(cx);
+
+      let include = match class {
+        Class::Value(include) => include,
+        Class::Fn(f) => {
+          self.dynamic = true; 
+          f()
+        }
+      };
+
+      if include {
+        if let Some((_, ref mut value)) = self.attrs.iter_mut().find(|(name, _)| name == "class") {
+          *value = format!("{value} {name}").into();
+          self
+        } else {
+          self.attrs.push(("class".into(), name));
+          self
+        }
+      } else {
+        self
+      }
+    }
+    }
   }
 
-  #[doc(hidden)]
+  /// Sets a property on an element.
   #[track_caller]
   pub fn prop(
-    self,
+    mut self,
+    cx: Scope,
     name: impl Into<Cow<'static, str>>,
     value: impl IntoProperty,
   ) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      let name = name.into();
-      let value = value.into();
-
-      let name: &str = &name;
-
-      js_sys::Reflect::set(&self, &name.into(), &value)
-        .expect("set property to not err");
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let name = name.into();
+        let value = value.into_property(cx);
+        let el = self.element.get_element();
+        match value {
+          Property::Fn(f) => {
+            let el = el.clone();
+            create_render_effect(cx, move |old| {
+                let new = f();
+                let prop_name = wasm_bindgen::intern(&name);
+                if old.as_ref() != Some(&new) && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED) {
+                    property_expression(&el, &prop_name, new.clone())
+                }
+                new
+            });
+          }
+          Property::Value(value) => {
+            let prop_name = wasm_bindgen::intern(&name);
+            property_expression(&el, &prop_name, value)
+          },
+        };
+        self
+      }
+      else {
+        self.dynamic = true;
+        self
+      }
     }
-
-    self
-  }
-
-  ///
-  /// Binds the element reference to [`NodeRef`].
-  pub fn node_ref(self, node_ref: &NodeRef) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    node_ref.load(&self);
-
-    self
   }
 
   /// Adds an event listener to this element.
@@ -417,29 +414,13 @@ impl<El: IntoElement> HtmlElement<El> {
         mount_child(MountKind::Append(self.element.get_element()), &child.into_view(cx))
       }
       else {
-        self.children.push(Box::new(move |cx| child.into_node(cx)));
+        self.children.push(Box::new(move |cx| child.into_view(cx)));
       }
     }
 
     self
   }
-
-  /// Creates a child which will automatically re-render when
-  /// it's signal dependencies change.
-  pub fn dyn_child<CF, N>(mut self, child_fn: CF) -> Self
-  where
-    CF: Fn() -> N + 'static,
-    N: IntoView,
-  {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &DynChild::new(child_fn).into_view(self.cx))
-      } else {
-        self
-          .children
-          .push(Box::new(move |cx| DynChild::new(child_fn).into_node(cx)));
-      }
-    }
+}
 
 impl<El: IntoElement> IntoView for HtmlElement<El> {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
@@ -569,154 +550,6 @@ macro_rules! generate_html_tags {
     fn is_void(&self) -> bool {
       true
     }
-  }
-}
-
-// view! macro helpers
-use crate::macro_helpers::*;
-use leptos_reactive::create_render_effect;
-impl<El: IntoElement> HtmlElement<El> {
-  #[doc(hidden)]
-  #[track_caller]
-  pub fn _attr(
-    mut self,
-    cx: Scope,
-    name: impl Into<Cow<'static, str>>,
-    attr: impl IntoAttribute,
-  ) -> Self {
-    let name = name.into();
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let el = self.element.get_element();
-        let value = attr.into_attribute(cx);
-        match value {
-          Attribute::Fn(f) => {
-              let el = el.clone();
-              create_render_effect(cx, move |old| {
-                  let new = f();
-                  if old.as_ref() != Some(&new) {
-                      attribute_expression(&el, &name, new.clone());
-                  }
-                  new
-              });
-          }
-          _ => attribute_expression(el, &name, value),
-        };
-        self
-      }
-      else {
-        let mut attr = attr.into_attribute(cx);
-        while let Attribute::Fn(f) = attr {
-          attr = f();
-        }
-        match attr {
-          Attribute::String(value) => self.attr(name, value),
-          Attribute::Bool(include) => if include {
-            self.attr_bool(name)
-          } else {
-            self
-          },
-          Attribute::Option(maybe) => if let Some(value) = maybe {
-            self.attr(name, value)
-          } else {
-            self
-          }
-          _ => unreachable!()
-        }
-      }
-    }
-  }
-
-  #[doc(hidden)]
-  #[track_caller]
-  pub fn _class(
-    mut self,
-    cx: Scope,
-    name: impl Into<Cow<'static, str>>,
-    class: impl IntoClass,
-  ) -> Self {
-    let name = name.into();
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let el = self.element.get_element();
-        let class_list = el.class_list();
-        let value = class.into_class(cx);
-        match value {
-          Class::Fn(f) => {
-              create_render_effect(cx, move |old| {
-                let new = f();
-                if old.as_ref() != Some(&new) && (old.is_some() || new) {
-                  class_expression(&class_list, &name, new)
-                }
-                new
-              });
-          }
-          Class::Value(value) => class_expression(&class_list, &name, value),
-        };
-        self
-      }
-      else {
-        let mut class = class.into_class(cx);
-        match class {
-          Class::Value(include) => self.class_bool(name, include),
-          Class::Fn(f) => self.class_bool(name, f())
-        }
-      }
-    }
-  }
-
-  #[doc(hidden)]
-  #[track_caller]
-  pub fn _prop(
-    mut self,
-    cx: Scope,
-    name: impl Into<Cow<'static, str>>,
-    value: impl IntoProperty,
-  ) -> Self {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let name = name.into();
-        let value = value.into_property(cx);
-        let el = self.element.get_element();
-        match value {
-          Property::Fn(f) => {
-            let el = el.clone();
-            create_render_effect(cx, move |old| {
-                let new = f();
-                let prop_name = wasm_bindgen::intern(&name);
-                if old.as_ref() != Some(&new) && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED) {
-                    property_expression(&el, &prop_name, new.clone())
-                }
-                new
-            });
-          }
-          Property::Value(value) => {
-            let prop_name = wasm_bindgen::intern(&name);
-            property_expression(&el, &prop_name, value)
-          },
-        };
-        self
-      }
-      else {
-        self
-      }
-    }
-  }
-
-  #[doc(hidden)]
-  #[track_caller]
-  pub fn _child(mut self, cx: Scope, child: impl IntoChild) -> Self {
-    let child = child.into_child(cx);
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &child.into_view(cx))
-      }
-      else {
-        self.children.push(Box::new(move |cx| child.into_node(cx)));
-      }
-    }
-
-    self
   }
 }
 

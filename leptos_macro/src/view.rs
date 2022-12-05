@@ -1,116 +1,138 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
-use std::collections::HashMap;
 use syn::{spanned::Spanned, ExprPath};
 use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
 
 use crate::{is_component_node, Mode};
 
-macro_rules! generate_event_types {
-    [$m:ident, $([$web_sys_event:ident, [$($event:ident),* $(,)?]]),* $(,)?] => {
-        $(
-          $(
-            $m.insert(stringify!($event).to_ascii_lowercase(), stringify!($event));
-          )*
-        )*
-    };
-  }
-
-lazy_static::lazy_static! {
-    static ref EVENTS: HashMap<String, &'static str> = {
-        let mut m = HashMap::new();
-        generate_event_types![m,
-            // ClipboardEvent is unstable
-            [Event, [Copy, Cut, Paste]],
-            [
-                CompositionEvent,
-                [CompositionEnd, CompositionStart, CompositionUpdate]
-            ],
-            [KeyboardEvent, [KeyDown, Keypress, Keyup]],
-            [FocusEvent, [Focus, FocusOut, FocusIn, Blur]],
-            [Event, [Change, Input, Invalid, Reset]],
-            [
-                MouseEvent,
-                [
-                Click,
-                ContextMenu,
-                DoubleClick,
-                DblClick,
-                Drag,
-                DragEnd,
-                DragEnter,
-                DragExit,
-                DragLeave,
-                DragOver,
-                DragStart,
-                Drop,
-                MouseDown,
-                MouseEnter,
-                MouseLeave,
-                MouseMove,
-                MouseOut,
-                MouseOver,
-                MouseUp,
-                ]
-            ],
-            [Event, [Scroll]],
-            [Event, [SubmitEvent]],
-            [
-                PointerEvent,
-                [
-                PointerDown,
-                PointerMove,
-                PointerUp,
-                PointerCancel,
-                GotPointerCapture,
-                LostPointerCapture,
-                PointerEnter,
-                PointerLeave,
-                PointerOver,
-                PointerOut,
-                ]
-            ],
-            [Event, [Select]],
-            [TouchEvent, [TouchCancel, TouchEnd, TouchMove, TouchStart]],
-            [WheelEvent, [Wheel]],
-            [
-                Event,
-                [
-                Abort,
-                CanPlay,
-                CanPlayThrough,
-                DurationChange,
-                Emptied,
-                Encrypted,
-                Ended,
-                Error,
-                LoadedData,
-                LoadedMetadata,
-                LoadStart,
-                Pause,
-                Play,
-                Playing,
-                Progress,
-                RateChange,
-                Seeked,
-                Seeking,
-                Stalled,
-                Suspend,
-                TimeUpdate,
-                VolumeChange,
-                Waiting,
-                ]
-            ],
-            [
-                AnimationEvent,
-                [AnimationStart, AnimationEnd, AnimationIteration,]
-            ],
-            [TransitionEvent, [TransitionEnd]],
-            [Event, [Toggle]]
-        ];
-    m
-  };
-}
+const TYPED_EVENTS: [&str; 126] = [
+  "afterprint",
+  "beforeprint",
+  "beforeunload",
+  "gamepadconnected",
+  "gamepaddisconnected",
+  "hashchange",
+  "languagechange",
+  "message",
+  "messageerror",
+  "offline",
+  "online",
+  "pagehide",
+  "pageshow",
+  "popstate",
+  "rejectionhandled",
+  "storage",
+  "unhandledrejection",
+  "unload",
+  "abort",
+  "animationcancel",
+  "animationend",
+  "animationiteration",
+  "animationstart",
+  "auxclick",
+  "beforeinput",
+  "blur",
+  "canplay",
+  "canplaythrough",
+  "change",
+  "click",
+  "close",
+  "compositionend",
+  "compositionstart",
+  "compositionupdate",
+  "contextmenu",
+  "cuechange",
+  "dblclick",
+  "drag",
+  "dragend",
+  "dragenter",
+  "dragleave",
+  "dragover",
+  "dragstart",
+  "drop",
+  "durationchange",
+  "emptied",
+  "ended",
+  "error",
+  "focus",
+  "focusin",
+  "focusout",
+  "formdata",
+  "gotpointercapture",
+  "input",
+  "invalid",
+  "keydown",
+  "keypress",
+  "keyup",
+  "load",
+  "loadeddata",
+  "loadedmetadata",
+  "loadstart",
+  "lostpointercapture",
+  "mousedown",
+  "mouseenter",
+  "mouseleave",
+  "mousemove",
+  "mouseout",
+  "mouseover",
+  "mouseup",
+  "pause",
+  "play",
+  "playing",
+  "pointercancel",
+  "pointerdown",
+  "pointerenter",
+  "pointerleave",
+  "pointermove",
+  "pointerout",
+  "pointerover",
+  "pointerup",
+  "progress",
+  "ratechange",
+  "reset",
+  "resize",
+  "scroll",
+  "securitypolicyviolation",
+  "seeked",
+  "seeking",
+  "select",
+  "selectionchange",
+  "selectstart",
+  "slotchange",
+  "stalled",
+  "submit",
+  "suspend",
+  "timeupdate",
+  "toggle",
+  "touchcancel",
+  "touchend",
+  "touchmove",
+  "touchstart",
+  "transitioncancel",
+  "transitionend",
+  "transitionrun",
+  "transitionstart",
+  "volumechange",
+  "waiting",
+  "webkitanimationend",
+  "webkitanimationiteration",
+  "webkitanimationstart",
+  "webkittransitionend",
+  "wheel",
+  "DOMContentLoaded",
+  "devicemotion",
+  "deviceorientation",
+  "orientationchange",
+  "copy",
+  "cut",
+  "paste",
+  "fullscreenchange",
+  "fullscreenerror",
+  "pointerlockchange",
+  "pointerlockerror",
+  "readystatechange",
+  "visibilitychange",
+];
 
 pub(crate) fn render_view(
   cx: &Ident,
@@ -120,7 +142,7 @@ pub(crate) fn render_view(
   if nodes.is_empty() {
     let span = Span::call_site();
     quote_spanned! {
-        span => leptos::Unit.into_node(#cx)
+        span => leptos::Unit.into_view(#cx)
     }
   } else if nodes.len() == 1 {
     node_to_tokens(cx, &nodes[0], mode)
@@ -139,14 +161,14 @@ fn fragment_to_tokens(
     let node = node_to_tokens(cx, node, mode);
     let span = node.span();
     quote_spanned! {
-        span => #node.into_node(#cx),
+        span => #node.into_view(#cx),
     }
   });
   quote_spanned! {
       span => {
           vec![
               #(#nodes)*
-          ].into_node(#cx)
+          ].into_view(#cx)
       }
   }
 }
@@ -168,7 +190,7 @@ fn node_to_tokens(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
       let span = node.value.span();
       let value = node.value.as_ref();
       quote_spanned! {
-          span => #value.into_node(#cx)
+          span => #value.into_view(#cx)
       }
     }
     Node::Attribute(node) => attribute_to_tokens(cx, node, mode),
@@ -222,14 +244,14 @@ fn element_to_tokens(
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
       };
       quote! {
-          ._child(cx, #child)
+          .child(cx, #child)
       }
     });
     quote_spanned! {
         span => #name
             #(#attrs)*
             #(#children)*
-            .into_node(#cx)
+            .into_view(#cx)
     }
   }
 }
@@ -250,7 +272,7 @@ fn attribute_to_tokens(
       .expect("'_ref' needs to be passed a variable name");
     quote_spanned! {
         span => #[allow(unused_braces)]
-                ._ref(#value)
+                .ref(#value)
     }
     /* } else {
         todo!()
@@ -263,10 +285,11 @@ fn attribute_to_tokens(
       .as_ref()
       .expect("event listener attributes need a value")
       .as_ref();
-    let event_type = EVENTS
-      .get(&name.to_string())
+    let event_type = TYPED_EVENTS
+      .iter()
+      .find(|e| **e == name)
       .copied()
-      .unwrap_or_else(|| panic!("couldn't parse event name {name}"));
+      .unwrap_or("Custom");
     let event_type = event_type
       .parse::<TokenStream>()
       .expect("couldn't parse event name");
@@ -285,7 +308,7 @@ fn attribute_to_tokens(
       .as_ref();
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => ._prop(#cx, #name, #[allow(unused_braces)] #value)
+        span => .prop(#cx, #name, #[allow(unused_braces)] #value)
     }
     /* } else {
         todo!()
@@ -298,7 +321,7 @@ fn attribute_to_tokens(
       .as_ref();
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => ._class(#cx, #name, #[allow(unused_braces)] #value)
+        span => .class(#cx, #name, #[allow(unused_braces)] #value)
     }
     /* } else {
         todo!()
@@ -315,7 +338,7 @@ fn attribute_to_tokens(
     };
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => ._attr(#cx, #name, #[allow(unused_braces)] #value)
+        span => .attr(#cx, #name, #[allow(unused_braces)] #value)
     }
     /* } else {
         quote! { }

@@ -1,6 +1,6 @@
 use crate::{
-  text, Component, ComponentRepr, DynChild, EachKey, Element, Fragment,
-  HtmlElement, IntoElement, IntoView, Text, Unit, View,
+  Component, ComponentRepr, DynChild, EachKey, Element, Fragment, HtmlElement,
+  IntoElement, IntoView, Text, Unit, View,
 };
 use cfg_if::cfg_if;
 use leptos_reactive::{create_effect, Scope};
@@ -26,7 +26,7 @@ impl IntoView for Child {
     match self {
       Child::Node(node) => node,
       Child::Unit => Unit.into_view(cx),
-      Child::Text(data) => text(data),
+      Child::Text(data) => crate::html::text(data),
       Child::Fn(f) => DynChild::new(move || {
         let mut value = (f.borrow_mut())();
         while let Child::Fn(f) = value {

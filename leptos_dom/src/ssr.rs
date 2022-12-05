@@ -1,11 +1,11 @@
 use cfg_if::cfg_if;
 use itertools::Itertools;
-use std::{borrow::Cow, fmt::Display, iter::once};
+use std::{borrow::Cow, fmt::Display};
 
-use crate::{CoreComponent, Node};
+use crate::{CoreComponent, View};
 
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-impl Node {
+impl View {
   /// Consumes the node and renders it into an HTML string.
   pub fn render_to_string(self) -> Cow<'static, str> {
     self.render_to_string_with_id(Default::default())
@@ -13,8 +13,8 @@ impl Node {
 
   fn render_to_string_with_id(self, id: TopoId) -> Cow<'static, str> {
     match self {
-      Node::Text(node) => node.content,
-      Node::Component(node) => {
+      View::Text(node) => node.content,
+      View::Component(node) => {
         let depth = id.first_child().depth;
         let content = node
           .children
@@ -32,7 +32,7 @@ impl Node {
           }
         }
       }
-      Node::CoreComponent(node) => {
+      View::CoreComponent(node) => {
         let content = match node {
           CoreComponent::Unit(_) => " ".into(),
           CoreComponent::DynChild(node) => {
@@ -69,7 +69,7 @@ impl Node {
           }
         }
       }
-      Node::Element(el) => {
+      View::Element(el) => {
         let tag_name = el.name;
         let mut has_id = false;
         let mut attrs = el
@@ -182,7 +182,7 @@ mod tests {
     use leptos::*;
 
     #[component]
-    fn Counter(cx: Scope, initial_value: i32) -> Node {
+    fn Counter(cx: Scope, initial_value: i32) -> View {
       let (value, set_value) = create_signal(cx, initial_value);
       view! {
           cx,

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use leptos_reactive::Scope;
-use wasm_bindgen::UnwrapThrowExt;
+use wasm_bindgen::{intern, UnwrapThrowExt};
 
 /// Represents the different possible values an attribute node could have.
 ///
@@ -153,12 +153,14 @@ pub fn attribute_expression(
 ) {
   match value {
     Attribute::String(value) => {
-      let value = wasm_bindgen::intern(&value);
-      if attr_name == "inner_html" {
-        el.set_inner_html(&value);
-      } else {
-        let attr_name = wasm_bindgen::intern(attr_name);
-        el.set_attribute(attr_name, &value).unwrap_throw();
+      if attr_name == "class" && !value.is_empty() {
+        let value = wasm_bindgen::intern(&value);
+        if attr_name == "inner_html" {
+          el.set_inner_html(&value);
+        } else {
+          let attr_name = wasm_bindgen::intern(attr_name);
+          el.set_attribute(attr_name, &value).unwrap_throw();
+        }
       }
     }
     Attribute::Option(value) => {

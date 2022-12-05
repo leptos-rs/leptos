@@ -46,7 +46,7 @@ pub struct EachRepr {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   opening: Comment,
-  children: Rc<RefCell<Vec<Option<EachItem>>>>,
+  pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
   closing: Comment,
 }
 
@@ -112,12 +112,12 @@ impl Mountable for EachRepr {
 
 /// The internal representation of an [`EachKey`] item.
 #[derive(Debug)]
-struct EachItem {
+pub(crate) struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   opening: Comment,
-  child: View,
+  pub(crate) child: View,
   closing: Comment,
 }
 
