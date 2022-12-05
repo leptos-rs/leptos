@@ -74,7 +74,7 @@ macro_rules! generate_event_types {
     $(
       #[doc = "The "]
       #[doc = stringify!($event)]
-      #[doc = "event."]
+      #[doc = " event."]
       #[allow(non_camel_case_types)]
       pub struct $event;
 
@@ -82,7 +82,7 @@ macro_rules! generate_event_types {
         type EventType = web_sys::$web_sys_event;
 
         fn name(&self) -> Cow<'static, str> {
-          stringify!([<$event:lower>]).into()
+          stringify!($event).into()
         }
 
         $(

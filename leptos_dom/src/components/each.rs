@@ -5,13 +5,13 @@ use itertools::{EitherOrBoth, Itertools};
 use leptos_reactive::{create_effect, Scope};
 use rustc_hash::FxHasher;
 use smallvec::{smallvec, SmallVec};
-use typed_builder::TypedBuilder;
 use std::{
   borrow::Cow,
   cell::RefCell,
   hash::{BuildHasherDefault, Hash},
   rc::Rc,
 };
+use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
 
 type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
@@ -389,7 +389,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
       }
     }
 
-    normalized_idx  = normalized_idx.wrapping_add(1);
+    normalized_idx = normalized_idx.wrapping_add(1);
   }
 
   let mut diffs = Diff {
@@ -502,8 +502,6 @@ fn apply_cmds<T, EF, N>(
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moved.len());
 
-  debug!("{cmds:#?}");
-
   // The order of cmds needs to be:
   // 1. Removed
   // 2. Moved
@@ -600,7 +598,6 @@ fn apply_cmds<T, EF, N>(
   children.drain_filter(|c| c.is_none());
 }
 
-
 /// Properties for the [For](crate::For) component, a keyed list.
 #[derive(TypedBuilder)]
 pub struct ForProps<IF, I, T, EF, N, KF, K>
@@ -613,12 +610,12 @@ where
   K: Eq + Hash + 'static,
   T: 'static,
 {
-    /// Items over which the component should iterate.
-    pub each: IF,
-    /// A key function that will be applied to each item
-    pub key: KF,
-    /// Should provide a single child function, which takes
-    pub children: Box<dyn Fn() -> Vec<EF>>,
+  /// Items over which the component should iterate.
+  pub each: IF,
+  /// A key function that will be applied to each item
+  pub key: KF,
+  /// Should provide a single child function, which takes
+  pub children: Box<dyn Fn() -> Vec<EF>>,
 }
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -661,7 +658,10 @@ where
 /// }
 /// ```
 #[allow(non_snake_case)]
-pub fn For<IF, I, T, EF, N, KF, K>(cx: Scope, props: ForProps<IF, I, T, EF, N, KF, K>) -> Node
+pub fn For<IF, I, T, EF, N, KF, K>(
+  cx: Scope,
+  props: ForProps<IF, I, T, EF, N, KF, K>,
+) -> Node
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
