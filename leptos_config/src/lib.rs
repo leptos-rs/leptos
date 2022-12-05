@@ -49,11 +49,16 @@ RenderOptions {{
 /// An enum that can be used to define the environment Leptos is running in. Can be passed to RenderOptions.
 /// Setting this to the PROD variant will not include the websockets code for cargo-leptos' watch.
 /// Defaults to PROD
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum RustEnv {
-    #[default]
     PROD,
     DEV,
+}
+
+impl Default for RustEnv {
+    fn default() -> Self {
+        Self::PROD
+    }
 }
 
 impl FromStr for RustEnv {
