@@ -44,8 +44,11 @@ pub struct ComponentRepr {
 
 impl Drop for ComponentRepr {
   fn drop(&mut self) {
+    // TODO: all ComponentReprs are immediately dropped, 
+    // which means their scopes are immediately disposed,
+    // which means components have no reactivity
     if let Some(disposer) = self.disposer.take() {
-      disposer.dispose();
+      //disposer.dispose();
     }
   }
 }
@@ -130,7 +133,7 @@ impl ComponentRepr {
 /// A user-defined `leptos` component.
 pub struct Component<F>
 where
-  F: FnOnce(Scope) -> Vec<Node>,
+  F: FnOnce(Scope) -> Node,
 {
   name: Cow<'static, str>,
   children_fn: F,
@@ -138,7 +141,7 @@ where
 
 impl<F> Component<F>
 where
-  F: FnOnce(Scope) -> Vec<Node>,
+  F: FnOnce(Scope) -> Node,
 {
   /// Creates a new component.
   pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
@@ -151,21 +154,21 @@ where
 
 impl<F> IntoNode for Component<F>
 where
-  F: FnOnce(Scope) -> Vec<Node>,
+  F: FnOnce(Scope) -> Node,
 {
   fn into_node(self, cx: Scope) -> Node {
     let Self { name, children_fn } = self;
 
     let mut children = None;
 
-    let disposer = cx.child_scope(|cx| children = Some(children_fn(cx)));
+    let disposer = cx.child_scope(|cx| children = Some(cx.untrack(move || children_fn(cx))));
 
     let children = children.unwrap();
 
     let mut repr = ComponentRepr::new(name);
 
     repr.disposer = Some(disposer);
-    repr.children = children;
+    repr.children = vec![children];
 
     repr.into_node(cx)
   }

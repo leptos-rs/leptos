@@ -409,7 +409,7 @@ impl<El: IntoElement> HtmlElement<El> {
         }
 
       } else {
-        _ = event_name;
+        _ = event;
         _ = event_handler;
       }
     }

@@ -20,6 +20,7 @@ default = ["csr", "serde"]
 csr = [
 	"leptos_core/csr",
 	"leptos_dom/csr",
+	"leptos_dom/web",
 	"leptos_macro/csr",
 	"leptos_reactive/csr",
 	"leptos_server/csr",
@@ -27,6 +28,7 @@ csr = [
 hydrate = [
 	"leptos_core/hydrate",
 	"leptos_dom/hydrate",
+	"leptos_dom/web",
 	"leptos_macro/hydrate",
 	"leptos_reactive/hydrate",
 	"leptos_server/hydrate",

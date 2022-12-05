@@ -121,11 +121,7 @@ impl ToTokens for InlinePropsBody {
             None
         };
 
-        //let modifiers = if first_lifetime.is_some() {
-        let modifiers = quote! { #[derive(Props)] };
-        /* } else {
-            quote! { #[derive(Props, PartialEq, Eq)] }
-        }; */
+        let modifiers = quote! { #[derive(leptos::TypedBuilder)] };
 
         let (_scope_lifetime, fn_generics, struct_generics) = if let Some(lt) = first_lifetime {
             let struct_generics: Punctuated<_, token::Comma> = generics

@@ -76,7 +76,7 @@ macro_rules! generate_event_types {
           pub struct $event;
 
           impl EventDescriptor for $event {
-            type EventType = web_sys::MouseEvent;
+            type EventType = web_sys::$web_sys_event;
 
             fn name(&self) -> Cow<'static, str> {
               concat!("on", stringify!([<$event:lower>])).into()
