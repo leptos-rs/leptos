@@ -1,6 +1,6 @@
 [package]
 name = "leptos_reactive"
-version = "0.0.19"
+version = "0.0.20"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
