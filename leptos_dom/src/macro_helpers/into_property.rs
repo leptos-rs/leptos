@@ -7,45 +7,51 @@ use wasm_bindgen::{JsValue, UnwrapThrowExt};
 /// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
 /// macro’s use. You usually won't need to interact with it directly.
 pub enum Property {
-    /// A static JavaScript value.
-    Value(JsValue),
-    /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-    Fn(Box<dyn Fn() -> JsValue>),
+  /// A static JavaScript value.
+  Value(JsValue),
+  /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
+  Fn(Box<dyn Fn() -> JsValue>),
 }
 
 /// Converts some type into a [Property].
 ///
 /// This is implemented by default for Rust primitive types, [String] and friends, and [JsValue].
 pub trait IntoProperty {
-    /// Converts the object into a [Property].
-    fn into_property(self, cx: Scope) -> Property;
+  /// Converts the object into a [Property].
+  fn into_property(self, cx: Scope) -> Property;
 }
 
 impl<T, U> IntoProperty for T
 where
-    T: Fn() -> U + 'static,
-    U: Into<JsValue>,
+  T: Fn() -> U + 'static,
+  U: Into<JsValue>,
 {
-    fn into_property(self, _cx: Scope) -> Property {
-        let modified_fn = Box::new(move || self().into());
-        Property::Fn(modified_fn)
-    }
+  fn into_property(self, _cx: Scope) -> Property {
+    let modified_fn = Box::new(move || self().into());
+    Property::Fn(modified_fn)
+  }
+}
+
+impl<T: IntoProperty> IntoProperty for (Scope, T) {
+  fn into_property(self, cx: Scope) -> Property {
+    self.1.into_property(self.0)
+  }
 }
 
 macro_rules! prop_type {
-    ($prop_type:ty) => {
-        impl IntoProperty for $prop_type {
-            fn into_property(self, _cx: Scope) -> Property {
-                Property::Value(self.into())
-            }
-        }
+  ($prop_type:ty) => {
+    impl IntoProperty for $prop_type {
+      fn into_property(self, _cx: Scope) -> Property {
+        Property::Value(self.into())
+      }
+    }
 
-        impl IntoProperty for Option<$prop_type> {
-            fn into_property(self, _cx: Scope) -> Property {
-                Property::Value(self.into())
-            }
-        }
-    };
+    impl IntoProperty for Option<$prop_type> {
+      fn into_property(self, _cx: Scope) -> Property {
+        Property::Value(self.into())
+      }
+    }
+  };
 }
 
 prop_type!(JsValue);
@@ -68,6 +74,11 @@ prop_type!(f32);
 prop_type!(f64);
 prop_type!(bool);
 
-pub fn property_expression(el: &web_sys::Element, prop_name: &str, value: JsValue) {
-    js_sys::Reflect::set(el, &JsValue::from_str(prop_name), &value).unwrap_throw();
+pub fn property_expression(
+  el: &web_sys::Element,
+  prop_name: &str,
+  value: JsValue,
+) {
+  js_sys::Reflect::set(el, &JsValue::from_str(prop_name), &value)
+    .unwrap_throw();
 }
