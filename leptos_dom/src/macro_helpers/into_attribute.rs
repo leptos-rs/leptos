@@ -155,10 +155,10 @@ pub fn attribute_expression(
     Attribute::String(_, value) => {
       let value = wasm_bindgen::intern(&value);
       if attr_name == "inner_html" {
-        el.set_inner_html(&value);
+        el.set_inner_html(value);
       } else {
         let attr_name = wasm_bindgen::intern(attr_name);
-        el.set_attribute(attr_name, &value).unwrap_throw();
+        el.set_attribute(attr_name, value).unwrap_throw();
       }
     }
     Attribute::Option(_, value) => {
@@ -169,7 +169,7 @@ pub fn attribute_expression(
         match value {
           Some(value) => {
             let value = wasm_bindgen::intern(&value);
-            el.set_attribute(attr_name, &value).unwrap_throw();
+            el.set_attribute(attr_name, value).unwrap_throw();
           }
           None => el.remove_attribute(attr_name).unwrap_throw(),
         }

@@ -232,7 +232,6 @@ impl<El: IntoElement> HtmlElement<El> {
   #[track_caller]
   pub fn attr(
     mut self,
-
     name: impl Into<Cow<'static, str>>,
     attr: impl IntoAttribute,
   ) -> Self {
@@ -257,23 +256,23 @@ impl<El: IntoElement> HtmlElement<El> {
         self
       }
       else {
-        let mut attr = attr.into_attribute(cx);
-        while let Attribute::Fn(f) = attr {
+        let mut attr = attr.into_attribute(self.cx);
+        while let Attribute::Fn(_, f) = attr {
           self.dynamic = true;
           attr = f();
         }
         match attr {
-          Attribute::String(value) => {
+          Attribute::String(_, value) => {
             self.attrs.push((name, value.into()));
             self
           },
-          Attribute::Bool(include) => if include {
+          Attribute::Bool(_, include) => if include {
             self.attrs.push((name, "".into()));
             self
           } else {
             self
           },
-          Attribute::Option(maybe) => if let Some(value) = maybe {
+          Attribute::Option(_, maybe) => if let Some(value) = maybe {
             self.attrs.push((name, value.into()));
             self
           } else {
@@ -319,7 +318,7 @@ impl<El: IntoElement> HtmlElement<El> {
       let include = match class {
         Class::Value(include) => include,
         Class::Fn(f) => {
-          self.dynamic = true; 
+          self.dynamic = true;
           f()
         }
       };
