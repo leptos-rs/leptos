@@ -6,7 +6,7 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::IntoElement;
 
 /// A trait for converting types into [web_sys events](web_sys).
-pub trait IntoEvent {
+pub trait EventDescriptor {
   /// The [`web_sys`] event type, such as [`web_sys::MouseEvent`].
   type EventType: FromWasmAbi;
 
@@ -23,11 +23,11 @@ pub trait IntoEvent {
   }
 }
 
-/// Overrides the [`IntoEvent::bubbles`] method to always return
+/// Overrides the [`EventDescriptor::bubbles`] method to always return
 /// `false`, which forces the event to not be globally delegated.
-pub struct Undelegated<Ev: IntoEvent>(Ev);
+pub struct Undelegated<Ev: EventDescriptor>(Ev);
 
-impl<Ev: IntoEvent> IntoEvent for Undelegated<Ev> {
+impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
   type EventType = Ev::EventType;
 
   fn name(&self) -> Cow<'static, str> {
@@ -49,7 +49,7 @@ macro_rules! generate_event_types {
           #[doc = "event."]
           pub struct $event;
 
-          impl IntoEvent for $event {
+          impl EventDescriptor for $event {
             type EventType = web_sys::MouseEvent;
 
             fn name(&self) -> Cow<'static, str> {
