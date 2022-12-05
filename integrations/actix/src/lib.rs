@@ -116,6 +116,7 @@ pub fn handle_server_fns() -> Route {
 /// ```
 /// use actix_web::{HttpServer, App};
 /// use leptos::*;
+/// use std::{env,net::SocketAddr};
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> Element {
@@ -125,13 +126,17 @@ pub fn handle_server_fns() -> Route {
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     HttpServer::new(|| {
+///
+///     let addr = SocketAddr::from(([127,0,0,1],3000));
+///     HttpServer::new(move || {
+///         let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_example").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+///         render_options.write_to_file();
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream("/pkg/leptos_example", |cx| view! { cx, <MyApp/> }))
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }))
 ///     })
-///     .bind(("127.0.0.1", 8080))?
+///     .bind(&addr)?
 ///     .run()
 ///     .await
 /// }

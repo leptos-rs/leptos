@@ -3,109 +3,39 @@ use leptos::*;
 
 // boilerplate to run in different modes
 cfg_if! {
+    // server-only stuff
     if #[cfg(feature = "ssr")] {
-        use actix_files::{Files, NamedFile};
+        use actix_files::{Files};
         use actix_web::*;
-        use futures::StreamExt;
-        use leptos_meta::*;
-        use leptos_router::*;
         use leptos_hackernews::*;
+        use std::{net::SocketAddr, env};
 
-        #[get("/static/style.css")]
+        #[get("/style.css")]
         async fn css() -> impl Responder {
-            NamedFile::open_async("./style.css").await
-        }
-
-        // match every path — our router will handle actual dispatch
-        #[get("{tail:.*}")]
-        async fn render_app(req: HttpRequest) -> impl Responder {
-            let path = req.path();
-
-            let query = req.query_string();
-            let path = if query.is_empty() {
-                "http://leptos".to_string() + path
-            } else {
-                "http://leptos".to_string() + path + "?" + query
-            };
-
-            let app = move |cx| {
-                let integration = ServerIntegration { path: path.clone() };
-                provide_context(cx, RouterIntegrationContext::new(integration));
-
-                view! { cx, <App/> }
-            };
-
-            let head = r#"<!DOCTYPE html>
-                <html lang="en">
-                    <head>
-                        <meta charset="utf-8"/>
-                        <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <script type="module">import init, { main } from '/pkg/leptos_hackernews.js'; init().then(main);</script>"#;
-            let tail = "</body></html>";
-
-            HttpResponse::Ok().content_type("text/html").streaming(
-                futures::stream::once(async { head.to_string() })
-                    .chain(render_to_stream(move |cx| {
-                        let app = app(cx);
-                        let head = use_context::<MetaContext>(cx)
-                            .map(|meta| meta.dehydrate())
-                            .unwrap_or_default();
-                        format!("{head}</head><body>{app}")
-                    }))
-                    .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-            )
+            actix_files::NamedFile::open_async("./style.css").await
         }
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-            let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-            let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-            log::debug!("serving at {host}:{port}");
+            let addr = SocketAddr::from(([127,0,0,1],3000));
 
-            simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
-
-            // uncomment these lines (and .bind_openssl() below) to enable HTTPS, which is sometimes
-            // necessary for proper HTTP/2 streaming
-
-            // load TLS keys
-            // to create a self-signed temporary cert for testing:
-            // `openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'`
-            // let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-            // builder
-            //     .set_private_key_file("key.pem", SslFiletype::PEM)
-            //     .unwrap();
-            // builder.set_certificate_chain_file("cert.pem").unwrap();
-
-            HttpServer::new(|| {
+            HttpServer::new(move || {
+                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_hackernews").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+                render_options.write_to_file();
                 App::new()
+                    .service(Files::new("/pkg", "./pkg"))
                     .service(css)
-                    .service(
-                        web::scope("/pkg")
-                            .service(Files::new("", "./pkg"))
-                            .wrap(middleware::Compress::default()),
-                    )
-                    .service(render_app)
+                    .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
+                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <App/> }))
+                //.wrap(middleware::Compress::default())
             })
-            .bind(("127.0.0.1", 8080))?
-            // replace .bind with .bind_openssl to use HTTPS
-            //.bind_openssl(&format!("{}:{}", host, port), builder)?
+            .bind(&addr)?
             .run()
             .await
         }
-    }
-
-    // client-only stuff for Trunk
-    else {
-        use leptos_hackernews::*;
-
-        pub fn main() {
-            console_error_panic_hook::set_once();
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
-            mount_to_body(|cx| {
-                view! { cx, <App/> }
-            });
+    } else {
+        fn main() {
+            // no client-side main function
         }
     }
 }

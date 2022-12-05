@@ -12,12 +12,12 @@ if #[cfg(feature = "ssr")] {
     use http::StatusCode;
     use std::net::SocketAddr;
     use tower_http::services::ServeDir;
-    use leptos_axum::RenderOptions;
+    use std::env;
 
     #[tokio::main]
     async fn main() {
         use leptos_hackernews_axum::*;
-        let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
+        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
 
         log::debug!("serving at {addr}");
 
@@ -37,8 +37,8 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
-        let render_options: RenderOptions = leptos_axum::RenderOptionsBuilder::default().client_pkg_path("/pkg/leptos_hackernews_axum").auto_reload(3001).build().expect("Failed to Parse RenderOptions");
-
+        let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_hackernews_axum").socket_address(addr).reload_port(3001).environment(&env::var("RUST_ENV")).build();
+        render_options.write_to_file();
         // build our application with a route
         let app = Router::new()
         // `GET /` goes to `root`
