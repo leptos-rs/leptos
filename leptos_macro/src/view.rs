@@ -6,91 +6,111 @@ use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
 
 use crate::{is_component_node, Mode};
 
-const NON_BUBBLING_EVENTS: [&str; 11] = [
-    "load",
-    "unload",
-    "scroll",
-    "focus",
-    "blur",
-    "loadstart",
-    "progress",
-    "error",
-    "abort",
-    "load",
-    "loadend",
-];
 
-lazy_static::lazy_static! {
-    // Specialized event type
-    // https://github.com/yewstack/yew/blob/d422b533ea19a09cddf9b31ecd6cd5e5ce35ce3f/packages/yew/src/html/listener/events.rs
-    static ref EVENTS: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("auxclick", "MouseEvent");
-        m.insert("click", "MouseEvent");
-
-        m.insert("contextmenu", "MouseEvent");
-        m.insert("dblclick", "MouseEvent");
-
-        m.insert("drag", "DragEvent");
-        m.insert("dragend", "DragEvent");
-        m.insert("dragenter", "DragEvent");
-        m.insert("dragexit", "DragEvent");
-        m.insert("dragleave", "DragEvent");
-        m.insert("dragover", "DragEvent");
-        m.insert("dragstart", "DragEvent");
-        m.insert("drop", "DragEvent");
-
-        m.insert("blur", "FocusEvent");
-        m.insert("focus", "FocusEvent");
-        m.insert("focusin", "FocusEvent");
-        m.insert("focusout", "FocusEvent");
-
-        m.insert("keydown", "KeyboardEvent");
-        m.insert("keypress", "KeyboardEvent");
-        m.insert("keyup", "KeyboardEvent");
-
-        m.insert("loadstart", "ProgressEvent");
-        m.insert("progress", "ProgressEvent");
-        m.insert("loadend", "ProgressEvent");
-
-        m.insert("mousedown", "MouseEvent");
-        m.insert("mouseenter", "MouseEvent");
-        m.insert("mouseleave", "MouseEvent");
-        m.insert("mousemove", "MouseEvent");
-        m.insert("mouseout", "MouseEvent");
-        m.insert("mouseover", "MouseEvent");
-        m.insert("mouseup", "MouseEvent");
-        m.insert("wheel", "WheelEvent");
-
-        m.insert("input", "InputEvent");
-
-        m.insert("submit", "SubmitEvent");
-
-        m.insert("animationcancel", "AnimationEvent");
-        m.insert("animationend", "AnimationEvent");
-        m.insert("animationiteration", "AnimationEvent");
-        m.insert("animationstart", "AnimationEvent");
-
-        m.insert("gotpointercapture", "PointerEvent");
-        m.insert("lostpointercapture", "PointerEvent");
-        m.insert("pointercancel", "PointerEvent");
-        m.insert("pointerdown", "PointerEvent");
-        m.insert("pointerenter", "PointerEvent");
-        m.insert("pointerleave", "PointerEvent");
-        m.insert("pointermove", "PointerEvent");
-        m.insert("pointerout", "PointerEvent");
-        m.insert("pointerover", "PointerEvent");
-        m.insert("pointerup", "PointerEvent");
-
-        m.insert("touchcancel", "TouchEvent");
-        m.insert("touchend", "TouchEvent");
-
-        m.insert("transitioncancel", "TransitionEvent");
-        m.insert("transitionend", "TransitionEvent");
-        m.insert("transitionrun", "TransitionEvent");
-        m.insert("transitionstart", "TransitionEvent");
-        m
+macro_rules! generate_event_types {
+    [$m:ident, $([$web_sys_event:ident, [$($event:ident),* $(,)?]]),* $(,)?] => {
+        $(
+          $(
+            $m.insert(stringify!($event).to_ascii_lowercase(), stringify!($event));
+          )*
+        )*
     };
+  }
+  
+  lazy_static::lazy_static! {
+    static ref EVENTS: HashMap<String, &'static str> = {
+        let mut m = HashMap::new();
+        generate_event_types![m,
+            // ClipboardEvent is unstable
+            [Event, [Copy, Cut, Paste]],
+            [
+                CompositionEvent,
+                [CompositionEnd, CompositionStart, CompositionUpdate]
+            ],
+            [KeyboardEvent, [KeyDown, Keypress, Keyup]],
+            [FocusEvent, [Focus, FocusOut, FocusIn, Blur]],
+            [Event, [Change, Input, Invalid, Reset]],
+            [
+                MouseEvent,
+                [
+                Click,
+                ContextMenu,
+                DoubleClick,
+                DblClick,
+                Drag,
+                DragEnd,
+                DragEnter,
+                DragExit,
+                DragLeave,
+                DragOver,
+                DragStart,
+                Drop,
+                MouseDown,
+                MouseEnter,
+                MouseLeave,
+                MouseMove,
+                MouseOut,
+                MouseOver,
+                MouseUp,
+                ]
+            ],
+            [Event, [Scroll]],
+            [Event, [SubmitEvent]],
+            [
+                PointerEvent,
+                [
+                PointerDown,
+                PointerMove,
+                PointerUp,
+                PointerCancel,
+                GotPointerCapture,
+                LostPointerCapture,
+                PointerEnter,
+                PointerLeave,
+                PointerOver,
+                PointerOut,
+                ]
+            ],
+            [Event, [Select]],
+            [TouchEvent, [TouchCancel, TouchEnd, TouchMove, TouchStart]],
+            [WheelEvent, [Wheel]],
+            [
+                Event,
+                [
+                Abort,
+                CanPlay,
+                CanPlayThrough,
+                DurationChange,
+                Emptied,
+                Encrypted,
+                Ended,
+                Error,
+                LoadedData,
+                LoadedMetadata,
+                LoadStart,
+                Pause,
+                Play,
+                Playing,
+                Progress,
+                RateChange,
+                Seeked,
+                Seeking,
+                Stalled,
+                Suspend,
+                TimeUpdate,
+                VolumeChange,
+                Waiting,
+                ]
+            ],
+            [
+                AnimationEvent,
+                [AnimationStart, AnimationEnd, AnimationIteration,]
+            ],
+            [TransitionEvent, [TransitionEnd]],
+            [Event, [Toggle]]
+        ];
+    m
+  };
 }
 
 pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
@@ -212,29 +232,26 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute, mode: Mode) -> TokenStr
         if mode != Mode::Ssr {
             let value = node.value.as_ref().and_then(|expr| expr_to_ident(expr)).expect("'_ref' needs to be passed a variable name");
             quote_spanned! {
-                span => ._ref(#[allow(unused_braces)] #value)
+                span => #[allow(unused_braces)]
+                        ._ref(#value)
             }
         } else {
             todo!()
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         if mode != Mode::Ssr {
+            let name_ident = ident_from_tag_name(&node.key);
+            let span = name_ident.span();
             let handler = node
                 .value
                 .as_ref()
                 .expect("event listener attributes need a value")
                 .as_ref();
-            let event_type = EVENTS.get(&name).copied().unwrap_or("Event");
+            let event_type = EVENTS.get(&name.to_string()).copied().unwrap_or_else(|| panic!("couldn't parse event name {name}"));
             let event_type = event_type.parse::<TokenStream>().expect("couldn't parse event name");
 
-            if NON_BUBBLING_EVENTS.contains(&name) {
-                quote_spanned! {
-                    span => .on::<leptos::web_sys::#event_type>(#name, #[allow(unused_braces)] #handler)
-                }
-            } else {
-                quote_spanned! {
-                    span => .on_delegated::<leptos::web_sys::#event_type>(#name, #[allow(unused_braces)] #handler)
-                }
+            quote_spanned! {
+                span => .on(leptos::ev::#event_type, #handler)
             }
         } else {
             todo!()
@@ -355,10 +372,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
         NodeName::Block(_) => panic!("blocks not allowed in tag-name position"),
-        _ => Ident::new(
-            &tag_name.to_string().replace(['-', ':'], "_"),
-            tag_name.span(),
-        ),
+        NodeName::Punctuated(punct) => punct.last().expect("expected at least one identifier"),
     }
 }
 
