@@ -25,7 +25,7 @@ pub trait EventDescriptor {
 
 /// Overrides the [`EventDescriptor::bubbles`] method to always return
 /// `false`, which forces the event to not be globally delegated.
-pub struct Undelegated<Ev: EventDescriptor>(Ev);
+pub struct Undelegated<Ev: EventDescriptor>(pub Ev);
 
 impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
   type EventType = Ev::EventType;
