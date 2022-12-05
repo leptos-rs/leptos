@@ -1,7 +1,7 @@
 use std::{cell::{OnceCell, RefCell}, hash::Hash, rc::Rc};
 use cfg_if::cfg_if;
 use leptos_reactive::{Scope, create_effect};
-use crate::{IntoNode, ComponentRepr, EachKey, Node, HtmlElement, Text, Element, Fragment, Unit, text, DynChild, IntoElement};
+use crate::{IntoNode, ComponentRepr, EachKey, Node, HtmlElement, Text, Element, Fragment, Unit, text, DynChild, IntoElement, Component};
 
 pub enum Child {
     /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the node.
@@ -43,7 +43,7 @@ impl IntoChild for Node {
 
 impl IntoChild for String {
     fn into_child(self, _cx: Scope) -> Child {
-		Child::Text(self.into())
+		Child::Text(self)
     }
 }
 
@@ -102,7 +102,17 @@ node_type!(Vec<Node>);
 node_type!(Fragment);
 node_type!(ComponentRepr);
 
+
 impl<El: IntoElement> IntoChild for HtmlElement<El> {
+    fn into_child(self, cx: Scope) -> Child {
+        Child::Node(self.into_node(cx))
+    }
+}
+
+impl<F> IntoChild for Component<F>
+where
+  F: FnOnce(Scope) -> Node,
+{
     fn into_child(self, cx: Scope) -> Child {
         Child::Node(self.into_node(cx))
     }

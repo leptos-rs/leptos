@@ -12,6 +12,7 @@ leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.
 leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.18" }
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
 log = "0.4"
+typed-builder = "0.11"
 
 [dev-dependencies]
 leptos = { path = "../leptos", default-features = false, version = "0.0" }
