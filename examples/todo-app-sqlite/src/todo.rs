@@ -46,6 +46,9 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
 
     let mut conn = db().await?;
 
+    // fake API delay
+    std::thread::sleep(std::time::Duration::from_millis(350));
+
     let mut todos = Vec::new();
     let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
     while let Some(row) = rows
@@ -66,7 +69,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
     // fake API delay
-    std::thread::sleep(std::time::Duration::from_millis(1250));
+    std::thread::sleep(std::time::Duration::from_millis(350));
 
     sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
         .bind(title)
@@ -139,7 +142,7 @@ pub fn Todos(cx: Scope) -> Element {
                 <input type="submit" value="Add"/>
             </MultiActionForm>
             <div>
-                <Suspense fallback=view! {cx, <p>"Loading..."</p> }>
+                <Transition fallback=view! {cx, <p>"Loading..."</p> }>
                     {
                         let delete_todo = delete_todo.clone();
                         move || {
@@ -208,7 +211,7 @@ pub fn Todos(cx: Scope) -> Element {
                         }
                     }
                 }
-                </Suspense>
+                </Transition>
             </div>
         </div>
     }
