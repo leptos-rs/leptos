@@ -25,7 +25,7 @@ fn main() {
   mount_to_body(view_fn);
 }
 
-fn view_fn(cx: Scope) -> impl IntoNode {
+fn view_fn(cx: Scope) -> impl IntoView {
   let (tick, set_tick) = create_signal(cx, 0);
   let (count, set_count) = create_signal(cx, 0);
   let (show, set_show) = create_signal(cx, true);
@@ -80,58 +80,50 @@ fn view_fn(cx: Scope) -> impl IntoNode {
 
   [
     h1(cx)
-      .dyn_child(move || text(count().to_string()))
-      .into_node(cx),
+      .child(cx, move || text(count().to_string()))
+      .into_view(cx),
     button(cx)
       .on(ev::click, move |_| set_tick.update(|t| *t += 1))
-      .child(text("Tick"))
-      .into_node(cx),
+      .child(cx, text("Tick"))
+      .into_view(cx),
     button(cx)
       .on(ev::click, move |_| set_count.update(|n| *n += 1))
-      .child(text("Click me"))
-      .into_node(cx),
+      .child(cx, text("Click me"))
+      .into_view(cx),
     button(cx)
       .on(ev::Undelegated(ev::click), move |_| {
         set_count.update(|n| *n += 1)
       })
-      .child(text("Click me (undelegated)"))
-      .into_node(cx),
+      .child(cx, text("Click me (undelegated)"))
+      .into_view(cx),
     pre(cx)
-      .child(EachKey::new(
-        iterable,
-        |i| *i,
-        move |i| text(format!("{i}, ")),
-      ))
-      .into_node(cx),
+      .child(
+        cx,
+        EachKey::new(iterable, |i| *i, move |i| text(format!("{i}, "))),
+      )
+      .into_view(cx),
     pre(cx)
-      .child(text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
-      .into_node(cx),
+      .child(cx, text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
+      .into_view(cx),
     input(cx)
-      .class("input input-primary")
-      .dyn_class(move || {
-        if apply_default_class_set() {
-          Some("a b")
-        } else {
-          Some("b c")
-        }
-      })
-      .dyn_attr("disabled", move || disabled().then_some(""))
-      .into_node(cx),
-    MyComponent.into_node(cx),
+      .class(cx, "input input-primary", true)
+      .attr(cx, "disabled", move || disabled().then_some(""))
+      .into_view(cx),
+    MyComponent.into_view(cx),
     h3(cx)
-      .dyn_child(move || show().then(|| text("Now you see me...")))
-      .into_node(cx),
+      .child(cx, move || show().then(|| text("Now you see me...")))
+      .into_view(cx),
   ]
 }
 
 struct MyComponent;
 
-impl IntoNode for MyComponent {
-  fn into_node(self, cx: Scope) -> Node {
+impl IntoView for MyComponent {
+  fn into_view(self, cx: Scope) -> View {
     let component = Component::new("MyComponent", |cx| {
-      h2(cx).child(text("MyComponent")).into_node(cx)
+      h2(cx).child(cx, text("MyComponent")).into_view(cx)
     });
 
-    component.into_node(cx)
+    component.into_view(cx)
   }
 }

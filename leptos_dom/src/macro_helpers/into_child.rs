@@ -93,6 +93,12 @@ where
   }
 }
 
+impl<T: IntoChild> IntoChild for (Scope, T) {
+  fn into_child(self, cx: Scope) -> Child {
+    self.1.into_child(self.0)
+  }
+}
+
 macro_rules! node_type {
   ($child_type:ty) => {
     impl IntoChild for $child_type {
