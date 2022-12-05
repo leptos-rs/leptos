@@ -94,7 +94,7 @@ fn view_fn(cx: Scope) -> impl IntoNode {
       .on(ev::Undelegated(ev::click), move |_| {
         set_count.update(|n| *n += 1)
       })
-      .child(text("Click me (delegated)"))
+      .child(text("Click me (undelegated)"))
       .into_node(cx),
     pre(cx)
       .child(EachKey::new(
