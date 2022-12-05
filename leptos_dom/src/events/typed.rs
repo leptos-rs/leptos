@@ -118,11 +118,13 @@ generate_event_types! {
   rejectionhandled: PromiseRejectionEvent,
   storage: StorageEvent,
   unhandledrejection: PromiseRejectionEvent,
+  #[does_not_bubble]
   unload: Event,
 
   // =========================================================
   // GlobalEventHandlersEventMap
   // =========================================================
+  #[does_not_bubble]
   abort: UiEvent,
   animationcancel: AnimationEvent,
   animationend: AnimationEvent,
@@ -130,6 +132,7 @@ generate_event_types! {
   animationstart: AnimationEvent,
   auxclick: MouseEvent,
   beforeinput: InputEvent,
+  #[does_not_bubble]
   blur: FocusEvent,
   canplay: Event,
   canplaythrough: Event,
@@ -152,9 +155,13 @@ generate_event_types! {
   durationchange: Event,
   emptied: Event,
   ended: Event,
+  #[does_not_bubble]
   error: ErrorEvent,
+  #[does_not_bubble]
   focus: FocusEvent,
+  #[does_not_bubble]
   focusin: FocusEvent,
+  #[does_not_bubble]
   focusout: FocusEvent,
   formdata: Event, // web_sys does not include `FormDataEvent`
   gotpointercapture: PointerEvent,
@@ -163,9 +170,11 @@ generate_event_types! {
   keydown: KeyboardEvent,
   keypress: KeyboardEvent,
   keyup: KeyboardEvent,
+  #[does_not_bubble]
   load: Event,
   loadeddata: Event,
   loadedmetadata: Event,
+  #[does_not_bubble]
   loadstart: Event,
   lostpointercapture: PointerEvent,
   mousedown: MouseEvent,
@@ -186,10 +195,12 @@ generate_event_types! {
   pointerout: PointerEvent,
   pointerover: PointerEvent,
   pointerup: PointerEvent,
+  #[does_not_bubble]
   progress: ProgressEvent,
   ratechange: Event,
   reset: Event,
   resize: UiEvent,
+  #[does_not_bubble]
   scroll: Event,
   securitypolicyviolation: SecurityPolicyViolationEvent,
   seeked: Event,
