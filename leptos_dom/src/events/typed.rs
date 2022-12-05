@@ -79,7 +79,7 @@ macro_rules! generate_event_types {
             type EventType = web_sys::$web_sys_event;
 
             fn name(&self) -> Cow<'static, str> {
-              concat!("on", stringify!([<$event:lower>])).into()
+              stringify!([<$event:lower>]).into()
             }
           }
         )*
