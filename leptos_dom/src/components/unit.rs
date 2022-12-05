@@ -1,6 +1,6 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::Mountable;
-use crate::{Comment, CoreComponent, IntoNode, Node};
+use crate::{Comment, CoreComponent, IntoView, View};
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`Unit`] core-component.
@@ -32,14 +32,14 @@ impl Mountable for UnitRepr {
 #[derive(Clone, Copy, Debug)]
 pub struct Unit;
 
-impl IntoNode for Unit {
+impl IntoView for Unit {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "<() />", skip_all)
   )]
-  fn into_node(self, _: leptos_reactive::Scope) -> crate::Node {
+  fn into_view(self, _: leptos_reactive::Scope) -> crate::View {
     let component = UnitRepr::default();
 
-    Node::CoreComponent(CoreComponent::Unit(component))
+    View::CoreComponent(CoreComponent::Unit(component))
   }
 }

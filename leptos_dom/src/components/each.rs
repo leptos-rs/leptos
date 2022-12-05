@@ -1,6 +1,6 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
-use crate::{Comment, CoreComponent, IntoNode, Node};
+use crate::{Comment, CoreComponent, IntoView, View};
 use itertools::{EitherOrBoth, Itertools};
 use leptos_reactive::{create_effect, Scope};
 use rustc_hash::FxHasher;
@@ -39,7 +39,7 @@ impl VecExt for Vec<Option<EachItem>> {
   }
 }
 
-/// The internal representation of the [`Each`] core-component.
+/// The internal representation of the [`EachKey`] core-component.
 #[derive(Debug)]
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -110,19 +110,19 @@ impl Mountable for EachRepr {
   }
 }
 
-/// The internal representation of an [`Each`] item.
+/// The internal representation of an [`EachKey`] item.
 #[derive(Debug)]
 struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   opening: Comment,
-  child: Node,
+  child: View,
   closing: Comment,
 }
 
 impl EachItem {
-  fn new(child: Node) -> Self {
+  fn new(child: View) -> Self {
     let markers = (
       Comment::new(Cow::Borrowed("</EachItem>")),
       #[cfg(debug_assertions)]
@@ -201,7 +201,7 @@ where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
   EF: Fn(T) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
   T: 'static,
@@ -216,12 +216,12 @@ where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
   EF: Fn(T) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
   KF: Fn(&T) -> K,
   K: Eq + Hash + 'static,
   T: 'static,
 {
-  /// Creates a new [`Each`] component.
+  /// Creates a new [`EachKey`] component.
   pub fn new(items_fn: IF, key_fn: KF, each_fn: EF) -> Self {
     Self {
       items_fn,
@@ -231,12 +231,12 @@ where
   }
 }
 
-impl<IF, I, T, EF, N, KF, K> IntoNode for EachKey<IF, I, T, EF, N, KF, K>
+impl<IF, I, T, EF, N, KF, K> IntoView for EachKey<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
   EF: Fn(T) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
   T: 'static,
@@ -245,7 +245,7 @@ where
     debug_assertions,
     instrument(level = "trace", name = "<Each />", skip_all)
   )]
-  fn into_node(self, cx: leptos_reactive::Scope) -> crate::Node {
+  fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
     let Self {
       items_fn,
       each_fn,
@@ -294,7 +294,7 @@ where
         *children_borrow = Vec::with_capacity(items.len());
 
         for item in items {
-          let child = each_fn(item).into_node(cx);
+          let child = each_fn(item).into_view(cx);
 
           let each_item = EachItem::new(child);
 
@@ -308,7 +308,7 @@ where
       HashRun(hashed_items)
     });
 
-    Node::CoreComponent(CoreComponent::Each(component))
+    View::CoreComponent(CoreComponent::Each(component))
   }
 }
 
@@ -483,7 +483,7 @@ fn apply_cmds<T, EF, N>(
   each_fn: &EF,
 ) where
   EF: Fn(T) -> N,
-  N: IntoNode,
+  N: IntoView,
 {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   let range = &RANGE;
@@ -558,7 +558,7 @@ fn apply_cmds<T, EF, N>(
   for DiffOpAdd { at, mode } in cmds.added {
     let item = std::mem::replace(&mut items[at], None).unwrap();
 
-    let child = each_fn(item).into_node(cx);
+    let child = each_fn(item).into_view(cx);
 
     let each_item = EachItem::new(child);
 
@@ -605,7 +605,7 @@ where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
   EF: Fn(T) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
   T: 'static,
@@ -661,16 +661,16 @@ where
 pub fn For<IF, I, T, EF, N, KF, K>(
   cx: Scope,
   props: ForProps<IF, I, T, EF, N, KF, K>,
-) -> Node
+) -> View
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
   EF: Fn(T) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
   T: 'static,
 {
   let each_fn = (props.children)().swap_remove(0);
-  EachKey::new(props.each, props.key, each_fn).into_node(cx)
+  EachKey::new(props.each, props.key, each_fn).into_view(cx)
 }

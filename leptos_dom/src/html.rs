@@ -1,8 +1,8 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
 use crate::{
-  components::DynChild, ev::EventDescriptor, Element, Fragment, IntoNode, Node,
-  Text,
+  components::DynChild, ev::EventDescriptor, Element, Fragment, IntoView, Text,
+  View,
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
@@ -52,8 +52,7 @@ pub trait IntoElement: IntoElementBounds {
   }
 }
 
-/// Represents potentially any element, which you can change
-/// at any time before calling [`HtmlElement::into_node`].
+/// Represents potentially any element.
 #[derive(Clone, Debug)]
 #[cfg_attr(all(target_arch = "wasm32", feature = "web"), derive(educe::Educe))]
 #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
@@ -124,7 +123,7 @@ cfg_if! {
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
       #[allow(clippy::type_complexity)]
-      pub(crate) children: SmallVec<[Box<dyn FnOnce(Scope) -> Node>; 4]>,
+      pub(crate) children: SmallVec<[Box<dyn FnOnce(Scope) -> View>; 4]>,
     }
   }
 }
@@ -418,11 +417,11 @@ impl<El: IntoElement> HtmlElement<El> {
   }
 
   /// Inserts a child into this element.
-  pub fn child<C: IntoNode + 'static>(mut self, child: C) -> Self {
+  pub fn child<C: IntoView + 'static>(mut self, child: C) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         {
-          let child = child.into_node(self.cx);
+          let child = child.into_view(self.cx);
 
           mount_child(MountKind::Append(self.element.get_element()), &child)
         }
@@ -440,11 +439,11 @@ impl<El: IntoElement> HtmlElement<El> {
   pub fn dyn_child<CF, N>(mut self, child_fn: CF) -> Self
   where
     CF: Fn() -> N + 'static,
-    N: IntoNode,
+    N: IntoView,
   {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &DynChild::new(child_fn).into_node(self.cx))
+        mount_child(MountKind::Append(self.element.get_element()), &DynChild::new(child_fn).into_view(self.cx))
       } else {
         self
           .children
@@ -456,12 +455,12 @@ impl<El: IntoElement> HtmlElement<El> {
   }
 }
 
-impl<El: IntoElement> IntoNode for HtmlElement<El> {
+impl<El: IntoElement> IntoView for HtmlElement<El> {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
-  fn into_node(self, cx: Scope) -> Node {
+  fn into_view(self, cx: Scope) -> View {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        Node::Element(Element::new(self.element))
+        View::Element(Element::new(self.element))
       } else {
         let Self { element, attrs, children, .. } = self;
         let mut element = Element::new(element);
@@ -473,31 +472,31 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
         element.attrs = attrs;
         element.children.extend(children);
 
-        Node::Element(element)
+        View::Element(element)
       }
     }
   }
 }
 
-impl<El: IntoElement> IntoNode for Vec<HtmlElement<El>> {
+impl<El: IntoElement> IntoView for Vec<HtmlElement<El>> {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "Vec<HtmlElement>", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
-    Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect())
-      .into_node(cx)
+  fn into_view(self, cx: Scope) -> View {
+    Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
+      .into_view(cx)
   }
 }
 
-impl<El: IntoElement, const N: usize> IntoNode for [HtmlElement<El>; N] {
+impl<El: IntoElement, const N: usize> IntoView for [HtmlElement<El>; N] {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
-    Fragment::new(self.into_iter().map(|el| el.into_node(cx)).collect())
-      .into_node(cx)
+  fn into_view(self, cx: Scope) -> View {
+    Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
+      .into_view(cx)
   }
 }
 
@@ -514,9 +513,9 @@ pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
 }
 
 /// Creates a text node.
-pub fn text(text: impl Into<Cow<'static, str>>) -> Node {
+pub fn text(text: impl Into<Cow<'static, str>>) -> View {
   let text = Text::new(text.into());
-  Node::Text(text)
+  View::Text(text)
 }
 
 macro_rules! generate_html_tags {
@@ -722,7 +721,7 @@ impl<El: IntoElement> HtmlElement<El> {
     let child = child.into_child(cx);
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &child.into_node(cx))
+        mount_child(MountKind::Append(self.element.get_element()), &child.into_view(cx))
       }
       else {
         self.children.push(Box::new(move |cx| child.into_node(cx)));

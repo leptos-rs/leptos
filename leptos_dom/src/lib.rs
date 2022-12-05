@@ -42,10 +42,10 @@ static COMMENT: LazyCell<web_sys::Node> =
 static RANGE: LazyCell<web_sys::Range> =
   LazyCell::new(|| web_sys::Range::new().unwrap());
 
-/// Converts the value into a [`Node`].
-pub trait IntoNode {
-  /// Converts the value into [`Node`].
-  fn into_node(self, cx: Scope) -> Node;
+/// Converts the value into a [`View`].
+pub trait IntoView {
+  /// Converts the value into [`View`].
+  fn into_view(self, cx: Scope) -> View;
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -63,44 +63,44 @@ trait Mountable {
   fn get_opening_node(&self) -> web_sys::Node;
 }
 
-impl IntoNode for () {
+impl IntoView for () {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "<() />", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
-    Unit.into_node(cx)
+  fn into_view(self, cx: Scope) -> View {
+    Unit.into_view(cx)
   }
 }
 
-impl<T> IntoNode for Option<T>
+impl<T> IntoView for Option<T>
 where
-  T: IntoNode,
+  T: IntoView,
 {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "Option<T>", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
+  fn into_view(self, cx: Scope) -> View {
     if let Some(t) = self {
-      t.into_node(cx)
+      t.into_view(cx)
     } else {
-      Unit.into_node(cx)
+      Unit.into_view(cx)
     }
   }
 }
 
-impl<F, N> IntoNode for F
+impl<F, N> IntoView for F
 where
   F: Fn() -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
 {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "Fn() -> N", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
-    DynChild::new(self).into_node(cx)
+  fn into_view(self, cx: Scope) -> View {
+    DynChild::new(self).into_view(cx)
   }
 }
 
@@ -120,15 +120,15 @@ cfg_if! {
       name: Cow<'static, str>,
       is_void: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-      children: Vec<Node>,
+      children: Vec<View>,
     }
   }
 }
 
-impl IntoNode for Element {
+impl IntoView for Element {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name)))]
-  fn into_node(self, _: Scope) -> Node {
-    Node::Element(self)
+  fn into_view(self, _: Scope) -> View {
+    View::Element(self)
   }
 }
 
@@ -191,10 +191,10 @@ pub struct Text {
   content: Cow<'static, str>,
 }
 
-impl IntoNode for Text {
+impl IntoView for Text {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all, fields(content = %self.content)))]
-  fn into_node(self, _: Scope) -> Node {
-    Node::Text(self)
+  fn into_view(self, _: Scope) -> View {
+    View::Text(self)
   }
 }
 
@@ -213,9 +213,9 @@ impl Text {
   }
 }
 
-/// A leptos Node.
+/// A leptos view which can be mounted to the DOM.
 #[derive(Debug)]
-pub enum Node {
+pub enum View {
   /// HTML element node.
   Element(Element),
   /// HTML text node.
@@ -226,42 +226,42 @@ pub enum Node {
   CoreComponent(CoreComponent),
 }
 
-/// The default [`Node`] is the [`Unit`] core-component.
-impl Default for Node {
+/// The default [`View`] is the [`Unit`] core-component.
+impl Default for View {
   fn default() -> Self {
     Self::CoreComponent(Default::default())
   }
 }
 
-impl IntoNode for Node {
+impl IntoView for View {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "Node", skip_all, fields(kind = self.kind_name())))]
-  fn into_node(self, _: Scope) -> Node {
+  fn into_view(self, _: Scope) -> View {
     self
   }
 }
 
-impl IntoNode for Vec<Node> {
+impl IntoView for Vec<View> {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "Vec<Node>", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
-    Fragment::new(self).into_node(cx)
+  fn into_view(self, cx: Scope) -> View {
+    Fragment::new(self).into_view(cx)
   }
 }
 
-impl<const N: usize> IntoNode for [Node; N] {
+impl<const N: usize> IntoView for [View; N] {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "[Node; N]", skip_all)
   )]
-  fn into_node(self, cx: Scope) -> Node {
-    Fragment::new(self.into_iter().collect()).into_node(cx)
+  fn into_view(self, cx: Scope) -> View {
+    Fragment::new(self.into_iter().collect()).into_view(cx)
   }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl Mountable for Node {
+impl Mountable for View {
   fn get_mountable_node(&self) -> web_sys::Node {
     match self {
       Self::Element(element) => {
@@ -291,7 +291,7 @@ impl Mountable for Node {
   }
 }
 
-impl Node {
+impl View {
   fn kind_name(&self) -> &'static str {
     match self {
       Self::Component(..) => "Component",
@@ -359,7 +359,7 @@ enum MountKind<'a> {
 pub fn mount_to_body<F, N>(f: F)
 where
   F: FnOnce(Scope) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
 {
   mount_to(crate::document().body().expect("body element to exist"), f)
 }
@@ -369,12 +369,12 @@ where
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
   F: FnOnce(Scope) -> N + 'static,
-  N: IntoNode,
+  N: IntoView,
 {
   let disposer = leptos_reactive::create_scope(
     leptos_reactive::create_runtime(),
     move |cx| {
-      let node = f(cx).into_node(cx);
+      let node = f(cx).into_view(cx);
 
       parent.append_child(&node.get_mountable_node()).unwrap();
 

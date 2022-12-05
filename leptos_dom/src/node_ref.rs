@@ -1,8 +1,6 @@
-use leptos_reactive::{
-    create_rw_signal, RwSignal, Scope
-};
+use leptos_reactive::{create_rw_signal, RwSignal, Scope};
 
-/// Contains a shared reference to a DOM node creating while using the [view](leptos::view)
+/// Contains a shared reference to a DOM node creating while using the `view`
 /// macro to create your UI.
 ///
 /// ```
@@ -34,27 +32,27 @@ use leptos_reactive::{
 pub struct NodeRef(RwSignal<Option<web_sys::Element>>);
 
 impl NodeRef {
-    /// Creates an empty reference.
-    pub fn new(cx: Scope) -> Self {
-        Self(create_rw_signal(cx, None))
-    }
+  /// Creates an empty reference.
+  pub fn new(cx: Scope) -> Self {
+    Self(create_rw_signal(cx, None))
+  }
 
-    /// Gets the element that is currently stored in the reference.
-    ///
-    /// This tracks reactively, so that node references can be used in effects.
-    /// Initially, the value will be `None`, but once it is loaded the effect
-    /// will rerun and its value will be `Some(Element)`.
-    pub fn get(&self) -> Option<web_sys::Element> {
-        self.0.get()
-    }
+  /// Gets the element that is currently stored in the reference.
+  ///
+  /// This tracks reactively, so that node references can be used in effects.
+  /// Initially, the value will be `None`, but once it is loaded the effect
+  /// will rerun and its value will be `Some(Element)`.
+  pub fn get(&self) -> Option<web_sys::Element> {
+    self.0.get()
+  }
 
-    #[doc(hidden)]
-    /// Loads an element into the reference. This tracks reactively,
-    /// so that effects that use the node reference will rerun once it is loaded,
-    /// i.e., effects can be forward-declared.
-    pub fn load(&self, node: &web_sys::Element) {
-        self.0.set(Some(node.clone()))
-    }
+  #[doc(hidden)]
+  /// Loads an element into the reference. This tracks reactively,
+  /// so that effects that use the node reference will rerun once it is loaded,
+  /// i.e., effects can be forward-declared.
+  pub fn load(&self, node: &web_sys::Element) {
+    self.0.set(Some(node.clone()))
+  }
 }
 
 cfg_if::cfg_if! {
