@@ -240,8 +240,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute, mode: Mode) -> TokenStr
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         if mode != Mode::Ssr {
-            let name_ident = ident_from_tag_name(&node.key);
-            let span = name_ident.span();
+            let span = name.span();
             let handler = node
                 .value
                 .as_ref()
@@ -372,7 +371,10 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
         NodeName::Block(_) => panic!("blocks not allowed in tag-name position"),
-        NodeName::Punctuated(punct) => punct.last().expect("expected at least one identifier"),
+        _ => Ident::new(
+            &tag_name.to_string().replace(['-', ':'], "_"),
+            tag_name.span(),
+        ),
     }
 }
 
