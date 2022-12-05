@@ -330,20 +330,13 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStrea
             }
         });
 
-    let component_itself = quote_spanned! { 
+    quote_spanned! { 
         span => #name(
             cx,
             #component_props_name::builder()
                 #(#props)*
                 #children
                 .build(),
-        )
-    };
-    
-    quote_spanned! {
-        span => leptos::Component::new(
-            #component_name_str,
-            move |cx| #component_itself
         )
     }
 }

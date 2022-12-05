@@ -97,7 +97,8 @@ impl ToTokens for InlinePropsBody {
             if let Type::Path(pat) = &*typed_arg.ty {
                 if pat.path.segments[0].ident == "Option" {
                     quote! {
-                        #[builder(default, setter(strip_option))]
+                        #[doc = "My comment."]
+                        #[builder(default, setter(strip_option, into))]
                         #vis #f
                     }
                 } else {
@@ -108,6 +109,7 @@ impl ToTokens for InlinePropsBody {
             }
         });
 
+        let component_name_str = ident.to_string();
         let struct_name = Ident::new(&format!("{}Props", ident), Span::call_site());
 
         let field_names = inputs.iter().filter_map(|f| match f {
@@ -169,7 +171,11 @@ impl ToTokens for InlinePropsBody {
             #where_clause
             {
                 let #struct_name { #(#field_names),* } = props;
-                #block
+                ::leptos::Component::new(
+                    #component_name_str,
+                    move |#cx_token| #block
+                )
+                .into_node(#cx_token)
             }
         });
     }
