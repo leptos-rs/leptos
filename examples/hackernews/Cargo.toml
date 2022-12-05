@@ -18,6 +18,7 @@ leptos = { path = "../../leptos", default-features = false, features = [
 	"serde",
 ] }
 leptos_meta = { path = "../../meta", default-features = false }
+leptos_actix = { path = "../../integrations/actix", default-features = false, optional=true }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 simple_logger = "2"
@@ -35,11 +36,12 @@ hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
 	"dep:actix-files",
 	"dep:actix-web",
+	"dep:leptos_actix",
 	"leptos/ssr",
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
 
 [package.metadata.cargo-all-features]
-denylist = ["actix-files", "actix-web"]
+denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

@@ -4,6 +4,7 @@ members = [
   "leptos",
   "leptos_dom",
   "leptos_core",
+  "leptos_config",
   "leptos_macro",
   "leptos_reactive",
   "leptos_server",

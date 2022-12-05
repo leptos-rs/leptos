@@ -9,7 +9,6 @@ use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
-
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
@@ -141,7 +140,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// ```
 /// use axum::handler::Handler;
 /// use axum::Router;
-/// use std::net::SocketAddr;
+/// use std::{net::SocketAddr, env};
 /// use leptos::*;
 ///
 /// #[component]
@@ -153,10 +152,15 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// #[tokio::main]
 /// async fn main() {
 ///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
+/// let render_options: RenderOptions = RenderOptions::builder()
+///     .pkg_path("/pkg/leptos_example")
+///     .socket_address(addr)
+///     .reload_port(3001)
+///     .environment(&env::var("RUST_ENV")).build();
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }));
+///     .fallback(leptos_axum::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -167,8 +171,9 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// }
 /// # }
 /// ```
+///
 pub fn render_app_to_stream(
-    client_pkg_name: &'static str,
+    options: RenderOptions,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -178,6 +183,7 @@ pub fn render_app_to_stream(
        + 'static {
     move |req: Request<Body>| {
         Box::pin({
+            let options = options.clone();
             let app_fn = app_fn.clone();
             async move {
                 // Need to get the path and query string of the Request
@@ -191,13 +197,36 @@ pub fn render_app_to_stream(
                     full_path = "http://leptos".to_string() + &path.to_string()
                 }
 
+                let pkg_path = &options.pkg_path;
+                let socket_ip = &options.socket_address.ip().to_string();
+                let reload_port = options.reload_port;
+
+                let leptos_autoreload = match options.environment {
+                    RustEnv::DEV => format!(
+                        r#"
+                            <script crossorigin="">(function () {{
+                                var ws = new WebSocket('ws://{socket_ip}:{reload_port}/autoreload');
+                                ws.onmessage = (ev) => {{
+                                    console.log(`Reload message: `);
+                                    if (ev.data === 'reload') window.location.reload();
+                                }};
+                                ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
+                            }})()
+                            </script>
+                        "#
+                    ),
+                    RustEnv::PROD => "".to_string(),
+                };
+
                 let head = format!(
                     r#"<!DOCTYPE html>
                     <html lang="en">
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <script type="module">import init, {{ hydrate }} from '/pkg/{client_pkg_name}.js'; init().then(hydrate);</script>"#
+                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init().then(hydrate);</script>
+                            {leptos_autoreload}
+                            "#
                 );
                 let tail = "</body></html>";
 

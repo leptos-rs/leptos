@@ -14,10 +14,11 @@ if #[cfg(feature = "ssr")] {
     use todo_app_sqlite_axum::*;
     use http::StatusCode;
     use tower_http::services::ServeDir;
+    use std::env;
 
     #[tokio::main]
     async fn main() {
-        let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
+        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
         log::debug!("serving at {addr}");
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
@@ -45,17 +46,19 @@ if #[cfg(feature = "ssr")] {
         }
 
 
+        let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite_axum").socket_address(addr).reload_port(3001).environment(&env::var("RUST_ENV")).build();
+        render_options.write_to_file();
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .nest_service("/pkg", pkg_service)
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream("todo_app_sqlite_axum", |cx| view! { cx, <TodoApp/> }));
+        .fallback(leptos_axum::render_app_to_stream(render_options.clone(), |cx| view! { cx, <TodoApp/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
-        log!("listening on {}", addr);
-        axum::Server::bind(&addr)
+        log!("listening on {}", &render_options.socket_address);
+        axum::Server::bind(&render_options.socket_address)
             .serve(app.into_make_service())
             .await
             .unwrap();

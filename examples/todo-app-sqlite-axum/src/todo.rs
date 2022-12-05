@@ -12,9 +12,9 @@ cfg_if! {
         }
 
         pub fn register_server_functions() {
-            GetTodos::register();
-            AddTodo::register();
-            DeleteTodo::register();
+            _ = GetTodos::register();
+            _ = AddTodo::register();
+            _ = DeleteTodo::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -34,7 +34,7 @@ cfg_if! {
 }
 
 #[server(GetTodos, "/api")]
-pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
+pub async fn get_todos(_cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
     // let req = use_context::<http::Request<axum::body::BoxBody>>(cx)
@@ -70,7 +70,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
         .execute(&mut conn)
         .await
     {
-        Ok(row) => Ok(()),
+        Ok(_row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
     }
 }
@@ -167,7 +167,7 @@ pub fn Todos(cx: Scope) -> Element {
                                                                 <li>
                                                                     {todo.title}
                                                                     <ActionForm action=delete_todo.clone()>
-                                                                        <input type="hidden" name="id" value={todo.id}/>
+                                                                        <input type="hidden" name="id" value=todo.id/>
                                                                         <input type="submit" value="X"/>
                                                                     </ActionForm>
                                                                 </li>

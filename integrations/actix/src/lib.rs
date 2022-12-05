@@ -116,6 +116,7 @@ pub fn handle_server_fns() -> Route {
 /// ```
 /// use actix_web::{HttpServer, App};
 /// use leptos::*;
+/// use std::{env,net::SocketAddr};
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> Element {
@@ -125,23 +126,28 @@ pub fn handle_server_fns() -> Route {
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     HttpServer::new(|| {
+///
+///     let addr = SocketAddr::from(([127,0,0,1],3000));
+///     HttpServer::new(move || {
+///         let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_example").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+///         render_options.write_to_file();
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }))
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }))
 ///     })
-///     .bind(("127.0.0.1", 8080))?
+///     .bind(&addr)?
 ///     .run()
 ///     .await
 /// }
 /// # }
 /// ```
 pub fn render_app_to_stream(
-    client_pkg_name: &'static str,
+    options: RenderOptions,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + 'static,
 ) -> Route {
     web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
         let app_fn = app_fn.clone();
         async move {
             let path = req.path();
@@ -165,12 +171,38 @@ pub fn render_app_to_stream(
                 }
             };
 
-            let head = format!(r#"<!DOCTYPE html>
-                <html>
+            let pkg_path = &options.pkg_path;
+            let socket_ip = &options.socket_address.ip().to_string();
+            let reload_port = options.reload_port;
+
+            let leptos_autoreload = match options.environment {
+                RustEnv::DEV => format!(
+                    r#"
+                        <script crossorigin="">(function () {{
+                            var ws = new WebSocket('ws://{socket_ip}:{reload_port}/autoreload');
+                            ws.onmessage = (ev) => {{
+                                console.log(`Reload message: `);
+                                if (ev.data === 'reload') window.location.reload();
+                            }};
+                            ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
+                        }})()
+                        </script>
+                    "#
+                ),
+                RustEnv::PROD => "".to_string(),
+            };
+
+            let head = format!(
+                r#"<!DOCTYPE html>
+                <html lang="en">
                     <head>
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <script type="module">import init, {{ hydrate }} from '/pkg/{client_pkg_name}.js'; init().then(hydrate);</script>"#);
+                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init().then(hydrate);</script>
+                        {leptos_autoreload}
+                        "#
+            );
+
             let tail = "</body></html>";
 
             HttpResponse::Ok().content_type("text/html").streaming(
