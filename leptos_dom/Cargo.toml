@@ -33,18 +33,20 @@ features = [
   "Text",
 
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
-  "MouseEvent",
+  "AnimationEvent",
+  "ClipboardEvent",
+  "CompositionEvent",
   "DragEvent",
   "FocusEvent",
-  "KeyboardEvent",
-  "ProgressEvent",
-  "WheelEvent",
   "InputEvent",
-  "SubmitEvent",
-  "AnimationEvent",
+  "KeyboardEvent",
+  "MouseEvent",
   "PointerEvent",
+  "ProgressEvent",
+  "SubmitEvent",
   "TouchEvent",
   "TransitionEvent",
+  "WheelEvent",
 ]
 
 [features]

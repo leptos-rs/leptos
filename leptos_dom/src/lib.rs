@@ -19,6 +19,7 @@ mod node_ref;
 
 use cfg_if::cfg_if;
 pub use components::*;
+pub use events::typed as ev;
 pub use html::*;
 pub use node_ref::*;
 pub use logging::*;

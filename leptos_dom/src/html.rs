@@ -1,6 +1,9 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
-use crate::{components::DynChild, Element, Fragment, IntoNode, Node, Text};
+use crate::{
+  components::DynChild, ev::EventDescriptor, Element, Fragment, IntoNode, Node,
+  Text,
+};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
 use cfg_if::cfg_if;
@@ -369,31 +372,21 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an event listener to this element.
   #[track_caller]
-  pub fn on<E>(self, event_name: impl Into<Cow<'static, str>>, event_handler: impl FnMut(E) + 'static) -> Self
-  where E: FromWasmAbi + 'static,
-  {
+  pub fn on<E: EventDescriptor + 'static>(
+    self,
+    event: E,
+    event_handler: impl FnMut(E::EventType) + 'static,
+  ) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let event_name = event_name.into();
-        add_event_listener_undelegated(self.element.get_element(), &event_name, event_handler);
-      } else {
-        _ = event_name;
-        _ = event_handler;
-      }
-    }
+        let event_name = event.name();
 
-    self
-  }
+        if event.bubbles() {
+          add_event_listener(self.element.get_element(), event_name, event_handler);
+        } else {
+          add_event_listener_undelegated(self.element.get_element(), &event_name, event_handler);
+        }
 
-  /// Adds an event listener to this element, using event delegation.
-  #[track_caller]
-  pub fn on_delegated<E>(self, event_name: impl Into<Cow<'static, str>>, event_handler: impl FnMut(E) + 'static) -> Self
-  where E: FromWasmAbi + 'static,
-  {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let event_name = event_name.into();
-        add_event_listener(self.element.get_element(), event_name, event_handler);
       } else {
         _ = event_name;
         _ = event_handler;
@@ -409,7 +402,7 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         {
           let child = child.into_node(self.cx);
-          
+
           mount_child(MountKind::Append(self.element.get_element()), &child)
         }
       }
@@ -576,11 +569,16 @@ use crate::macro_helpers::*;
 use leptos_reactive::create_render_effect;
 impl<El: IntoElement> HtmlElement<El> {
   #[doc(hidden)]
-	#[track_caller]
-	pub fn _attr(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, attr: impl IntoAttribute) -> Self {
+  #[track_caller]
+  pub fn _attr(
+    mut self,
+    cx: Scope,
+    name: impl Into<Cow<'static, str>>,
+    attr: impl IntoAttribute,
+  ) -> Self {
     let name = name.into();
-		cfg_if! {
-		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let el = self.element.get_element();
         let value = attr.into_attribute(cx);
         match value {
@@ -597,15 +595,15 @@ impl<El: IntoElement> HtmlElement<El> {
           _ => attribute_expression(el, &name, value),
         };
         self
-		  }
-		  else {
+      }
+      else {
         let mut attr = attr.into_attribute(cx);
         while let Attribute::Fn(f) = attr {
           attr = f();
         }
         match attr {
           Attribute::String(value) => self.attr(name, value),
-          Attribute::Bool(include) => if include { 
+          Attribute::Bool(include) => if include {
             self.attr_bool(name)
           } else {
             self
@@ -617,16 +615,21 @@ impl<El: IntoElement> HtmlElement<El> {
           }
           _ => unreachable!()
         }
-		  }
-		}
+      }
+    }
   }
 
   #[doc(hidden)]
-	#[track_caller]
-	pub fn _class(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, class: impl IntoClass) -> Self {
+  #[track_caller]
+  pub fn _class(
+    mut self,
+    cx: Scope,
+    name: impl Into<Cow<'static, str>>,
+    class: impl IntoClass,
+  ) -> Self {
     let name = name.into();
-		cfg_if! {
-		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let el = self.element.get_element();
         let class_list = el.class_list();
         let value = class.into_class(cx);
@@ -643,22 +646,27 @@ impl<El: IntoElement> HtmlElement<El> {
           Class::Value(value) => class_expression(&class_list, &name, value),
         };
         self
-		  }
-		  else {
+      }
+      else {
         let mut class = class.into_class(cx);
         match class {
           Class::Value(include) => self.class_bool(name, include),
           Class::Fn(f) => self.class_bool(name, f())
         }
-		  }
-		}
+      }
+    }
   }
 
   #[doc(hidden)]
-	#[track_caller]
-	pub fn _prop(mut self, cx: Scope, name: impl Into<Cow<'static, str>>, value: impl IntoProperty) -> Self {
+  #[track_caller]
+  pub fn _prop(
+    mut self,
+    cx: Scope,
+    name: impl Into<Cow<'static, str>>,
+    value: impl IntoProperty,
+  ) -> Self {
     cfg_if! {
-		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let name = name.into();
         let value = value.into_property(cx);
         let el = self.element.get_element();
@@ -687,20 +695,20 @@ impl<El: IntoElement> HtmlElement<El> {
     }
   }
 
-	#[doc(hidden)]
-	#[track_caller]
-	pub fn _child(mut self, cx: Scope, child: impl IntoChild) -> Self {
-		let child = child.into_child(cx);
-		cfg_if! {
-		  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+  #[doc(hidden)]
+  #[track_caller]
+  pub fn _child(mut self, cx: Scope, child: impl IntoChild) -> Self {
+    let child = child.into_child(cx);
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         mount_child(MountKind::Append(self.element.get_element()), &child.into_node(cx))
-		  }
-		  else {
+      }
+      else {
         self.children.push(Box::new(move |cx| child.into_node(cx)));
-		  }
-		}
-	
-		self
+      }
+    }
+
+    self
   }
 }
 
