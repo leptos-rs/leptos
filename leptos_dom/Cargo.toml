@@ -12,6 +12,7 @@ cfg-if = "1"
 clone-macro = "0.1"
 educe = "0.4"
 gloo = "0.8"
+html-escape = "0.2"
 indexmap = "1.9"
 itertools = "0.10"
 js-sys = "0.3"
@@ -23,6 +24,9 @@ tracing = "0.1"
 typed-builder = "0.11"
 wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
+
+[dev-dependencies]
+leptos = { path = "../leptos", default-features = false, version = "0.0.18" }
 
 [dependencies.web-sys]
 version = "0.3"

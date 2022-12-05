@@ -16,6 +16,7 @@ mod html;
 mod logging;
 mod macro_helpers;
 mod node_ref;
+mod ssr;
 
 use cfg_if::cfg_if;
 pub use components::*;
@@ -119,6 +120,7 @@ cfg_if! {
     pub struct Element {
       name: Cow<'static, str>,
       is_void: bool,
+      dynamic: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: Vec<Node>,
     }
@@ -147,6 +149,7 @@ impl Element {
         Self {
           name: el.name(),
           is_void: el.is_void(),
+          dynamic: false,
           attrs: Default::default(),
           children: Default::default(),
         }

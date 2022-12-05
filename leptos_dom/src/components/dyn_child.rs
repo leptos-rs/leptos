@@ -12,7 +12,7 @@ pub struct DynChildRepr {
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   opening: Comment,
-  child: Rc<RefCell<Box<Option<Node>>>>,
+  pub(crate) child: Rc<RefCell<Box<Option<Node>>>>,
   closing: Comment,
 }
 
@@ -155,7 +155,7 @@ where
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         mount_child(MountKind::Before(&closing), &new_child);
-  
+
         **child.borrow_mut() = Some(new_child);
       }
     });

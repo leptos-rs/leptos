@@ -59,6 +59,8 @@ pub trait IntoElement: IntoElementBounds {
 #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
 pub struct AnyElement {
   name: Cow<'static, str>,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  dynamic: bool,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   #[educe(Deref)]
   element: web_sys::HtmlElement,
@@ -120,6 +122,7 @@ cfg_if! {
       pub(crate) cx: Scope,
       pub(crate) element: El,
       pub(crate) id: OnceCell<Cow<'static, str>>,
+      pub(crate) dynamic: bool,
       #[educe(Debug(ignore))]
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
@@ -141,6 +144,7 @@ impl<El: IntoElement> HtmlElement<El> {
         Self {
           cx,
           id: Default::default(),
+          dynamic: false,
           attrs: smallvec![],
           children: smallvec![],
           element,
@@ -170,6 +174,7 @@ impl<El: IntoElement> HtmlElement<El> {
         let Self {
           cx,
           id,
+          dynamic,
           attrs,
           children,
           element,
@@ -178,10 +183,12 @@ impl<El: IntoElement> HtmlElement<El> {
         HtmlElement {
           cx,
           id,
+          dynamic,
           attrs,
           children,
           element: AnyElement {
             name: element.name(),
+            dynamic,
             is_void: element.is_void(),
           },
         }
@@ -310,6 +317,7 @@ impl<El: IntoElement> HtmlElement<El> {
           }),
         );
       } else {
+        self.dynamic = true;
         if let Some(value) = f() {
           let value = value.into();
 
@@ -373,19 +381,22 @@ impl<El: IntoElement> HtmlElement<El> {
   /// Adds a prop to this element.
   #[track_caller]
   pub fn prop(
-    self,
+    mut self,
     name: impl Into<Cow<'static, str>>,
     value: impl Into<JsValue>,
   ) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      let name = name.into();
-      let value = value.into();
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        let name = name.into();
+        let value = value.into();
 
-      let name: &str = &name;
+        let name: &str = &name;
 
-      js_sys::Reflect::set(&self, &name.into(), &value)
-        .expect("set property to not err");
+        js_sys::Reflect::set(&self, &name.into(), &value)
+          .expect("set property to not err");
+      } else {
+        self.dynamic = true;
+      }
     }
 
     self
@@ -394,7 +405,7 @@ impl<El: IntoElement> HtmlElement<El> {
   /// Adds an event listener to this element.
   #[track_caller]
   pub fn on<E: EventDescriptor + 'static>(
-    self,
+    mut self,
     event: E,
     event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
@@ -409,6 +420,7 @@ impl<El: IntoElement> HtmlElement<El> {
         }
 
       } else {
+        self.dynamic = true;
         _ = event;
         _ = event_handler;
       }
@@ -446,6 +458,7 @@ impl<El: IntoElement> HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         mount_child(MountKind::Append(self.element.get_element()), &DynChild::new(child_fn).into_node(self.cx))
       } else {
+        self.dynamic = true;
         self
           .children
           .push(Box::new(move |cx| DynChild::new(child_fn).into_node(cx)));
@@ -463,13 +476,14 @@ impl<El: IntoElement> IntoNode for HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         Node::Element(Element::new(self.element))
       } else {
-        let Self { element, attrs, children, .. } = self;
+        let Self { element, attrs, children, dynamic, .. } = self;
         let mut element = Element::new(element);
         let children = children
           .into_iter()
           .map(|c| c(cx))
           .collect::<SmallVec<[_; 4]>>();
 
+        element.dynamic = dynamic;
         element.attrs = attrs;
         element.children.extend(children);
 
@@ -547,6 +561,7 @@ macro_rules! generate_html_tags {
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
             let element = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
 
             Self {
@@ -672,7 +687,10 @@ impl<El: IntoElement> HtmlElement<El> {
         let mut class = class.into_class(cx);
         match class {
           Class::Value(include) => self.class_bool(name, include),
-          Class::Fn(f) => self.class_bool(name, f())
+          Class::Fn(f) => {
+            self.dynamic = true;
+            self.class_bool(name, f())
+          }
         }
       }
     }
