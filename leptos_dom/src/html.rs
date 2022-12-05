@@ -15,7 +15,7 @@ use std::{
   fmt,
   ops::Deref,
 };
-use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast};
+use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast, JsValue};
 
 /// Trait alias for the trait bounts on [`IntoElement`].
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -368,6 +368,27 @@ impl<El: IntoElement> HtmlElement<El> {
     C: Into<Cow<'static, str>>,
   {
     self.dyn_attr("class", f)
+  }
+
+  /// Adds a prop to this element.
+  #[track_caller]
+  pub fn prop(
+    self,
+    name: impl Into<Cow<'static, str>>,
+    value: impl Into<JsValue>,
+  ) -> Self {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let name = name.into();
+      let value = value.into();
+
+      let name: &str = &name;
+
+      js_sys::Reflect::set(&self, &name.into(), &value)
+        .expect("set property to not err");
+    }
+
+    self
   }
 
   /// Adds an event listener to this element.

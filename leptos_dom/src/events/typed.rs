@@ -25,7 +25,7 @@ pub trait EventDescriptor {
 
 /// Overrides the [`EventDescriptor::bubbles`] method to always return
 /// `false`, which forces the event to not be globally delegated.
-pub struct Undelegated<Ev: EventDescriptor>(Ev);
+pub struct Undelegated<Ev: EventDescriptor>(pub Ev);
 
 impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
   type EventType = Ev::EventType;
@@ -97,32 +97,32 @@ generate_event_types![
   ],
   [KeyboardEvent, [KeyDown, Keypress, Keyup]],
   [FocusEvent, [Focus, FocusOut, FocusIn, Blur]],
-  [FormEvent, [Change, Input, Invalid, Reset, Submit]],
-  [
-    MouseEvent,
-    [
-      Click,
-      ContextMenu,
-      DoubleClick,
-      DblClick,
-      Drag,
-      DragEnd,
-      DragEnter,
-      DragExit,
-      DragLeave,
-      DragOver,
-      DragStart,
-      Drop,
-      MouseDown,
-      MouseEnter,
-      MouseLeave,
-      MouseMove,
-      MouseOut,
-      MouseOver,
-      MouseUp,
-    ]
-  ],
-  [ScrollEvent, [Scroll]],
+  // [FormEvent, [Change, Input, Invalid, Reset, Submit]],
+  // [
+  //   MouseEvent,
+  //   [
+  //     Click,
+  //     ContextMenu,
+  //     DoubleClick,
+  //     DblClick,
+  //     Drag,
+  //     DragEnd,
+  //     DragEnter,
+  //     DragExit,
+  //     DragLeave,
+  //     DragOver,
+  //     DragStart,
+  //     Drop,
+  //     MouseDown,
+  //     MouseEnter,
+  //     MouseLeave,
+  //     MouseMove,
+  //     MouseOut,
+  //     MouseOver,
+  //     MouseUp,
+  //   ]
+  // ],
+  // [ScrollEvent, [Scroll]],
   [
     PointerEvent,
     [
@@ -138,41 +138,41 @@ generate_event_types![
       PointerOut,
     ]
   ],
-  [SelectionEvent, [Select]],
+  // [SelectionEvent, [Select]],
   [TouchEvent, [TouchCancel, TouchEnd, TouchMove, TouchStart]],
   [WheelEvent, [Wheel]],
-  [
-    MediaEvent,
-    [
-      Abort,
-      CanPlay,
-      CanPlayThrough,
-      DurationChange,
-      Emptied,
-      Encrypted,
-      Ended,
-      Error,
-      LoadedData,
-      LoadedMetadata,
-      LoadStart,
-      Pause,
-      Play,
-      Playing,
-      Progress,
-      RateChange,
-      Seeked,
-      Seeking,
-      Stalled,
-      Suspend,
-      TimeUpdate,
-      VolumeChange,
-      Waiting,
-    ]
-  ],
+  // [
+  //   MediaEvent,
+  //   [
+  //     Abort,
+  //     CanPlay,
+  //     CanPlayThrough,
+  //     DurationChange,
+  //     Emptied,
+  //     Encrypted,
+  //     Ended,
+  //     Error,
+  //     LoadedData,
+  //     LoadedMetadata,
+  //     LoadStart,
+  //     Pause,
+  //     Play,
+  //     Playing,
+  //     Progress,
+  //     RateChange,
+  //     Seeked,
+  //     Seeking,
+  //     Stalled,
+  //     Suspend,
+  //     TimeUpdate,
+  //     VolumeChange,
+  //     Waiting,
+  //   ]
+  // ],
   [
     AnimationEvent,
     [AnimationStart, AnimationEnd, AnimationIteration,]
   ],
   [TransitionEvent, [TransitionEnd]],
-  [ToggleEvent, [Toggle]]
+  // [ToggleEvent, [Toggle]]
 ];

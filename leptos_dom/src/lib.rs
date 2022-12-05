@@ -21,18 +21,18 @@ use cfg_if::cfg_if;
 pub use components::*;
 pub use events::typed as ev;
 pub use html::*;
-pub use node_ref::*;
-pub use logging::*;
-pub use web_sys;
-pub use wasm_bindgen;
 use leptos_reactive::Scope;
+pub use logging::*;
+pub use node_ref::*;
 use smallvec::SmallVec;
 use std::{
   borrow::Cow,
   cell::{LazyCell, OnceCell},
   fmt,
 };
+pub use wasm_bindgen;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
+pub use web_sys;
 
 #[thread_local]
 static COMMENT: LazyCell<web_sys::Node> =
