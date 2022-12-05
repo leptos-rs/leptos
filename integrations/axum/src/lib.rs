@@ -199,13 +199,13 @@ pub fn render_app_to_stream(
 
                 let pkg_path = &options.pkg_path;
                 let socket_ip = &options.socket_address.ip().to_string();
+                let reload_port = options.reload_port;
 
-                let leptos_autoreload = match options.reload_port {
-                    Some(port) => match &options.environment {
-                        RustEnv::DEV => format!(
-                            r#"
+                let leptos_autoreload = match options.environment {
+                    RustEnv::DEV => format!(
+                        r#"
                             <script crossorigin="">(function () {{
-                                var ws = new WebSocket('ws://{socket_ip}:{port}/autoreload');
+                                var ws = new WebSocket('ws://{socket_ip}:{reload_port}/autoreload');
                                 ws.onmessage = (ev) => {{
                                     console.log(`Reload message: `);
                                     if (ev.data === 'reload') window.location.reload();
@@ -214,10 +214,8 @@ pub fn render_app_to_stream(
                             }})()
                             </script>
                         "#
-                        ),
-                        RustEnv::PROD => "".to_string(),
-                    },
-                    None => "".to_string(),
+                    ),
+                    RustEnv::PROD => "".to_string(),
                 };
 
                 let head = format!(
