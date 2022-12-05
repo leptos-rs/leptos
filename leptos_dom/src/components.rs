@@ -42,17 +42,6 @@ pub struct ComponentRepr {
   disposer: Option<ScopeDisposer>,
 }
 
-impl Drop for ComponentRepr {
-  fn drop(&mut self) {
-    // TODO: all ComponentReprs are immediately dropped, 
-    // which means their scopes are immediately disposed,
-    // which means components have no reactivity
-    if let Some(disposer) = self.disposer.take() {
-      //disposer.dispose();
-    }
-  }
-}
-
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for ComponentRepr {
   fn get_mountable_node(&self) -> web_sys::Node {
@@ -167,7 +156,8 @@ where
 
     let mut repr = ComponentRepr::new(name);
 
-    repr.disposer = Some(disposer);
+    leptos_reactive::on_cleanup(cx, move || disposer.dispose());
+
     repr.children = vec![children];
 
     repr.into_node(cx)
