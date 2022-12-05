@@ -338,7 +338,7 @@ fn attribute_to_tokens(
     };
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => .attr(#cx, #name, #[allow(unused_braces)] #value)
+        span => .attr(#name, (#cx, #value))
     }
     /* } else {
         quote! { }
