@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -58,7 +58,8 @@ default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
+stable = ["leptos/stable"]
 
 [package.metadata.cargo-all-features]
 # No need to test optional dependencies as they are enabled by the ssr feature
-denylist = ["url", "regex"]
+denylist = ["url", "regex", "stable"]

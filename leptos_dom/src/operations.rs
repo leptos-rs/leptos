@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use cfg_if::cfg_if;
 use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
@@ -254,30 +255,58 @@ pub fn set_interval(
     Ok(IntervalHandle(handle))
 }
 
-/// Adds an event listener to the target DOM element using implicit event delegation.
-pub fn add_event_listener<E>(
-    target: &web_sys::Element,
-    event_name: &'static str,
-    cb: impl FnMut(E) + 'static,
-) where
-    E: FromWasmAbi + 'static,
-{
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
-    let key = event_delegation::event_delegation_key(event_name);
-    _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
-    event_delegation::add_event_listener(event_name);
-}
+cfg_if! {
+    if #[cfg(not(feature = "stable"))] {
+        /// Adds an event listener to the target DOM element using implicit event delegation.
+        pub fn add_event_listener<E>(
+            target: &web_sys::Element,
+            event_name: &'static str,
+            cb: impl FnMut(E) + 'static,
+        ) where
+            E: FromWasmAbi + 'static,
+        {
+            let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
+            let key = event_delegation::event_delegation_key(event_name);
+            _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
+            event_delegation::add_event_listener(event_name);
+        }
 
-#[doc(hidden)]
-pub fn add_event_listener_undelegated<E>(
-    target: &web_sys::Element,
-    event_name: &'static str,
-    cb: impl FnMut(E) + 'static,
-) where
-    E: FromWasmAbi + 'static,
-{
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
-    _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
+        #[doc(hidden)]
+        pub fn add_event_listener_undelegated<E>(
+            target: &web_sys::Element,
+            event_name: &'static str,
+            cb: impl FnMut(E) + 'static,
+        ) where
+            E: FromWasmAbi + 'static,
+        {
+            let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
+            _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
+        }
+    } else {
+        /// Adds an event listener to the target DOM element using implicit event delegation.
+        pub fn add_event_listener(
+            target: &web_sys::Element,
+            event_name: &'static str,
+            cb: impl FnMut(web_sys::Event) + 'static,
+        )
+        {
+            let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+            let key = event_delegation::event_delegation_key(event_name);
+            _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
+            event_delegation::add_event_listener(event_name);
+        }
+
+        #[doc(hidden)]
+        pub fn add_event_listener_undelegated(
+            target: &web_sys::Element,
+            event_name: &'static str,
+            cb: impl FnMut(web_sys::Event) + 'static,
+        )
+        {
+            let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(web_sys::Event)>).into_js_value();
+            _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
+        }
+    }
 }
 
 #[doc(hidden)]

@@ -68,7 +68,6 @@ impl std::fmt::Debug for RouterContextInner {
         f.debug_struct("RouterContextInner")
             .field("location", &self.location)
             .field("base", &self.base)
-            .field("history", &std::any::type_name_of_val(&self.history))
             .field("cx", &self.cx)
             .field("reference", &self.reference)
             .field("set_reference", &self.set_reference)
@@ -103,14 +102,16 @@ impl RouterContext {
         let base = base.unwrap_or_default();
         let base_path = resolve_path("", base, None);
 
-        if let Some(base_path) = &base_path && source.with(|s| s.value.is_empty()) {
-			history.navigate(&LocationChange {
-				value: base_path.to_string(),
-				replace: true,
-				scroll: false,
-				state: State(None)
-			});
-		}
+        if let Some(base_path) = &base_path {
+            if source.with(|s| s.value.is_empty()) {
+                history.navigate(&LocationChange {
+                    value: base_path.to_string(),
+                    replace: true,
+                    scroll: false,
+                    state: State(None),
+                });
+            }
+        }
 
         // the current URL
         let (reference, set_reference) = create_signal(cx, source.with(|s| s.value.clone()));
@@ -136,9 +137,9 @@ impl RouterContext {
         // 3) update the state
         // this will trigger the new route match below
         create_render_effect(cx, move |_| {
-            let LocationChange { value, state, .. } = source();
+            let LocationChange { value, state, .. } = source.get();
             cx.untrack(move || {
-                if value != reference() {
+                if value != reference.get() {
                     set_reference.update(move |r| *r = value);
                     set_state.update(move |s| *s = state);
                 }

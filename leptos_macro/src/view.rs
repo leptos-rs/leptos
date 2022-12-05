@@ -564,14 +564,28 @@ fn attr_to_tokens(
         let event_type = event_type.parse::<TokenStream>().expect("couldn't parse event name");
 
         if mode != Mode::Ssr {
-            if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
-                expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener_undelegated::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
-                });
-            } else {
-                expressions.push(quote_spanned! {
-                    span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
-                });
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "stable")] {
+                    if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
+                        expressions.push(quote_spanned! {
+                            span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
+                        });
+                    } else {
+                        expressions.push(quote_spanned! {
+                            span => ::leptos::add_event_listener(#el_id.unchecked_ref(), #name, #handler);
+                        });
+                    }
+                } else {
+                    if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
+                        expressions.push(quote_spanned! {
+                            span => ::leptos::add_event_listener_undelegated::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
+                        });
+                    } else {
+                        expressions.push(quote_spanned! {
+                            span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
+                        });
+                    }
+                }
             }
         } else {
             

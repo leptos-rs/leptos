@@ -1,4 +1,5 @@
 use crate::{use_navigate, use_resolved_path, TextProp};
+use cfg_if::cfg_if;
 use leptos::*;
 use std::{error::Error, rc::Rc};
 use typed_builder::TypedBuilder;
@@ -131,15 +132,37 @@ where
 
     let children = children();
 
-    view! { cx,
-        <form
-            method=method
-            action=action
-            enctype=enctype
-            on:submit=on_submit
-        >
-            {children}
-        </form>
+    cfg_if! {
+        if #[cfg(feature = "stable")] {
+            let on_submit = move |ev: web_sys::Event| on_submit(ev.unchecked_into());
+        }
+    };
+
+    cfg_if! {
+        if #[cfg(not(feature = "stable"))] {
+            view! { cx,
+                <form
+                    method=method
+                    action=action
+                    enctype=enctype
+                    on:submit=on_submit
+                >
+                    {children}
+                </form>
+            }
+        }
+        else {
+            view! { cx,
+                <form
+                    method=method
+                    action=move || action.get()
+                    enctype=enctype
+                    on:submit=on_submit
+                >
+                    {children}
+                </form>
+            }
+        }
     }
 }
 
@@ -281,6 +304,12 @@ where
     };
 
     let children = (props.children)();
+
+    cfg_if! {
+        if #[cfg(feature = "stable")] {
+            let on_submit = move |ev: web_sys::Event| on_submit(ev.unchecked_into());
+        }
+    };
 
     view! { cx,
         <form
