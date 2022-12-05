@@ -89,7 +89,6 @@ macro_rules! generate_event_types {
 }
 
 generate_event_types![
-  // ClipboardEvent is unstable
   [Event, [Copy, Cut, Paste]],
   [
     CompositionEvent,
@@ -97,32 +96,33 @@ generate_event_types![
   ],
   [KeyboardEvent, [KeyDown, Keypress, Keyup]],
   [FocusEvent, [Focus, FocusOut, FocusIn, Blur]],
-  // [FormEvent, [Change, Input, Invalid, Reset, Submit]],
-  // [
-  //   MouseEvent,
-  //   [
-  //     Click,
-  //     ContextMenu,
-  //     DoubleClick,
-  //     DblClick,
-  //     Drag,
-  //     DragEnd,
-  //     DragEnter,
-  //     DragExit,
-  //     DragLeave,
-  //     DragOver,
-  //     DragStart,
-  //     Drop,
-  //     MouseDown,
-  //     MouseEnter,
-  //     MouseLeave,
-  //     MouseMove,
-  //     MouseOut,
-  //     MouseOver,
-  //     MouseUp,
-  //   ]
-  // ],
-  // [ScrollEvent, [Scroll]],
+  [Event, [Change, Input, Invalid, Reset]],
+  [
+    MouseEvent,
+    [
+      Click,
+      ContextMenu,
+      DoubleClick,
+      DblClick,
+      Drag,
+      DragEnd,
+      DragEnter,
+      DragExit,
+      DragLeave,
+      DragOver,
+      DragStart,
+      Drop,
+      MouseDown,
+      MouseEnter,
+      MouseLeave,
+      MouseMove,
+      MouseOut,
+      MouseOver,
+      MouseUp,
+    ]
+  ],
+  [Event, [Scroll]],
+  [Event, [SubmitEvent]],
   [
     PointerEvent,
     [
@@ -138,41 +138,41 @@ generate_event_types![
       PointerOut,
     ]
   ],
-  // [SelectionEvent, [Select]],
+  [Event, [Select]],
   [TouchEvent, [TouchCancel, TouchEnd, TouchMove, TouchStart]],
   [WheelEvent, [Wheel]],
-  // [
-  //   MediaEvent,
-  //   [
-  //     Abort,
-  //     CanPlay,
-  //     CanPlayThrough,
-  //     DurationChange,
-  //     Emptied,
-  //     Encrypted,
-  //     Ended,
-  //     Error,
-  //     LoadedData,
-  //     LoadedMetadata,
-  //     LoadStart,
-  //     Pause,
-  //     Play,
-  //     Playing,
-  //     Progress,
-  //     RateChange,
-  //     Seeked,
-  //     Seeking,
-  //     Stalled,
-  //     Suspend,
-  //     TimeUpdate,
-  //     VolumeChange,
-  //     Waiting,
-  //   ]
-  // ],
+  [
+    Event,
+    [
+      Abort,
+      CanPlay,
+      CanPlayThrough,
+      DurationChange,
+      Emptied,
+      Encrypted,
+      Ended,
+      Error,
+      LoadedData,
+      LoadedMetadata,
+      LoadStart,
+      Pause,
+      Play,
+      Playing,
+      Progress,
+      RateChange,
+      Seeked,
+      Seeking,
+      Stalled,
+      Suspend,
+      TimeUpdate,
+      VolumeChange,
+      Waiting,
+    ]
+  ],
   [
     AnimationEvent,
     [AnimationStart, AnimationEnd, AnimationIteration,]
   ],
   [TransitionEvent, [TransitionEnd]],
-  // [ToggleEvent, [Toggle]]
+  [Event, [Toggle]]
 ];
