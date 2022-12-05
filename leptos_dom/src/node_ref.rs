@@ -44,6 +44,7 @@ impl NodeRef {
     /// This tracks reactively, so that node references can be used in effects.
     /// Initially, the value will be `None`, but once it is loaded the effect
     /// will rerun and its value will be `Some(Element)`.
+    #[track_caller]
     pub fn get(&self) -> Option<web_sys::Element> {
         self.0.get()
     }
@@ -52,8 +53,14 @@ impl NodeRef {
     /// Loads an element into the reference. This tracks reactively,
     /// so that effects that use the node reference will rerun once it is loaded,
     /// i.e., effects can be forward-declared.
+    #[track_caller]
     pub fn load(&self, node: &web_sys::Element) {
-        self.0.set(Some(node.clone()))
+        self.0.update(|current | {
+            if current.is_some() {
+                crate::debug_warn!("You are setting a NodeRef that has already been filled. It’s possible this is intentional, but it’s also possible that you’re accidentally using the same NodeRef for multiple _ref attributes.");
+            }
+            *current = Some(node.clone());
+        });
     }
 }
 
