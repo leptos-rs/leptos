@@ -262,11 +262,11 @@ impl<El: IntoElement> HtmlElement<El> {
           attr = f();
         }
         match attr {
-          Attribute::String(_, value) => {
+          Attribute::String(value) => {
             self.attrs.push((name, value.into()));
             self
           },
-          Attribute::Bool(_, include) => if include {
+          Attribute::Bool(include) => if include {
             self.attrs.push((name, "".into()));
             self
           } else {
@@ -288,7 +288,6 @@ impl<El: IntoElement> HtmlElement<El> {
   #[track_caller]
   pub fn class(
     mut self,
-    cx: Scope,
     name: impl Into<Cow<'static, str>>,
     class: impl IntoClass,
   ) -> Self {
@@ -297,7 +296,7 @@ impl<El: IntoElement> HtmlElement<El> {
     if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
       let el = self.element.get_element();
       let class_list = el.class_list();
-      let value = class.into_class(cx);
+      let value = class.into_class(self.cx);
       match value {
         Class::Fn(cx, f) => {
             create_render_effect(cx, move |old| {
@@ -313,11 +312,11 @@ impl<El: IntoElement> HtmlElement<El> {
       self
     }
     else {
-      let mut class = class.into_class(cx);
+      let mut class = class.into_class(self.cx);
 
       let include = match class {
         Class::Value(include) => include,
-        Class::Fn(f) => {
+        Class::Fn(_, f) => {
           self.dynamic = true;
           f()
         }
@@ -342,14 +341,13 @@ impl<El: IntoElement> HtmlElement<El> {
   #[track_caller]
   pub fn prop(
     mut self,
-    cx: Scope,
     name: impl Into<Cow<'static, str>>,
     value: impl IntoProperty,
   ) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         let name = name.into();
-        let value = value.into_property(cx);
+        let value = value.into_property(self.cx);
         let el = self.element.get_element();
         match value {
           Property::Fn(cx, f) => {
