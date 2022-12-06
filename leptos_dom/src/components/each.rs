@@ -206,8 +206,8 @@ where
   K: Eq + Hash + 'static,
   T: 'static,
 {
-  items_fn: IF,
-  each_fn: EF,
+  pub(crate) items_fn: IF,
+  pub(crate) each_fn: EF,
   key_fn: KF,
 }
 
@@ -259,54 +259,63 @@ where
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let closing = component.closing.node.clone();
 
-    create_effect(cx, move |prev_hash_run| {
-      let mut children_borrow = children.borrow_mut();
+    cfg_if::cfg_if! { 
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        create_effect(cx, move |prev_hash_run| {
+          let mut children_borrow = children.borrow_mut();
 
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      let opening = if let Some(Some(child)) = children_borrow.get(0) {
-        child.get_opening_node()
+          #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          let opening = if let Some(Some(child)) = children_borrow.get(0) {
+            child.get_opening_node()
+          } else {
+            closing.clone()
+          };
+
+          let items = items_fn();
+
+          let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
+
+          let hashed_items =
+            items.iter().map(|i| key_fn(i)).collect::<FxIndexSet<_>>();
+
+          if let Some(HashRun(prev_hash_run)) = prev_hash_run {
+            let cmds = diff(&prev_hash_run, &hashed_items);
+
+            apply_cmds(
+              cx,
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              &opening,
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              &closing,
+              cmds,
+              &mut children_borrow,
+              items.into_iter().map(|t| Some(t)).collect(),
+              &each_fn,
+            );
+          } else {
+            *children_borrow = Vec::with_capacity(items.len());
+
+            for item in items {
+              let child = each_fn(item).into_view(cx);
+
+              let each_item = EachItem::new(child);
+
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              mount_child(MountKind::Before(&closing), &each_item);
+
+              children_borrow.push(Some(each_item));
+            }
+          }
+
+          HashRun(hashed_items)
+        });
       } else {
-        closing.clone()
-      };
-
-      let items = items_fn();
-
-      let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
-
-      let hashed_items =
-        items.iter().map(|i| key_fn(i)).collect::<FxIndexSet<_>>();
-
-      if let Some(HashRun(prev_hash_run)) = prev_hash_run {
-        let cmds = diff(&prev_hash_run, &hashed_items);
-
-        apply_cmds(
-          cx,
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          &opening,
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          &closing,
-          cmds,
-          &mut children_borrow,
-          items.into_iter().map(|t| Some(t)).collect(),
-          &each_fn,
-        );
-      } else {
-        *children_borrow = Vec::with_capacity(items.len());
-
-        for item in items {
-          let child = each_fn(item).into_view(cx);
-
-          let each_item = EachItem::new(child);
-
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          mount_child(MountKind::Before(&closing), &each_item);
-
-          children_borrow.push(Some(each_item));
-        }
+        *component.children.borrow_mut() = (items_fn)()
+          .into_iter()
+          .map(|child| Some(EachItem::new((each_fn)(child).into_view(cx))))
+          .collect();
       }
-
-      HashRun(hashed_items)
-    });
+    }
 
     View::CoreComponent(CoreComponent::Each(component))
   }

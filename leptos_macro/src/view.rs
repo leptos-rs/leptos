@@ -271,8 +271,7 @@ fn attribute_to_tokens(
       .and_then(|expr| expr_to_ident(expr))
       .expect("'_ref' needs to be passed a variable name");
     quote_spanned! {
-        span => #[allow(unused_braces)]
-                .ref(#value)
+        span => .node_ref(#value)
     }
     /* } else {
         todo!()

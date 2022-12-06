@@ -12,6 +12,7 @@ extern crate tracing;
 
 mod components;
 mod events;
+mod helpers;
 mod html;
 mod logging;
 mod macro_helpers;
@@ -21,6 +22,7 @@ mod ssr;
 use cfg_if::cfg_if;
 pub use components::*;
 pub use events::typed as ev;
+pub use helpers::*;
 pub use html::*;
 use leptos_reactive::Scope;
 pub use logging::*;
