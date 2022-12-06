@@ -84,9 +84,9 @@ impl View {
         let mut attrs = el
           .attrs
           .into_iter()
-          .map(|(name, value)| {
+          .map(|(name, value)| -> Cow<'static, str> {
             if value.is_empty() {
-              name
+              format!(" {name}").into()
             } else {
               if name == "id" {
                 has_id = true;
@@ -120,6 +120,7 @@ impl View {
               })
             })
             .join("");
+
           format!("<{tag_name}{attrs}>{children}</{tag_name}>").into()
         }
       }

@@ -38,7 +38,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
   let (tick, set_tick) = create_signal(cx, 0);
   let (count, set_count) = create_signal(cx, 0);
   let (show, set_show) = create_signal(cx, true);
-  let (iterable, set_iterable) = create_signal(cx, vec![1, 2, 3, 4]);
+  let (iterable, set_iterable) = create_signal(cx, vec![]);
   let (disabled, set_disabled) = create_signal(cx, false);
   let (apply_default_class_set, set_apply_default_class_set) =
     create_signal(cx, false);
@@ -88,6 +88,10 @@ fn view_fn(cx: Scope) -> impl IntoView {
   });
 
   [
+    div(cx)
+      .child(span(cx).attr("disabled", true).attr("blah", "lah"))
+      .child(span(cx))
+      .into_view(cx),
     h1(cx)
       .child(move || text(count().to_string()))
       .into_view(cx),
