@@ -22,14 +22,23 @@ fn main() {
     .finish()
     .init();
 
-  mount_to_body(view_fn);
+  // mount_to_body(view_fn);
+
+  let disposer =
+    leptos_reactive::create_scope(leptos_reactive::create_runtime(), |cx| {
+      let view = view_fn(cx).into_view(cx);
+
+      let render = view.render_to_string();
+
+      println!("{render}");
+    });
 }
 
 fn view_fn(cx: Scope) -> impl IntoView {
   let (tick, set_tick) = create_signal(cx, 0);
   let (count, set_count) = create_signal(cx, 0);
   let (show, set_show) = create_signal(cx, true);
-  let (iterable, set_iterable) = create_signal(cx, vec![]);
+  let (iterable, set_iterable) = create_signal(cx, vec![1, 2, 3, 4]);
   let (disabled, set_disabled) = create_signal(cx, false);
   let (apply_default_class_set, set_apply_default_class_set) =
     create_signal(cx, false);
@@ -80,38 +89,39 @@ fn view_fn(cx: Scope) -> impl IntoView {
 
   [
     h1(cx)
-      .child(cx, move || text(count().to_string()))
+      .child(move || text(count().to_string()))
       .into_view(cx),
     button(cx)
       .on(ev::click, move |_| set_tick.update(|t| *t += 1))
-      .child(cx, text("Tick"))
+      .child(text("Tick"))
       .into_view(cx),
     button(cx)
       .on(ev::click, move |_| set_count.update(|n| *n += 1))
-      .child(cx, text("Click me"))
+      .child(text("Click me"))
       .into_view(cx),
     button(cx)
       .on(ev::Undelegated(ev::click), move |_| {
         set_count.update(|n| *n += 1)
       })
-      .child(cx, text("Click me (undelegated)"))
+      .child(text("Click me (undelegated)"))
       .into_view(cx),
     pre(cx)
-      .child(
-        cx,
-        EachKey::new(iterable, |i| *i, move |i| text(format!("{i}, "))),
-      )
+      .child(EachKey::new(
+        iterable,
+        |i| *i,
+        move |i| text(format!("{i}, ")),
+      ))
       .into_view(cx),
     pre(cx)
-      .child(cx, text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
+      .child(text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
       .into_view(cx),
     input(cx)
-      .class(cx, "input input-primary", true)
-      .attr(cx, "disabled", move || disabled().then_some(""))
+      .class("input input-primary", true)
+      .attr("disabled", move || disabled().then_some(""))
       .into_view(cx),
     MyComponent.into_view(cx),
     h3(cx)
-      .child(cx, move || show().then(|| text("Now you see me...")))
+      .child(move || show().then(|| text("Now you see me...")))
       .into_view(cx),
   ]
 }
@@ -121,7 +131,7 @@ struct MyComponent;
 impl IntoView for MyComponent {
   fn into_view(self, cx: Scope) -> View {
     let component = Component::new("MyComponent", |cx| {
-      h2(cx).child(cx, text("MyComponent")).into_view(cx)
+      h2(cx).child(text("MyComponent")).into_view(cx)
     });
 
     component.into_view(cx)

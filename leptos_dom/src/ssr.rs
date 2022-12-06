@@ -4,7 +4,7 @@ use std::{borrow::Cow, fmt::Display};
 
 use crate::{CoreComponent, View};
 
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+#[cfg(feature = "ssr")]
 impl View {
   /// Consumes the node and renders it into an HTML string.
   pub fn render_to_string(self) -> Cow<'static, str> {
@@ -28,19 +28,19 @@ impl View {
           if #[cfg(debug_assertions)] {
             format!(r#"<template id="{id}o"/>{content}<template id="{id}c"/>"#).into()
           } else {
-            format!(r#"{content}<template id="{id}c"/>"#).into()
+            format!(r#"{content}<template id="{id}"/>"#).into()
           }
         }
       }
       View::CoreComponent(node) => {
         let content = match node {
-          CoreComponent::Unit(_) => " ".into(),
+          CoreComponent::Unit(_) => format!("<template id={id}/>").into(),
           CoreComponent::DynChild(node) => {
             let child = node.child.take();
             if let Some(child) = *child {
               child.render_to_string_with_id(id.first_child())
             } else {
-              " ".into()
+              "".into()
             }
           }
           CoreComponent::Each(node) => {
@@ -51,9 +51,18 @@ impl View {
               .flatten()
               .enumerate()
               .map(|(offset, node)| {
-                node
-                  .child
-                  .render_to_string_with_id(TopoId { depth, offset })
+                let id = TopoId { depth, offset };
+
+                let content =
+                  node.child.render_to_string_with_id(id.first_child());
+
+                #[cfg(debug_assertions)]
+                return format!(
+                  "<template id=\"{id}o\"/>{content}<template id=\"{id}c\"/>"
+                );
+
+                #[cfg(not(debug_assertions))]
+                return format!("{content}<template id=\"{id}c\"/>");
               })
               .join("")
               .into()
