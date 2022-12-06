@@ -2,7 +2,7 @@ use cfg_if::cfg_if;
 use itertools::Itertools;
 use std::{borrow::Cow, fmt::Display};
 
-use crate::{CoreComponent, View};
+use crate::{CoreComponent, TopoId, View};
 
 #[cfg(feature = "ssr")]
 impl View {
@@ -16,12 +16,14 @@ impl View {
       View::Text(node) => node.content,
       View::Component(node) => {
         let depth = id.first_child().depth;
+        let sum = id.depth + id.offset + id.sum;
+
         let content = node
           .children
           .into_iter()
           .enumerate()
           .map(|(offset, node)| {
-            node.render_to_string_with_id(TopoId { depth, offset })
+            node.render_to_string_with_id(TopoId { depth, offset, sum })
           })
           .join("");
         cfg_if! {
@@ -46,12 +48,14 @@ impl View {
           CoreComponent::Each(node) => {
             let children = node.children.take();
             let depth = id.first_child().depth;
+            let sum = id.depth + id.offset + id.sum;
+
             children
               .into_iter()
               .flatten()
               .enumerate()
               .map(|(offset, node)| {
-                let id = TopoId { depth, offset };
+                let id = TopoId { depth, offset, sum };
 
                 let content =
                   node.child.render_to_string_with_id(id.first_child());
@@ -108,16 +112,13 @@ impl View {
           format!("<{tag_name}{attrs}/>").into()
         } else {
           let depth = id.depth + 1;
-          let starting_offset = id.offset + 1;
+          let sum = id.depth + id.offset + id.sum;
           let children = el
             .children
             .into_iter()
             .enumerate()
             .map(|(offset, node)| {
-              node.render_to_string_with_id(TopoId {
-                depth,
-                offset: starting_offset + offset,
-              })
+              node.render_to_string_with_id(TopoId { depth, offset, sum })
             })
             .join("");
 
@@ -125,39 +126,6 @@ impl View {
         }
       }
     }
-  }
-}
-
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
-struct TopoId {
-  depth: usize,
-  offset: usize,
-}
-
-impl TopoId {
-  fn first_child(&self) -> TopoId {
-    TopoId {
-      depth: self.depth + 1,
-      offset: 0,
-    }
-  }
-
-  fn next_sibling(&self) -> TopoId {
-    TopoId {
-      depth: self.depth,
-      offset: self.offset + 1,
-    }
-  }
-}
-
-impl Display for TopoId {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_fmt(format_args!(
-      "{}-{}-{}",
-      self.depth,
-      self.offset,
-      self.depth + self.offset
-    ))
   }
 }
 

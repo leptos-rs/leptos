@@ -14,6 +14,7 @@ mod components;
 mod events;
 mod helpers;
 mod html;
+mod hydration;
 mod logging;
 mod macro_helpers;
 mod node_ref;
@@ -24,6 +25,7 @@ pub use components::*;
 pub use events::typed as ev;
 pub use helpers::*;
 pub use html::*;
+use hydration::HydrationCtx;
 use leptos_reactive::Scope;
 pub use logging::*;
 pub use node_ref::*;
@@ -31,7 +33,7 @@ use smallvec::SmallVec;
 use std::{
   borrow::Cow,
   cell::{LazyCell, OnceCell},
-  fmt,
+  fmt::{self, Display},
 };
 pub use wasm_bindgen;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -379,6 +381,9 @@ where
   let disposer = leptos_reactive::create_scope(
     leptos_reactive::create_runtime(),
     move |cx| {
+      #[cfg(all(feature = "web", feature = "hydrate"))]
+      leptos_reactive::provide_context(cx, HydrationCtx::default());
+
       let node = f(cx).into_view(cx);
 
       parent.append_child(&node.get_mountable_node()).unwrap();
@@ -446,4 +451,30 @@ macro_rules! is_dev {
   () => {
     cfg!(debug_assertions)
   };
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+struct TopoId {
+  /// The depth of the node from the root.
+  depth: usize,
+  /// The position among a node's siblings.
+  offset: usize,
+  /// The sum of this node's parent's `depth + offset + sum`.
+  sum: usize,
+}
+
+impl TopoId {
+  fn first_child(&self) -> TopoId {
+    TopoId {
+      depth: self.depth + 1,
+      offset: 0,
+      sum: self.depth + self.offset + self.sum,
+    }
+  }
+}
+
+impl Display for TopoId {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_fmt(format_args!("{}-{}-{}", self.depth, self.offset, self.sum))
+  }
 }
