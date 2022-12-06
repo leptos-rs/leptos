@@ -70,16 +70,16 @@ impl MetaTagsContext {
 pub struct MetaProps {
     /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
     #[builder(default, setter(strip_option, into))]
-    charset: Option<TextProp>,
+    pub charset: Option<TextProp>,
 	/// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
 	#[builder(default, setter(strip_option, into))]
-	name: Option<TextProp>,
+	pub name: Option<TextProp>,
 	/// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
 	#[builder(default, setter(strip_option, into))]
-	http_equiv: Option<TextProp>,
+	pub http_equiv: Option<TextProp>,
 	/// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
 	#[builder(default, setter(strip_option, into))]
-	content: Option<TextProp>,
+	pub content: Option<TextProp>,
 }
 
 /// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
