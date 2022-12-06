@@ -12,11 +12,11 @@ use std::{
 
 pub enum Child {
   /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the node.
-  Fn(Box<RefCell<dyn FnMut() -> Child>>),
+  Fn(Scope, Box<RefCell<dyn FnMut() -> Child>>),
   /// Content for a text node.
   Text(String),
   /// A generic node (a text node, comment, or element.)
-  Node(View),
+  View(View),
   /// Nothing
   Unit,
 }
@@ -24,13 +24,15 @@ pub enum Child {
 impl IntoView for Child {
   fn into_view(self, cx: Scope) -> View {
     match self {
-      Child::Node(node) => node,
+      Child::View(node) => node,
       Child::Unit => Unit.into_view(cx),
       Child::Text(data) => crate::html::text(data),
-      Child::Fn(f) => DynChild::new(move || {
+      Child::Fn(cx, f) => DynChild::new(move || {
         let mut value = (f.borrow_mut())();
-        while let Child::Fn(f) = value {
+        let mut cx = cx;
+        while let Child::Fn(mapped_cx, f) = value {
           value = (f.borrow_mut())();
+          cx = mapped_cx;
         }
         value.into_view(cx)
       })
@@ -45,7 +47,7 @@ pub trait IntoChild {
 
 impl IntoChild for View {
   fn into_child(self, _cx: Scope) -> Child {
-    Child::Node(self)
+    Child::View(self)
   }
 }
 
@@ -78,7 +80,7 @@ where
   T: 'static,
 {
   fn into_child(self, cx: Scope) -> Child {
-    Child::Node(self.into_view(cx))
+    Child::View(self.into_view(cx))
   }
 }
 
@@ -89,7 +91,7 @@ where
 {
   fn into_child(mut self, cx: Scope) -> Child {
     let modified_fn = Box::new(RefCell::new(move || (self)().into_child(cx)));
-    Child::Fn(modified_fn)
+    Child::Fn(cx, modified_fn)
   }
 }
 
@@ -103,7 +105,7 @@ macro_rules! node_type {
   ($child_type:ty) => {
     impl IntoChild for $child_type {
       fn into_child(self, cx: Scope) -> Child {
-        Child::Node(self.into_view(cx))
+        Child::View(self.into_view(cx))
       }
     }
   };
@@ -118,7 +120,7 @@ node_type!(ComponentRepr);
 
 impl<El: IntoElement> IntoChild for HtmlElement<El> {
   fn into_child(self, cx: Scope) -> Child {
-    Child::Node(self.into_view(cx))
+    Child::View(self.into_view(cx))
   }
 }
 
@@ -127,7 +129,7 @@ where
   F: FnOnce(Scope) -> View,
 {
   fn into_child(self, cx: Scope) -> Child {
-    Child::Node(self.into_view(cx))
+    Child::View(self.into_view(cx))
   }
 }
 

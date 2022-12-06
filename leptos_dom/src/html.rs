@@ -406,11 +406,11 @@ impl<El: IntoElement> HtmlElement<El> {
 
   #[doc(hidden)]
   #[track_caller]
-  pub fn child(mut self, cx: Scope, child: impl IntoChild) -> Self {
-    let child = child.into_child(cx);
+  pub fn child(mut self, child: impl IntoChild) -> Self {
+    let child = child.into_child(self.cx);
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &child.into_view(cx))
+        mount_child(MountKind::Append(self.element.get_element()), &child.into_view(self.cx))
       }
       else {
         self.children.push(Box::new(move |cx| child.into_view(cx)));
