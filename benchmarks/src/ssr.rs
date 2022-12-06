@@ -5,7 +5,7 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 	use leptos::*;
 
 	b.iter(|| {
-		_ = create_scope(|cx| {
+		_ = create_scope(create_runtime(), |cx| {
 			#[component]
 			fn Counter(cx: Scope, initial: i32) -> Element {
 				let (value, set_value) = create_signal(cx, initial);

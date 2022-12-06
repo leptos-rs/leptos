@@ -115,7 +115,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
         set_mode(new_mode);
     });
 
-    let add_todo = move |ev: web_sys::Event| {
+    let add_todo = move |ev: web_sys::KeyboardEvent| {
         let target = event_target::<HtmlInputElement>(&ev);
         ev.stop_propagation();
         let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();

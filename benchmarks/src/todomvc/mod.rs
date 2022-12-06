@@ -11,7 +11,7 @@ fn leptos_todomvc_ssr(b: &mut Bencher) {
     use ::leptos::*;
 
     b.iter(|| {
-        _ = create_scope(|cx| {
+        _ = create_scope(create_runtime(), |cx| {
             let rendered = view! {
                 cx,
                 <TodoMVC todos=Todos::new(cx)/>
@@ -63,7 +63,7 @@ fn leptos_todomvc_ssr_with_1000(b: &mut Bencher) {
     use ::leptos::*;
 
     b.iter(|| {
-        _ = create_scope(|cx| {
+        _ = create_scope(create_runtime(), |cx| {
             let rendered = view! {
                 cx,
                 <TodoMVC todos=Todos::new_with_1000(cx)/>
