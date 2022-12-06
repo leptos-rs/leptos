@@ -88,9 +88,11 @@ fn view_fn(cx: Scope) -> impl IntoView {
   });
 
   [
+    span(cx).into_view(cx),
     div(cx)
-      .child(span(cx).attr("disabled", true).attr("blah", "lah"))
-      .child(span(cx))
+      .attr("t", || true)
+      .child(span(cx).attr("t", || true))
+      .child(span(cx).attr("t", || true))
       .into_view(cx),
     h1(cx)
       .child(move || text(count().to_string()))
