@@ -10,7 +10,7 @@ pub enum Property {
   /// A static JavaScript value.
   Value(JsValue),
   /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-  Fn(Box<dyn Fn() -> JsValue>),
+  Fn(Scope, Box<dyn Fn() -> JsValue>),
 }
 
 /// Converts some type into a [Property].
@@ -26,9 +26,9 @@ where
   T: Fn() -> U + 'static,
   U: Into<JsValue>,
 {
-  fn into_property(self, _cx: Scope) -> Property {
+  fn into_property(self, cx: Scope) -> Property {
     let modified_fn = Box::new(move || self().into());
-    Property::Fn(modified_fn)
+    Property::Fn(cx, modified_fn)
   }
 }
 

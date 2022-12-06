@@ -352,7 +352,7 @@ impl<El: IntoElement> HtmlElement<El> {
         let value = value.into_property(cx);
         let el = self.element.get_element();
         match value {
-          Property::Fn(f) => {
+          Property::Fn(cx, f) => {
             let el = el.clone();
             create_render_effect(cx, move |old| {
                 let new = f();
