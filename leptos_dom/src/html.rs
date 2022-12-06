@@ -299,7 +299,7 @@ impl<El: IntoElement> HtmlElement<El> {
       let class_list = el.class_list();
       let value = class.into_class(cx);
       match value {
-        Class::Fn(f) => {
+        Class::Fn(cx, f) => {
             create_render_effect(cx, move |old| {
               let new = f();
               if old.as_ref() != Some(&new) && (old.is_some() || new) {

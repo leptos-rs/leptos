@@ -11,7 +11,7 @@ pub enum Class {
   /// Whether the class is present.
   Value(bool),
   /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-  Fn(Box<dyn Fn() -> bool>),
+  Fn(Scope, Box<dyn Fn() -> bool>),
 }
 
 /// Converts some type into a [Class].
@@ -30,9 +30,9 @@ impl<T> IntoClass for T
 where
   T: Fn() -> bool + 'static,
 {
-  fn into_class(self, _cx: Scope) -> Class {
+  fn into_class(self, cx: Scope) -> Class {
     let modified_fn = Box::new(self);
-    Class::Fn(modified_fn)
+    Class::Fn(cx, modified_fn)
   }
 }
 
@@ -47,7 +47,7 @@ impl Class {
           ""
         }
       }
-      Class::Fn(f) => {
+      Class::Fn(_, f) => {
         let value = f();
         if value {
           class_name
