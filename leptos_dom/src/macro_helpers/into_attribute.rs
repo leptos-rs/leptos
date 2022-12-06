@@ -10,20 +10,20 @@ use wasm_bindgen::{intern, UnwrapThrowExt};
 #[derive(Clone)]
 pub enum Attribute {
   /// A plain string value.
-  String(Scope, String),
+  String(String),
   /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the attribute.
   Fn(Scope, Rc<dyn Fn() -> Attribute>),
   /// An optional string value, which sets the attribute to the value if `Some` and removes the attribute if `None`.
   Option(Scope, Option<String>),
   /// A boolean attribute, which sets the attribute if `true` and removes the attribute if `false`.
-  Bool(Scope, bool),
+  Bool(bool),
 }
 
 impl Attribute {
   /// Converts the attribute to its HTML value at that moment so it can be rendered on the server.
   pub fn as_value_string(&self, attr_name: &'static str) -> String {
     match self {
-      Attribute::String(_, value) => format!("{attr_name}=\"{value}\""),
+      Attribute::String(value) => format!("{attr_name}=\"{value}\""),
       Attribute::Fn(_, f) => {
         let mut value = f();
         while let Attribute::Fn(_, f) = value {
@@ -35,7 +35,7 @@ impl Attribute {
         .as_ref()
         .map(|value| format!("{attr_name}=\"{value}\""))
         .unwrap_or_default(),
-      Attribute::Bool(_, include) => {
+      Attribute::Bool(include) => {
         if *include {
           attr_name.to_string()
         } else {
@@ -49,10 +49,10 @@ impl Attribute {
 impl PartialEq for Attribute {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
-      (Self::String(_, l0), Self::String(_, r0)) => l0 == r0,
+      (Self::String(l0), Self::String(r0)) => l0 == r0,
       (Self::Fn(_, _), Self::Fn(_, _)) => false,
       (Self::Option(_, l0), Self::Option(_, r0)) => l0 == r0,
-      (Self::Bool(_, l0), Self::Bool(_, r0)) => l0 == r0,
+      (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
       _ => false,
     }
   }
@@ -61,10 +61,10 @@ impl PartialEq for Attribute {
 impl std::fmt::Debug for Attribute {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::String(_, arg0) => f.debug_tuple("String").field(arg0).finish(),
+      Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
       Self::Fn(_, _) => f.debug_tuple("Fn").finish(),
       Self::Option(_, arg0) => f.debug_tuple("Option").field(arg0).finish(),
-      Self::Bool(_, arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+      Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
     }
   }
 }
@@ -78,14 +78,14 @@ pub trait IntoAttribute {
 }
 
 impl IntoAttribute for String {
-  fn into_attribute(self, cx: Scope) -> Attribute {
-    Attribute::String(cx, self)
+  fn into_attribute(self, _: Scope) -> Attribute {
+    Attribute::String(self)
   }
 }
 
 impl IntoAttribute for bool {
-  fn into_attribute(self, cx: Scope) -> Attribute {
-    Attribute::Bool(cx, self)
+  fn into_attribute(self, _: Scope) -> Attribute {
+    Attribute::Bool(self)
   }
 }
 
@@ -115,8 +115,8 @@ impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
 macro_rules! attr_type {
   ($attr_type:ty) => {
     impl IntoAttribute for $attr_type {
-      fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::String(cx, self.to_string())
+      fn into_attribute(self, _: Scope) -> Attribute {
+        Attribute::String(self.to_string())
       }
     }
 
@@ -152,7 +152,7 @@ pub fn attribute_expression(
   value: Attribute,
 ) {
   match value {
-    Attribute::String(_, value) => {
+    Attribute::String(value) => {
       let value = wasm_bindgen::intern(&value);
       if attr_name == "inner_html" {
         el.set_inner_html(value);
@@ -175,7 +175,7 @@ pub fn attribute_expression(
         }
       }
     }
-    Attribute::Bool(_, value) => {
+    Attribute::Bool(value) => {
       let attr_name = wasm_bindgen::intern(attr_name);
       if value {
         el.set_attribute(attr_name, attr_name).unwrap_throw();
