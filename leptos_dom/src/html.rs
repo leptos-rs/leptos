@@ -59,7 +59,7 @@ pub trait IntoElement: IntoElementBounds {
 
   /// A unique `id` that should be generated for each new instance of
   /// this element, and be consitant for both SSR and CSR.
-  #[cfg(feature = "ssr")]
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   fn hydration_id(&self) -> usize;
 }
 
@@ -536,7 +536,7 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           #[educe(Deref)]
           element: web_sys::HtmlElement,
-          #[cfg(feature = "ssr")]
+          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
           id: usize,
         }
 
