@@ -66,8 +66,10 @@ impl IntoView for ComponentRepr {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
   fn into_view(self, _: Scope) -> View {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    for child in &self.children {
-      mount_child(MountKind::Before(&self.closing.node), child);
+    if !HydrationCtx::is_hydrating() {
+      for child in &self.children {
+        mount_child(MountKind::Before(&self.closing.node), child);
+      }
     }
 
     View::Component(self)

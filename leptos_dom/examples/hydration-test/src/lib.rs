@@ -14,6 +14,8 @@ pub fn App(cx: Scope) -> View {
 #[component]
 pub fn ComponentA(cx: Scope) -> View {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
+  let (counter, set_counter) = create_signal(cx, 0);
+
   div(cx)
     .child(
       input(cx)
@@ -22,6 +24,7 @@ pub fn ComponentA(cx: Scope) -> View {
         .on(ev::input, move |e| set_value(event_target_value(&e))),
     )
     .child(input(cx).attr("type", "text").prop("value", value))
+    .child(p(cx).child("Value: ").child(value))
     .into_view(cx)
 }
 

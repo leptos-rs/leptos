@@ -20,14 +20,19 @@ async fn main() -> std::io::Result<()> {
                 }.render_to_string().to_string()
               });
               runtime.dispose();
-              format!(r#"<!DOCTYPE html>
-              <html>
-                <head>
-                <script type="module">import init from '/pkg/hydration_test.js'; init();</script>
-                </head>
-                <body>{html}</body>
-              </html>
-              "#)
+              let html = format!(
+                r#"<!DOCTYPE html>
+                <html>
+                  <head>
+                  <script type="module">import init from '/pkg/hydration_test.js'; init();</script>
+                  </head>
+                  <body>{html}</body>
+                </html>"#
+              );
+
+              println!("{html}");
+              
+              html
             })
         }
       )

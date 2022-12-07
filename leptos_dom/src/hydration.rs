@@ -8,8 +8,13 @@ use std::{
 
 type ParentOffsetSums = Vec<(usize, usize)>;
 
+#[cfg(feature = "hydrate")]
+const HYDRATION_MODE: bool = true;
+#[cfg(not(feature = "hydrate"))]
+const HYDRATION_MODE: bool = false;
+
 #[thread_local]
-static mut IS_HYDRATING: bool = true;
+static mut IS_HYDRATING: bool = HYDRATION_MODE;
 
 #[thread_local]
 static mut ID: usize = 0;
@@ -41,7 +46,7 @@ impl HydrationCtx {
 
   pub(crate) fn to_string(id: usize, closing: bool) -> String {
     #[cfg(debug_assertions)]
-    return format!("_{id}{}", closing.then_some('c').unwrap_or('o'));
+    return format!("_{id}{}", if closing { 'c' } else { 'o' });
 
     #[cfg(not(debug_assertions))]
     return format!("_{id}");

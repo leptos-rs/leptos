@@ -186,7 +186,7 @@ impl Comment {
     #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     node.set_text_content(Some(&format!(" {content} ")));
 
-    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       if HydrationCtx::is_hydrating() {
         let id = HydrationCtx::to_string(id, closing);
@@ -196,7 +196,7 @@ impl Comment {
 
           marker.remove();
         } else {
-          panic!("hydration mismatch between SSR and CSR");
+          panic!("SSR and CSR hydration mismatch, id `{id}` not found!");
         }
       }
     }
