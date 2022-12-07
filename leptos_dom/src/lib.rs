@@ -196,7 +196,7 @@ impl Comment {
 
           marker.remove();
         } else {
-          panic!("SSR and CSR hydration mismatch, id `{id}` not found!");
+          panic!("SSR and CSR hydration mismatch, marker id `{id}` not found!");
         }
       }
     }

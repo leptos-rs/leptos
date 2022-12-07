@@ -230,10 +230,11 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an `id` to the element.
   #[track_caller]
-  pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
+  pub fn id(mut self, id: impl Into<Cow<'static, str>>) -> Self {
+    let id = id.into();
+
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let id = id.into();
         self
           .element
           .get_element()
@@ -241,7 +242,7 @@ impl<El: IntoElement> HtmlElement<El> {
           .unwrap();
       }
       else {
-        self.id.set(id.into()).expect("`id` can only be set once");
+        self.attrs.push(("id".into(), id));
       }
     }
 
@@ -581,13 +582,11 @@ macro_rules! generate_html_tags {
                        can also be a leptos hydration issue."
                     );
 
+                    el.set_attribute("remove-this", &format!("_{id}"));
+
                     el.unchecked_into()
                   } else {
-                    let el = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
-
-                    el.set_attribute("id", &format!("_{id}"));
-
-                    el
+                    panic!("SSR and CSR hydration mismatch, element id `_{id}` not found!");
                   }
                 }
               };
