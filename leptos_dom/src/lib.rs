@@ -127,6 +127,7 @@ cfg_if! {
       dynamic: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: Vec<View>,
+      id: usize,
     }
   }
 }
@@ -156,6 +157,7 @@ impl Element {
           dynamic: false,
           attrs: Default::default(),
           children: Default::default(),
+          id: el.hydration_id(),
         }
       }
     }
@@ -170,7 +172,12 @@ struct Comment {
 }
 
 impl Comment {
-  fn new(content: impl Into<Cow<'static, str>>) -> Self {
+  #[track_caller]
+  fn new(
+    content: impl Into<Cow<'static, str>>,
+    id: usize,
+    closing: bool,
+  ) -> Self {
     let content = content.into();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -178,6 +185,21 @@ impl Comment {
 
     #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     node.set_text_content(Some(&format!(" {content} ")));
+
+    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
+    {
+      if HydrationCtx::is_hydrating() {
+        let id = HydrationCtx::to_string(id, closing);
+
+        if let Some(marker) = document().get_element_by_id(&id) {
+          marker.before_with_node_1(&node).unwrap();
+
+          marker.remove();
+        } else {
+          panic!("hydration mismatch between SSR and CSR");
+        }
+      }
+    }
 
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]

@@ -1,18 +1,24 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::Mountable;
-use crate::{Comment, CoreComponent, IntoView, View};
+use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`Unit`] core-component.
 #[derive(Debug)]
 pub struct UnitRepr {
   comment: Comment,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub(crate) id: usize,
 }
 
 impl Default for UnitRepr {
   fn default() -> Self {
+    let id = HydrationCtx::id();
+
     Self {
-      comment: Comment::new("<() />"),
+      comment: Comment::new("<() />", id, true),
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+      id,
     }
   }
 }

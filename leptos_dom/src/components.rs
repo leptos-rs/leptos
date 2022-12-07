@@ -41,7 +41,7 @@ pub struct ComponentRepr {
   closing: Comment,
   disposer: Option<ScopeDisposer>,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  id: usize,
+  pub(crate) id: usize,
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -82,13 +82,13 @@ impl ComponentRepr {
     let id = HydrationCtx::id();
 
     let markers = (
-      Comment::new(Cow::Owned(format!("</{name}>"))),
+      Comment::new(Cow::Owned(format!("</{name}>")), id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Owned(format!("<{name}>"))),
+      Comment::new(Cow::Owned(format!("<{name}>")), id, false),
     );
 
     #[cfg(not(debug_assertions))]
-    let closing = Comment::new("");
+    let closing = Comment::new("", id, true);
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
@@ -97,14 +97,16 @@ impl ComponentRepr {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
-      #[cfg(debug_assertions)]
-      fragment
-        .append_with_node_2(&markers.1.node, &markers.0.node)
-        .expect("append to not err");
-      #[cfg(not(debug_assertions))]
-      fragment
-        .append_with_node_1(&markers.0.node)
-        .expect("append to not err");
+      if !HydrationCtx::is_hydrating() {
+        #[cfg(debug_assertions)]
+        fragment
+          .append_with_node_2(&markers.1.node, &markers.0.node)
+          .expect("append to not err");
+        #[cfg(not(debug_assertions))]
+        fragment
+          .append_with_node_1(&markers.0.node)
+          .expect("append to not err");
+      }
 
       fragment
     };

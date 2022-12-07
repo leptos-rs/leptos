@@ -2,84 +2,108 @@ use cfg_if::cfg_if;
 use itertools::Itertools;
 use std::{borrow::Cow, fmt::Display};
 
-use crate::{CoreComponent, TopoId, View};
+use crate::{hydration::HydrationCtx, CoreComponent, TopoId, View};
 
 #[cfg(feature = "ssr")]
 impl View {
   /// Consumes the node and renders it into an HTML string.
   pub fn render_to_string(self) -> Cow<'static, str> {
-    self.render_to_string_with_id(Default::default())
-  }
-
-  fn render_to_string_with_id(self, id: TopoId) -> Cow<'static, str> {
     match self {
       View::Text(node) => node.content,
       View::Component(node) => {
-        let depth = id.first_child().depth;
-        let sum = id.depth + id.offset + id.sum;
-
         let content = node
           .children
           .into_iter()
-          .enumerate()
-          .map(|(offset, node)| {
-            node.render_to_string_with_id(TopoId { depth, offset, sum })
-          })
+          .map(|node| node.render_to_string())
           .join("");
         cfg_if! {
           if #[cfg(debug_assertions)] {
-            format!(r#"<template id="{id}o"></template>{content}<template id="{id}c"></template>"#).into()
+            format!(r#"<template id="{}"></template>{content}<template id="{}"></template>"#,
+              HydrationCtx::to_string(node.id, false),
+              HydrationCtx::to_string(node.id, true)
+            ).into()
           } else {
-            format!(r#"{content}<template id="{id}"/>"#).into()
+            format!(
+              r#"{content}<template id="{}"></template>"#,
+              HydrationCtx::to_string(node.id, true)
+            ).into()
           }
         }
       }
       View::CoreComponent(node) => {
-        let content = match node {
-          CoreComponent::Unit(_) => format!("<template id={id}></template>").into(),
+        let (id, wrap, content) = match node {
+          CoreComponent::Unit(u) => (
+            u.id,
+            false,
+            format!(
+              "<template id={}></template>",
+              HydrationCtx::to_string(u.id, true)
+            )
+            .into(),
+          ),
           CoreComponent::DynChild(node) => {
             let child = node.child.take();
-            if let Some(child) = *child {
-              child.render_to_string_with_id(id.first_child())
-            } else {
-              "".into()
-            }
+            (
+              node.id,
+              true,
+              if let Some(child) = *child {
+                child.render_to_string()
+              } else {
+                "".into()
+              },
+            )
           }
           CoreComponent::Each(node) => {
             let children = node.children.take();
-            let depth = id.first_child().depth;
-            let sum = id.depth + id.offset + id.sum;
 
-            children
-              .into_iter()
-              .flatten()
-              .enumerate()
-              .map(|(offset, node)| {
-                let id = TopoId { depth, offset, sum };
+            (
+              node.id,
+              true,
+              children
+                .into_iter()
+                .flatten()
+                .map(|node| {
+                  let id = node.id;
 
-                let content =
-                  node.child.render_to_string_with_id(id.first_child());
+                  let content = node.child.render_to_string();
 
-                #[cfg(debug_assertions)]
-                return format!(
-                  "<template id=\"{id}o\"></template>{content}<template id=\"{id}c\"></template>"
-                );
+                  #[cfg(debug_assertions)]
+                  return format!(
+                    "<template id=\"{}\"></template>{content}<template \
+                     id=\"{}\"></template>",
+                    HydrationCtx::to_string(id, false),
+                    HydrationCtx::to_string(id, true),
+                  );
 
-                #[cfg(not(debug_assertions))]
-                return format!("{content}<template id=\"{id}c\"></template>");
-              })
-              .join("")
-              .into()
+                  #[cfg(not(debug_assertions))]
+                  return format!(
+                    "{content}<template id=\"{}c\"></template>",
+                    HydrationCtx::to_string(id, true)
+                  );
+                })
+                .join("")
+                .into(),
+            )
           }
         };
 
-        //node.children.into_iter().enumerate().map(|(offset, node)| node.render_to_string_with_id(TopoId { depth: children_depth, offset })).join("");
-        cfg_if! {
-          if #[cfg(debug_assertions)] {
-            format!(r#"<template id="{id}o"></template>{content}<template id="{id}c"></template>"#).into()
-          } else {
-            format!(r#"{content}<template id="{id}c"></template>"#).into()
+        if wrap {
+          cfg_if! {
+            if #[cfg(debug_assertions)] {
+              format!(
+                r#"<template id="{}"></template>{content}<template id="{}"></template>"#,
+                HydrationCtx::to_string(id, false),
+                HydrationCtx::to_string(id, true),
+              ).into()
+            } else {
+              format!(
+                r#"{content}<template id="{}c"></template>"#,
+                HydrationCtx::to_string(id, true)
+              ).into()
+            }
           }
+        } else {
+          content
         }
       }
       View::Element(el) => {
@@ -105,21 +129,16 @@ impl View {
           .join("");
 
         if !has_id && el.dynamic {
-          attrs.push_str(&format!(" id=\"{id}\""));
+          attrs.push_str(&format!(" id=\"_{}\"", el.id));
         }
 
         if el.is_void {
           format!("<{tag_name}{attrs}/>").into()
         } else {
-          let depth = id.depth + 1;
-          let sum = id.depth + id.offset + id.sum;
           let children = el
             .children
             .into_iter()
-            .enumerate()
-            .map(|(offset, node)| {
-              node.render_to_string_with_id(TopoId { depth, offset, sum })
-            })
+            .map(|node| node.render_to_string())
             .join("");
 
           format!("<{tag_name}{attrs}>{children}</{tag_name}>").into()

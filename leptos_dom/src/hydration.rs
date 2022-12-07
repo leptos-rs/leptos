@@ -24,7 +24,8 @@ impl HydrationCtx {
     unsafe {
       let id = ID;
 
-      ID += 1;
+      // Prevent panics on long-running debug builds
+      ID = ID.wrapping_add(1);
 
       id
     }
@@ -38,28 +39,11 @@ impl HydrationCtx {
     unsafe { IS_HYDRATING }
   }
 
-  // pub(crate) fn tick_child() {
-  //   unsafe { PARENT_OFFSET_SUMS.push((ID.offset, ID.sum)) }
+  pub(crate) fn to_string(id: usize, closing: bool) -> String {
+    #[cfg(debug_assertions)]
+    return format!("_{id}{}", closing.then_some('c').unwrap_or('o'));
 
-  //   unsafe {
-  //     ID.sum += ID.depth + ID.offset;
-  //     ID.depth += 1;
-  //     ID.offset = 0;
-  //   }
-  // }
-
-  // pub(crate) fn tick_sibling() {
-  //   unsafe { ID.offset += 1 }
-  // }
-
-  // pub(crate) fn tick_parent() {
-  //   let (parent_offset, parent_sum) =
-  //     unsafe { PARENT_OFFSET_SUMS.pop().unwrap() };
-
-  //   unsafe {
-  //     ID.depth -= 1;
-  //     ID.offset = parent_offset;
-  //     ID.sum = parent_sum;
-  //   }
-  // }
+    #[cfg(not(debug_assertions))]
+    return format!("_{id}");
+  }
 }

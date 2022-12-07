@@ -1,6 +1,6 @@
+use crate::{hydration::HydrationCtx, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
-use crate::{Comment, IntoView, View};
 use leptos_reactive::{create_effect, Scope};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
@@ -14,6 +14,8 @@ pub struct DynChildRepr {
   opening: Comment,
   pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
   closing: Comment,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub(crate) id: usize,
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -35,10 +37,12 @@ impl Mountable for DynChildRepr {
 
 impl DynChildRepr {
   fn new() -> Self {
+    let id = HydrationCtx::id();
+
     let markers = (
-      Comment::new(Cow::Borrowed("</DynChild>")),
+      Comment::new(Cow::Borrowed("</DynChild>"), id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Borrowed("<DynChild>")),
+      Comment::new(Cow::Borrowed("<DynChild>"), id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -48,12 +52,14 @@ impl DynChildRepr {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
-      #[cfg(debug_assertions)]
-      fragment
-        .append_with_node_2(&markers.1.node, &markers.0.node)
-        .unwrap();
-      #[cfg(not(debug_assertions))]
-      fragment.append_with_node_1(&markers.0.node).unwrap();
+      if !HydrationCtx::is_hydrating() {
+        #[cfg(debug_assertions)]
+        fragment
+          .append_with_node_2(&markers.1.node, &markers.0.node)
+          .unwrap();
+        #[cfg(not(debug_assertions))]
+        fragment.append_with_node_1(&markers.0.node).unwrap();
+      }
 
       fragment
     };
@@ -65,6 +71,8 @@ impl DynChildRepr {
       opening: markers.1,
       child: Default::default(),
       closing: markers.0,
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+      id,
     }
   }
 }

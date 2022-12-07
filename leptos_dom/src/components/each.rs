@@ -1,6 +1,6 @@
+use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
-use crate::{Comment, CoreComponent, IntoView, View};
 use itertools::{EitherOrBoth, Itertools};
 use leptos_reactive::{create_effect, Scope};
 use rustc_hash::FxHasher;
@@ -48,14 +48,18 @@ pub struct EachRepr {
   opening: Comment,
   pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
   closing: Comment,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub(crate) id: usize,
 }
 
 impl Default for EachRepr {
   fn default() -> Self {
+    let id = HydrationCtx::id();
+
     let markers = (
-      Comment::new(Cow::Borrowed("</Each>")),
+      Comment::new(Cow::Borrowed("</Each>"), id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Borrowed("<Each>")),
+      Comment::new(Cow::Borrowed("<Each>"), id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -66,12 +70,14 @@ impl Default for EachRepr {
       #[cfg(debug_assertions)]
       // so they can serve as our references when inserting
       // future nodes
-      fragment
-        .append_with_node_2(&markers.1.node, &markers.0.node)
-        .expect("append to not err");
+      if !HydrationCtx::is_hydrating() {
+        fragment
+          .append_with_node_2(&markers.1.node, &markers.0.node)
+          .expect("append to not err");
 
-      #[cfg(not(debug_assertions))]
-      fragment.append_with_node_1(&markers.0.node).unwrap();
+        #[cfg(not(debug_assertions))]
+        fragment.append_with_node_1(&markers.0.node).unwrap();
+      }
 
       fragment
     };
@@ -83,6 +89,8 @@ impl Default for EachRepr {
       opening: markers.1,
       children: Default::default(),
       closing: markers.0,
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+      id,
     }
   }
 }
@@ -119,14 +127,18 @@ pub(crate) struct EachItem {
   opening: Comment,
   pub(crate) child: View,
   closing: Comment,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub(crate) id: usize,
 }
 
 impl EachItem {
   fn new(child: View) -> Self {
+    let id = HydrationCtx::id();
+
     let markers = (
-      Comment::new(Cow::Borrowed("</EachItem>")),
+      Comment::new(Cow::Borrowed("</EachItem>"), id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Borrowed("<EachItem>")),
+      Comment::new(Cow::Borrowed("<EachItem>"), id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -136,11 +148,13 @@ impl EachItem {
       // Insert the comments into the document fragment
       // so they can serve as our references when inserting
       // future nodes
-      #[cfg(debug_assertions)]
-      fragment
-        .append_with_node_2(&markers.1.node, &markers.0.node)
-        .unwrap();
-      fragment.append_with_node_1(&markers.0.node).unwrap();
+      if !HydrationCtx::is_hydrating() {
+        #[cfg(debug_assertions)]
+        fragment
+          .append_with_node_2(&markers.1.node, &markers.0.node)
+          .unwrap();
+        fragment.append_with_node_1(&markers.0.node).unwrap();
+      }
 
       mount_child(MountKind::Before(&markers.0.node), &child);
 
@@ -154,6 +168,8 @@ impl EachItem {
       opening: markers.1,
       child,
       closing: markers.0,
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+      id,
     }
   }
 }
@@ -259,7 +275,7 @@ where
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let closing = component.closing.node.clone();
 
-    cfg_if::cfg_if! { 
+    cfg_if::cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         create_effect(cx, move |prev_hash_run| {
           let mut children_borrow = children.borrow_mut();
