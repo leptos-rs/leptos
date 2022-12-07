@@ -26,7 +26,7 @@ fn Tests(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <div><SelfUpdatingEffect/></div>
+            //<div><SelfUpdatingEffect/></div>
             <div><BlockOrders/></div>
             //<div><TemplateConsumer/></div>
         </div>

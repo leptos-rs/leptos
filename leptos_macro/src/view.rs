@@ -879,9 +879,12 @@ fn block_to_tokens(
                 //next_sib = Some(el.clone());
 
                 template.push_str("<!#><!/>");
+                let end = Ident::new(&format!("{co}_end"), span);
+
                 navigations.push(quote! {
                     #location;
                     let (#el, #co) = #cx.get_next_marker(&#name);
+                    let #end = #co.last().cloned().unwrap_or_else(|| #el.next_sibling().unwrap_throw());
                     //log::debug!("get_next_marker => {}", #el.node_name());
                 });
 
@@ -894,6 +897,8 @@ fn block_to_tokens(
                         Some(Child::Nodes(#co)),
                     );
                 });
+
+                return PrevSibChange::Sib(end);
 
                 //current = Some(el);
             }
