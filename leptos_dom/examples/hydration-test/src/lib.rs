@@ -13,23 +13,26 @@ pub fn App(cx: Scope) -> View {
 
 #[component]
 pub fn ComponentA(cx: Scope) -> View {
-  let (value, set_value) = create_signal(cx, "".to_string());
+  let (value, set_value) = create_signal(cx, "Hello?".to_string());
   div(cx)
-    .child(input(cx).attr("type", "text").prop("value", (cx, value)))
-    .child(p(cx).child("Value is: ").child((cx, value)).child("!"))
+    .child(
+      input(cx)
+        .attr("type", "text")
+        .prop("value", (cx, value))
+        .on(ev::input, move |e| set_value(event_target_value(&e))),
+    )
+    .child(input(cx).attr("type", "text").prop("value", value))
     .into_view(cx)
 }
 
-cfg_if::cfg_if! {
-  if #[cfg(feature = "hydrate")] {
-      use wasm_bindgen::prelude::wasm_bindgen;
+#[cfg(feature = "hydrate")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
-      #[wasm_bindgen(start)]
-      pub fn start() {
-          console_error_panic_hook::set_once();
-          leptos::mount_to_body(move |cx| {
-              view! { cx, <App/> }
-          });
-      }
-  }
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen(start)]
+pub fn start() {
+  console_error_panic_hook::set_once();
+  leptos::mount_to_body(move |cx| {
+    view! { cx, <App/> }
+  });
 }
