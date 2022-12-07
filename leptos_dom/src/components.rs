@@ -3,9 +3,9 @@ mod each;
 mod fragment;
 mod unit;
 
+use crate::{hydration::HydrationCtx, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
-use crate::{Comment, IntoView, View};
 pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
@@ -40,8 +40,8 @@ pub struct ComponentRepr {
   pub children: Vec<View>,
   closing: Comment,
   disposer: Option<ScopeDisposer>,
-  // #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  // id: usize,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  id: usize,
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -78,6 +78,8 @@ impl ComponentRepr {
   /// Creates a new [`Component`].
   pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     let name = name.into();
+
+    let id = HydrationCtx::id();
 
     let markers = (
       Comment::new(Cow::Owned(format!("</{name}>"))),
@@ -117,6 +119,8 @@ impl ComponentRepr {
       name,
       children: Default::default(),
       disposer: Default::default(),
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+      id,
     }
   }
 }

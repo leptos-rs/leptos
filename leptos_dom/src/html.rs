@@ -59,7 +59,7 @@ pub trait IntoElement: IntoElementBounds {
 
   /// A unique `id` that should be generated for each new instance of
   /// this element, and be consitant for both SSR and CSR.
-  #[cfg(feature = "ssr")]
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   fn hydration_id(&self) -> usize;
 }
 
@@ -101,15 +101,21 @@ impl IntoElement for AnyElement {
 
 /// Represents a custom HTML element, such as `<my-element>`.
 #[derive(Clone, Debug)]
-#[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe::Educe)]
-#[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
 pub struct Custom {
   name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
   element: web_sys::HtmlElement,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   id: usize,
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl std::ops::Deref for Custom {
+  type Target = web_sys::HtmlElement;
+
+  fn deref(&self) -> &Self::Target {
+    &self.element
+  }
 }
 
 impl IntoElement for Custom {
@@ -502,6 +508,7 @@ pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
       name: el.name(),
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       element: el.get_element().clone(),
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
       id: el.hydration_id(),
     },
   )
@@ -536,7 +543,7 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           #[educe(Deref)]
           element: web_sys::HtmlElement,
-          #[cfg(feature = "ssr")]
+          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
           id: usize,
         }
 
