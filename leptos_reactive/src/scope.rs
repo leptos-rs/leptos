@@ -502,10 +502,36 @@ impl Scope {
             }
         })
     }
+
+    /// Returns the hydration key for the next element.
+    pub fn hydration_id(&self) -> HydrationKey {
+        with_runtime(self.runtime, |runtime| {
+            HydrationKey(runtime.hydration_id())
+        })
+    }
 }
 
 impl Debug for ScopeDisposer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ScopeDisposer").finish()
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct HydrationKey(pub usize);
+
+impl HydrationKey {
+    pub fn to_string(&self, closing: bool) -> String {
+        #[cfg(debug_assertions)]
+        format!("_{id}{}", if closing { 'c' } else { 'o' })
+    
+        #[cfg(not(debug_assertions))]
+        format!("_{id}")
+    }
+}
+
+impl std::fmt::Display for HydrationKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }

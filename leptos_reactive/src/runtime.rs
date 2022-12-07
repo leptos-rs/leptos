@@ -214,6 +214,7 @@ pub(crate) struct Runtime {
     pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
     pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
+    pub hydration_id: Cell<usize>,
 }
 
 impl Debug for Runtime {
@@ -288,6 +289,12 @@ impl Runtime {
         if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
             sc.context = None;
         }
+    }
+
+    pub fn hydration_id(&self) -> usize {
+        let id = self.hydration_id.get();
+        self.hydration_id.set(id + 1);
+        id
     }
 
     pub(crate) fn resource<S, T, U>(
