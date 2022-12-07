@@ -1,11 +1,11 @@
-use actix_web::{web, App, HttpResponse, HttpServer};
 use actix_files::Files;
-use leptos::*;
+use actix_web::{web, App, HttpResponse, HttpServer};
 use hydration_test::*;
+use leptos::*;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new()
+  HttpServer::new(|| App::new()
       .service(Files::new("/pkg", "./pkg"))
       .route("/", web::get().to(
         || async {
@@ -23,7 +23,7 @@ async fn main() -> std::io::Result<()> {
               format!(r#"<!DOCTYPE html>
               <html>
                 <head>
-                <script type="module">import init, {{ hydrate }} from '/pkg/hydration_test.js'; init().then(hydrate);</script>
+                <script type="module">import init from '/pkg/hydration_test.js'; init();</script>
                 </head>
                 <body>{html}</body>
               </html>
