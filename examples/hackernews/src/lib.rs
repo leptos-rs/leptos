@@ -16,7 +16,7 @@ pub fn App(cx: Scope) -> Element {
     view! {
         cx,
         <div>
-            <Stylesheet href="/static/style.css"/>
+            <Stylesheet href="/style.css"/>
             <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
                 <Nav />
