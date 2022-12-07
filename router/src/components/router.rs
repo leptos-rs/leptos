@@ -89,7 +89,10 @@ impl RouterContext {
                 let history = use_context::<RouterIntegrationContext>(cx)
                     .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
             } else {
-                let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.");
+                let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.\n\n \
+                If you are using `leptos_actix` or `leptos_axum` and seeing this message, it is a bug: \n \
+                1. Please check to make sure you're on the latest versions of `leptos_actix` or `leptos_axum` and of `leptos_router`. \n
+                2. If you're on the latest versions, please open an issue at https://github.com/gbj/leptos/issues");
             }
         };
 
