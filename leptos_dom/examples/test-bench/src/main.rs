@@ -91,7 +91,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
     span(cx).into_view(cx),
     div(cx)
       .attr("t", || true)
-      .child(span(cx).attr("t", || true))
+      .child(span(cx).attr("t", true))
       .child(span(cx).attr("t", || true))
       .into_view(cx),
     h1(cx)
@@ -122,7 +122,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
       .child(text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
       .into_view(cx),
     input(cx)
-      .class("input input-primary", true)
+      .class("input", true)
       .attr("disabled", move || disabled().then_some(""))
       .into_view(cx),
     MyComponent.into_view(cx),

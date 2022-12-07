@@ -207,9 +207,7 @@ impl IntoView for Text {
 
 impl Text {
   /// Creates a new [`Text`].
-  pub fn new(content: impl Into<Cow<'static, str>>) -> Self {
-    let content = content.into();
-
+  pub fn new(content: Cow<'static, str>) -> Self {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       node: crate::document()
@@ -381,10 +379,10 @@ where
   let disposer = leptos_reactive::create_scope(
     leptos_reactive::create_runtime(),
     move |cx| {
-      #[cfg(all(feature = "web", feature = "hydrate"))]
-      leptos_reactive::provide_context(cx, HydrationCtx::default());
-
       let node = f(cx).into_view(cx);
+
+      #[cfg(all(feature = "web", feature = "hydrate"))]
+      HydrationCtx::stop_hydrating();
 
       parent.append_child(&node.get_mountable_node()).unwrap();
 

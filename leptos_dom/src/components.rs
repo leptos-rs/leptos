@@ -40,6 +40,8 @@ pub struct ComponentRepr {
   pub children: Vec<View>,
   closing: Comment,
   disposer: Option<ScopeDisposer>,
+  // #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  // id: usize,
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

@@ -3,6 +3,7 @@ use crate::events::*;
 use crate::{
   components::DynChild,
   ev::EventDescriptor,
+  hydration::HydrationCtx,
   macro_helpers::{
     attribute_expression, class_expression, property_expression, Attribute,
     Child, Class, IntoAttribute, IntoChild, IntoClass, IntoProperty, Property,
@@ -55,6 +56,11 @@ pub trait IntoElement: IntoElementBounds {
   fn is_void(&self) -> bool {
     false
   }
+
+  /// A unique `id` that should be generated for each new instance of
+  /// this element, and be consitant for both SSR and CSR.
+  #[cfg(feature = "ssr")]
+  fn hydration_id(&self) -> usize;
 }
 
 /// Represents potentially any element.
@@ -69,6 +75,8 @@ pub struct AnyElement {
   #[educe(Deref)]
   element: web_sys::HtmlElement,
   is_void: bool,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  id: usize,
 }
 
 impl IntoElement for AnyElement {
@@ -84,16 +92,24 @@ impl IntoElement for AnyElement {
   fn is_void(&self) -> bool {
     self.is_void
   }
+
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  fn hydration_id(&self) -> usize {
+    self.id
+  }
 }
 
 /// Represents a custom HTML element, such as `<my-element>`.
-#[derive(Clone, Debug, educe::Educe)]
-#[educe(Deref)]
+#[derive(Clone, Debug)]
+#[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe::Educe)]
+#[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
 pub struct Custom {
   name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  #[educe(Deref)]
+  #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
   element: web_sys::HtmlElement,
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  id: usize,
 }
 
 impl IntoElement for Custom {
@@ -104,6 +120,11 @@ impl IntoElement for Custom {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   fn get_element(&self) -> &web_sys::HtmlElement {
     &self.element
+  }
+
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  fn hydration_id(&self) -> usize {
+    self.id
   }
 }
 
@@ -194,6 +215,7 @@ impl<El: IntoElement> HtmlElement<El> {
             name: element.name(),
             dynamic,
             is_void: element.is_void(),
+            id: element.hydration_id(),
           },
         }
       }
@@ -426,12 +448,19 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         View::Element(Element::new(self.element))
       } else {
-        let Self { element, attrs, children, dynamic, .. } = self;
+        let Self { element, mut attrs, children, dynamic, .. } = self;
+
+        let id = element.hydration_id();
+
         let mut element = Element::new(element);
         let children = children
           .into_iter()
           .map(|c| c(cx))
           .collect::<SmallVec<[_; 4]>>();
+
+        if !attrs.iter_mut().any(|(name, _)| name == "id") {
+          attrs.push(("id".into(), format!("_{}", id).into()));
+        }
 
         element.dynamic = dynamic;
         element.attrs = attrs;
@@ -473,14 +502,14 @@ pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
       name: el.name(),
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       element: el.get_element().clone(),
+      id: el.hydration_id(),
     },
   )
 }
 
 /// Creates a text node.
-pub fn text(text: impl Into<Cow<'static, str>>) -> View {
-  let text = Text::new(text.into());
-  View::Text(text)
+pub fn text(text: impl Into<Cow<'static, str>>) -> Text {
+  Text::new(text.into())
 }
 
 macro_rules! generate_html_tags {
@@ -507,16 +536,57 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           #[educe(Deref)]
           element: web_sys::HtmlElement,
+          #[cfg(feature = "ssr")]
+          id: usize,
         }
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
+            let mut id = 0;
+
+            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            { id = HydrationCtx::id(); }
+
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let element = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
+            let element = 'label: {
+              #[cfg(feature = "hydrate")]
+              {
+                if HydrationCtx::is_hydrating() {
+                  id = HydrationCtx::id();
+
+                  break 'label if let Some(el) = crate::document().get_element_by_id(
+                    &format!("_{id}")
+                  ) {
+                    #[cfg(debug_assertions)]
+                    assert_eq!(
+                      el.node_name(),
+                      stringify!([<$tag:upper>]),
+                      "SSR and CSR elements have the same `TopoId` \
+                       but different node kinds. This is either a \
+                       discrepancy between SSR and CSR rendering
+                       logic, which is considered a bug, or it \
+                       can also be a leptos hydration issue."
+                    );
+
+                    el.unchecked_into()
+                  } else {
+                    let el = [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
+
+                    el.set_attribute("id", &format!("_{id}"));
+
+                    el
+                  }
+                }
+              };
+
+              break 'label [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
+            };
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              element
+              element,
+              #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+              id
             }
           }
         }
@@ -529,6 +599,11 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           fn get_element(&self) -> &web_sys::HtmlElement {
             &self.element
+          }
+
+          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          fn hydration_id(&self) -> usize {
+            self.id
           }
 
           generate_html_tags! { @void $($void)? }

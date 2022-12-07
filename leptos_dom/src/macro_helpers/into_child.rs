@@ -26,7 +26,7 @@ impl IntoView for Child {
     match self {
       Child::View(node) => node,
       Child::Unit => Unit.into_view(cx),
-      Child::Text(data) => crate::html::text(data),
+      Child::Text(data) => crate::html::text(data).into_view(cx),
       Child::Fn(cx, f) => DynChild::new(move || {
         let mut value = (f.borrow_mut())();
         let mut cx = cx;
