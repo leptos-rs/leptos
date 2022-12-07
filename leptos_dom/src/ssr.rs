@@ -28,7 +28,7 @@ impl View {
           .join("");
         cfg_if! {
           if #[cfg(debug_assertions)] {
-            format!(r#"<template id="{id}o"/>{content}<template id="{id}c"/>"#).into()
+            format!(r#"<template id="{id}o"></template>{content}<template id="{id}c"></template>"#).into()
           } else {
             format!(r#"{content}<template id="{id}"/>"#).into()
           }
@@ -36,7 +36,7 @@ impl View {
       }
       View::CoreComponent(node) => {
         let content = match node {
-          CoreComponent::Unit(_) => format!("<template id={id}/>").into(),
+          CoreComponent::Unit(_) => format!("<template id={id}></template>").into(),
           CoreComponent::DynChild(node) => {
             let child = node.child.take();
             if let Some(child) = *child {
@@ -62,11 +62,11 @@ impl View {
 
                 #[cfg(debug_assertions)]
                 return format!(
-                  "<template id=\"{id}o\"/>{content}<template id=\"{id}c\"/>"
+                  "<template id=\"{id}o\"></template>{content}<template id=\"{id}c\"></template>"
                 );
 
                 #[cfg(not(debug_assertions))]
-                return format!("{content}<template id=\"{id}c\"/>");
+                return format!("{content}<template id=\"{id}c\"></template>");
               })
               .join("")
               .into()
@@ -76,9 +76,9 @@ impl View {
         //node.children.into_iter().enumerate().map(|(offset, node)| node.render_to_string_with_id(TopoId { depth: children_depth, offset })).join("");
         cfg_if! {
           if #[cfg(debug_assertions)] {
-            format!(r#"<template id="{id}o"/>{content}<template id="{id}c"/>"#).into()
+            format!(r#"<template id="{id}o"></template>{content}<template id="{id}c"></template>"#).into()
           } else {
-            format!(r#"{content}<template id="{id}c"/>"#).into()
+            format!(r#"{content}<template id="{id}c"></template>"#).into()
           }
         }
       }

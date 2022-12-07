@@ -163,7 +163,8 @@ where
 
     let mut repr = ComponentRepr::new(name);
 
-    leptos_reactive::on_cleanup(cx, move || disposer.dispose());
+    // TODO this was causing SSR to panic with a BorrowMut error
+    //leptos_reactive::on_cleanup(cx, move || disposer.dispose());
 
     repr.children = vec![children];
 
