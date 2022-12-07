@@ -438,8 +438,13 @@ impl<El: IntoElement> HtmlElement<El> {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         #[cfg(feature = "hydrate")]
-        if !HydrationCtx::is_hydrating() {
-          mount_child(MountKind::Append(self.element.get_element()), &child.into_view(self.cx))
+        {
+          // if we're currently hydrating, we don't need to mount the view,
+          // but we still need to run into_view(), or it may not generate an ID
+          let view = child.into_view(self.cx);
+          if !HydrationCtx::is_hydrating() {
+            mount_child(MountKind::Append(self.element.get_element()), &view)
+          }
         }
 
         #[cfg(not(feature = "hydrate"))]
