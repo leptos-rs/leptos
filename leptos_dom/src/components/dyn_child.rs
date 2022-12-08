@@ -134,7 +134,11 @@ where
         let (new_child, disposer) =
           cx.run_child_scope(|cx| child_fn().into_view(cx));
 
+        let mut child_borrow = child.borrow_mut();
+
         if let Some((prev_t, prev_disposer)) = prev_run {
+          let child = child_borrow.take().unwrap();
+
           prev_disposer.dispose();
 
           if let Some(prev_t) = prev_t {
@@ -142,6 +146,8 @@ where
               prev_t
                 .unchecked_ref::<web_sys::Text>()
                 .set_data(&new_t.content);
+
+              **child_borrow = Some(new_child);
 
               (Some(prev_t), disposer)
             } else {
@@ -154,30 +160,28 @@ where
 
               mount_child(MountKind::Before(&closing), &new_child);
 
-              **child.borrow_mut() = Some(new_child);
+              **child_borrow = Some(new_child);
 
               (None, disposer)
             }
           } else {
-            // Remove the child
-            let mut child_borrow = child.borrow_mut();
-
-            let child = child_borrow.take().unwrap();
-
-            let start = child.get_opening_node();
-            let end = &closing;
-
-            let mut sibling = start.clone();
-
-            while sibling != *end {
-              let next_sibling = sibling.next_sibling().unwrap();
-
-              sibling.unchecked_ref::<web_sys::Element>().remove();
-
-              sibling = next_sibling;
-            }
-
             if !HydrationCtx::is_hydrating() {
+              // Remove the child
+              let child = child_borrow.take().unwrap();
+
+              let start = child.get_opening_node();
+              let end = &closing;
+
+              let mut sibling = start.clone();
+
+              while sibling != *end {
+                let next_sibling = sibling.next_sibling().unwrap();
+
+                sibling.unchecked_ref::<web_sys::Element>().remove();
+
+                sibling = next_sibling;
+              }
+
               mount_child(MountKind::Before(&closing), &child);
             }
 
@@ -188,11 +192,15 @@ where
             (t, disposer)
           }
         } else {
-          // We need to remove the text that was generated from SSR
+          // We need to reuse the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
-            if let Some(text_node) = closing.previous_sibling() {
-              text_node.unchecked_into::<web_sys::Element>().remove();
-            }
+            closing
+              .previous_sibling
+              .unwrap()
+              .unchecked_into::<web_sys::Element>()
+              .remove();
+
+            mount_child(MountKind::Before(&closing), &new_child);
           }
 
           if !HydrationCtx::is_hydrating() {
@@ -201,7 +209,7 @@ where
 
           let t = new_child.get_text().map(|t| t.node.clone());
 
-          **child.borrow_mut() = Some(new_child);
+          **child_borrow = Some(new_child);
 
           (t, disposer)
         }
