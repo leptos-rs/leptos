@@ -201,7 +201,7 @@ pub fn render_app_to_stream(
                     <head>
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init().then(hydrate);</script>
+                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}.wasm').then(hydrate);</script>
                         {leptos_autoreload}
                         "#
             );
