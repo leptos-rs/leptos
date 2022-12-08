@@ -456,7 +456,7 @@ pub fn document() -> web_sys::Document {
 #[macro_export]
 macro_rules! is_server {
   () => {
-    cfg!(feature = "ssr")
+    !cfg!(all(target_arch = "wasm32", feature = "web"))
   };
 }
 

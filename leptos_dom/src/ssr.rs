@@ -4,7 +4,7 @@ use std::{borrow::Cow, fmt::Display};
 
 use crate::{hydration::HydrationCtx, CoreComponent, TopoId, View};
 
-#[cfg(feature = "ssr")]
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 impl View {
   /// Consumes the node and renders it into an HTML string.
   pub fn render_to_string(self) -> Cow<'static, str> {
