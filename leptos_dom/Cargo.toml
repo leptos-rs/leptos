@@ -64,6 +64,10 @@ features = [
   "WheelEvent",
 ]
 
+# This is to stop cargo from failing because of other crates which depend
+# on features from this crate.
+[workspace]
+
 [features]
 default = ["web", "hydrate"]
 web = []

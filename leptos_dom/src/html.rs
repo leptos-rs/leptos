@@ -547,42 +547,30 @@ macro_rules! generate_html_tags {
 
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
-            let mut id = 0;
-
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-            { id = HydrationCtx::id(); }
+            let id = HydrationCtx::id();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let element = 'label: {
-              #[cfg(feature = "hydrate")]
-              {
-                if HydrationCtx::is_hydrating() {
-                  id = HydrationCtx::id();
+            let element = if HydrationCtx::is_hydrating() {
+              if let Some(el) = crate::document().get_element_by_id(
+                &format!("_{id}")
+              ) {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                  el.node_name(),
+                  stringify!([<$tag:upper>]),
+                  "SSR and CSR elements have the same `TopoId` \
+                    but different node kinds. This is either a \
+                    discrepancy between SSR and CSR rendering
+                    logic, which is considered a bug, or it \
+                    can also be a leptos hydration issue."
+                );
 
-                  break 'label if let Some(el) = crate::document().get_element_by_id(
-                    &format!("_{id}")
-                  ) {
-                    #[cfg(debug_assertions)]
-                    assert_eq!(
-                      el.node_name(),
-                      stringify!([<$tag:upper>]),
-                      "SSR and CSR elements have the same `TopoId` \
-                       but different node kinds. This is either a \
-                       discrepancy between SSR and CSR rendering
-                       logic, which is considered a bug, or it \
-                       can also be a leptos hydration issue."
-                    );
-
-                    el.set_attribute("remove-this", &format!("_{id}"));
-
-                    el.unchecked_into()
-                  } else {
-                    panic!("SSR and CSR hydration mismatch, element id `_{id}` not found!");
-                  }
-                }
-              };
-
-              break 'label [<$tag:upper>].clone_node().unwrap().unchecked_into::<web_sys::HtmlElement>();
+                el.unchecked_into()
+              } else {
+                panic!("SSR and CSR hydration mismatch, element id `_{id}` not found!");
+              }
+            } else {
+              [<$tag:upper>].clone_node()
             };
 
             Self {
