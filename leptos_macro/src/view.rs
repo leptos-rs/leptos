@@ -244,7 +244,7 @@ fn element_to_tokens(
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
       };
       quote! {
-          .child(cx, #child)
+          .child((cx, #child))
       }
     });
     quote_spanned! {
@@ -307,7 +307,7 @@ fn attribute_to_tokens(
       .as_ref();
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => .prop(#cx, #name, #[allow(unused_braces)] #value)
+        span => .prop(#name, (#cx, #[allow(unused_braces)] #value))
     }
     /* } else {
         todo!()
@@ -320,7 +320,7 @@ fn attribute_to_tokens(
       .as_ref();
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => .class(#cx, #name, #[allow(unused_braces)] #value)
+        span => .class(#name, (cx, #[allow(unused_braces)] #value))
     }
     /* } else {
         todo!()
