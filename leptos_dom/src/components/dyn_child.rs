@@ -162,13 +162,7 @@ where
         }
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
-          if cfg!(feature = "hydrate") && !HydrationCtx::is_hydrating() {
-            mount_child(MountKind::Before(&closing), &new_child);
-          } else {
-            mount_child(MountKind::Before(&closing), &new_child);
-          }
-        }
+        mount_child(MountKind::Before(&closing), &new_child);
 
         **child.borrow_mut() = Some(new_child);
       }

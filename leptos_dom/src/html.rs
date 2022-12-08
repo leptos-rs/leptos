@@ -158,7 +158,7 @@ cfg_if! {
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
       #[allow(clippy::type_complexity)]
-      pub(crate) children: SmallVec<[Box<dyn FnOnce(Scope) -> View>; 4]>,
+      pub(crate) children: SmallVec<[View; 4]>,
     }
   }
 }
@@ -434,24 +434,13 @@ impl<El: IntoElement> HtmlElement<El> {
   #[doc(hidden)]
   #[track_caller]
   pub fn child(mut self, child: impl IntoChild) -> Self {
-    let child = child.into_child(self.cx);
+    let child = child.into_child(self.cx).into_view(self.cx);
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        #[cfg(feature = "hydrate")]
-        {
-          // if we're currently hydrating, we don't need to mount the view,
-          // but we still need to run into_view(), or it may not generate an ID
-          let view = child.into_view(self.cx);
-          if !HydrationCtx::is_hydrating() {
-            mount_child(MountKind::Append(self.element.get_element()), &view)
-          }
-        }
-
-        #[cfg(not(feature = "hydrate"))]
-        mount_child(MountKind::Append(self.element.get_element()), &child.into_view(self.cx))
+        mount_child(MountKind::Append(self.element.get_element()), &child);
       }
       else {
-        self.children.push(Box::new(move |cx| child.into_view(cx)));
+        self.children.push(child);
       }
     }
 
@@ -471,10 +460,7 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
         let id = element.hydration_id();
 
         let mut element = Element::new(element);
-        let children = children
-          .into_iter()
-          .map(|c| c(cx))
-          .collect::<SmallVec<[_; 4]>>();
+        let children = children;
 
         if !attrs.iter_mut().any(|(name, _)| name == "id") {
           attrs.push(("id".into(), format!("_{}", id).into()));
