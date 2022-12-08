@@ -162,11 +162,24 @@ where
         }
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        mount_child(MountKind::Before(&closing), &new_child);
+        {
+          if cfg!(feature = "hydrate") && !HydrationCtx::is_hydrating() {
+            mount_child(MountKind::Before(&closing), &new_child);
+          } else {
+            mount_child(MountKind::Before(&closing), &new_child);
+          }
+        }
 
         **child.borrow_mut() = Some(new_child);
       }
     });
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let new_child = child_fn().into_view(cx);
+
+      **child.borrow_mut() = Some(new_child);
+    }
 
     View::CoreComponent(crate::CoreComponent::DynChild(component))
   }
