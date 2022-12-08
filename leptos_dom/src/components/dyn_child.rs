@@ -195,7 +195,7 @@ where
           // We need to reuse the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
             closing
-              .previous_sibling
+              .previous_sibling()
               .unwrap()
               .unchecked_into::<web_sys::Element>()
               .remove();
