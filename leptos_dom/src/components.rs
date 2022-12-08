@@ -158,17 +158,15 @@ where
   fn into_view(self, cx: Scope) -> View {
     let Self { name, children_fn } = self;
 
-    let mut children = None;
-
-    let disposer =
-      cx.child_scope(|cx| children = Some(cx.untrack(move || children_fn(cx))));
-
-    let children = children.unwrap();
+    let (children, disposer) =
+      cx.run_child_scope(|cx| cx.untrack(move || children_fn(cx)));
 
     let mut repr = ComponentRepr::new(name);
 
     // TODO this was causing SSR to panic with a BorrowMut error
     //leptos_reactive::on_cleanup(cx, move || disposer.dispose());
+
+    warn!("not currently disposing of component scope");
 
     repr.children = vec![children];
 

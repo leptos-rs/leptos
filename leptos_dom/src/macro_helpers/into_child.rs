@@ -1,5 +1,5 @@
 use crate::{
-  Component, ComponentRepr, DynChild, EachKey, Element, Fragment, HtmlElement,
+  Component, ComponentRepr, DynChild, Each, Element, Fragment, HtmlElement,
   IntoElement, IntoView, Text, Unit, View,
 };
 use cfg_if::cfg_if;
@@ -69,11 +69,11 @@ where
   }
 }
 
-impl<IF, I, T, EF, N, KF, K> IntoChild for EachKey<IF, I, T, EF, N, KF, K>
+impl<IF, I, T, EF, N, KF, K> IntoChild for Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,

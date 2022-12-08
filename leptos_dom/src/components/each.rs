@@ -212,11 +212,11 @@ impl EachItem {
 }
 
 /// A component for efficiently rendering an iterable.
-pub struct EachKey<IF, I, T, EF, N, KF, K>
+pub struct Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -227,11 +227,11 @@ where
   key_fn: KF,
 }
 
-impl<IF, I, T, EF, N, KF, K> EachKey<IF, I, T, EF, N, KF, K>
+impl<IF, I, T, EF, N, KF, K> Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K,
   K: Eq + Hash + 'static,
@@ -247,11 +247,11 @@ where
   }
 }
 
-impl<IF, I, T, EF, N, KF, K> IntoView for EachKey<IF, I, T, EF, N, KF, K>
+impl<IF, I, T, EF, N, KF, K> IntoView for Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -312,7 +312,12 @@ where
             *children_borrow = Vec::with_capacity(items.len());
 
             for item in items {
-              let child = each_fn(item).into_view(cx);
+
+
+              let (child, disposer) =
+                cx.run_child_scope(|cx| each_fn(cx, item).into_view(cx));
+
+              warn!("not currently disposing of item scope");
 
               let each_item = EachItem::new(child);
 
@@ -507,7 +512,7 @@ fn apply_cmds<T, EF, N>(
   mut items: SmallVec<[Option<T>; 128]>,
   each_fn: &EF,
 ) where
-  EF: Fn(T) -> N,
+  EF: Fn(Scope, T) -> N,
   N: IntoView,
 {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -583,7 +588,10 @@ fn apply_cmds<T, EF, N>(
   for DiffOpAdd { at, mode } in cmds.added {
     let item = std::mem::replace(&mut items[at], None).unwrap();
 
-    let child = each_fn(item).into_view(cx);
+    let (child, disposer) =
+      cx.run_child_scope(|cx| each_fn(cx, item).into_view(cx));
+
+    warn!("not currently disposing of item scope");
 
     let each_item = EachItem::new(child);
 
@@ -629,7 +637,7 @@ pub struct ForProps<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -690,12 +698,12 @@ pub fn For<IF, I, T, EF, N, KF, K>(
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
   T: 'static,
 {
   let each_fn = (props.children)().swap_remove(0);
-  EachKey::new(props.each, props.key, each_fn).into_view(cx)
+  Each::new(props.each, props.key, each_fn).into_view(cx)
 }
