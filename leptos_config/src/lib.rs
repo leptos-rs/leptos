@@ -35,10 +35,10 @@ impl RenderOptions {
         let options = format!(
             r#"// This file is auto-generated. Changing it will have no effect on leptos. Change these by changing RenderOptions and rerunning
 RenderOptions {{
-    pkg_path "{}"
+    pkg-path "{}"
     environment "{:?}"
-    socket_address "{:?}"
-    reload_port {:?}
+    socket-address "{:?}"
+    reload-port {:?}
 }}
 "#,
             self.pkg_path, self.environment, self.socket_address, self.reload_port
