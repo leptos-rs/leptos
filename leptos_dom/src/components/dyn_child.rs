@@ -122,30 +122,36 @@ where
 
     let child = component.child.clone();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let prev_text_node = RefCell::new(None::<web_sys::Node>);
-
     let span = tracing::Span::current();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    create_effect(cx, move |prev_run| {
+    create_effect(cx, move |prev_run: Option<Option<web_sys::Node>>| {
       let _guard = span.enter();
       let _guard = trace_span!("DynChild reactive").entered();
-      let new_child = child_fn().into_view(cx);
-      if let Some(t) = new_child.get_text() {
-        let mut prev_text_node_borrow = prev_text_node.borrow_mut();
 
-        if let Some(prev_t) = &*prev_text_node_borrow {
+      let new_child = child_fn().into_view(cx);
+
+      if let Some(t) = new_child.get_text() {
+        if let Some(Some(prev_t)) = prev_run {
           prev_t.unchecked_ref::<web_sys::Text>().set_data(&t.content);
+
+          Some(prev_t)
         } else {
+          // We need to remove the node that was generated from SSR
+          if HydrationCtx::is_hydrating() {
+            if let Some(text_node) = closing.previous_sibling() {
+              text_node.unchecked_into::<web_sys::Element>().remove();
+            }
+          }
+
           closing
             .unchecked_ref::<web_sys::Element>()
             .before_with_node_1(&t.node)
             .expect("before to not err");
-          *prev_text_node_borrow = Some(t.node.clone());
+
+          Some(t.node.clone())
         }
       } else {
-        *prev_text_node.borrow_mut() = None;
         if prev_run.is_some() {
           let opening =
             child.borrow().as_ref().as_ref().unwrap().get_opening_node();
@@ -165,6 +171,8 @@ where
         mount_child(MountKind::Before(&closing), &new_child);
 
         **child.borrow_mut() = Some(new_child);
+
+        None
       }
     });
 
