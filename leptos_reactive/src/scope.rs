@@ -1,12 +1,12 @@
 use cfg_if::cfg_if;
 
-use crate::runtime::{with_runtime, RuntimeId};
-use crate::{hydration::SharedContext, EffectId, ResourceId, SignalId};
-use crate::{PinnedFuture, SuspenseContext};
+use crate::{
+    hydration::SharedContext,
+    runtime::{with_runtime, RuntimeId},
+    EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
+};
 use futures::stream::FuturesUnordered;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::{future::Future, pin::Pin};
+use std::{collections::HashMap, fmt, future::Future, pin::Pin};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -505,33 +505,34 @@ impl Scope {
 
     /// Returns the hydration key for the next element.
     pub fn hydration_id(&self) -> HydrationKey {
-        with_runtime(self.runtime, |runtime| {
-            HydrationKey(runtime.hydration_id())
-        })
+        with_runtime(self.runtime, |runtime| HydrationKey(runtime.hydration_id()))
     }
 }
 
-impl Debug for ScopeDisposer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for ScopeDisposer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ScopeDisposer").finish()
     }
 }
 
+/// This struct is used for hydrating the leptos views from the DOM.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey(pub usize);
 
 impl HydrationKey {
+    /// Converts the [`HydrationKey`] into a string, suitable for
+    /// SSR or looking up the node for hydration.
     pub fn to_string(&self, closing: bool) -> String {
         #[cfg(debug_assertions)]
-        format!("_{id}{}", if closing { 'c' } else { 'o' })
-    
+        return format!("_{}{}", self.0, if closing { 'c' } else { 'o' });
+
         #[cfg(not(debug_assertions))]
-        format!("_{id}")
+        return format!("_{}", self.0);
     }
 }
 
-impl std::fmt::Display for HydrationKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for HydrationKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
