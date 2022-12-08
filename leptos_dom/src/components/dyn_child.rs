@@ -131,53 +131,80 @@ where
         let _guard = span.enter();
         let _guard = trace_span!("DynChild reactive").entered();
 
-        let new_child = child_fn().into_view(cx);
+        let (new_child, disposer) =
+          cx.run_child_scope(|cx| child_fn().into_view(cx));
 
-        todo!();
+        if let Some((prev_t, prev_disposer)) = prev_run {
+          prev_disposer.dispose();
 
-        // if let Some(t) = new_child.get_text() {
-        //   if let Some(Some(prev_t)) = prev_run {
-        //     prev_t.unchecked_ref::<web_sys::Text>().set_data(&t.content);
+          if let Some(prev_t) = prev_t {
+            if let Some(new_t) = new_child.get_text() {
+              prev_t
+                .unchecked_ref::<web_sys::Text>()
+                .set_data(&new_t.content);
 
-        //     Some(prev_t)
-        //   } else {
-        //     // We need to remove the node that was generated from SSR
-        //     if HydrationCtx::is_hydrating() {
-        //       if let Some(text_node) = closing.previous_sibling() {
-        //         text_node.unchecked_into::<web_sys::Element>().remove();
-        //       }
-        //     }
+              (Some(prev_t), disposer)
+            } else {
+              // Remove the text
+              closing
+                .previous_sibling()
+                .unwrap()
+                .unchecked_into::<web_sys::Element>()
+                .remove();
 
-        //     closing
-        //       .unchecked_ref::<web_sys::Element>()
-        //       .before_with_node_1(&t.node)
-        //       .expect("before to not err");
+              mount_child(MountKind::Before(&closing), &new_child);
 
-        //     Some(t.node.clone())
-        //   }
-        // } else {
-        //   if prev_run.is_some() {
-        //     let opening =
-        //       child.borrow().as_ref().as_ref().unwrap().get_opening_node();
+              **child.borrow_mut() = Some(new_child);
 
-        //     let mut sibling = opening;
+              (None, disposer)
+            }
+          } else {
+            // Remove the child
+            let mut child_borrow = child.borrow_mut();
 
-        //     while sibling != closing {
-        //       let next_sibling = sibling.next_sibling().unwrap();
+            let child = child_borrow.take().unwrap();
 
-        //       sibling.unchecked_ref::<web_sys::Element>().remove();
+            let start = child.get_opening_node();
+            let end = &closing;
 
-        //       sibling = next_sibling;
-        //     }
-        //   }
+            let mut sibling = start.clone();
 
-        //   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        //   mount_child(MountKind::Before(&closing), &new_child);
+            while sibling != *end {
+              let next_sibling = sibling.next_sibling().unwrap();
 
-        //   **child.borrow_mut() = Some(new_child);
+              sibling.unchecked_ref::<web_sys::Element>().remove();
 
-        //   None
-        // }
+              sibling = next_sibling;
+            }
+
+            if !HydrationCtx::is_hydrating() {
+              mount_child(MountKind::Before(&closing), &child);
+            }
+
+            let t = child.get_text().map(|t| t.node.clone());
+
+            **child_borrow = Some(child);
+
+            (t, disposer)
+          }
+        } else {
+          // We need to remove the text that was generated from SSR
+          if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
+            if let Some(text_node) = closing.previous_sibling() {
+              text_node.unchecked_into::<web_sys::Element>().remove();
+            }
+          }
+
+          if !HydrationCtx::is_hydrating() {
+            mount_child(MountKind::Before(&closing), &new_child);
+          }
+
+          let t = new_child.get_text().map(|t| t.node.clone());
+
+          **child.borrow_mut() = Some(new_child);
+
+          (t, disposer)
+        }
       },
     );
 

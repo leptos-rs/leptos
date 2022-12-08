@@ -65,7 +65,7 @@ features = [
 ]
 
 [features]
-default = ["ssr", "hydrate"]
+default = ["web", "hydrate"]
 web = []
 csr = ["leptos_reactive/csr"]
 hydrate = ["leptos_reactive/hydrate"]
