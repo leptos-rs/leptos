@@ -2,7 +2,7 @@ use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
 use itertools::{EitherOrBoth, Itertools};
-use leptos_reactive::{create_effect, Scope};
+use leptos_reactive::{create_effect, Scope, ScopeDisposer};
 use rustc_hash::FxHasher;
 use smallvec::{smallvec, SmallVec};
 use std::{
@@ -277,7 +277,7 @@ where
 
     cfg_if::cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        create_effect(cx, move |prev_hash_run| {
+        create_effect(cx, move |prev_run| {
           let mut children_borrow = children.borrow_mut();
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -294,6 +294,18 @@ where
           let hashed_items =
             items.iter().map(|i| key_fn(i)).collect::<FxIndexSet<_>>();
 
+          let (prev_hash_run, mut disposers) = if let Some((prev_hash_run, disposers)) = prev_run {
+            (
+              Some(prev_hash_run),
+              disposers
+            )
+          } else {
+            (
+              None,
+              Vec::with_capacity(items.len())
+            )
+          };
+
           if let Some(HashRun(prev_hash_run)) = prev_hash_run {
             let cmds = diff(&prev_hash_run, &hashed_items);
 
@@ -307,18 +319,16 @@ where
               &mut children_borrow,
               items.into_iter().map(|t| Some(t)).collect(),
               &each_fn,
+              &mut disposers,
             );
           } else {
             *children_borrow = Vec::with_capacity(items.len());
 
             for item in items {
-
-
               let (child, disposer) =
                 cx.run_child_scope(|cx| each_fn(cx, item).into_view(cx));
 
-              warn!("not currently disposing of item scope");
-
+              disposers.push(Some(disposer));
               let each_item = EachItem::new(child);
 
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -328,7 +338,7 @@ where
             }
           }
 
-          HashRun(hashed_items)
+          (HashRun(hashed_items), disposers)
         });
       } else {
         *component.children.borrow_mut() = (items_fn)()
@@ -503,70 +513,75 @@ enum DiffOpAddMode {
   _Prepend,
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn apply_cmds<T, EF, N>(
   cx: Scope,
-  #[cfg(all(target_arch = "wasm32", feature = "web"))] opening: &web_sys::Node,
-  #[cfg(all(target_arch = "wasm32", feature = "web"))] closing: &web_sys::Node,
+  opening: &web_sys::Node,
+  closing: &web_sys::Node,
   mut cmds: Diff,
   children: &mut Vec<Option<EachItem>>,
   mut items: SmallVec<[Option<T>; 128]>,
   each_fn: &EF,
+  disposers: &mut Vec<Option<ScopeDisposer>>,
 ) where
   EF: Fn(Scope, T) -> N,
   N: IntoView,
 {
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
   let range = &RANGE;
 
   // Resize children if needed
   if cmds.added.len().checked_sub(cmds.removed.len()).is_some() {
-    children.resize_with(
-      children.len()
-        + (cmds.added.len() as isize - cmds.removed.len() as isize) as usize,
-      || None,
-    );
+    let target_size = children.len()
+      + (cmds.added.len() as isize - cmds.removed.len() as isize) as usize;
+
+    children.resize_with(target_size, || None);
+    disposers.resize_with(target_size, || None);
   }
 
   // We need to hold a list of items which will be moved, and
-  // we can only perform the omve after all commands have run, otherwise,
+  // we can only perform the move after all commands have run, otherwise,
   // we risk overwriting one of the values
   let mut items_to_move = Vec::with_capacity(cmds.moved.len());
 
   // The order of cmds needs to be:
-  // 1. Removed
-  // 2. Moved
-  // 3. Add
+  // 1. Clear
+  // 2. Removed
+  // 3. Moved
+  // 4. Add
   if cmds.clear {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    if opening.previous_sibling().is_none() && closing.next_sibling().is_none()
     {
-      if opening.previous_sibling().is_none()
-        && closing.next_sibling().is_none()
-      {
-        let parent = closing
-          .parent_node()
-          .unwrap()
-          .unchecked_into::<web_sys::Element>();
-        parent.set_text_content(Some(""));
+      let parent = closing
+        .parent_node()
+        .unwrap()
+        .unchecked_into::<web_sys::Element>();
+      parent.set_text_content(Some(""));
 
-        #[cfg(debug_assertions)]
-        parent.append_with_node_2(opening, closing).unwrap();
+      #[cfg(debug_assertions)]
+      parent.append_with_node_2(opening, closing).unwrap();
 
-        #[cfg(not(debug_assertions))]
-        parent.append_with_node_1(closing).unwrap();
-      } else {
-        range.set_start_before(opening).unwrap();
-        range.set_end_before(closing).unwrap();
+      #[cfg(not(debug_assertions))]
+      parent.append_with_node_1(closing).unwrap();
+    } else {
+      range.set_start_before(opening).unwrap();
+      range.set_end_before(closing).unwrap();
 
-        range.delete_contents().unwrap();
-      }
+      range.delete_contents().unwrap();
     }
+
+    disposers
+      .iter_mut()
+      .for_each(|dis| dis.take().unwrap().dispose());
+
+    disposers.clear();
   }
 
   for DiffOpRemove { at } in cmds.removed {
     let item_to_remove = std::mem::take(&mut children[at]).unwrap();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     item_to_remove.prepare_for_move();
+
+    disposers[at].take().unwrap().dispose();
   }
 
   for DiffOpMove {
@@ -577,45 +592,39 @@ fn apply_cmds<T, EF, N>(
   {
     let item = std::mem::take(&mut children[from]).unwrap();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     if move_in_dom {
       item.prepare_for_move()
     }
 
-    items_to_move.push((move_in_dom, to, item));
+    items_to_move.push((move_in_dom, to, item, disposers[from].take()));
   }
 
   for DiffOpAdd { at, mode } in cmds.added {
-    let item = std::mem::replace(&mut items[at], None).unwrap();
+    let item = items[at].take().unwrap();
 
     let (child, disposer) =
       cx.run_child_scope(|cx| each_fn(cx, item).into_view(cx));
 
-    warn!("not currently disposing of item scope");
-
     let each_item = EachItem::new(child);
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      match mode {
-        DiffOpAddMode::Normal => {
-          let opening = children
-            .get_next_closest_mounted_sibling(at + 1, closing.to_owned());
+    match mode {
+      DiffOpAddMode::Normal => {
+        let opening =
+          children.get_next_closest_mounted_sibling(at + 1, closing.to_owned());
 
-          mount_child(MountKind::Before(&opening), &each_item);
-        }
-        DiffOpAddMode::Append => {
-          mount_child(MountKind::Before(closing), &each_item);
-        }
-        DiffOpAddMode::_Prepend => todo!(),
+        mount_child(MountKind::Before(&opening), &each_item);
       }
+      DiffOpAddMode::Append => {
+        mount_child(MountKind::Before(closing), &each_item);
+      }
+      DiffOpAddMode::_Prepend => todo!(),
     }
 
     children[at] = Some(each_item);
+    disposers[at] = Some(disposer);
   }
 
-  for (move_in_dom, to, each_item) in items_to_move {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  for (move_in_dom, to, each_item, disposer) in items_to_move {
     if move_in_dom {
       let opening =
         children.get_next_closest_mounted_sibling(to + 1, closing.to_owned());
@@ -624,6 +633,7 @@ fn apply_cmds<T, EF, N>(
     }
 
     children[to] = Some(each_item);
+    disposers[to] = disposer;
   }
 
   // Now, remove the holes that might have been left from removing

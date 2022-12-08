@@ -1,7 +1,7 @@
 use crate::{hydration::HydrationCtx, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
-use leptos_reactive::{create_effect, Scope};
+use leptos_reactive::{create_effect, Scope, ScopeDisposer};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
 
@@ -125,56 +125,61 @@ where
     let span = tracing::Span::current();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    create_effect(cx, move |prev_run: Option<Option<web_sys::Node>>| {
-      let _guard = span.enter();
-      let _guard = trace_span!("DynChild reactive").entered();
+    create_effect(
+      cx,
+      move |prev_run: Option<(Option<web_sys::Node>, ScopeDisposer)>| {
+        let _guard = span.enter();
+        let _guard = trace_span!("DynChild reactive").entered();
 
-      let new_child = child_fn().into_view(cx);
+        let new_child = child_fn().into_view(cx);
 
-      if let Some(t) = new_child.get_text() {
-        if let Some(Some(prev_t)) = prev_run {
-          prev_t.unchecked_ref::<web_sys::Text>().set_data(&t.content);
+        todo!();
 
-          Some(prev_t)
-        } else {
-          // We need to remove the node that was generated from SSR
-          if HydrationCtx::is_hydrating() {
-            if let Some(text_node) = closing.previous_sibling() {
-              text_node.unchecked_into::<web_sys::Element>().remove();
-            }
-          }
+        // if let Some(t) = new_child.get_text() {
+        //   if let Some(Some(prev_t)) = prev_run {
+        //     prev_t.unchecked_ref::<web_sys::Text>().set_data(&t.content);
 
-          closing
-            .unchecked_ref::<web_sys::Element>()
-            .before_with_node_1(&t.node)
-            .expect("before to not err");
+        //     Some(prev_t)
+        //   } else {
+        //     // We need to remove the node that was generated from SSR
+        //     if HydrationCtx::is_hydrating() {
+        //       if let Some(text_node) = closing.previous_sibling() {
+        //         text_node.unchecked_into::<web_sys::Element>().remove();
+        //       }
+        //     }
 
-          Some(t.node.clone())
-        }
-      } else {
-        if prev_run.is_some() {
-          let opening =
-            child.borrow().as_ref().as_ref().unwrap().get_opening_node();
+        //     closing
+        //       .unchecked_ref::<web_sys::Element>()
+        //       .before_with_node_1(&t.node)
+        //       .expect("before to not err");
 
-          let mut sibling = opening;
+        //     Some(t.node.clone())
+        //   }
+        // } else {
+        //   if prev_run.is_some() {
+        //     let opening =
+        //       child.borrow().as_ref().as_ref().unwrap().get_opening_node();
 
-          while sibling != closing {
-            let next_sibling = sibling.next_sibling().unwrap();
+        //     let mut sibling = opening;
 
-            sibling.unchecked_ref::<web_sys::Element>().remove();
+        //     while sibling != closing {
+        //       let next_sibling = sibling.next_sibling().unwrap();
 
-            sibling = next_sibling;
-          }
-        }
+        //       sibling.unchecked_ref::<web_sys::Element>().remove();
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        mount_child(MountKind::Before(&closing), &new_child);
+        //       sibling = next_sibling;
+        //     }
+        //   }
 
-        **child.borrow_mut() = Some(new_child);
+        //   #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        //   mount_child(MountKind::Before(&closing), &new_child);
 
-        None
-      }
-    });
+        //   **child.borrow_mut() = Some(new_child);
+
+        //   None
+        // }
+      },
+    );
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     {

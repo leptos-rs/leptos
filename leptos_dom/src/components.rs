@@ -39,7 +39,6 @@ pub struct ComponentRepr {
   /// The children of the component.
   pub children: Vec<View>,
   closing: Comment,
-  disposer: Option<ScopeDisposer>,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) id: usize,
 }
@@ -121,8 +120,7 @@ impl ComponentRepr {
       closing: markers.0,
       #[cfg(debug_assertions)]
       name,
-      children: Default::default(),
-      disposer: Default::default(),
+      children: Vec::with_capacity(1),
       #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
       id,
     }
@@ -158,17 +156,11 @@ where
   fn into_view(self, cx: Scope) -> View {
     let Self { name, children_fn } = self;
 
-    let (children, disposer) =
-      cx.run_child_scope(|cx| cx.untrack(move || children_fn(cx)));
-
     let mut repr = ComponentRepr::new(name);
 
-    // TODO this was causing SSR to panic with a BorrowMut error
-    //leptos_reactive::on_cleanup(cx, move || disposer.dispose());
+    let child = cx.untrack(|| children_fn(cx));
 
-    warn!("not currently disposing of component scope");
-
-    repr.children = vec![children];
+    repr.children.push(child);
 
     repr.into_view(cx)
   }
