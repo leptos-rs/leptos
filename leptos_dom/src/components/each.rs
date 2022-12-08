@@ -74,8 +74,10 @@ impl Default for EachRepr {
         fragment
           .append_with_node_2(&markers.1.node, &markers.0.node)
           .expect("append to not err");
+      }
 
-        #[cfg(not(debug_assertions))]
+      #[cfg(not(debug_assertions))]
+      if !HydrationCtx::is_hydrating() {
         fragment.append_with_node_1(&markers.0.node).unwrap();
       }
 
@@ -282,8 +284,10 @@ where
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           let opening = if let Some(Some(child)) = children_borrow.get(0) {
+            crate::log!("closing path A");
             child.get_opening_node()
           } else {
+            crate::log!("closing path B");
             closing.clone()
           };
 
@@ -553,7 +557,7 @@ fn apply_cmds<T, EF, N>(
     {
       let parent = closing
         .parent_node()
-        .unwrap()
+        .expect("could not get closing node")
         .unchecked_into::<web_sys::Element>();
       parent.set_text_content(Some(""));
 
