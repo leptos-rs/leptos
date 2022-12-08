@@ -12,7 +12,7 @@ impl View {
       View::Text(node) => node.content,
       View::Component(node) => {
         let content = node
-          .child
+          .children
           .into_iter()
           .map(|node| node.render_to_string())
           .join("");

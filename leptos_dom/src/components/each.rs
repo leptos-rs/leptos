@@ -343,7 +343,7 @@ where
       } else {
         *component.children.borrow_mut() = (items_fn)()
           .into_iter()
-          .map(|child| Some(EachItem::new((each_fn)(child).into_view(cx))))
+          .map(|child| Some(EachItem::new((each_fn)(cx, child).into_view(cx))))
           .collect();
       }
     }
