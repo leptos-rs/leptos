@@ -12,6 +12,7 @@ proc-macro = true
 
 [dependencies]
 cfg-if = "1"
+itertools = "0.10"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"

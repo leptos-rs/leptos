@@ -1,11 +1,11 @@
 use crate as leptos;
 use leptos_dom::{Child, IntoChild};
-use leptos_macro::Props;
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use typed_builder::TypedBuilder;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
-#[derive(Props)]
+#[derive(TypedBuilder)]
 pub struct SuspenseProps<F, E, G>
 where
     F: IntoChild + Clone,
