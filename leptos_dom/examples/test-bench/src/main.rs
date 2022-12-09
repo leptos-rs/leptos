@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 #[macro_use]
 extern crate tracing;
 
@@ -22,16 +24,16 @@ fn main() {
     .finish()
     .init();
 
-  // mount_to_body(view_fn);
+  mount_to_body(view_fn);
 
-  let disposer =
-    leptos_reactive::create_scope(leptos_reactive::create_runtime(), |cx| {
-      let view = view_fn(cx).into_view(cx);
+  // let disposer =
+  //   leptos_reactive::create_scope(leptos_reactive::create_runtime(), |cx| {
+  //     let view = view_fn(cx).into_view(cx);
 
-      let render = view.render_to_string();
+  //     let render = view.render_to_string();
 
-      println!("{render}");
-    });
+  //     println!("{render}");
+  // });
 }
 
 fn view_fn(cx: Scope) -> impl IntoView {
@@ -112,10 +114,10 @@ fn view_fn(cx: Scope) -> impl IntoView {
       .child(text("Click me (undelegated)"))
       .into_view(cx),
     pre(cx)
-      .child(EachKey::new(
+      .child(Each::new(
         iterable,
         |i| *i,
-        move |i| text(format!("{i}, ")),
+        move |cx, i| text(format!("{i}, ")),
       ))
       .into_view(cx),
     pre(cx)

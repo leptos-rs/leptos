@@ -167,7 +167,6 @@ where
           } else {
             if !HydrationCtx::is_hydrating() {
               // Remove the child
-              let child = child_borrow.take().unwrap();
 
               let start = child.get_opening_node();
               let end = &closing;
