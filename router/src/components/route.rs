@@ -1,7 +1,6 @@
 use std::{borrow::Cow, rc::Rc};
 
 use leptos::*;
-use typed_builder::TypedBuilder;
 
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},

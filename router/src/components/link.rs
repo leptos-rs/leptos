@@ -1,7 +1,6 @@
 use cfg_if::cfg_if;
 use leptos::leptos_dom::IntoChild;
 use leptos::*;
-use typed_builder::TypedBuilder;
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::JsCast;
