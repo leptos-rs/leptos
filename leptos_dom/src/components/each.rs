@@ -284,10 +284,8 @@ where
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           let opening = if let Some(Some(child)) = children_borrow.get(0) {
-            crate::log!("closing path A");
             child.get_opening_node()
           } else {
-            crate::log!("closing path B");
             closing.clone()
           };
 
@@ -424,7 +422,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
           to: idx,
           move_in_dom: true,
         });
-      } else {
+      } else if from_idx != idx {
         move_cmds.push(DiffOpMove {
           from: from_idx,
           to: idx,
@@ -531,6 +529,8 @@ fn apply_cmds<T, EF, N>(
   EF: Fn(Scope, T) -> N,
   N: IntoView,
 {
+  debug!("{cmds:#?}");
+
   let range = &RANGE;
 
   // Resize children if needed
