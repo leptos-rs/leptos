@@ -570,7 +570,7 @@ macro_rules! generate_html_tags {
                 panic!("SSR and CSR hydration mismatch, element id `_{id}` not found!");
               }
             } else {
-              [<$tag:upper>].clone_node()
+              [<$tag:upper>].clone_node().unwrap().unchecked_into()
             };
 
             Self {
