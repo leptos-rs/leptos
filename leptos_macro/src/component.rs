@@ -177,7 +177,7 @@ impl ToTokens for InlinePropsBody {
                 } else {
                     quote! {
                         #comment_macro
-                        #[builder(default, setter(into, doc = #comment))]
+                        #[builder(setter(into, doc = #comment))]
                         pub #f
                     }
                 }
