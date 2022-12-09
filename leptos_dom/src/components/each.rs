@@ -16,43 +16,6 @@ use wasm_bindgen::JsCast;
 
 type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
 
-/// A trait for converting iterators into an [`Each`] component.
-pub trait IntoEach<IF, I, T, EF, N, KF, K>
-where
-  IF: Fn() -> I + 'static,
-  I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
-  N: IntoView,
-  KF: Fn(&T) -> K + 'static,
-  K: Eq + Hash + 'static,
-  T: 'static,
-{
-  /// Consumes the iterator, yielding [`Each`].
-  fn into_each(self) -> Each<IF, I, T, EF, N, KF, K>;
-}
-
-impl<Iter, IF, I, T, EF, N, KF, K> IntoEach<IF, I, T, EF, N, KF, K> for Iter
-where
-  Iter: IntoIterator<Item = (K, T)>,
-  IF: Fn() -> I + 'static,
-  I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
-  N: IntoView,
-  KF: Fn(&T) -> K + 'static,
-  K: Eq + Hash + 'static,
-  T: 'static,
-{
-  fn into_each(self) -> Each<IF, I, T, EF, N, KF, K> {
-    let iter = self.into_iter();
-
-    let (keys, ts): (SmallVec<[_; 128]>, SmallVec<[T; 128]>) = iter.unzip();
-
-    // Each::new(ts, )
-
-    todo!()
-  }
-}
-
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 trait VecExt {
   fn get_next_closest_mounted_sibling(
