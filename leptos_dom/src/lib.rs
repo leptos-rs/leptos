@@ -501,32 +501,6 @@ macro_rules! is_dev {
   };
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
-struct TopoId {
-  /// The depth of the node from the root.
-  depth: usize,
-  /// The position among a node's siblings.
-  offset: usize,
-  /// The sum of this node's parent's `depth + offset + sum`.
-  sum: usize,
-}
-
-impl TopoId {
-  fn first_child(&self) -> TopoId {
-    TopoId {
-      depth: self.depth + 1,
-      offset: 0,
-      sum: self.depth + self.offset + self.sum,
-    }
-  }
-}
-
-impl Display for TopoId {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_fmt(format_args!("{}-{}-{}", self.depth, self.offset, self.sum))
-  }
-}
-
 macro_rules! impl_into_view_for_tuples {
   ($($ty:ident),* $(,)?) => {
     impl<$($ty),*> IntoView for ($($ty,)*)

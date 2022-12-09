@@ -2,7 +2,7 @@ use cfg_if::cfg_if;
 use itertools::Itertools;
 use std::{borrow::Cow, fmt::Display};
 
-use crate::{hydration::HydrationCtx, CoreComponent, TopoId, View};
+use crate::{hydration::HydrationCtx, CoreComponent, View};
 
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 impl View {
