@@ -73,7 +73,7 @@ impl<IF, I, T, EF, N, KF, K> IntoChild for Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(Scope, T) -> N + 'static,
+  EF: Fn(T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,

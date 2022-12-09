@@ -218,7 +218,7 @@ pub struct Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(Scope, T) -> N + 'static,
+  EF: Fn(T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -233,7 +233,7 @@ impl<IF, I, T, EF, N, KF, K> Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(Scope, T) -> N + 'static,
+  EF: Fn(T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K,
   K: Eq + Hash + 'static,
@@ -253,7 +253,7 @@ impl<IF, I, T, EF, N, KF, K> IntoView for Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(Scope, T) -> N + 'static,
+  EF: Fn(T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -279,7 +279,7 @@ where
 
     cfg_if::cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        create_effect(cx, move |prev_run| {
+        create_effect(cx, move |prev_hash_run| {
           let mut children_borrow = children.borrow_mut();
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -296,18 +296,6 @@ where
           let hashed_items =
             items.iter().map(|i| key_fn(i)).collect::<FxIndexSet<_>>();
 
-          let (prev_hash_run, mut disposers) = if let Some((prev_hash_run, disposers)) = prev_run {
-            (
-              Some(prev_hash_run),
-              disposers
-            )
-          } else {
-            (
-              None,
-              Vec::with_capacity(items.len())
-            )
-          };
-
           if let Some(HashRun(prev_hash_run)) = prev_hash_run {
             let cmds = diff(&prev_hash_run, &hashed_items);
 
@@ -320,18 +308,13 @@ where
               cmds,
               &mut children_borrow,
               items.into_iter().map(|t| Some(t)).collect(),
-              &each_fn,
-              &mut disposers,
+              &each_fn
             );
           } else {
             *children_borrow = Vec::with_capacity(items.len());
 
             for item in items {
-              let (child, disposer) =
-                cx.run_child_scope(|cx| each_fn(cx, item).into_view(cx));
-
-              disposers.push(Some(disposer));
-              let each_item = EachItem::new(child);
+              let each_item = EachItem::new(each_fn(item).into_view(cx));
 
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               mount_child(MountKind::Before(&closing), &each_item);
@@ -340,7 +323,7 @@ where
             }
           }
 
-          (HashRun(hashed_items), disposers)
+          HashRun(hashed_items)
         });
       } else {
         *component.children.borrow_mut() = (items_fn)()
@@ -524,9 +507,8 @@ fn apply_cmds<T, EF, N>(
   children: &mut Vec<Option<EachItem>>,
   mut items: SmallVec<[Option<T>; 128]>,
   each_fn: &EF,
-  disposers: &mut Vec<Option<ScopeDisposer>>,
 ) where
-  EF: Fn(Scope, T) -> N,
+  EF: Fn(T) -> N,
   N: IntoView,
 {
   let range = &RANGE;
@@ -537,7 +519,6 @@ fn apply_cmds<T, EF, N>(
       + (cmds.added.len() as isize - cmds.removed.len() as isize) as usize;
 
     children.resize_with(target_size, || None);
-    disposers.resize_with(target_size, || None);
   }
 
   // We need to hold a list of items which will be moved, and
@@ -572,20 +553,12 @@ fn apply_cmds<T, EF, N>(
 
       range.delete_contents().unwrap();
     }
-
-    disposers
-      .iter_mut()
-      .map(|dis| dis.take())
-      .flatten()
-      .for_each(|d| d.dispose());
   }
 
   for DiffOpRemove { at } in cmds.removed {
     let item_to_remove = std::mem::take(&mut children[at]).unwrap();
 
     item_to_remove.prepare_for_move();
-
-    disposers[at].take().unwrap().dispose();
   }
 
   for DiffOpMove {
@@ -600,14 +573,13 @@ fn apply_cmds<T, EF, N>(
       item.prepare_for_move()
     }
 
-    items_to_move.push((move_in_dom, to, item, disposers[from].take()));
+    items_to_move.push((move_in_dom, to, item));
   }
 
   for DiffOpAdd { at, mode } in cmds.added {
     let item = items[at].take().unwrap();
 
-    let (child, disposer) =
-      cx.run_child_scope(|cx| each_fn(cx, item).into_view(cx));
+    let child = each_fn(item).into_view(cx);
 
     let each_item = EachItem::new(child);
 
@@ -625,10 +597,9 @@ fn apply_cmds<T, EF, N>(
     }
 
     children[at] = Some(each_item);
-    disposers[at] = Some(disposer);
   }
 
-  for (move_in_dom, to, each_item, disposer) in items_to_move {
+  for (move_in_dom, to, each_item) in items_to_move {
     if move_in_dom {
       let opening =
         children.get_next_closest_mounted_sibling(to + 1, closing.to_owned());
@@ -637,13 +608,11 @@ fn apply_cmds<T, EF, N>(
     }
 
     children[to] = Some(each_item);
-    disposers[to] = disposer;
   }
 
   // Now, remove the holes that might have been left from removing
   // items
   children.drain_filter(|c| c.is_none());
-  disposers.drain_filter(|d| d.is_none());
 }
 
 /// Properties for the [For](crate::For) component, a keyed list.
@@ -652,7 +621,7 @@ pub struct ForProps<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(Scope, T) -> N + 'static,
+  EF: Fn(T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -713,7 +682,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(Scope, T) -> N + 'static,
+  EF: Fn(T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,

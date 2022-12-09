@@ -9,13 +9,15 @@ pub fn App(cx: Scope) -> View {
       <div>
         "This is some text"
       </div>
-      <ComponentA/>
+      <ComponentA>
+        <div>"Hello!"</div>
+      </ComponentA>
     </>
   }
 }
 
 #[component]
-pub fn ComponentA(cx: Scope) -> View {
+pub fn ComponentA(cx: Scope, children: Box<dyn Fn() -> Vec<View>>) -> View {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
   let (counter, set_counter) = create_signal(cx, 0);
 
@@ -33,6 +35,7 @@ pub fn ComponentA(cx: Scope) -> View {
     )
     .child(input(cx).attr("type", "text").prop("value", value))
     .child(p(cx).child("Value: ").child(value))
+    .child(children)
     .into_view(cx)
 }
 
