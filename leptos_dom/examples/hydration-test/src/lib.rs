@@ -23,6 +23,7 @@ pub fn ComponentA(cx: Scope) -> View {
   let _ = [div(cx)].into_view(cx);
 
   div(cx)
+    .id("the-div")
     .child(
       input(cx)
         .attr("type", "text")

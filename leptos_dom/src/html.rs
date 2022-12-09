@@ -464,7 +464,9 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
         let mut element = Element::new(element);
         let children = children;
 
-        if !attrs.iter_mut().any(|(name, _)| name == "id") {
+        if attrs.iter_mut().any(|(name, _)| name == "id") {
+          attrs.push(("leptos-hk".into(), format!("_{}", id).into()));
+        } else {
           attrs.push(("id".into(), format!("_{}", id).into()));
         }
 
@@ -555,6 +557,21 @@ macro_rules! generate_html_tags {
             let element = if HydrationCtx::is_hydrating() {
               if let Some(el) = crate::document().get_element_by_id(
                 &format!("_{id}")
+              ) {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                  el.node_name(),
+                  stringify!([<$tag:upper>]),
+                  "SSR and CSR elements have the same `TopoId` \
+                    but different node kinds. This is either a \
+                    discrepancy between SSR and CSR rendering
+                    logic, which is considered a bug, or it \
+                    can also be a leptos hydration issue."
+                );
+
+                el.unchecked_into()
+              } else if let Ok(Some(el)) = crate::document().query_selector(
+                &format!("[leptos-hk=_{id}]")
               ) {
                 #[cfg(debug_assertions)]
                 assert_eq!(
