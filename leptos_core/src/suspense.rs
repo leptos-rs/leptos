@@ -1,4 +1,3 @@
-use crate as leptos;
 use leptos_dom::{Child, IntoChild};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use typed_builder::TypedBuilder;
