@@ -529,8 +529,6 @@ fn apply_cmds<T, EF, N>(
   EF: Fn(Scope, T) -> N,
   N: IntoView,
 {
-  debug!("{cmds:#?}");
-
   let range = &RANGE;
 
   // Resize children if needed
