@@ -41,6 +41,11 @@ impl HydrationCtx {
     }
   }
 
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub(crate) fn reset_id() {
+    unsafe { ID = 0 };
+  }
+
   pub(crate) fn stop_hydrating() {
     unsafe {
       std::mem::take(&mut IS_HYDRATING);

@@ -12,14 +12,12 @@ async fn main() -> std::io::Result<()> {
           HttpResponse::Ok()
             .content_type("text/html")
             .body({
-              let runtime = create_runtime();
-              let html = run_scope(runtime, move |cx| {
+              let html = render_to_string(|cx| 
                 view! {
                   cx,
                   <App/>
-                }.render_to_string().to_string()
-              });
-              runtime.dispose();
+                }
+              );
               let html = format!(
                 r#"<!DOCTYPE html>
                 <html>

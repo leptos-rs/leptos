@@ -7,7 +7,7 @@ use crate::{hydration::HydrationCtx, CoreComponent, TopoId, View};
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 impl View {
   /// Consumes the node and renders it into an HTML string.
-  pub fn render_to_string(self) -> Cow<'static, str> {
+  pub(crate) fn render_to_string(self) -> Cow<'static, str> {
     match self {
       View::Text(node) => node.content,
       View::Component(node) => {
