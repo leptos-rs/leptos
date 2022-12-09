@@ -4,10 +4,11 @@ use leptos::*;
 
 #[component]
 pub fn App(cx: Scope) -> View {
-  view! {
-    cx,
+  view! { cx,
     <>
-      "This is some text"
+      <div>
+        "This is some text"
+      </div>
       <ComponentA/>
     </>
   }

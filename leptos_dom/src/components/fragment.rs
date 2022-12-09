@@ -1,6 +1,6 @@
+use crate::{hydration::HydrationCtx, ComponentRepr, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
-use crate::{ComponentRepr, IntoView, View};
 
 /// Represents a group of [`views`](View).
 #[derive(Debug)]
@@ -22,8 +22,10 @@ impl IntoView for Fragment {
     let closing = &frag.closing.node;
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    for child in &self.0 {
-      mount_child(MountKind::Before(closing), child);
+    if !HydrationCtx::is_hydrating() {
+      for child in &self.0 {
+        mount_child(MountKind::Before(closing), child);
+      }
     }
 
     frag.children = self.0;
