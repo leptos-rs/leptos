@@ -21,7 +21,6 @@ bincode = "1"
 url = { version = "2", optional = true }
 urlencoding = "2"
 thiserror = "1"
-typed-builder = "0.10"
 serde_urlencoded = "0.7"
 serde = "1"
 js-sys = { version = "0.3" }

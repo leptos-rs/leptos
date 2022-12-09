@@ -6,7 +6,7 @@ use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]
 fn inc() {
-    mount_to_body(counter::simple_counter);
+    mount_to_body(|cx| view! { cx, <SimpleCounter/> });
 
     let document = leptos::document();
     let div = document.query_selector("div").unwrap().unwrap();

@@ -6,7 +6,7 @@ use std::{
 };
 
 use leptos::*;
-use typed_builder::TypedBuilder;
+use leptos::typed_builder::*;
 
 use crate::{
     matching::{

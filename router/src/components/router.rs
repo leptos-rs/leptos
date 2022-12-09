@@ -2,8 +2,8 @@ use cfg_if::cfg_if;
 use std::{cell::RefCell, rc::Rc};
 
 use leptos::*;
+use leptos::typed_builder::*;
 use thiserror::Error;
-use typed_builder::TypedBuilder;
 
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;

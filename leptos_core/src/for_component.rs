@@ -1,14 +1,13 @@
 use leptos_dom::Element;
-use leptos_macro::*;
 use leptos_reactive::{Memo, Scope};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate as leptos;
 use crate::map::map_keyed;
+use typed_builder::TypedBuilder;
 
 /// Properties for the [For](crate::For) component, a keyed list.
-#[derive(Props)]
+#[derive(TypedBuilder)]
 pub struct ForProps<E, T, G, I, K>
 where
     E: Fn() -> Vec<T>,
