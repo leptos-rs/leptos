@@ -70,9 +70,9 @@ fn view_fn(cx: Scope) -> impl IntoView {
 
     set_iterable.update(|i| {
       if tick() % 2 == 0 {
-        *i = vec![0, 1, 2, 3, 4, 5, 6, 7];
+        *i = vec![0, 1, 2, 3];
       } else {
-        *i = vec![7, 6, 5, 4, 3, 2, 1, 0];
+        *i = vec![0, 1, 2, 3, 4, 5, 6];
       }
     })
   });

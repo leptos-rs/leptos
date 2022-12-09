@@ -406,7 +406,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     }
 
     if let Some(removed_idx) = removed_idx.as_mut().filter(|r_i| **r_i == idx) {
-      normalized_idx += 1;
+      normalized_idx = normalized_idx.wrapping_add(1);
 
       if let Some(next_removed) =
         removed.next().map(|k| from.get_full(k).unwrap().0)
@@ -551,6 +551,8 @@ fn apply_cmds<T, EF, N>(
   // 3. Moved
   // 4. Add
   if cmds.clear {
+    cmds.removed.clear();
+
     if opening.previous_sibling().is_none() && closing.next_sibling().is_none()
     {
       let parent = closing
@@ -573,9 +575,9 @@ fn apply_cmds<T, EF, N>(
 
     disposers
       .iter_mut()
-      .for_each(|dis| dis.take().unwrap().dispose());
-
-    disposers.clear();
+      .map(|dis| dis.take())
+      .flatten()
+      .for_each(|d| d.dispose());
   }
 
   for DiffOpRemove { at } in cmds.removed {
@@ -641,6 +643,7 @@ fn apply_cmds<T, EF, N>(
   // Now, remove the holes that might have been left from removing
   // items
   children.drain_filter(|c| c.is_none());
+  disposers.drain_filter(|d| d.is_none());
 }
 
 /// Properties for the [For](crate::For) component, a keyed list.
