@@ -161,3 +161,63 @@ text_type!(f32);
 text_type!(f64);
 text_type!(char);
 text_type!(bool);
+
+macro_rules! impl_into_child_for_tuples {
+  ($($ty:ident),* $(,)?) => {
+    impl<$($ty),*> IntoChild for ($($ty,)*)
+    where
+      $($ty: IntoView),*
+    {
+      fn into_child(self, cx: Scope) -> Child {
+        paste::paste! {
+          self.into_view(cx).into_child(cx)
+        }
+      }
+    }
+  };
+}
+
+impl_into_child_for_tuples!(A);
+impl_into_child_for_tuples!(A, B);
+impl_into_child_for_tuples!(A, B, C);
+impl_into_child_for_tuples!(A, B, C, D);
+impl_into_child_for_tuples!(A, B, C, D, E);
+impl_into_child_for_tuples!(A, B, C, D, E, F);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+impl_into_child_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y
+);
+impl_into_child_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z
+);
