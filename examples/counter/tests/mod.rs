@@ -3,10 +3,11 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 use leptos::*;
 use web_sys::HtmlElement;
+use counter::*;
 
 #[wasm_bindgen_test]
 fn inc() {
-    mount_to_body(|cx| view! { cx, <SimpleCounter/> });
+    mount_to_body(|cx| view! { cx, <SimpleCounter initial_value=0 step=1/> });
 
     let document = leptos::document();
     let div = document.query_selector("div").unwrap().unwrap();
