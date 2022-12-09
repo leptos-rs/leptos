@@ -2,6 +2,7 @@ use cfg_if::cfg_if;
 use std::{cell::RefCell, rc::Rc};
 
 use leptos::*;
+use leptos::typed_builder::*;
 use thiserror::Error;
 
 #[cfg(not(feature = "ssr"))]

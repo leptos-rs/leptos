@@ -1,6 +1,7 @@
 use crate::{use_navigate, use_resolved_path, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
+use leptos::typed_builder::*;
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;

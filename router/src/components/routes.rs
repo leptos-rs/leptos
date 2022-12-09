@@ -6,6 +6,7 @@ use std::{
 };
 
 use leptos::*;
+use leptos::typed_builder::*;
 
 use crate::{
     matching::{
