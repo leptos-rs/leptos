@@ -18,6 +18,10 @@ pub fn ComponentA(cx: Scope) -> View {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
   let (counter, set_counter) = create_signal(cx, 0);
 
+  // Test to make sure hydration isn't broken by
+  // something like this
+  let _ = [div(cx)].into_view(cx);
+
   div(cx)
     .child(
       input(cx)

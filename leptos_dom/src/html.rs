@@ -569,7 +569,13 @@ macro_rules! generate_html_tags {
 
                 el.unchecked_into()
               } else {
-                panic!("SSR and CSR hydration mismatch, element id `_{id}` not found!");
+                gloo::console::warn!(
+                  "element with id",
+                  format!("_{id}"),
+                  "not found, ignoring it for hydration"
+                );
+
+                [<$tag:upper>].clone_node().unwrap().unchecked_into()
               }
             } else {
               [<$tag:upper>].clone_node().unwrap().unchecked_into()

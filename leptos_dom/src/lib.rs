@@ -172,7 +172,6 @@ struct Comment {
 }
 
 impl Comment {
-  #[track_caller]
   fn new(
     content: impl Into<Cow<'static, str>>,
     id: usize,
@@ -196,7 +195,11 @@ impl Comment {
 
           marker.remove();
         } else {
-          panic!("SSR and CSR hydration mismatch, marker id `{id}` not found!");
+          gloo::console::warn!(
+            "component with id",
+            id,
+            "not found, ignoring it for hydration"
+          );
         }
       }
     }
