@@ -97,7 +97,7 @@ impl View {
               ).into()
             } else {
               format!(
-                r#"{content}<template id="{}c"></template>"#,
+                r#"{content}<template id="{}"></template>"#,
                 HydrationCtx::to_string(id, true)
               ).into()
             }

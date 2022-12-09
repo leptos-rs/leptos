@@ -88,9 +88,6 @@ impl ComponentRepr {
       Comment::new(Cow::Owned(format!("<{name}>")), id, false),
     );
 
-    #[cfg(not(debug_assertions))]
-    let closing = Comment::new("", id, true);
-
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let document_fragment = {
       let fragment = crate::document().create_document_fragment();
