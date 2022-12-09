@@ -1,6 +1,6 @@
 use leptos::*;
 
-pub fn simple_counter(cx: Scope) -> web_sys::Element {
+pub fn simple_counter(cx: Scope) -> View {
     let (value, set_value) = create_signal(cx, 0);
 
     view! { cx,
