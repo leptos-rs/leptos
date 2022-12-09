@@ -114,11 +114,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
       .child(text("Click me (undelegated)"))
       .into_view(cx),
     pre(cx)
-      .child(Each::new(
-        iterable,
-        |i| *i,
-        move |cx, i| text(format!("{i}, ")),
-      ))
+      .child(Each::new(iterable, |i| *i, move |i| text(format!("{i}, "))))
       .into_view(cx),
     pre(cx)
       .child(text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
