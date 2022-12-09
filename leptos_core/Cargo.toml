@@ -20,13 +20,13 @@ leptos = { path = "../leptos", default-features = false, version = "0.0" }
 [features]
 csr = [
 	"leptos/csr",
-	"leptos_dom/csr",
+	"leptos_dom/web",
 	"leptos_macro/csr",
 	"leptos_reactive/csr",
 ]
 hydrate = [
 	"leptos/hydrate",
-	"leptos_dom/hydrate",
+	"leptos_dom/web",
 	"leptos_macro/hydrate",
 	"leptos_reactive/hydrate",
 ]

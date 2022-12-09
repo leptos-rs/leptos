@@ -19,7 +19,6 @@ leptos_server = { path = "../leptos_server", default-features = false, version =
 default = ["csr", "serde"]
 csr = [
 	"leptos_core/csr",
-	"leptos_dom/csr",
 	"leptos_dom/web",
 	"leptos_macro/csr",
 	"leptos_reactive/csr",
@@ -27,7 +26,6 @@ csr = [
 ]
 hydrate = [
 	"leptos_core/hydrate",
-	"leptos_dom/hydrate",
 	"leptos_dom/web",
 	"leptos_macro/hydrate",
 	"leptos_reactive/hydrate",
