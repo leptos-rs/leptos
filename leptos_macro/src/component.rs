@@ -171,13 +171,13 @@ impl ToTokens for InlinePropsBody {
                 if pat.path.segments[0].ident == "Option" {
                     quote! {
                         #comment_macro
-                        #[builder(default, setter(strip_option, into, doc = #comment))]
+                        #[builder(default, setter(strip_option, doc = #comment))]
                         pub #f
                     }
                 } else {
                     quote! {
                         #comment_macro
-                        #[builder(setter(into, doc = #comment))]
+                        #[builder(setter(doc = #comment))]
                         pub #f
                     }
                 }
