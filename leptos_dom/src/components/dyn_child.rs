@@ -205,7 +205,7 @@ where
             // our child is one
             let t = child.get_text().map(|t| t.node.clone());
 
-            **child_borrow = Some(child);
+            **child_borrow = Some(new_child);
 
             (t, disposer)
           }
