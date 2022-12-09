@@ -109,6 +109,15 @@ where
   }
 }
 
+impl<T> IntoView for (Scope, T)
+where
+  T: IntoView,
+{
+  fn into_view(self, _: Scope) -> View {
+    self.1.into_view(self.0)
+  }
+}
+
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// HTML element.
@@ -517,3 +526,66 @@ impl Display for TopoId {
     f.write_fmt(format_args!("{}-{}-{}", self.depth, self.offset, self.sum))
   }
 }
+
+macro_rules! impl_into_view_for_tuples {
+  ($($ty:ident),* $(,)?) => {
+    impl<$($ty),*> IntoView for ($($ty,)*)
+    where
+      $($ty: IntoView),*
+    {
+      fn into_view(self, cx: Scope) -> View {
+        paste::paste! {
+          let ($([<$ty:lower>],)*) = self;
+          [
+            $([<$ty:lower>].into_view(cx)),*
+          ].into_view(cx)
+        }
+      }
+    }
+  };
+}
+
+impl_into_view_for_tuples!(A);
+impl_into_view_for_tuples!(A, B);
+impl_into_view_for_tuples!(A, B, C);
+impl_into_view_for_tuples!(A, B, C, D);
+impl_into_view_for_tuples!(A, B, C, D, E);
+impl_into_view_for_tuples!(A, B, C, D, E, F);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+impl_into_view_for_tuples!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y
+);
+impl_into_view_for_tuples!(
+  A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z
+);
