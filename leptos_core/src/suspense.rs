@@ -1,16 +1,15 @@
-use crate as leptos;
-use leptos_dom::{Child, IntoChild};
-use leptos_macro::Props;
+use leptos_dom::{View, IntoView};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use typed_builder::TypedBuilder;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
-#[derive(Props)]
+#[derive(TypedBuilder)]
 pub struct SuspenseProps<F, E, G>
 where
-    F: IntoChild + Clone,
-    E: IntoChild,
-    G: Fn() -> E,
+    F: Fn() -> View + 'static,
+    E: IntoView,
+    G: Fn() -> E + 'static,
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
@@ -66,10 +65,10 @@ where
 /// # });
 /// ```
 #[allow(non_snake_case)]
-pub fn Suspense<F, E, G>(cx: Scope, props: SuspenseProps<F, E, G>) -> impl Fn() -> Child
+pub fn Suspense<F, E, G>(cx: Scope, props: SuspenseProps<F, E, G>) -> View
 where
-    F: IntoChild + Clone,
-    E: IntoChild,
+    F: Fn() -> View + 'static,
+    E: IntoView,
     G: Fn() -> E + 'static,
 {
     let context = SuspenseContext::new(cx);
@@ -88,19 +87,24 @@ fn render_suspense<'a, F, E, G>(
     context: SuspenseContext,
     fallback: F,
     child: G,
-) -> impl Fn() -> Child
+) -> View
 where
-    F: IntoChild + Clone,
-    E: IntoChild,
-    G: Fn() -> E,
+    F: Fn() -> View + 'static,
+    E: IntoView,
+    G: Fn() -> E + 'static,
 {
-    move || {
+    use leptos_dom::{DynChild, log};
+
+    DynChild::new(move || {
         if context.ready() {
-            (child)().into_child(cx)
+            log!("context is ready");
+            (child)().into_view(cx)
         } else {
-            fallback.clone().into_child(cx)
+            log!("rendering fallback");
+            fallback()
         }
-    }
+    })
+    .into_view(cx)
 }
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -109,10 +113,10 @@ fn render_suspense<'a, F, E, G>(
     context: SuspenseContext,
     fallback: F,
     orig_child: G,
-) -> impl Fn() -> Child
+) -> View
 where
-    F: IntoChild + Clone,
-    E: IntoChild,
+    F: IntoView + Clone,
+    E: IntoView,
     G: Fn() -> E + 'static,
 {
     use leptos_dom::IntoAttribute;
@@ -120,8 +124,8 @@ where
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
-        let mut child = orig_child().into_child(cx);
-        while let Child::Fn(f) = child {
+        let mut child = orig_child().into_view(cx);
+        while let View::Fn(f) = child {
             child = (f.borrow_mut())();
         }
 
@@ -133,12 +137,12 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                orig_child().into_child(cx).as_child_string()
+                orig_child().into_view(cx).as_child_string()
             });
 
             // return the fallback for now, wrapped in fragment identifer
-            Child::Node(view! { cx, <div data-fragment-id=key>{fallback.into_child(cx)}</div> })
+            View::Node(view! { cx, <div data-fragment-id=key>{fallback.into_view(cx)}</div> })
         }
     };
-    move || initial.clone()
+    initial
 }

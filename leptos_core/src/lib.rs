@@ -5,10 +5,10 @@
 
 //mod for_component;
 //mod map;
-//mod suspense;
+mod suspense;
 
 //pub use for_component::*;
 //pub use map::*;
-//pub use suspense::*;
+pub use suspense::*;
 
 pub use typed_builder::TypedBuilder;
