@@ -284,10 +284,8 @@ where
 
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           let opening = if let Some(Some(child)) = children_borrow.get(0) {
-            crate::log!("closing path A");
             child.get_opening_node()
           } else {
-            crate::log!("closing path B");
             closing.clone()
           };
 
