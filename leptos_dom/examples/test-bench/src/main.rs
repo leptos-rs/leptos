@@ -5,8 +5,7 @@ extern crate tracing;
 
 mod utils;
 
-use leptos_dom::*;
-use leptos_reactive::*;
+use leptos::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
 fn main() {
@@ -37,107 +36,140 @@ fn main() {
 }
 
 fn view_fn(cx: Scope) -> impl IntoView {
-  let (tick, set_tick) = create_signal(cx, 0);
-  let (count, set_count) = create_signal(cx, 0);
-  let (show, set_show) = create_signal(cx, true);
-  let (iterable, set_iterable) = create_signal(cx, vec![]);
-  let (disabled, set_disabled) = create_signal(cx, false);
-  let (apply_default_class_set, set_apply_default_class_set) =
-    create_signal(cx, false);
+  //   let (tick, set_tick) = create_signal(cx, 0);
+  //   let (count, set_count) = create_signal(cx, 0);
+  //   let (show, set_show) = create_signal(cx, true);
+  //   let (iterable, set_iterable) = create_signal(cx, vec![]);
+  //   let (disabled, set_disabled) = create_signal(cx, false);
+  //   let (apply_default_class_set, set_apply_default_class_set) =
+  //     create_signal(cx, false);
 
-  // wasm_bindgen_futures::spawn_local(async move {
-  //   loop {
-  //     gloo::timers::future::sleep(std::time::Duration::from_secs(5)).await;
+  //   // wasm_bindgen_futures::spawn_local(async move {
+  //   //   loop {
+  //   //     gloo::timers::future::sleep(std::time::Duration::from_secs(5)).await;
 
-  //     set_tick.update(|t| *t += 1);
+  //   //     set_tick.update(|t| *t += 1);
+  //   //   }
+  //   // });
+
+  //   create_effect(cx, move |_| {
+  //     tick();
+
+  //     set_count.update(|c| *c += 1);
+  //   });
+
+  //   create_effect(cx, move |_| {
+  //     tick();
+
+  //     set_show.update(|s| *s = !*s);
+  //   });
+
+  //   create_effect(cx, move |_| {
+  //     tick();
+
+  //     set_iterable.update(|i| {
+  //       if tick() % 2 == 0 {
+  //         *i = vec![0, 1, 2, 3];
+  //       } else {
+  //         *i = vec![0, 1, 2, 3, 4, 5, 6];
+  //       }
+  //     })
+  //   });
+
+  //   create_effect(cx, move |_| {
+  //     tick();
+
+  //     set_disabled.update(|d| *d = !*d);
+  //   });
+
+  //   create_effect(cx, move |_| {
+  //     tick();
+
+  //     set_apply_default_class_set.update(|cs| *cs = !*cs);
+  //   });
+
+  //   [
+  //     span(cx).into_view(cx),
+  //     div(cx)
+  //       .attr("t", || true)
+  //       .child(span(cx).attr("t", true))
+  //       .child(span(cx).attr("t", || true))
+  //       .into_view(cx),
+  //     h1(cx)
+  //       .child(move || text(count().to_string()))
+  //       .into_view(cx),
+  //     button(cx)
+  //       .on(ev::click, move |_| set_tick.update(|t| *t += 1))
+  //       .child(text("Tick"))
+  //       .into_view(cx),
+  //     button(cx)
+  //       .on(ev::click, move |_| set_count.update(|n| *n += 1))
+  //       .child(text("Click me"))
+  //       .into_view(cx),
+  //     button(cx)
+  //       .on(ev::Undelegated(ev::click), move |_| {
+  //         set_count.update(|n| *n += 1)
+  //       })
+  //       .child(text("Click me (undelegated)"))
+  //       .into_view(cx),
+  //     pre(cx)
+  //       .child(Each::new(iterable, |i| *i, move |i| text(format!("{i}, "))))
+  //       .into_view(cx),
+  //     pre(cx)
+  //       .child(text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
+  //       .into_view(cx),
+  //     input(cx)
+  //       .class("input", true)
+  //       .attr("disabled", move || disabled().then_some(""))
+  //       .into_view(cx),
+  //     MyComponent.into_view(cx),
+  //     h3(cx)
+  //       .child(move || show().then(|| text("Now you see me...")))
+  //       .into_view(cx),
+  //   ]
+  // }
+
+  // struct MyComponent;
+
+  // impl IntoView for MyComponent {
+  //   fn into_view(self, cx: Scope) -> View {
+  //     let component = Component::new("MyComponent", |cx| {
+  //       h2(cx).child(text("MyComponent")).into_view(cx)
+  //     });
+
+  //     component.into_view(cx)
   //   }
-  // });
 
-  create_effect(cx, move |_| {
-    tick();
+  let (value, set_value) = create_signal(cx, 0);
 
-    set_count.update(|c| *c += 1);
-  });
-
-  create_effect(cx, move |_| {
-    tick();
-
-    set_show.update(|s| *s = !*s);
-  });
-
-  create_effect(cx, move |_| {
-    tick();
-
-    set_iterable.update(|i| {
-      if tick() % 2 == 0 {
-        *i = vec![0, 1, 2, 3];
-      } else {
-        *i = vec![0, 1, 2, 3, 4, 5, 6];
-      }
-    })
-  });
-
-  create_effect(cx, move |_| {
-    tick();
-
-    set_disabled.update(|d| *d = !*d);
-  });
-
-  create_effect(cx, move |_| {
-    tick();
-
-    set_apply_default_class_set.update(|cs| *cs = !*cs);
-  });
-
-  [
-    span(cx).into_view(cx),
-    div(cx)
-      .attr("t", || true)
-      .child(span(cx).attr("t", true))
-      .child(span(cx).attr("t", || true))
-      .into_view(cx),
-    h1(cx)
-      .child(move || text(count().to_string()))
-      .into_view(cx),
-    button(cx)
-      .on(ev::click, move |_| set_tick.update(|t| *t += 1))
-      .child(text("Tick"))
-      .into_view(cx),
-    button(cx)
-      .on(ev::click, move |_| set_count.update(|n| *n += 1))
-      .child(text("Click me"))
-      .into_view(cx),
-    button(cx)
-      .on(ev::Undelegated(ev::click), move |_| {
-        set_count.update(|n| *n += 1)
+  let items_static = move || {
+    (0..3)
+      .map(|item| {
+        view! {
+            cx, <li>"static #" {item}</li>
+        }
       })
-      .child(text("Click me (undelegated)"))
-      .into_view(cx),
-    pre(cx)
-      .child(Each::new(iterable, |i| *i, move |i| text(format!("{i}, "))))
-      .into_view(cx),
-    pre(cx)
-      .child(text("0, 1, 2, 3, 4, 5, 6, 7, 8, 9"))
-      .into_view(cx),
-    input(cx)
-      .class("input", true)
-      .attr("disabled", move || disabled().then_some(""))
-      .into_view(cx),
-    MyComponent.into_view(cx),
-    h3(cx)
-      .child(move || show().then(|| text("Now you see me...")))
-      .into_view(cx),
-  ]
-}
+      .collect::<Vec<_>>()
+  };
 
-struct MyComponent;
+  let items = move || {
+    (0..value())
+      .map(|item| {
+        view! {
+            cx, <li>"dyn #" {item}</li>
+        }
+      })
+      .collect::<Vec<_>>()
+  };
 
-impl IntoView for MyComponent {
-  fn into_view(self, cx: Scope) -> View {
-    let component = Component::new("MyComponent", |cx| {
-      h2(cx).child(text("MyComponent")).into_view(cx)
-    });
-
-    component.into_view(cx)
+  view! { cx,
+      <div>
+          <button on:click=move |_| set_value(0)>"Clear"</button>
+          <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+          <span>"Value: " {move || value().to_string()} "!"</span>
+          <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+          <ul>{items_static}</ul>
+          <ul>{items}</ul>
+      </div>
   }
 }

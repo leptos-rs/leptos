@@ -31,7 +31,7 @@ pub enum CoreComponent {
 #[derive(Debug)]
 pub struct ComponentRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  document_fragment: web_sys::DocumentFragment,
+  pub(crate) document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
   name: Cow<'static, str>,
   #[cfg(debug_assertions)]
@@ -49,15 +49,19 @@ impl Mountable for ComponentRepr {
     self
       .document_fragment
       .unchecked_ref::<web_sys::Node>()
-      .clone()
+      .to_owned()
   }
 
   fn get_opening_node(&self) -> web_sys::Node {
-    if let Some(child) = self.children.get(0) {
+    #[cfg(debug_assertions)]
+    return self._opening.node.clone();
+
+    #[cfg(not(debug_assertions))]
+    return if let Some(child) = self.children.get(0) {
       child.get_opening_node()
     } else {
       self.closing.node.clone()
-    }
+    };
   }
 }
 

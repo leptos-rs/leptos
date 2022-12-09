@@ -136,12 +136,18 @@ where
 
         let mut child_borrow = child.borrow_mut();
 
+        // Is this at least the second time we are loading a child?
         if let Some((prev_t, prev_disposer)) = prev_run {
           let child = child_borrow.take().unwrap();
 
+          // Dispose of the scope
           prev_disposer.dispose();
 
+          // If the previous child was a text node, we would like to
+          // make use of it again if our current child is also a text
+          // node
           if let Some(prev_t) = prev_t {
+            // Here, our child is also a text node
             if let Some(new_t) = new_child.get_text() {
               prev_t
                 .unchecked_ref::<web_sys::Text>()
@@ -150,7 +156,10 @@ where
               **child_borrow = Some(new_child);
 
               (Some(prev_t), disposer)
-            } else {
+            }
+            // Child is not a text node, so we can remove the previous
+            // text node
+            else {
               // Remove the text
               closing
                 .previous_sibling()
@@ -158,16 +167,23 @@ where
                 .unchecked_into::<web_sys::Element>()
                 .remove();
 
+              // Mount the new child, and we're done
               mount_child(MountKind::Before(&closing), &new_child);
 
               **child_borrow = Some(new_child);
 
               (None, disposer)
             }
-          } else {
+          }
+          // Otherwise, our child can still be a text node,
+          // but we know the previous child was not, so no special
+          // treatment here
+          else {
+            // Technically, I think this check shouldn't be necessary, but
+            // I can imagine some edge case that the child changes while
+            // hydration is ongoing
             if !HydrationCtx::is_hydrating() {
               // Remove the child
-
               let start = child.get_opening_node();
               let end = &closing;
 
@@ -181,16 +197,21 @@ where
                 sibling = next_sibling;
               }
 
-              mount_child(MountKind::Before(&closing), &child);
+              // Mount the new child
+              mount_child(MountKind::Before(&closing), &new_child);
             }
 
+            // We want to reuse text nodes, so hold onto it if
+            // our child is one
             let t = child.get_text().map(|t| t.node.clone());
 
             **child_borrow = Some(child);
 
             (t, disposer)
           }
-        } else {
+        }
+        // Otherwise, we know for sure this is our first time
+        else {
           // We need to remove the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
             let t = closing
@@ -213,10 +234,13 @@ where
             mount_child(MountKind::Before(&closing), &new_child);
           }
 
+          // If we are not hydrating, we simply mount the child
           if !HydrationCtx::is_hydrating() {
             mount_child(MountKind::Before(&closing), &new_child);
           }
 
+          // We want to update text nodes, rather than replace them, so
+          // make sure to hold onto the text node
           let t = new_child.get_text().map(|t| t.node.clone());
 
           **child_borrow = Some(new_child);

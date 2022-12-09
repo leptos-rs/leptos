@@ -15,21 +15,11 @@ impl Fragment {
 
 impl IntoView for Fragment {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.0.len())))]
-  fn into_view(self, _cx: leptos_reactive::Scope) -> View {
+  fn into_view(self, cx: leptos_reactive::Scope) -> View {
     let mut frag = ComponentRepr::new("");
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let closing = &frag.closing.node;
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    if !HydrationCtx::is_hydrating() {
-      for child in &self.0 {
-        mount_child(MountKind::Before(closing), child);
-      }
-    }
 
     frag.children = self.0;
 
-    View::Component(frag)
+    frag.into_view(cx)
   }
 }
