@@ -54,6 +54,17 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 - **Fine-grained reactivity**: The entire framework is build from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (_So, no virtual DOM!_)
 - **Declarative**: Tell Leptos how you want the page to look, and let the framework tell the browser how to do it.
 
+## Getting Started
+
+The best way to get started with a Leptos project right now is to use the [`cargo-leptos`](https://github.com/akesson/cargo-leptos) build tool and our [starter template](https://github.com/leptos-rs/start).
+
+```bash
+cargo install cargo-leptos
+cargo leptos new --git https://github.com/leptos-rs/start
+cd [your project name]
+cargo leptos watch
+```
+
 ## Learn more
 
 Here are some resources for learning more about Leptos:
