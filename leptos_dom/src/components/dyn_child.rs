@@ -191,13 +191,24 @@ where
             (t, disposer)
           }
         } else {
-          // We need to reuse the text created from SSR
+          // We need to remove the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
-            closing
+            let t = closing
               .previous_sibling()
               .unwrap()
-              .unchecked_into::<web_sys::Element>()
-              .remove();
+              .unchecked_into::<web_sys::Element>();
+
+            // See note on ssr.rs when matching on `DynChild`
+            // for more details on why we need to do this for
+            // release
+            if !cfg!(debug_assertions) {
+              t.previous_sibling()
+                .unwrap()
+                .unchecked_into::<web_sys::Element>()
+                .remove();
+            }
+
+            t.remove();
 
             mount_child(MountKind::Before(&closing), &new_child);
           }

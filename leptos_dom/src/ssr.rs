@@ -47,7 +47,22 @@ impl View {
               node.id,
               true,
               if let Some(child) = *child {
-                child.render_to_string()
+                // On debug builds, `DynChild` has two marker nodes,
+                // so there is no way for the text to be merged with
+                // surrounding text when the browser parses the HTML,
+                // but in release, `DynChild` only has a trailing marker,
+                // and the browser automatically merges the dynamic text
+                // into one single node, so we need to artificially make the
+                // browser create the dynamic text as it's own text node
+                if let View::Text(t) = child {
+                  if !cfg!(debug_assertions) {
+                    format!("<!>{}", t.content).into()
+                  } else {
+                    t.content
+                  }
+                } else {
+                  child.render_to_string()
+                }
               } else {
                 "".into()
               },

@@ -345,26 +345,24 @@ impl View {
 #[track_caller]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
-  if !HydrationCtx::is_hydrating() {
-    let child = child.get_mountable_node();
+  let child = child.get_mountable_node();
 
-    match kind {
-      MountKind::Append(el) => {
-        el.append_child(&child)
-          .expect("append operation to not err");
-      }
-      MountKind::Before(closing) => {
-        closing
-          .unchecked_ref::<web_sys::Element>()
-          .before_with_node_1(&child)
-          .expect("before to not err");
-      }
-      MountKind::After(closing) => {
-        closing
-          .unchecked_ref::<web_sys::Element>()
-          .after_with_node_1(&child)
-          .expect("before to not err");
-      }
+  match kind {
+    MountKind::Append(el) => {
+      el.append_child(&child)
+        .expect("append operation to not err");
+    }
+    MountKind::Before(closing) => {
+      closing
+        .unchecked_ref::<web_sys::Element>()
+        .before_with_node_1(&child)
+        .expect("before to not err");
+    }
+    MountKind::After(closing) => {
+      closing
+        .unchecked_ref::<web_sys::Element>()
+        .after_with_node_1(&child)
+        .expect("before to not err");
     }
   }
 }

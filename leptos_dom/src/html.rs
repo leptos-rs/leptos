@@ -437,7 +437,9 @@ impl<El: IntoElement> HtmlElement<El> {
     let child = child.into_child(self.cx).into_view(self.cx);
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        mount_child(MountKind::Append(self.element.get_element()), &child);
+        if !HydrationCtx::is_hydrating() {
+          mount_child(MountKind::Append(self.element.get_element()), &child);
+        }
       }
       else {
         self.children.push(child);
