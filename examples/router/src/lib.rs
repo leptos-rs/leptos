@@ -7,7 +7,7 @@ use leptos_router::*;
 
 use crate::api::{get_contact, get_contacts};
 
-pub fn router_example(cx: Scope) -> Element {
+pub fn router_example(cx: Scope) -> View {
     provide_context(cx, MetaContext::default());
     view! { cx,
         <div id="root">
@@ -48,7 +48,7 @@ pub fn router_example(cx: Scope) -> Element {
 }
 
 #[component]
-pub fn ContactList(cx: Scope) -> Element {
+pub fn ContactList(cx: Scope) -> View {
     let location = use_location(cx);
     let contacts = create_resource(cx, move || location.search.get(), get_contacts);
     let contacts = move || {
@@ -77,7 +77,7 @@ pub fn ContactList(cx: Scope) -> Element {
 }
 
 #[component]
-pub fn Contact(cx: Scope) -> Element {
+pub fn Contact(cx: Scope) -> View {
     let params = use_params_map(cx);
     let contact = create_resource(
         cx,
@@ -121,7 +121,7 @@ pub fn Contact(cx: Scope) -> Element {
 }
 
 #[component]
-pub fn About(_cx: Scope) -> Element {
+pub fn About(cx: Scope) -> View {
     view! { cx,
         <div>
             <h1>"About"</h1>
@@ -131,7 +131,7 @@ pub fn About(_cx: Scope) -> Element {
 }
 
 #[component]
-pub fn Settings(_cx: Scope) -> Element {
+pub fn Settings(cx: Scope) -> View {
     view! { cx,
         <div>
             <h1>"Settings"</h1>
