@@ -29,11 +29,16 @@ pub use logging::*;
 pub use node_ref::*;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::{borrow::Cow, cell::LazyCell, fmt};
+use std::borrow::Cow;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::{cell::LazyCell, fmt};
 pub use wasm_bindgen;
-use wasm_bindgen::{JsCast, UnwrapThrowExt};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use wasm_bindgen::JsCast;
+use wasm_bindgen::UnwrapThrowExt;
 pub use web_sys;
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[thread_local]
 static COMMENT: LazyCell<web_sys::Node> =
   LazyCell::new(|| document().create_comment("").unchecked_into());
@@ -128,7 +133,6 @@ cfg_if! {
     pub struct Element {
       name: Cow<'static, str>,
       is_void: bool,
-      dynamic: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: Vec<View>,
       id: usize,
@@ -158,7 +162,6 @@ impl Element {
         Self {
           name: el.name(),
           is_void: el.is_void(),
-          dynamic: false,
           attrs: Default::default(),
           children: Default::default(),
           id: el.hydration_id(),
@@ -182,6 +185,12 @@ impl Comment {
     closing: bool,
   ) -> Self {
     let content = content.into();
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let _ = id;
+      let _ = closing;
+    }
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let node = COMMENT.clone_node().unwrap();
@@ -339,6 +348,7 @@ impl View {
     }
   }
 
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
   fn get_text(&self) -> Option<&Text> {
     if let Self::Text(t) = self {
       Some(t)

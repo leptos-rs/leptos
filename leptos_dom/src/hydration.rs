@@ -1,8 +1,10 @@
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::cell::LazyCell;
 
 /// We can tell if we start in hydration mode by checking to see if the
 /// id "_0" is present in the DOM. If it is, we know we are hydrating from
 /// the server, if not, we are starting off in CSR
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[thread_local]
 static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
   #[cfg(debug_assertions)]
@@ -35,12 +37,14 @@ impl HydrationCtx {
     unsafe { ID = 0 };
   }
 
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) fn stop_hydrating() {
     unsafe {
       std::mem::take(&mut IS_HYDRATING);
     }
   }
 
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) fn is_hydrating() -> bool {
     unsafe { *IS_HYDRATING }
   }

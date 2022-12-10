@@ -1,8 +1,11 @@
 use crate::{hydration::HydrationCtx, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
-use leptos_reactive::{create_effect, Scope, ScopeDisposer};
+use leptos_reactive::Scope;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use leptos_reactive::{create_effect, ScopeDisposer};
 use std::{borrow::Cow, cell::RefCell, rc::Rc};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`DynChild`] core-component.

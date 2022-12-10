@@ -1,9 +1,11 @@
 pub mod typed;
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::window;
 use std::{borrow::Cow, cell::RefCell, collections::HashSet};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::{
-  closure::Closure, convert::FromWasmAbi, intern, JsCast, JsValue,
+  convert::FromWasmAbi, intern, prelude::Closure, JsCast, JsValue,
   UnwrapThrowExt,
 };
 
@@ -12,6 +14,7 @@ thread_local! {
 }
 
 /// Adds an event listener to the `Window`.
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn window_event_listener(
   event_name: &str,
   cb: impl Fn(web_sys::Event) + 'static,
@@ -23,6 +26,7 @@ pub fn window_event_listener(
 }
 
 /// Adds an event listener to the target DOM element using implicit event delegation.
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn add_event_listener<E>(
   target: &web_sys::Element,
   event_name: Cow<'static, str>,
@@ -37,6 +41,7 @@ pub fn add_event_listener<E>(
 }
 
 #[doc(hidden)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn add_event_listener_undelegated<E>(
   target: &web_sys::Element,
   event_name: &str,
@@ -50,6 +55,7 @@ pub fn add_event_listener_undelegated<E>(
 }
 
 // cf eventHandler in ryansolid/dom-expressions
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
   GLOBAL_EVENTS.with(|global_events| {
     let mut events = global_events.borrow_mut();
@@ -113,6 +119,7 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
   })
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn event_delegation_key(event_name: &str) -> String {
   let event_name = intern(event_name);
   let mut n = String::from("$$$");

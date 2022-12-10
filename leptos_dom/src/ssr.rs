@@ -3,7 +3,7 @@
 use crate::{CoreComponent, HydrationCtx, View};
 use cfg_if::cfg_if;
 use itertools::Itertools;
-use std::{borrow::Cow, fmt::Display};
+use std::borrow::Cow;
 
 impl View {
   /// Consumes the node and renders it into an HTML string.
@@ -123,17 +123,14 @@ impl View {
       }
       View::Element(el) => {
         let tag_name = el.name;
-        let mut has_id = false;
-        let mut attrs = el
+
+        let attrs = el
           .attrs
           .into_iter()
           .map(|(name, value)| -> Cow<'static, str> {
             if value.is_empty() {
               format!(" {name}").into()
             } else {
-              if name == "id" {
-                has_id = true;
-              }
               format!(
                 " {name}=\"{}\"",
                 html_escape::encode_double_quoted_attribute(&value)
@@ -142,10 +139,6 @@ impl View {
             }
           })
           .join("");
-
-        if !has_id && el.dynamic {
-          attrs.push_str(&format!(" id=\"_{}\"", el.id));
-        }
 
         if el.is_void {
           format!("<{tag_name}{attrs}/>").into()

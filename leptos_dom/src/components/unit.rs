@@ -1,6 +1,7 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::Mountable;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`Unit`] core-component.

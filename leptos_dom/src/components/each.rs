@@ -1,18 +1,20 @@
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
-use leptos_reactive::{create_effect, Scope};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use leptos_reactive::create_effect;
+use leptos_reactive::Scope;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use rustc_hash::FxHasher;
 use smallvec::SmallVec;
-use std::{
-  borrow::Cow,
-  cell::RefCell,
-  hash::{BuildHasherDefault, Hash},
-  rc::Rc,
-};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::hash::BuildHasherDefault;
+use std::{borrow::Cow, cell::RefCell, hash::Hash, rc::Rc};
 use typed_builder::TypedBuilder;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -269,12 +271,14 @@ where
       key_fn,
     } = self;
 
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    let _ = key_fn;
+
     let component = EachRepr::default();
 
-    let children = component.children.clone();
-
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let closing = component.closing.node.clone();
+    let (children, closing) =
+      (component.children.clone(), component.closing.node.clone());
 
     cfg_if::cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -341,6 +345,7 @@ where
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
   if from.is_empty() && to.is_empty() {
     return Diff::default();
@@ -428,6 +433,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
   diffs
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn apply_opts<K: Eq + Hash>(
   from: &FxIndexSet<K>,
   to: &FxIndexSet<K>,
@@ -463,6 +469,7 @@ fn apply_opts<K: Eq + Hash>(
 }
 
 #[derive(Debug, Default)]
+#[allow(unused)]
 struct Diff {
   removed: SmallVec<[DiffOpRemove; 8]>,
   moved: SmallVec<[DiffOpMove; 8]>,
@@ -471,6 +478,7 @@ struct Diff {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 struct DiffOpMove {
   from: usize,
   to: usize,
@@ -478,17 +486,20 @@ struct DiffOpMove {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 struct DiffOpAdd {
   at: usize,
   mode: DiffOpAddMode,
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 struct DiffOpRemove {
   at: usize,
 }
 
 #[derive(Default, Debug)]
+#[allow(unused)]
 enum DiffOpAddMode {
   #[default]
   Normal,

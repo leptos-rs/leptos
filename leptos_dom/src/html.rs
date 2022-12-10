@@ -1,11 +1,16 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::macro_helpers::Property;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use crate::macro_helpers::{
+  attribute_expression, class_expression, property_expression,
+};
 use crate::{
   ev::EventDescriptor,
   hydration::HydrationCtx,
   macro_helpers::{
-    attribute_expression, class_expression, property_expression, Attribute,
-    Class, IntoAttribute, IntoChild, IntoClass, IntoProperty, Property,
+    Attribute, Class, IntoAttribute, IntoChild, IntoClass, IntoProperty,
   },
   Element, Fragment, IntoView, NodeRef, Text, View,
 };
@@ -15,10 +20,15 @@ use crate::{mount_child, MountKind};
 use std::cell::OnceCell;
 
 use cfg_if::cfg_if;
-use leptos_reactive::{create_render_effect, Scope};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use leptos_reactive::create_render_effect;
+use leptos_reactive::Scope;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, cell::LazyCell, fmt, ops::Deref};
+use std::{borrow::Cow, fmt};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::{cell::LazyCell, ops::Deref};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// Trait alias for the trait bounts on [`IntoElement`].
@@ -67,8 +77,6 @@ pub trait IntoElement: IntoElementBounds {
 #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
 pub struct AnyElement {
   name: Cow<'static, str>,
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  dynamic: bool,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   #[educe(Deref)]
   element: web_sys::HtmlElement,
@@ -151,7 +159,6 @@ cfg_if! {
       pub(crate) cx: Scope,
       pub(crate) element: El,
       pub(crate) id: OnceCell<Cow<'static, str>>,
-      pub(crate) dynamic: bool,
       #[educe(Debug(ignore))]
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
@@ -173,7 +180,6 @@ impl<El: IntoElement> HtmlElement<El> {
         Self {
           cx,
           id: Default::default(),
-          dynamic: false,
           attrs: smallvec![],
           children: smallvec![],
           element,
@@ -203,7 +209,6 @@ impl<El: IntoElement> HtmlElement<El> {
         let Self {
           cx,
           id,
-          dynamic,
           attrs,
           children,
           element,
@@ -212,12 +217,10 @@ impl<El: IntoElement> HtmlElement<El> {
         HtmlElement {
           cx,
           id,
-          dynamic,
           attrs,
           children,
           element: AnyElement {
             name: element.name(),
-            dynamic,
             is_void: element.is_void(),
             id: element.hydration_id(),
           },
@@ -257,6 +260,9 @@ impl<El: IntoElement> HtmlElement<El> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node_ref.load(&self);
 
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    let _ = node_ref;
+
     self
   }
 
@@ -295,7 +301,6 @@ impl<El: IntoElement> HtmlElement<El> {
 
       let mut attr = attr.into_attribute(this.cx);
       while let Attribute::Fn(_, f) = attr {
-        this.dynamic = true;
         attr = f();
       }
       match attr {
@@ -357,10 +362,7 @@ impl<El: IntoElement> HtmlElement<El> {
 
       let include = match class {
         Class::Value(include) => include,
-        Class::Fn(_, f) => {
-          this.dynamic = true;
-          f()
-        }
+        Class::Fn(_, f) => f(),
       };
 
       if include {
@@ -408,17 +410,15 @@ impl<El: IntoElement> HtmlElement<El> {
           property_expression(el, prop_name, value)
         }
       };
-
-      self
     }
+
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     {
-      let mut this = self;
-
-      this.dynamic = true;
-
-      this
+      let _ = name;
+      let _ = value;
     }
+
+    self
   }
 
   /// Adds an event listener to this element.
@@ -451,13 +451,10 @@ impl<El: IntoElement> HtmlElement<El> {
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     {
-      let mut this = self;
-
-      this.dynamic = true;
       _ = event;
       _ = event_handler;
 
-      this
+      self
     }
   }
 
@@ -499,7 +496,6 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
         element,
         mut attrs,
         children,
-        dynamic,
         ..
       } = self;
 
@@ -514,7 +510,6 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
         attrs.push(("id".into(), format!("_{}", id).into()));
       }
 
-      element.dynamic = dynamic;
       element.attrs = attrs;
       element.children.extend(children);
 
@@ -572,6 +567,7 @@ macro_rules! generate_html_tags {
   ),* $(,)?) => {
     paste::paste! {
       $(
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
         #[thread_local]
         static [<$tag:upper>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
           crate::document()
