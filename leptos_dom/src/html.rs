@@ -9,9 +9,7 @@ use crate::macro_helpers::{
 use crate::{
   ev::EventDescriptor,
   hydration::HydrationCtx,
-  macro_helpers::{
-    Attribute, Class, IntoAttribute, IntoChild, IntoClass, IntoProperty,
-  },
+  macro_helpers::{Attribute, Class, IntoAttribute, IntoClass, IntoProperty},
   Element, Fragment, IntoView, NodeRef, Text, View,
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -493,8 +491,8 @@ impl<El: IntoElement> HtmlElement<El> {
 
   #[doc(hidden)]
   #[track_caller]
-  pub fn child(self, child: impl IntoChild) -> Self {
-    let child = child.into_child(self.cx).into_view(self.cx);
+  pub fn child(self, child: impl IntoView) -> Self {
+    let child = child.into_view(self.cx);
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
