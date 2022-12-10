@@ -14,7 +14,7 @@ use crate::{
 #[derive(TypedBuilder)]
 pub struct RouteProps<E, F>
 where
-    E: IntoChild,
+    E: IntoView,
     F: Fn(Scope) -> E + 'static,
 {
     /// The path fragment that this route should match. This can be static (`users`),
@@ -35,13 +35,13 @@ where
 #[allow(non_snake_case)]
 pub fn Route<E, F>(_cx: Scope, props: RouteProps<E, F>) -> RouteDefinition
 where
-    E: IntoChild,
+    E: IntoView,
     F: Fn(Scope) -> E + 'static,
 {
     RouteDefinition {
         path: props.path,
         children: props.children.map(|c| c()).unwrap_or_default(),
-        element: Rc::new(move |cx| (props.element)(cx).into_child(cx)),
+        element: Rc::new(move |cx| (props.element)(cx).into_view(cx)),
     }
 }
 
@@ -87,9 +87,22 @@ impl RouteContext {
         self.inner.cx
     }
 
-    /// Returns the URL path of the current route.
+    /// Returns the URL path of the current route,
+    /// including param values in their places.
+    ///
+    /// e.g., this will return `/article/0` rather than `/article/:id`.
+    /// For the opposite behavior, see [RouteContext::original_path].
     pub fn path(&self) -> &str {
         &self.inner.path
+    }
+
+    /// Returns the original URL path of the current route,
+    /// with the param name rather than the matched parameter itself.
+    ///
+    /// e.g., this will return `/article/:id` rather than `/article/0`
+    /// For the opposite behavior, see [RouteContext::path].
+    pub fn original_path(&self) -> &str {
+        &self.inner.original_path
     }
 
     /// A reactive wrapper for the route parameters that are currently matched.
@@ -97,7 +110,7 @@ impl RouteContext {
         self.inner.params
     }
 
-    pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn() -> Element>) -> Self {
+    pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn() -> View>) -> Self {
         Self {
             inner: Rc::new(RouteContextInner {
                 cx,
@@ -106,7 +119,7 @@ impl RouteContext {
                 path: path.to_string(),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
-                outlet: Box::new(move || fallback.map(|f| f().into_child(cx))),
+                outlet: Box::new(move || fallback.map(|f| f().into_view(cx))),
             }),
         }
     }
@@ -122,7 +135,7 @@ impl RouteContext {
     }
 
     /// The view associated with the current route.
-    pub fn outlet(&self) -> impl IntoChild {
+    pub fn outlet(&self) -> impl IntoView {
         (self.inner.outlet)()
     }
 }
@@ -134,7 +147,7 @@ pub(crate) struct RouteContextInner {
     pub(crate) path: String,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
-    pub(crate) outlet: Box<dyn Fn() -> Option<Child>>,
+    pub(crate) outlet: Box<dyn Fn() -> Option<View>>,
 }
 
 impl PartialEq for RouteContextInner {

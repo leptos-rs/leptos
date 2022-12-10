@@ -17,7 +17,7 @@ pub struct RoutesProps {
 /// 
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 #[allow(non_snake_case)]
-pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
+pub fn Routes(cx: Scope, props: RoutesProps) -> View {
     let router = use_context::<RouterContext>(cx).unwrap_or_else(|| {
         log::warn!("<Routes/> component should be nested within a <Router/>.");
         panic!()
@@ -120,7 +120,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
                     if disposers.borrow().len() > i + 1 {
                         let mut disposers = disposers.borrow_mut();
                         let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
-                        old_route_disposer.dispose();
+                        //old_route_disposer.dispose();
                     } else {
                         disposers.borrow_mut().push(disposer);
                     }
@@ -147,7 +147,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
     });
     
     // show the root route
-    create_memo(cx, move |prev| {
+    let root = create_memo(cx, move |prev| {
         provide_context(cx, route_states);
         route_states.with(|state| {
             let root = state.routes.borrow();
@@ -157,12 +157,13 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
             }
 
             if prev.is_none() || !root_equal.get() {
-                root.as_ref().map(|route| route.outlet().into_child(cx))
+                root.as_ref().map(|route| route.outlet().into_view(cx))
             } else {
                 prev.cloned().unwrap()
             }
         })
-    })
+    });
+    (move || root.get()).into_view(cx)
 }
 
 #[derive(Clone, Debug, PartialEq)]

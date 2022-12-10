@@ -39,7 +39,7 @@
 //! use leptos::*;
 //! use leptos_router::*;
 //!
-//! pub fn router_example(cx: Scope) -> Element {
+//! pub fn router_example(cx: Scope) -> View {
 //!   view! {
 //!     cx,
 //!     <div id="root">
@@ -100,7 +100,7 @@
 //! }
 //!
 //! #[component]
-//! fn ContactList(cx: Scope) -> Element {
+//! fn ContactList(cx: Scope) -> View {
 //!   // loads the contact list data once; doesn't reload when nested routes change
 //!   let contacts = create_resource(cx, || (), |_| contact_list_data());
 //!   view! {
@@ -118,7 +118,7 @@
 //! }
 //!
 //! #[component]
-//! fn Contact(cx: Scope) -> Element {
+//! fn Contact(cx: Scope) -> View {
 //!   let params = use_params_map(cx);
 //!   let data = create_resource(
 //!     cx,
@@ -129,7 +129,7 @@
 //! }
 //!
 //! #[component]
-//! fn About(cx: Scope) -> Element {
+//! fn About(cx: Scope) -> View {
 //!   todo!()
 //! }
 //!

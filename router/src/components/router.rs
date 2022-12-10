@@ -27,22 +27,22 @@ pub struct RouterProps {
     pub base: Option<&'static str>,
     #[builder(default, setter(strip_option))]
     /// A fallback that should be shown if no route is matched.
-    pub fallback: Option<fn() -> Element>,
+    pub fallback: Option<fn() -> View>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
-    pub children: Box<dyn Fn() -> Vec<Element>>,
+    pub children: Box<dyn Fn() -> Vec<View>>,
 }
 
 /// Provides for client-side and server-side routing. This should usually be somewhere near
 /// the root of the application.
 #[allow(non_snake_case)]
-pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild {
+pub fn Router(cx: Scope, props: RouterProps) -> View {
     // create a new RouterContext and provide it to every component beneath the router
     let router = RouterContext::new(cx, props.base, props.fallback);
     provide_context(cx, router);
 
-    props.children
+    props.children.into_view(cx)
 }
 
 /// Context type that contains information about the current router state.
@@ -83,7 +83,7 @@ impl RouterContext {
     pub(crate) fn new(
         cx: Scope,
         base: Option<&'static str>,
-        fallback: Option<fn() -> Element>,
+        fallback: Option<fn() -> View>,
     ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -136,9 +136,9 @@ impl RouterContext {
         // 3) update the state
         // this will trigger the new route match below
         create_render_effect(cx, move |_| {
-            let LocationChange { value, state, .. } = source();
+            let LocationChange { value, state, .. } = source.get();
             cx.untrack(move || {
-                if value != reference() {
+                if value != reference.get() {
                     set_reference.update(move |r| *r = value);
                     set_state.update(move |s| *s = state);
                 }

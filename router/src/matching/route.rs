@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
-use leptos::leptos_dom::Child;
+use leptos::leptos_dom::View;
 use leptos::*;
 
 #[derive(Clone)]
 pub struct RouteDefinition {
     pub path: &'static str,
     pub children: Vec<RouteDefinition>,
-    pub element: Rc<dyn Fn(Scope) -> Child>,
+    pub element: Rc<dyn Fn(Scope) -> View>,
 }
 
 impl std::fmt::Debug for RouteDefinition {
@@ -22,15 +22,5 @@ impl std::fmt::Debug for RouteDefinition {
 impl PartialEq for RouteDefinition {
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path && self.children == other.children
-    }
-}
-
-impl Default for RouteDefinition {
-    fn default() -> Self {
-        Self {
-            path: Default::default(),
-            children: Default::default(),
-            element: Rc::new(|_| Child::Null),
-        }
     }
 }

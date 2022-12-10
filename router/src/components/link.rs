@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::leptos_dom::IntoChild;
+use leptos::leptos_dom::IntoView;
 use leptos::*;
 use typed_builder::TypedBuilder;
 
@@ -43,9 +43,8 @@ where
 /// [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
 /// progressively enhanced to use client-side routing.
 #[derive(TypedBuilder)]
-pub struct AProps<C, H>
+pub struct AProps<H>
 where
-    C: IntoChild,
     H: ToHref + 'static,
 {
     /// Used to calculate the link's `href` attribute. Will be resolved relative
@@ -63,15 +62,14 @@ where
     #[builder(default)]
     pub replace: bool,
     /// The nodes or elements to be shown inside the link.
-    pub children: Box<dyn Fn() -> Vec<C>>,
+    pub children: Box<dyn Fn() -> Vec<View>>,
 }
 
 /// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
 /// progressively enhanced to use client-side routing.
 #[allow(non_snake_case)]
-pub fn A<C, H>(cx: Scope, props: AProps<C, H>) -> Element
+pub fn A<H>(cx: Scope, props: AProps<H>) -> View
 where
-    C: IntoChild,
     H: ToHref + 'static,
 {
     let location = use_location(cx);
@@ -94,12 +92,6 @@ where
         }
     });
 
-    let mut children = (props.children)();
-    if children.len() != 1 {
-        debug_warn!("[Link] Pass exactly one child to <A/>. If you want to pass more than one child, nest them within an element.");
-    }
-    let child = children.remove(0);
-
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             view! { cx,
@@ -109,7 +101,7 @@ where
                     prop:replace={props.replace}
                     aria-current=move || if is_active.get() { Some("page") } else { None }
                 >
-                    {child}
+                    {props.children}
                 </a>
             }
         } else {
@@ -118,7 +110,7 @@ where
                     href=move || href().unwrap_or_default()
                     aria-current=move || if is_active() { Some("page") } else { None }
                 >
-                    {child}
+                    {props.children}
                 </a>
             }
         }
