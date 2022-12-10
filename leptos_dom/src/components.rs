@@ -16,7 +16,7 @@ use wasm_bindgen::JsCast;
 
 /// The core foundational leptos components.
 #[derive(Debug, educe::Educe)]
-#[educe(Default, Clone)]
+#[educe(Default, Clone, PartialEq, Eq)]
 pub enum CoreComponent {
   /// The [`Unit`] component.
   #[educe(Default)]
@@ -28,7 +28,7 @@ pub enum CoreComponent {
 }
 
 /// Custom leptos component.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) document_fragment: web_sys::DocumentFragment,

@@ -121,7 +121,7 @@ where
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// HTML element.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Element {
       #[cfg(debug_assertions)]
       name: Cow<'static, str>,
@@ -129,7 +129,7 @@ cfg_if! {
     }
   } else {
     /// HTML element.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Element {
       name: Cow<'static, str>,
       is_void: bool,
@@ -173,7 +173,7 @@ impl Element {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Comment {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   node: web_sys::Node,
@@ -222,7 +222,7 @@ impl Comment {
 }
 
 /// HTML text
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Text {
   /// In order to support partial updates on text nodes, that is,
   /// to update the node without recreating it, we need to be able
@@ -253,7 +253,7 @@ impl Text {
 }
 
 /// A leptos view which can be mounted to the DOM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum View {
   /// HTML element node.
   Element(Element),

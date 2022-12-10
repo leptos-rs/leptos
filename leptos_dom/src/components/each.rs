@@ -40,7 +40,7 @@ impl VecExt for Vec<Option<EachItem>> {
 }
 
 /// The internal representation of the [`EachKey`] core-component.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
@@ -121,7 +121,7 @@ impl Mountable for EachRepr {
 }
 
 /// The internal representation of an [`EachKey`] item.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
