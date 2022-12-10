@@ -92,27 +92,29 @@ where
         }
     });
 
-    cfg_if! {
-        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            view! { cx,
-                <a
-                    href=move || href.get().unwrap_or_default()
-                    prop:state={props.state.map(|s| s.to_js_value())}
-                    prop:replace={props.replace}
-                    aria-current=move || if is_active.get() { Some("page") } else { None }
-                >
-                    {props.children}
-                </a>
-            }
-        } else {
-            view! { cx,
-                <a
-                    href=move || href().unwrap_or_default()
-                    aria-current=move || if is_active() { Some("page") } else { None }
-                >
-                    {props.children}
-                </a>
+    Component::new("A", move |cx| {
+        cfg_if! {
+            if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+                view! { cx,
+                    <a
+                        href=move || href.get().unwrap_or_default()
+                        prop:state={props.state.map(|s| s.to_js_value())}
+                        prop:replace={props.replace}
+                        aria-current=move || if is_active.get() { Some("page") } else { None }
+                    >
+                        {props.children}
+                    </a>
+                }
+            } else {
+                view! { cx,
+                    <a
+                        href=move || href().unwrap_or_default()
+                        aria-current=move || if is_active() { Some("page") } else { None }
+                    >
+                        {props.children}
+                    </a>
+                }
             }
         }
-    }
+    }).into_view(cx)
 }

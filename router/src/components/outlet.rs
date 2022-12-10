@@ -29,5 +29,7 @@ pub fn Outlet(cx: Scope) -> View {
             }
         }
     });
-    (move || outlet.get()).into_view(cx)
+    Component::new("Outlet", move |cx| {
+        (move || outlet.get()).into_view(cx)
+    }).into_view(cx)
 }

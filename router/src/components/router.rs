@@ -42,7 +42,7 @@ pub fn Router(cx: Scope, props: RouterProps) -> View {
     let router = RouterContext::new(cx, props.base, props.fallback);
     provide_context(cx, router);
 
-    props.children.into_view(cx)
+    Component::new("Router", |cx| (props.children)().into_view(cx)).into_view(cx)
 }
 
 /// Context type that contains information about the current router state.

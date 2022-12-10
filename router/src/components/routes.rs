@@ -81,53 +81,37 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> View {
                         root_equal.set(false);
                     }
 
-                    let disposer = cx.child_scope({
-                        let next = next.clone();
-                        let router = Rc::clone(&router.inner);
-                        move |cx| {
+                    let next = next.clone();
+                    let next_ctx = RouteContext::new(
+                        cx,
+                        &RouterContext { inner: Rc::clone(&router.inner) },
+                        {
                             let next = next.clone();
-                            let next_ctx = RouteContext::new(
-                                cx,
-                                &RouterContext { inner: router },
-                                {
-                                    let next = next.clone();
-                                    move || {
-                                        if let Some(route_states) = use_context::<Memo<RouterState>>(cx) {
-                                            route_states.with(|route_states| {
-                                                let routes = route_states.routes.borrow();
-                                                routes.get(i + 1).cloned()
-                                            })
-                                        } else {
-                                            next.borrow().get(i + 1).cloned()
-                                        }
-                                    }
-                                },
-                                move || {
-                                    matches.with(|m| m.get(i).cloned())
-                                }
-                            );
-
-                            if let Some(next_ctx) = next_ctx {
-                                if next.borrow().len() > i + 1 {
-                                    next.borrow_mut()[i] = next_ctx;
+                            move || {
+                                if let Some(route_states) = use_context::<Memo<RouterState>>(cx) {
+                                    route_states.with(|route_states| {
+                                        let routes = route_states.routes.borrow();
+                                        routes.get(i + 1).cloned()
+                                    })
                                 } else {
-                                    next.borrow_mut().push(next_ctx);
+                                    next.borrow().get(i + 1).cloned()
                                 }
                             }
+                        },
+                        move || {
+                            matches.with(|m| m.get(i).cloned())
                         }
-                    });
+                    );
 
-                    if disposers.borrow().len() > i + 1 {
-                        let mut disposers = disposers.borrow_mut();
-                        let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
-                        //old_route_disposer.dispose();
-                    } else {
-                        disposers.borrow_mut().push(disposer);
+                    if let Some(next_ctx) = next_ctx {
+                        if next.borrow().len() > i + 1 {
+                            next.borrow_mut()[i] = next_ctx;
+                        } else {
+                            next.borrow_mut().push(next_ctx);
+                        }
                     }
                 }
             }
-
-            // TODO dispose of extra routes from previous matches if they're longer than new ones
 
             if let Some(prev) = &prev && equal {
                 RouterState {
@@ -163,7 +147,9 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> View {
             }
         })
     });
-    (move || root.get()).into_view(cx)
+    Component::new("Routes", move |cx| {
+        (move || root.get()).into_view(cx)
+    }).into_view(cx)
 }
 
 #[derive(Clone, Debug, PartialEq)]
