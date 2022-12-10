@@ -119,9 +119,10 @@ impl<El: IntoElement> IntoChild for HtmlElement<El> {
   }
 }
 
-impl<F> IntoChild for Component<F>
+impl<F, V> IntoChild for Component<F, V>
 where
-  F: FnOnce(Scope) -> View,
+  F: FnOnce(Scope) -> V,
+  V: IntoView,
 {
   fn into_child(self, cx: Scope) -> Child {
     Child::View(self.into_view(cx))
