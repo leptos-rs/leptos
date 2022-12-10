@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use leptos_reactive::Scope;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
 
 /// Represents the different possible values an attribute node could have.
@@ -146,6 +147,7 @@ attr_type!(f32);
 attr_type!(f64);
 attr_type!(char);
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn attribute_expression(
   el: &web_sys::Element,
   attr_name: &str,

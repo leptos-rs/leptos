@@ -1,4 +1,5 @@
 use leptos_reactive::Scope;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
 
 /// Represents the different possible values a single class on an element could have,
@@ -65,6 +66,7 @@ impl<T: IntoClass> IntoClass for (Scope, T) {
   }
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn class_expression(
   class_list: &web_sys::DomTokenList,
   class_name: &str,

@@ -12,6 +12,7 @@ pub use fragment::*;
 use leptos_reactive::Scope;
 use std::borrow::Cow;
 pub use unit::*;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// The core foundational leptos components.

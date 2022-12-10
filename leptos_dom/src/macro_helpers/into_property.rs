@@ -1,5 +1,7 @@
 use leptos_reactive::Scope;
-use wasm_bindgen::{JsValue, UnwrapThrowExt};
+use wasm_bindgen::JsValue;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use wasm_bindgen::UnwrapThrowExt;
 
 /// Represents the different possible values an element property could have,
 /// allowing you to do fine-grained updates to single fields.
@@ -74,6 +76,7 @@ prop_type!(f32);
 prop_type!(f64);
 prop_type!(bool);
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn property_expression(
   el: &web_sys::Element,
   prop_name: &str,
