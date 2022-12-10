@@ -40,7 +40,7 @@ where
 ///
 /// view! { cx,
 ///   <div>
-///     <Suspense fallback=|| view! { cx, <p>"Loading (Suspense Fallback)..."</p> }>
+///     <Suspense fallback=move || view! { cx, <p>"Loading (Suspense Fallback)..."</p> }>
 ///       {move || {
 ///           cats.read().map(|data| match data {
 ///             Err(_) => view! { cx,  <pre>"Error"</pre> },
@@ -115,19 +115,15 @@ fn render_suspense<'a, F, E, G>(
     orig_child: G,
 ) -> View
 where
-    F: IntoView + Clone,
+    F: Fn() -> View + 'static,
     E: IntoView,
     G: Fn() -> E + 'static,
 {
-    use leptos_dom::IntoAttribute;
-    use leptos_macro::view;
+    use leptos_dom::*;
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
-        let mut child = orig_child().into_view(cx);
-        while let View::Fn(f) = child {
-            child = (f.borrow_mut())();
-        }
+        let child = orig_child().into_view(cx);
 
         // no resources were read under this, so just return the child
         if context.pending_resources.get() == 0 {
@@ -137,11 +133,14 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                orig_child().into_view(cx).as_child_string()
+                render_to_string(move |cx| orig_child())
             });
 
             // return the fallback for now, wrapped in fragment identifer
-            View::Node(view! { cx, <div data-fragment-id=key>{fallback.into_view(cx)}</div> })
+            div(cx)
+                .attr("data-fragment", key)
+                .child(fallback)
+                .into_view(cx)
         }
     };
     initial

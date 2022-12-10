@@ -1,5 +1,5 @@
 use leptos_dom::{View, IntoView};
-use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use typed_builder::TypedBuilder;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
@@ -17,7 +17,7 @@ where
     /// the `pending` state, with its argument indicating whether it is pending (`true`)
     /// or not pending (`false`).
     #[builder(default, setter(strip_option, into))]
-    pub set_pending: Option<Box<dyn Fn(bool)>>,
+    pub set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
     pub children: Box<dyn Fn() -> Vec<G>>,
 }
@@ -48,7 +48,7 @@ where
 /// view! { cx,
 ///   <div>
 ///     <Transition
-///       fallback=|| view! { cx, <p>"Loading..."</p>}
+///       fallback=move || view! { cx, <p>"Loading..."</p>}
 ///       set_pending=set_pending
 ///     >
 ///       {move || {
@@ -75,7 +75,7 @@ where
 /// # });
 /// ```
 #[allow(non_snake_case)]
-pub fn Transition<F, E, G>(cx: Scope, props: TransitionProps<F, E, G>) -> impl Fn() -> View
+pub fn Transition<F, E, G>(cx: Scope, props: TransitionProps<F, E, G>) -> View
 where
     F: Fn() -> View + 'static,
     E: IntoView,
@@ -97,8 +97,8 @@ fn render_transition<'a, F, E, G>(
     context: SuspenseContext,
     fallback: F,
     child: G,
-    set_pending: Option<Box<dyn Fn(bool)>>,
-) -> impl Fn() -> View
+    set_pending: Option<SignalSetter<bool>>,
+) -> View
 where
     F: Fn() -> View + 'static,
     E: IntoView,
@@ -108,28 +108,29 @@ where
 
     let prev_child = RefCell::new(None);
 
-    move || {
+    (move || {
         if context.ready() {
             let current_child = (child)().into_view(cx);
             *prev_child.borrow_mut() = Some(current_child.clone());
             if let Some(pending) = &set_pending {
-                pending(false);
+                pending.set(false);
             }
             current_child
         } else if let Some(prev_child) = &*prev_child.borrow() {
             if let Some(pending) = &set_pending {
-                pending(true);
+                pending.set(true);
             }
             prev_child.clone()
         } else {
             if let Some(pending) = &set_pending {
-                pending(true);
+                pending.set(true);
             }
             let fallback = fallback().into_view(cx);
             *prev_child.borrow_mut() = Some(fallback.clone());
             fallback
         }
-    }
+    })
+    .into_view(cx)
 }
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -138,24 +139,18 @@ fn render_transition<'a, F, E, G>(
     context: SuspenseContext,
     fallback: F,
     orig_child: G,
-    set_pending: Option<Box<dyn Fn(bool)>>,
-) -> impl Fn() -> View
+    set_pending: Option<SignalSetter<bool>>,
+) -> View
 where
     F: Fn() -> View + 'static,
     E: IntoView,
     G: Fn() -> E + 'static,
 {
-    use leptos_dom::IntoAttribute;
-    use leptos_macro::view;
-
-    _ = set_pending;
+    use leptos_dom::*;
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
-        let mut child = orig_child().into_view(cx);
-        while let View::Fn(f) = child {
-            child = (f.borrow_mut())();
-        }
+        let child = orig_child().into_view(cx);
 
         // no resources were read under this, so just return the child
         if context.pending_resources.get() == 0 {
@@ -165,12 +160,15 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                orig_child().into_view(cx).as_child_string()
+                render_to_string(move |cx| orig_child())
             });
 
             // return the fallback for now, wrapped in fragment identifer
-            View::Node(view! { cx, <div data-fragment-id=key>{fallback.into_view(cx)}</div> })
+            div(cx)
+                .attr("data-fragment", key)
+                .child(move || fallback())
+                .into_view(cx)
         }
     };
-    move || initial.clone()
+    initial
 }
