@@ -132,16 +132,18 @@ where
     let children = children();
     let method = method.unwrap_or("get");
 
-    view! { cx,
-        <form
-            method=method
-            action=move || action.get()
-            enctype=enctype
-            on:submit=on_submit
-        >
-            {children}
-        </form>
-    }
+    Component::new("Form", move |cx| {
+        view! { cx,
+            <form
+                method=method
+                action=move || action.get()
+                enctype=enctype
+                on:submit=on_submit
+            >
+                {children}
+            </form>
+        }
+    }).into_view(cx)
 }
 
 /// Properties that can be passed to the [ActionForm] component, which
@@ -283,15 +285,17 @@ where
 
     let children = (props.children)();
 
-    view! { cx,
-        <form
-            method="POST"
-            action=action
-            on:submit=on_submit
-        >
-            {children}
-        </form>
-    }
+    Component::new("MultiActionForm", move |cx| {
+        view! { cx,
+            <form
+                method="POST"
+                action=action
+                on:submit=on_submit
+            >
+                {children}
+            </form>
+        }
+    }).into_view(cx)
 }
 
 fn extract_form_attributes(
