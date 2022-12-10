@@ -166,12 +166,6 @@ where
     let (child, disposer) =
       cx.run_child_scope(|cx| cx.untrack(|| children_fn(cx).into_view(cx)));
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    leptos_reactive::on_cleanup(cx, || disposer.dispose());
-
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    let _ = disposer;
-
     repr.children.push(child);
 
     repr.into_view(cx)

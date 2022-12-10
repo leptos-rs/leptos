@@ -1,9 +1,20 @@
-use std::{cmp::Reverse, rc::Rc, cell::{RefCell, Cell}, ops::IndexMut};
+use std::{
+    cell::{Cell, RefCell},
+    cmp::Reverse,
+    ops::IndexMut,
+    rc::Rc,
+};
 
 use leptos::*;
 use typed_builder::TypedBuilder;
 
-use crate::{matching::{expand_optionals, join_paths, Branch, Matcher, RouteDefinition, get_route_matches, RouteMatch}, RouterContext, RouteContext};
+use crate::{
+    matching::{
+        expand_optionals, get_route_matches, join_paths, Branch, Matcher, RouteDefinition,
+        RouteMatch,
+    },
+    RouteContext, RouterContext,
+};
 
 /// Props for the [Routes] component, which contains route definitions and manages routing.
 #[derive(TypedBuilder)]
@@ -13,8 +24,8 @@ pub struct RoutesProps {
     children: Box<dyn Fn() -> Vec<RouteDefinition>>,
 }
 
-/// Contains route definitions and manages the actual routing process. 
-/// 
+/// Contains route definitions and manages the actual routing process.
+///
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 #[allow(non_snake_case)]
 pub fn Routes(cx: Scope, props: RoutesProps) -> View {
@@ -34,9 +45,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> View {
     // whenever path changes, update matches
     let matches = create_memo(cx, {
         let router = router.clone();
-        move |_| {
-            get_route_matches(branches.clone(), router.pathname().get())
-        }
+        move |_| get_route_matches(branches.clone(), router.pathname().get())
     });
 
     // Rebuild the list of nested routes conservatively, and show the root route here
@@ -68,68 +77,103 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> View {
                 let prev_match = prev_matches.and_then(|p| p.get(i));
                 let next_match = next_matches.get(i).unwrap();
 
-                if let Some(prev) = prev_routes && let Some(prev_match) = prev_match && next_match.route.key == prev_match.route.key {
-                    let prev_one = { prev.borrow()[i].clone() };
-                    if i >= next.borrow().len() {
-                        next.borrow_mut().push(prev_one);
-                    } else {
-                        *(next.borrow_mut().index_mut(i)) = prev_one;
+                match (prev_routes, prev_match) {
+                    (Some(prev), Some(prev_match))
+                        if next_match.route.key == prev_match.route.key =>
+                    {
+                        let prev_one = { prev.borrow()[i].clone() };
+                        if i >= next.borrow().len() {
+                            next.borrow_mut().push(prev_one);
+                        } else {
+                            *(next.borrow_mut().index_mut(i)) = prev_one;
+                        }
                     }
-                } else {
-                    equal = false; 
-                    if i == 0 {
-                        root_equal.set(false);
-                    }
+                    _ => {
+                        equal = false;
+                        if i == 0 {
+                            root_equal.set(false);
+                        }
 
-                    let next = next.clone();
-                    let next_ctx = RouteContext::new(
-                        cx,
-                        &RouterContext { inner: Rc::clone(&router.inner) },
-                        {
+                        let disposer = cx.child_scope({
                             let next = next.clone();
-                            move || {
-                                if let Some(route_states) = use_context::<Memo<RouterState>>(cx) {
-                                    route_states.with(|route_states| {
-                                        let routes = route_states.routes.borrow();
-                                        routes.get(i + 1).cloned()
-                                    })
-                                } else {
-                                    next.borrow().get(i + 1).cloned()
+                            let router = Rc::clone(&router.inner);
+                            move |cx| {
+                                let next = next.clone();
+                                let next_ctx = RouteContext::new(
+                                    cx,
+                                    &RouterContext { inner: router },
+                                    {
+                                        let next = next.clone();
+                                        move || {
+                                            if let Some(route_states) =
+                                                use_context::<Memo<RouterState>>(cx)
+                                            {
+                                                route_states.with(|route_states| {
+                                                    let routes = route_states.routes.borrow();
+                                                    routes.get(i + 1).cloned()
+                                                })
+                                            } else {
+                                                next.borrow().get(i + 1).cloned()
+                                            }
+                                        }
+                                    },
+                                    move || matches.with(|m| m.get(i).cloned()),
+                                );
+
+                                if let Some(next_ctx) = next_ctx {
+                                    if next.borrow().len() > i + 1 {
+                                        next.borrow_mut()[i] = next_ctx;
+                                    } else {
+                                        next.borrow_mut().push(next_ctx);
+                                    }
                                 }
                             }
-                        },
-                        move || {
-                            matches.with(|m| m.get(i).cloned())
-                        }
-                    );
+                        });
 
-                    if let Some(next_ctx) = next_ctx {
-                        if next.borrow().len() > i + 1 {
-                            next.borrow_mut()[i] = next_ctx;
+                        if disposers.borrow().len() > i + 1 {
+                            let mut disposers = disposers.borrow_mut();
+                            let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
+                            old_route_disposer.dispose();
                         } else {
-                            next.borrow_mut().push(next_ctx);
+                            disposers.borrow_mut().push(disposer);
                         }
                     }
                 }
             }
 
-            if let Some(prev) = &prev && equal {
-                RouterState {
-                    matches: next_matches.to_vec(),
-                    routes: prev_routes.cloned().unwrap_or_default(),
-                    root: prev.root.clone()
+            if disposers.borrow().len() > next_matches.len() {
+                let surplus_disposers = disposers.borrow_mut().split_off(next_matches.len() + 1);
+                for disposer in surplus_disposers {
+                    disposer.dispose();
+                }
+            }
+
+            if let Some(prev) = &prev {
+                if equal {
+                    RouterState {
+                        matches: next_matches.to_vec(),
+                        routes: prev_routes.cloned().unwrap_or_default(),
+                        root: prev.root.clone(),
+                    }
+                } else {
+                    let root = next.borrow().get(0).cloned();
+                    RouterState {
+                        matches: next_matches.to_vec(),
+                        routes: Rc::new(RefCell::new(next.borrow().to_vec())),
+                        root,
+                    }
                 }
             } else {
                 let root = next.borrow().get(0).cloned();
                 RouterState {
                     matches: next_matches.to_vec(),
                     routes: Rc::new(RefCell::new(next.borrow().to_vec())),
-                    root
+                    root,
                 }
             }
         }
     });
-    
+
     // show the root route
     let root = create_memo(cx, move |prev| {
         provide_context(cx, route_states);
@@ -147,6 +191,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> View {
             }
         })
     });
+
     Component::new("Routes", move |cx| {
         (move || root.get()).into_view(cx)
     }).into_view(cx)
