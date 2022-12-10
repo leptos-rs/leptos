@@ -4,7 +4,7 @@ use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`Unit`] core-component.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnitRepr {
   comment: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]

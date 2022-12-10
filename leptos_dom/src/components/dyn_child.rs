@@ -6,7 +6,7 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`DynChild`] core-component.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DynChildRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
