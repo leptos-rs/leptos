@@ -331,9 +331,9 @@ fn attribute_to_tokens(
       Some(value) => {
         let value = value.as_ref();
         let span = value.span();
-        quote_spanned! { span => Some(#value) }
+        quote_spanned! { span => #value }
       }
-      None => quote! { None },
+      None => quote_spanned! { span => "" },
     };
     //if mode != Mode::Ssr {
     quote_spanned! {
@@ -352,7 +352,6 @@ fn component_to_tokens(
 ) -> TokenStream {
   let name = &node.name;
   let component_name = ident_from_tag_name(&node.name);
-  let component_name_str = name.to_string();
   let span = node.name.span();
   let component_props_name =
     Ident::new(&format!("{component_name}Props"), span);
@@ -415,6 +414,13 @@ fn component_child(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
       let value = node.value.as_ref();
       quote_spanned! {
           span => #value
+      }
+    },
+    Node::Text(node) => {
+      let span = node.value.span();
+      let value = node.value.as_ref();
+      quote_spanned! {
+          span => text(#value).into_view(#cx)
       }
     }
     _ => node_to_tokens(cx, node, mode),
