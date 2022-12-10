@@ -46,7 +46,7 @@ pub fn fetch_example(cx: Scope) -> View {
                 />
             </label>
             <div>
-                <Suspense fallback=move || view! { cx, "Loading (Suspense Fallback)..." }.into_view(cx)>
+                <Transition fallback=move || view! { cx, "Loading (Suspense Fallback)..." }.into_view(cx)>
                     {move || {
                             cats.read().map(|data| match data {
                                 Err(_) => view! { cx,  <pre>"Error"</pre> },
@@ -64,7 +64,7 @@ pub fn fetch_example(cx: Scope) -> View {
                             })
                         }
                     }
-                </Suspense>
+                </Transition>
             </div>
         </div>
     }
