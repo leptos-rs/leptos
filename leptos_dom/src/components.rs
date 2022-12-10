@@ -159,11 +159,11 @@ where
 
     let mut repr = ComponentRepr::new(name);
 
-    let (child, disposer) =
+    let (child, _) =
       cx.run_child_scope(|cx| cx.untrack(|| children_fn(cx)));
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    leptos_reactive::on_cleanup(cx, || disposer.dispose());
+    /* #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    leptos_reactive::on_cleanup(cx, || disposer.dispose()); */
 
     repr.children.push(child);
 
