@@ -71,6 +71,39 @@ pub trait IntoElement: IntoElementBounds {
   fn hydration_id(&self) -> usize;
 }
 
+/// Trait for converting [`web_sys::Element`] to [`HtmlElement`].
+pub trait ToHtmlElement {
+  /// Converts the type to [`HtmlElement`].
+  fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement>;
+}
+
+impl<T> ToHtmlElement for T
+where
+  T: AsRef<web_sys::Element>,
+{
+  fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement> {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let el = self.as_ref().clone().unchecked_into();
+
+      let element = AnyElement {
+        name: "".into(),
+        is_void: false,
+        element: el,
+      };
+
+      HtmlElement { cx, element }
+    }
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let _ = cx;
+
+      unreachable!();
+    }
+  }
+}
+
 /// Represents potentially any element.
 #[derive(Clone, Debug)]
 #[cfg_attr(all(target_arch = "wasm32", feature = "web"), derive(educe::Educe))]
