@@ -130,17 +130,19 @@ impl ComponentRepr {
 }
 
 /// A user-defined `leptos` component.
-pub struct Component<F>
+pub struct Component<F, V>
 where
-  F: FnOnce(Scope) -> View,
+  F: FnOnce(Scope) -> V,
+  V: IntoView,
 {
   name: Cow<'static, str>,
   children_fn: F,
 }
 
-impl<F> Component<F>
+impl<F, V> Component<F, V>
 where
-  F: FnOnce(Scope) -> View,
+  F: FnOnce(Scope) -> V,
+  V: IntoView,
 {
   /// Creates a new component.
   pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
@@ -151,17 +153,18 @@ where
   }
 }
 
-impl<F> IntoView for Component<F>
+impl<F, V> IntoView for Component<F, V>
 where
-  F: FnOnce(Scope) -> View,
+  F: FnOnce(Scope) -> V,
+  V: IntoView,
 {
   fn into_view(self, cx: Scope) -> View {
     let Self { name, children_fn } = self;
 
     let mut repr = ComponentRepr::new(name);
 
-    let (child, _) =
-      cx.run_child_scope(|cx| cx.untrack(|| children_fn(cx)));
+    let (child, disposer) =
+      cx.run_child_scope(|cx| cx.untrack(|| children_fn(cx).into_view(cx)));
 
     repr.children.push(child);
 
