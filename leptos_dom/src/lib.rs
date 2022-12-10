@@ -563,3 +563,14 @@ impl_into_view_for_tuples!(
 impl_into_view_for_tuples!(
   A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z
 );
+
+macro_rules! api_planning {
+  ($($tt:tt)*) => {};
+}
+
+api_planning! {
+  let c = Component::<Props, ChildKind>::new("MyComponent")
+    .props(Props::default()) // Can only be called once
+    .child(Child1) // Anything that impl Into<ChildKind>
+    .child(Child2);
+}
