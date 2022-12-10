@@ -230,23 +230,28 @@ impl<El: IntoElement> HtmlElement<El> {
 
   /// Adds an `id` to the element.
   #[track_caller]
-  pub fn id(mut self, id: impl Into<Cow<'static, str>>) -> Self {
+  pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
     let id = id.into();
 
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        self
-          .element
-          .get_element()
-          .set_attribute(intern("id"), &id)
-          .unwrap();
-      }
-      else {
-        self.attrs.push(("id".into(), id));
-      }
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      self
+        .element
+        .get_element()
+        .set_attribute(intern("id"), &id)
+        .unwrap();
+
+      self
     }
 
-    self
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let mut this = self;
+
+      this.attrs.push(("id".into(), id));
+
+      this
+    }
   }
 
   /// Binds the element reference to [`NodeRef`].
@@ -260,193 +265,226 @@ impl<El: IntoElement> HtmlElement<El> {
   #[doc(hidden)]
   #[track_caller]
   pub fn attr(
-    mut self,
+    self,
     name: impl Into<Cow<'static, str>>,
     attr: impl IntoAttribute,
   ) -> Self {
     let name = name.into();
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let el = self.element.get_element();
-        let value = attr.into_attribute(self.cx);
-        match value {
-          Attribute::Fn(cx, f) => {
-              let el = el.clone();
-              create_render_effect(cx, move |old| {
-                  let new = f();
-                  if old.as_ref() != Some(&new) {
-                      attribute_expression(&el, &name, new.clone());
-                  }
-                  new
-              });
-          }
-          _ => attribute_expression(el, &name, value),
-        };
-        self
-      }
-      else {
-        let mut attr = attr.into_attribute(self.cx);
-        while let Attribute::Fn(_, f) = attr {
-          self.dynamic = true;
-          attr = f();
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let el = self.element.get_element();
+      let value = attr.into_attribute(self.cx);
+      match value {
+        Attribute::Fn(cx, f) => {
+          let el = el.clone();
+          create_render_effect(cx, move |old| {
+            let new = f();
+            if old.as_ref() != Some(&new) {
+              attribute_expression(&el, &name, new.clone());
+            }
+            new
+          });
         }
-        match attr {
-          Attribute::String(value) => {
-            self.attrs.push((name, value.into()));
-            self
-          },
-          Attribute::Bool(include) => if include {
-            self.attrs.push((name, "".into()));
-            self
-          } else {
-            self
-          },
-          Attribute::Option(_, maybe) => if let Some(value) = maybe {
-            self.attrs.push((name, value.into()));
-            self
-          } else {
-            self
-          }
-          _ => unreachable!()
-        }
+        _ => attribute_expression(el, &name, value),
+      };
+      self
+    }
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let mut this = self;
+
+      let mut attr = attr.into_attribute(this.cx);
+      while let Attribute::Fn(_, f) = attr {
+        this.dynamic = true;
+        attr = f();
       }
+      match attr {
+        Attribute::String(value) => {
+          this.attrs.push((name, value.into()));
+        }
+        Attribute::Bool(include) => {
+          if include {
+            this.attrs.push((name, "".into()));
+          }
+        }
+        Attribute::Option(_, maybe) => {
+          if let Some(value) = maybe {
+            this.attrs.push((name, value.into()));
+          }
+        }
+        _ => unreachable!(),
+      }
+
+      this
     }
   }
 
   /// Adds a class to an element.
   #[track_caller]
   pub fn class(
-    mut self,
+    self,
     name: impl Into<Cow<'static, str>>,
     class: impl IntoClass,
   ) -> Self {
     let name = name.into();
-    cfg_if! {
-    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
       let el = self.element.get_element();
       let class_list = el.class_list();
       let value = class.into_class(self.cx);
       match value {
         Class::Fn(cx, f) => {
-            create_render_effect(cx, move |old| {
-              let new = f();
-              if old.as_ref() != Some(&new) && (old.is_some() || new) {
-                class_expression(&class_list, &name, new)
-              }
-              new
-            });
+          create_render_effect(cx, move |old| {
+            let new = f();
+            if old.as_ref() != Some(&new) && (old.is_some() || new) {
+              class_expression(&class_list, &name, new)
+            }
+            new
+          });
         }
         Class::Value(value) => class_expression(&class_list, &name, value),
       };
+
       self
     }
-    else {
-      let mut class = class.into_class(self.cx);
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let mut this = self;
+
+      let class = class.into_class(this.cx);
 
       let include = match class {
         Class::Value(include) => include,
         Class::Fn(_, f) => {
-          self.dynamic = true;
+          this.dynamic = true;
           f()
         }
       };
 
       if include {
-        if let Some((_, ref mut value)) = self.attrs.iter_mut().find(|(name, _)| name == "class") {
+        if let Some((_, ref mut value)) =
+          this.attrs.iter_mut().find(|(name, _)| name == "class")
+        {
           *value = format!("{value} {name}").into();
-          self
         } else {
-          self.attrs.push(("class".into(), name));
-          self
+          this.attrs.push(("class".into(), name));
         }
-      } else {
-        self
       }
-    }
+
+      this
     }
   }
 
   /// Sets a property on an element.
   #[track_caller]
   pub fn prop(
-    mut self,
+    self,
     name: impl Into<Cow<'static, str>>,
     value: impl IntoProperty,
   ) -> Self {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let name = name.into();
-        let value = value.into_property(self.cx);
-        let el = self.element.get_element();
-        match value {
-          Property::Fn(cx, f) => {
-            let el = el.clone();
-            create_render_effect(cx, move |old| {
-                let new = f();
-                let prop_name = wasm_bindgen::intern(&name);
-                if old.as_ref() != Some(&new) && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED) {
-                    property_expression(&el, &prop_name, new.clone())
-                }
-                new
-            });
-          }
-          Property::Value(value) => {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let name = name.into();
+      let value = value.into_property(self.cx);
+      let el = self.element.get_element();
+      match value {
+        Property::Fn(cx, f) => {
+          let el = el.clone();
+          create_render_effect(cx, move |old| {
+            let new = f();
             let prop_name = wasm_bindgen::intern(&name);
-            property_expression(&el, &prop_name, value)
-          },
-        };
-        self
-      }
-      else {
-        self.dynamic = true;
-        self
-      }
+            if old.as_ref() != Some(&new)
+              && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED)
+            {
+              property_expression(&el, prop_name, new.clone())
+            }
+            new
+          });
+        }
+        Property::Value(value) => {
+          let prop_name = wasm_bindgen::intern(&name);
+          property_expression(el, prop_name, value)
+        }
+      };
+
+      self
+    }
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let mut this = self;
+
+      this.dynamic = true;
+
+      this
     }
   }
 
   /// Adds an event listener to this element.
   #[track_caller]
   pub fn on<E: EventDescriptor + 'static>(
-    mut self,
+    self,
     event: E,
     event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let event_name = event.name();
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let event_name = event.name();
 
-        if event.bubbles() {
-          add_event_listener(self.element.get_element(), event_name, event_handler);
-        } else {
-          add_event_listener_undelegated(self.element.get_element(), &event_name, event_handler);
-        }
-
+      if event.bubbles() {
+        add_event_listener(
+          self.element.get_element(),
+          event_name,
+          event_handler,
+        );
       } else {
-        self.dynamic = true;
-        _ = event;
-        _ = event_handler;
+        add_event_listener_undelegated(
+          self.element.get_element(),
+          &event_name,
+          event_handler,
+        );
       }
+
+      self
     }
 
-    self
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let mut this = self;
+
+      this.dynamic = true;
+      _ = event;
+      _ = event_handler;
+
+      this
+    }
   }
 
   #[doc(hidden)]
   #[track_caller]
-  pub fn child(mut self, child: impl IntoChild) -> Self {
+  pub fn child(self, child: impl IntoChild) -> Self {
     let child = child.into_child(self.cx).into_view(self.cx);
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        if !HydrationCtx::is_hydrating() {
-          mount_child(MountKind::Append(self.element.get_element()), &child);
-        }
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      if !HydrationCtx::is_hydrating() {
+        mount_child(MountKind::Append(self.element.get_element()), &child);
       }
-      else {
-        self.children.push(child);
-      }
+
+      self
     }
 
-    self
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let mut this = self;
+
+      this.children.push(child);
+
+      this
+    }
   }
 }
 

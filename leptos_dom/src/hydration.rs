@@ -5,8 +5,6 @@ use std::{
   rc::Rc,
 };
 
-type ParentOffsetSums = Vec<(usize, usize)>;
-
 /// We can tell if we start in hydration mode by checking to see if the
 /// id "_0" is present in the DOM. If it is, we know we are hydrating from
 /// the server, if not, we are starting off in CSR
@@ -22,9 +20,6 @@ static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
 
 #[thread_local]
 static mut ID: usize = 0;
-
-#[thread_local]
-static mut PARENT_OFFSET_SUMS: ParentOffsetSums = vec![];
 
 pub(crate) struct HydrationCtx;
 

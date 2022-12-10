@@ -187,7 +187,7 @@ where
               let start = child.get_opening_node();
               let end = &closing;
 
-              let mut sibling = start.clone();
+              let mut sibling = start;
 
               while sibling != *end {
                 let next_sibling = sibling.next_sibling().unwrap();

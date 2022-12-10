@@ -294,7 +294,7 @@ where
           let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
 
           let hashed_items =
-            items.iter().map(|i| key_fn(i)).collect::<FxIndexSet<_>>();
+            items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
 
           if let Some(HashRun(prev_hash_run)) = prev_hash_run {
             let cmds = diff(&prev_hash_run, &hashed_items);
@@ -438,7 +438,7 @@ fn apply_opts<K: Eq + Hash>(
   if !from.is_empty()
     && !to.is_empty()
     && cmds.removed.len() == from.len()
-    && cmds.moved.len() == 0
+    && cmds.moved.is_empty()
   {
     cmds.clear = true;
 
@@ -451,9 +451,9 @@ fn apply_opts<K: Eq + Hash>(
   }
 
   // We can optimize appends.
-  if cmds.added.len() != 0
-    && cmds.moved.len() == 0
-    && cmds.removed.len() == 0
+  if !cmds.added.is_empty()
+    && cmds.moved.is_empty()
+    && cmds.removed.is_empty()
     && cmds.added[0].at >= from.len()
   {
     cmds

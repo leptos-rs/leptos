@@ -321,7 +321,7 @@ impl Mountable for View {
       Self::Text(t) => t.node.clone(),
       Self::Element(el) => el.element.clone().unchecked_into(),
       Self::CoreComponent(c) => match c {
-        CoreComponent::DynChild(dc) => todo!(),
+        CoreComponent::DynChild(dc) => dc.get_opening_node(),
         CoreComponent::Each(e) => e.get_opening_node(),
         CoreComponent::Unit(u) => u.get_opening_node(),
       },
@@ -370,12 +370,6 @@ fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
         .before_with_node_1(&child)
         .expect("before to not err");
     }
-    MountKind::After(closing) => {
-      closing
-        .unchecked_ref::<web_sys::Element>()
-        .after_with_node_1(&child)
-        .expect("before to not err");
-    }
   }
 }
 
@@ -387,10 +381,6 @@ enum MountKind<'a> {
     &'a web_sys::Node,
   ),
   Append(&'a web_sys::Node),
-  After(
-    // The opening node
-    &'a web_sys::Node,
-  ),
 }
 
 /// Runs the provided closure and mounts the result to eht `<body>`.
