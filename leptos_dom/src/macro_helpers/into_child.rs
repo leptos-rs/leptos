@@ -2,13 +2,8 @@ use crate::{
   Component, ComponentRepr, DynChild, Each, Element, Fragment, HtmlElement,
   IntoElement, IntoView, Text, Unit, View,
 };
-use cfg_if::cfg_if;
-use leptos_reactive::{create_effect, Scope};
-use std::{
-  cell::{OnceCell, RefCell},
-  hash::Hash,
-  rc::Rc,
-};
+use leptos_reactive::Scope;
+use std::{cell::RefCell, hash::Hash};
 
 pub enum Child {
   /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the node.
@@ -96,7 +91,7 @@ where
 }
 
 impl<T: IntoChild> IntoChild for (Scope, T) {
-  fn into_child(self, cx: Scope) -> Child {
+  fn into_child(self, _: Scope) -> Child {
     self.1.into_child(self.0)
   }
 }
@@ -136,7 +131,7 @@ where
 macro_rules! text_type {
   ($child_type:ty) => {
     impl IntoChild for $child_type {
-      fn into_child(self, cx: Scope) -> Child {
+      fn into_child(self, _: Scope) -> Child {
         Child::Text(self.to_string().into())
       }
     }

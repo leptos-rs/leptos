@@ -1,10 +1,9 @@
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
-use itertools::{EitherOrBoth, Itertools};
-use leptos_reactive::{create_effect, Scope, ScopeDisposer};
+use leptos_reactive::{create_effect, Scope};
 use rustc_hash::FxHasher;
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use std::{
   borrow::Cow,
   cell::RefCell,

@@ -1,10 +1,6 @@
-use crate::{document, is_server, window};
+use crate::{is_server, window};
 use std::time::Duration;
-
-use cfg_if::cfg_if;
-use wasm_bindgen::{
-  convert::FromWasmAbi, prelude::Closure, JsCast, JsValue, UnwrapThrowExt,
-};
+use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
 /// Sets a property on a DOM element.
 pub fn set_property(

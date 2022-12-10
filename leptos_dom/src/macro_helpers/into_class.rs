@@ -60,7 +60,7 @@ impl Class {
 }
 
 impl<T: IntoClass> IntoClass for (Scope, T) {
-  fn into_class(self, cx: Scope) -> Class {
+  fn into_class(self, _: Scope) -> Class {
     self.1.into_class(self.0)
   }
 }

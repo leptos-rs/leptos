@@ -3,8 +3,6 @@
 use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
 
-use crate::IntoElement;
-
 /// A trait for converting types into [web_sys events](web_sys).
 pub trait EventDescriptor {
   /// The [`web_sys`] event type, such as [`web_sys::MouseEvent`].

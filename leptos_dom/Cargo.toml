@@ -9,7 +9,6 @@ description = "DOM operations for the Leptos web framework."
 
 [dependencies]
 cfg-if = "1"
-clone-macro = "0.1"
 educe = "0.4"
 gloo = "0.8"
 html-escape = "0.2"

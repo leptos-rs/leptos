@@ -1,27 +1,25 @@
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
 use crate::{
-  components::DynChild,
   ev::EventDescriptor,
   hydration::HydrationCtx,
   macro_helpers::{
     attribute_expression, class_expression, property_expression, Attribute,
-    Child, Class, IntoAttribute, IntoChild, IntoClass, IntoProperty, Property,
+    Class, IntoAttribute, IntoChild, IntoClass, IntoProperty, Property,
   },
   Element, Fragment, IntoView, NodeRef, Text, View,
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+use std::cell::OnceCell;
+
 use cfg_if::cfg_if;
-use leptos_reactive::{create_effect, create_render_effect, Scope};
+use leptos_reactive::{create_render_effect, Scope};
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::{smallvec, SmallVec};
-use std::{
-  borrow::Cow,
-  cell::{LazyCell, OnceCell},
-  fmt,
-  ops::Deref,
-};
-use wasm_bindgen::{convert::FromWasmAbi, intern, JsCast, JsValue};
+use std::{borrow::Cow, cell::LazyCell, fmt, ops::Deref};
+use wasm_bindgen::JsCast;
 
 /// Trait alias for the trait bounts on [`IntoElement`].
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -238,7 +236,7 @@ impl<El: IntoElement> HtmlElement<El> {
       self
         .element
         .get_element()
-        .set_attribute(intern("id"), &id)
+        .set_attribute(wasm_bindgen::intern("id"), &id)
         .unwrap();
 
       self
@@ -490,30 +488,37 @@ impl<El: IntoElement> HtmlElement<El> {
 
 impl<El: IntoElement> IntoView for HtmlElement<El> {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
-  fn into_view(self, cx: Scope) -> View {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        View::Element(Element::new(self.element))
+  fn into_view(self, _: Scope) -> View {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      View::Element(Element::new(self.element))
+    }
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let Self {
+        element,
+        mut attrs,
+        children,
+        dynamic,
+        ..
+      } = self;
+
+      let id = element.hydration_id();
+
+      let mut element = Element::new(element);
+      let children = children;
+
+      if attrs.iter_mut().any(|(name, _)| name == "id") {
+        attrs.push(("leptos-hk".into(), format!("_{}", id).into()));
       } else {
-        let Self { element, mut attrs, children, dynamic, .. } = self;
-
-        let id = element.hydration_id();
-
-        let mut element = Element::new(element);
-        let children = children;
-
-        if attrs.iter_mut().any(|(name, _)| name == "id") {
-          attrs.push(("leptos-hk".into(), format!("_{}", id).into()));
-        } else {
-          attrs.push(("id".into(), format!("_{}", id).into()));
-        }
-
-        element.dynamic = dynamic;
-        element.attrs = attrs;
-        element.children.extend(children);
-
-        View::Element(element)
+        attrs.push(("id".into(), format!("_{}", id).into()));
       }
+
+      element.dynamic = dynamic;
+      element.attrs = attrs;
+      element.children.extend(children);
+
+      View::Element(element)
     }
   }
 }

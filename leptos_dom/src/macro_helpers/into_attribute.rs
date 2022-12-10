@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use leptos_reactive::Scope;
-use wasm_bindgen::{intern, UnwrapThrowExt};
+use wasm_bindgen::UnwrapThrowExt;
 
 /// Represents the different possible values an attribute node could have.
 ///
@@ -107,7 +107,7 @@ where
 }
 
 impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
-  fn into_attribute(self, cx: Scope) -> Attribute {
+  fn into_attribute(self, _: Scope) -> Attribute {
     self.1.into_attribute(self.0)
   }
 }

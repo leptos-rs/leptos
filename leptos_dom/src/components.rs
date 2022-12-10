@@ -9,7 +9,7 @@ use crate::{mount_child, MountKind, Mountable};
 pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
-use leptos_reactive::{Scope, ScopeDisposer};
+use leptos_reactive::Scope;
 use std::borrow::Cow;
 pub use unit::*;
 use wasm_bindgen::JsCast;

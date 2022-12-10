@@ -107,28 +107,26 @@ where
     debug_assertions,
     instrument(level = "trace", name = "<DynChild />", skip_all)
   )]
-  fn into_view(self, cx: Scope) -> crate::View {
+  fn into_view(self, cx: Scope) -> View {
     let Self { child_fn } = self;
 
     let component = DynChildRepr::new();
 
-    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
-    let (opening, closing) = (
-      component.opening.node.clone(),
-      component.closing.node.clone(),
-    );
-    #[cfg(all(not(debug_assertions), target_arch = "wasm32", feature = "web"))]
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let closing = component.closing.node.clone();
 
     let child = component.child.clone();
 
+    #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     let span = tracing::Span::current();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     create_effect(
       cx,
       move |prev_run: Option<(Option<web_sys::Node>, ScopeDisposer)>| {
+        #[cfg(debug_assertions)]
         let _guard = span.enter();
+        #[cfg(debug_assertions)]
         let _guard = trace_span!("DynChild reactive").entered();
 
         let (new_child, disposer) =

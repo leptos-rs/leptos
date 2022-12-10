@@ -6,8 +6,6 @@
 //! The DOM implementation for `leptos`.
 
 #[macro_use]
-extern crate clone_macro;
-#[macro_use]
 extern crate tracing;
 
 mod components;
@@ -29,12 +27,9 @@ use hydration::HydrationCtx;
 use leptos_reactive::Scope;
 pub use logging::*;
 pub use node_ref::*;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::{
-  borrow::Cow,
-  cell::{LazyCell, OnceCell},
-  fmt::{self, Display},
-};
+use std::{borrow::Cow, cell::LazyCell, fmt};
 pub use wasm_bindgen;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 pub use web_sys;
