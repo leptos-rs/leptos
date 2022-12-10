@@ -29,7 +29,7 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, ()> {
     }
 }
 
-pub fn fetch_example(cx: Scope) -> web_sys::Element {
+pub fn fetch_example(cx: Scope) -> View {
     let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
     let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
 
@@ -38,7 +38,7 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
             <label>
                 "How many cats would you like?"
                 <input type="number"
-                    value={move || cat_count.get().to_string()}
+                    prop:value={move || cat_count.get().to_string()}
                     on:input=move |ev| {
                         let val = event_target_value(&ev).parse::<u32>().unwrap_or(0);
                         set_cat_count(val);
@@ -46,7 +46,7 @@ pub fn fetch_example(cx: Scope) -> web_sys::Element {
                 />
             </label>
             <div>
-                <Suspense fallback={"Loading (Suspense Fallback)...".to_string()}>
+                <Suspense fallback=move || view! { cx, "Loading (Suspense Fallback)..." }.into_view(cx)>
                     {move || {
                             cats.read().map(|data| match data {
                                 Err(_) => view! { cx,  <pre>"Error"</pre> },

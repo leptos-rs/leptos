@@ -209,10 +209,10 @@ fn element_to_tokens(
   } else {
     let name = if is_custom_element(&node.name) {
       let name = node.name.to_string();
-      quote_spanned! { span => custom(#cx, #name) }
+      quote_spanned! { span => leptos::leptos_dom::custom(#cx, #name) }
     } else {
       let name = &node.name;
-      quote_spanned! { span => #name(#cx) }
+      quote_spanned! { span => leptos::leptos_dom::#name(#cx) }
     };
     let attrs = node.attributes.iter().filter_map(|node| {
       if let Node::Attribute(node) = node {
