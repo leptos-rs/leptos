@@ -97,10 +97,8 @@ where
 
     DynChild::new(move || {
         if context.ready() {
-            log!("context is ready");
             (child)().into_view(cx)
         } else {
-            log!("rendering fallback");
             fallback()
         }
     })
