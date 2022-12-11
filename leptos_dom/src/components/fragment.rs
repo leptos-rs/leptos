@@ -1,13 +1,18 @@
 use crate::{ComponentRepr, IntoView, View};
 
 /// Represents a group of [`views`](View).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Fragment(Vec<View>);
 
 impl Fragment {
   /// Creates a new [`Fragment`] from a [`Vec<Node>`].
   pub fn new(nodes: Vec<View>) -> Self {
     Self(nodes)
+  }
+
+  /// Gives access to the [View] children contained within the fragment.
+  pub fn as_children(&self) -> &[View] {
+    &self.0
   }
 }
 

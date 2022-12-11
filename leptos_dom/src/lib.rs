@@ -17,6 +17,7 @@ mod logging;
 mod macro_helpers;
 mod node_ref;
 mod ssr;
+mod transparent;
 
 use cfg_if::cfg_if;
 pub use components::*;
@@ -30,6 +31,7 @@ pub use node_ref::*;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
 use std::borrow::Cow;
+pub use transparent::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::{cell::LazyCell, fmt};
 pub use wasm_bindgen;
@@ -267,6 +269,9 @@ pub enum View {
   Component(ComponentRepr),
   /// leptos core-component.
   CoreComponent(CoreComponent),
+  /// Wraps arbitrary data that's not part of the view but is
+  /// passed via the view tree.
+  Transparent(Transparent)
 }
 
 /// The default [`View`] is the [`Unit`] core-component.
@@ -317,6 +322,7 @@ impl Mountable for View {
         CoreComponent::Each(e) => e.get_mountable_node(),
       },
       Self::Component(c) => c.get_mountable_node(),
+      Self::Transparent(_) => panic!("tried to mount a Transparent node.")
     }
   }
 
@@ -330,6 +336,7 @@ impl Mountable for View {
         CoreComponent::Unit(u) => u.get_opening_node(),
       },
       Self::Component(c) => c.get_opening_node(),
+      Self::Transparent(_) => panic!("tried to get opening node for a Transparent node.")
     }
   }
 }
@@ -345,6 +352,7 @@ impl View {
         CoreComponent::Each(..) => "Each",
         CoreComponent::Unit(..) => "Unit",
       },
+      Self::Transparent(..) => "Transparent"
     }
   }
 
@@ -354,6 +362,14 @@ impl View {
       Some(t)
     } else {
       None
+    }
+  }
+
+  /// Returns some [Transparent] type if the view holds one, or `None` if not.
+  pub fn as_transparent(&self) -> Option<&Transparent> {
+    match &self {
+      Self::Transparent(t) => Some(&t),
+      _ => None
     }
   }
 }
