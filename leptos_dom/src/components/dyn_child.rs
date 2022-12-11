@@ -155,13 +155,8 @@ where
 
         let mut child_borrow = child.borrow_mut();
 
-        debug!("old child:\n{child_borrow:#?}");
-        debug!("new child:\n{new_child:#?}");
-
         // Is this at least the second time we are loading a child?
         if let Some((prev_t, prev_disposer)) = prev_run {
-          gloo::console::debug!("nth time rendering");
-
           let child = child_borrow.take().unwrap();
 
           // Dispose of the scope
@@ -171,30 +166,19 @@ where
           // make use of it again if our current child is also a text
           // node
           if let Some(prev_t) = prev_t {
-            gloo::console::debug!("prev child is text");
-
             // Here, our child is also a text node
             if let Some(new_t) = new_child.get_text() {
-              gloo::console::debug!("new child is text");
-
               prev_t
                 .unchecked_ref::<web_sys::Text>()
                 .set_data(&new_t.content);
 
               **child_borrow = Some(new_child);
 
-              debug!(
-                "updated child after update:\n{:#?}",
-                child_borrow.deref().deref()
-              );
-
               (Some(prev_t), disposer)
             }
             // Child is not a text node, so we can remove the previous
             // text node
             else {
-              gloo::console::debug!("new child is not text");
-
               // Remove the text
               closing
                 .previous_sibling()
@@ -205,11 +189,6 @@ where
               // Mount the new child, and we're done
               mount_child(MountKind::Before(&closing), &new_child);
 
-              debug!(
-                "updated child after update:\n{:#?}",
-                child_borrow.deref().deref()
-              );
-
               **child_borrow = Some(new_child);
 
               (None, disposer)
@@ -219,8 +198,6 @@ where
           // but we know the previous child was not, so no special
           // treatment here
           else {
-            gloo::console::debug!("prev child is not text");
-
             // Technically, I think this check shouldn't be necessary, but
             // I can imagine some edge case that the child changes while
             // hydration is ongoing
@@ -237,12 +214,7 @@ where
 
             // We want to reuse text nodes, so hold onto it if
             // our child is one
-            let t = child.get_text().map(|t| t.node.clone());
-
-            debug!(
-              "updated child after update:\n{:#?}",
-              child_borrow.deref().deref()
-            );
+            let t = new_child.get_text().map(|t| t.node.clone());
 
             **child_borrow = Some(new_child);
 
@@ -251,8 +223,6 @@ where
         }
         // Otherwise, we know for sure this is our first time
         else {
-          gloo::console::debug!("first time rendering");
-
           // We need to remove the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
             let t = closing
@@ -285,11 +255,6 @@ where
           let t = new_child.get_text().map(|t| t.node.clone());
 
           **child_borrow = Some(new_child);
-
-          debug!(
-            "updated child after update:\n{:#?}",
-            child_borrow.deref().deref()
-          );
 
           (t, disposer)
         }
