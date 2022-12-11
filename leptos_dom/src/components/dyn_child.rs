@@ -46,13 +46,17 @@ impl Mountable for DynChildRepr {
   }
 
   fn get_opening_node(&self) -> web_sys::Node {
-    self
+    #[cfg(debug_assertions)]
+    return self.opening.node.clone();
+
+    #[cfg(not(debug_assertions))]
+    return self
       .child
       .borrow()
       .as_ref()
       .as_ref()
       .unwrap()
-      .get_opening_node()
+      .get_opening_node();
   }
 }
 
@@ -165,7 +169,7 @@ where
           // If the previous child was a text node, we would like to
           // make use of it again if our current child is also a text
           // node
-          if let Some(prev_t) = prev_t {
+          let ret = if let Some(prev_t) = prev_t {
             // Here, our child is also a text node
             if let Some(new_t) = new_child.get_text() {
               prev_t
@@ -219,7 +223,9 @@ where
             **child_borrow = Some(new_child);
 
             (t, disposer)
-          }
+          };
+
+          ret
         }
         // Otherwise, we know for sure this is our first time
         else {
