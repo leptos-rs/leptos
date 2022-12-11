@@ -30,10 +30,10 @@ pub use logging::*;
 pub use node_ref::*;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-use std::borrow::Cow;
-pub use transparent::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::LazyCell, fmt};
+use std::cell::LazyCell;
+use std::{borrow::Cow, fmt};
+pub use transparent::*;
 pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -123,21 +123,53 @@ where
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// HTML element.
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
       #[cfg(debug_assertions)]
       name: Cow<'static, str>,
       element: web_sys::HtmlElement,
     }
+
+    impl fmt::Debug for Element {
+      fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let html = self.element.outer_html();
+
+        f.write_str(&html)
+      }
+    }
   } else {
     /// HTML element.
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
       name: Cow<'static, str>,
       is_void: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: Vec<View>,
       id: usize,
+    }
+
+    impl fmt::Debug for Element {
+      fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use fmt::Write;
+
+        let attrs =
+          self.attrs.iter().map(|(n, v)| format!(" {n}=\"{v}\"")).collect::<String>();
+
+        if self.is_void {
+          write!(f, "<{}{attrs} />", self.name)
+        } else {
+          writeln!(f, "<{}{attrs}>", self.name)?;
+
+          let mut pad_adapter = pad_adapter::PadAdapter::new(f);
+
+          for child in &self.children {
+            write!(pad_adapter, "{child:#?}\n");
+          }
+
+          write!(f, "</{}>", self.name)
+        }
+
+      }
     }
   }
 }
@@ -228,7 +260,7 @@ impl Comment {
 }
 
 /// HTML text
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Text {
   /// In order to support partial updates on text nodes, that is,
   /// to update the node without recreating it, we need to be able
@@ -236,6 +268,12 @@ pub struct Text {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   node: web_sys::Node,
   content: Cow<'static, str>,
+}
+
+impl fmt::Debug for Text {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(&self.content)
+  }
 }
 
 impl IntoView for Text {
@@ -259,7 +297,7 @@ impl Text {
 }
 
 /// A leptos view which can be mounted to the DOM.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum View {
   /// HTML element node.
   Element(Element),
@@ -271,7 +309,21 @@ pub enum View {
   CoreComponent(CoreComponent),
   /// Wraps arbitrary data that's not part of the view but is
   /// passed via the view tree.
-  Transparent(Transparent)
+  Transparent(Transparent),
+}
+
+impl fmt::Debug for View {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Element(el) => el.fmt(f),
+      Self::Text(t) => t.fmt(f),
+      Self::Component(c) => c.fmt(f),
+      Self::CoreComponent(c) => c.fmt(f),
+      Self::Transparent(arg0) => {
+        f.debug_tuple("Transparent").field(arg0).finish()
+      }
+    }
+  }
 }
 
 /// The default [`View`] is the [`Unit`] core-component.
@@ -322,7 +374,7 @@ impl Mountable for View {
         CoreComponent::Each(e) => e.get_mountable_node(),
       },
       Self::Component(c) => c.get_mountable_node(),
-      Self::Transparent(_) => panic!("tried to mount a Transparent node.")
+      Self::Transparent(_) => panic!("tried to mount a Transparent node."),
     }
   }
 
@@ -336,7 +388,9 @@ impl Mountable for View {
         CoreComponent::Unit(u) => u.get_opening_node(),
       },
       Self::Component(c) => c.get_opening_node(),
-      Self::Transparent(_) => panic!("tried to get opening node for a Transparent node.")
+      Self::Transparent(_) => {
+        panic!("tried to get opening node for a Transparent node.")
+      }
     }
   }
 }
@@ -352,7 +406,7 @@ impl View {
         CoreComponent::Each(..) => "Each",
         CoreComponent::Unit(..) => "Unit",
       },
-      Self::Transparent(..) => "Transparent"
+      Self::Transparent(..) => "Transparent",
     }
   }
 
@@ -369,7 +423,7 @@ impl View {
   pub fn as_transparent(&self) -> Option<&Transparent> {
     match &self {
       Self::Transparent(t) => Some(&t),
-      _ => None
+      _ => None,
     }
   }
 }
@@ -391,6 +445,20 @@ fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
         .before_with_node_1(&child)
         .expect("before to not err");
     }
+  }
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[track_caller]
+fn unmount_child(start: &web_sys::Node, end: &web_sys::Node) {
+  let mut sibling = start.clone();
+
+  while sibling != *end {
+    let next_sibling = sibling.next_sibling().unwrap();
+
+    sibling.unchecked_into::<web_sys::Element>().remove();
+
+    sibling = next_sibling;
   }
 }
 
@@ -587,7 +655,10 @@ api_planning! {
 }
 
 impl IntoView for String {
-  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all))]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(level = "trace", name = "#text", skip_all)
+  )]
   fn into_view(self, _: Scope) -> View {
     View::Text(Text::new(self.into()))
   }
@@ -595,11 +666,11 @@ impl IntoView for String {
 
 macro_rules! viewable_primitive {
   ($child_type:ty) => {
-      impl IntoView for $child_type {
-          fn into_view(self, _cx: Scope) -> View {
-              View::Text(Text::new(self.to_string().into()))
-          }
+    impl IntoView for $child_type {
+      fn into_view(self, _cx: Scope) -> View {
+        View::Text(Text::new(self.to_string().into()))
       }
+    }
   };
 }
 

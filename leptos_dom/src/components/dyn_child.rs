@@ -1,15 +1,15 @@
 use crate::{hydration::HydrationCtx, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind, Mountable};
+use crate::{mount_child, unmount_child, MountKind, Mountable};
 use leptos_reactive::Scope;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use leptos_reactive::{create_effect, ScopeDisposer};
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// The internal representation of the [`DynChild`] core-component.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DynChildRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
@@ -19,6 +19,24 @@ pub struct DynChildRepr {
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) id: usize,
+}
+
+impl fmt::Debug for DynChildRepr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    use fmt::Write;
+
+    f.write_str("<DynChild>\n")?;
+
+    let mut pad_adapter = pad_adapter::PadAdapter::new(f);
+
+    writeln!(
+      pad_adapter,
+      "{:#?}",
+      self.child.borrow().deref().deref().as_ref().unwrap()
+    )?;
+
+    f.write_str("</DynChild>")
+  }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -137,8 +155,13 @@ where
 
         let mut child_borrow = child.borrow_mut();
 
+        debug!("old child:\n{child_borrow:#?}");
+        debug!("new child:\n{new_child:#?}");
+
         // Is this at least the second time we are loading a child?
         if let Some((prev_t, prev_disposer)) = prev_run {
+          gloo::console::debug!("nth time rendering");
+
           let child = child_borrow.take().unwrap();
 
           // Dispose of the scope
@@ -148,8 +171,12 @@ where
           // make use of it again if our current child is also a text
           // node
           if let Some(prev_t) = prev_t {
+            gloo::console::debug!("prev child is text");
+
             // Here, our child is also a text node
             if let Some(new_t) = new_child.get_text() {
+              gloo::console::debug!("new child is text");
+
               prev_t
                 .unchecked_ref::<web_sys::Text>()
                 .set_data(&new_t.content);
@@ -161,6 +188,8 @@ where
             // Child is not a text node, so we can remove the previous
             // text node
             else {
+              gloo::console::debug!("new child is not text");
+
               // Remove the text
               closing
                 .previous_sibling()
@@ -176,10 +205,12 @@ where
               (None, disposer)
             }
           }
-          // Otherwise, our child can still be a text node,
+          // Otherwise, the new child can still be a text node,
           // but we know the previous child was not, so no special
           // treatment here
           else {
+            gloo::console::debug!("prev child is not text");
+
             // Technically, I think this check shouldn't be necessary, but
             // I can imagine some edge case that the child changes while
             // hydration is ongoing
@@ -188,15 +219,7 @@ where
               let start = child.get_opening_node();
               let end = &closing;
 
-              let mut sibling = start;
-
-              while sibling != *end {
-                let next_sibling = sibling.next_sibling().unwrap();
-
-                sibling.unchecked_ref::<web_sys::Element>().remove();
-
-                sibling = next_sibling;
-              }
+              unmount_child(&start, end);
 
               // Mount the new child
               mount_child(MountKind::Before(&closing), &new_child);
@@ -213,6 +236,8 @@ where
         }
         // Otherwise, we know for sure this is our first time
         else {
+          gloo::console::debug!("first time rendering");
+
           // We need to remove the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
             let t = closing

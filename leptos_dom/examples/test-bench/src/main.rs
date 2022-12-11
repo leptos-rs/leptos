@@ -140,36 +140,20 @@ fn view_fn(cx: Scope) -> impl IntoView {
   //     component.into_view(cx)
   //   }
 
-  let (value, set_value) = create_signal(cx, 0);
+  let (toggle, set_toggle) = create_signal(cx, false);
 
-  let items_static = move || {
-    (0..3)
-      .map(|item| {
-        view! {
-            cx, <li>"static #" {item}</li>
-        }
-      })
-      .collect::<Vec<_>>()
-  };
-
-  let items = move || {
-    (0..value())
-      .map(|item| {
-        view! {
-            cx, <li>"dyn #" {item}</li>
-        }
-      })
-      .collect::<Vec<_>>()
+  let f = move || {
+    if toggle() {
+      "On".into_view(cx)
+    } else {
+      [h1(cx).child("Off")].into_view(cx)
+    }
   };
 
   view! { cx,
-      <div>
-          <button on:click=move |_| set_value(0)>"Clear"</button>
-          <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
-          <span>"Value: " {move || value().to_string()} "!"</span>
-          <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
-          <ul>{items_static}</ul>
-          <ul>{items}</ul>
-      </div>
+    <>
+      <button on:click=move |_| set_toggle.update(|t| *t = !*t)>"Toggle"</button>
+      {f}
+    </>
   }
 }

@@ -16,6 +16,7 @@ indexmap = "1.9"
 itertools = "0.10"
 js-sys = "0.3"
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
+pad-adapter = "0.1"
 paste = "1"
 rustc-hash = "1.1.0"
 smallvec = "1"
@@ -25,7 +26,7 @@ wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
 
 [dev-dependencies]
-leptos = { path = "../leptos", default-features = false, version = "0.0.18" }
+# leptos = { path = "../leptos", default-features = false, version = "0.0.18" }
 
 [dependencies.web-sys]
 version = "0.3"

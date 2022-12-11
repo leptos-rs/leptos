@@ -9,7 +9,7 @@ use rustc_hash::FxHasher;
 use smallvec::SmallVec;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::hash::BuildHasherDefault;
-use std::{borrow::Cow, cell::RefCell, hash::Hash, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 use typed_builder::TypedBuilder;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -41,7 +41,7 @@ impl VecExt for Vec<Option<EachItem>> {
 }
 
 /// The internal representation of the [`EachKey`] core-component.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
@@ -51,6 +51,22 @@ pub struct EachRepr {
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) id: usize,
+}
+
+impl fmt::Debug for EachRepr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    use fmt::Write;
+
+    f.write_str("<Each>\n")?;
+
+    for child in self.children.borrow().deref() {
+      let mut pad_adapter = pad_adapter::PadAdapter::new(f);
+
+      writeln!(pad_adapter, "{:#?}", child.as_ref().unwrap())?;
+    }
+
+    f.write_str("</Each>")
+  }
 }
 
 impl Default for EachRepr {
@@ -122,7 +138,7 @@ impl Mountable for EachRepr {
 }
 
 /// The internal representation of an [`EachKey`] item.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub(crate) struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
@@ -132,6 +148,20 @@ pub(crate) struct EachItem {
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) id: usize,
+}
+
+impl fmt::Debug for EachItem {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    use fmt::Write;
+
+    f.write_str("<EachItem>\n")?;
+
+    let mut pad_adapter = pad_adapter::PadAdapter::new(f);
+
+    writeln!(pad_adapter, "{:#?}", self.child)?;
+
+    f.write_str("</EachItem>")
+  }
 }
 
 impl EachItem {

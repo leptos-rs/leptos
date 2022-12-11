@@ -10,13 +10,13 @@ pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
 use leptos_reactive::Scope;
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 pub use unit::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 /// The core foundational leptos components.
-#[derive(Debug, educe::Educe)]
+#[derive(educe::Educe)]
 #[educe(Default, Clone, PartialEq, Eq)]
 pub enum CoreComponent {
   /// The [`Unit`] component.
@@ -28,8 +28,18 @@ pub enum CoreComponent {
   Each(EachRepr),
 }
 
+impl fmt::Debug for CoreComponent {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Unit(u) => u.fmt(f),
+      Self::DynChild(dc) => dc.fmt(f),
+      Self::Each(e) => e.fmt(f),
+    }
+  }
+}
+
 /// Custom leptos component.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ComponentRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) document_fragment: web_sys::DocumentFragment,
@@ -42,6 +52,38 @@ pub struct ComponentRepr {
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) id: usize,
+}
+
+impl fmt::Debug for ComponentRepr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    use fmt::Write;
+
+    if self.children.is_empty() {
+      #[cfg(debug_assertions)]
+      return write!(f, "<{} />", self.name);
+
+      #[cfg(not(debug_assertions))]
+      return f.write_str("<Component />");
+    } else {
+      #[cfg(debug_assertions)]
+      write!(f, "<{}>\n", self.name)?;
+      #[cfg(not(debug_assertions))]
+      f.write_str("<Component>")?;
+
+      let mut pad_adapter = pad_adapter::PadAdapter::new(f);
+
+      for child in &self.children {
+        writeln!(pad_adapter, "{child:#?}")?;
+      }
+
+      #[cfg(debug_assertions)]
+      write!(f, "</{}>", self.name)?;
+      #[cfg(not(debug_assertions))]
+      f.write_str("</Component>")?;
+
+      Ok(())
+    }
+  }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

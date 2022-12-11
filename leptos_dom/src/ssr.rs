@@ -152,9 +152,7 @@ impl View {
           format!("<{tag_name}{attrs}>{children}</{tag_name}>").into()
         }
       }
-      View::Transparent(_) => {
-        Default::default()
-      }
+      View::Transparent(_) => Default::default(),
     }
   }
 }
