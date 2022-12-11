@@ -5,11 +5,12 @@ use typed_builder::TypedBuilder;
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
 #[derive(TypedBuilder)]
-pub struct TransitionProps<F, E, G>
+pub struct TransitionProps<F, E, G, H>
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
@@ -75,11 +76,12 @@ where
 /// # });
 /// ```
 #[allow(non_snake_case)]
-pub fn Transition<F, E, G>(cx: Scope, props: TransitionProps<F, E, G>) -> View
+pub fn Transition<F, E, G, H>(cx: Scope, props: TransitionProps<F, E, G, H>) -> impl IntoView
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     let context = SuspenseContext::new(cx);
 
@@ -92,17 +94,18 @@ where
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-fn render_transition<'a, F, E, G>(
+fn render_transition<'a, F, E, G, H>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
     child: G,
     set_pending: Option<SignalSetter<bool>>,
-) -> View
+) -> impl IntoView
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     use std::cell::{RefCell};
 
@@ -142,9 +145,10 @@ fn render_transition<'a, F, E, G>(
     set_pending: Option<SignalSetter<bool>>,
 ) -> View
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     use leptos_dom::*;
 

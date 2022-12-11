@@ -5,11 +5,12 @@ use typed_builder::TypedBuilder;
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
 #[derive(TypedBuilder)]
-pub struct SuspenseProps<F, E, G>
+pub struct SuspenseProps<F, E, G, H>
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
@@ -65,11 +66,12 @@ where
 /// # });
 /// ```
 #[allow(non_snake_case)]
-pub fn Suspense<F, E, G>(cx: Scope, props: SuspenseProps<F, E, G>) -> View
+pub fn Suspense<F, E, G, H>(cx: Scope, props: SuspenseProps<F, E, G, H>) -> impl IntoView
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     let context = SuspenseContext::new(cx);
 
@@ -82,40 +84,41 @@ where
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-fn render_suspense<'a, F, E, G>(
+fn render_suspense<'a, F, E, G, H>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
     child: G,
-) -> View
+) -> impl IntoView
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
-    use leptos_dom::{DynChild, log};
+    use leptos_dom::DynChild;
 
     DynChild::new(move || {
         if context.ready() {
             (child)().into_view(cx)
         } else {
-            fallback()
+            fallback().into_view(cx)
         }
     })
-    .into_view(cx)
 }
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-fn render_suspense<'a, F, E, G>(
+fn render_suspense<'a, F, E, G, H>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
     orig_child: G,
-) -> View
+) -> impl IntoView
 where
-    F: Fn() -> View + 'static,
+    F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> E + 'static,
+    G: Fn() -> H + 'static,
+    H: IntoView
 {
     use leptos_dom::*;
 
