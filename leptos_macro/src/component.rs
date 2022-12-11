@@ -259,7 +259,6 @@ impl ToTokens for InlinePropsBody {
                   #component_name_str,
                   move |#cx_token| #block
               )
-              .into_view(#cx_token)
             }
         });
     }

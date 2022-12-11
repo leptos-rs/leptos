@@ -142,7 +142,7 @@ pub(crate) fn render_view(
   if nodes.is_empty() {
     let span = Span::call_site();
     quote_spanned! {
-        span => leptos::Unit.into_view(#cx)
+        span => leptos::Unit
     }
   } else if nodes.len() == 1 {
     node_to_tokens(cx, &nodes[0], mode)
@@ -166,9 +166,9 @@ fn fragment_to_tokens(
   });
   quote_spanned! {
       span => {
-          vec![
+          Fragment::new(vec![
               #(#nodes)*
-          ].into_view(#cx)
+          ])
       }
   }
 }
@@ -190,7 +190,7 @@ fn node_to_tokens(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
       let span = node.value.span();
       let value = node.value.as_ref();
       quote_spanned! {
-          span => #value.into_view(#cx)
+          span => #value
       }
     }
     Node::Attribute(node) => attribute_to_tokens(cx, node, mode),
@@ -251,7 +251,6 @@ fn element_to_tokens(
         span => #name
             #(#attrs)*
             #(#children)*
-            .into_view(#cx)
     }
   }
 }
@@ -408,7 +407,7 @@ fn component_to_tokens(
 }
 
 fn component_child(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
-  match node {
+  let node = match node {
     Node::Block(node) => {
       let span = node.value.span();
       let value = node.value.as_ref();
@@ -420,10 +419,13 @@ fn component_child(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
       let span = node.value.span();
       let value = node.value.as_ref();
       quote_spanned! {
-          span => text(#value).into_view(#cx)
+          span => text(#value)
       }
     }
     _ => node_to_tokens(cx, node, mode),
+  };
+  quote! {
+    node.into_view(#cx)
   }
 }
 
