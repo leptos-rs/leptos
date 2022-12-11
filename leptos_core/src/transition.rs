@@ -111,10 +111,7 @@ where
 
     (move || {
         if context.ready() {
-            // TODO should be unnecessary: seems to be a bug if DynChild
-            // receives a Fragment as its new child
-            let current_child = leptos_dom::div(cx).child(child()).into_view(cx);
-            //let current_child = child().into_view(cx);
+            let current_child = child().into_view(cx);
             *prev_child.borrow_mut() = Some(current_child.clone());
             if let Some(pending) = &set_pending {
                 pending.set(false);
