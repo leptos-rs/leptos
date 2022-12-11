@@ -27,7 +27,7 @@ where
     pub element: F,
     /// `children` may be empty or include nested routes.
     #[builder(default, setter(strip_option))]
-    pub children: Option<Box<dyn Fn() -> Vec<RouteDefinition>>>,
+    pub children: Option<Box<dyn Fn() -> Fragment>>,
 }
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
@@ -38,10 +38,25 @@ where
     E: IntoView,
     F: Fn(Scope) -> E + 'static,
 {
+    let children = props.children
+        .map(|children| children()
+            .as_children()
+            .iter()
+            .filter_map(|child| child.as_transparent().and_then(|t| t.downcast_ref::<RouteDefinition>()))
+            .cloned()
+            .collect::<Vec<_>>()
+        )
+        .unwrap_or_default();
     RouteDefinition {
         path: props.path,
-        children: props.children.map(|c| c()).unwrap_or_default(),
+        children,
         element: Rc::new(move |cx| (props.element)(cx).into_view(cx)),
+    }
+}
+
+impl IntoView for RouteDefinition {
+    fn into_view(self, cx: Scope) -> View {
+        Transparent::new(self).into_view(cx)
     }
 }
 

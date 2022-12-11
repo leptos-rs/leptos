@@ -31,18 +31,18 @@ pub struct RouterProps {
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
-    pub children: Box<dyn Fn() -> Vec<View>>,
+    pub children: Box<dyn Fn() -> Fragment>,
 }
 
 /// Provides for client-side and server-side routing. This should usually be somewhere near
 /// the root of the application.
 #[allow(non_snake_case)]
-pub fn Router(cx: Scope, props: RouterProps) -> View {
+pub fn Router(cx: Scope, props: RouterProps) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
     let router = RouterContext::new(cx, props.base, props.fallback);
     provide_context(cx, router);
 
-    Component::new("Router", |cx| (props.children)().into_view(cx)).into_view(cx)
+    Component::new("Router", move |cx| (props.children)().into_view(cx))
 }
 
 /// Context type that contains information about the current router state.

@@ -62,13 +62,13 @@ where
     #[builder(default)]
     pub replace: bool,
     /// The nodes or elements to be shown inside the link.
-    pub children: Box<dyn Fn() -> Vec<View>>,
+    pub children: Box<dyn Fn() -> Fragment>
 }
 
 /// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
 /// progressively enhanced to use client-side routing.
 #[allow(non_snake_case)]
-pub fn A<H>(cx: Scope, props: AProps<H>) -> View
+pub fn A<H>(cx: Scope, props: AProps<H>) -> impl IntoView
 where
     H: ToHref + 'static,
 {

@@ -258,7 +258,7 @@ fn element_to_tokens(
 fn attribute_to_tokens(
   cx: &Ident,
   node: &NodeAttribute,
-  mode: Mode,
+  _mode: Mode,
 ) -> TokenStream {
   let span = node.key.span();
   let name = node.key.to_string();
@@ -356,16 +356,10 @@ fn component_to_tokens(
     Ident::new(&format!("{component_name}Props"), span);
 
   let children = if node.children.is_empty() {
-    quote! {}
-  } else if node.children.len() == 1 {
-    let child = component_child(cx, &node.children[0], mode);
-    quote_spanned! { span => .children(Box::new(move || vec![#child])) }
+    quote! { }
   } else {
-    let children = node
-      .children
-      .iter()
-      .map(|node| component_child(cx, node, mode));
-    quote_spanned! { span => .children(Box::new(move || vec![#(#children),*])) }
+    let children = fragment_to_tokens(cx, span, &node.children, mode);
+    quote! { .children(Box::new(move || #children)) }
   };
 
   let props = node
@@ -403,31 +397,6 @@ fn component_to_tokens(
               #children
               .build(),
       )
-  }
-}
-
-fn component_child(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
-  match node {
-    Node::Block(node) => {
-      let span = node.value.span();
-      let value = node.value.as_ref();
-      quote_spanned! {
-          span => #value
-      }
-    },
-    Node::Text(node) => {
-      let span = node.value.span();
-      let value = node.value.as_ref();
-      quote_spanned! {
-          span => text(#value).into_view(#cx)
-      }
-    }
-    _ => {
-      let node = node_to_tokens(cx, node, mode);
-      quote! {
-        #node.into_view(#cx)
-      }
-    }
   }
 }
 

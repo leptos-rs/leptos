@@ -21,22 +21,28 @@ use crate::{
 pub struct RoutesProps {
     #[builder(default, setter(strip_option))]
     base: Option<String>,
-    children: Box<dyn Fn() -> Vec<RouteDefinition>>,
+    children: Box<dyn Fn() -> Fragment>,
 }
 
 /// Contains route definitions and manages the actual routing process.
 ///
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 #[allow(non_snake_case)]
-pub fn Routes(cx: Scope, props: RoutesProps) -> View {
+pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoView {
     let router = use_context::<RouterContext>(cx).unwrap_or_else(|| {
         log::warn!("<Routes/> component should be nested within a <Router/>.");
         panic!()
     });
 
     let mut branches = Vec::new();
+    let children = (props.children)()
+        .as_children()
+        .iter()
+        .filter_map(|child| child.as_transparent().and_then(|t| t.downcast_ref::<RouteDefinition>()))
+        .cloned()
+        .collect::<Vec<_>>();
     create_branches(
-        &(props.children)(),
+        &children,
         &props.base.unwrap_or_default(),
         &mut Vec::new(),
         &mut branches,
@@ -194,7 +200,7 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> View {
 
     Component::new("Routes", move |cx| {
         (move || root.get()).into_view(cx)
-    }).into_view(cx)
+    })
 }
 
 #[derive(Clone, Debug, PartialEq)]

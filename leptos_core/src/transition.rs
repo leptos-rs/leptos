@@ -1,16 +1,14 @@
-use leptos_dom::{View, IntoView};
+use leptos_dom::{View, IntoView, Fragment};
 use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use typed_builder::TypedBuilder;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
 #[derive(TypedBuilder)]
-pub struct TransitionProps<F, E, G, H>
+pub struct TransitionProps<F, E>
 where
     F: Fn() -> E + 'static,
-    E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView
+    E: IntoView
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
@@ -20,7 +18,7 @@ where
     #[builder(default, setter(strip_option, into))]
     pub set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
-    pub children: Box<dyn Fn() -> Vec<G>>,
+    pub children: Box<dyn Fn() -> Fragment>,
 }
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
@@ -76,36 +74,30 @@ where
 /// # });
 /// ```
 #[allow(non_snake_case)]
-pub fn Transition<F, E, G, H>(cx: Scope, props: TransitionProps<F, E, G, H>) -> impl IntoView
+pub fn Transition<F, E>(cx: Scope, props: TransitionProps<F, E>) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView
 {
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    let child = (props.children)().swap_remove(0);
-
-    render_transition(cx, context, props.fallback, child, props.set_pending)
+    render_transition(cx, context, props.fallback, props.children, props.set_pending)
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-fn render_transition<'a, F, E, G, H>(
+fn render_transition<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: G,
+    child: Box<dyn Fn() -> Fragment>,
     set_pending: Option<SignalSetter<bool>>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
-    E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView
+    E: IntoView
 {
     use std::cell::{RefCell};
 
@@ -113,7 +105,10 @@ where
 
     (move || {
         if context.ready() {
-            let current_child = (child)().into_view(cx);
+            // TODO should be unnecessary: seems to be a bug if DynChild
+            // receives a Fragment as its new child
+            let current_child = leptos_dom::div(cx).child(child()).into_view(cx);
+            //let current_child = child().into_view(cx);
             *prev_child.borrow_mut() = Some(current_child.clone());
             if let Some(pending) = &set_pending {
                 pending.set(false);

@@ -40,13 +40,13 @@ where
     #[builder(default, setter(strip_option))]
     pub on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Vec<View>>,
+    pub children: Box<dyn Fn() -> Fragment>,
 }
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
 #[allow(non_snake_case)]
-pub fn Form<A>(cx: Scope, props: FormProps<A>) -> View
+pub fn Form<A>(cx: Scope, props: FormProps<A>) -> impl IntoView
 where
     A: ToHref + 'static,
 {
@@ -129,7 +129,6 @@ where
         }
     };
 
-    let children = children();
     let method = method.unwrap_or("get");
 
     Component::new("Form", move |cx| {
@@ -143,7 +142,7 @@ where
                 {children}
             </form>
         }
-    }).into_view(cx)
+    })
 }
 
 /// Properties that can be passed to the [ActionForm] component, which
@@ -161,14 +160,14 @@ where
     /// manually using [leptos_server::Action::using_server_fn].
     pub action: Action<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Vec<View>>,
+    pub children: Box<dyn Fn() -> Fragment>,
 }
 
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
 #[allow(non_snake_case)]
-pub fn ActionForm<I, O>(cx: Scope, props: ActionFormProps<I, O>) -> View
+pub fn ActionForm<I, O>(cx: Scope, props: ActionFormProps<I, O>) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
@@ -245,14 +244,14 @@ where
     /// manually using [leptos_server::Action::using_server_fn].
     pub action: MultiAction<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Vec<View>>,
+    pub children: Box<dyn Fn() -> Fragment>,
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
 #[allow(non_snake_case)]
-pub fn MultiActionForm<I, O>(cx: Scope, props: MultiActionFormProps<I, O>) -> View
+pub fn MultiActionForm<I, O>(cx: Scope, props: MultiActionFormProps<I, O>) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
@@ -283,8 +282,6 @@ where
         }
     };
 
-    let children = (props.children)();
-
     Component::new("MultiActionForm", move |cx| {
         view! { cx,
             <form
@@ -292,10 +289,10 @@ where
                 action=action
                 on:submit=on_submit
             >
-                {children}
+                {props.children}
             </form>
         }
-    }).into_view(cx)
+    })
 }
 
 fn extract_form_attributes(

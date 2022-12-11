@@ -8,48 +8,46 @@ use leptos_router::*;
 use crate::api::{get_contact, get_contacts};
 
 #[component]
-pub fn RouterExample(cx: Scope) -> View {
+pub fn RouterExample(cx: Scope) -> impl IntoView {
     provide_context(cx, MetaContext::default());
     view! { cx,
-        <div id="root">
-            <Router>
-                <nav>
-                    <A exact=true href="/">"Contacts"</A>
-                    <A href="about">"About"</A>
-                    <A href="settings">"Settings"</A>
-                </nav>
-                <main>
-                    <Routes>
+        <Router>
+            <nav>
+                <A exact=true href="/">"Contacts"</A>
+                <A href="about">"About"</A>
+                <A href="settings">"Settings"</A>
+            </nav>
+            <main>
+                <Routes>
+                    <Route
+                        path=""
+                        element=move |cx| view! { cx,  <ContactList/> }
+                    >
                         <Route
-                            path=""
-                            element=move |cx| view! { cx,  <ContactList/> }
-                        >
-                            <Route
-                                path=":id"
-                                element=move |cx| view! { cx,  <Contact/> }
-                            />
-                            <Route
-                                path="/"
-                                element=move |_| view! { cx,  <p>"Select a contact."</p> }
-                            />
-                        </Route>
-                        <Route
-                            path="about"
-                            element=move |cx| view! { cx,  <About/> }
+                            path=":id"
+                            element=move |cx| view! { cx,  <Contact/> }
                         />
                         <Route
-                            path="settings"
-                            element=move |cx| view! { cx,  <Settings/> }
+                            path="/"
+                            element=move |_| view! { cx,  <p>"Select a contact."</p> }
                         />
-                    </Routes>
-                </main>
-            </Router>
-        </div>
+                    </Route>
+                    <Route
+                        path="about"
+                        element=move |cx| view! { cx,  <About/> }
+                    />
+                    <Route
+                        path="settings"
+                        element=move |cx| view! { cx,  <Settings/> }
+                    />
+                </Routes>
+            </main>
+        </Router>
     }
 }
 
 #[component]
-pub fn ContactList(cx: Scope) -> View {
+pub fn ContactList(cx: Scope) -> impl IntoView {
     log!("rendering <ContactList/>");
 
     let location = use_location(cx);
@@ -80,7 +78,7 @@ pub fn ContactList(cx: Scope) -> View {
 }
 
 #[component]
-pub fn Contact(cx: Scope) -> View {
+pub fn Contact(cx: Scope) -> impl IntoView {
     log!("rendering <Contact/>");
 
     let params = use_params_map(cx);
@@ -106,14 +104,14 @@ pub fn Contact(cx: Scope) -> View {
         // I'm only doing this explicitly for the example
         None => None,
         // Some(None) => has loaded and found no contact
-        Some(None) => Some(view! { cx, <p>"No contact with this ID was found."</p> }),
+        Some(None) => Some(view! { cx, <p>"No contact with this ID was found."</p> }.into_any()),
         // Some(Some) => has loaded and found a contact
         Some(Some(contact)) => Some(view! { cx,
             <section class="card">
                 <h1>{contact.first_name} " " {contact.last_name}</h1>
                 <p>{contact.address_1}<br/>{contact.address_2}</p>
             </section>
-        }),
+        }.into_any()),
     };
 
     view! { cx,
@@ -126,22 +124,22 @@ pub fn Contact(cx: Scope) -> View {
 }
 
 #[component]
-pub fn About(cx: Scope) -> View {
+pub fn About(cx: Scope) -> impl IntoView {
     log!("rendering <About/>");
 
     view! { cx,
-        <div>
+        <>
             <h1>"About"</h1>
             <p>"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."</p>
-        </div>
+        </>
     }
 }
 
 #[component]
-pub fn Settings(cx: Scope) -> View {
+pub fn Settings(cx: Scope) -> impl IntoView {
     log!("rendering <Settings/>");
     view! { cx,
-        <div>
+        <>
             <h1>"Settings"</h1>
             <form>
                 <fieldset>
@@ -151,6 +149,6 @@ pub fn Settings(cx: Scope) -> View {
                 </fieldset>
                 <pre>"This page is just a placeholder."</pre>
             </form>
-        </div>
+        </>
     }
 }

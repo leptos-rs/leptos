@@ -34,7 +34,7 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
     let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
 
     view! { cx, 
-        <>
+        <div>
             <label>
                 "How many cats would you like?"
                 <input type="number"
@@ -45,7 +45,7 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
                     }
                 />
             </label>
-            <Transition fallback=|| "Loading (Suspense Fallback)...">
+            <Transition fallback=move || view! { cx, <div>"Loading (Suspense Fallback)..."</div>}>
                 {move || {
                         cats.read().map(|data| match data {
                             Err(_) => view! { cx, <pre>"Error"</pre> }.into_view(cx),
@@ -64,6 +64,6 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
                     }
                 }
             </Transition>
-        </>
+        </div>
     }
 }

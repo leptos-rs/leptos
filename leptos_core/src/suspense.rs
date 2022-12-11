@@ -1,21 +1,19 @@
-use leptos_dom::{View, IntoView};
+use leptos_dom::{Fragment, IntoView};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use typed_builder::TypedBuilder;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
 #[derive(TypedBuilder)]
-pub struct SuspenseProps<F, E, G, H>
+pub struct SuspenseProps<F, E>
 where
     F: Fn() -> E + 'static,
-    E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView
+    E: IntoView
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
     /// Will be displayed once all resources have resolved.
-    pub children: Box<dyn Fn() -> Vec<G>>,
+    pub children: Box<dyn Fn() -> Fragment>,
 }
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
@@ -66,41 +64,38 @@ where
 /// # });
 /// ```
 #[allow(non_snake_case)]
-pub fn Suspense<F, E, G, H>(cx: Scope, props: SuspenseProps<F, E, G, H>) -> impl IntoView
+pub fn Suspense<F, E>(cx: Scope, props: SuspenseProps<F, E>) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView
 {
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    let child = (props.children)().swap_remove(0);
-
-    render_suspense(cx, context, props.fallback, child)
+    render_suspense(cx, context, props.fallback, props.children)
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
-fn render_suspense<'a, F, E, G, H>(
+fn render_suspense<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: G,
+    child: Box<dyn Fn() -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView
 {
     use leptos_dom::DynChild;
 
     DynChild::new(move || {
         if context.ready() {
-            (child)().into_view(cx)
+            // TODO should be unnecessary: seems to be a bug if DynChild
+            // receives a Fragment as its new child
+            leptos_dom::div(cx).child(child()).into_view(cx)
+            //child().into_view(cx)
         } else {
             fallback().into_view(cx)
         }
