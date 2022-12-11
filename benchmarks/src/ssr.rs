@@ -7,7 +7,7 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 
 		_ = create_scope(create_runtime(), |cx| {
 			#[component]
-			fn Counter(cx: Scope, initial: i32) -> View {
+			fn Counter(cx: Scope, initial: i32) -> impl IntoView {
 				let (value, set_value) = create_signal(cx, initial);
 				view! {
 					cx,
