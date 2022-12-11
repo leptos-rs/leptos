@@ -243,20 +243,6 @@ impl IntoView for Text {
   }
 }
 
-impl IntoView for String {
-  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all))]
-  fn into_view(self, _: Scope) -> View {
-    View::Text(Text::new(self.into()))
-  }
-}
-
-impl IntoView for &str {
-  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all))]
-  fn into_view(self, _: Scope) -> View {
-    View::Text(Text::new(self.to_string().into()))
-  }
-}
-
 impl Text {
   /// Creates a new [`Text`].
   pub fn new(content: Cow<'static, str>) -> Self {
@@ -583,3 +569,39 @@ api_planning! {
     .child(Child1) // Anything that impl Into<ChildKind>
     .child(Child2);
 }
+
+impl IntoView for String {
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all))]
+  fn into_view(self, _: Scope) -> View {
+    View::Text(Text::new(self.into()))
+  }
+}
+
+macro_rules! viewable_primitive {
+  ($child_type:ty) => {
+      impl IntoView for $child_type {
+          fn into_view(self, _cx: Scope) -> View {
+              View::Text(Text::new(self.to_string().into()))
+          }
+      }
+  };
+}
+
+viewable_primitive!(&String);
+viewable_primitive!(&str);
+viewable_primitive!(usize);
+viewable_primitive!(u8);
+viewable_primitive!(u16);
+viewable_primitive!(u32);
+viewable_primitive!(u64);
+viewable_primitive!(u128);
+viewable_primitive!(isize);
+viewable_primitive!(i8);
+viewable_primitive!(i16);
+viewable_primitive!(i32);
+viewable_primitive!(i64);
+viewable_primitive!(i128);
+viewable_primitive!(f32);
+viewable_primitive!(f64);
+viewable_primitive!(char);
+viewable_primitive!(bool);
