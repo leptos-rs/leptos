@@ -243,6 +243,20 @@ impl IntoView for Text {
   }
 }
 
+impl IntoView for String {
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all))]
+  fn into_view(self, _: Scope) -> View {
+    View::Text(Text::new(self.into()))
+  }
+}
+
+impl IntoView for &str {
+  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all))]
+  fn into_view(self, _: Scope) -> View {
+    View::Text(Text::new(self.to_string().into()))
+  }
+}
+
 impl Text {
   /// Creates a new [`Text`].
   pub fn new(content: Cow<'static, str>) -> Self {
