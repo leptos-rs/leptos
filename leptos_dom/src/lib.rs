@@ -5,7 +5,7 @@
 
 //! The DOM implementation for `leptos`.
 
-#[macro_use]
+#[cfg_attr(debug_assertions, macro_use)]
 extern crate tracing;
 
 mod components;
@@ -396,6 +396,7 @@ impl Mountable for View {
 }
 
 impl View {
+  #[cfg(debug_assertions)]
   fn kind_name(&self) -> &'static str {
     match self {
       Self::Component(..) => "Component",

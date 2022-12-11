@@ -81,6 +81,8 @@ pub fn console_debug_warn(s: &str) {
           } else {
               web_sys::console::warn_1(&JsValue::from_str(s));
           }
+      } else {
+        let _ = s;
       }
   }
 }

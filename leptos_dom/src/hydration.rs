@@ -54,6 +54,10 @@ impl HydrationCtx {
     return format!("_{id}{}", if closing { 'c' } else { 'o' });
 
     #[cfg(not(debug_assertions))]
-    return format!("_{id}");
+    {
+      let _ = closing;
+
+      format!("_{id}")
+    }
   }
 }
