@@ -163,7 +163,8 @@ where
 
     let mut repr = ComponentRepr::new(name);
 
-    let (child, disposer) =
+    // disposed automatically when the parent scope is disposed
+    let (child, _) =
       cx.run_child_scope(|cx| cx.untrack(|| children_fn(cx).into_view(cx)));
 
     repr.children.push(child);
