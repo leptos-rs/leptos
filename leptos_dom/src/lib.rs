@@ -163,7 +163,7 @@ cfg_if! {
           let mut pad_adapter = pad_adapter::PadAdapter::new(f);
 
           for child in &self.children {
-            write!(pad_adapter, "{child:#?}\n");
+            writeln!(pad_adapter, "{child:#?}")?;
           }
 
           write!(f, "</{}>", self.name)
@@ -422,7 +422,7 @@ impl View {
   /// Returns some [Transparent] type if the view holds one, or `None` if not.
   pub fn as_transparent(&self) -> Option<&Transparent> {
     match &self {
-      Self::Transparent(t) => Some(&t),
+      Self::Transparent(t) => Some(t),
       _ => None,
     }
   }

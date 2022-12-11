@@ -26,7 +26,7 @@ wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
 
 [dev-dependencies]
-# leptos = { path = "../leptos", default-features = false, version = "0.0.18" }
+leptos = { path = "../leptos", default-features = false, version = "0.0.18" }
 
 [dependencies.web-sys]
 version = "0.3"

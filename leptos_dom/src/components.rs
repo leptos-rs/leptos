@@ -66,7 +66,7 @@ impl fmt::Debug for ComponentRepr {
       return f.write_str("<Component />");
     } else {
       #[cfg(debug_assertions)]
-      write!(f, "<{}>\n", self.name)?;
+      writeln!(f, "<{}>", self.name)?;
       #[cfg(not(debug_assertions))]
       f.write_str("<Component>")?;
 
