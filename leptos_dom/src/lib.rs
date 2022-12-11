@@ -272,7 +272,7 @@ pub struct Text {
 
 impl fmt::Debug for Text {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str(&self.content)
+    write!(f, "\"{}\"", self.content)
   }
 }
 

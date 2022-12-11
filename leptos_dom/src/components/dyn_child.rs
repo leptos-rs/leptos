@@ -183,6 +183,11 @@ where
 
               **child_borrow = Some(new_child);
 
+              debug!(
+                "updated child after update:\n{:#?}",
+                child_borrow.deref().deref()
+              );
+
               (Some(prev_t), disposer)
             }
             // Child is not a text node, so we can remove the previous
@@ -199,6 +204,11 @@ where
 
               // Mount the new child, and we're done
               mount_child(MountKind::Before(&closing), &new_child);
+
+              debug!(
+                "updated child after update:\n{:#?}",
+                child_borrow.deref().deref()
+              );
 
               **child_borrow = Some(new_child);
 
@@ -228,6 +238,11 @@ where
             // We want to reuse text nodes, so hold onto it if
             // our child is one
             let t = child.get_text().map(|t| t.node.clone());
+
+            debug!(
+              "updated child after update:\n{:#?}",
+              child_borrow.deref().deref()
+            );
 
             **child_borrow = Some(new_child);
 
@@ -270,6 +285,11 @@ where
           let t = new_child.get_text().map(|t| t.node.clone());
 
           **child_borrow = Some(new_child);
+
+          debug!(
+            "updated child after update:\n{:#?}",
+            child_borrow.deref().deref()
+          );
 
           (t, disposer)
         }
