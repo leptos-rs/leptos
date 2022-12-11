@@ -407,7 +407,7 @@ fn component_to_tokens(
 }
 
 fn component_child(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
-  let node = match node {
+  match node {
     Node::Block(node) => {
       let span = node.value.span();
       let value = node.value.as_ref();
@@ -419,13 +419,15 @@ fn component_child(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
       let span = node.value.span();
       let value = node.value.as_ref();
       quote_spanned! {
-          span => text(#value)
+          span => text(#value).into_view(#cx)
       }
     }
-    _ => node_to_tokens(cx, node, mode),
-  };
-  quote! {
-    node.into_view(#cx)
+    _ => {
+      let node = node_to_tokens(cx, node, mode);
+      quote! {
+        #node.into_view(#cx)
+      }
+    }
   }
 }
 
