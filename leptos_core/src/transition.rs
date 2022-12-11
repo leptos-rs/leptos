@@ -1,4 +1,4 @@
-use leptos_dom::{View, IntoView, Fragment};
+use leptos_dom::{Fragment, IntoView, View};
 use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use typed_builder::TypedBuilder;
 
@@ -8,7 +8,7 @@ use typed_builder::TypedBuilder;
 pub struct TransitionProps<F, E>
 where
     F: Fn() -> E + 'static,
-    E: IntoView
+    E: IntoView,
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
@@ -84,7 +84,13 @@ where
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    render_transition(cx, context, props.fallback, props.children, props.set_pending)
+    render_transition(
+        cx,
+        context,
+        props.fallback,
+        props.children,
+        props.set_pending,
+    )
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -97,9 +103,9 @@ fn render_transition<'a, F, E>(
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
-    E: IntoView
+    E: IntoView,
 {
-    use std::cell::{RefCell};
+    use std::cell::RefCell;
 
     let prev_child = RefCell::new(None);
 
@@ -132,7 +138,7 @@ where
 }
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-fn render_transition<'a, F, E, G>(
+fn render_transition<'a, F, E, H, G>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
@@ -143,7 +149,7 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
     G: Fn() -> H + 'static,
-    H: IntoView
+    H: IntoView,
 {
     use leptos_dom::*;
 

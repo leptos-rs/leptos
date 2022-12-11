@@ -8,7 +8,7 @@ use typed_builder::TypedBuilder;
 pub struct SuspenseProps<F, E>
 where
     F: Fn() -> E + 'static,
-    E: IntoView
+    E: IntoView,
 {
     /// Will be displayed while resources are pending.
     pub fallback: F,
@@ -92,9 +92,7 @@ where
 
     DynChild::new(move || {
         if context.ready() {
-            // TODO should be unnecessary: seems to be a bug if DynChild
-            // receives a Fragment as its new child
-            leptos_dom::div(cx).child(child()).into_view(cx)
+            child().into_view(cx)
             //child().into_view(cx)
         } else {
             fallback().into_view(cx)
@@ -113,7 +111,7 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
     G: Fn() -> H + 'static,
-    H: IntoView
+    H: IntoView,
 {
     use leptos_dom::*;
 
