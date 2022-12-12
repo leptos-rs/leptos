@@ -174,6 +174,46 @@ cfg_if! {
   }
 }
 
+impl Element {
+  /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement`].
+  pub fn into_html_element(self, cx: Scope) -> HtmlElement<AnyElement> {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      let Self { element, .. } = self;
+
+      let name = element.node_name().to_ascii_lowercase();
+
+      let element = AnyElement {
+        name: name.into(),
+        element,
+        is_void: false,
+      };
+
+      HtmlElement { cx, element }
+    }
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let Self {
+        name,
+        is_void,
+        attrs,
+        children,
+        id,
+      } = self;
+
+      let element = AnyElement { name, is_void, id };
+
+      HtmlElement {
+        cx,
+        element,
+        attrs,
+        children: children.into_iter().collect(),
+      }
+    }
+  }
+}
+
 impl IntoView for Element {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name)))]
   fn into_view(self, _: Scope) -> View {
@@ -448,6 +488,19 @@ impl View {
       _ => None,
     }
   }
+
+  /// Returns [`Ok(HtmlElement<AnyElement>)`] if this [`View`] is
+  /// of type [`Element`]. [`Err(View)`] otherwise.
+  pub fn into_html_element(
+    self,
+    cx: Scope,
+  ) -> Result<HtmlElement<AnyElement>, Self> {
+    if let Self::Element(el) = self {
+      Ok(el.into_html_element(cx))
+    } else {
+      Err(self)
+    }
+  }
 }
 
 #[cfg_attr(debug_assertions, instrument)]
@@ -567,7 +620,7 @@ pub fn document() -> web_sys::Document {
   DOCUMENT.with(|document| document.clone())
 }
 
-/// Shorthand to test for whether an `ssr` feature is enabled.
+/// Returns true if running on the server (SSR).
 ///
 /// In the past, this was implemented by checking whether `not(target_arch = "wasm32")`.
 /// Now that some cloud platforms are moving to run Wasm on the edge, we really can't
@@ -576,31 +629,44 @@ pub fn document() -> web_sys::Document {
 ///
 /// ```
 /// # use leptos_dom::is_server;
-/// let todos = if is_server!() {
+/// let todos = if is_server() {
 ///   // if on the server, load from DB
 /// } else {
 ///   // if on the browser, do something else
 /// };
 /// ```
-#[macro_export]
-macro_rules! is_server {
-  () => {
-    !cfg!(all(target_arch = "wasm32", feature = "web"))
-  };
+pub const fn is_server() -> bool {
+  cfg!(all(target_arch = "wasm32", feature = "web"))
 }
 
-/// A shorthand macro to test whether this is a debug build.
+/// Returns true if running on the browser (CSR).
+///
+/// ```
+/// # use leptos_dom::is_browser;
+/// let todos = if is_browser() {
+///   // if on the browser, call `wasm_bindgen` methods
+/// } else {
+///   // if on the server, do something else
+/// };
+/// ```
+pub const fn is_browser() -> bool {
+  !is_server()
+}
+
+/// Returns true if `debug_assertions` are enabled.
 /// ```
 /// # use leptos_dom::is_dev;
 /// if is_dev!() {
 ///   // log something or whatever
 /// }
 /// ```
-#[macro_export]
-macro_rules! is_dev {
-  () => {
-    cfg!(debug_assertions)
-  };
+pub const fn is_dev() -> bool {
+  cfg!(debug_assertions)
+}
+
+/// Returns true if `debug_assertions` are disabled.
+pub const fn is_release() -> bool {
+  !is_dev()
 }
 
 macro_rules! impl_into_view_for_tuples {
@@ -687,6 +753,12 @@ impl IntoView for String {
   }
 }
 
+impl IntoView for &'static str {
+  fn into_view(self, _: Scope) -> View {
+    View::Text(Text::new(self.into()))
+  }
+}
+
 macro_rules! viewable_primitive {
   ($child_type:ty) => {
     impl IntoView for $child_type {
@@ -695,12 +767,6 @@ macro_rules! viewable_primitive {
       }
     }
   };
-}
-
-impl IntoView for &'static str {
-  fn into_view(self, cx: Scope) -> View {
-    View::Text(Text::new(self.into()))
-  }
 }
 
 viewable_primitive!(&String);
