@@ -450,16 +450,17 @@ fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-#[track_caller]
 fn unmount_child(start: &web_sys::Node, end: &web_sys::Node) {
   let mut sibling = start.clone();
 
   while sibling != *end {
-    let next_sibling = sibling.next_sibling().unwrap();
+    if let Some(next_sibling) = sibling.next_sibling() {
+      sibling.unchecked_into::<web_sys::Element>().remove();
 
-    sibling.unchecked_into::<web_sys::Element>().remove();
-
-    sibling = next_sibling;
+      sibling = next_sibling;
+    } else {
+      break;
+    }
   }
 }
 
