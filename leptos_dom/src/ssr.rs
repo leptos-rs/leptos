@@ -68,6 +68,8 @@ pub fn render_to_stream_with_prefix(
   view: impl FnOnce(Scope) -> View + 'static,
   prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static
 ) -> impl Stream<Item = String> {
+  HydrationCtx::reset_id();
+
   // create the runtime
   let runtime = create_runtime();
 
@@ -145,7 +147,7 @@ pub fn render_to_stream_with_prefix(
   // dispose of Scope and Runtime
   .chain(futures::stream::once(async move {
       disposer.dispose();
-      //runtime.dispose();
+      runtime.dispose();
       Default::default()
   }))
 }
