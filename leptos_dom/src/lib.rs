@@ -420,7 +420,28 @@ impl View {
     }
   }
 
-  /// Returns some [Transparent] type if the view holds one, or `None` if not.
+  /// Returns [`Some`] [`Text`] if the view is of this type. [`None`]
+  /// otherwise.
+  pub fn as_text(&self) -> Option<&Text> {
+    if let Self::Text(t) = self {
+      Some(t)
+    } else {
+      None
+    }
+  }
+
+  /// Returns [`Some`] [`Element`] if the view is of this type. [`None`]
+  /// otherwise.
+  pub fn as_element(&self) -> Option<&Element> {
+    if let Self::Element(el) = self {
+      Some(el)
+    } else {
+      None
+    }
+  }
+
+  /// Returns [`Some`] [`Transparent`] if the view is of this type. [`None`]
+  /// otherwise.
   pub fn as_transparent(&self) -> Option<&Transparent> {
     match &self {
       Self::Transparent(t) => Some(t),
@@ -676,8 +697,13 @@ macro_rules! viewable_primitive {
   };
 }
 
+impl IntoView for &'static str {
+  fn into_view(self, cx: Scope) -> View {
+    View::Text(Text::new(self.into()))
+  }
+}
+
 viewable_primitive!(&String);
-viewable_primitive!(&str);
 viewable_primitive!(usize);
 viewable_primitive!(u8);
 viewable_primitive!(u16);
