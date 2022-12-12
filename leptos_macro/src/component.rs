@@ -4,14 +4,14 @@
 
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
-use quote::{quote, ToTokens, TokenStreamExt,};
+use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     *,
 };
-use itertools::Itertools;
 
 pub struct InlinePropsBody {
     pub attrs: Vec<Attribute>,
@@ -26,7 +26,7 @@ pub struct InlinePropsBody {
     pub output: ReturnType,
     pub where_clause: Option<WhereClause>,
     pub block: Box<Block>,
-    pub doc_comment: String
+    pub doc_comment: String,
 }
 
 /// The custom rusty variant of parsing rsx!
@@ -63,20 +63,31 @@ impl Parse for InlinePropsBody {
 
         let block = input.parse()?;
 
-        let doc_comment = attrs.iter().filter_map(|attr| if attr.path.segments[0].ident == "doc" {
-            
-            Some(attr.clone().tokens.into_iter().filter_map(|token| if let TokenTree::Literal(_) = token {
-                // remove quotes
-                let chars = token.to_string();
-                let mut chars = chars.chars();
-                chars.next();
-                chars.next_back();
-                Some(chars.as_str().to_string())
-            } else {
-                None
-            }).collect::<String>())
-            } else {
-                None
+        let doc_comment = attrs
+            .iter()
+            .filter_map(|attr| {
+                if attr.path.segments[0].ident == "doc" {
+                    Some(
+                        attr.clone()
+                            .tokens
+                            .into_iter()
+                            .filter_map(|token| {
+                                if let TokenTree::Literal(_) = token {
+                                    // remove quotes
+                                    let chars = token.to_string();
+                                    let mut chars = chars.chars();
+                                    chars.next();
+                                    chars.next_back();
+                                    Some(chars.as_str().to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<String>(),
+                    )
+                } else {
+                    None
+                }
             })
             .intersperse_with(|| "\n".to_string())
             .collect();
@@ -93,7 +104,7 @@ impl Parse for InlinePropsBody {
             block,
             cx_token,
             attrs,
-            doc_comment
+            doc_comment,
         })
     }
 }
@@ -140,7 +151,7 @@ impl ToTokens for InlinePropsBody {
                         current_field_name = field_name.to_string();
                         current_field_value = String::new();
                         current_field_value.push_str(field_value);
-                    } else  {
+                    } else {
                         current_field_value.push_str(field_value);
                     }
                 } else {
@@ -163,7 +174,8 @@ impl ToTokens for InlinePropsBody {
                 field_docs.get(&ident.ident.to_string()).cloned()
             } else {
                 None
-            }.unwrap_or_default();
+            }
+            .unwrap_or_default();
             let comment_macro = quote! {
                 #[doc = #comment]
             };
@@ -183,7 +195,7 @@ impl ToTokens for InlinePropsBody {
                 }
             } else {
                 quote! {
-                    #comment
+                    #comment_macro
                     #vis #f
                 }
             }
@@ -236,7 +248,7 @@ impl ToTokens for InlinePropsBody {
         } else {
             let fn_generics = generics.clone();
 
-            (quote! { }, fn_generics, quote! { #generics })
+            (quote! {}, fn_generics, quote! { #generics })
         };
 
         out_tokens.append_all(quote! {
@@ -263,5 +275,3 @@ impl ToTokens for InlinePropsBody {
         });
     }
 }
-
-                
