@@ -383,16 +383,6 @@ impl IntoView for View {
   }
 }
 
-impl IntoView for Vec<View> {
-  #[cfg_attr(
-    debug_assertions,
-    instrument(level = "trace", name = "Vec<Node>", skip_all)
-  )]
-  fn into_view(self, cx: Scope) -> View {
-    Fragment::new(self).into_view(cx)
-  }
-}
-
 impl<const N: usize> IntoView for [View; N] {
   #[cfg_attr(
     debug_assertions,
@@ -742,6 +732,19 @@ impl IntoView for String {
 impl IntoView for &'static str {
   fn into_view(self, _: Scope) -> View {
     View::Text(Text::new(self.into()))
+  }
+}
+
+impl<V> IntoView for Vec<V>
+where
+  V: IntoView,
+{
+  fn into_view(self, cx: Scope) -> View {
+    self
+      .into_iter()
+      .map(|v| v.into_view(cx))
+      .collect::<Fragment>()
+      .into_view(cx)
   }
 }
 

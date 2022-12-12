@@ -568,17 +568,6 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
   }
 }
 
-impl<El: IntoElement> IntoView for Vec<HtmlElement<El>> {
-  #[cfg_attr(
-    debug_assertions,
-    instrument(level = "trace", name = "Vec<HtmlElement>", skip_all)
-  )]
-  fn into_view(self, cx: Scope) -> View {
-    Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
-      .into_view(cx)
-  }
-}
-
 impl<El: IntoElement, const N: usize> IntoView for [HtmlElement<El>; N] {
   #[cfg_attr(
     debug_assertions,
