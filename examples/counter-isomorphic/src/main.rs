@@ -9,6 +9,7 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use crate::counters::*;
+        use std::{net::SocketAddr, env};
 
         #[get("/api/events")]
         async fn counter_events() -> impl Responder {
@@ -29,17 +30,20 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
+            let addr = SocketAddr::from(([127,0,0,1],3000));
             crate::counters::register_server_functions();
 
-            HttpServer::new(|| {
+            HttpServer::new(move || {
+                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_counter_isomorphic").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+                render_options.write_to_file();
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
                     .service(counter_events)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .route("/{tail:.*}", leptos_actix::render_app_to_stream("leptos_counter_isomorphic", |cx| view! { cx, <Counters/> }))
+                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <Counters/> }))
                 //.wrap(middleware::Compress::default())
             })
-            .bind(("127.0.0.1", 8081))?
+            .bind(&addr)?
             .run()
             .await
         }

@@ -24,12 +24,15 @@ pub use components::*;
 pub use events::typed as ev;
 pub use helpers::*;
 pub use html::*;
+pub use js_sys;
 use hydration::HydrationCtx;
 use leptos_reactive::Scope;
 pub use logging::*;
 pub use node_ref::*;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+pub use ssr::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::cell::LazyCell;
 use std::{borrow::Cow, fmt};
@@ -579,23 +582,6 @@ where
   );
 
   std::mem::forget(disposer);
-}
-
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-/// Runs the given function and renders it's result to a string.
-pub fn render_to_string<F, N>(f: F) -> String
-where
-  F: FnOnce(Scope) -> N + 'static,
-  N: IntoView,
-{
-  let runtime = leptos_reactive::create_runtime();
-
-  let view = leptos_reactive::run_scope(runtime, |cx| f(cx).into_view(cx));
-
-  HydrationCtx::reset_id();
-  runtime.dispose();
-
-  view.render_to_string().into_owned()
 }
 
 thread_local! {

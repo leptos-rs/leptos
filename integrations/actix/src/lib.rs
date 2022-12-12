@@ -1,4 +1,4 @@
-use actix_web::*;
+use actix_web::{web::Bytes, *};
 use futures::StreamExt;
 use leptos::*;
 use leptos_meta::*;
@@ -62,9 +62,12 @@ pub fn handle_server_fns() -> Route {
                             disposer.dispose();
                             runtime.dispose();
 
-                            // if this is Accept: application/json then send a serialized JSON response
-                            if let Some("application/json") = accept_header {
-                                HttpResponse::Ok().body(serialized)
+                            let mut res: HttpResponseBuilder;
+                            if accept_header == Some("application/json")
+                                || accept_header == Some("application/x-www-form-urlencoded")
+                                || accept_header == Some("application/cbor")
+                            {
+                                res = HttpResponse::Ok()
                             }
                             // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                             else {
@@ -73,10 +76,23 @@ pub fn handle_server_fns() -> Route {
                                     .get("Referer")
                                     .and_then(|value| value.to_str().ok())
                                     .unwrap_or("/");
-                                HttpResponse::SeeOther()
-                                    .insert_header(("Location", referer))
-                                    .content_type("application/json")
-                                    .body(serialized)
+                                res = HttpResponse::SeeOther();
+                                res.insert_header(("Location", referer))
+                                    .content_type("application/json");
+                            };
+                            match serialized {
+                                Payload::Binary(data) => {
+                                    res.content_type("application/cbor");
+                                    res.body(Bytes::from(data))
+                                }
+                                Payload::Url(data) => {
+                                    res.content_type("application/x-www-form-urlencoded");
+                                    res.body(data)
+                                }
+                                Payload::Json(data) => {
+                                    res.content_type("application/json");
+                                    res.body(data)
+                                }
                             }
                         }
                         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
@@ -103,32 +119,40 @@ pub fn handle_server_fns() -> Route {
 /// ```
 /// use actix_web::{HttpServer, App};
 /// use leptos::*;
+/// use std::{env,net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
+/// fn MyApp(cx: Scope) -> impl IntoView {
 ///   view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     HttpServer::new(|| {
+///
+///     let addr = SocketAddr::from(([127,0,0,1],3000));
+///     HttpServer::new(move || {
+///         let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_example").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+///         render_options.write_to_file();
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream("leptos_example", |cx| view! { cx, <MyApp/> }))
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }))
 ///     })
-///     .bind(("127.0.0.1", 8080))?
+///     .bind(&addr)?
 ///     .run()
 ///     .await
 /// }
 /// # }
 /// ```
-pub fn render_app_to_stream(
-    client_pkg_name: &'static str,
-    app_fn: impl Fn(leptos::Scope) -> Element + Clone + 'static,
-) -> Route {
+pub fn render_app_to_stream<IV>(
+    options: RenderOptions,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where IV: IntoView
+{
     web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
         let app_fn = app_fn.clone();
         async move {
             let path = req.path();
@@ -148,30 +172,59 @@ pub fn render_app_to_stream(
                     provide_context(cx, MetaContext::new());
                     provide_context(cx, req.clone());
 
-                    (app_fn)(cx)
+                    (app_fn)(cx).into_view(cx)
                 }
             };
 
-            let head = format!(r#"<!DOCTYPE html>
-                <html>
+            let pkg_path = &options.pkg_path;
+            let socket_ip = &options.socket_address.ip().to_string();
+            let reload_port = options.reload_port;
+
+            let leptos_autoreload = match options.environment {
+                RustEnv::DEV => format!(
+                    r#"
+                        <script crossorigin="">(function () {{
+                            var ws = new WebSocket('ws://{socket_ip}:{reload_port}/autoreload');
+                            ws.onmessage = (ev) => {{
+                                console.log(`Reload message: `);
+                                if (ev.data === 'reload') window.location.reload();
+                            }};
+                            ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
+                        }})()
+                        </script>
+                    "#
+                ),
+                RustEnv::PROD => "".to_string(),
+            };
+
+            let head = format!(
+                r#"<!DOCTYPE html>
+                <html lang="en">
                     <head>
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <script type="module">import init, {{ hydrate }} from '/pkg/{client_pkg_name}.js'; init().then(hydrate);</script>"#);
+                        <link rel="modulepreload" href="{pkg_path}.js">
+                        <link rel="preload" href="{pkg_path}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}.wasm').then(hydrate);</script>
+                        {leptos_autoreload}
+                        "#
+            );
+
             let tail = "</body></html>";
 
             HttpResponse::Ok().content_type("text/html").streaming(
                 futures::stream::once(async move { head.clone() })
-                    // TODO this leaks a runtime once per invocation
-                    .chain(render_to_stream(move |cx| {
-                        let app = app(cx);
+                .chain(render_to_stream_with_prefix(
+                    app,
+                    |cx| {
                         let head = use_context::<MetaContext>(cx)
                             .map(|meta| meta.dehydrate())
                             .unwrap_or_default();
-                        format!("{head}</head><body>{app}")
-                    }))
-                    .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+                        format!("{head}</head><body>").into()
+                    }
+                ))
+                .chain(futures::stream::once(async { tail.to_string() }))
+                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
             )
         }
     })

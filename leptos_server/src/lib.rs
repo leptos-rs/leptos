@@ -27,8 +27,9 @@
 //!
 //! ### `#[server]`
 //!
-//! The `#[server]` macro allows you to annotate a function to indicate that it should only run
-//! on the server (i.e., when you have an `ssr` feature in your crate that is enabled).
+//! The [`#[server]` macro](leptos::leptos_macro::server) allows you to annotate a function to
+//! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
+//! crate that is enabled).
 //!
 //! ```rust,ignore
 //! # use leptos_reactive::*;
@@ -62,15 +63,23 @@
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
 //! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
-//!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/).
+//!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
+//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 //! - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
 //!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
 //!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 
 pub use form_urlencoded;
 use leptos_reactive::*;
+
+use proc_macro2::{Literal, TokenStream};
+use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, str::FromStr};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_quote,
+};
 use thiserror::Error;
 
 mod action;
@@ -85,13 +94,24 @@ use std::{
 };
 
 #[cfg(any(feature = "ssr", doc))]
-type ServerFnTraitObj = dyn Fn(Scope, &[u8]) -> Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>>
+type ServerFnTraitObj = dyn Fn(Scope, &[u8]) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
     + Send
     + Sync;
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
     static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
+}
+
+/// A dual type to hold the possible Response datatypes
+#[derive(Debug)]
+pub enum Payload {
+    ///Encodes Data using CBOR
+    Binary(Vec<u8>),
+    ///Encodes data in the URL
+    Url(String),
+    ///Encodes Data using Json
+    Json(String),
 }
 
 /// Attempts to find a server function registered at the given path.
@@ -145,6 +165,54 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
         .and_then(|fns| fns.get(path).cloned())
 }
 
+/// Holds the current options for encoding types.
+/// More could be added, but they need to be serde
+#[derive(Debug, PartialEq)]
+pub enum Encoding {
+    /// A Binary Encoding Scheme Called Cbor
+    Cbor,
+    /// The Default URL-encoded encoding method
+    Url,
+}
+
+impl FromStr for Encoding {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Encoding, Self::Err> {
+        match input {
+            "URL" => Ok(Encoding::Url),
+            "Cbor" => Ok(Encoding::Cbor),
+            _ => Err(()),
+        }
+    }
+}
+
+impl quote::ToTokens for Encoding {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let option: syn::Ident = match *self {
+            Encoding::Cbor => parse_quote!(Cbor),
+            Encoding::Url => parse_quote!(Url),
+        };
+        let expansion: syn::Ident = syn::parse_quote! {
+          Encoding::#option
+        };
+        tokens.append(expansion);
+    }
+}
+
+impl Parse for Encoding {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let variant_name: String = input.parse::<Literal>()?.to_string();
+
+        // Need doubled quotes because variant_name doubles it
+        match variant_name.as_ref() {
+            "\"Url\"" => Ok(Self::Url),
+            "\"Cbor\"" => Ok(Self::Cbor),
+            _ => panic!("Encoding Not Found"),
+        }
+    }
+}
+
 /// Defines a "server function." A server function can be called from the server or the client,
 /// but the body of its code will only be run on the server, i.e., if a crate feature `ssr` is enabled.
 ///
@@ -162,13 +230,16 @@ where
     Self: Serialize + DeserializeOwned + Sized + 'static,
 {
     /// The return type of the function.
-    type Output: Serializable;
+    type Output: Serialize;
 
     /// URL prefix that should be prepended by the client to the generated URL.
     fn prefix() -> &'static str;
 
     /// The path at which the server function can be reached on the server.
     fn url() -> &'static str;
+
+    /// The path at which the server function can be reached on the server.
+    fn encoding() -> Encoding;
 
     /// Runs the function on the server.
     #[cfg(any(feature = "ssr", doc))]
@@ -189,12 +260,20 @@ where
     fn register() -> Result<(), ServerFnError> {
         // create the handler for this server function
         // takes a String -> returns its async value
+
         let run_server_fn = Arc::new(|cx: Scope, data: &[u8]| {
             // decode the args
-            let value = serde_urlencoded::from_bytes::<Self>(data)
-                .map_err(|e| ServerFnError::Deserialization(e.to_string()));
+            let value = match Self::encoding() {
+                Encoding::Url => serde_urlencoded::from_bytes(data)
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
+                Encoding::Cbor => {
+                    println!("Deserialize Cbor!: {:x?}", &data);
+                    ciborium::de::from_reader(data)
+                        .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+                }
+            };
             Box::pin(async move {
-                let value = match value {
+                let value: Self = match value {
                     Ok(v) => v,
                     Err(e) => return Err(e),
                 };
@@ -206,16 +285,26 @@ where
                 };
 
                 // serialize the output
-                let result = match result
-                    .to_json()
-                    .map_err(|e| ServerFnError::Serialization(e.to_string()))
-                {
-                    Ok(r) => r,
-                    Err(e) => return Err(e),
+                let result = match Self::encoding() {
+                    Encoding::Url => match serde_json::to_string(&result)
+                        .map_err(|e| ServerFnError::Serialization(e.to_string()))
+                    {
+                        Ok(r) => Payload::Url(r),
+                        Err(e) => return Err(e),
+                    },
+                    Encoding::Cbor => {
+                        let mut buffer: Vec<u8> = Vec::new();
+                        match ciborium::ser::into_writer(&result, &mut buffer)
+                            .map_err(|e| ServerFnError::Serialization(e.to_string()))
+                        {
+                            Ok(_) => Payload::Binary(buffer),
+                            Err(e) => return Err(e),
+                        }
+                    }
                 };
 
                 Ok(result)
-            }) as Pin<Box<dyn Future<Output = Result<String, ServerFnError>>>>
+            }) as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
         });
 
         // store it in the hashmap
@@ -256,20 +345,69 @@ pub enum ServerFnError {
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
 #[cfg(not(feature = "ssr"))]
-pub async fn call_server_fn<T>(url: &str, args: impl ServerFn) -> Result<T, ServerFnError>
+pub async fn call_server_fn<T>(
+    url: &str,
+    args: impl ServerFn,
+    enc: Encoding,
+) -> Result<T, ServerFnError>
 where
-    T: Serializable + Sized,
+    T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
-    let args_form_data = serde_urlencoded::to_string(&args)
-        .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+    use ciborium::ser::into_writer;
+    use leptos_dom::js_sys::Uint8Array;
+    use serde_json::Deserializer as JSONDeserializer;
 
-    let resp = gloo_net::http::Request::post(url)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Accept", "application/json")
-        .body(args_form_data)
-        .send()
-        .await
-        .map_err(|e| ServerFnError::Request(e.to_string()))?;
+    #[derive(Debug)]
+    enum Payload {
+        Binary(Vec<u8>),
+        Url(String),
+    }
+    // log!("ARGS TO ENCODE: {:#}", &args);
+    let args_encoded = match &enc {
+        Encoding::Url => Payload::Url(
+            serde_urlencoded::to_string(&args)
+                .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
+        ),
+        Encoding::Cbor => {
+            let mut buffer: Vec<u8> = Vec::new();
+            into_writer(&args, &mut buffer)
+                .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
+            Payload::Binary(buffer)
+        }
+    };
+
+    //log!("ENCODED DATA: {:#?}", args_encoded);
+
+    let content_type_header = match &enc {
+        Encoding::Url => "application/x-www-form-urlencoded",
+        Encoding::Cbor => "application/cbor",
+    };
+
+    let accept_header = match &enc {
+        Encoding::Url => "application/x-www-form-urlencoded",
+        Encoding::Cbor => "application/cbor",
+    };
+
+    let resp = match args_encoded {
+        Payload::Binary(b) => {
+            let slice_ref: &[u8] = &b;
+            let js_array = Uint8Array::from(slice_ref).buffer();
+            gloo_net::http::Request::post(url)
+                .header("Content-Type", content_type_header)
+                .header("Accept", accept_header)
+                .body(js_array)
+                .send()
+                .await
+                .map_err(|e| ServerFnError::Request(e.to_string()))?
+        }
+        Payload::Url(s) => gloo_net::http::Request::post(url)
+            .header("Content-Type", content_type_header)
+            .header("Accept", accept_header)
+            .body(s)
+            .send()
+            .await
+            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+    };
 
     // check for error status
     let status = resp.status();
@@ -277,10 +415,21 @@ where
         return Err(ServerFnError::ServerError(resp.status_text()));
     }
 
-    let text = resp
-        .text()
-        .await
-        .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+    if enc == Encoding::Cbor {
+        let binary = resp
+            .binary()
+            .await
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
 
-    T::from_json(&text).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        ciborium::de::from_reader(binary.as_slice())
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    } else {
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+
+        let mut deserializer = JSONDeserializer::from_str(&text);
+        T::deserialize(&mut deserializer).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+    }
 }

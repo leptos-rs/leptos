@@ -21,6 +21,7 @@ syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
 leptos_dom = { path = "../leptos_dom", version = "0.0.18" }
 leptos_reactive = { path = "../leptos_reactive", version = "0.0.18" }
+leptos_server = { path = "../leptos_server", version = "0.0.18" }
 lazy_static = "1.4"
 
 [dev-dependencies]

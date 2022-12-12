@@ -14,7 +14,7 @@ cfg_if! {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
 
-            leptos::hydrate(body().unwrap(), |cx| {
+            mount_to_body(|cx| {
                 view! { cx,  <Counters/> }
             });
         }

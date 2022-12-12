@@ -75,15 +75,7 @@ impl RuntimeId {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
                 let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self));
-                if let Some(runtime) = runtime {
-                    for (scope_id, _) in runtime.scopes.borrow().iter() {
-                        let scope = Scope {
-                            runtime: self,
-                            id: scope_id,
-                        };
-                        scope.dispose();
-                    }
-                }
+                drop(runtime);
             }
         }
     }
