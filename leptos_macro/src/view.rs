@@ -166,7 +166,7 @@ fn fragment_to_tokens(
   });
   quote_spanned! {
       span => {
-          Fragment::new(vec![
+          leptos::Fragment::new(vec![
               #(#nodes)*
           ])
       }

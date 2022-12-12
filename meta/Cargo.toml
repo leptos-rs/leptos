@@ -14,7 +14,7 @@ typed-builder = "0.11"
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["HtmlLinkElement", "HtmlTitleElement"]
+features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
 default = ["csr"]

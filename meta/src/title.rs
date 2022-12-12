@@ -50,10 +50,10 @@ where
 pub struct TitleProps {
     /// A function that will be applied to any text value before it’s set as the title.
     #[builder(default, setter(strip_option, into))]
-    formatter: Option<Formatter>,
-    // Sets the the current `document.title`.
+    pub formatter: Option<Formatter>,
+    /// Sets the the current `document.title`.
     #[builder(default, setter(strip_option, into))]
-    text: Option<TextProp>,
+    pub text: Option<TextProp>,
 }
 
 /// A component to set the document’s title by creating an [HTMLTitleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTitleElement).
