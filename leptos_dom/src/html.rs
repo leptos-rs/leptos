@@ -14,9 +14,6 @@ use crate::{
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-use std::cell::OnceCell;
-
 use cfg_if::cfg_if;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use leptos_reactive::create_render_effect;
@@ -121,7 +118,7 @@ pub struct AnyElement {
   pub(crate) id: usize,
 }
 
-impl Deref for AnyElement {
+impl std::ops::Deref for AnyElement {
   type Target = web_sys::HtmlElement;
 
   fn deref(&self) -> &Self::Target {
