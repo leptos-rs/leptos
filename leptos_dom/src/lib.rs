@@ -749,29 +749,57 @@ where
 }
 
 macro_rules! viewable_primitive {
-  ($child_type:ty) => {
-    impl IntoView for $child_type {
-      fn into_view(self, _cx: Scope) -> View {
-        View::Text(Text::new(self.to_string().into()))
+  ($($child_type:ty),* $(,)?) => {
+    $(
+      impl IntoView for $child_type {
+        fn into_view(self, _cx: Scope) -> View {
+          View::Text(Text::new(self.to_string().into()))
+        }
       }
-    }
+    )*
   };
 }
 
-viewable_primitive!(&String);
-viewable_primitive!(usize);
-viewable_primitive!(u8);
-viewable_primitive!(u16);
-viewable_primitive!(u32);
-viewable_primitive!(u64);
-viewable_primitive!(u128);
-viewable_primitive!(isize);
-viewable_primitive!(i8);
-viewable_primitive!(i16);
-viewable_primitive!(i32);
-viewable_primitive!(i64);
-viewable_primitive!(i128);
-viewable_primitive!(f32);
-viewable_primitive!(f64);
-viewable_primitive!(char);
-viewable_primitive!(bool);
+viewable_primitive![
+  &String,
+  usize,
+  u8,
+  u16,
+  u32,
+  u64,
+  u128,
+  isize,
+  i8,
+  i16,
+  i32,
+  i64,
+  i128,
+  f32,
+  f64,
+  char,
+  bool,
+  Cow<'_, str>,
+  std::net::IpAddr,
+  std::net::SocketAddr,
+  std::net::SocketAddrV4,
+  std::net::SocketAddrV6,
+  std::net::Ipv4Addr,
+  std::net::Ipv6Addr,
+  std::backtrace::Backtrace,
+  std::char::ToUppercase,
+  std::char::ToLowercase,
+  std::num::NonZeroI8,
+  std::num::NonZeroU8,
+  std::num::NonZeroI16,
+  std::num::NonZeroU16,
+  std::num::NonZeroI32,
+  std::num::NonZeroU32,
+  std::num::NonZeroI64,
+  std::num::NonZeroU64,
+  std::num::NonZeroI128,
+  std::num::NonZeroU128,
+  std::num::NonZeroIsize,
+  std::num::NonZeroUsize,
+  std::panic::Location<'_>,
+  std::fmt::Arguments<'_>,
+];
