@@ -36,12 +36,14 @@
 //!
 //! ```
 
-use std::fmt::Debug;
+use std::{fmt::Debug, rc::Rc};
 
 use leptos::{leptos_dom::debug_warn, *};
 
+mod meta_tags;
 mod stylesheet;
 mod title;
+pub use meta_tags::*;
 pub use stylesheet::*;
 pub use title::*;
 
@@ -53,6 +55,7 @@ pub use title::*;
 pub struct MetaContext {
     pub(crate) title: TitleContext,
     pub(crate) stylesheets: StylesheetContext,
+    pub(crate) meta_tags: MetaTagsContext
 }
 
 /// Returns the current [MetaContext].
@@ -123,13 +126,23 @@ impl MetaContext {
         // Stylesheets
         tags.push_str(&self.stylesheets.as_string());
 
+        // Meta tags
+        tags.push_str(&self.meta_tags.as_string());
+
         tags
     }
 }
 
 /// Describes a value that is either a static or a reactive string, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
-pub struct TextProp(Box<dyn Fn() -> String>);
+#[derive(Clone)]
+pub struct TextProp(Rc<dyn Fn() -> String>);
+
+impl TextProp {
+    fn get(&self) -> String {
+        (self.0)()
+    }
+}
 
 impl Debug for TextProp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -139,14 +152,14 @@ impl Debug for TextProp {
 
 impl From<String> for TextProp {
     fn from(s: String) -> Self {
-        TextProp(Box::new(move || s.clone()))
+        TextProp(Rc::new(move || s.clone()))
     }
 }
 
 impl From<&str> for TextProp {
     fn from(s: &str) -> Self {
         let s = s.to_string();
-        TextProp(Box::new(move || s.clone()))
+        TextProp(Rc::new(move || s.clone()))
     }
 }
 
@@ -155,6 +168,6 @@ where
     F: Fn() -> String + 'static,
 {
     fn from(s: F) -> Self {
-        TextProp(Box::new(s))
+        TextProp(Rc::new(s))
     }
 }

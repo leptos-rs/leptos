@@ -26,7 +26,7 @@ impl StylesheetContext {
 pub struct StylesheetProps {
     /// The URL at which the stylesheet can be located.
     #[builder(setter(into))]
-    href: String,
+    pub href: String,
 }
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
