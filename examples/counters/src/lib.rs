@@ -63,14 +63,16 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                 " counters."
             </p>
             <ul>
-                <For each=counters key=|counter| counter.0>{
-                    move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
+                <For
+                    each=counters
+                    key=|counter| counter.0
+                    view=move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
                         view! {
                             cx,
                             <Counter id value set_value/>
                         }
                     }
-                }</For>
+                />
             </ul>
         </>
     }

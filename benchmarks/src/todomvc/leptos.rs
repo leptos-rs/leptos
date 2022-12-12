@@ -103,7 +103,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> View {
+pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
   let mut next_id = todos
     .0
     .iter()
@@ -186,9 +186,11 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> View {
                   />
                   <label for="toggle-all">"Mark all as complete"</label>
                   <ul class="todo-list">
-                      <For each=filtered_todos key=|todo| todo.id>
-                          {move |todo: Todo| view! { cx,  <Todo todo=todo.clone() /> }}
-                      </For>
+                      <For
+                        each=filtered_todos
+                        key=|todo| todo.id
+                        view=move |todo: Todo| view! { cx,  <Todo todo=todo.clone() /> }
+                      />
                   </ul>
               </section>
               <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
@@ -225,7 +227,7 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> View {
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> View {
+pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
   let (editing, set_editing) = create_signal(cx, false);
   let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
   //let input = NodeRef::new(cx);

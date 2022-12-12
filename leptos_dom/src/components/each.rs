@@ -657,6 +657,7 @@ fn apply_cmds<T, EF, N>(
 
 /// Properties for the [For](crate::For) component, a keyed list.
 #[derive(TypedBuilder)]
+#[builder(doc)]
 pub struct ForProps<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
@@ -668,11 +669,14 @@ where
   T: 'static,
 {
   /// Items over which the component should iterate.
+  #[builder(setter(doc = "Items over which the component should iterate."))]
   pub each: IF,
   /// A key function that will be applied to each item
+  #[builder(setter(doc = "A key function that will be applied to each item"))]
   pub key: KF,
   /// Should provide a single child function, which takes
-  pub children: Box<dyn Fn() -> Vec<EF>>,
+  #[builder(setter(doc = "Should provide a single child function, which takes"))]
+  pub view: EF
 }
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -700,16 +704,13 @@ where
 ///         each=counters
 ///         // a unique key for each item
 ///         key=|counter| counter.id
-///       >
-///         {|cx: Scope, counter: &Counter| {
-///           let count = counter.count;
+///         view=move |counter: Counter| {
 ///           view! {
 ///             cx,
-///             <button>"Value: " {move || count.get()}</button>
+///             <button>"Value: " {move || counter.count.get()}</button>
 ///           }
 ///         }
-///       }
-///       </For>
+///       />
 ///     </div>
 ///   }
 /// }
@@ -728,6 +729,6 @@ where
   K: Eq + Hash + 'static,
   T: 'static,
 {
-  let each_fn = (props.children)().swap_remove(0);
+  let each_fn = props.view;
   Each::new(props.each, props.key, each_fn).into_view(cx)
 }
