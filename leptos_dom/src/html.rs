@@ -14,9 +14,6 @@ use crate::{
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind};
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-use std::cell::OnceCell;
-
 use cfg_if::cfg_if;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use leptos_reactive::create_render_effect;
@@ -28,6 +25,13 @@ use std::{borrow::Cow, fmt};
 use std::{cell::LazyCell, ops::Deref};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
+
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+const HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG: &str =
+  "`Deref<Target = web_sys::HtmlElement>` can only be used on web targets. \
+   This is for the same reason that normal `wasm_bindgen` methods can be used \
+   only in the browser. Please use `leptos::is_server()` or \
+   `leptos::is_browser()` to check where you're running.";
 
 /// Trait alias for the trait bounts on [`IntoElement`].
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -69,7 +73,8 @@ pub trait IntoElement: IntoElementBounds {
   fn hydration_id(&self) -> usize;
 }
 
-/// Trait for converting [`web_sys::Element`] to [`HtmlElement`].
+/// Trait for converting any type which impl [`AsRef<web_sys::Element>`]
+/// to [`HtmlElement`].
 pub trait ToHtmlElement {
   /// Converts the type to [`HtmlElement`].
   fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement>;
@@ -104,16 +109,25 @@ where
 
 /// Represents potentially any element.
 #[derive(Clone, Debug)]
-#[cfg_attr(all(target_arch = "wasm32", feature = "web"), derive(educe::Educe))]
-#[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
 pub struct AnyElement {
-  name: Cow<'static, str>,
+  pub(crate) name: Cow<'static, str>,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  #[educe(Deref)]
-  element: web_sys::HtmlElement,
-  is_void: bool,
+  pub(crate) element: web_sys::HtmlElement,
+  pub(crate) is_void: bool,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  id: usize,
+  pub(crate) id: usize,
+}
+
+impl std::ops::Deref for AnyElement {
+  type Target = web_sys::HtmlElement;
+
+  fn deref(&self) -> &Self::Target {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    return &self.element;
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
+  }
 }
 
 impl IntoElement for AnyElement {
@@ -174,12 +188,9 @@ impl IntoElement for Custom {
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
-    #[derive(educe::Educe)]
-    #[educe(Debug, Deref)]
     pub struct HtmlElement<El: IntoElement> {
-      cx: Scope,
-      #[educe(Deref)]
-      element: El,
+      pub(crate) cx: Scope,
+      pub(crate) element: El,
     }
   // Server needs to build a virtualized DOM tree
   } else {
@@ -189,13 +200,24 @@ cfg_if! {
     pub struct HtmlElement<El: IntoElement> {
       pub(crate) cx: Scope,
       pub(crate) element: El,
-      pub(crate) id: OnceCell<Cow<'static, str>>,
       #[educe(Debug(ignore))]
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
       #[allow(clippy::type_complexity)]
       pub(crate) children: SmallVec<[View; 4]>,
     }
+  }
+}
+
+impl<El: IntoElement> std::ops::Deref for HtmlElement<El> {
+  type Target = web_sys::HtmlElement;
+
+  fn deref(&self) -> &Self::Target {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    return &self.element;
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
   }
 }
 
@@ -210,7 +232,6 @@ impl<El: IntoElement> HtmlElement<El> {
       } else {
         Self {
           cx,
-          id: Default::default(),
           attrs: smallvec![],
           children: smallvec![],
           element,
@@ -239,7 +260,6 @@ impl<El: IntoElement> HtmlElement<El> {
       } else {
         let Self {
           cx,
-          id,
           attrs,
           children,
           element,
@@ -247,7 +267,6 @@ impl<El: IntoElement> HtmlElement<El> {
 
         HtmlElement {
           cx,
-          id,
           attrs,
           children,
           element: AnyElement {
@@ -608,12 +627,9 @@ macro_rules! generate_html_tags {
         });
 
         #[derive(Clone, Debug)]
-        #[cfg_attr(all(target_arch = "wasm32", feature = "web"), derive(educe::Educe))]
-        #[cfg_attr(all(target_arch = "wasm32", feature = "web"), educe(Deref))]
         #[$meta]
         pub struct [<$tag:camel $($trailing_)?>] {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          #[educe(Deref)]
           element: web_sys::HtmlElement,
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
           id: usize,
@@ -674,6 +690,18 @@ macro_rules! generate_html_tags {
               #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
               id
             }
+          }
+        }
+
+        impl std::ops::Deref for [<$tag:camel $($trailing_)?>] {
+          type Target = web_sys::HtmlElement;
+
+          fn deref(&self) -> &Self::Target {
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            return &self.element;
+
+            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
           }
         }
 

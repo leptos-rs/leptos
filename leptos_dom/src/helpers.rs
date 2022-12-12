@@ -23,7 +23,7 @@ pub fn location() -> web_sys::Location {
 /// Current [`window.location.hash`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location)
 /// without the beginning #.
 pub fn location_hash() -> Option<String> {
-  if is_server!() {
+  if is_server() {
     None
   } else {
     location().hash().ok().map(|hash| hash.replace('#', ""))
@@ -125,7 +125,7 @@ pub fn window_event_listener(
   event_name: &str,
   cb: impl Fn(web_sys::Event) + 'static,
 ) {
-  if !is_server!() {
+  if !is_server() {
     let handler = Box::new(cb) as Box<dyn FnMut(web_sys::Event)>;
 
     let cb = Closure::wrap(handler).into_js_value();
