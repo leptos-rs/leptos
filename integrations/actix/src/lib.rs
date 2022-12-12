@@ -212,7 +212,8 @@ where IV: IntoView
 
             let tail = "</body></html>";
 
-            let html_stream = futures::stream::once(async move { head.clone() })
+            HttpResponse::Ok().content_type("text/html").streaming(
+                futures::stream::once(async move { head.clone() })
                 .chain(render_to_stream_with_prefix(
                     app,
                     |cx| {
@@ -222,11 +223,8 @@ where IV: IntoView
                         format!("{head}</head><body>").into()
                     }
                 ))
-                .chain(futures::stream::once(async { tail.to_string() }));
-
-            HttpResponse::Ok().content_type("text/html").streaming(
-                html_stream
-                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+                .chain(futures::stream::once(async { tail.to_string() }))
+                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
             )
         }
     })
