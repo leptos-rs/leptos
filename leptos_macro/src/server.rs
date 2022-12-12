@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use leptos_server::Encoding;
 use proc_macro2::{Literal, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{
@@ -26,9 +27,14 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let ServerFnName {
         struct_name,
         prefix,
+        encoding,
         ..
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
+    let encoding = match encoding {
+        Encoding::Cbor => quote! { ::leptos::Encoding::Cbor },
+        Encoding::Url => quote! { ::leptos::Encoding::Url },
+    };
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
     let fn_name = &body.ident;
@@ -40,7 +46,10 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         if #[cfg(not(feature = "stable"))] {
             use proc_macro::Span;
             let span = Span::call_site();
+            #[cfg(not(target_os = "windows"))]
             let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
+            #[cfg(target_os = "windows")]
+            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
         } else {
             let url = fn_name_as_str;
         }
@@ -135,6 +144,10 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
                 #url
             }
 
+            fn encoding() -> ::leptos::Encoding {
+                #encoding
+            }
+
             #[cfg(feature = "ssr")]
             fn call_fn(self, cx: ::leptos::Scope) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;
@@ -157,7 +170,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
-            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }).await
+            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
         }
     })
 }
@@ -166,6 +179,8 @@ pub struct ServerFnName {
     struct_name: Ident,
     _comma: Option<Token![,]>,
     prefix: Option<Literal>,
+    _comma2: Option<Token![,]>,
+    encoding: Encoding,
 }
 
 impl Parse for ServerFnName {
@@ -173,11 +188,15 @@ impl Parse for ServerFnName {
         let struct_name = input.parse()?;
         let _comma = input.parse()?;
         let prefix = input.parse()?;
+        let _comma2 = input.parse()?;
+        let encoding = input.parse().unwrap_or(Encoding::Url);
 
         Ok(Self {
             struct_name,
             _comma,
             prefix,
+            _comma2,
+            encoding,
         })
     }
 }

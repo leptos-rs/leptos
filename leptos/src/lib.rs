@@ -126,6 +126,7 @@
 //! # }
 //! ```
 
+pub use leptos_config::*;
 pub use leptos_core::*;
 pub use leptos_dom;
 pub use leptos_dom::wasm_bindgen::{JsCast, UnwrapThrowExt};

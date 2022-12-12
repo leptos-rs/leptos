@@ -9,6 +9,7 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 readme = "../README.md"
 
 [dependencies]
+leptos_config = { path = "../leptos_config", default-features = false, version = "0.0.18" }
 leptos_core = { path = "../leptos_core", default-features = false, version = "0.0.18" }
 leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.18" }
 leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.18" }
