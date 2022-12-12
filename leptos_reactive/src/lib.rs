@@ -123,6 +123,11 @@ pub trait UntrackedSettableSignal<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents.
     fn update_untracked(&self, f: impl FnOnce(&mut T));
+
+    /// Runs the provided closure with a mutable reference to the current
+    /// value without notifying dependents and returns
+    /// the value the closure returned.
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U>;
 }
 
 #[doc(hidden)]
