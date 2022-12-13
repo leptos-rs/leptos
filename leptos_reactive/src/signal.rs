@@ -312,6 +312,10 @@ where
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
+
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.id.update_with_no_effect(self.runtime, f)
+    }
 }
 
 impl<T> WriteSignal<T>
@@ -339,6 +343,31 @@ where
     /// # }).dispose();
     /// ```
     pub fn update(&self, f: impl FnOnce(&mut T)) {
+        self.id.update(self.runtime, f);
+    }
+
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
+    /// Forwards the return value of the closure if the closure was called
+    ///
+    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    /// let (count, set_count) = create_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// let value = set_count.update_returning(|n| { *n = 1; *n * 10 });
+    /// assert_eq!(value, Some(10));
+    /// assert_eq!(count(), 1);
+    ///
+    /// let value = set_count.update_returning(|n| { *n += 1; *n * 10 });
+    /// assert_eq!(value, Some(20));
+    /// assert_eq!(count(), 2);
+    /// # }).dispose();
+    /// ```
+    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update(self.runtime, f)
     }
 
@@ -362,7 +391,7 @@ where
     /// # }).dispose();
     /// ```
     pub fn set(&self, new_value: T) {
-        self.id.update(self.runtime, |n| *n = new_value)
+        self.id.update(self.runtime, |n| *n = new_value);
     }
 }
 
@@ -497,10 +526,14 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
 impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
     fn set_untracked(&self, new_value: T) {
         self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value)
+            .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
 
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+        self.id.update_with_no_effect(self.runtime, f);
+    }
+
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -571,6 +604,29 @@ where
     /// # }).dispose();
     /// ```
     pub fn update(&self, f: impl FnOnce(&mut T)) {
+        self.id.update(self.runtime, f);
+    }
+
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
+    /// Forwards the return value of the closure if the closure was called
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    /// let count = create_rw_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// let value = count.update_returning(|n| { *n = 1; *n * 10 });
+    /// assert_eq!(value, Some(10));
+    /// assert_eq!(count(), 1);
+    ///
+    /// let value = count.update_returning(|n| { *n += 1; *n * 10 });
+    /// assert_eq!(value, Some(20));
+    /// assert_eq!(count(), 2);
+    /// # }).dispose();
+    /// ```
+    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update(self.runtime, f)
     }
 
@@ -589,7 +645,7 @@ where
     /// # }).dispose();
     /// ```
     pub fn set(&self, value: T) {
-        self.id.update(self.runtime, |n| *n = value)
+        self.id.update(self.runtime, |n| *n = value);
     }
 
     /// Returns a read-only handle to the signal.
@@ -797,7 +853,7 @@ impl SignalId {
         with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
     }
 
-    fn update_value<T>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T)) -> bool
+    fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
     where
         T: 'static,
     {
@@ -809,26 +865,29 @@ impl SignalId {
             if let Some(value) = value {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
-                    f(value);
-                    true
+                    Some(f(value))
                 } else {
                     debug_warn!(
                         "[Signal::update] failed when downcasting to Signal<{}>",
                         std::any::type_name::<T>()
                     );
-                    false
+                    None
                 }
             } else {
                 debug_warn!(
                     "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
                     std::any::type_name::<T>()
                 );
-                false
+                None
             }
         })
     }
 
-    pub(crate) fn update<T>(&self, runtime_id: RuntimeId, f: impl FnOnce(&mut T))
+    pub(crate) fn update<T, U>(
+        &self,
+        runtime_id: RuntimeId,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>
     where
         T: 'static,
     {
@@ -837,7 +896,7 @@ impl SignalId {
             let updated = self.update_value(runtime_id, f);
 
             // notify subscribers
-            if updated {
+            if updated.is_some() {
                 let subs = {
                     let subs = runtime.signal_subscribers.borrow();
                     let subs = subs.get(*self);
@@ -854,15 +913,20 @@ impl SignalId {
                         }
                     }
                 }
-            }
+            };
+            updated
         })
     }
 
-    pub(crate) fn update_with_no_effect<T>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T))
+    pub(crate) fn update_with_no_effect<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>
     where
         T: 'static,
     {
         // update the value
-        self.update_value(runtime, f);
+        self.update_value(runtime, f)
     }
 }

@@ -36,7 +36,9 @@ impl SuspenseContext {
     /// Notifies the suspense context that a new resource is now pending.
     pub fn increment(&self) {
         let setter = self.set_pending_resources;
-        queue_microtask(move || setter.update(|n| *n += 1));
+        queue_microtask(move || {
+            setter.update(|n| *n += 1);
+        });
     }
 
     /// Notifies the suspense context that a resource has resolved.
@@ -47,7 +49,7 @@ impl SuspenseContext {
                 if *n > 0 {
                     *n -= 1
                 }
-            })
+            });
         });
     }
 
