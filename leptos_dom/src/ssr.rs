@@ -23,15 +23,12 @@ pub fn render_to_string<F, N>(f: F) -> String
 where
   F: FnOnce(Scope) -> N + 'static,
   N: IntoView,
-{
-  let runtime = leptos_reactive::create_runtime();
-
-  let view = leptos_reactive::run_scope(runtime, |cx| f(cx).into_view(cx));
-
-  HydrationCtx::reset_id();
-  runtime.dispose();
-
-  view.render_to_string().into_owned()
+  {
+    let runtime = leptos_reactive::create_runtime();
+    HydrationCtx::reset_id();
+    let html = leptos_reactive::run_scope(runtime, |cx| f(cx).into_view(cx).render_to_string(cx));
+    runtime.dispose();
+    html.into_owned()
 }
 
 /// Renders a function to a stream of HTML strings.
@@ -69,7 +66,7 @@ pub fn render_to_stream_with_prefix(
   prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static
 ) -> impl Stream<Item = String> {
   HydrationCtx::reset_id();
-
+  
   // create the runtime
   let runtime = create_runtime();
 
@@ -78,7 +75,7 @@ pub fn render_to_stream_with_prefix(
           move |cx| {
               // the actual app body/template code
               // this does NOT contain any of the data being loaded asynchronously in resources
-              let shell = view(cx).render_to_string();
+              let shell = view(cx).render_to_string(cx);
 
               let resources = cx.all_resources();
               let pending_resources = serde_json::to_string(&resources).unwrap();
@@ -94,40 +91,39 @@ pub fn render_to_stream_with_prefix(
           }
       });
 
-  let fragments = FuturesUnordered::new();
-  for (fragment_id, fut) in pending_fragments {
-      fragments.push(async move { (fragment_id, fut.await) })
-  }
+    let fragments = FuturesUnordered::new();
+    for (fragment_id, fut) in pending_fragments {
+        fragments.push(async move { (fragment_id, fut.await) })
+    }
 
   // resources and fragments
-  let resources_and_fragments = futures::stream::select(
-      // stream data for each Resource as it resolves
-      serializers.map(|(id, json)| {
-          let id = serde_json::to_string(&id).unwrap();
-          format!(
-              r#"<script>
-                      if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                          __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
-                      }} else {{
-                          __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
-                      }}
-                  </script>"#,
-          )
-      }),
-      // stream HTML for each <Suspense/> as it resolves
-      fragments.map(|(fragment_id, html)| {
-          format!(
-              r#"
-                  <template id="{fragment_id}">{html}</template>
-                  <script>
-                      var frag = document.querySelector(`[data-fragment-id="{fragment_id}"]`);
-                      var tpl = document.getElementById("{fragment_id}");
-                      if(frag) frag.replaceWith(tpl.content.cloneNode(true));
-                  </script>
-                  "#
-          )
-      })
-  );
+  // stream HTML for each <Suspense/> as it resolves
+  let fragments = fragments.map(|(fragment_id, html)| {
+      format!(
+          r#"
+              <template id="{fragment_id}f">{html}</template>
+              <script>
+                  var frag = document.getElementById("{fragment_id}");
+                  var tpl = document.getElementById("{fragment_id}f");
+                  if(frag) frag.replaceWith(tpl.content.cloneNode(true));
+              </script>
+              "#
+      )
+  });
+  // stream data for each Resource as it resolves
+  let resources = 
+  serializers.map(|(id, json)| {
+      let id = serde_json::to_string(&id).unwrap();
+      format!(
+          r#"<script>
+                  if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
+                      __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
+                  }} else {{
+                      __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
+                  }}
+              </script>"#,
+      )
+  });
 
   // HTML for the view function and script to store resources
   futures::stream::once(async move {
@@ -143,25 +139,38 @@ pub fn render_to_stream_with_prefix(
           "#
       )
   })
-  .chain(resources_and_fragments)
+  // TODO these should be combined again in a way that chains them appropriately
+  // such that individual resources can resolve before all fragments are done
+  .chain(fragments)
+  .chain(resources)
   // dispose of Scope and Runtime
   .chain(futures::stream::once(async move {
-      disposer.dispose();
-      runtime.dispose();
+      //disposer.dispose();
+      //runtime.dispose();
       Default::default()
   }))
 }
 
 impl View {
   /// Consumes the node and renders it into an HTML string.
-  pub fn render_to_string(self) -> Cow<'static, str> {
+  pub fn render_to_string(self, cx: Scope) -> Cow<'static, str> {
+    HydrationCtx::set_id(cx);
+
+    let s = self.render_to_string_helper();
+
+    cx.set_hydration_key(HydrationCtx::current_id());
+
+    s
+  }
+
+  pub(crate) fn render_to_string_helper(self) -> Cow<'static, str> {
     match self {
       View::Text(node) => node.content,
       View::Component(node) => {
         let content = node
           .children
           .into_iter()
-          .map(|node| node.render_to_string())
+          .map(|node| node.render_to_string_helper())
           .join("");
         cfg_if! {
           if #[cfg(debug_assertions)] {
@@ -208,7 +217,7 @@ impl View {
                     t.content
                   }
                 } else {
-                  child.render_to_string()
+                  child.render_to_string_helper()
                 }
               } else {
                 "".into()
@@ -227,7 +236,7 @@ impl View {
                 .map(|node| {
                   let id = node.id;
 
-                  let content = node.child.render_to_string();
+                  let content = node.child.render_to_string_helper();
 
                   #[cfg(debug_assertions)]
                   return format!(
@@ -293,7 +302,7 @@ impl View {
           let children = el
             .children
             .into_iter()
-            .map(|node| node.render_to_string())
+            .map(|node| node.render_to_string_helper())
             .join("");
 
           format!("<{tag_name}{attrs}>{children}</{tag_name}>").into()
