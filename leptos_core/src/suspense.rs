@@ -113,7 +113,6 @@ where
     H: IntoView,
 {
     use leptos_dom::*;
-    println!("rendering suspense on server");
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
