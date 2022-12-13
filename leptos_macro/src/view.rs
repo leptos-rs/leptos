@@ -244,7 +244,7 @@ fn element_to_tokens(
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
       };
       quote! {
-          .child((cx, #child))
+          .child((#cx, #child))
       }
     });
     quote_spanned! {
@@ -319,7 +319,7 @@ fn attribute_to_tokens(
       .as_ref();
     //if mode != Mode::Ssr {
     quote_spanned! {
-        span => .class(#name, (cx, #[allow(unused_braces)] #value))
+        span => .class(#name, (#cx, #[allow(unused_braces)] #value))
     }
     /* } else {
         todo!()
@@ -358,7 +358,7 @@ fn component_to_tokens(
   let children = if node.children.is_empty() {
     quote! { }
   } else {
-    let children = fragment_to_tokens(&Ident::new("cx", span), span, &node.children, mode);
+    let children = fragment_to_tokens(cx, span, &node.children, mode);
     quote! { .children(Box::new(move |#cx| #children)) }
   };
 
@@ -391,7 +391,7 @@ fn component_to_tokens(
 
   quote_spanned! {
       span => #name(
-          cx,
+          #cx,
           #component_props_name::builder()
               #(#props)*
               #children
