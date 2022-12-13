@@ -13,10 +13,11 @@ proc-macro = true
 [dependencies]
 cfg-if = "1"
 itertools = "0.10"
+pad-adapter = "0.1"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
-syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
+syn = { version = "1", features = ["full"] }
 syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
 leptos_dom = { path = "../leptos_dom", version = "0.0.18" }

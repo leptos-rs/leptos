@@ -1,9 +1,13 @@
+#![feature(drain_filter, iter_intersperse)]
 #![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+
+#[macro_use]
+extern crate proc_macro_error;
 
 use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
 use server::server_macro_impl;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse::Parse, parse_macro_input, DeriveInput};
 use syn_rsx::{parse, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -341,12 +345,12 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///     todo!()
 /// }
 /// ```
+#[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    match syn::parse::<component::InlinePropsBody>(s) {
-        Err(e) => e.to_compile_error().into(),
-        Ok(s) => s.to_token_stream().into(),
-    }
+    parse_macro_input!(s as component::Model)
+        .into_token_stream()
+        .into()
 }
 
 #[proc_macro_attribute]

@@ -1,277 +1,325 @@
-// Based in large part on Dioxus: https://github.com/DioxusLabs/dioxus/blob/master/packages/core-macro/src/inlineprops.rs
-
-#![allow(unstable_name_collisions)]
-
-use std::collections::HashMap;
-
-use itertools::Itertools;
-use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
-use quote::{quote, ToTokens, TokenStreamExt};
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
-    parse::{Parse, ParseStream},
-    punctuated::Punctuated,
-    *,
+    parse::Parse, parse_quote, Attribute, FnArg, ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat,
+    PatIdent, Path, ReturnType, Type, TypePath, Visibility,
 };
 
-pub struct InlinePropsBody {
-    pub attrs: Vec<Attribute>,
-    pub vis: syn::Visibility,
-    pub fn_token: Token![fn],
-    pub ident: Ident,
-    pub cx_token: Box<Pat>,
-    pub generics: Generics,
-    pub paren_token: token::Paren,
-    pub inputs: Punctuated<FnArg, Token![,]>,
-    // pub fields: FieldsNamed,
-    pub output: ReturnType,
-    pub where_clause: Option<WhereClause>,
-    pub block: Box<Block>,
-    pub doc_comment: String,
+pub struct Model {
+    docs: Docs,
+    vis: Visibility,
+    name: Ident,
+    props: Vec<Prop>,
+    body: ItemFn,
+    ret: ReturnType,
 }
 
-/// The custom rusty variant of parsing rsx!
-impl Parse for InlinePropsBody {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
-        let vis: Visibility = input.parse()?;
+impl Parse for Model {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut item = ItemFn::parse(input)?;
 
-        let fn_token = input.parse()?;
-        let ident = input.parse()?;
-        let generics: Generics = input.parse()?;
+        let docs = Docs::new(&item.attrs);
 
-        let content;
-        let paren_token = syn::parenthesized!(content in input);
+        let props = item.sig.inputs.clone().into_iter().map(Prop::new).collect();
 
-        let first_arg: FnArg = content.parse()?;
-        let cx_token = {
-            match first_arg {
-                FnArg::Receiver(_) => panic!("first argument must not be a receiver argument"),
-                FnArg::Typed(f) => f.pat,
+        // We need to remove the `#[doc = ""]` and `#[builder(_)]`
+        // attrs from the function signature
+        item.attrs.drain_filter(|attr| {
+            attr.path == parse_quote!(doc) || attr.path == parse_quote!(builder)
+        });
+        item.sig.inputs.iter_mut().for_each(|arg| {
+            if let FnArg::Typed(ty) = arg {
+                ty.attrs.drain_filter(|attr| {
+                    attr.path == parse_quote!(doc) || attr.path == parse_quote!(builder)
+                });
             }
-        };
-
-        let _: Result<Token![,]> = content.parse();
-
-        let inputs = syn::punctuated::Punctuated::parse_terminated(&content)?;
-
-        let output = input.parse()?;
-
-        let where_clause = input
-            .peek(syn::token::Where)
-            .then(|| input.parse())
-            .transpose()?;
-
-        let block = input.parse()?;
-
-        let doc_comment = attrs
-            .iter()
-            .filter_map(|attr| {
-                if attr.path.segments[0].ident == "doc" {
-                    Some(
-                        attr.clone()
-                            .tokens
-                            .into_iter()
-                            .filter_map(|token| {
-                                if let TokenTree::Literal(_) = token {
-                                    // remove quotes
-                                    let chars = token.to_string();
-                                    let mut chars = chars.chars();
-                                    chars.next();
-                                    chars.next_back();
-                                    Some(chars.as_str().to_string())
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<String>(),
-                    )
-                } else {
-                    None
-                }
-            })
-            .intersperse_with(|| "\n".to_string())
-            .collect();
+        });
 
         Ok(Self {
-            vis,
-            fn_token,
-            ident,
-            generics,
-            paren_token,
-            inputs,
-            output,
-            where_clause,
-            block,
-            cx_token,
-            attrs,
-            doc_comment,
+            docs,
+            vis: item.vis.clone(),
+            name: item.sig.ident.clone(),
+            props,
+            ret: item.sig.output.clone(),
+            body: item,
         })
     }
 }
 
-/// Serialize the same way, regardless of flavor
-impl ToTokens for InlinePropsBody {
-    fn to_tokens(&self, out_tokens: &mut TokenStream2) {
+impl ToTokens for Model {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
+            docs,
             vis,
-            ident,
-            generics,
-            inputs,
-            output,
-            where_clause,
-            block,
-            cx_token,
-            attrs,
-            doc_comment,
-            ..
+            name,
+            props,
+            body,
+            ret,
         } = self;
 
-        let field_docs: HashMap<String, String> = {
-            let mut map = HashMap::new();
-            let mut pieces = doc_comment.split("# Props");
-            pieces.next();
-            let rest = pieces.next().unwrap_or_default();
-            let mut current_field_name = String::new();
-            let mut current_field_value = String::new();
-            for line in rest.split('\n') {
-                if let Some(line) = line.strip_prefix(" - ") {
-                    let mut pieces = line.split("**");
-                    pieces.next();
-                    let field_name = pieces.next();
-                    let field_value = pieces.next().unwrap_or_default();
-                    let field_value = if let Some((_ty, desc)) = field_value.split_once('-') {
-                        desc
-                    } else {
-                        field_value
-                    };
-                    if let Some(field_name) = field_name {
-                        if !current_field_name.is_empty() {
-                            map.insert(current_field_name.clone(), current_field_value.clone());
-                        }
-                        current_field_name = field_name.to_string();
-                        current_field_value = String::new();
-                        current_field_value.push_str(field_value);
-                    } else {
-                        current_field_value.push_str(field_value);
-                    }
-                } else {
-                    current_field_value.push_str(line);
-                }
-            }
-            if !current_field_name.is_empty() {
-                map.insert(current_field_name, current_field_value.clone());
-            }
+        let (impl_generics, generics, where_clause) = body.sig.generics.split_for_impl();
 
-            map
-        };
+        let props_name = format_ident!("{name}Props");
 
-        let fields = inputs.iter().map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => todo!(),
-                FnArg::Typed(t) => t,
-            };
-            let comment = if let Pat::Ident(ident) = &*typed_arg.pat {
-                field_docs.get(&ident.ident.to_string()).cloned()
-            } else {
-                None
-            }
-            .unwrap_or_default();
-            let comment_macro = quote! {
-                #[doc = #comment]
-            };
-            if let Type::Path(pat) = &*typed_arg.ty {
-                if pat.path.segments[0].ident == "Option" {
-                    quote! {
-                        #comment_macro
-                        #[builder(default, setter(strip_option, doc = #comment))]
-                        pub #f
-                    }
-                } else {
-                    quote! {
-                        #comment_macro
-                        #[builder(setter(doc = #comment))]
-                        pub #f
-                    }
-                }
-            } else {
-                quote! {
-                    #comment_macro
-                    #vis #f
-                }
-            }
-        });
+        let prop_builder_fields = prop_builder_fields(props);
 
-        let component_name_str = ident.to_string();
-        let struct_name = Ident::new(&format!("{}Props", ident), Span::call_site());
-        let prop_struct_comments = format!("Props for the [`{ident}`] component.");
+        let prop_names = prop_names(props);
 
-        let field_names = inputs.iter().filter_map(|f| match f {
-            FnArg::Receiver(_) => todo!(),
-            FnArg::Typed(t) => Some(&t.pat),
-        });
+        let name_stringified = LitStr::new(&name.to_string(), name.span());
 
-        let first_lifetime = if let Some(GenericParam::Lifetime(lt)) = generics.params.first() {
-            Some(lt)
-        } else {
-            None
-        };
-
-        //let modifiers = if first_lifetime.is_some() {
-        let modifiers = quote! {
+        let component_fn_prop_docs = generate_component_fn_prop_docs(props);
+        let output = quote! {
+            #[doc = "Props for the [`"]
+            #[doc = #name_stringified]
+            #[doc = "`] component"]
             #[derive(leptos::TypedBuilder)]
             #[builder(doc)]
-        };
-        /* } else {
-            quote! { #[derive(Props, PartialEq, Eq)] }
-        }; */
-
-        let (_scope_lifetime, fn_generics, struct_generics) = if let Some(lt) = first_lifetime {
-            let struct_generics: Punctuated<_, token::Comma> = generics
-                .params
-                .iter()
-                .map(|it| match it {
-                    GenericParam::Type(tp) => {
-                        let mut tp = tp.clone();
-                        tp.bounds.push(parse_quote!( 'a ));
-
-                        GenericParam::Type(tp)
-                    }
-                    _ => it.clone(),
-                })
-                .collect();
-
-            (
-                quote! { #lt, },
-                generics.clone(),
-                quote! { <#struct_generics> },
-            )
-        } else {
-            let fn_generics = generics.clone();
-
-            (quote! {}, fn_generics, quote! { #generics })
-        };
-
-        out_tokens.append_all(quote! {
-            #modifiers
-            #[doc = #prop_struct_comments]
-            #[allow(non_camel_case_types)]
-            #vis struct #struct_name #struct_generics
-            #where_clause
-            {
-                #(#fields),*
+            #vis struct #props_name #generics #where_clause {
+                #prop_builder_fields
             }
 
+            #docs
+            #component_fn_prop_docs
             #[allow(non_snake_case)]
-            #(#attrs)*
-            #vis fn #ident #fn_generics (#cx_token: Scope, props: #struct_name #struct_generics) #output
+            #vis fn #name #generics (cx: Scope, props: #props_name #generics) #ret
             #where_clause
             {
-              let #struct_name { #(#field_names),* } = props;
-              ::leptos::Component::new(
-                  #component_name_str,
-                  move |#cx_token| #block
-              )
+                let #props_name {
+                    #prop_names
+                } = props;
+
+                #body
+
+                leptos::Component::new(
+                    stringify!(#name),
+                    move |cx| #name(cx, #prop_names)
+                )
             }
-        });
+        };
+
+        tokens.append_all(output)
+    }
+}
+
+struct Prop {
+    pub docs: Docs,
+    pub typed_builder_attrs: Vec<Attribute>,
+    pub name: PatIdent,
+    pub ty: Type,
+}
+
+impl Prop {
+    fn new(arg: FnArg) -> Self {
+        let typed = if let FnArg::Typed(ty) = arg {
+            ty
+        } else {
+            abort!(arg, "receiver not allowed in `fn`");
+        };
+
+        let typed_builder_attrs = typed
+            .attrs
+            .iter()
+            .filter(|attr| attr.path == parse_quote!(builder))
+            .cloned()
+            .collect();
+
+        let name = if let Pat::Ident(i) = *typed.pat {
+            i
+        } else {
+            abort!(
+                typed.pat,
+                "only `prop: bool` style types are allowed within the \
+                 `#[component]` macro"
+            );
+        };
+
+        Self {
+            docs: Docs::new(&typed.attrs),
+            typed_builder_attrs,
+            name,
+            ty: *typed.ty,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Docs(pub Vec<Attribute>);
+
+impl ToTokens for Docs {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let s = self
+            .0
+            .iter()
+            .map(|attr| attr.to_token_stream())
+            .collect::<TokenStream>();
+
+        tokens.append_all(s);
+    }
+}
+
+impl Docs {
+    fn new(attrs: &[Attribute]) -> Self {
+        let attrs = attrs
+            .iter()
+            .filter(|attr| attr.path == parse_quote!(doc))
+            .cloned()
+            .collect();
+
+        Self(attrs)
+    }
+
+    fn padded(&self) -> TokenStream {
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(idx, attr)| {
+                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) = attr.parse_meta().unwrap()
+                {
+                    let doc_str = quote!(#doc);
+
+                    // We need to remove the leading and trailing `"`"
+                    let mut doc_str = doc_str.to_string();
+                    doc_str.pop();
+                    doc_str.remove(0);
+
+                    let doc_str = if idx == 0 {
+                        format!("    - {doc_str}")
+                    } else {
+                        format!("      {doc_str}")
+                    };
+
+                    let docs = LitStr::new(&doc_str, doc.span());
+
+                    if !doc_str.is_empty() {
+                        quote! { #[doc = #docs] }
+                    } else {
+                        quote! {}
+                    }
+                } else {
+                    unreachable!()
+                }
+            })
+            .collect()
+    }
+
+    fn typed_builder(&self) -> TokenStream {
+        let doc_str = self
+            .0
+            .iter()
+            .map(|attr| {
+                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) = attr.parse_meta().unwrap()
+                {
+                    let mut doc_str = quote!(#doc).to_string();
+
+                    // Remove the leading and trailing `"`
+                    doc_str.pop();
+                    doc_str.remove(0);
+
+                    doc_str
+                } else {
+                    unreachable!()
+                }
+            })
+            .intersperse("\n".to_string())
+            .collect::<String>();
+
+        if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
+            quote! { #[builder(setter(doc = #doc_str))] }
+        } else {
+            quote! {}
+        }
+    }
+}
+
+fn prop_builder_fields(props: &[Prop]) -> TokenStream {
+    props
+        .iter()
+        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .map(
+            |Prop {
+                 docs,
+                 name,
+                 typed_builder_attrs,
+                 ty,
+             }| {
+                let typed_builder_attrs = typed_builder_attrs
+                    .iter()
+                    .map(|attr| quote! { #attr })
+                    .collect::<TokenStream>();
+
+                let builder_docs = docs.typed_builder();
+
+                let builder_attr = if is_option(&ty) && typed_builder_attrs.is_empty() {
+                    quote! { #[builder(default, setter(strip_option))] }
+                } else {
+                    quote! {}
+                };
+
+                quote! {
+                   #docs
+                   #builder_docs
+                   #typed_builder_attrs
+                   #builder_attr
+                   pub #name: #ty,
+                }
+            },
+        )
+        .collect()
+}
+
+fn component_args(props: &[Prop]) -> TokenStream {
+    props
+        .iter()
+        .map(|Prop { name, ty, .. }| quote! { #name: #ty, })
+        .collect()
+}
+
+fn prop_names(props: &[Prop]) -> TokenStream {
+    props
+        .iter()
+        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .map(|Prop { name, .. }| quote! { #name, })
+        .collect()
+}
+
+fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
+    let header = quote! { #[doc = "# Props"] };
+
+    let prop_docs = props
+        .iter()
+        .map(|Prop { docs, name, ty, .. }| {
+            let arg_ty_doc = LitStr::new(
+                &format!("- **{}**: [`{}`]", quote!(#name), quote!(#ty)),
+                name.ident.span(),
+            );
+
+            let arg_user_docs = docs.padded();
+
+            quote! {
+                #[doc = #arg_ty_doc]
+                #arg_user_docs
+            }
+        })
+        .collect::<TokenStream>();
+
+    quote! {
+        #header
+        #prop_docs
+    }
+}
+
+fn is_option(ty: &Type) -> bool {
+    if let Type::Path(TypePath {
+        path: Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            first.ident == "Option"
+        } else {
+            false
+        }
+    } else {
+        false
     }
 }
