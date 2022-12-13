@@ -162,12 +162,12 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                render_to_string(move |cx| orig_child())
+                orig_child().into_view(cx).render_to_string(cx).to_string()
             });
 
             // return the fallback for now, wrapped in fragment identifer
             div(cx)
-                .attr("data-fragment", key)
+                .id(key.to_string())
                 .child(move || fallback())
                 .into_view(cx)
         }

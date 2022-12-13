@@ -93,7 +93,6 @@ where
     DynChild::new(move || {
         if context.ready() {
             child().into_view(cx)
-            //child().into_view(cx)
         } else {
             fallback().into_view(cx)
         }
@@ -114,6 +113,7 @@ where
     H: IntoView,
 {
     use leptos_dom::*;
+    println!("rendering suspense on server");
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
@@ -127,12 +127,12 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                render_to_string(move |cx| orig_child())
+                orig_child().into_view(cx).render_to_string(cx).to_string()
             });
 
             // return the fallback for now, wrapped in fragment identifer
             div(cx)
-                .attr("data-fragment", key)
+                .id(key.to_string())
                 .child(fallback)
                 .into_view(cx)
         }
