@@ -9,6 +9,7 @@ pub struct Model {
     docs: Docs,
     vis: Visibility,
     name: Ident,
+    scope_name: PatIdent,
     props: Vec<Prop>,
     body: ItemFn,
     ret: ReturnType,
@@ -20,7 +21,29 @@ impl Parse for Model {
 
         let docs = Docs::new(&item.attrs);
 
-        let props = item.sig.inputs.clone().into_iter().map(Prop::new).collect();
+        let props = item
+            .sig
+            .inputs
+            .clone()
+            .into_iter()
+            .map(Prop::new)
+            .collect::<Vec<_>>();
+
+        let scope_name = if props.is_empty() {
+            abort!(
+                item.sig.inputs,
+                "this method requires a `Scope` parameter";
+                help = "try `fn {}(cx: Scope, /* ... */ */)`", item.sig.ident
+            );
+        } else if props[0].ty != parse_quote!(Scope) {
+            abort!(
+                item.sig.inputs,
+                "this method requires a `Scope` parameter";
+                help = "try `fn {}(cx: Scope, /* ... */ */)`", item.sig.ident
+            );
+        } else {
+            props[0].name.clone()
+        };
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
@@ -39,6 +62,7 @@ impl Parse for Model {
             docs,
             vis: item.vis.clone(),
             name: item.sig.ident.clone(),
+            scope_name,
             props,
             ret: item.sig.output.clone(),
             body: item,
@@ -52,6 +76,7 @@ impl ToTokens for Model {
             docs,
             vis,
             name,
+            scope_name,
             props,
             body,
             ret,
@@ -69,6 +94,8 @@ impl ToTokens for Model {
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
+        let body = &body.block;
+
         let output = quote! {
             #[doc = "Props for the [`"]
             #[doc = #name_stringified]
@@ -82,18 +109,16 @@ impl ToTokens for Model {
             #docs
             #component_fn_prop_docs
             #[allow(non_snake_case)]
-            #vis fn #name #generics (cx: Scope, props: #props_name #generics) #ret
+            #vis fn #name #generics (#scope_name: Scope, props: #props_name #generics) #ret
             #where_clause
             {
                 let #props_name {
                     #prop_names
                 } = props;
 
-                #body
-
                 leptos::Component::new(
                     stringify!(#name),
-                    move |cx| #name(cx, #prop_names)
+                    move |#scope_name| { #body }
                 )
             }
         };
