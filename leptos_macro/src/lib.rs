@@ -1,3 +1,4 @@
+#![feature(drain_filter, iter_intersperse)]
 #![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
 
 #[macro_use]
@@ -347,9 +348,9 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let output: proc_macro2::TokenStream = parse_macro_input!(s as component::Model).into();
-
-    output.into()
+    parse_macro_input!(s as component::Model)
+        .into_token_stream()
+        .into()
 }
 
 #[proc_macro_attribute]
