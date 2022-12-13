@@ -266,60 +266,56 @@ where
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
     with_runtime(cx.runtime, |runtime| {
-        if let Some(ref mut context) = *runtime.shared_context.borrow_mut() {
-            if let Some(data) = context.resolved_resources.remove(&id) {
-                // The server already sent us the serialized resource value, so
-                // deserialize & set it now
-                context.pending_resources.remove(&id); // no longer pending
-                r.resolved.set(true);
+        let mut context = runtime.shared_context.borrow_mut();
+        if let Some(data) = context.resolved_resources.remove(&id) {
+            // The server already sent us the serialized resource value, so
+            // deserialize & set it now
+            context.pending_resources.remove(&id); // no longer pending
+            r.resolved.set(true);
 
-                let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
-                r.set_value.update(|n| *n = Some(res));
-                r.set_loading.update(|n| *n = false);
+            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
+            r.set_value.update(|n| *n = Some(res));
+            r.set_loading.update(|n| *n = false);
 
-                // for reactivity
-                r.source.subscribe();
-            } else if context.pending_resources.remove(&id) {
-                // We're still waiting for the resource, add a "resolver" closure so
-                // that it will be set as soon as the server sends the serialized
-                // value
-                r.set_loading.update(|n| *n = true);
+            // for reactivity
+            r.source.subscribe();
+        } else if context.pending_resources.remove(&id) {
+            // We're still waiting for the resource, add a "resolver" closure so
+            // that it will be set as soon as the server sends the serialized
+            // value
+            r.set_loading.update(|n| *n = true);
 
-                let resolve = {
-                    let resolved = r.resolved.clone();
-                    let set_value = r.set_value;
-                    let set_loading = r.set_loading;
-                    move |res: String| {
-                        let res =
-                            T::from_json(&res).expect_throw("could not deserialize Resource JSON");
-                        resolved.set(true);
-                        set_value.update(|n| *n = Some(res));
-                        set_loading.update(|n| *n = false);
-                    }
-                };
-                let resolve =
-                    wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
-                let resource_resolvers = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
-                )
-                .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-                let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
-                _ = js_sys::Reflect::set(
-                    &resource_resolvers,
-                    &wasm_bindgen::JsValue::from_str(&id),
-                    resolve.as_ref().unchecked_ref(),
-                );
+            let resolve = {
+                let resolved = r.resolved.clone();
+                let set_value = r.set_value;
+                let set_loading = r.set_loading;
+                move |res: String| {
+                    let res =
+                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
+                    resolved.set(true);
+                    set_value.update(|n| *n = Some(res));
+                    set_loading.update(|n| *n = false);
+                }
+            };
+            let resolve =
+                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+            let resource_resolvers = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
+            )
+            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
+            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
+            _ = js_sys::Reflect::set(
+                &resource_resolvers,
+                &wasm_bindgen::JsValue::from_str(&id),
+                resolve.as_ref().unchecked_ref(),
+            );
 
-                // for reactivity
-                r.source.subscribe()
-            } else {
-                // Server didn't mark the resource as pending, so load it on the
-                // client
-                r.load(false);
-            }
+            // for reactivity
+            r.source.subscribe()
         } else {
-            r.load(false)
+            // Server didn't mark the resource as pending, so load it on the client
+            r.load(false);
         }
     })
 }

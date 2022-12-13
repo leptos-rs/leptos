@@ -40,7 +40,7 @@ where
     #[builder(default, setter(strip_option))]
     pub on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Fragment>,
+    pub children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
@@ -139,7 +139,7 @@ where
                 enctype=enctype
                 on:submit=on_submit
             >
-                {children}
+                {move || children(cx)}
             </form>
         }
     })
@@ -160,7 +160,7 @@ where
     /// manually using [leptos_server::Action::using_server_fn].
     pub action: Action<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Fragment>,
+    pub children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
@@ -244,7 +244,7 @@ where
     /// manually using [leptos_server::Action::using_server_fn].
     pub action: MultiAction<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Fragment>,
+    pub children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
@@ -289,7 +289,7 @@ where
                 action=action
                 on:submit=on_submit
             >
-                {props.children}
+                {move || (props.children)(cx)}
             </form>
         }
     })

@@ -1,3 +1,5 @@
+use leptos_reactive::Scope;
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::cell::LazyCell;
 
@@ -32,9 +34,25 @@ impl HydrationCtx {
     }
   }
 
+  pub(crate) fn current_id() -> usize {
+    unsafe { ID }
+  }
+
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) fn reset_id() {
+    println!("resetting ID");
     unsafe { ID = 0 };
+  }
+
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub(crate) fn set_id(cx: Scope) {
+    let new_id = if let Some(id) = cx.get_hydration_key() {
+      id + 1
+    } else {
+      0
+    };
+    println!("setting ID to {new_id}");
+    unsafe { ID = new_id };
   }
 
   #[cfg(all(target_arch = "wasm32", feature = "web"))]

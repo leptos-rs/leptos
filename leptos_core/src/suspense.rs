@@ -13,7 +13,7 @@ where
     /// Will be displayed while resources are pending.
     pub fallback: F,
     /// Will be displayed once all resources have resolved.
-    pub children: Box<dyn Fn() -> Fragment>,
+    pub children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
@@ -82,7 +82,7 @@ fn render_suspense<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Box<dyn Fn() -> Fragment>,
+    child: Box<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
@@ -92,8 +92,7 @@ where
 
     DynChild::new(move || {
         if context.ready() {
-            child().into_view(cx)
-            //child().into_view(cx)
+            child(cx).into_view(cx)
         } else {
             fallback().into_view(cx)
         }
@@ -127,12 +126,12 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                render_to_string(move |cx| orig_child())
+                orig_child().into_view(cx).render_to_string(cx).to_string()
             });
 
             // return the fallback for now, wrapped in fragment identifer
             div(cx)
-                .attr("data-fragment", key)
+                .id(key.to_string())
                 .child(fallback)
                 .into_view(cx)
         }

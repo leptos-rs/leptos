@@ -27,19 +27,19 @@ where
     pub element: F,
     /// `children` may be empty or include nested routes.
     #[builder(default, setter(strip_option))]
-    pub children: Option<Box<dyn Fn() -> Fragment>>,
+    pub children: Option<Box<dyn Fn(Scope) -> Fragment>>,
 }
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
 #[allow(non_snake_case)]
-pub fn Route<E, F>(_cx: Scope, props: RouteProps<E, F>) -> RouteDefinition
+pub fn Route<E, F>(cx: Scope, props: RouteProps<E, F>) -> RouteDefinition
 where
     E: IntoView,
     F: Fn(Scope) -> E + 'static,
 {
     let children = props.children
-        .map(|children| children()
+        .map(|children| children(cx)
             .as_children()
             .iter()
             .filter_map(|child| child.as_transparent().and_then(|t| t.downcast_ref::<RouteDefinition>()))

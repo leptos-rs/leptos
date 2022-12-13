@@ -358,8 +358,8 @@ fn component_to_tokens(
   let children = if node.children.is_empty() {
     quote! { }
   } else {
-    let children = fragment_to_tokens(cx, span, &node.children, mode);
-    quote! { .children(Box::new(move || #children)) }
+    let children = fragment_to_tokens(&Ident::new("cx", span), span, &node.children, mode);
+    quote! { .children(Box::new(move |cx| #children)) }
   };
 
   let props = node
