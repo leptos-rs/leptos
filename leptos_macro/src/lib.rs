@@ -177,7 +177,8 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a [NodeRef](leptos::NodeRef) to use later.
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
+///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(create_runtime(), |cx| {
@@ -248,7 +249,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// and call them within your Leptos application as if they were custom HTML elements. The 
 /// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
 /// When you use the component somewhere else, the names of its arguments are the names
-/// of the properties you use in the [view] macro. (The compiler generates a special `Props` type
+/// of the properties you use in the [view](mod@view) macro. (The compiler generates a special `Props` type
 /// for each component, which you need to import; see #3 below.)
 /// 
 /// In other words, you can write code like this:
@@ -380,7 +381,7 @@ pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream 
     }
 }
 
-/// Declares that a function is a [server function](leptos::leptos_server). This means that 
+/// Declares that a function is a [server function](leptos_server). This means that 
 /// its body will only run on the server, i.e., when the `ssr` feature is enabled.
 ///
 /// If you call a server function from the client (i.e., when the `csr` or `hydrate` features
