@@ -34,12 +34,12 @@ cfg_if! {
 }
 
 #[server(GetTodos, "/api")]
-pub async fn get_todos(_cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
+pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    // let req = use_context::<http::Request<axum::body::BoxBody>>(cx)
-    //     .expect("couldn't get HttpRequest from context");
-    // println!("req.path = {:?}", req.uri());
+    let req_parts = use_context::<leptos_axum::RequestParts>(cx);
+    println!("\ncalling server fn");
+    println!("ReqParts = {:?}", req_parts);
 
     use futures::TryStreamExt;
 

@@ -1,14 +1,30 @@
 use axum::{
-    body::{Body, Bytes, Full, StreamBody},
+    body::{Body, Bytes, Full, HttpBody, StreamBody},
+    debug_handler,
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
+use http::{method::Method, uri::Uri, version::Version};
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
+
+#[derive(Debug, Clone)]
+pub struct RequestParts {
+    pub version: Version,
+    pub method: Method,
+    pub uri: Uri,
+    pub headers: HeaderMap<HeaderValue>,
+    pub body: Vec<u8>,
+}
+#[derive(Debug, Clone)]
+pub struct ResponseParts {
+    pub headers: HeaderMap,
+}
+
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
@@ -38,11 +54,14 @@ use std::{io, pin::Pin, sync::Arc};
 ///         .unwrap();
 /// }
 /// # }
+/// ```
+/// Leptos provides a generic implementation of `handle_server_fns`. If access to more specific parts of the Request is desired,
+/// you can specify your own server fn handler based on this one and give it it's own route in the server macro.
+#[axum::debug_handler]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
-    headers: HeaderMap<HeaderValue>,
-    body: Bytes,
-    // req: Request<Body>,
+    headers: HeaderMap,
+    req: Request<Body>,
 ) -> impl IntoResponse {
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
     let fn_name: String = match fn_name.strip_prefix("/") {
@@ -61,11 +80,26 @@ pub async fn handle_server_fns(
                             let runtime = create_runtime();
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
 
-                            // provide request as context in server scope
-                            // provide_context(cx, Arc::new(req));
+                            // provide request headers as context in server scope
+                            let (parts, mut body) = req.into_parts();
+                            let body = body.data().await.unwrap().unwrap().to_vec();
 
-                            match server_fn(cx, body.as_ref()).await {
+                            let req_parts = RequestParts {
+                                method: parts.method,
+                                uri: parts.uri,
+                                headers: parts.headers,
+                                version: parts.version,
+                                body: body.clone(),
+                            };
+                            println!("Server Saw Parts: {:#?}", req_parts);
+
+                            provide_context(cx, Arc::new(req_parts));
+
+                            match server_fn(cx, &body).await {
                                 Ok(serialized) => {
+                                    // If ResponseParts are set, add the headers and extension to the request
+                                    let response_parts = use_context::<ResponseParts>(cx);
+
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
                                     runtime.dispose();
@@ -74,6 +108,15 @@ pub async fn handle_server_fns(
                                     let accept_header =
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
+                                    let headers_ref = res.headers_mut().unwrap();
+
+                                    // Use provided ResponseParts
+                                    match response_parts {
+                                        Some(mut parts) => {
+                                            headers_ref.extend(parts.headers.drain())
+                                        }
+                                        None => (),
+                                    };
 
                                     if accept_header == Some("application/json")
                                         || accept_header
