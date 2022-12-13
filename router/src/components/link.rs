@@ -65,7 +65,7 @@ where
     #[builder(default, setter(strip_option, into))]
     pub class: Option<MaybeSignal<String>>,
     /// The nodes or elements to be shown inside the link.
-    pub children: Box<dyn Fn() -> Fragment>
+    pub children: Box<dyn Fn(Scope) -> Fragment>
 }
 
 /// An HTML [`a`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a)
@@ -108,7 +108,7 @@ where
                         aria-current=move || if is_active.get() { Some("page") } else { None }
                         class=move || class.as_ref().map(|class| class.get())
                     >
-                        {props.children}
+                        {move || (props.children)(cx)}
                     </a>
                 }
             } else {
@@ -118,7 +118,7 @@ where
                         aria-current=move || if is_active() { Some("page") } else { None }
                         class=move || class.as_ref().map(|class| class.get())
                     >
-                        {props.children}
+                        {move || (props.children)(cx)}
                     </a>
                 }
             }

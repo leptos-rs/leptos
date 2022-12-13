@@ -18,7 +18,7 @@ where
     #[builder(default, setter(strip_option, into))]
     pub set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
-    pub children: Box<dyn Fn() -> Fragment>,
+    pub children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
@@ -98,7 +98,7 @@ fn render_transition<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Box<dyn Fn() -> Fragment>,
+    child: Box<dyn Fn(Scope) -> Fragment>,
     set_pending: Option<SignalSetter<bool>>,
 ) -> impl IntoView
 where
@@ -111,7 +111,7 @@ where
 
     (move || {
         if context.ready() {
-            let current_child = child().into_view(cx);
+            let current_child = child(cx).into_view(cx);
             *prev_child.borrow_mut() = Some(current_child.clone());
             if let Some(pending) = &set_pending {
                 pending.set(false);

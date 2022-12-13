@@ -13,7 +13,7 @@ where
     /// Will be displayed while resources are pending.
     pub fallback: F,
     /// Will be displayed once all resources have resolved.
-    pub children: Box<dyn Fn() -> Fragment>,
+    pub children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
@@ -82,7 +82,7 @@ fn render_suspense<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Box<dyn Fn() -> Fragment>,
+    child: Box<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
@@ -92,7 +92,7 @@ where
 
     DynChild::new(move || {
         if context.ready() {
-            child().into_view(cx)
+            child(cx).into_view(cx)
         } else {
             fallback().into_view(cx)
         }
