@@ -9,7 +9,7 @@ use std::{
 pub struct SharedContext {
     pub completed: Vec<web_sys::Element>,
     pub events: Vec<()>,
-    pub context: Option<HydrationContext>,
+    pub previous_hydration_key: Option<usize>,
     pub registry: HashMap<String, web_sys::Element>,
     pub pending_resources: HashSet<ResourceId>,
     pub resolved_resources: HashMap<ResourceId, String>,
@@ -26,7 +26,7 @@ impl PartialEq for SharedContext {
     fn eq(&self, other: &Self) -> bool {
         self.completed == other.completed
             && self.events == other.events
-            && self.context == other.context
+            && self.previous_hydration_key == other.previous_hydration_key
             && self.registry == other.registry
             && self.pending_resources == other.pending_resources
             && self.resolved_resources == other.resolved_resources
@@ -59,10 +59,7 @@ impl SharedContext {
         Self {
             completed: Default::default(),
             events: Default::default(),
-            context: Some(HydrationContext {
-                id: "".into(),
-                count: -1,
-            }),
+            previous_hydration_key: None,
             registry,
             pending_resources,
             resolved_resources,
@@ -70,41 +67,11 @@ impl SharedContext {
         }
     }
 
-    pub fn next_hydration_key(&mut self) -> String {
-        if let Some(context) = &mut self.context {
-            let k = format!("{}{}", context.id, context.count);
-            context.count += 1;
-            k
-        } else {
-            self.context = Some(HydrationContext {
-                id: "0-".into(),
-                count: 1,
-            });
-            "0-0".into()
-        }
-    }
-
     pub fn current_fragment_key(&self) -> String {
-        if let Some(context) = &self.context {
-            format!("{}{}f", context.id, context.count)
+        if let Some(id) = &self.previous_hydration_key {
+            format!("{}f", id)
         } else {
             "0f".to_string()
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct HydrationContext {
-    id: String,
-    count: i32,
-}
-
-impl HydrationContext {
-    pub fn next_hydration_context(&mut self) -> HydrationContext {
-        self.count += 1;
-        HydrationContext {
-            id: format!("{}{}-", self.id, self.count),
-            count: 0,
         }
     }
 }

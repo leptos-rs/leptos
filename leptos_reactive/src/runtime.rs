@@ -192,7 +192,7 @@ impl RuntimeId {
 
 #[derive(Default)]
 pub(crate) struct Runtime {
-    pub shared_context: RefCell<Option<SharedContext>>,
+    pub shared_context: RefCell<SharedContext>,
     pub observer: Cell<Option<EffectId>>,
     pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
     pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
@@ -206,7 +206,6 @@ pub(crate) struct Runtime {
     pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
     pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
-    pub hydration_id: Cell<usize>,
 }
 
 impl Debug for Runtime {
@@ -256,37 +255,14 @@ impl Runtime {
             .insert(AnyResource::Serializable(state))
     }
 
-    #[cfg(feature = "hydrate")]
-    pub fn start_hydration(&self, element: &web_sys::Element) {
-        use wasm_bindgen::{JsCast, UnwrapThrowExt};
-
-        // gather hydratable elements
-        let mut registry = HashMap::new();
-        if let Ok(templates) = element.query_selector_all("*[data-hk]") {
-            for i in 0..templates.length() {
-                let node = templates
-                    .item(i)
-                    .unwrap_throw() // ok to unwrap; we already have the index, so this can't fail
-                    .unchecked_into::<web_sys::Element>();
-                let key = node.get_attribute("data-hk").unwrap_throw();
-                registry.insert(key, node);
-            }
-        }
-
-        *self.shared_context.borrow_mut() = Some(SharedContext::new_with_registry(registry));
+    pub fn set_hydration_key(&self, id: usize) {
+        let mut sc = self.shared_context.borrow_mut();
+        sc.previous_hydration_key = Some(id);
     }
 
-    #[cfg(feature = "hydrate")]
-    pub fn end_hydration(&self) {
-        if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
-            sc.context = None;
-        }
-    }
-
-    pub fn hydration_id(&self) -> usize {
-        let id = self.hydration_id.get();
-        self.hydration_id.set(id + 1);
-        id
+    pub fn get_hydration_key(&self) -> Option<usize> {
+        let sc = &self.shared_context.borrow();
+        sc.previous_hydration_key
     }
 
     pub(crate) fn resource<S, T, U>(
