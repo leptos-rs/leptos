@@ -359,7 +359,7 @@ fn component_to_tokens(
     quote! { }
   } else {
     let children = fragment_to_tokens(&Ident::new("cx", span), span, &node.children, mode);
-    quote! { .children(Box::new(move |cx| #children)) }
+    quote! { .children(Box::new(move |#cx| #children)) }
   };
 
   let props = node
