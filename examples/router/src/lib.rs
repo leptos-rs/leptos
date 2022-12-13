@@ -9,7 +9,8 @@ use crate::api::{get_contact, get_contacts};
 
 #[component]
 pub fn RouterExample(cx: Scope) -> impl IntoView {
-    provide_context(cx, MetaContext::default());
+    log::debug!("rendering <RouterExample/>");
+
     view! { cx,
         <Router>
             <nav>
@@ -48,7 +49,7 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn ContactList(cx: Scope) -> impl IntoView {
-    log!("rendering <ContactList/>");
+    log::debug!("rendering <ContactList/>");
 
     let location = use_location(cx);
     let contacts = create_resource(cx, move || location.search.get(), get_contacts);
@@ -79,7 +80,7 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn Contact(cx: Scope) -> impl IntoView {
-    log!("rendering <Contact/>");
+    log::debug!("rendering <Contact/>");
 
     let params = use_params_map(cx);
     let contact = create_resource(
@@ -125,7 +126,7 @@ pub fn Contact(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn About(cx: Scope) -> impl IntoView {
-    log!("rendering <About/>");
+    log::debug!("rendering <About/>");
 
     view! { cx,
         <>
@@ -137,7 +138,7 @@ pub fn About(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn Settings(cx: Scope) -> impl IntoView {
-    log!("rendering <Settings/>");
+    log::debug!("rendering <Settings/>");
     view! { cx,
         <>
             <h1>"Settings"</h1>
