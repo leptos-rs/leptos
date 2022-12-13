@@ -69,8 +69,6 @@ impl ToTokens for Model {
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
-        let body = &body.block;
-
         let output = quote! {
             #[doc = "Props for the [`"]
             #[doc = #name_stringified]
@@ -91,9 +89,11 @@ impl ToTokens for Model {
                     #prop_names
                 } = props;
 
+                #body
+
                 leptos::Component::new(
                     stringify!(#name),
-                    move |cx| {#body}
+                    move |cx| #name(cx, #prop_names)
                 )
             }
         };
