@@ -145,8 +145,8 @@ pub fn render_to_stream_with_prefix(
   .chain(resources)
   // dispose of Scope and Runtime
   .chain(futures::stream::once(async move {
-      //disposer.dispose();
-      //runtime.dispose();
+      disposer.dispose();
+      runtime.dispose();
       Default::default()
   }))
 }
