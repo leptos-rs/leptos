@@ -242,9 +242,39 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     }
 }
 
-/// Annotates a function so that it can be used with your template as a <Component/>
+/// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
+/// 
+/// The `#[component]` macro allows you to write plain Rust functions that return DOM nodes,
+/// and call them within your Leptos application as if they were custom HTML elements. The 
+/// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
+/// When you use the component somewhere else, the names of its arguments are the names
+/// of the properties you use in the [view] macro. (The compiler generates a special `Props` type
+/// for each component, which you need to import; see #3 below.)
+/// 
+/// In other words, you can write code like this:
+/// ```rust
+/// #[component]
+/// fn HelloComponent(cx: Scope, name: String, age: u8) -> Element {
+///   // do some reactive stuff here
+///   let (name, set_name) = create_signal(cx, name);
+///   
+///   // return a view
+///   view! { 
+///     <p>"Your name is " {name} " and you are " {age} " years old."</p>
+///   }
+/// }
+/// 
+/// #[component]
+/// fn App(cx: Scope) -> Element {
+///   view! { cx,
+///     <main>
+///       <HelloComponent name="Greg".to_string() age=32/>
+///     </main>
+///   }
+/// }
+/// ```
 ///
-/// Here are some things you should know.
+/// Here are some important things to remember.
 /// 1. **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
