@@ -154,6 +154,7 @@ pub fn render_to_stream_with_prefix(
 impl View {
   /// Consumes the node and renders it into an HTML string.
   pub fn render_to_string(self, cx: Scope) -> Cow<'static, str> {
+    cx.set_hydration_key(HydrationCtx::current_id());
     HydrationCtx::set_id(cx);
 
     let s = self.render_to_string_helper();
