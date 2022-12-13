@@ -11,8 +11,6 @@ use routes::users::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-    provide_context(cx, MetaContext::default());
-
     view! {
         cx,
         <>
