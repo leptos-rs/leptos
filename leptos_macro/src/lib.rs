@@ -254,6 +254,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// 
 /// In other words, you can write code like this:
 /// ```rust
+/// # use leptos::*;
 /// #[component]
 /// fn HelloComponent(cx: Scope, name: String, age: u8) -> Element {
 ///   // do some reactive stuff here
