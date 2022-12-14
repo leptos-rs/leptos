@@ -154,12 +154,12 @@ pub fn render_to_stream_with_prefix(
 impl View {
   /// Consumes the node and renders it into an HTML string.
   pub fn render_to_string(self, cx: Scope) -> Cow<'static, str> {
-    cx.set_hydration_key(HydrationCtx::current_id());
+    //cx.set_hydration_key(HydrationCtx::current_id());
     HydrationCtx::set_id(cx);
 
     let s = self.render_to_string_helper();
 
-    cx.set_hydration_key(HydrationCtx::current_id());
+    //cx.set_hydration_key(HydrationCtx::current_id());
 
     s
   }
@@ -279,34 +279,38 @@ impl View {
         }
       }
       View::Element(el) => {
-        let tag_name = el.name;
-
-        let attrs = el
-          .attrs
-          .into_iter()
-          .map(|(name, value)| -> Cow<'static, str> {
-            if value.is_empty() {
-              format!(" {name}").into()
-            } else {
-              format!(
-                " {name}=\"{}\"",
-                html_escape::encode_double_quoted_attribute(&value)
-              )
-              .into()
-            }
-          })
-          .join("");
-
-        if el.is_void {
-          format!("<{tag_name}{attrs}/>").into()
+        if let Some(prerendered) = el.prerendered {
+          prerendered
         } else {
-          let children = el
-            .children
-            .into_iter()
-            .map(|node| node.render_to_string_helper())
-            .join("");
+          let tag_name = el.name;
 
-          format!("<{tag_name}{attrs}>{children}</{tag_name}>").into()
+          let attrs = el
+            .attrs
+            .into_iter()
+            .map(|(name, value)| -> Cow<'static, str> {
+              if value.is_empty() {
+                format!(" {name}").into()
+              } else {
+                format!(
+                  " {name}=\"{}\"",
+                  html_escape::encode_double_quoted_attribute(&value)
+                )
+                .into()
+              }
+            })
+            .join("");
+  
+          if el.is_void {
+            format!("<{tag_name}{attrs}/>").into()
+          } else {
+            let children = el
+              .children
+              .into_iter()
+              .map(|node| node.render_to_string_helper())
+              .join("");
+  
+            format!("<{tag_name}{attrs}>{children}</{tag_name}>").into()
+          }
         }
       }
       View::Transparent(_) => Default::default(),

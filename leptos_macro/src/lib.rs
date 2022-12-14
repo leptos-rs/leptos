@@ -233,7 +233,9 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 Ok(nodes) => render_view(
                     &proc_macro2::Ident::new(&cx.to_string(), cx.span().into()),
                     &nodes,
-                    Mode::default(),
+                    // swap to Mode::default() to use faster SSR templating
+                    Mode::Client
+                    //Mode::default(),
                 ),
                 Err(error) => error.to_compile_error(),
             }

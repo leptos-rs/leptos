@@ -205,6 +205,8 @@ cfg_if! {
       #[educe(Debug(ignore))]
       #[allow(clippy::type_complexity)]
       pub(crate) children: SmallVec<[View; 4]>,
+      #[educe(Debug(ignore))]
+      pub(crate) prerendered: Option<Cow<'static, str>>
     }
   }
 }
@@ -235,8 +237,21 @@ impl<El: IntoElement> HtmlElement<El> {
           attrs: smallvec![],
           children: smallvec![],
           element,
+          prerendered: None
         }
       }
+    }
+  }
+
+  #[doc(hidden)]
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  pub fn from_html(cx: Scope, element: El, html: impl Into<Cow<'static, str>>) -> Self {
+    Self {
+      cx,
+      attrs: smallvec![],
+      children: smallvec![],
+      element,
+      prerendered: Some(html.into())
     }
   }
 
@@ -263,12 +278,14 @@ impl<El: IntoElement> HtmlElement<El> {
           attrs,
           children,
           element,
+          prerendered
         } = self;
 
         HtmlElement {
           cx,
           attrs,
           children,
+          prerendered,
           element: AnyElement {
             name: element.name(),
             is_void: element.is_void(),
@@ -546,6 +563,7 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
         element,
         mut attrs,
         children,
+        prerendered,
         ..
       } = self;
 
@@ -562,6 +580,7 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
 
       element.attrs = attrs;
       element.children.extend(children);
+      element.prerendered = prerendered;
 
       View::Element(element)
     }

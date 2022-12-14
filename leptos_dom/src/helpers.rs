@@ -133,3 +133,13 @@ pub fn window_event_listener(
       window().add_event_listener_with_callback(event_name, cb.unchecked_ref());
   }
 }
+
+#[doc(hidden)]
+/// This exists only to enable type inference on event listeners when in SSR mode.
+pub fn ssr_event_listener<E: crate::ev::EventDescriptor + 'static>(
+  event: E,
+  event_handler: impl FnMut(E::EventType) + 'static,
+) {
+  _ = event;
+  _ = event_handler;
+}
