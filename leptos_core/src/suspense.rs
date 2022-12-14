@@ -100,23 +100,21 @@ where
 }
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-fn render_suspense<'a, F, E, G, H>(
+fn render_suspense<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    orig_child: G,
+    orig_child: Box<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
-    G: Fn() -> H + 'static,
-    H: IntoView,
 {
     use leptos_dom::*;
 
     let initial = {
         // run the child; we'll probably throw this away, but it will register resource reads
-        let child = orig_child().into_view(cx);
+        let child = orig_child(cx).into_view(cx);
 
         // no resources were read under this, so just return the child
         if context.pending_resources.get() == 0 {
@@ -126,7 +124,7 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                orig_child().into_view(cx).render_to_string(cx).to_string()
+                orig_child(cx).into_view(cx).render_to_string(cx).to_string()
             });
 
             // return the fallback for now, wrapped in fragment identifer
