@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -59,8 +60,17 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
         todos.push(row);
     }
 
-    println!("  returning todos\n");
+    // Add a random header(because why not)
+    let mut res_headers = HeaderMap::new();
+    res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
 
+    provide_context(
+        cx,
+        leptos_actix::ResponseParts {
+            headers: res_headers.into(),
+            status: Some(StatusCode::IM_A_TEAPOT),
+        },
+    );
     Ok(todos)
 }
 

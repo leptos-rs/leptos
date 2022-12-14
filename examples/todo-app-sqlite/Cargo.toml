@@ -29,19 +29,12 @@ sqlx = { version = "0.6.2", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
 ], optional = true }
+http = "0.2.8"
 
 [features]
 default = ["ssr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = [
-	"dep:actix-files",
-	"dep:actix-web",
-	"dep:sqlx",
-	"leptos/ssr",
-	"leptos_actix",
-	"leptos_meta/ssr",
-	"leptos_router/ssr",
-]
+ssr = ["dep:actix-files", "dep:actix-web", "dep:sqlx", "leptos/ssr", "leptos_actix", "leptos_meta/ssr", "leptos_router/ssr"]
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix", "sqlx"]
