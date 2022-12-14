@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, Attribute, FnArg, ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat,
-    PatIdent, Path, ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, Attribute, FnArg, ItemFn, Lit, LitStr, Meta, MetaList,
+    MetaNameValue, NestedMeta, Pat, PatIdent, Path, ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -31,9 +33,9 @@ impl Parse for Model {
 
         let scope_name = if props.is_empty() {
             abort!(
-                item.sig.inputs,
+                item.sig,
                 "this method requires a `Scope` parameter";
-                help = "try `fn {}(cx: Scope, /* ... */ */)`", item.sig.ident
+                help = "try `fn {}(cx: Scope, /* ... */)`", item.sig.ident
             );
         } else if props[0].ty != parse_quote!(Scope) {
             abort!(
@@ -47,16 +49,24 @@ impl Parse for Model {
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
-        item.attrs.drain_filter(|attr| {
-            attr.path == parse_quote!(doc) || attr.path == parse_quote!(builder)
-        });
+        item.attrs
+            .drain_filter(|attr| attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop));
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
                 ty.attrs.drain_filter(|attr| {
-                    attr.path == parse_quote!(doc) || attr.path == parse_quote!(builder)
+                    attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
                 });
             }
         });
+
+        // Make sure return type is correct
+        if item.sig.output != parse_quote!(-> impl IntoView) {
+            abort!(
+                item.sig,
+                "return type is incorrect";
+                help = "return signature must be `-> impl IntoView`"
+            );
+        }
 
         Ok(Self {
             docs,
@@ -128,10 +138,10 @@ impl ToTokens for Model {
 }
 
 struct Prop {
-    pub docs: Docs,
-    pub typed_builder_attrs: Vec<Attribute>,
-    pub name: PatIdent,
-    pub ty: Type,
+    docs: Docs,
+    prop_opts: HashSet<PropOpt>,
+    name: PatIdent,
+    ty: Type,
 }
 
 impl Prop {
@@ -142,12 +152,43 @@ impl Prop {
             abort!(arg, "receiver not allowed in `fn`");
         };
 
-        let typed_builder_attrs = typed
+        let prop_opts = typed
             .attrs
             .iter()
-            .filter(|attr| attr.path == parse_quote!(builder))
-            .cloned()
-            .collect();
+            .enumerate()
+            .filter_map(|(i, attr)| PropOpt::from_attribute(attr).map(|opt| (i, opt)))
+            .fold(HashSet::new(), |mut acc, cur| {
+                // Make sure opts aren't repeated
+                if acc.intersection(&cur.1).next().is_some() {
+                    abort!(typed.attrs[cur.0], "`#[prop]` options are repeated");
+                }
+
+                acc.extend(cur.1);
+
+                acc
+            });
+
+        // Make sure conflicting options are not present
+        if prop_opts.contains(&PropOpt::Optional) && prop_opts.contains(&PropOpt::OptionalNoStrip) {
+            abort!(
+                typed,
+                "`optional` and `optional_no_strip` options are mutually exclusive"
+            );
+        } else if prop_opts.contains(&PropOpt::Optional)
+            && prop_opts.contains(&PropOpt::StripOption)
+        {
+            abort!(
+                typed,
+                "`optional` and `strip_option` options are mutually exclusive"
+            );
+        } else if prop_opts.contains(&PropOpt::OptionalNoStrip)
+            && prop_opts.contains(&PropOpt::StripOption)
+        {
+            abort!(
+                typed,
+                "`optional_no_strip` and `strip_option` options are mutually exclusive"
+            );
+        }
 
         let name = if let Pat::Ident(i) = *typed.pat {
             i
@@ -161,7 +202,7 @@ impl Prop {
 
         Self {
             docs: Docs::new(&typed.attrs),
-            typed_builder_attrs,
+            prop_opts,
             name,
             ty: *typed.ty,
         }
@@ -169,7 +210,7 @@ impl Prop {
 }
 
 #[derive(Clone)]
-struct Docs(pub Vec<Attribute>);
+struct Docs(Vec<Attribute>);
 
 impl ToTokens for Docs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -257,6 +298,112 @@ impl Docs {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum PropOpt {
+    Optional,
+    OptionalNoStrip,
+    StripOption,
+    Into,
+}
+
+impl PropOpt {
+    fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
+        const ABORT_OPT_MESSAGE: &str = "only `optional`, \
+                                         `optional_no_strip`, \
+                                         `strip_option`, and `into` are \
+                                         allowed as arguments to `#[prop()]`";
+
+        if attr.path != parse_quote!(prop) {
+            return None;
+        }
+
+        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().ok()? {
+            Some(
+                nested
+                    .iter()
+                    .map(|opt| {
+                        if let NestedMeta::Meta(Meta::Path(opt)) = opt {
+                            if *opt == parse_quote!(optional) {
+                                PropOpt::Optional
+                            } else if *opt == parse_quote!(optional_no_strip) {
+                                PropOpt::OptionalNoStrip
+                            } else if *opt == parse_quote!(strip_option) {
+                                PropOpt::StripOption
+                            } else if *opt == parse_quote!(into) {
+                                PropOpt::Into
+                            } else {
+                                abort!(
+                                    opt,
+                                    "invalid prop option";
+                                    help = ABORT_OPT_MESSAGE
+                                );
+                            }
+                        } else {
+                            abort!(opt, ABORT_OPT_MESSAGE,);
+                        }
+                    })
+                    .collect(),
+            )
+        } else {
+            abort!(
+                attr,
+                "the syntax for `#[prop]` is incorrect";
+                help = "try `#[prop(optional)]`";
+                help = ABORT_OPT_MESSAGE
+            );
+        }
+    }
+}
+
+struct TypedBuilderOpts {
+    default: bool,
+    strip_option: bool,
+    into: bool,
+}
+
+impl TypedBuilderOpts {
+    fn from_opts(opts: &HashSet<PropOpt>, is_ty_option: bool) -> Self {
+        Self {
+            default: opts.contains(&PropOpt::Optional) || opts.contains(&PropOpt::OptionalNoStrip),
+            strip_option: opts.contains(&PropOpt::StripOption)
+                || (opts.contains(&PropOpt::Optional) && is_ty_option),
+            into: opts.contains(&PropOpt::Into),
+        }
+    }
+}
+
+impl ToTokens for TypedBuilderOpts {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let default = if self.default {
+            quote! { default, }
+        } else {
+            quote! {}
+        };
+
+        let strip_option = if self.strip_option {
+            quote! { strip_option, }
+        } else {
+            quote! {}
+        };
+
+        let into = if self.into {
+            quote! { into, }
+        } else {
+            quote! {}
+        };
+
+        let setter = if !strip_option.is_empty() || !into.is_empty() {
+            quote! { setter(#strip_option #into) }
+        } else {
+            quote! {}
+        };
+
+        let output = quote! { #[builder(#default #setter)] };
+
+        tokens.append_all(output);
+    }
+}
+
 fn prop_builder_fields(props: &[Prop]) -> TokenStream {
     props
         .iter()
@@ -265,27 +412,17 @@ fn prop_builder_fields(props: &[Prop]) -> TokenStream {
             |Prop {
                  docs,
                  name,
-                 typed_builder_attrs,
+                 prop_opts,
                  ty,
              }| {
-                let typed_builder_attrs = typed_builder_attrs
-                    .iter()
-                    .map(|attr| quote! { #attr })
-                    .collect::<TokenStream>();
+                let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
 
                 let builder_docs = docs.typed_builder();
-
-                let builder_attr = if is_option(&ty) && typed_builder_attrs.is_empty() {
-                    quote! { #[builder(default, setter(strip_option))] }
-                } else {
-                    quote! {}
-                };
 
                 quote! {
                    #docs
                    #builder_docs
-                   #typed_builder_attrs
-                   #builder_attr
+                   #builder_attrs
                    pub #name: #ty,
                 }
             },
