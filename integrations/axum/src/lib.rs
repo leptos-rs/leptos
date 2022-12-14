@@ -26,6 +26,19 @@ pub struct ResponseParts {
     pub headers: HeaderMap,
 }
 
+pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
+    // provide request headers as context in server scope
+    let (parts, mut body) = req.into_parts();
+    let body = body::to_bytes(body).await.unwrap_or_default();
+    RequestParts {
+        method: parts.method,
+        uri: parts.uri,
+        headers: parts.headers,
+        version: parts.version,
+        body: body.clone(),
+    }
+}
+
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
@@ -82,22 +95,11 @@ pub async fn handle_server_fns(
                             let runtime = create_runtime();
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
 
-                            // provide request headers as context in server scope
-                            let (parts, mut body) = req.into_parts();
-                            let body = body::to_bytes(body).await.unwrap_or_default();
-
-                            let req_parts = RequestParts {
-                                method: parts.method,
-                                uri: parts.uri,
-                                headers: parts.headers,
-                                version: parts.version,
-                                body: body.clone(),
-                            };
-                            println!("Server Saw Parts: {:#?}", req_parts);
+                            let req_parts = generate_request_parts(req).await;
 
                             provide_context(cx, req_parts.clone());
 
-                            match server_fn(cx, &body).await {
+                            match server_fn(cx, &req_parts.body).await {
                                 Ok(serialized) => {
                                     // If ResponseParts are set, add the headers and extension to the request
                                     let response_parts = use_context::<ResponseParts>(cx);
@@ -110,12 +112,18 @@ pub async fn handle_server_fns(
                                     let accept_header =
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
-                                    let headers_ref = res.headers_mut().unwrap();
+                                    let mut res_headers = HeaderMap::new();
 
-                                    // Use provided ResponseParts
+                                    // Use provided ResponseParts if it exists
                                     match response_parts {
                                         Some(mut parts) => {
-                                            headers_ref.extend(parts.headers.drain())
+                                            res_headers.extend(parts.headers.drain())
+                                        }
+                                        None => (),
+                                    };
+                                    match res.headers_mut() {
+                                        Some(header_ref) => {
+                                            header_ref.extend(res_headers.drain());
                                         }
                                         None => (),
                                     };
@@ -295,6 +303,7 @@ pub fn render_app_to_stream(
                                         .run_until(async {
                                             let mut shell = Box::pin(render_to_stream({
                                                 let full_path = full_path.clone();
+                                                let req_parts = generate_request_parts(req).await;
                                                 move |cx| {
                                                     let integration = ServerIntegration {
                                                         path: full_path.clone(),
@@ -304,6 +313,7 @@ pub fn render_app_to_stream(
                                                         RouterIntegrationContext::new(integration),
                                                     );
                                                     provide_context(cx, MetaContext::new());
+                                                    provide_context(cx, req_parts);
                                                     let app = app_fn(cx);
                                                     let head = use_context::<MetaContext>(cx)
                                                         .map(|meta| meta.dehydrate())

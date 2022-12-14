@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use http::{header::SET_COOKIE, HeaderMap, HeaderValue};
 use leptos::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
@@ -37,9 +38,9 @@ cfg_if! {
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>(cx);
+    let req_parts = use_context::<leptos_axum::RequestParts>(cx).unwrap();
     println!("\ncalling server fn");
-    println!("ReqParts = {:?}", req_parts);
+    println!("Uri = {:?}", req_parts.uri);
 
     use futures::TryStreamExt;
 
@@ -54,6 +55,17 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     {
         todos.push(row);
     }
+
+    // Add a random header(because why not)
+    let mut res_headers = HeaderMap::new();
+    res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
+
+    provide_context(
+        cx,
+        leptos_axum::ResponseParts {
+            headers: res_headers,
+        },
+    );
 
     Ok(todos)
 }
