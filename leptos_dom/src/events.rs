@@ -13,18 +13,6 @@ thread_local! {
     pub static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
 }
 
-/// Adds an event listener to the `Window`.
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn window_event_listener(
-  event_name: &str,
-  cb: impl Fn(web_sys::Event) + 'static,
-) {
-  let handler = Box::new(cb) as Box<dyn FnMut(web_sys::Event)>;
-
-  let cb = Closure::wrap(handler).into_js_value();
-  _ = window().add_event_listener_with_callback(event_name, cb.unchecked_ref());
-}
-
 /// Adds an event listener to the target DOM element using implicit event delegation.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn add_event_listener<E>(
@@ -111,7 +99,7 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
         }
       };
 
-      window_event_listener(&event_name, handler);
+      crate::window_event_listener(&event_name, handler);
 
       // register that we've created handler
       events.insert(event_name);
