@@ -139,26 +139,58 @@ pub(crate) fn render_view(
   nodes: &[Node],
   mode: Mode,
 ) -> TokenStream {
-  if nodes.is_empty() {
-    let span = Span::call_site();
-    quote_spanned! {
-        span => leptos::Unit
+  if mode == Mode::Ssr {
+    if nodes.is_empty() {
+      let span = Span::call_site();
+      quote_spanned! {
+          span => leptos::Unit
+      }
+    } else if nodes.len() == 1 {
+      root_node_to_tokens_ssr(cx, &nodes[0])
+    } else {
+      fragment_to_tokens_ssr(cx, Span::call_site(), nodes)
     }
-  } else if nodes.len() == 1 {
-    node_to_tokens(cx, &nodes[0], mode)
   } else {
-    fragment_to_tokens(cx, Span::call_site(), nodes, mode)
+    if nodes.is_empty() {
+      let span = Span::call_site();
+      quote_spanned! {
+          span => leptos::Unit
+      }
+    } else if nodes.len() == 1 {
+      node_to_tokens(cx, &nodes[0])
+    } else {
+      fragment_to_tokens(cx, Span::call_site(), nodes)
+    }
   }
 }
 
-fn fragment_to_tokens(
-  cx: &Ident,
-  span: Span,
-  nodes: &[Node],
-  mode: Mode,
-) -> TokenStream {
+fn root_node_to_tokens_ssr(cx: &Ident, node: &Node) -> TokenStream {
+  match node {
+    Node::Fragment(fragment) => {
+      fragment_to_tokens_ssr(cx, Span::call_site(), &fragment.children)
+    }
+    Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
+    Node::Text(node) => {
+      let span = node.value.span();
+      let value = node.value.as_ref();
+      quote_spanned! {
+          span => leptos::text(#value)
+      }
+    }
+    Node::Block(node) => {
+      let span = node.value.span();
+      let value = node.value.as_ref();
+      quote_spanned! {
+          span => #value
+      }
+    }
+    Node::Element(node) => root_element_to_tokens_ssr(cx, node),
+  }
+}
+
+fn fragment_to_tokens_ssr(cx: &Ident, span: Span, nodes: &[Node]) -> TokenStream {
   let nodes = nodes.iter().map(|node| {
-    let node = node_to_tokens(cx, node, mode);
+    let node = root_node_to_tokens_ssr(cx, node);
     let span = node.span();
     quote_spanned! {
         span => #node.into_view(#cx),
@@ -173,17 +205,195 @@ fn fragment_to_tokens(
   }
 }
 
-fn node_to_tokens(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
+fn root_element_to_tokens_ssr(cx: &Ident, node: &NodeElement) -> TokenStream {
+  let mut template = String::new();
+  let mut holes = Vec::<TokenStream>::new();
+  let mut exprs_for_compiler = Vec::<TokenStream>::new();
+
+  let span = node.name.span();
+
+  element_to_tokens_ssr(cx, node, &mut template, &mut holes, &mut exprs_for_compiler);
+
+  let template = if holes.is_empty() {
+    quote! {
+      #template
+    }
+  } else {
+    quote! {
+      format!(
+        #template,
+        #(#holes)*
+      )
+    }
+  };
+
+  // TODO get proper element types for return-type purposes
+  quote_spanned! {
+    span => {
+      #(#exprs_for_compiler)*
+      ::leptos::HtmlElement::from_html(cx, leptos::Div::default(), #template)
+    }
+  }
+}
+
+fn element_to_tokens_ssr(cx: &Ident, node: &NodeElement, template: &mut String, holes: &mut Vec<TokenStream>, exprs_for_compiler: &mut Vec<TokenStream>) {
+  let span = node.name.span();
+
+  if is_component_node(node) {
+    template.push_str("{}");
+    let component = component_to_tokens(cx, node);
+    holes.push(quote_spanned! {
+      span => {#component}.into_view(cx).render_to_string(cx),
+    })
+  } else {
+    template.push('<');
+    template.push_str(&node.name.to_string());
+
+    for attr in &node.attributes {
+      if let Node::Attribute(attr) = attr {
+        attribute_to_tokens_ssr(cx, attr, template, holes, exprs_for_compiler);
+      }
+    }
+
+    // TODO: handle classes
+
+    if is_self_closing(node) {
+      template.push_str("/>");
+    } else {
+      template.push('>');
+      for child in &node.children {
+        match child {
+            Node::Element(child) => element_to_tokens_ssr(cx, child, template, holes, exprs_for_compiler),
+            Node::Text(text) => {
+              if let Some(value) = value_to_string(&text.value) {
+                template.push_str(&value);
+              } else {
+                template.push_str("{}");
+                let value = text.value.as_ref();
+                let span = text.value.span();
+                holes.push(quote_spanned! {
+                  span => #value.into_view(#cx).render_to_string(#cx),
+                })
+              }
+            },
+            Node::Block(block) => {
+              if let Some(value) = value_to_string(&block.value) {
+                template.push_str(&value);
+              } else {
+                template.push_str("{}");
+                let value = block.value.as_ref();
+                let span = block.value.span();
+                holes.push(quote_spanned! {
+                  span => #value.into_view(#cx).render_to_string(#cx),
+                })
+              }
+            },
+            Node::Fragment(_) => todo!(),
+            _ => {}
+        }
+      }
+
+      template.push_str("</");
+      template.push_str(&node.name.to_string());
+      template.push('>');
+    }
+  }
+}
+
+fn value_to_string(value: &syn_rsx::NodeValueExpr) -> Option<String> {
+  match &value.as_ref() {
+    syn::Expr::Lit(lit) => match &lit.lit {
+      syn::Lit::Str(s) => Some(s.value()),
+      syn::Lit::Char(c) => Some(c.value().to_string()),
+      syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
+      syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
+      _ => None,
+    },
+    _ => None,
+  }
+}
+
+fn attribute_to_tokens_ssr(cx: &Ident, node: &NodeAttribute, template: &mut String, holes: &mut Vec<TokenStream>, exprs_for_compiler: &mut Vec<TokenStream>) {
+  let span = node.key.span();
+  let name = node.key.to_string();
+  if name == "ref" || name == "_ref" {
+    // ignore refs on SSR
+  } else if let Some(name) = name.strip_prefix("on:") {
+    let span = name.span();
+    let handler = node
+      .value
+      .as_ref()
+      .expect("event listener attributes need a value")
+      .as_ref();
+    let event_type = TYPED_EVENTS
+      .iter()
+      .find(|e| **e == name)
+      .copied()
+      .unwrap_or("Custom");
+    let event_type = event_type
+      .parse::<TokenStream>()
+      .expect("couldn't parse event name");
+
+    exprs_for_compiler.push(quote_spanned! {
+        span => leptos::ssr_event_listener(leptos::ev::#event_type, #handler);
+    })
+  } else if let Some(name) = name.strip_prefix("prop:") {
+    // ignore props for SSR
+  } else if let Some(name) = name.strip_prefix("class:") {
+    // ignore classes: we'll handle these separately
+  } else {
+    let name = name.replacen("attr:", "", 1);
+    template.push(' ');
+    template.push_str(&name);
+
+    if let Some(value) = node.value.as_ref() {
+        if let Some(value) = value_to_string(value) {
+          template.push_str(&value);
+        } else {
+          template.push_str("{}");
+          let span = value.span();
+          let value = value.as_ref();
+          holes.push(quote_spanned! {
+            span => leptos::escape_attr(&{#value}.into_attribute(#cx).as_value_string(#name)),
+          })
+        }
+        template.push('"');
+    }
+  }
+}
+
+fn fragment_to_tokens(
+  cx: &Ident,
+  span: Span,
+  nodes: &[Node],
+) -> TokenStream {
+  let nodes = nodes.iter().map(|node| {
+    let node = node_to_tokens(cx, node);
+    let span = node.span();
+    quote_spanned! {
+        span => #node.into_view(#cx),
+    }
+  });
+  quote_spanned! {
+      span => {
+          leptos::Fragment::new(vec![
+              #(#nodes)*
+          ])
+      }
+  }
+}
+
+fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
   match node {
     Node::Fragment(fragment) => {
-      fragment_to_tokens(cx, Span::call_site(), &fragment.children, mode)
+      fragment_to_tokens(cx, Span::call_site(), &fragment.children)
     }
     Node::Comment(_) | Node::Doctype(_) => quote! {},
     Node::Text(node) => {
       let span = node.value.span();
       let value = node.value.as_ref();
       quote_spanned! {
-          span => text(#value)
+          span => leptos::text(#value)
       }
     }
     Node::Block(node) => {
@@ -193,19 +403,18 @@ fn node_to_tokens(cx: &Ident, node: &Node, mode: Mode) -> TokenStream {
           span => #value
       }
     }
-    Node::Attribute(node) => attribute_to_tokens(cx, node, mode),
-    Node::Element(node) => element_to_tokens(cx, node, mode),
+    Node::Attribute(node) => attribute_to_tokens(cx, node),
+    Node::Element(node) => element_to_tokens(cx, node),
   }
 }
 
 fn element_to_tokens(
   cx: &Ident,
   node: &NodeElement,
-  mode: Mode,
 ) -> TokenStream {
   let span = node.name.span();
   if is_component_node(node) {
-    component_to_tokens(cx, node, mode)
+    component_to_tokens(cx, node)
   } else {
     let name = if is_custom_element(&node.name) {
       let name = node.name.to_string();
@@ -216,7 +425,7 @@ fn element_to_tokens(
     };
     let attrs = node.attributes.iter().filter_map(|node| {
       if let Node::Attribute(node) = node {
-        Some(attribute_to_tokens(cx, node, mode))
+        Some(attribute_to_tokens(cx, node))
       } else {
         None
       }
@@ -224,7 +433,7 @@ fn element_to_tokens(
     let children = node.children.iter().map(|node| {
       let child = match node {
         Node::Fragment(fragment) => {
-          fragment_to_tokens(cx, Span::call_site(), &fragment.children, mode)
+          fragment_to_tokens(cx, Span::call_site(), &fragment.children)
         }
         Node::Text(node) => {
           let span = node.value.span();
@@ -240,7 +449,7 @@ fn element_to_tokens(
               span => #[allow(unused_braces)] #value
           }
         }
-        Node::Element(node) => element_to_tokens(cx, node, mode),
+        Node::Element(node) => element_to_tokens(cx, node),
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
       };
       quote! {
@@ -258,12 +467,10 @@ fn element_to_tokens(
 fn attribute_to_tokens(
   cx: &Ident,
   node: &NodeAttribute,
-  _mode: Mode,
 ) -> TokenStream {
   let span = node.key.span();
   let name = node.key.to_string();
   if name == "ref" || name == "_ref" {
-    //if mode != Mode::Ssr {
     let value = node
       .value
       .as_ref()
@@ -272,11 +479,7 @@ fn attribute_to_tokens(
     quote_spanned! {
         span => .node_ref(#value)
     }
-    /* } else {
-        todo!()
-    } */
   } else if let Some(name) = name.strip_prefix("on:") {
-    //if mode != Mode::Ssr {
     let span = name.span();
     let handler = node
       .value
@@ -295,35 +498,24 @@ fn attribute_to_tokens(
     quote_spanned! {
         span => .on(leptos::ev::#event_type, #handler)
     }
-    /* } else {
-        todo!()
-    } */
   } else if let Some(name) = name.strip_prefix("prop:") {
     let value = node
       .value
       .as_ref()
       .expect("prop: attributes need a value")
       .as_ref();
-    //if mode != Mode::Ssr {
     quote_spanned! {
         span => .prop(#name, (#cx, #[allow(unused_braces)] #value))
     }
-    /* } else {
-        todo!()
-    } */
   } else if let Some(name) = name.strip_prefix("class:") {
     let value = node
       .value
       .as_ref()
       .expect("class: attributes need a value")
       .as_ref();
-    //if mode != Mode::Ssr {
     quote_spanned! {
         span => .class(#name, (#cx, #[allow(unused_braces)] #value))
     }
-    /* } else {
-        todo!()
-    } */
   } else {
     let name = name.replacen("attr:", "", 1);
     let value = match node.value.as_ref() {
@@ -334,20 +526,15 @@ fn attribute_to_tokens(
       }
       None => quote_spanned! { span => "" },
     };
-    //if mode != Mode::Ssr {
     quote_spanned! {
         span => .attr(#name, (#cx, #value))
     }
-    /* } else {
-        quote! { }
-    } */
   }
 }
 
 fn component_to_tokens(
   cx: &Ident,
   node: &NodeElement,
-  mode: Mode,
 ) -> TokenStream {
   let name = &node.name;
   let component_name = ident_from_tag_name(&node.name);
@@ -358,7 +545,7 @@ fn component_to_tokens(
   let children = if node.children.is_empty() {
     quote! { }
   } else {
-    let children = fragment_to_tokens(cx, span, &node.children, mode);
+    let children = fragment_to_tokens(cx, span, &node.children);
     quote! { .children(Box::new(move |#cx| #children)) }
   };
 
@@ -433,4 +620,26 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
 
 fn is_custom_element(name: &NodeName) -> bool {
   name.to_string().contains('-')
+}
+
+fn is_self_closing(node: &NodeElement) -> bool {
+  // self-closing tags
+  // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
+  matches!(
+    node.name.to_string().as_str(),
+    "area"
+        | "base"
+        | "br"
+        | "col"
+        | "embed"
+        | "hr"
+        | "img"
+        | "input"
+        | "link"
+        | "meta"
+        | "param"
+        | "source"
+        | "track"
+        | "wbr"
+  )
 }

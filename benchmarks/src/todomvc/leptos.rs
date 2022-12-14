@@ -1,4 +1,4 @@
-use leptos::*;
+pub use leptos::*;
 use miniserde::*;
 use web_sys::HtmlInputElement;
 
@@ -103,7 +103,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
+pub fn TodoMVC(cx: Scope,todos: Todos) -> impl IntoView {
   let mut next_id = todos
     .0
     .iter()

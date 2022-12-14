@@ -28,15 +28,16 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 					<Counter initial=2/>
 					<Counter initial=3/>
 				</main>
-			}.into_view(cx).render_to_string();
+			}.into_view(cx).render_to_string(cx);
 
-			assert!(
-				!rendered.is_empty()
+			assert_eq!(
+				rendered,
+				"<main><h1>Welcome to our benchmark page.</h1><p>Here's some introductory text.</p><div><button>-1</button><span>Value: <!>1<template id=\"_3\"></template>!</span><button>+1</button></div><template id=\"_1\"></template><div><button>-1</button><span>Value: <!>2<template id=\"_2\"></template>!</span><button>+1</button></div><template id=\"_0\"></template><div><button>-1</button><span>Value: <!>3<template id=\"_2\"></template>!</span><button>+1</button></div><template id=\"_0\"></template></main>"
 			);
 		});
 	});
 }
-
+/* 
 #[bench]
 fn tera_ssr_bench(b: &mut Bencher) {
 	use tera::*;
@@ -193,3 +194,4 @@ fn yew_ssr_bench(b: &mut Bencher) {
 		});
 	});
 }
+ */

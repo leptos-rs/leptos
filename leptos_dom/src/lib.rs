@@ -148,6 +148,7 @@ cfg_if! {
       is_void: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: Vec<View>,
+      prerendered: Option<Cow<'static, str>>,
       id: usize,
     }
 
@@ -203,6 +204,7 @@ impl Element {
         attrs,
         children,
         id,
+        prerendered
       } = self;
 
       let element = AnyElement { name, is_void, id };
@@ -212,6 +214,7 @@ impl Element {
         element,
         attrs,
         children: children.into_iter().collect(),
+        prerendered
       }
     }
   }
@@ -242,8 +245,22 @@ impl Element {
           attrs: Default::default(),
           children: Default::default(),
           id: el.hydration_id(),
+          prerendered: None
         }
       }
+    }
+  }
+
+  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+  #[track_caller]
+  fn from_html<El: IntoElement>(el: El, html: impl Into<Cow<'static, str>>) -> Self {
+    Self {
+      name: el.name(),
+      is_void: el.is_void(),
+      attrs: Default::default(),
+      children: Default::default(),
+      id: el.hydration_id(),
+      prerendered: Some(html.into())
     }
   }
 }
