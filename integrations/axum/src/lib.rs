@@ -7,6 +7,7 @@ use axum::{
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
 use http::{method::Method, uri::Uri, version::Version};
+use hyper::body;
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
@@ -18,7 +19,7 @@ pub struct RequestParts {
     pub method: Method,
     pub uri: Uri,
     pub headers: HeaderMap<HeaderValue>,
-    pub body: Vec<u8>,
+    pub body: Bytes,
 }
 #[derive(Debug, Clone)]
 pub struct ResponseParts {
@@ -68,6 +69,7 @@ pub async fn handle_server_fns(
         Some(path) => path.to_string(),
         None => fn_name,
     };
+    println!("FN_NAME: {}", &fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
@@ -82,7 +84,7 @@ pub async fn handle_server_fns(
 
                             // provide request headers as context in server scope
                             let (parts, mut body) = req.into_parts();
-                            let body = body.data().await.unwrap().unwrap().to_vec();
+                            let body = body::to_bytes(body).await.unwrap_or_default();
 
                             let req_parts = RequestParts {
                                 method: parts.method,
@@ -93,7 +95,7 @@ pub async fn handle_server_fns(
                             };
                             println!("Server Saw Parts: {:#?}", req_parts);
 
-                            provide_context(cx, Arc::new(req_parts));
+                            provide_context(cx, req_parts.clone());
 
                             match server_fn(cx, &body).await {
                                 Ok(serialized) => {
@@ -272,8 +274,8 @@ pub fn render_app_to_stream(
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
                             <link rel="modulepreload" href="{pkg_path}.js">
-                            <link rel="preload" href="{pkg_path}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}.wasm').then(hydrate);</script>
+                            <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
