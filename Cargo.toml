@@ -18,6 +18,7 @@ members = [
   "router",
 
   # examples
+  "examples/cloudflare-worker",
   "examples/counter",
   "examples/counter-isomorphic",
   "examples/counters",

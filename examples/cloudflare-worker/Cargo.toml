@@ -1,0 +1,20 @@
+[package]
+name = "counter-worker"
+version = "0.0.0"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cfg-if = "1"
+worker = { version = "0.0.12", optional = true }
+serde_json = "1"
+leptos = { path = "../../leptos", default-features = false }
+console_error_panic_hook = "0.1"
+wasm-bindgen = "0.2"
+
+[features]
+default = ["ssr"]
+ssr = ["leptos/ssr", "dep:worker"]
+hydrate = ["leptos/hydrate"]
