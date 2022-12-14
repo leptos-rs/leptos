@@ -108,7 +108,7 @@ impl ToTokens for Model {
 
             #docs
             #component_fn_prop_docs
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, clippy::too_many_arguments)]
             #vis fn #name #generics (#scope_name: Scope, props: #props_name #generics) #ret
             #where_clause
             {
