@@ -13,6 +13,8 @@ use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
 
+/// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
+/// to construct this for Leptos to use in Axum
 #[derive(Debug, Clone)]
 pub struct RequestParts {
     pub version: Version,
@@ -21,14 +23,19 @@ pub struct RequestParts {
     pub headers: HeaderMap<HeaderValue>,
     pub body: Bytes,
 }
+/// If ResponseParts is inserted into context with `use_context()` during a server function, it will
+/// let you set the status code and headers of the response. This is useful for cookies and custom responses.
+/// Status is not set if the request does not have one of the supported body types, and Headers will be set
+/// on any non Error response if provided
 #[derive(Debug, Clone)]
 pub struct ResponseParts {
+    pub status: Option<StatusCode>,
     pub headers: HeaderMap,
 }
 
 pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
     // provide request headers as context in server scope
-    let (parts, mut body) = req.into_parts();
+    let (parts, body) = req.into_parts();
     let body = body::to_bytes(body).await.unwrap_or_default();
     RequestParts {
         method: parts.method,
@@ -82,7 +89,6 @@ pub async fn handle_server_fns(
         Some(path) => path.to_string(),
         None => fn_name,
     };
-    println!("FN_NAME: {}", &fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
     std::thread::spawn({
@@ -112,14 +118,13 @@ pub async fn handle_server_fns(
                                     let accept_header =
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
-                                    let mut res_headers = HeaderMap::new();
 
-                                    // Use provided ResponseParts if it exists
-                                    match response_parts {
-                                        Some(mut parts) => {
-                                            res_headers.extend(parts.headers.drain())
-                                        }
-                                        None => (),
+                                    // Add headers from ResponseParts if they exist. These should be added as long
+                                    // as the server function returns an OK response
+                                    // Use provided headers if they exist
+                                    let (status, mut res_headers) = match response_parts {
+                                        Some(parts) => (parts.status, parts.headers),
+                                        None => (None, HeaderMap::new()),
                                     };
                                     match res.headers_mut() {
                                         Some(header_ref) => {
@@ -134,6 +139,13 @@ pub async fn handle_server_fns(
                                         || accept_header == Some("application/cbor")
                                     {
                                         res = res.status(StatusCode::OK);
+
+                                        // Override Status if Status is set in ResponseParts and
+                                        // We're not trying to do a form submit
+                                        res = match status {
+                                            Some(status) => res.status(status),
+                                            None => res,
+                                        }
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                                     else {

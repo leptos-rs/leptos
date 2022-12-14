@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use http::{header::SET_COOKIE, HeaderMap, HeaderValue};
+use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 use leptos::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
@@ -64,6 +64,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
         cx,
         leptos_axum::ResponseParts {
             headers: res_headers,
+            status: Some(StatusCode::IM_A_TEAPOT),
         },
     );
 
