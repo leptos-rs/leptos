@@ -204,7 +204,7 @@ where IV: IntoView
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
                         <link rel="modulepreload" href="{pkg_path}.js">
-                        <link rel="preload" href="{pkg_path}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                        <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
                         <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
                         {leptos_autoreload}
                         "#
