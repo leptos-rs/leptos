@@ -612,7 +612,7 @@ pub fn document() -> web_sys::Document {
 /// };
 /// ```
 pub const fn is_server() -> bool {
-  cfg!(all(target_arch = "wasm32", feature = "web"))
+  !is_browser()
 }
 
 /// Returns true if running on the browser (CSR).
@@ -626,7 +626,7 @@ pub const fn is_server() -> bool {
 /// };
 /// ```
 pub const fn is_browser() -> bool {
-  !is_server()
+  cfg!(all(target_arch = "wasm32", feature = "web"))
 }
 
 /// Returns true if `debug_assertions` are enabled.
