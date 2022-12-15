@@ -151,8 +151,6 @@ where
       move |prev_run: Option<(Option<web_sys::Node>, ScopeDisposer)>| {
         #[cfg(debug_assertions)]
         let _guard = span.enter();
-        #[cfg(debug_assertions)]
-        let _guard = trace_span!("DynChild reactive").entered();
 
         let (new_child, disposer) =
           cx.run_child_scope(|cx| child_fn().into_view(cx));

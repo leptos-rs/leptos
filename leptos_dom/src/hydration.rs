@@ -56,18 +56,6 @@ impl HydrationCtx {
     unsafe { ID = id }
   }
 
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) fn set_id(cx: Scope) {
-    /* let new_id = if let Some(id) = cx.get_hydration_key() {
-      id + 1
-    } else {
-      0
-    }; */
-    let new_id = 0;
-    println!("setting ID to {new_id}");
-    unsafe { ID = new_id };
-  }
-
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) fn stop_hydrating() {
     unsafe {

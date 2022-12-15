@@ -6,7 +6,7 @@
 //! The DOM implementation for `leptos`.
 
 #[cfg_attr(debug_assertions, macro_use)]
-extern crate tracing;
+pub extern crate tracing;
 
 mod components;
 mod events;
@@ -19,7 +19,6 @@ mod node_ref;
 mod ssr;
 mod transparent;
 
-
 use cfg_if::cfg_if;
 pub use components::*;
 pub use events::typed as ev;
@@ -29,7 +28,7 @@ pub use hydration::HydrationCtx;
 pub use js_sys;
 use leptos_reactive::Scope;
 pub use logging::*;
-pub use macro_helpers::{IntoClass, IntoAttribute, IntoProperty};
+pub use macro_helpers::{IntoAttribute, IntoClass, IntoProperty};
 pub use node_ref::*;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
@@ -109,7 +108,7 @@ where
 {
   #[cfg_attr(
     debug_assertions,
-    instrument(level = "trace", name = "Fn() -> N", skip_all)
+    instrument(level = "trace", name = "Fn() -> impl IntoView", skip_all)
   )]
   fn into_view(self, cx: Scope) -> View {
     DynChild::new(self).into_view(cx)
@@ -206,7 +205,7 @@ impl Element {
         attrs,
         children,
         id,
-        prerendered
+        prerendered,
       } = self;
 
       let element = AnyElement { name, is_void, id };
@@ -216,7 +215,7 @@ impl Element {
         element,
         attrs,
         children: children.into_iter().collect(),
-        prerendered
+        prerendered,
       }
     }
   }
@@ -255,14 +254,17 @@ impl Element {
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   #[track_caller]
-  fn from_html<El: IntoElement>(el: El, html: impl Into<Cow<'static, str>>) -> Self {
+  fn from_html<El: IntoElement>(
+    el: El,
+    html: impl Into<Cow<'static, str>>,
+  ) -> Self {
     Self {
       name: el.name(),
       is_void: el.is_void(),
       attrs: Default::default(),
       children: Default::default(),
       id: el.hydration_id(),
-      prerendered: Some(html.into())
+      prerendered: Some(html.into()),
     }
   }
 }
