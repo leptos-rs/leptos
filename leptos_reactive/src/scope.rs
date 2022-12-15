@@ -325,14 +325,18 @@ impl Scope {
         })
     }
 
-    /// Sets the latest hydration key.
-    pub fn set_hydration_key(&self, id: usize) {
-        with_runtime(self.runtime, |runtime| runtime.set_hydration_key(id))
-    }
-
     /// Gets the latest hydration key.
-    pub fn get_hydration_key(&self) -> Option<usize> {
-        with_runtime(self.runtime, |runtime| runtime.get_hydration_key())
+    pub fn next_hydration_key(&self) -> Option<String> {
+        with_runtime(self.runtime, |runtime| {
+            let mut ids = runtime.scope_node_ids.borrow_mut();
+            if let Some(entry) = ids.entry(self.id) {
+                let current_key = entry.or_default();
+                *current_key += 1;
+                Some(format!("{:?}-{}", self.id, current_key))
+            } else {
+                None
+            }
+        })
     }
 
     /// The current key for an HTML fragment created by server-rendering a `<Suspense/>` component.
