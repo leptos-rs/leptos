@@ -1,3 +1,4 @@
+use leptos_dom::HydrationCtx;
 use leptos_dom::{Fragment, IntoView};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use typed_builder::TypedBuilder;
@@ -88,10 +89,28 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
+    use std::cell::RefCell;
+
     use leptos_dom::DynChild;
 
+    let cached_id = RefCell::new(None);
+
     DynChild::new(move || {
+        let mut cached_id_borrow = cached_id.borrow_mut();
+
+        let first_run = if cached_id_borrow.is_none() {
+            *cached_id_borrow = Some(HydrationCtx::peak());
+
+            true
+        } else {
+            false
+        };
+
         if context.ready() {
+            if let Some(id) = *cached_id_borrow {
+                HydrationCtx::continue_from(id);
+            }
+
             child(cx).into_view(cx)
         } else {
             fallback().into_view(cx)
@@ -124,14 +143,14 @@ where
         else {
             let key = cx.current_fragment_key();
             cx.register_suspense(context, &key, move || {
-                orig_child(cx).into_view(cx).render_to_string(cx).to_string()
+                orig_child(cx)
+                    .into_view(cx)
+                    .render_to_string(cx)
+                    .to_string()
             });
 
             // return the fallback for now, wrapped in fragment identifer
-            div(cx)
-                .id(key.to_string())
-                .child(fallback)
-                .into_view(cx)
+            div(cx).id(key.to_string()).child(fallback).into_view(cx)
         }
     };
     initial

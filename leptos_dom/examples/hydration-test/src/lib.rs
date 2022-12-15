@@ -11,15 +11,14 @@ pub fn App(cx: Scope) -> impl IntoView {
       if cfg!(feature = "ssr") {
         let (tx, rx) = futures::channel::oneshot::channel();
         spawn_local(async {
-          std::thread::sleep(std::time::Duration::from_millis(500));
+          std::thread::sleep(std::time::Duration::from_secs(10));
           tx.send(());
         });
         rx.await;
       } else {
-        
       }
       ()
-    }
+    },
   );
 
   view! { cx,
@@ -35,10 +34,12 @@ pub fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn ComponentA(cx: Scope, children: Box<dyn Fn() -> Vec<View>>) -> impl IntoView {
+pub fn ComponentA(
+  cx: Scope,
+  children: Box<dyn Fn() -> Vec<View>>,
+) -> impl IntoView {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
   let (counter, set_counter) = create_signal(cx, 0);
-
 
   // Test to make sure hydration isn't broken by
   // something like this
@@ -65,6 +66,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[wasm_bindgen]
 pub fn hydrate() {
   console_error_panic_hook::set_once();
+
+  gloo::console::debug!("starting WASM");
 
   leptos::mount_to_body(move |cx| {
     view! { cx, <App/> }

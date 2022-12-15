@@ -1,8 +1,8 @@
 use actix_files::Files;
 use actix_web::*;
+use futures::StreamExt;
 use hydration_test::*;
 use leptos::*;
-use futures::StreamExt;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -21,17 +21,19 @@ async fn main() -> std::io::Result<()> {
                     <link rel="modulepreload" href="{pkg_path}.js">
                     <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
                     <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
-                    "#
+                </head>
+                <body>"#
         );
 
         let tail = "</body></html>";
 
         HttpResponse::Ok().content_type("text/html").streaming(
             futures::stream::once(async move { head.clone() })
-            .chain(render_to_stream(
+            .chain(render_to_stream( 
                 |cx| view! { cx, <App/> }.into_view(cx),
             ))
             .chain(futures::stream::once(async { tail.to_string() }))
+            .inspect(|html| println!("{html}")) 
             .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
       )})
     ))

@@ -19,12 +19,13 @@ mod node_ref;
 mod ssr;
 mod transparent;
 
+
 use cfg_if::cfg_if;
 pub use components::*;
 pub use events::typed as ev;
 pub use helpers::*;
 pub use html::*;
-use hydration::HydrationCtx;
+pub use hydration::HydrationCtx;
 pub use js_sys;
 use leptos_reactive::Scope;
 pub use logging::*;

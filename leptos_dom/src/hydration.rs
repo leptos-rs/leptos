@@ -20,9 +20,15 @@ static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
 #[thread_local]
 static mut ID: usize = 0;
 
-pub(crate) struct HydrationCtx;
+/// Control and utility methods for hydration.
+pub struct HydrationCtx;
 
 impl HydrationCtx {
+  /// Get the next `id` without incrementing it.
+  pub fn peak() -> usize {
+    unsafe { ID }
+  }
+
   pub(crate) fn id() -> usize {
     unsafe {
       let id = ID;
@@ -42,6 +48,12 @@ impl HydrationCtx {
   pub(crate) fn reset_id() {
     println!("resetting ID");
     unsafe { ID = 0 };
+  }
+
+  /// Resums hydration from the provided `id`. Usefull for
+  /// `Suspense` and other fancy things.
+  pub fn continue_from(id: usize) {
+    unsafe { ID = id }
   }
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
