@@ -95,6 +95,7 @@ impl ToTokens for Model {
         let (impl_generics, generics, where_clause) = body.sig.generics.split_for_impl();
 
         let props_name = format_ident!("{name}Props");
+        let trace_name = format!("<{name} />");
 
         let prop_builder_fields = prop_builder_fields(props);
 
@@ -117,6 +118,10 @@ impl ToTokens for Model {
             #docs
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
+            #[cfg_attr(
+                debug_assertions,
+                leptos::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+              )]
             #vis fn #name #generics (#scope_name: Scope, props: #props_name #generics) #ret
             #where_clause
             {
@@ -126,9 +131,16 @@ impl ToTokens for Model {
                     #prop_names
                 } = props;
 
+                let span = leptos::tracing::Span::current();
+
                 leptos::Component::new(
                     stringify!(#name),
-                    move |cx| #name(cx, #prop_names)
+                    move |cx| {
+                        #[cfg(debug_assertions)]
+                        let _guard = span.entered();
+
+                        #name(cx, #prop_names)
+                    }
                 )
             }
         };
