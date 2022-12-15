@@ -119,7 +119,7 @@ where
             enctype=enctype
             on:submit=on_submit
         >
-            {move || children(cx)}
+            {children(cx)}
         </form>
     }
 }
@@ -247,7 +247,7 @@ where
             action=action
             on:submit=on_submit
         >
-            {move || children(cx)}
+            {children(cx)}
         </form>
     }
 }
