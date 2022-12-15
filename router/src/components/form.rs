@@ -124,42 +124,32 @@ where
     }
 }
 
-/// Properties that can be passed to the [ActionForm] component, which
-/// automatically turns a server [Action](leptos_server::Action) into an HTML
-/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-/// progressively enhanced to use client-side routing.
-#[derive(TypedBuilder)]
-pub struct ActionFormProps<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-    /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [create_server_action](leptos_server::create_server_action) or added
-    /// manually using [leptos_server::Action::using_server_fn].
-    pub action: Action<I, Result<O, ServerFnError>>,
-    /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn(Scope) -> Fragment>,
-}
-
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
-#[allow(non_snake_case)]
-pub fn ActionForm<I, O>(cx: Scope, props: ActionFormProps<I, O>) -> impl IntoView
+#[component]
+pub fn ActionForm<I, O>(
+    cx: Scope,
+    /// The action from which to build the form. This should include a URL, which can be generated
+    /// by default using [create_server_action](leptos_server::create_server_action) or added
+    /// manually using [leptos_server::Action::using_server_fn].
+    action: Action<I, Result<O, ServerFnError>>,
+    /// Component children; should include the HTML of the form elements.
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
 {
-    let action = if let Some(url) = props.action.url() {
+    let action_url = if let Some(url) = action.url() {
         url
     } else {
         debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
         ""
     }.to_string();
-    let version = props.action.version;
-    let value = props.action.value;
-    let input = props.action.input;
+    let version = action.version;
+    let value = action.value;
+    let input = action.input;
 
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
         let data = action_input_from_form_data(form_data);
@@ -198,12 +188,12 @@ where
     Form(
         cx,
         FormProps::builder()
-            .action(action)
+            .action(action_url)
             .version(version)
             .on_form_data(on_form_data)
             .on_response(on_response)
             .method("post")
-            .children(props.children)
+            .children(children)
             .build(),
     )
 }
