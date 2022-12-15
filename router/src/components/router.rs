@@ -19,32 +19,27 @@ use crate::{
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
 
-/// Props for the [Router] component, which sets up client-side and server-side routing.
-#[derive(TypedBuilder)]
-pub struct RouterProps {
+/// Provides for client-side and server-side routing. This should usually be somewhere near
+/// the root of the application.
+#[component]
+pub fn Router(
+    cx: Scope,
     /// The base URL for the router. Defaults to "".
-    #[builder(default, setter(strip_option))]
-    pub base: Option<&'static str>,
-    #[builder(default, setter(strip_option))]
+    #[prop(optional)]
+    base: Option<&'static str>,
     /// A fallback that should be shown if no route is matched.
-    pub fallback: Option<fn() -> View>,
+    #[prop(optional)]
+    fallback: Option<fn() -> View>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
-    pub children: Box<dyn Fn(Scope) -> Fragment>,
-}
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView {
+    // create a new RouterContext and provide it to every component beneath the router
+    let router = RouterContext::new(cx, base, fallback);
+    provide_context(cx, router);
 
-/// Provides for client-side and server-side routing. This should usually be somewhere near
-/// the root of the application.
-#[allow(non_snake_case)]
-pub fn Router(cx: Scope, props: RouterProps) -> impl IntoView {
-    Component::new("Router", move |cx| {
-        // create a new RouterContext and provide it to every component beneath the router
-        let router = RouterContext::new(cx, props.base, props.fallback);
-        provide_context(cx, router);
-
-        move || (props.children)(cx)
-    })
+    move || children(cx)
 }
 
 /// Context type that contains information about the current router state.

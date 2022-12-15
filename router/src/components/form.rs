@@ -5,62 +5,43 @@ use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
-/// Properties that can be passed to the [Form] component, which is an HTML
-/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-/// progressively enhanced to use client-side routing.
-#[derive(TypedBuilder)]
-pub struct FormProps<A>
-where
-    A: ToHref + 'static,
-{
+/// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
+/// enhanced to use client-side routing.
+#[component]
+pub fn Form<A>(
+    cx: Scope,
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
     /// is the HTTP method to submit the form with (`get` or `post`).
-    #[builder(default, setter(strip_option))]
-    pub method: Option<&'static str>,
+    #[prop(optional)]
+    method: Option<&'static str>,
     /// [`action`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action)
     /// is the URL that processes the form submission. Takes a [String], [&str], or a reactive
     /// function that returns a [String].
-    pub action: A,
+    action: A,
     /// [`enctype`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-enctype)
     /// is the MIME type of the form submission if `method` is `post`.
-    #[builder(default, setter(strip_option))]
-    pub enctype: Option<String>,
+    #[prop(optional)]
+    enctype: Option<String>,
     /// A signal that will be incremented whenever the form is submitted with `post`. This can useful
     /// for reactively updating a [Resource] or another signal whenever the form has been submitted.
-    #[builder(default, setter(strip_option))]
-    pub version: Option<RwSignal<usize>>,
+    #[prop(optional)]
+    version: Option<RwSignal<usize>>,
     /// A signal that will be set if the form submission ends in an error.
-    #[builder(default, setter(strip_option))]
-    pub error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    #[prop(optional)]
+    error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// A callback will be called with the [FormData](web_sys::FormData) when the form is submitted.
-    #[builder(default, setter(strip_option))]
-    pub on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    #[prop(optional)]
+    on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
-    #[builder(default, setter(strip_option))]
-    pub on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+    #[prop(optional)]
+    on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn(Scope) -> Fragment>,
-}
-
-/// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
-/// enhanced to use client-side routing.
-#[allow(non_snake_case)]
-pub fn Form<A>(cx: Scope, props: FormProps<A>) -> impl IntoView
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView
 where
     A: ToHref + 'static,
 {
-    let FormProps {
-        method,
-        action,
-        enctype,
-        children,
-        version,
-        error,
-        on_form_data,
-        on_response,
-    } = props;
-
     let action_version = version;
     let action = use_resolved_path(cx, move || action.to_href()());
 
@@ -131,18 +112,16 @@ where
 
     let method = method.unwrap_or("get");
 
-    Component::new("Form", move |cx| {
-        view! { cx,
-            <form
-                method=method
-                action=move || action.get()
-                enctype=enctype
-                on:submit=on_submit
-            >
-                {move || children(cx)}
-            </form>
-        }
-    })
+    view! { cx,
+        <form
+            method=method
+            action=move || action.get()
+            enctype=enctype
+            on:submit=on_submit
+        >
+            {move || children(cx)}
+        </form>
+    }
 }
 
 /// Properties that can be passed to the [ActionForm] component, which
