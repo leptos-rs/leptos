@@ -1,17 +1,19 @@
+use axum::response::Response as AxumResponse;
 use axum::{
     body::{Body, Bytes, Full, HttpBody, StreamBody},
     debug_handler,
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
-use http::{method::Method, uri::Uri, version::Version};
+use http::{method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
+use tokio::{sync::RwLock, task::spawn_blocking};
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
@@ -27,7 +29,7 @@ pub struct RequestParts {
 /// let you set the status code and headers of the response. This is useful for cookies and custom responses.
 /// Status is not set if the request does not have one of the supported body types, and Headers will be set
 /// on any non Error response if provided
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
     pub status: Option<StatusCode>,
     pub headers: HeaderMap,
@@ -91,7 +93,7 @@ pub async fn handle_server_fns(
     };
 
     let (tx, rx) = futures::channel::oneshot::channel();
-    std::thread::spawn({
+    spawn_blocking({
         move || {
             tokio::runtime::Runtime::new()
                 .expect("couldn't spawn runtime")
@@ -246,7 +248,7 @@ pub fn render_app_to_stream(
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<Box<dyn Future<Output = StreamBody<PinnedHtmlStream>> + Send + 'static>>
+) -> Pin<Box<dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>> + Send + 'static>>
        + Clone
        + Send
        + 'static {
@@ -303,7 +305,9 @@ pub fn render_app_to_stream(
 
                 let (mut tx, rx) = futures::channel::mpsc::channel(8);
 
-                std::thread::spawn({
+                let res_parts_outer = Arc::new(RwLock::new(ResponseParts::default()));
+                let res_parts_dup = res_parts_outer.clone();
+                spawn_blocking({
                     let app_fn = app_fn.clone();
                     move || {
                         tokio::runtime::Runtime::new()
@@ -313,29 +317,48 @@ pub fn render_app_to_stream(
                                 async move {
                                     tokio::task::LocalSet::new()
                                         .run_until(async {
-                                            let mut shell = Box::pin(render_to_stream({
-                                                let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
-                                                move |cx| {
-                                                    let integration = ServerIntegration {
-                                                        path: full_path.clone(),
-                                                    };
-                                                    provide_context(
-                                                        cx,
-                                                        RouterIntegrationContext::new(integration),
-                                                    );
-                                                    provide_context(cx, MetaContext::new());
-                                                    provide_context(cx, req_parts);
-                                                    let app = app_fn(cx);
-                                                    let head = use_context::<MetaContext>(cx)
-                                                        .map(|meta| meta.dehydrate())
-                                                        .unwrap_or_default();
-                                                    format!("{head}</head><body>{app}")
-                                                }
-                                            }));
+                                            let (cx, disposer, bundle) =
+                                                render_to_stream_undisposed({
+                                                    let full_path = full_path.clone();
+                                                    let req_parts =
+                                                        generate_request_parts(req).await;
+                                                    move |cx| {
+                                                        let integration = ServerIntegration {
+                                                            path: full_path.clone(),
+                                                        };
+                                                        provide_context(
+                                                            cx,
+                                                            RouterIntegrationContext::new(
+                                                                integration,
+                                                            ),
+                                                        );
+                                                        provide_context(cx, MetaContext::new());
+                                                        provide_context(cx, req_parts);
+                                                        let app = app_fn(cx);
+                                                        let head = use_context::<MetaContext>(cx)
+                                                            .map(|meta| meta.dehydrate())
+                                                            .unwrap_or_default();
+                                                        format!("{head}</head><body>{app}")
+                                                    }
+                                                });
+                                            let mut shell = Box::pin(bundle);
                                             while let Some(fragment) = shell.next().await {
                                                 _ = tx.send(fragment).await;
                                             }
+                                            // Extract the value of ResponseParts from here
+                                            let res_parts_inner = use_context::<ResponseParts>(cx)
+                                                .unwrap_or_default();
+                                            println!(
+                                                "Inner Response Parts: {:#?}",
+                                                res_parts_inner.clone()
+                                            );
+
+                                            let mut writable = res_parts_dup.write().await;
+                                            *writable = res_parts_inner;
+
+                                            // Dispose of things
+                                            disposer.dispose();
+
                                             tx.close_channel();
                                         })
                                         .await;
@@ -348,7 +371,19 @@ pub fn render_app_to_stream(
                     .chain(rx)
                     .chain(futures::stream::once(async { tail.to_string() }))
                     .map(|html| Ok(Bytes::from(html)));
-                StreamBody::new(Box::pin(stream) as PinnedHtmlStream)
+
+                let mut res = Response::new(StreamBody::new(Box::pin(stream) as PinnedHtmlStream));
+                let mut res_parts = res_parts_outer.read().await;
+                println!("Response Parts: {:#?}", res_parts);
+
+                match res_parts.status {
+                    Some(status) => *res.status_mut() = status,
+                    None => (),
+                };
+                let mut res_headers = res_parts.headers.clone();
+                res.headers_mut().extend(res_headers.drain());
+
+                res
             }
         })
     }

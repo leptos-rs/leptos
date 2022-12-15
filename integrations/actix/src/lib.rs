@@ -196,8 +196,6 @@ pub fn render_app_to_stream(
                 "http://leptos".to_string() + path + "?" + query
             };
 
-
-
             let app = {
                 let app_fn = app_fn.clone();
                 move |cx| {
@@ -246,7 +244,9 @@ pub fn render_app_to_stream(
 
             let tail = "</body></html>";
 
-            HttpResponse::Ok().content_type("text/html").streaming(
+            let mut res = HttpResponse::Ok();
+
+            res.content_type("text/html").streaming(
                 futures::stream::once(async move { head.clone() })
                     // TODO this leaks a runtime once per invocation
                     .chain(render_to_stream(move |cx| {
