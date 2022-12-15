@@ -18,11 +18,6 @@ pub(crate) enum Mode {
 
 impl Default for Mode {
     fn default() -> Self {
-        // what's the deal with this order of priority?
-        // basically, it's fine for the server to compile wasm-bindgen, but it will panic if it runs it
-        // for the sake of testing, we need to fall back to `ssr` if no flags are enabled
-        // if you have `hydrate` enabled, you definitely want that rather than `csr`
-        // if you have both `csr` and `ssr` we assume you want the browser
         if cfg!(feature = "hydrate") || cfg!(feature = "csr") || cfg!(feature = "web") {
             Mode::Client
         } else {
@@ -234,8 +229,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     &proc_macro2::Ident::new(&cx.to_string(), cx.span().into()),
                     &nodes,
                     // swap to Mode::default() to use faster SSR templating
-                    Mode::Client
-                    //Mode::default(),
+                    //Mode::Client
+                    Mode::default(),
                 ),
                 Err(error) => error.to_compile_error(),
             }

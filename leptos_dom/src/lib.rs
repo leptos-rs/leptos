@@ -28,6 +28,7 @@ use hydration::HydrationCtx;
 pub use js_sys;
 use leptos_reactive::Scope;
 pub use logging::*;
+pub use macro_helpers::{IntoClass, IntoAttribute, IntoProperty};
 pub use node_ref::*;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;

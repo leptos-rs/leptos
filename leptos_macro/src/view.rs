@@ -255,7 +255,7 @@ fn element_to_tokens_ssr(cx: &Ident, node: &NodeElement, template: &mut String, 
       }
     }
 
-    // TODO: handle classes
+    set_class_attribute_ssr(cx, node, template, holes);
 
     if is_self_closing(node) {
       template.push_str("/>");
@@ -343,10 +343,12 @@ fn attribute_to_tokens_ssr(cx: &Ident, node: &NodeAttribute, template: &mut Stri
     // ignore classes: we'll handle these separately
   } else {
     let name = name.replacen("attr:", "", 1);
-    template.push(' ');
-    template.push_str(&name);
 
-    if let Some(value) = node.value.as_ref() {
+    if name != "class" {
+      template.push(' ');
+      template.push_str(&name);
+      
+      if let Some(value) = node.value.as_ref() {
         if let Some(value) = value_to_string(value) {
           template.push_str(&value);
         } else {
@@ -358,7 +360,96 @@ fn attribute_to_tokens_ssr(cx: &Ident, node: &NodeAttribute, template: &mut Stri
           })
         }
         template.push('"');
+      }
     }
+  }
+}
+
+fn set_class_attribute_ssr(cx: &Ident, node: &NodeElement, template: &mut String, holes: &mut Vec<TokenStream>) {
+  let static_class_attr = node.attributes
+    .iter()
+    .filter_map(|a| if let Node::Attribute(a) = a {
+      if a.key.to_string() == "class" {
+        if let Some(value) = a.value.as_ref().and_then(|v| value_to_string(v)) {
+          Some(value)
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+    } else {
+      None
+    })
+    .collect::<Vec<_>>()
+    .join(" ");
+
+  let dyn_class_attr = node.attributes
+    .iter()
+    .filter_map(|a| if let Node::Attribute(a) = a {
+      if a.key.to_string() == "class" {
+        if a.value.as_ref().and_then(value_to_string).is_some() {
+          None
+        } else {
+          Some((a.key.span(), &a.value))
+        }
+      } else {
+        None
+      }
+    } else {
+      None
+    })
+    .collect::<Vec<_>>();
+
+    let class_attrs = node.attributes
+      .iter()
+      .filter_map(|node| {
+        if let Node::Attribute(node) = node {
+          let name = node.key.to_string();
+          if name.starts_with("class:") || name.starts_with("class-") {
+              let name = if name.starts_with("class:") {
+                  name.replacen("class:", "", 1)
+              } else if name.starts_with("class-") {
+                  name.replacen("class-", "", 1)
+              } else {
+                  name
+              };
+              let value = node.value.as_ref().expect("class: attributes need values").as_ref();
+              let span = node.key.span();
+              Some((span, name, value))
+          } else {
+              None
+          }
+        }
+        else {
+          None
+        }
+    })
+    .collect::<Vec<_>>();
+
+  if !static_class_attr.is_empty() || !dyn_class_attr.is_empty() || !class_attrs.is_empty() {
+    template.push_str(" class=\"");
+
+    template.push_str(&static_class_attr);
+
+    for (span, value) in dyn_class_attr {
+      if let Some(value) = value {
+        template.push_str(" {}");
+        let value = value.as_ref();
+        holes.push(quote_spanned! {
+          span => leptos::escape_attr(&(cx, #value).into_attribute(#cx).as_nameless_value_string()),
+        });
+      }
+    }
+
+    for (span, name, value) in &class_attrs {
+      template.push_str(" {}");
+      holes.push(quote_spanned! {
+        *span => (cx, #value).into_class(#cx).as_value_string(#name),
+      });
+    }
+
+    template.push('"');
   }
 }
 

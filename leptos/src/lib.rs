@@ -87,7 +87,7 @@
 //! use leptos::*;
 //!
 //! #[component]
-//! pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+//! pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
 //!     // create a reactive signal with the initial value
 //!     let (value, set_value) = create_signal(cx, initial_value);
 //!
@@ -116,7 +116,7 @@
 //! # if false { // can't run in doctests
 //!
 //! #[component]
-//! fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+//! fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
 //!   todo!()
 //! }
 //!

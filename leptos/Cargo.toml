@@ -16,9 +16,13 @@ leptos_macro = { path = "../leptos_macro", default-features = false, version = "
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
 leptos_server = { path = "../leptos_server", default-features = false, version = "0.0.18" }
 
+[dev-dependencies]
+leptos = { path = ".", default-features = false }
+
 [features]
 default = ["csr", "serde"]
 csr = [
+	"leptos/csr",
 	"leptos_core/csr",
 	"leptos_dom/web",
 	"leptos_macro/csr",
@@ -26,6 +30,7 @@ csr = [
 	"leptos_server/csr",
 ]
 hydrate = [
+	"leptos/hydrate",
 	"leptos_core/hydrate",
 	"leptos_dom/web",
 	"leptos_macro/hydrate",
@@ -33,6 +38,7 @@ hydrate = [
 	"leptos_server/hydrate",
 ]
 ssr = [
+	"leptos/ssr",
 	"leptos_dom/ssr",
 	"leptos_core/ssr",
 	"leptos_macro/ssr",
@@ -40,6 +46,7 @@ ssr = [
 	"leptos_server/ssr",
 ]
 stable = [
+	"leptos/stable",
 	"leptos_core/stable",
 	"leptos_dom/stable",
 	"leptos_macro/stable",
