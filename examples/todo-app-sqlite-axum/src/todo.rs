@@ -67,6 +67,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
             status: Some(StatusCode::IM_A_TEAPOT),
         },
     );
+    provide_context(cx, "POTATO".to_string());
 
     Ok(todos)
 }

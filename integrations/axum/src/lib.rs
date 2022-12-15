@@ -307,6 +307,9 @@ pub fn render_app_to_stream(
 
                 let res_parts_outer = Arc::new(RwLock::new(ResponseParts::default()));
                 let res_parts_dup = res_parts_outer.clone();
+                let test_outer = Arc::new(RwLock::new("Banana".to_string()));
+                let test_dup = test_outer.clone();
+
                 spawn_blocking({
                     let app_fn = app_fn.clone();
                     move || {
@@ -346,15 +349,21 @@ pub fn render_app_to_stream(
                                                 _ = tx.send(fragment).await;
                                             }
                                             // Extract the value of ResponseParts from here
-                                            let res_parts_inner = use_context::<ResponseParts>(cx)
-                                                .unwrap_or_default();
+                                            let res_parts_inner = use_context::<ResponseParts>(cx);
+                                            let test_inner = use_context::<String>(cx);
                                             println!(
                                                 "Inner Response Parts: {:#?}",
                                                 res_parts_inner.clone()
                                             );
-
-                                            let mut writable = res_parts_dup.write().await;
-                                            *writable = res_parts_inner;
+                                            println!("Inner Test: {:?}", &test_inner);
+                                            if let Some(test_inner) = test_inner {
+                                                let mut test_writable = test_dup.write().await;
+                                                *test_writable = test_inner;
+                                            }
+                                            if let Some(res_parts_inner) = res_parts_inner {
+                                                let mut writable = res_parts_dup.write().await;
+                                                *writable = res_parts_inner;
+                                            }
 
                                             // Dispose of things
                                             disposer.dispose();
@@ -367,14 +376,28 @@ pub fn render_app_to_stream(
                     }
                 });
 
-                let stream = futures::stream::once(async move { head.clone() })
-                    .chain(rx)
-                    .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(Bytes::from(html)));
+                let stream = Box::pin(
+                    futures::stream::once(async move { head.clone() })
+                        .chain(rx)
+                        .chain(futures::stream::once(async { tail.to_string() }))
+                        .map(|html| Ok(Bytes::from(html))),
+                );
 
-                let mut res = Response::new(StreamBody::new(Box::pin(stream) as PinnedHtmlStream));
+                // Get the first chunk in the stream, which renders the app shell, and thus allows Resources to run
+                let (first_chunk, stream) = stream.into_future().await;
+                // Extract the resources now that they've been rendered
                 let mut res_parts = res_parts_outer.read().await;
                 println!("Response Parts: {:#?}", res_parts);
+
+                let test = test_outer.read().await;
+                println!("Test: {test}");
+
+                let complete_stream =
+                    futures::stream::once(async move { first_chunk.unwrap() }).chain(stream);
+
+                let mut res = Response::new(StreamBody::new(
+                    Box::pin(complete_stream) as PinnedHtmlStream
+                ));
 
                 match res_parts.status {
                     Some(status) => *res.status_mut() = status,
