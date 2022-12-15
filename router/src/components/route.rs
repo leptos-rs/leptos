@@ -10,7 +10,7 @@ use crate::{
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
-#[component]
+#[component(transparent)]
 pub fn Route<E, F>(
     cx: Scope,
     /// The path fragment that this route should match. This can be static (`users`),

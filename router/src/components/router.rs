@@ -39,7 +39,7 @@ pub fn Router(
     let router = RouterContext::new(cx, base, fallback);
     provide_context(cx, router);
 
-    move || children(cx)
+    children(cx)
 }
 
 /// Context type that contains information about the current router state.
