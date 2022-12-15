@@ -3,23 +3,42 @@
 use leptos::*;
 
 #[component]
-pub fn App(cx: Scope) -> View {
+pub fn App(cx: Scope) -> impl IntoView {
+  let pending_thing = create_resource(
+    cx,
+    || (),
+    |_| async {
+      if cfg!(feature = "ssr") {
+        let (tx, rx) = futures::channel::oneshot::channel();
+        spawn_local(async {
+          std::thread::sleep(std::time::Duration::from_millis(500));
+          tx.send(());
+        });
+        rx.await;
+      } else {
+        
+      }
+      ()
+    }
+  );
+
   view! { cx,
     <>
       <div>
         "This is some text"
       </div>
-      <ComponentA>
-        <div>"Hello!"</div>
-      </ComponentA>
+      <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
+        {move || pending_thing.read().map(|n| view! { cx, <p>"Loaded."</p>})}
+      </Suspense>
     </>
   }
 }
 
 #[component]
-pub fn ComponentA(cx: Scope, children: Box<dyn Fn() -> Vec<View>>) -> View {
+pub fn ComponentA(cx: Scope, children: Box<dyn Fn() -> Vec<View>>) -> impl IntoView {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
   let (counter, set_counter) = create_signal(cx, 0);
+
 
   // Test to make sure hydration isn't broken by
   // something like this
