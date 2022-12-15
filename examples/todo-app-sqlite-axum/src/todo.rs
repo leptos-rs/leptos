@@ -140,6 +140,8 @@ pub fn Todos(cx: Scope) -> Element {
         move |_| get_todos(cx),
     );
 
+    provide_context(cx, "POTATO".to_string());
+
     view! {
         cx,
         <div>

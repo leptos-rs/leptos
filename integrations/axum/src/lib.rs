@@ -1,6 +1,6 @@
 use axum::response::Response as AxumResponse;
 use axum::{
-    body::{Body, Bytes, Full, HttpBody, StreamBody},
+    body::{Body, Bytes, Full, StreamBody},
     debug_handler,
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
@@ -309,6 +309,8 @@ pub fn render_app_to_stream(
                 let res_parts_dup = res_parts_outer.clone();
                 let test_outer = Arc::new(RwLock::new("Banana".to_string()));
                 let test_dup = test_outer.clone();
+                let test2_outer = Arc::new(RwLock::new(1));
+                let test2_dup = test2_outer.clone();
 
                 spawn_blocking({
                     let app_fn = app_fn.clone();
@@ -364,6 +366,8 @@ pub fn render_app_to_stream(
                                                 let mut writable = res_parts_dup.write().await;
                                                 *writable = res_parts_inner;
                                             }
+                                            let mut writable2 = test2_dup.write().await;
+                                            *writable2 = 42;
 
                                             // Dispose of things
                                             disposer.dispose();
@@ -385,6 +389,8 @@ pub fn render_app_to_stream(
 
                 // Get the first chunk in the stream, which renders the app shell, and thus allows Resources to run
                 let (first_chunk, stream) = stream.into_future().await;
+                let (second_chunk, stream) = stream.into_future().await;
+
                 // Extract the resources now that they've been rendered
                 let mut res_parts = res_parts_outer.read().await;
                 println!("Response Parts: {:#?}", res_parts);
@@ -392,8 +398,12 @@ pub fn render_app_to_stream(
                 let test = test_outer.read().await;
                 println!("Test: {test}");
 
-                let complete_stream =
-                    futures::stream::once(async move { first_chunk.unwrap() }).chain(stream);
+                let test2 = test2_outer.read().await;
+                println!("Test2: {test2}");
+
+                let complete_stream = futures::stream::once(async move { first_chunk.unwrap() })
+                    .chain(futures::stream::once(async move { second_chunk.unwrap() }))
+                    .chain(stream);
 
                 let mut res = Response::new(StreamBody::new(
                     Box::pin(complete_stream) as PinnedHtmlStream
