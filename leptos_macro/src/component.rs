@@ -8,6 +8,7 @@ use syn::{
 };
 
 pub struct Model {
+    is_transparent: bool,
     docs: Docs,
     vis: Visibility,
     name: Ident,
@@ -69,6 +70,7 @@ impl Parse for Model {
         }
 
         Ok(Self {
+            is_transparent: false,
             docs,
             vis: item.vis.clone(),
             name: item.sig.ident.clone(),
@@ -83,6 +85,7 @@ impl Parse for Model {
 impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
+            is_transparent,
             docs,
             vis,
             name,
@@ -97,13 +100,31 @@ impl ToTokens for Model {
         let props_name = format_ident!("{name}Props");
         let trace_name = format!("<{name} />");
 
-        let prop_builder_fields = prop_builder_fields(props);
+        let prop_builder_fields = prop_builder_fields(vis, props);
 
         let prop_names = prop_names(props);
 
         let name_stringified = LitStr::new(&name.to_string(), name.span());
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
+
+        let component = if self.is_transparent {
+            quote! {
+                #name(cx, #prop_names)
+            }
+        } else {
+            quote! {
+                leptos::Component::new(
+                    stringify!(#name),
+                    move |cx| {
+                        #[cfg(debug_assertions)]
+                        let _guard = span.entered();
+
+                        #name(cx, #prop_names)
+                    }
+                )
+            }
+        };
 
         let output = quote! {
             #[doc = "Props for the [`"]
@@ -133,19 +154,19 @@ impl ToTokens for Model {
 
                 let span = leptos::tracing::Span::current();
 
-                leptos::Component::new(
-                    stringify!(#name),
-                    move |cx| {
-                        #[cfg(debug_assertions)]
-                        let _guard = span.entered();
-
-                        #name(cx, #prop_names)
-                    }
-                )
+                #component
             }
         };
 
         tokens.append_all(output)
+    }
+}
+
+impl Model {
+    pub fn is_transparent(mut self, is_transparent: bool) -> Self {
+        self.is_transparent = is_transparent;
+
+        self
     }
 }
 
@@ -416,7 +437,7 @@ impl ToTokens for TypedBuilderOpts {
     }
 }
 
-fn prop_builder_fields(props: &[Prop]) -> TokenStream {
+fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
     props
         .iter()
         .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
@@ -435,7 +456,7 @@ fn prop_builder_fields(props: &[Prop]) -> TokenStream {
                    #docs
                    #builder_docs
                    #builder_attrs
-                   pub #name: #ty,
+                   #vis #name: #ty,
                 }
             },
         )
