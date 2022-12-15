@@ -198,34 +198,24 @@ where
     )
 }
 
-/// Properties that can be passed to the [MultiActionForm] component, which
-/// automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
-/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-/// progressively enhanced to use client-side routing.
-#[derive(TypedBuilder)]
-pub struct MultiActionFormProps<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-    /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [create_server_action](leptos_server::create_server_action) or added
-    /// manually using [leptos_server::Action::using_server_fn].
-    pub action: MultiAction<I, Result<O, ServerFnError>>,
-    /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn(Scope) -> Fragment>,
-}
-
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
-#[allow(non_snake_case)]
-pub fn MultiActionForm<I, O>(cx: Scope, props: MultiActionFormProps<I, O>) -> impl IntoView
+#[component]
+pub fn MultiActionForm<I, O>(
+    cx: Scope,
+    /// The action from which to build the form. This should include a URL, which can be generated
+    /// by default using [create_server_action](leptos_server::create_server_action) or added
+    /// manually using [leptos_server::Action::using_server_fn].
+    action: MultiAction<I, Result<O, ServerFnError>>,
+    /// Component children; should include the HTML of the form elements.
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
 {
-    let multi_action = props.action;
+    let multi_action = action;
     let action = if let Some(url) = multi_action.url() {
         url
     } else {
@@ -251,17 +241,15 @@ where
         }
     };
 
-    Component::new("MultiActionForm", move |cx| {
-        view! { cx,
-            <form
-                method="POST"
-                action=action
-                on:submit=on_submit
-            >
-                {move || (props.children)(cx)}
-            </form>
-        }
-    })
+    view! { cx,
+        <form
+            method="POST"
+            action=action
+            on:submit=on_submit
+        >
+            {move || children(cx)}
+        </form>
+    }
 }
 
 fn extract_form_attributes(
