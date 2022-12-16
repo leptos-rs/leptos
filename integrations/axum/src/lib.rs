@@ -1,7 +1,5 @@
-use axum::response::Response as AxumResponse;
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    debug_handler,
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::IntoResponse,
@@ -25,14 +23,26 @@ pub struct RequestParts {
     pub headers: HeaderMap<HeaderValue>,
     pub body: Bytes,
 }
-/// If ResponseParts is inserted into context with `use_context()` during a server function, it will
-/// let you set the status code and headers of the response. This is useful for cookies and custom responses.
-/// Status is not set if the request does not have one of the supported body types, and Headers will be set
-/// on any non Error response if provided
+/// This struct lets you define headers and override the status of the Response from an Element or a Server Function
+/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
     pub status: Option<StatusCode>,
     pub headers: HeaderMap,
+}
+
+/// Adding this Struct to your Scope inside of a Server Fn or Elements will allow you to override details of the Response
+/// like StatusCode and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
+/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced
+#[derive(Debug, Clone, Default)]
+pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
+
+impl ResponseOptions {
+    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    pub async fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write().await;
+        *writable = parts
+    }
 }
 
 pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
@@ -80,7 +90,6 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 /// ```
 /// Leptos provides a generic implementation of `handle_server_fns`. If access to more specific parts of the Request is desired,
 /// you can specify your own server fn handler based on this one and give it it's own route in the server macro.
-#[axum::debug_handler]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -104,13 +113,15 @@ pub async fn handle_server_fns(
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
 
                             let req_parts = generate_request_parts(req).await;
-
+                            // Add this so we can get details about the Request
                             provide_context(cx, req_parts.clone());
+                            // Add this so that we can set headers and status of the response
+                            provide_context(cx, ResponseOptions::default());
 
                             match server_fn(cx, &req_parts.body).await {
                                 Ok(serialized) => {
                                     // If ResponseParts are set, add the headers and extension to the request
-                                    let response_parts = use_context::<ResponseParts>(cx);
+                                    let res_options = use_context::<ResponseOptions>(cx);
 
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
@@ -123,11 +134,13 @@ pub async fn handle_server_fns(
 
                                     // Add headers from ResponseParts if they exist. These should be added as long
                                     // as the server function returns an OK response
-                                    // Use provided headers if they exist
-                                    let (status, mut res_headers) = match response_parts {
-                                        Some(parts) => (parts.status, parts.headers),
-                                        None => (None, HeaderMap::new()),
-                                    };
+                                    let res_options_outer = res_options.unwrap().0;
+                                    let res_options_inner = res_options_outer.read().await;
+                                    let (status, mut res_headers) = (
+                                        res_options_inner.status.clone(),
+                                        res_options_inner.headers.clone(),
+                                    );
+
                                     match res.headers_mut() {
                                         Some(header_ref) => {
                                             header_ref.extend(res_headers.drain());
@@ -256,6 +269,10 @@ pub fn render_app_to_stream(
         Box::pin({
             let options = options.clone();
             let app_fn = app_fn.clone();
+            let default_res_options = ResponseOptions::default();
+            let res_options2 = default_res_options.clone();
+            let res_options3 = default_res_options.clone();
+
             async move {
                 // Need to get the path and query string of the Request
                 let path = req.uri();
@@ -305,13 +322,6 @@ pub fn render_app_to_stream(
 
                 let (mut tx, rx) = futures::channel::mpsc::channel(8);
 
-                let res_parts_outer = Arc::new(RwLock::new(ResponseParts::default()));
-                let res_parts_dup = res_parts_outer.clone();
-                let test_outer = Arc::new(RwLock::new("Banana".to_string()));
-                let test_dup = test_outer.clone();
-                let test2_outer = Arc::new(RwLock::new(1));
-                let test2_dup = test2_outer.clone();
-
                 spawn_blocking({
                     let app_fn = app_fn.clone();
                     move || {
@@ -339,6 +349,7 @@ pub fn render_app_to_stream(
                                                         );
                                                         provide_context(cx, MetaContext::new());
                                                         provide_context(cx, req_parts);
+                                                        provide_context(cx, default_res_options);
                                                         let app = app_fn(cx);
                                                         let head = use_context::<MetaContext>(cx)
                                                             .map(|meta| meta.dehydrate())
@@ -350,29 +361,19 @@ pub fn render_app_to_stream(
                                             while let Some(fragment) = shell.next().await {
                                                 _ = tx.send(fragment).await;
                                             }
-                                            // Extract the value of ResponseParts from here
-                                            let res_parts_inner = use_context::<ResponseParts>(cx);
-                                            let test_inner = use_context::<String>(cx);
+
+                                            // Extract the value of ResponseOptions from here
+                                            let res_options =
+                                                use_context::<ResponseOptions>(cx).unwrap();
+
                                             println!(
-                                                "Inner Response Parts: {:#?}",
-                                                res_parts_inner.clone()
+                                                "Inner Response Options: {:#?}",
+                                                res_options.0.read().await
                                             );
-                                            println!("Inner Test: {:?}", &test_inner);
-                                            if let Some(test_inner) = test_inner {
-                                                let mut test_writable = test_dup.write().await;
-                                                *test_writable = test_inner;
-                                            }
-                                            if let Some(res_parts_inner) = res_parts_inner {
-                                                let mut writable = res_parts_dup.write().await;
-                                                *writable = res_parts_inner;
-                                            }
-                                            let test2_inner = use_context::<i32>(cx);
-                                            if let Some(test2_inner) = test2_inner {
-                                                let mut writable2 = test2_dup.write().await;
-                                                *writable2 = test2_inner;
-                                            }
-                                            let mut writable2 = test2_dup.write().await;
-                                            *writable2 = 42;
+                                            let new_res_parts = res_options.0.read().await.clone();
+
+                                            let mut writable = res_options2.0.write().await;
+                                            *writable = new_res_parts;
 
                                             // Dispose of things
                                             disposer.dispose();
@@ -397,14 +398,8 @@ pub fn render_app_to_stream(
                 let (second_chunk, stream) = stream.into_future().await;
 
                 // Extract the resources now that they've been rendered
-                let mut res_parts = res_parts_outer.read().await;
-                println!("Response Parts: {:#?}", res_parts);
-
-                let test = test_outer.read().await;
-                println!("Test: {test}");
-
-                let test2 = test2_outer.read().await;
-                println!("Test2: {test2}");
+                let mut res_options = res_options3.0.read().await;
+                println!("Response Options: {:#?}", res_options);
 
                 let complete_stream = futures::stream::once(async move { first_chunk.unwrap() })
                     .chain(futures::stream::once(async move { second_chunk.unwrap() }))
@@ -414,11 +409,11 @@ pub fn render_app_to_stream(
                     Box::pin(complete_stream) as PinnedHtmlStream
                 ));
 
-                match res_parts.status {
+                match res_options.status {
                     Some(status) => *res.status_mut() = status,
                     None => (),
                 };
-                let mut res_headers = res_parts.headers.clone();
+                let mut res_headers = res_options.headers.clone();
                 res.headers_mut().extend(res_headers.drain());
 
                 res

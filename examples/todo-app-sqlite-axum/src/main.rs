@@ -20,7 +20,6 @@ if #[cfg(feature = "ssr")] {
     async fn main() {
         let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
         log::debug!("serving at {addr}");
-        println!("WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
