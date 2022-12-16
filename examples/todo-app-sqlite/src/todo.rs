@@ -64,13 +64,17 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut res_headers = HeaderMap::new();
     res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
 
-    provide_context(
-        cx,
-        leptos_actix::ResponseParts {
-            headers: res_headers.into(),
-            status: Some(StatusCode::IM_A_TEAPOT),
-        },
-    );
+    let res_parts = leptos_actix::ResponseParts {
+        headers: res_headers.into(),
+        status: Some(StatusCode::IM_A_TEAPOT),
+    };
+
+    let res_options_outer = use_context::<leptos_actix::ResponseOptions>(cx);
+    if let Some(res_options) = res_options_outer {
+        println!("Setting Options");
+        res_options.overwrite(res_parts).await;
+    }
+
     Ok(todos)
 }
 

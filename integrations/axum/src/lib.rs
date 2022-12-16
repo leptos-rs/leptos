@@ -393,17 +393,17 @@ pub fn render_app_to_stream(
                         .map(|html| Ok(Bytes::from(html))),
                 );
 
-                // Get the first chunk in the stream, which renders the app shell, and thus allows Resources to run
-                let (first_chunk, stream) = stream.into_future().await;
-                let (second_chunk, stream) = stream.into_future().await;
+                // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
+                let first_chunk = stream.next().await;
+                let second_chunk = stream.next().await;
 
                 // Extract the resources now that they've been rendered
                 let mut res_options = res_options3.0.read().await;
                 println!("Response Options: {:#?}", res_options);
 
-                let complete_stream = futures::stream::once(async move { first_chunk.unwrap() })
-                    .chain(futures::stream::once(async move { second_chunk.unwrap() }))
-                    .chain(stream);
+                let complete_stream =
+                    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+                        .chain(stream);
 
                 let mut res = Response::new(StreamBody::new(
                     Box::pin(complete_stream) as PinnedHtmlStream
