@@ -366,6 +366,11 @@ pub fn render_app_to_stream(
                                                 let mut writable = res_parts_dup.write().await;
                                                 *writable = res_parts_inner;
                                             }
+                                            let test2_inner = use_context::<i32>(cx);
+                                            if let Some(test2_inner) = test2_inner {
+                                                let mut writable2 = test2_dup.write().await;
+                                                *writable2 = test2_inner;
+                                            }
                                             let mut writable2 = test2_dup.write().await;
                                             *writable2 = 42;
 
