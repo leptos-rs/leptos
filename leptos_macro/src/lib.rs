@@ -177,7 +177,8 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a [NodeRef](leptos::NodeRef) to use later.
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
+///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(create_runtime(), |cx| {
@@ -242,9 +243,50 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     }
 }
 
-/// Annotates a function so that it can be used with your template as a <Component/>
+/// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
+/// 
+/// The `#[component]` macro allows you to annotate plain Rust functions that return [Element](leptos_dom::Element)s,
+/// and use them within your Leptos [view](mod@view) as if they were custom HTML elements. The 
+/// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
+/// When you use the component somewhere else, the names of its arguments are the names
+/// of the properties you use in the [view](mod@view) macro.
+/// 
+/// Here’s how you would define and use a simple Leptos component which can accept custom properties for a name and age:
+/// ```rust
+/// # use leptos::*;
+/// use std::time::Duration;
+/// 
+/// #[component]
+/// fn HelloComponent(cx: Scope, name: String, age: u8) -> Element {
+///   // create the signals (reactive values) that will update the UI
+///   let (age, set_age) = create_signal(cx, age);
+///   // increase `age` by 1 every second
+///   set_interval(move || {
+///     set_age.update(|age| *age += 1)
+///   }, Duration::from_secs(1));
+///   
+///   // return the user interface, which will be automatically updated
+///   // when signal values change
+///   view! { cx,
+///     <p>"Your name is " {name} " and you are " {age} " years old."</p>
+///   }
+/// }
+/// 
+/// #[component]
+/// fn App(cx: Scope) -> Element {
+///   view! { cx,
+///     <main>
+///       <HelloComponent name="Greg".to_string() age=32/>
+///     </main>
+///   }
+/// }
+/// ```
+/// 
+/// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. If you define
+/// your component in one module and import it into another, make sure you import this `___Props`
+/// struct as well.
 ///
-/// Here are some things you should know.
+/// Here are some important details about how Leptos components work within the framework:
 /// 1. **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
@@ -350,7 +392,7 @@ pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream 
     }
 }
 
-/// Declares that a function is a [server function](leptos::leptos_server). This means that 
+/// Declares that a function is a [server function](leptos_server). This means that 
 /// its body will only run on the server, i.e., when the `ssr` feature is enabled.
 ///
 /// If you call a server function from the client (i.e., when the `csr` or `hydrate` features

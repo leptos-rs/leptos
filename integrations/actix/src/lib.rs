@@ -1,8 +1,19 @@
-use actix_web::{web::Bytes, *};
+use actix_web::{http::header::HeaderMap, web::Bytes, *};
 use futures::StreamExt;
+use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+
+/// If ResponseParts is inserted into context with `use_context()` during a server function, it will
+/// let you set the status code and headers of the response. This is useful for cookies and custom responses.
+/// Status is not set if the request does not have one of the supported body types, and Headers will be set
+/// on any non Error response if provided
+#[derive(Debug, Clone)]
+pub struct ResponseParts {
+    pub headers: HeaderMap,
+    pub status: Option<StatusCode>,
+}
 
 /// An Actix [Route](actix_web::Route) that listens for a `POST` request with
 /// Leptos server function arguments in the body, runs the server function if found,
@@ -58,16 +69,29 @@ pub fn handle_server_fns() -> Route {
 
                     match server_fn(cx, body).await {
                         Ok(serialized) => {
+                            let response_parts = use_context::<ResponseParts>(cx);
+
                             // clean up the scope, which we only needed to run the server fn
                             disposer.dispose();
                             runtime.dispose();
 
                             let mut res: HttpResponseBuilder;
+                            let (status, mut res_headers) = match response_parts {
+                                Some(parts) => (parts.status, parts.headers),
+                                None => (None, HeaderMap::new()),
+                            };
+
                             if accept_header == Some("application/json")
                                 || accept_header == Some("application/x-www-form-urlencoded")
                                 || accept_header == Some("application/cbor")
                             {
-                                res = HttpResponse::Ok()
+                                res = HttpResponse::Ok();
+
+                                // Override Status if Status is set in ResponseParts and
+                                // We're not trying to do a form submit
+                                if let Some(status) = status {
+                                    res.status(status);
+                                }
                             }
                             // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                             else {
@@ -80,6 +104,16 @@ pub fn handle_server_fns() -> Route {
                                 res.insert_header(("Location", referer))
                                     .content_type("application/json");
                             };
+                            // Use provided ResponseParts headers if they exist
+                            let _count = res_headers
+                                .drain()
+                                .map(|(k, v)| {
+                                    if let Some(k) = k {
+                                        res.insert_header((k, v));
+                                    }
+                                })
+                                .count();
+
                             match serialized {
                                 Payload::Binary(data) => {
                                     res.content_type("application/cbor");
@@ -162,6 +196,8 @@ pub fn render_app_to_stream(
                 "http://leptos".to_string() + path + "?" + query
             };
 
+
+
             let app = {
                 let app_fn = app_fn.clone();
                 move |cx| {
@@ -202,8 +238,8 @@ pub fn render_app_to_stream(
                         <meta charset="utf-8"/>
                         <meta name="viewport" content="width=device-width, initial-scale=1"/>
                         <link rel="modulepreload" href="{pkg_path}.js">
-                        <link rel="preload" href="{pkg_path}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}.wasm').then(hydrate);</script>
+                        <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
                         {leptos_autoreload}
                         "#
             );

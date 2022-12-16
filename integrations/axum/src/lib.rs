@@ -1,14 +1,51 @@
 use axum::{
-    body::{Body, Bytes, Full, StreamBody},
+    body::{Body, Bytes, Full, HttpBody, StreamBody},
+    debug_handler,
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::{IntoResponse, Response},
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
+use http::{method::Method, uri::Uri, version::Version};
+use hyper::body;
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
+
+/// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
+/// to construct this for Leptos to use in Axum
+#[derive(Debug, Clone)]
+pub struct RequestParts {
+    pub version: Version,
+    pub method: Method,
+    pub uri: Uri,
+    pub headers: HeaderMap<HeaderValue>,
+    pub body: Bytes,
+}
+/// If ResponseParts is inserted into context with `use_context()` during a server function, it will
+/// let you set the status code and headers of the response. This is useful for cookies and custom responses.
+/// Status is not set if the request does not have one of the supported body types, and Headers will be set
+/// on any non Error response if provided
+#[derive(Debug, Clone)]
+pub struct ResponseParts {
+    pub status: Option<StatusCode>,
+    pub headers: HeaderMap,
+}
+
+pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
+    // provide request headers as context in server scope
+    let (parts, body) = req.into_parts();
+    let body = body::to_bytes(body).await.unwrap_or_default();
+    RequestParts {
+        method: parts.method,
+        uri: parts.uri,
+        headers: parts.headers,
+        version: parts.version,
+        body: body.clone(),
+    }
+}
+
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
@@ -38,11 +75,14 @@ use std::{io, pin::Pin, sync::Arc};
 ///         .unwrap();
 /// }
 /// # }
+/// ```
+/// Leptos provides a generic implementation of `handle_server_fns`. If access to more specific parts of the Request is desired,
+/// you can specify your own server fn handler based on this one and give it it's own route in the server macro.
+#[axum::debug_handler]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
-    headers: HeaderMap<HeaderValue>,
-    body: Bytes,
-    // req: Request<Body>,
+    headers: HeaderMap,
+    req: Request<Body>,
 ) -> impl IntoResponse {
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
     let fn_name: String = match fn_name.strip_prefix("/") {
@@ -61,11 +101,15 @@ pub async fn handle_server_fns(
                             let runtime = create_runtime();
                             let (cx, disposer) = raw_scope_and_disposer(runtime);
 
-                            // provide request as context in server scope
-                            // provide_context(cx, Arc::new(req));
+                            let req_parts = generate_request_parts(req).await;
 
-                            match server_fn(cx, body.as_ref()).await {
+                            provide_context(cx, req_parts.clone());
+
+                            match server_fn(cx, &req_parts.body).await {
                                 Ok(serialized) => {
+                                    // If ResponseParts are set, add the headers and extension to the request
+                                    let response_parts = use_context::<ResponseParts>(cx);
+
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
                                     runtime.dispose();
@@ -75,12 +119,33 @@ pub async fn handle_server_fns(
                                         headers.get("Accept").and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
 
+                                    // Add headers from ResponseParts if they exist. These should be added as long
+                                    // as the server function returns an OK response
+                                    // Use provided headers if they exist
+                                    let (status, mut res_headers) = match response_parts {
+                                        Some(parts) => (parts.status, parts.headers),
+                                        None => (None, HeaderMap::new()),
+                                    };
+                                    match res.headers_mut() {
+                                        Some(header_ref) => {
+                                            header_ref.extend(res_headers.drain());
+                                        }
+                                        None => (),
+                                    };
+
                                     if accept_header == Some("application/json")
                                         || accept_header
                                             == Some("application/x-www-form-urlencoded")
                                         || accept_header == Some("application/cbor")
                                     {
                                         res = res.status(StatusCode::OK);
+
+                                        // Override Status if Status is set in ResponseParts and
+                                        // We're not trying to do a form submit
+                                        res = match status {
+                                            Some(status) => res.status(status),
+                                            None => res,
+                                        }
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                                     else {
@@ -229,8 +294,8 @@ pub fn render_app_to_stream(
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
                             <link rel="modulepreload" href="{pkg_path}.js">
-                            <link rel="preload" href="{pkg_path}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}.wasm').then(hydrate);</script>
+                            <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
@@ -250,6 +315,7 @@ pub fn render_app_to_stream(
                                         .run_until(async {
                                             let mut shell = Box::pin(render_to_stream({
                                                 let full_path = full_path.clone();
+                                                let req_parts = generate_request_parts(req).await;
                                                 move |cx| {
                                                     let integration = ServerIntegration {
                                                         path: full_path.clone(),
@@ -259,6 +325,7 @@ pub fn render_app_to_stream(
                                                         RouterIntegrationContext::new(integration),
                                                     );
                                                     provide_context(cx, MetaContext::new());
+                                                    provide_context(cx, req_parts);
                                                     let app = app_fn(cx);
                                                     let head = use_context::<MetaContext>(cx)
                                                         .map(|meta| meta.dehydrate())
