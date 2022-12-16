@@ -8,49 +8,45 @@ use crate::{
     ParamsMap, RouterContext,
 };
 
-/// Properties that can be passed to a [Route] component, which describes
-/// a portion of the nested layout of the app, specifying the route it should match,
+/// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
-#[derive(TypedBuilder)]
-pub struct RouteProps<E, F>
-where
-    E: IntoView,
-    F: Fn(Scope) -> E + 'static,
-{
+#[component(transparent)]
+pub fn Route<E, F>(
+    cx: Scope,
     /// The path fragment that this route should match. This can be static (`users`),
     /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
     /// wildcard (`user/*any`).
-    pub path: &'static str,
+    path: &'static str,
     /// The view that should be shown when this route is matched. This can be any function
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
-    pub element: F,
+    element: F,
     /// `children` may be empty or include nested routes.
-    #[builder(default, setter(strip_option))]
-    pub children: Option<Box<dyn Fn(Scope) -> Fragment>>,
-}
-
-/// Describes a portion of the nested layout of the app, specifying the route it should match,
-/// the element it should display, and data that should be loaded alongside the route.
-#[allow(non_snake_case)]
-pub fn Route<E, F>(cx: Scope, props: RouteProps<E, F>) -> RouteDefinition
+    #[prop(optional)]
+    children: Option<Box<dyn Fn(Scope) -> Fragment>>,
+) -> impl IntoView
 where
     E: IntoView,
     F: Fn(Scope) -> E + 'static,
 {
-    let children = props.children
-        .map(|children| children(cx)
-            .as_children()
-            .iter()
-            .filter_map(|child| child.as_transparent().and_then(|t| t.downcast_ref::<RouteDefinition>()))
-            .cloned()
-            .collect::<Vec<_>>()
-        )
+    let children = children
+        .map(|children| {
+            children(cx)
+                .as_children()
+                .iter()
+                .filter_map(|child| {
+                    child
+                        .as_transparent()
+                        .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
     RouteDefinition {
-        path: props.path,
+        path,
         children,
-        element: Rc::new(move |cx| (props.element)(cx).into_view(cx)),
+        element: Rc::new(move |cx| element(cx).into_view(cx)),
     }
 }
 

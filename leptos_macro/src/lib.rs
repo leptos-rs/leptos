@@ -229,8 +229,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     &proc_macro2::Ident::new(&cx.to_string(), cx.span().into()),
                     &nodes,
                     // swap to Mode::default() to use faster SSR templating
-                    Mode::Client
-                    //Mode::default(),
+                    Mode::Client, //Mode::default(),
                 ),
                 Err(error) => error.to_compile_error(),
             }
@@ -344,8 +343,27 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
-pub fn component(_args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let is_transparent = if !args.is_empty() {
+        let transparent = parse_macro_input!(args as syn::Ident);
+
+        let transparent_token: syn::Ident = syn::parse_quote!(transparent);
+
+        if transparent != transparent_token {
+            abort!(
+                transparent,
+                "only `transparent` is supported";
+                help = "try `#[component(transparent)]` or `#[component]`"
+            );
+        }
+
+        true
+    } else {
+        false
+    };
+
     parse_macro_input!(s as component::Model)
+        .is_transparent(is_transparent)
         .into_token_stream()
         .into()
 }

@@ -11,6 +11,7 @@ leptos = { path = "../../../leptos", default-features = false }
 actix-web = { version = "4", optional = true }
 actix-files = { version = "0.6", optional = true }
 wasm-bindgen = { version = "0.2", optional = true}
+gloo = { version = "0.8", optional = true }
 console_error_panic_hook = "0.1.7"
 cfg-if = "1.0.0"
 gloo-timers = { version = "0.2", features = ["futures"] }
@@ -19,6 +20,6 @@ futures = "0.3"
 [features]
 default = ["ssr"]
 ssr = ["leptos/ssr", "dep:actix-files", "dep:actix-web"]
-hydrate = ["leptos/hydrate", "dep:wasm-bindgen"]
+hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:gloo"]
 
 [workspace]
