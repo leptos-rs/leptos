@@ -33,6 +33,7 @@ cfg-if = "1.0.0"
 rmp-serde = "1.1.1"
 
 [dev-dependencies]
+leptos = "0.0"
 tokio-test = "0.4"
 
 [features]
