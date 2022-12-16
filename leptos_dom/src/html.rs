@@ -648,6 +648,9 @@ macro_rules! generate_html_tags {
             let id = HydrationCtx::id();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            gloo::console::warn!("hydrating <",stringify!([<$tag:upper>]), "/> with id ", id);
+
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
             let element = if HydrationCtx::is_hydrating() {
               if let Some(el) = crate::document().get_element_by_id(
                 &format!("_{id}")
