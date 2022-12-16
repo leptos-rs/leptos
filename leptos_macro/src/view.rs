@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, ExprPath};
 use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
 
@@ -639,7 +639,7 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     let name = &node.name;
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
-    let component_props_name = Ident::new(&format!("{component_name}Props"), span);
+    let component_props_name = format_ident!("{component_name}Props");
 
     let children = if node.children.is_empty() {
         quote! {}
