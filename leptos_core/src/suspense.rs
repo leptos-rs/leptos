@@ -147,11 +147,8 @@ where
                 });
     
                 // return the fallback for now, wrapped in fragment identifer
-                println!("continuing from...");
                 HydrationCtx::continue_from(current_id);
                 fallback().into_view(cx)
-                //Fragment::new(vec![fallback().into_view(cx)]).into_view(cx)
-                //div(cx).attr("data-l-fragment", key.to_string()).child(fallback).into_view(cx)
             }
         };
         initial
