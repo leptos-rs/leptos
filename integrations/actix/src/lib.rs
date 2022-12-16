@@ -5,14 +5,26 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-/// If ResponseParts is inserted into context with `use_context()` during a server function, it will
-/// let you set the status code and headers of the response. This is useful for cookies and custom responses.
-/// Status is not set if the request does not have one of the supported body types, and Headers will be set
-/// on any non Error response if provided
+/// This struct lets you define headers and override the status of the Response from an Element or a Server Function
+/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone)]
 pub struct ResponseParts {
     pub headers: HeaderMap,
     pub status: Option<StatusCode>,
+}
+
+/// Adding this Struct to your Scope inside of a Server Fn or Elements will allow you to override details of the Response
+/// like StatusCode and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
+/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced
+#[derive(Debug, Clone, Default)]
+pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
+
+impl ResponseOptions {
+    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    pub async fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write().await;
+        *writable = parts
+    }
 }
 
 /// An Actix [Route](actix_web::Route) that listens for a `POST` request with
@@ -258,7 +270,8 @@ pub fn render_app_to_stream(
                     }))
                     .chain(futures::stream::once(async { tail.to_string() }))
                     .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-            )
+            );
+            res
         }
     })
 }
