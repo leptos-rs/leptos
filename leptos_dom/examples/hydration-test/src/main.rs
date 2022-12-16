@@ -33,7 +33,6 @@ async fn main() -> std::io::Result<()> {
                 |cx| view! { cx, <App/> }.into_view(cx),
             ))
             .chain(futures::stream::once(async { tail.to_string() }))
-            .inspect(|html| println!("{html}")) 
             .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
       )})
     ))

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use leptos_dom::HydrationCtx;
 use leptos_dom::{Fragment, IntoView};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
@@ -75,7 +77,7 @@ where
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    render_suspense(cx, context, props.fallback, props.children)
+    render_suspense(cx, context, props.fallback, Rc::new(move |cx| (props.children)(cx)))
 }
 
 #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -83,36 +85,24 @@ fn render_suspense<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Box<dyn Fn(Scope) -> Fragment>,
+    child: Rc<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    use std::cell::RefCell;
-
     use leptos_dom::DynChild;
 
-    let cached_id = RefCell::new(None);
+    let cached_id = HydrationCtx::peak();
 
     DynChild::new(move || {
-        let mut cached_id_borrow = cached_id.borrow_mut();
-
-        let first_run = if cached_id_borrow.is_none() {
-            *cached_id_borrow = Some(HydrationCtx::peak());
-
-            true
-        } else {
-            false
-        };
-
         if context.ready() {
-            if let Some(id) = *cached_id_borrow {
-                HydrationCtx::continue_from(id);
-            }
+            leptos_dom::warn!("<Suspense/> ready and continuing from {}", cached_id);
+            HydrationCtx::continue_from(cached_id);
 
             child(cx).into_view(cx)
         } else {
+            leptos_dom::warn!("<Suspense/> fallback on client");
             fallback().into_view(cx)
         }
     })
@@ -123,35 +113,44 @@ fn render_suspense<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    orig_child: Box<dyn Fn(Scope) -> Fragment>,
+    orig_child: Rc<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    use leptos_dom::*;
+    use std::cell::RefCell;
 
-    let initial = {
+    use leptos_dom::DynChild;
+
+    let orig_child = Rc::clone(&orig_child);
+    let current_id = HydrationCtx::peak();
+
+    DynChild::new(move || {
+
         // run the child; we'll probably throw this away, but it will register resource reads
         let child = orig_child(cx).into_view(cx);
 
-        // no resources were read under this, so just return the child
-        if context.pending_resources.get() == 0 {
-            child
-        }
-        // show the fallback, but also prepare to stream HTML
-        else {
-            let key = cx.current_fragment_key();
-            cx.register_suspense(context, &key, move || {
-                orig_child(cx)
-                    .into_view(cx)
-                    .render_to_string(cx)
-                    .to_string()
-            });
-
-            // return the fallback for now, wrapped in fragment identifer
-            div(cx).id(key.to_string()).child(fallback).into_view(cx)
-        }
-    };
-    initial
+        let initial = {    
+            // no resources were read under this, so just return the child
+            if context.pending_resources.get() == 0 {
+                child.clone()
+            }
+            // show the fallback, but also prepare to stream HTML
+            else {
+                let orig_child = Rc::clone(&orig_child);
+                cx.register_suspense(context, &current_id.to_string(), move || {
+                    orig_child(cx)
+                        .into_view(cx)
+                        .render_to_string(cx)
+                        .to_string()
+                });
+    
+                // return the fallback for now, wrapped in fragment identifer
+                HydrationCtx::continue_from(current_id);
+                fallback().into_view(cx)
+            }
+        };
+        initial
+    }).into_view(cx)
 }

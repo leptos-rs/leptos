@@ -112,9 +112,14 @@ pub fn render_to_stream_with_prefix(
       r#"
               <template id="{fragment_id}f">{html}</template>
               <script>
-                  var frag = document.getElementById("{fragment_id}");
+                  var start = document.getElementById("_{fragment_id}o");
+                  var end = document.getElementById("_{fragment_id}c");
+                  var range = new Range();
+                  range.setStartBefore(start.nextSibling);
+                  range.setEndAfter(end.previousSibling);
+                  range.deleteContents();
                   var tpl = document.getElementById("{fragment_id}f");
-                  if(frag) frag.replaceWith(tpl.content.cloneNode(true));
+                  end.parentNode.insertBefore(tpl.content.cloneNode(true), end);
               </script>
               "#
     )
@@ -169,20 +174,22 @@ impl View {
     match self {
       View::Text(node) => node.content,
       View::Component(node) => {
-        let content = node
+        let content = || node
           .children
           .into_iter()
           .map(|node| node.render_to_string_helper())
           .join("");
         cfg_if! {
           if #[cfg(debug_assertions)] {
-            format!(r#"<template id="{}"></template>{content}<template id="{}"></template>"#,
+            format!(r#"<template id="{}"></template>{}<template id="{}"></template>"#,
               HydrationCtx::to_string(node.id, false),
+              content(),
               HydrationCtx::to_string(node.id, true)
             ).into()
           } else {
             format!(
-              r#"{content}<template id="{}"></template>"#,
+              r#"{}<template id="{}"></template>"#,
+              content(),
               HydrationCtx::to_string(node.id, true)
             ).into()
           }
@@ -193,18 +200,18 @@ impl View {
           CoreComponent::Unit(u) => (
             u.id,
             false,
-            format!(
+            Box::new(move || format!(
               "<template id={}></template>",
               HydrationCtx::to_string(u.id, true)
             )
-            .into(),
+            .into()) as Box<dyn FnOnce() -> Cow<'static, str>>,
           ),
           CoreComponent::DynChild(node) => {
             let child = node.child.take();
             (
               node.id,
               true,
-              if let Some(child) = *child {
+              Box::new(move || if let Some(child) = *child {
                 // On debug builds, `DynChild` has two marker nodes,
                 // so there is no way for the text to be merged with
                 // surrounding text when the browser parses the HTML,
@@ -223,7 +230,7 @@ impl View {
                 }
               } else {
                 "".into()
-              },
+              }) as Box<dyn FnOnce() -> Cow<'static, str>>
             )
           }
           CoreComponent::Each(node) => {
@@ -232,30 +239,33 @@ impl View {
             (
               node.id,
               true,
-              children
+              Box::new(move || children
                 .into_iter()
                 .flatten()
                 .map(|node| {
                   let id = node.id;
 
-                  let content = node.child.render_to_string_helper();
+                  let content = || node.child.render_to_string_helper();
 
                   #[cfg(debug_assertions)]
                   return format!(
-                    "<template id=\"{}\"></template>{content}<template \
+                    "<template id=\"{}\"></template>{}<template \
                      id=\"{}\"></template>",
                     HydrationCtx::to_string(id, false),
+                    content(),
                     HydrationCtx::to_string(id, true),
                   );
 
                   #[cfg(not(debug_assertions))]
                   return format!(
-                    "{content}<template id=\"{}c\"></template>",
+                    "{}<template id=\"{}c\"></template>",
+                    content(),
                     HydrationCtx::to_string(id, true)
                   );
                 })
                 .join("")
-                .into(),
+                .into()
+              )  as Box<dyn FnOnce() -> Cow<'static, str>>,
             )
           }
         };
@@ -264,19 +274,21 @@ impl View {
           cfg_if! {
             if #[cfg(debug_assertions)] {
               format!(
-                r#"<template id="{}"></template>{content}<template id="{}"></template>"#,
+                r#"<template id="{}"></template>{}<template id="{}"></template>"#,
                 HydrationCtx::to_string(id, false),
+                content(),
                 HydrationCtx::to_string(id, true),
               ).into()
             } else {
               format!(
-                r#"{content}<template id="{}"></template>"#,
+                r#"{}<template id="{}"></template>"#,
+                content(),
                 HydrationCtx::to_string(id, true)
               ).into()
             }
           }
         } else {
-          content
+          content()
         }
       }
       View::Element(el) => {

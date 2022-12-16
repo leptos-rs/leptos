@@ -46,7 +46,6 @@ impl HydrationCtx {
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) fn reset_id() {
-    println!("resetting ID");
     unsafe { ID = 0 };
   }
 
