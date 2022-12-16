@@ -115,7 +115,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                leptos::Component::new(
+                ::leptos::Component::new(
                     stringify!(#name),
                     move |cx| {
                         #[cfg(debug_assertions)]
@@ -132,7 +132,7 @@ impl ToTokens for Model {
             #[doc = ""]
             #docs
             #component_fn_prop_docs
-            #[derive(leptos::TypedBuilder)]
+            #[derive(::leptos::TypedBuilder)]
             #[builder(doc)]
             #vis struct #props_name #generics #where_clause {
                 #prop_builder_fields
@@ -143,7 +143,7 @@ impl ToTokens for Model {
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #[cfg_attr(
                 debug_assertions,
-                leptos::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                ::leptos::tracing::instrument(level = "trace", name = #trace_name, skip_all)
               )]
             #vis fn #name #generics (#scope_name: Scope, props: #props_name #generics) #ret
             #where_clause
@@ -154,7 +154,7 @@ impl ToTokens for Model {
                     #prop_names
                 } = props;
 
-                let span = leptos::tracing::Span::current();
+                let span = ::leptos::tracing::Span::current();
 
                 #component
             }
