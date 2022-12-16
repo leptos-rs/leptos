@@ -1,6 +1,7 @@
-use leptos_dom::{Fragment, IntoView, View};
+use leptos_dom::{DynChild, Fragment, IntoView, HydrationCtx};
 use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use typed_builder::TypedBuilder;
+use std::rc::Rc;
 
 /// Props for the [Suspense](crate::Suspense) component, which shows a fallback
 /// while [Resource](leptos_reactive::Resource)s are being read.
@@ -88,7 +89,7 @@ where
         cx,
         context,
         props.fallback,
-        props.children,
+        Rc::new(move |cx| (props.children)(cx)),
         props.set_pending,
     )
 }
@@ -98,7 +99,7 @@ fn render_transition<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    child: Box<dyn Fn(Scope) -> Fragment>,
+    child: Rc<dyn Fn(Scope) -> Fragment>,
     set_pending: Option<SignalSetter<bool>>,
 ) -> impl IntoView
 where
@@ -108,9 +109,12 @@ where
     use std::cell::RefCell;
 
     let prev_child = RefCell::new(None);
+    let cached_id = HydrationCtx::peak();
 
-    (move || {
+    DynChild::new(move || {
         if context.ready() {
+            HydrationCtx::continue_from(cached_id);
+
             let current_child = child(cx).into_view(cx);
             *prev_child.borrow_mut() = Some(current_child.clone());
             if let Some(pending) = &set_pending {
@@ -131,7 +135,6 @@ where
             fallback
         }
     })
-    .into_view(cx)
 }
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -139,36 +142,41 @@ fn render_transition<'a, F, E>(
     cx: Scope,
     context: SuspenseContext,
     fallback: F,
-    orig_child: Box<dyn Fn(Scope) -> Fragment>,
+    orig_child: Rc<dyn Fn(Scope) -> Fragment>,
     set_pending: Option<SignalSetter<bool>>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    use leptos_dom::*;
+    let orig_child = Rc::clone(&orig_child);
+    let current_id = HydrationCtx::peak();
 
-    let initial = {
+    DynChild::new(move || {
+
         // run the child; we'll probably throw this away, but it will register resource reads
         let child = orig_child(cx).into_view(cx);
 
-        // no resources were read under this, so just return the child
-        if context.pending_resources.get() == 0 {
-            child
-        }
-        // show the fallback, but also prepare to stream HTML
-        else {
-            let key = cx.current_fragment_key();
-            cx.register_suspense(context, &key, move || {
-                orig_child(cx).into_view(cx).render_to_string(cx).to_string()
-            });
-
-            // return the fallback for now, wrapped in fragment identifer
-            div(cx)
-                .id(key.to_string())
-                .child(move || fallback())
-                .into_view(cx)
-        }
-    };
-    initial
+        let initial = {    
+            // no resources were read under this, so just return the child
+            if context.pending_resources.get() == 0 {
+                child.clone()
+            }
+            // show the fallback, but also prepare to stream HTML
+            else {
+                let orig_child = Rc::clone(&orig_child);
+                cx.register_suspense(context, &current_id.to_string(), move || {
+                    orig_child(cx)
+                        .into_view(cx)
+                        .render_to_string(cx)
+                        .to_string()
+                });
+    
+                // return the fallback for now, wrapped in fragment identifer
+                HydrationCtx::continue_from(current_id);
+                fallback().into_view(cx)
+            }
+        };
+        initial
+    }).into_view(cx)
 }
