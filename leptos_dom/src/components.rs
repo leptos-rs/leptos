@@ -129,9 +129,6 @@ impl ComponentRepr {
 
     let id = HydrationCtx::id();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    gloo::console::warn!("hydrating <", name.to_string(), "/> with id ", id);
-
     let markers = (
       Comment::new(Cow::Owned(format!("</{name}>")), id, true),
       #[cfg(debug_assertions)]
