@@ -174,7 +174,6 @@ impl View {
     match self {
       View::Text(node) => node.content,
       View::Component(node) => {
-        println!("rendering <{}/> with id {}", node.name, node.id);
         let content = || node
           .children
           .into_iter()
