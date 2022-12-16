@@ -21,7 +21,8 @@ async fn main() -> std::io::Result<()> {
                     <link rel="modulepreload" href="{pkg_path}.js">
                     <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
                     <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
-                    "#
+                </head>
+                <body>"#
         );
 
         let tail = "</body></html>";
