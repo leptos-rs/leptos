@@ -107,12 +107,15 @@ where
         };
 
         if context.ready() {
+            leptos_dom::warn!("<Suspense/> ready");
             if let Some(id) = *cached_id_borrow {
+                leptos_dom::warn!("  <Suspense/> continuing from {}", id);
                 HydrationCtx::continue_from(id);
             }
 
             child(cx).into_view(cx)
         } else {
+            leptos_dom::warn!("<Suspense/> fallback on client");
             fallback().into_view(cx)
         }
     })

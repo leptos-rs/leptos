@@ -11,7 +11,7 @@ pub fn App(cx: Scope) -> impl IntoView {
       if cfg!(feature = "ssr") {
         let (tx, rx) = futures::channel::oneshot::channel();
         spawn_local(async {
-          std::thread::sleep(std::time::Duration::from_secs(10));
+          std::thread::sleep(std::time::Duration::from_secs(1));
           tx.send(());
         });
         rx.await;
@@ -22,21 +22,20 @@ pub fn App(cx: Scope) -> impl IntoView {
   );
 
   view! { cx,
-    <>
+    <div>
       <div>
         "This is some text"
       </div>
       <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
-        {move || pending_thing.read().map(|n| view! { cx, <p>"Loaded."</p>})}
+        {move || pending_thing.read().map(|n| view! { cx, <ComponentA/> })}
       </Suspense>
-    </>
+    </div>
   }
 }
 
 #[component]
 pub fn ComponentA(
   cx: Scope,
-  children: Box<dyn Fn() -> Vec<View>>,
 ) -> impl IntoView {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
   let (counter, set_counter) = create_signal(cx, 0);
@@ -55,7 +54,6 @@ pub fn ComponentA(
     )
     .child(input(cx).attr("type", "text").prop("value", value))
     .child(p(cx).child("Value: ").child(value))
-    .child(children)
     .into_view(cx)
 }
 

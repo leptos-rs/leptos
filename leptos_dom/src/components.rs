@@ -128,6 +128,7 @@ impl ComponentRepr {
     let name = name.into();
 
     let id = HydrationCtx::id();
+    gloo::console::warn!("hydrating <", name.to_string(), "/> with id ", id);
 
     let markers = (
       Comment::new(Cow::Owned(format!("</{name}>")), id, true),
@@ -143,6 +144,7 @@ impl ComponentRepr {
       // so they can serve as our references when inserting
       // future nodes
       if !HydrationCtx::is_hydrating() {
+        gloo::console::warn!("  rendering <{name}/>");
         #[cfg(debug_assertions)]
         fragment
           .append_with_node_2(&markers.1.node, &markers.0.node)
