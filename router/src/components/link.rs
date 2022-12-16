@@ -107,7 +107,7 @@ where
                     aria-current=move || if is_active() { Some("page") } else { None }
                     class=move || class.as_ref().map(|class| class.get())
                 >
-                    {move || (props.children)(cx)}
+                    {children(cx)}
                 </a>
             }
         }
