@@ -675,8 +675,10 @@ where
   #[builder(setter(doc = "A key function that will be applied to each item"))]
   pub key: KF,
   /// Should provide a single child function, which takes
-  #[builder(setter(doc = "Should provide a single child function, which takes"))]
-  pub view: EF
+  #[builder(setter(
+    doc = "Should provide a single child function, which takes"
+  ))]
+  pub view: EF,
 }
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -715,7 +717,16 @@ where
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
+///
+/// # Props
+/// ## Required
+/// - **cx**: [`Scope`]
+/// - **each**: [`IF`]
+///   - Items over which the component should iterate.
+/// - **key**: KF
+///   - A key function that will be applied to each item
+/// - **view**: EF
+///   - Should provide a single child function, which takes
 pub fn For<IF, I, T, EF, N, KF, K>(
   cx: Scope,
   props: ForProps<IF, I, T, EF, N, KF, K>,
