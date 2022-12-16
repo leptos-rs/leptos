@@ -104,7 +104,8 @@ impl ToTokens for Model {
 
         let prop_names = prop_names(props);
 
-        let name_stringified = LitStr::new(&name.to_string(), name.span());
+        let builder_name_doc =
+            LitStr::new(&format!("Props for the [`{name}`] component."), name.span());
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
@@ -127,9 +128,10 @@ impl ToTokens for Model {
         };
 
         let output = quote! {
-            #[doc = "Props for the [`"]
-            #[doc = #name_stringified]
-            #[doc = "`] component"]
+            #[doc = #builder_name_doc]
+            #[doc = ""]
+            #docs
+            #component_fn_prop_docs
             #[derive(leptos::TypedBuilder)]
             #[builder(doc)]
             #vis struct #props_name #generics #where_clause {
