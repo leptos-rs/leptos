@@ -119,8 +119,6 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    use std::cell::RefCell;
-
     use leptos_dom::DynChild;
 
     let orig_child = Rc::clone(&orig_child);
