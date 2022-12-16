@@ -13,35 +13,37 @@ use crate::{runtime::with_runtime, Scope};
 /// arguments to a function or properties of a component.
 ///
 /// ```
-/// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-///
-/// // Note: this example doesn’t use Leptos’s DOM model or component structure,
-/// // so it ends up being a little silly.
-///
-/// #[derive(Clone)]
-/// struct SharedData {
-///   name: (ReadSignal<String>, WriteSignal<String>)
+/// use leptos::*;
+/// 
+/// // define a newtype we'll provide as context
+/// // contexts are stored by their types, so it can be useful to create
+/// // a new type to avoid confusion with other `WriteSignal<i32>`s we may have
+/// // all types to be shared via context should implement `Clone`
+/// #[derive(Copy, Clone)]
+/// struct ValueSetter(WriteSignal<i32>);
+/// 
+/// #[component]
+/// pub fn Provider(cx: Scope) -> Element {
+///     let (value, set_value) = create_signal(cx, 0);
+///     
+///     // the newtype pattern isn't *necessary* here but is a good practice
+///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
+///     // and makes it easier to refer to it in ButtonD
+///     provide_context(cx, ValueSetter(set_value));
+/// 
+///     // because <Consumer/> is nested inside <Provider/>,
+///     // it has access to the provided context
+///     view! { cx, <div><Consumer/></div> }
 /// }
-///
-/// let my_context_obj = SharedData { name: create_signal(cx, "Greg".to_string()) };
-/// provide_context(cx, my_context_obj);
-///
-/// // we can access it in this Scope
-/// let shared_data = use_context::<SharedData>(cx).unwrap();
-/// let (name, set_name) = shared_data.name;
-///
-/// // we can access it somewhere in a lower scope
-/// cx.child_scope(|cx| {
-///   let shared_data_lower_in_tree = use_context::<SharedData>(cx).unwrap();
-///   let (name, set_name) = shared_data.name;
-///   set_name("Bob".to_string());
-/// });
-///
-/// // the change made in a lower scope updated the signal in the parent scope
-/// assert_eq!(name(), "Bob");
-///
-/// # }).dispose();
+/// 
+/// #[component]
+/// pub fn Consumer(cx: Scope) -> Element {
+///     // consume the provided context of type `ValueSetter` using `use_context`
+///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
+///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
+/// 
+///     todo!()
+/// }
 /// ```
 pub fn provide_context<T>(cx: Scope, value: T)
 where
@@ -65,35 +67,37 @@ where
 /// arguments to a function or properties of a component.
 ///
 /// ```
-/// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-///
-/// // Note: this example doesn’t use Leptos’s DOM model or component structure,
-/// // so it ends up being a little silly.
-///
-/// #[derive(Clone)]
-/// struct SharedData {
-///   name: (ReadSignal<String>, WriteSignal<String>)
+/// use leptos::*;
+/// 
+/// // define a newtype we'll provide as context
+/// // contexts are stored by their types, so it can be useful to create
+/// // a new type to avoid confusion with other `WriteSignal<i32>`s we may have
+/// // all types to be shared via context should implement `Clone`
+/// #[derive(Copy, Clone)]
+/// struct ValueSetter(WriteSignal<i32>);
+/// 
+/// #[component]
+/// pub fn Provider(cx: Scope) -> Element {
+///     let (value, set_value) = create_signal(cx, 0);
+///     
+///     // the newtype pattern isn't *necessary* here but is a good practice
+///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
+///     // and makes it easier to refer to it in ButtonD
+///     provide_context(cx, ValueSetter(set_value));
+/// 
+///     // because <Consumer/> is nested inside <Provider/>,
+///     // it has access to the provided context
+///     view! { cx, <div><Consumer/></div> }
 /// }
-///
-/// let my_context_obj = SharedData { name: create_signal(cx, "Greg".to_string()) };
-/// provide_context(cx, my_context_obj);
-///
-/// // we can access it in this Scope
-/// let shared_data = use_context::<SharedData>(cx).unwrap();
-/// let (name, set_name) = shared_data.name;
-///
-/// // we can access it somewhere in a lower scope
-/// cx.child_scope(|cx| {
-///   let shared_data_lower_in_tree = use_context::<SharedData>(cx).unwrap();
-///   let (name, set_name) = shared_data.name;
-///   set_name("Bob".to_string());
-/// });
-///
-/// // the change made in a lower scope updated the signal in the parent scope
-/// assert_eq!(name(), "Bob");
-///
-/// # }).dispose();
+/// 
+/// #[component]
+/// pub fn Consumer(cx: Scope) -> Element {
+///     // consume the provided context of type `ValueSetter` using `use_context`
+///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
+///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
+/// 
+///     todo!()
+/// }
 /// ```
 pub fn use_context<T>(cx: Scope) -> Option<T>
 where
