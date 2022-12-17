@@ -31,7 +31,8 @@ pub fn Routes(
     });
 
     let mut branches = Vec::new();
-    let children = children(cx)
+    let frag = children(cx);
+    let children = frag
         .as_children()
         .iter()
         .filter_map(|child| {
@@ -198,7 +199,10 @@ pub fn Routes(
         })
     });
 
-    move || root.get()
+    Fragment::new_with_id(
+        frag.id(),
+        vec![(move || root.get()).into_view(cx)]
+    )
 }
 
 #[derive(Clone, Debug, PartialEq)]
