@@ -20,6 +20,9 @@ static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
 #[thread_local]
 static mut ID: usize = 0;
 
+#[thread_local]
+static mut FORCE_HK: bool = false;
+
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
 
@@ -78,5 +81,19 @@ impl HydrationCtx {
 
       format!("_{id}")
     }
+  }
+
+  /// All components and elements created after this method is
+  /// called with use `leptos-hk` for their hydration `id`,
+  /// instead of `id`.
+  pub fn start_force_hk() {
+    unsafe { FORCE_HK = true }
+  }
+
+  /// All components and elements created after this method is
+  /// called with use `id` by default for their hydration `id`,
+  /// instead of `leptos-hk`.
+  pub fn stop_force_hk() {
+    unsafe { FORCE_HK = false }
   }
 }
