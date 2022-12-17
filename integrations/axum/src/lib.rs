@@ -38,7 +38,7 @@ pub struct ResponseParts {
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
-    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    /// A less boilerplatey way to overwrite the default contents of `ResponseOptions` with a new `ResponseParts`
     pub async fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write().await;
         *writable = parts
@@ -366,10 +366,6 @@ pub fn render_app_to_stream(
                                             let res_options =
                                                 use_context::<ResponseOptions>(cx).unwrap();
 
-                                            println!(
-                                                "Inner Response Options: {:#?}",
-                                                res_options.0.read().await
-                                            );
                                             let new_res_parts = res_options.0.read().await.clone();
 
                                             let mut writable = res_options2.0.write().await;
@@ -386,24 +382,27 @@ pub fn render_app_to_stream(
                     }
                 });
 
-                let stream = Box::pin(
+                let mut stream = Box::pin(
                     futures::stream::once(async move { head.clone() })
                         .chain(rx)
                         .chain(futures::stream::once(async { tail.to_string() }))
                         .map(|html| Ok(Bytes::from(html))),
                 );
 
-                // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
+                // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
                 let first_chunk = stream.next().await;
                 let second_chunk = stream.next().await;
+                let third_chunk = stream.next().await;
 
                 // Extract the resources now that they've been rendered
-                let mut res_options = res_options3.0.read().await;
-                println!("Response Options: {:#?}", res_options);
+                let res_options = res_options3.0.read().await;
 
-                let complete_stream =
-                    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-                        .chain(stream);
+                let complete_stream = futures::stream::iter([
+                    first_chunk.unwrap(),
+                    second_chunk.unwrap(),
+                    third_chunk.unwrap(),
+                ])
+                .chain(stream);
 
                 let mut res = Response::new(StreamBody::new(
                     Box::pin(complete_stream) as PinnedHtmlStream

@@ -276,23 +276,38 @@ pub fn render_app_to_stream(
                     .unwrap_or_default();
                 format!("{head}</head><body>{app}")
             }))
-            .chain(futures::stream::once(async { tail.to_string() }))
-            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
+                .chain(futures::stream::once(async { tail.to_string() }))
+                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
 
-              // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
-              let first_chunk = stream.next().await;
-              let second_chunk = stream.next().await;
+            // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+            let first_chunk = stream.next().await;
+            let second_chunk = stream.next().await;
+            let third_chunk = stream.next().await;
 
-              let mut res_options = res_options.0.read().await;
-              println!("Reading Options");
-              println!("Response Options: {:#?}", res_options);
-              
-              let complete_stream =
-              futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-                  .chain(stream);
-            HttpResponse::Ok().content_type("text/html").streaming(
+            let res_options = res_options.0.read().await;
+            println!("Reading Options");
+            println!("Response Options: {:#?}", res_options);
+            let (status, mut headers) = (res_options.status.clone(), res_options.headers.clone());
+            let status = status.unwrap_or_default();
+            
+            let complete_stream =
+            futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
+                .chain(stream);
+            let mut res = HttpResponse::Ok().content_type("text/html").streaming(
                 complete_stream
-            )
+            );
+            // Add headers manipulated in the response
+            for (key, value) in headers.drain(){
+                if let Some(key) = key{
+                res.headers_mut().append(key, value);
+                }
+            };
+            // Set status to what is returned in the function
+            let res_status = res.status_mut();
+            *res_status = status;
+            // Return the response
+            res
+
         }
     })
 }

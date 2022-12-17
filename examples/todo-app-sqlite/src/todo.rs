@@ -1,5 +1,4 @@
 use cfg_if::cfg_if;
-use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -8,6 +7,8 @@ use serde::{Deserialize, Serialize};
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
+        use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
             Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)
@@ -58,21 +59,6 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?
     {
         todos.push(row);
-    }
-
-    // Add a random header(because why not)
-    let mut res_headers = HeaderMap::new();
-    res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
-
-    let res_parts = leptos_actix::ResponseParts {
-        headers: res_headers.into(),
-        status: Some(StatusCode::IM_A_TEAPOT),
-    };
-
-    let res_options_outer = use_context::<leptos_actix::ResponseOptions>(cx);
-    if let Some(res_options) = res_options_outer {
-        println!("Setting Options");
-        res_options.overwrite(res_parts).await;
     }
 
     Ok(todos)
