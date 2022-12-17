@@ -245,13 +245,17 @@ impl<El: IntoElement> HtmlElement<El> {
 
   #[doc(hidden)]
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub fn from_html(cx: Scope, element: El, html: impl Into<Cow<'static, str>>) -> Self {
+  pub fn from_html(
+    cx: Scope,
+    element: El,
+    html: impl Into<Cow<'static, str>>,
+  ) -> Self {
     Self {
       cx,
       attrs: smallvec![],
       children: smallvec![],
       element,
-      prerendered: Some(html.into())
+      prerendered: Some(html.into()),
     }
   }
 
@@ -663,6 +667,8 @@ macro_rules! generate_html_tags {
                     can also be a leptos hydration issue."
                 );
 
+                el.remove_attribute("id").unwrap();
+
                 el.unchecked_into()
               } else if let Ok(Some(el)) = crate::document().query_selector(
                 &format!("[leptos-hk=_{id}]")
@@ -677,6 +683,8 @@ macro_rules! generate_html_tags {
                     logic, which is considered a bug, or it \
                     can also be a leptos hydration issue."
                 );
+
+                el.remove_attribute("leptos-hk").unwrap();
 
                 el.unchecked_into()
               } else {
