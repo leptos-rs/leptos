@@ -29,7 +29,8 @@ impl HydrationCtx {
     unsafe { ID }
   }
 
-  pub(crate) fn id() -> usize {
+  /// Increments the current hydration `id` and returns it
+  pub fn id() -> usize {
     unsafe {
       let id = ID;
 

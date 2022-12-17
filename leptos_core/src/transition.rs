@@ -110,9 +110,11 @@ where
 
     let prev_child = RefCell::new(None);
     let cached_id = HydrationCtx::peak();
+    let _space_for_inner = HydrationCtx::id();
 
     DynChild::new(move || {
         if context.ready() {
+            leptos_dom::warn!("<Transition/> ready and continuing from {}", cached_id);
             HydrationCtx::continue_from(cached_id);
 
             let current_child = child(cx).into_view(cx);

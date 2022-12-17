@@ -94,6 +94,7 @@ where
     use leptos_dom::DynChild;
 
     let cached_id = HydrationCtx::peak();
+    let _space_for_inner = HydrationCtx::id();
 
     DynChild::new(move || {
         if context.ready() {
