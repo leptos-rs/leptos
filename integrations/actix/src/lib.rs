@@ -1,18 +1,33 @@
 use actix_web::{http::header::HeaderMap, web::Bytes, *};
-use futures::StreamExt;
+use futures::{StreamExt, executor}; 
+
 use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
-/// If ResponseParts is inserted into context with `use_context()` during a server function, it will
-/// let you set the status code and headers of the response. This is useful for cookies and custom responses.
-/// Status is not set if the request does not have one of the supported body types, and Headers will be set
-/// on any non Error response if provided
-#[derive(Debug, Clone)]
+/// This struct lets you define headers and override the status of the Response from an Element or a Server Function
+/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
+#[derive(Debug, Clone, Default)]
 pub struct ResponseParts {
     pub headers: HeaderMap,
     pub status: Option<StatusCode>,
+}
+
+/// Adding this Struct to your Scope inside of a Server Fn or Elements will allow you to override details of the Response
+/// like StatusCode and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
+/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced
+#[derive(Debug, Clone, Default)]
+pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
+
+impl ResponseOptions {
+    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    pub async fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write().await;
+        *writable = parts
+    }
 }
 
 /// An Actix [Route](actix_web::Route) that listens for a `POST` request with
@@ -63,23 +78,26 @@ pub fn handle_server_fns() -> Route {
 
                     let runtime = create_runtime();
                     let (cx, disposer) = raw_scope_and_disposer(runtime);
+                    let res_options = ResponseOptions::default();
 
                     // provide HttpRequest as context in server scope
                     provide_context(cx, req.clone());
+                    provide_context(cx, res_options.clone());
 
                     match server_fn(cx, body).await {
                         Ok(serialized) => {
-                            let response_parts = use_context::<ResponseParts>(cx);
+                            let res_options = use_context::<ResponseOptions>(cx).unwrap();
 
                             // clean up the scope, which we only needed to run the server fn
                             disposer.dispose();
                             runtime.dispose();
 
                             let mut res: HttpResponseBuilder;
-                            let (status, mut res_headers) = match response_parts {
-                                Some(parts) => (parts.status, parts.headers),
-                                None => (None, HeaderMap::new()),
-                            };
+                            let mut res_parts = res_options.0.write().await;
+                            // let (status, mut res_headers) = match res_parts {
+                            //     Some(parts) => (parts.status, parts.headers),
+                            //     None => (None, HeaderMap::new()),
+                            // };
 
                             if accept_header == Some("application/json")
                                 || accept_header == Some("application/x-www-form-urlencoded")
@@ -89,7 +107,7 @@ pub fn handle_server_fns() -> Route {
 
                                 // Override Status if Status is set in ResponseParts and
                                 // We're not trying to do a form submit
-                                if let Some(status) = status {
+                                if let Some(status) = res_parts.status {
                                     res.status(status);
                                 }
                             }
@@ -105,7 +123,8 @@ pub fn handle_server_fns() -> Route {
                                     .content_type("application/json");
                             };
                             // Use provided ResponseParts headers if they exist
-                            let _count = res_headers
+                            let _count = res_parts
+                                .headers
                                 .drain()
                                 .map(|(k, v)| {
                                     if let Some(k) = k {
@@ -186,6 +205,8 @@ pub fn render_app_to_stream(
     web::get().to(move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
+        let res_options = ResponseOptions::default();
+        let res_options_default = res_options.clone();
         async move {
             let path = req.path();
 
@@ -196,14 +217,14 @@ pub fn render_app_to_stream(
                 "http://leptos".to_string() + path + "?" + query
             };
 
-
-
             let app = {
                 let app_fn = app_fn.clone();
                 move |cx| {
                     let integration = ServerIntegration { path: path.clone() };
                     provide_context(cx, RouterIntegrationContext::new(integration));
                     provide_context(cx, MetaContext::new());
+                    println!("Setting Default options");
+                    provide_context(cx, res_options_default.clone());
                     provide_context(cx, req.clone());
 
                     (app_fn)(cx)
@@ -246,19 +267,47 @@ pub fn render_app_to_stream(
 
             let tail = "</body></html>";
 
-            HttpResponse::Ok().content_type("text/html").streaming(
-                futures::stream::once(async move { head.clone() })
-                    // TODO this leaks a runtime once per invocation
-                    .chain(render_to_stream(move |cx| {
-                        let app = app(cx);
-                        let head = use_context::<MetaContext>(cx)
-                            .map(|meta| meta.dehydrate())
-                            .unwrap_or_default();
-                        format!("{head}</head><body>{app}")
-                    }))
-                    .chain(futures::stream::once(async { tail.to_string() }))
-                    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-            )
+            let mut stream = Box::pin(futures::stream::once(async move { head.clone() }) 
+            // TODO this leaks a runtime once per invocation
+            .chain(render_to_stream(move |cx| {
+                let app = app(cx);
+                let head = use_context::<MetaContext>(cx)
+                    .map(|meta| meta.dehydrate())
+                    .unwrap_or_default();
+                format!("{head}</head><body>{app}")
+            }))
+                .chain(futures::stream::once(async { tail.to_string() }))
+                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
+
+            // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+            let first_chunk = stream.next().await;
+            let second_chunk = stream.next().await;
+            let third_chunk = stream.next().await;
+
+            let res_options = res_options.0.read().await;
+            println!("Reading Options");
+            println!("Response Options: {:#?}", res_options);
+            let (status, mut headers) = (res_options.status.clone(), res_options.headers.clone());
+            let status = status.unwrap_or_default();
+            
+            let complete_stream =
+            futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
+                .chain(stream);
+            let mut res = HttpResponse::Ok().content_type("text/html").streaming(
+                complete_stream
+            );
+            // Add headers manipulated in the response
+            for (key, value) in headers.drain(){
+                if let Some(key) = key{
+                res.headers_mut().append(key, value);
+                }
+            };
+            // Set status to what is returned in the function
+            let res_status = res.status_mut();
+            *res_status = status;
+            // Return the response
+            res
+
         }
     })
 }
