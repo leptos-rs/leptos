@@ -3,7 +3,7 @@ mod each;
 mod fragment;
 mod unit;
 
-use crate::{hydration::HydrationCtx, Comment, IntoView, View};
+use crate::{hydration::{HydrationCtx, HydrationKey}, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
 pub use dyn_child::*;
@@ -51,7 +51,7 @@ pub struct ComponentRepr {
   pub children: Vec<View>,
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: usize,
+  pub(crate) id: HydrationKey,
 }
 
 impl fmt::Debug for ComponentRepr {
@@ -125,17 +125,17 @@ impl IntoView for ComponentRepr {
 impl ComponentRepr {
   /// Creates a new [`Component`].
   pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-    Self::new_with_id(name, HydrationCtx::id())
+    Self::new_with_id(name, HydrationCtx::next_component())
   }
 
   /// Creates a new [`Component`] with the given hydration ID.
-  pub fn new_with_id(name: impl Into<Cow<'static, str>>, id: usize) -> Self {
+  pub fn new_with_id(name: impl Into<Cow<'static, str>>, id: HydrationKey) -> Self {
     let name = name.into();
 
     let markers = (
-      Comment::new(Cow::Owned(format!("</{name}>")), id, true),
+      Comment::new(Cow::Owned(format!("</{name}>")), &id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Owned(format!("<{name}>")), id, false),
+      Comment::new(Cow::Owned(format!("<{name}>")), &id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]

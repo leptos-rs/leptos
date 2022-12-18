@@ -1,4 +1,4 @@
-use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
+use crate::{hydration::{HydrationCtx, HydrationKey}, Comment, CoreComponent, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable, RANGE};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -50,7 +50,7 @@ pub struct EachRepr {
   pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: usize,
+  pub(crate) id: HydrationKey,
 }
 
 impl fmt::Debug for EachRepr {
@@ -74,9 +74,9 @@ impl Default for EachRepr {
     let id = HydrationCtx::id();
 
     let markers = (
-      Comment::new(Cow::Borrowed("</Each>"), id, true),
+      Comment::new(Cow::Borrowed("</Each>"), &id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Borrowed("<Each>"), id, false),
+      Comment::new(Cow::Borrowed("<Each>"), &id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -147,7 +147,7 @@ pub(crate) struct EachItem {
   pub(crate) child: View,
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: usize,
+  pub(crate) id: HydrationKey,
 }
 
 impl fmt::Debug for EachItem {
@@ -169,9 +169,9 @@ impl EachItem {
     let id = HydrationCtx::id();
 
     let markers = (
-      Comment::new(Cow::Borrowed("</EachItem>"), id, true),
+      Comment::new(Cow::Borrowed("</EachItem>"), &id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Borrowed("<EachItem>"), id, false),
+      Comment::new(Cow::Borrowed("<EachItem>"), &id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -691,7 +691,7 @@ where
 ///
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// struct Counter {
-///   id: usize,
+///   id: HydrationKey,
 ///   count: RwSignal<i32>
 /// }
 ///

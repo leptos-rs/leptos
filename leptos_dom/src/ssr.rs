@@ -182,9 +182,9 @@ impl View {
         cfg_if! {
           if #[cfg(debug_assertions)] {
             format!(r#"<template id="{}"></template>{}<template id="{}"></template>"#,
-              HydrationCtx::to_string(node.id, false),
+              HydrationCtx::to_string(&node.id, false),
               content(),
-              HydrationCtx::to_string(node.id, true)
+              HydrationCtx::to_string(&node.id, true)
             ).into()
           } else {
             format!(
@@ -198,11 +198,11 @@ impl View {
       View::CoreComponent(node) => {
         let (id, wrap, content) = match node {
           CoreComponent::Unit(u) => (
-            u.id,
+            u.id.clone(),
             false,
             Box::new(move || format!(
               "<template id={}></template>",
-              HydrationCtx::to_string(u.id, true)
+              HydrationCtx::to_string(&u.id, true)
             )
             .into()) as Box<dyn FnOnce() -> Cow<'static, str>>,
           ),
@@ -251,9 +251,9 @@ impl View {
                   return format!(
                     "<template id=\"{}\"></template>{}<template \
                      id=\"{}\"></template>",
-                    HydrationCtx::to_string(id, false),
+                    HydrationCtx::to_string(&id, false),
                     content(),
-                    HydrationCtx::to_string(id, true),
+                    HydrationCtx::to_string(&id, true),
                   );
 
                   #[cfg(not(debug_assertions))]
@@ -275,15 +275,15 @@ impl View {
             if #[cfg(debug_assertions)] {
               format!(
                 r#"<template id="{}"></template>{}<template id="{}"></template>"#,
-                HydrationCtx::to_string(id, false),
+                HydrationCtx::to_string(&id, false),
                 content(),
-                HydrationCtx::to_string(id, true),
+                HydrationCtx::to_string(&id, true),
               ).into()
             } else {
               format!(
                 r#"{}<template id="{}"></template>"#,
                 content(),
-                HydrationCtx::to_string(id, true)
+                HydrationCtx::to_string(&id, true)
               ).into()
             }
           }

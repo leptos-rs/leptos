@@ -1,4 +1,4 @@
-use crate::{hydration::HydrationCtx, Comment, IntoView, View};
+use crate::{hydration::{HydrationCtx, HydrationKey}, Comment, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, unmount_child, MountKind, Mountable};
 use leptos_reactive::Scope;
@@ -18,7 +18,7 @@ pub struct DynChildRepr {
   pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
   closing: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: usize,
+  pub(crate) id: HydrationKey,
 }
 
 impl fmt::Debug for DynChildRepr {
@@ -65,9 +65,9 @@ impl DynChildRepr {
     let id = HydrationCtx::id();
 
     let markers = (
-      Comment::new(Cow::Borrowed("</DynChild>"), id, true),
+      Comment::new(Cow::Borrowed("</DynChild>"), &id, true),
       #[cfg(debug_assertions)]
-      Comment::new(Cow::Borrowed("<DynChild>"), id, false),
+      Comment::new(Cow::Borrowed("<DynChild>"), &id, false),
     );
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]

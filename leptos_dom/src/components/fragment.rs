@@ -1,6 +1,6 @@
 use leptos_reactive::Scope;
 
-use crate::{ComponentRepr, IntoView, View, HydrationCtx};
+use crate::{ComponentRepr, IntoView, View, HydrationCtx, hydration::HydrationKey};
 
 /// Trait for converting any iterable into a [`Fragment`].
 pub trait IntoFragment {
@@ -21,7 +21,7 @@ where
 /// Represents a group of [`views`](View).
 #[derive(Debug, Clone)]
 pub struct Fragment {
-  id: usize,
+  id: HydrationKey,
   nodes: Vec<View>
 }
 
@@ -43,8 +43,13 @@ impl Fragment {
     Self::new_with_id(HydrationCtx::id(), nodes)
   }
 
+  /// Creates a new [`Fragment`] from a function that returns [`Vec<Node>`].
+  pub fn lazy(nodes: impl Fn() -> Vec<View>) -> Self {
+    Self::new_with_id(HydrationCtx::id(), nodes())
+  }
+
   /// Creates a new [`Fragment`] with the given hydration ID from a [`Vec<Node>`].
-  pub fn new_with_id(id: usize, nodes: Vec<View>) -> Self {
+  pub fn new_with_id(id: HydrationKey, nodes: Vec<View>) -> Self {
     Self {
       id,
       nodes
@@ -57,15 +62,15 @@ impl Fragment {
   }
 
   /// Returns the fragment's hydration ID.
-  pub fn id(&self) -> usize {
-    self.id
+  pub fn id(&self) -> &HydrationKey {
+    &self.id
   }
 }
 
 impl IntoView for Fragment {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]
   fn into_view(self, cx: leptos_reactive::Scope) -> View {
-    let mut frag = ComponentRepr::new_with_id("", self.id);
+    let mut frag = ComponentRepr::new_with_id("", self.id.clone());
 
     frag.children = self.nodes;
 

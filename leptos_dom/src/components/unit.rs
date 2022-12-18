@@ -2,7 +2,7 @@ use std::fmt;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::Mountable;
-use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
+use crate::{hydration::{HydrationCtx, HydrationKey}, Comment, CoreComponent, IntoView, View};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
@@ -11,7 +11,7 @@ use wasm_bindgen::JsCast;
 pub struct UnitRepr {
   comment: Comment,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: usize,
+  pub(crate) id: HydrationKey,
 }
 
 impl fmt::Debug for UnitRepr {
@@ -25,7 +25,7 @@ impl Default for UnitRepr {
     let id = HydrationCtx::id();
 
     Self {
-      comment: Comment::new("<() />", id, true),
+      comment: Comment::new("<() />", &id, true),
       #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
       id,
     }

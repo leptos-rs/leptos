@@ -25,6 +25,7 @@ pub use events::typed as ev;
 pub use helpers::*;
 pub use html::*;
 pub use hydration::HydrationCtx;
+use hydration::HydrationKey;
 pub use js_sys;
 use leptos_reactive::Scope;
 pub use logging::*;
@@ -150,7 +151,7 @@ cfg_if! {
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: Vec<View>,
       prerendered: Option<Cow<'static, str>>,
-      id: usize,
+      id: HydrationKey,
     }
 
     impl fmt::Debug for Element {
@@ -245,7 +246,7 @@ impl Element {
           is_void: el.is_void(),
           attrs: Default::default(),
           children: Default::default(),
-          id: el.hydration_id(),
+          id: el.hydration_id().clone(),
           prerendered: None
         }
       }
@@ -263,7 +264,7 @@ impl Element {
       is_void: el.is_void(),
       attrs: Default::default(),
       children: Default::default(),
-      id: el.hydration_id(),
+      id: el.hydration_id().clone(),
       prerendered: Some(html.into()),
     }
   }
@@ -279,7 +280,7 @@ struct Comment {
 impl Comment {
   fn new(
     content: impl Into<Cow<'static, str>>,
-    id: usize,
+    id: &HydrationKey,
     closing: bool,
   ) -> Self {
     let content = content.into();

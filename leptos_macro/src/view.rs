@@ -155,7 +155,7 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
         } else if nodes.len() == 1 {
             node_to_tokens(cx, &nodes[0])
         } else {
-            fragment_to_tokens(cx, Span::call_site(), nodes)
+            fragment_to_tokens(cx, Span::call_site(), nodes, false)
         }
     }
 }
@@ -475,7 +475,7 @@ fn set_class_attribute_ssr(
     }
 }
 
-fn fragment_to_tokens(cx: &Ident, span: Span, nodes: &[Node]) -> TokenStream {
+fn fragment_to_tokens(cx: &Ident, span: Span, nodes: &[Node], lazy: bool) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
         let node = node_to_tokens(cx, node);
 
@@ -483,18 +483,28 @@ fn fragment_to_tokens(cx: &Ident, span: Span, nodes: &[Node]) -> TokenStream {
             #node.into_view(#cx)
         }
     });
-    quote! {
-        {
-            leptos::Fragment::new(vec![
-                #(#nodes),*
-            ])
+    if lazy {
+        quote! {
+            {
+                leptos::Fragment::lazy(|| vec![
+                    #(#nodes),*
+                ])
+            }
+        }
+    } else {
+        quote! {
+            {
+                leptos::Fragment::new(vec![
+                    #(#nodes),*
+                ])
+            }
         }
     }
 }
 
 fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
     match node {
-        Node::Fragment(fragment) => fragment_to_tokens(cx, Span::call_site(), &fragment.children),
+        Node::Fragment(fragment) => fragment_to_tokens(cx, Span::call_site(), &fragment.children, false),
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
             let value = node.value.as_ref();
@@ -533,7 +543,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
         let children = node.children.iter().map(|node| {
             let child = match node {
                 Node::Fragment(fragment) => {
-                    fragment_to_tokens(cx, Span::call_site(), &fragment.children)
+                    fragment_to_tokens(cx, Span::call_site(), &fragment.children, false)
                 }
                 Node::Text(node) => {
                     let span = node.value.span();
@@ -644,7 +654,7 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        let children = fragment_to_tokens(cx, span, &node.children);
+        let children = fragment_to_tokens(cx, span, &node.children, true);
         quote! { .children(Box::new(move |#cx| #children)) }
     };
 

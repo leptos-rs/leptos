@@ -109,13 +109,14 @@ where
     use std::cell::RefCell;
 
     let prev_child = RefCell::new(None);
-    let cached_id = HydrationCtx::peak();
-    let _space_for_inner = HydrationCtx::id();
+    let cached_id = HydrationCtx::peek();
 
     DynChild::new(move || {
         if context.ready() {
             leptos_dom::warn!("<Transition/> ready and continuing from {}", cached_id);
-            HydrationCtx::continue_from(cached_id);
+            let mut id_to_replace = cached_id.clone();
+            id_to_replace.offset -= 1;
+            HydrationCtx::continue_from(id_to_replace.clone());
 
             let current_child = child(cx).into_view(cx);
             *prev_child.borrow_mut() = Some(current_child.clone());
@@ -152,7 +153,7 @@ where
     E: IntoView,
 {
     let orig_child = Rc::clone(&orig_child);
-    let current_id = HydrationCtx::peak();
+    let current_id = HydrationCtx::peek();
 
     DynChild::new(move || {
 
@@ -167,7 +168,9 @@ where
             // show the fallback, but also prepare to stream HTML
             else {
                 let orig_child = Rc::clone(&orig_child);
-                cx.register_suspense(context, &current_id.to_string(), move || {
+                let mut id_to_replace = current_id.clone();
+                id_to_replace.offset += 1;
+                cx.register_suspense(context, &id_to_replace.to_string(), move || {
                     orig_child(cx)
                         .into_view(cx)
                         .render_to_string(cx)
@@ -175,7 +178,7 @@ where
                 });
     
                 // return the fallback for now, wrapped in fragment identifer
-                HydrationCtx::continue_from(current_id);
+                HydrationCtx::continue_from(current_id.clone());
                 fallback().into_view(cx)
             }
         };

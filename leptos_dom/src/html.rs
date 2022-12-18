@@ -1,3 +1,4 @@
+use crate::hydration::HydrationKey;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::events::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -70,7 +71,7 @@ pub trait IntoElement: IntoElementBounds {
   /// A unique `id` that should be generated for each new instance of
   /// this element, and be consitant for both SSR and CSR.
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  fn hydration_id(&self) -> usize;
+  fn hydration_id(&self) -> &HydrationKey;
 }
 
 /// Trait for converting any type which impl [`AsRef<web_sys::Element>`]
@@ -115,7 +116,7 @@ pub struct AnyElement {
   pub(crate) element: web_sys::HtmlElement,
   pub(crate) is_void: bool,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: usize,
+  pub(crate) id: HydrationKey,
 }
 
 impl std::ops::Deref for AnyElement {
@@ -145,8 +146,8 @@ impl IntoElement for AnyElement {
   }
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  fn hydration_id(&self) -> usize {
-    self.id
+  fn hydration_id(&self) -> &HydrationKey {
+    &self.id
   }
 }
 
@@ -157,7 +158,7 @@ pub struct Custom {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   element: web_sys::HtmlElement,
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  id: usize,
+  id: HydrationKey,
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -180,8 +181,8 @@ impl IntoElement for Custom {
   }
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  fn hydration_id(&self) -> usize {
-    self.id
+  fn hydration_id(&self) -> &HydrationKey {
+    &self.id
   }
 }
 
@@ -293,7 +294,7 @@ impl<El: IntoElement> HtmlElement<El> {
           element: AnyElement {
             name: element.name(),
             is_void: element.is_void(),
-            id: element.hydration_id(),
+            id: element.hydration_id().clone(),
           },
         }
       }
@@ -571,7 +572,7 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
         ..
       } = self;
 
-      let id = element.hydration_id();
+      let id = element.hydration_id().clone();
 
       let mut element = Element::new(element);
       let children = children;
@@ -611,7 +612,7 @@ pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       element: el.get_element().clone(),
       #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-      id: el.hydration_id(),
+      id: el.hydration_id().clone(),
     },
   )
 }
@@ -644,7 +645,7 @@ macro_rules! generate_html_tags {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          id: usize,
+          id: HydrationKey,
         }
 
         impl Default for [<$tag:camel $($trailing_)?>] {
@@ -732,8 +733,8 @@ macro_rules! generate_html_tags {
           }
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-          fn hydration_id(&self) -> usize {
-            self.id
+          fn hydration_id(&self) -> &HydrationKey {
+            &self.id
           }
 
           generate_html_tags! { @void $($void)? }

@@ -1,4 +1,6 @@
 use leptos_reactive::Scope;
+use std::fmt::Display;
+use std::cell::RefCell;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::cell::LazyCell;
@@ -10,53 +12,72 @@ use std::cell::LazyCell;
 #[thread_local]
 static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
   #[cfg(debug_assertions)]
-  return crate::document().get_element_by_id("_0").is_some()
-    || crate::document().get_element_by_id("_0o").is_some();
+  return crate::document().get_element_by_id("_0-0-0").is_some()
+    || crate::document().get_element_by_id("_0-0-0o").is_some();
 
   #[cfg(not(debug_assertions))]
-  return crate::document().get_element_by_id("_0").is_some();
+  return crate::document().get_element_by_id("_0-0-0").is_some();
 });
 
-#[thread_local]
-static mut ID: usize = 0;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HydrationKey {
+  pub previous: String,
+  pub offset: usize
+}
 
-#[thread_local]
-static mut FORCE_HK: bool = false;
+impl Display for HydrationKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+      write!(f, "{}{}", self.previous, self.offset)
+    }
+}
+
+impl Default for HydrationKey {
+    fn default() -> Self {
+        Self { previous: "0-".to_string(), offset: 0 }
+    }
+}
+
+thread_local!(static ID: RefCell<HydrationKey> = Default::default());
 
 /// Control and utility methods for hydration.
 pub struct HydrationCtx;
 
 impl HydrationCtx {
   /// Get the next `id` without incrementing it.
-  pub fn peak() -> usize {
-    unsafe { ID }
+  pub fn peek() -> HydrationKey {
+    ID.with(|id| id.borrow().clone())
   }
 
   /// Increments the current hydration `id` and returns it
-  pub fn id() -> usize {
-    unsafe {
-      let id = ID;
-
-      // Prevent panics on long-running debug builds
-      ID = ID.wrapping_add(1);
-
-      id
-    }
+  pub fn id() -> HydrationKey {
+    ID.with(|id| {
+      let mut id = id.borrow_mut();
+      id.offset = id.offset.wrapping_add(1);
+      id.clone()
+    })
   }
 
-  pub(crate) fn current_id() -> usize {
-    unsafe { ID }
+  /// Resets the hydration `id` for the next component, and returns it
+  pub fn next_component() -> HydrationKey {
+    ID.with(|id| {
+      let mut id = id.borrow_mut();
+      let offset = id.offset;
+      id.previous.push_str(&offset.to_string());
+      id.previous.push('-');
+      id.offset = 0;
+      id.clone()
+    })
   }
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   pub(crate) fn reset_id() {
-    unsafe { ID = 0 };
+    ID.with(|id| *id.borrow_mut() = Default::default());
   }
 
   /// Resums hydration from the provided `id`. Usefull for
   /// `Suspense` and other fancy things.
-  pub fn continue_from(id: usize) {
-    unsafe { ID = id }
+  pub fn continue_from(id: HydrationKey) {
+    ID.with(|i| *i.borrow_mut() = id);
   }
 
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -71,7 +92,7 @@ impl HydrationCtx {
     unsafe { *IS_HYDRATING }
   }
 
-  pub(crate) fn to_string(id: usize, closing: bool) -> String {
+  pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {
     #[cfg(debug_assertions)]
     return format!("_{id}{}", if closing { 'c' } else { 'o' });
 
@@ -81,19 +102,5 @@ impl HydrationCtx {
 
       format!("_{id}")
     }
-  }
-
-  /// All components and elements created after this method is
-  /// called with use `leptos-hk` for their hydration `id`,
-  /// instead of `id`.
-  pub fn start_force_hk() {
-    unsafe { FORCE_HK = true }
-  }
-
-  /// All components and elements created after this method is
-  /// called with use `id` by default for their hydration `id`,
-  /// instead of `leptos-hk`.
-  pub fn stop_force_hk() {
-    unsafe { FORCE_HK = false }
   }
 }

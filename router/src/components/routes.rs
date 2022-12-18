@@ -200,7 +200,7 @@ pub fn Routes(
     });
 
     Fragment::new_with_id(
-        frag.id(),
+        frag.id().clone(),
         vec![(move || root.get()).into_view(cx)]
     )
 }
