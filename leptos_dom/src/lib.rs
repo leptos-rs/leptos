@@ -252,22 +252,6 @@ impl Element {
       }
     }
   }
-
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  #[track_caller]
-  fn from_html<El: IntoElement>(
-    el: El,
-    html: impl Into<Cow<'static, str>>,
-  ) -> Self {
-    Self {
-      name: el.name(),
-      is_void: el.is_void(),
-      attrs: Default::default(),
-      children: Default::default(),
-      id: el.hydration_id().clone(),
-      prerendered: Some(html.into()),
-    }
-  }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

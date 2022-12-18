@@ -166,7 +166,7 @@ pub fn render_to_stream_with_prefix(
 
 impl View {
   /// Consumes the node and renders it into an HTML string.
-  pub fn render_to_string(self, cx: Scope) -> Cow<'static, str> {
+  pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
     self.render_to_string_helper()
   }
 
@@ -190,7 +190,7 @@ impl View {
             format!(
               r#"{}<template id="{}"></template>"#,
               content(),
-              HydrationCtx::to_string(node.id, true)
+              HydrationCtx::to_string(&node.id, true)
             ).into()
           }
         }
@@ -260,7 +260,7 @@ impl View {
                   return format!(
                     "{}<template id=\"{}c\"></template>",
                     content(),
-                    HydrationCtx::to_string(id, true)
+                    HydrationCtx::to_string(&id, true)
                   );
                 })
                 .join("")

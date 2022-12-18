@@ -324,56 +324,10 @@ impl Scope {
             std::mem::take(&mut shared_context.pending_fragments)
         })
     }
-
-    /// Gets the latest hydration key.
-    pub fn next_hydration_key(&self) -> Option<String> {
-        with_runtime(self.runtime, |runtime| {
-            let mut ids = runtime.scope_node_ids.borrow_mut();
-            if let Some(entry) = ids.entry(self.id) {
-                let current_key = entry.or_default();
-                *current_key += 1;
-                Some(format!("{:?}-{}", self.id, current_key))
-            } else {
-                None
-            }
-        })
-    }
-
-    /// The current key for an HTML fragment created by server-rendering a `<Suspense/>` component.
-    pub fn current_fragment_key(&self) -> String {
-        with_runtime(self.runtime, |runtime| {
-            runtime
-                .shared_context
-                .borrow()
-                .current_fragment_key()
-        })
-    }
 }
 
 impl fmt::Debug for ScopeDisposer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ScopeDisposer").finish()
-    }
-}
-
-/// This struct is used for hydrating the leptos views from the DOM.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct HydrationKey(pub usize);
-
-impl HydrationKey {
-    /// Converts the [`HydrationKey`] into a string, suitable for
-    /// SSR or looking up the node for hydration.
-    pub fn to_string(&self, closing: bool) -> String {
-        #[cfg(debug_assertions)]
-        return format!("_{}{}", self.0, if closing { 'c' } else { 'o' });
-
-        #[cfg(not(debug_assertions))]
-        return format!("_{}", self.0);
-    }
-}
-
-impl fmt::Display for HydrationKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
     }
 }

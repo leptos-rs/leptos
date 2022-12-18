@@ -201,7 +201,6 @@ pub(crate) struct Runtime {
     pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
     #[allow(clippy::type_complexity)]
     pub scope_cleanups: RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
-    pub scope_node_ids: RefCell<SecondaryMap<ScopeId, usize>>,
     pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
     pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
     pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
@@ -254,16 +253,6 @@ impl Runtime {
         self.resources
             .borrow_mut()
             .insert(AnyResource::Serializable(state))
-    }
-
-    pub fn set_hydration_key(&self, id: usize) {
-        let mut sc = self.shared_context.borrow_mut();
-        sc.previous_hydration_key = Some(id);
-    }
-
-    pub fn get_hydration_key(&self) -> Option<usize> {
-        let sc = &self.shared_context.borrow();
-        sc.previous_hydration_key
     }
 
     pub(crate) fn resource<S, T, U>(
