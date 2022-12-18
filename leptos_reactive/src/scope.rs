@@ -324,30 +324,6 @@ impl Scope {
             std::mem::take(&mut shared_context.pending_fragments)
         })
     }
-
-    /// Gets the latest hydration key.
-    pub fn next_hydration_key(&self) -> Option<String> {
-        with_runtime(self.runtime, |runtime| {
-            let mut ids = runtime.scope_node_ids.borrow_mut();
-            if let Some(entry) = ids.entry(self.id) {
-                let current_key = entry.or_default();
-                *current_key += 1;
-                Some(format!("{:?}-{}", self.id, current_key))
-            } else {
-                None
-            }
-        })
-    }
-
-    /// The current key for an HTML fragment created by server-rendering a `<Suspense/>` component.
-    pub fn current_fragment_key(&self) -> String {
-        with_runtime(self.runtime, |runtime| {
-            runtime
-                .shared_context
-                .borrow()
-                .current_fragment_key()
-        })
-    }
 }
 
 impl fmt::Debug for ScopeDisposer {
