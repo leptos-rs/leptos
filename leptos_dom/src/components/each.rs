@@ -727,6 +727,7 @@ where
 ///   - A key function that will be applied to each item
 /// - **view**: EF
 ///   - Should provide a single child function, which takes
+#[allow(non_snake_case)]
 pub fn For<IF, I, T, EF, N, KF, K>(
   cx: Scope,
   props: ForProps<IF, I, T, EF, N, KF, K>,
