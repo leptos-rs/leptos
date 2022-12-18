@@ -190,7 +190,7 @@ impl View {
             format!(
               r#"{}<template id="{}"></template>"#,
               content(),
-              HydrationCtx::to_string(node.id, true)
+              HydrationCtx::to_string(&node.id, true)
             ).into()
           }
         }
@@ -260,7 +260,7 @@ impl View {
                   return format!(
                     "{}<template id=\"{}c\"></template>",
                     content(),
-                    HydrationCtx::to_string(id, true)
+                    HydrationCtx::to_string(&id, true)
                   );
                 })
                 .join("")
