@@ -145,7 +145,11 @@ impl ToTokens for Model {
                 debug_assertions,
                 ::leptos::tracing::instrument(level = "trace", name = #trace_name, skip_all)
               )]
-            #vis fn #name #generics (#scope_name: Scope, props: #props_name #generics) #ret
+            #vis fn #name #generics (
+                #[allow(unused_variables)]
+                #scope_name: Scope,
+                props: #props_name #generics
+            ) #ret
             #where_clause
             {
                 #body
