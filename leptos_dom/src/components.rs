@@ -3,7 +3,10 @@ mod each;
 mod fragment;
 mod unit;
 
-use crate::{hydration::{HydrationCtx, HydrationKey}, Comment, IntoView, View};
+use crate::{
+  hydration::{HydrationCtx, HydrationKey},
+  Comment, IntoView, View,
+};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use crate::{mount_child, MountKind, Mountable};
 pub use dyn_child::*;
@@ -44,7 +47,7 @@ pub struct ComponentRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
-  name: Cow<'static, str>,
+  pub(crate) name: Cow<'static, str>,
   #[cfg(debug_assertions)]
   _opening: Comment,
   /// The children of the component.
@@ -129,7 +132,10 @@ impl ComponentRepr {
   }
 
   /// Creates a new [`Component`] with the given hydration ID.
-  pub fn new_with_id(name: impl Into<Cow<'static, str>>, id: HydrationKey) -> Self {
+  pub fn new_with_id(
+    name: impl Into<Cow<'static, str>>,
+    id: HydrationKey,
+  ) -> Self {
     let name = name.into();
 
     let markers = (
@@ -172,7 +178,6 @@ impl ComponentRepr {
       id,
     }
   }
-
 }
 
 /// A user-defined `leptos` component.
