@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
+use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, Attribute, FnArg, ItemFn, Lit, LitStr, Meta, MetaList,
+    parse::Parse, parse_quote, Attribute, FnArg, ItemFn, LitStr, Meta, MetaList,
     MetaNameValue, NestedMeta, Pat, PatIdent, Path, ReturnType, Type, TypePath, Visibility,
 };
 
@@ -95,7 +95,7 @@ impl ToTokens for Model {
             ret,
         } = self;
 
-        let (impl_generics, generics, where_clause) = body.sig.generics.split_for_impl();
+        let (_, generics, where_clause) = body.sig.generics.split_for_impl();
 
         let props_name = format_ident!("{name}Props");
         let trace_name = format!("<{name} />");
@@ -109,7 +109,7 @@ impl ToTokens for Model {
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
-        let component = if self.is_transparent {
+        let component = if *is_transparent {
             quote! {
                 #name(cx, #prop_names)
             }
@@ -165,6 +165,7 @@ impl ToTokens for Model {
 }
 
 impl Model {
+    #[allow(clippy::wrong_self_convention)]
     pub fn is_transparent(mut self, is_transparent: bool) -> Self {
         self.is_transparent = is_transparent;
 
@@ -462,13 +463,6 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                 }
             },
         )
-        .collect()
-}
-
-fn component_args(props: &[Prop]) -> TokenStream {
-    props
-        .iter()
-        .map(|Prop { name, ty, .. }| quote! { #name: #ty, })
         .collect()
 }
 
