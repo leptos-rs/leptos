@@ -1,58 +1,53 @@
-use crate::hydration::HydrationKey;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::events::*;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::macro_helpers::Property;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::macro_helpers::{
-  attribute_expression, class_expression, property_expression,
-};
+use cfg_if::cfg_if;
+
+cfg_if! {
+  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    use crate::events::*;
+    use crate::macro_helpers::Property;
+    use crate::macro_helpers::{
+      attribute_expression, class_expression, property_expression,
+    };
+    use crate::{mount_child, MountKind};
+    use leptos_reactive::create_render_effect;
+    use std::{cell::LazyCell, ops::Deref};
+    use wasm_bindgen::JsCast;
+
+    /// Trait alias for the trait bounts on [`IntoElement`].
+    pub trait IntoElementBounds:
+      fmt::Debug + Deref<Target = web_sys::HtmlElement>
+    {
+    }
+
+    impl<El> IntoElementBounds for El where
+      El: fmt::Debug + Deref<Target = web_sys::HtmlElement>
+    {
+    }
+  } else {
+    use crate::hydration::HydrationKey;
+    use smallvec::{smallvec, SmallVec};
+
+    const HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG: &str =
+      "`Deref<Target = web_sys::HtmlElement>` can only be used on web targets. \
+      This is for the same reason that normal `wasm_bindgen` methods can be used \
+      only in the browser. Please use `leptos::is_server()` or \
+      `leptos::is_browser()` to check where you're running.";
+
+    /// Trait alias for the trait bounts on [`IntoElement`].
+    pub trait IntoElementBounds: fmt::Debug {}
+
+    impl<El> IntoElementBounds for El where El: fmt::Debug {}
+  }
+}
+
 use crate::{
   ev::EventDescriptor,
   hydration::HydrationCtx,
   macro_helpers::{Attribute, Class, IntoAttribute, IntoClass, IntoProperty},
   Element, Fragment, IntoView, NodeRef, Text, View,
 };
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind};
-use cfg_if::cfg_if;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use leptos_reactive::create_render_effect;
 use leptos_reactive::Scope;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-use smallvec::{smallvec, SmallVec};
+
 use std::{borrow::Cow, fmt};
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::LazyCell, ops::Deref};
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use wasm_bindgen::JsCast;
-
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-const HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG: &str =
-  "`Deref<Target = web_sys::HtmlElement>` can only be used on web targets. \
-   This is for the same reason that normal `wasm_bindgen` methods can be used \
-   only in the browser. Please use `leptos::is_server()` or \
-   `leptos::is_browser()` to check where you're running.";
-
-/// Trait alias for the trait bounts on [`IntoElement`].
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub trait IntoElementBounds:
-  fmt::Debug + Deref<Target = web_sys::HtmlElement>
-{
-}
-
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl<El> IntoElementBounds for El where
-  El: fmt::Debug + Deref<Target = web_sys::HtmlElement>
-{
-}
-
-/// Trait alias for the trait bounts on [`IntoElement`].
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-pub trait IntoElementBounds: fmt::Debug {}
-
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-impl<El> IntoElementBounds for El where El: fmt::Debug {}
 
 /// Trait which allows creating an element tag.
 pub trait IntoElement: IntoElementBounds {

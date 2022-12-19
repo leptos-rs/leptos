@@ -1,44 +1,48 @@
-use crate::{hydration::{HydrationCtx, HydrationKey}, Comment, CoreComponent, IntoView, View};
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind, Mountable, RANGE};
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use leptos_reactive::create_effect;
-use leptos_reactive::Scope;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use rustc_hash::FxHasher;
-use smallvec::SmallVec;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::hash::BuildHasherDefault;
-use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
-use typed_builder::TypedBuilder;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use wasm_bindgen::JsCast;
+use cfg_if::cfg_if;
+use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
+cfg_if! {
+  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    use crate::{mount_child, MountKind, Mountable, RANGE};
+    use leptos_reactive::create_effect;
+    use rustc_hash::FxHasher;
+    use std::hash::BuildHasherDefault;
+    use wasm_bindgen::JsCast;
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
+    type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-trait VecExt {
-  fn get_next_closest_mounted_sibling(
-    &self,
-    start_at: usize,
-    or: web_sys::Node,
-  ) -> web_sys::Node;
-}
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    trait VecExt {
+      fn get_next_closest_mounted_sibling(
+        &self,
+        start_at: usize,
+        or: web_sys::Node,
+      ) -> web_sys::Node;
+    }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-impl VecExt for Vec<Option<EachItem>> {
-  fn get_next_closest_mounted_sibling(
-    &self,
-    start_at: usize,
-    or: web_sys::Node,
-  ) -> web_sys::Node {
-    self[start_at..]
-      .iter()
-      .find_map(|s| s.as_ref().map(|s| s.get_opening_node()))
-      .unwrap_or(or)
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    impl VecExt for Vec<Option<EachItem>> {
+      fn get_next_closest_mounted_sibling(
+        &self,
+        start_at: usize,
+        or: web_sys::Node,
+      ) -> web_sys::Node {
+        self[start_at..]
+          .iter()
+          .find_map(|s| s.as_ref().map(|s| s.get_opening_node()))
+          .unwrap_or(or)
+      }
+    }
+  } else {
+    use crate::hydration::HydrationKey;
   }
 }
+
+use leptos_reactive::Scope;
+
+use smallvec::SmallVec;
+
+use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
+use typed_builder::TypedBuilder;
 
 /// The internal representation of the [`EachKey`] core-component.
 #[derive(Clone, PartialEq, Eq)]
