@@ -32,7 +32,13 @@ where
 
   runtime.dispose();
 
-  html.into_owned()
+  #[cfg(debug_assertions)]
+  {
+    format!("<style>[leptos]{{display:none;}}</style>{html}")
+  }
+
+  #[cfg(not(debug_assertions))]
+  format!("<style>l-m{{display:none;}}</style>{html}")
 }
 
 /// Renders a function to a stream of HTML strings.
@@ -89,6 +95,16 @@ pub fn render_to_stream_with_prefix(
       let resources = cx.all_resources();
       let pending_resources = serde_json::to_string(&resources).unwrap();
       let prefix = prefix(cx);
+
+      let shell = {
+        #[cfg(debug_assertions)]
+        {
+          format!("<style>[leptos]{{display:none;}}</style>{shell}")
+        }
+
+        #[cfg(not(debug_assertions))]
+        format!("<style>l-m{{display:none;}}</style>{shell}")
+      };
 
       (
         shell,
@@ -174,21 +190,24 @@ impl View {
     match self {
       View::Text(node) => node.content,
       View::Component(node) => {
-        let content = || node
-          .children
-          .into_iter()
-          .map(|node| node.render_to_string_helper())
-          .join("");
+        let content = || {
+          node
+            .children
+            .into_iter()
+            .map(|node| node.render_to_string_helper())
+            .join("")
+        };
         cfg_if! {
           if #[cfg(debug_assertions)] {
-            format!(r#"<template id="{}"></template>{}<template id="{}"></template>"#,
+            format!(r#"<leptos-{name}-start leptos id="{}"></leptos-{name}-start>{}<leptos-{name}-end leptos id="{}"></leptos-{name}-end>"#,
               HydrationCtx::to_string(&node.id, false),
               content(),
-              HydrationCtx::to_string(&node.id, true)
+              HydrationCtx::to_string(&node.id, true),
+              name = to_kebab_case(&node.name)
             ).into()
           } else {
             format!(
-              r#"{}<template id="{}"></template>"#,
+              r#"{}<l-m id="{}"></l-m>"#,
               content(),
               HydrationCtx::to_string(&node.id, true)
             ).into()
@@ -196,41 +215,54 @@ impl View {
         }
       }
       View::CoreComponent(node) => {
-        let (id, wrap, content) = match node {
+        let (id, name, wrap, content) = match node {
           CoreComponent::Unit(u) => (
             u.id.clone(),
+            "",
             false,
-            Box::new(move || format!(
-              "<template id={}></template>",
-              HydrationCtx::to_string(&u.id, true)
-            )
-            .into()) as Box<dyn FnOnce() -> Cow<'static, str>>,
+            Box::new(move || {
+              #[cfg(debug_assertions)]
+              {
+                format!(
+                  "<leptos-unit leptos id={}></leptos-unit>",
+                  HydrationCtx::to_string(&u.id, true)
+                )
+                .into()
+              }
+
+              #[cfg(not(debug_assertions))]
+              format!("<l-m id={}></l-m>", HydrationCtx::to_string(&u.id, true))
+                .into()
+            }) as Box<dyn FnOnce() -> Cow<'static, str>>,
           ),
           CoreComponent::DynChild(node) => {
             let child = node.child.take();
             (
               node.id,
+              "dyn-child",
               true,
-              Box::new(move || if let Some(child) = *child {
-                // On debug builds, `DynChild` has two marker nodes,
-                // so there is no way for the text to be merged with
-                // surrounding text when the browser parses the HTML,
-                // but in release, `DynChild` only has a trailing marker,
-                // and the browser automatically merges the dynamic text
-                // into one single node, so we need to artificially make the
-                // browser create the dynamic text as it's own text node
-                if let View::Text(t) = child {
-                  if !cfg!(debug_assertions) {
-                    format!("<!>{}", t.content).into()
+              Box::new(move || {
+                if let Some(child) = *child {
+                  // On debug builds, `DynChild` has two marker nodes,
+                  // so there is no way for the text to be merged with
+                  // surrounding text when the browser parses the HTML,
+                  // but in release, `DynChild` only has a trailing marker,
+                  // and the browser automatically merges the dynamic text
+                  // into one single node, so we need to artificially make the
+                  // browser create the dynamic text as it's own text node
+                  if let View::Text(t) = child {
+                    if !cfg!(debug_assertions) {
+                      format!("<!>{}", t.content).into()
+                    } else {
+                      t.content
+                    }
                   } else {
-                    t.content
+                    child.render_to_string_helper()
                   }
                 } else {
-                  child.render_to_string_helper()
+                  "".into()
                 }
-              } else {
-                "".into()
-              }) as Box<dyn FnOnce() -> Cow<'static, str>>
+              }) as Box<dyn FnOnce() -> Cow<'static, str>>,
             )
           }
           CoreComponent::Each(node) => {
@@ -238,34 +270,40 @@ impl View {
 
             (
               node.id,
+              "each",
               true,
-              Box::new(move || children
-                .into_iter()
-                .flatten()
-                .map(|node| {
-                  let id = node.id;
+              Box::new(move || {
+                children
+                  .into_iter()
+                  .flatten()
+                  .map(|node| {
+                    let id = node.id;
 
-                  let content = || node.child.render_to_string_helper();
+                    let content = || node.child.render_to_string_helper();
 
-                  #[cfg(debug_assertions)]
-                  return format!(
-                    "<template id=\"{}\"></template>{}<template \
-                     id=\"{}\"></template>",
-                    HydrationCtx::to_string(&id, false),
-                    content(),
-                    HydrationCtx::to_string(&id, true),
-                  );
+                    #[cfg(debug_assertions)]
+                    {
+                      format!(
+                        "<leptos-each-item-start leptos \
+                         id=\"{}\"></\
+                         leptos-each-item-start>{}<leptos-each-item-end \
+                         leptos id=\"{}\"></leptos-each-item-end>",
+                        HydrationCtx::to_string(&id, false),
+                        content(),
+                        HydrationCtx::to_string(&id, true),
+                      )
+                    }
 
-                  #[cfg(not(debug_assertions))]
-                  return format!(
-                    "{}<template id=\"{}c\"></template>",
-                    content(),
-                    HydrationCtx::to_string(&id, true)
-                  );
-                })
-                .join("")
-                .into()
-              )  as Box<dyn FnOnce() -> Cow<'static, str>>,
+                    #[cfg(not(debug_assertions))]
+                    format!(
+                      "{}<l-m id=\"{}\"></l-m>",
+                      content(),
+                      HydrationCtx::to_string(&id, true)
+                    )
+                  })
+                  .join("")
+                  .into()
+              }) as Box<dyn FnOnce() -> Cow<'static, str>>,
             )
           }
         };
@@ -274,14 +312,16 @@ impl View {
           cfg_if! {
             if #[cfg(debug_assertions)] {
               format!(
-                r#"<template id="{}"></template>{}<template id="{}"></template>"#,
+                r#"<leptos-{name}-start leptos id="{}"></leptos-{name}-start>{}<leptos-{name}-end leptos id="{}"></leptos-{name}-end>"#,
                 HydrationCtx::to_string(&id, false),
                 content(),
                 HydrationCtx::to_string(&id, true),
               ).into()
             } else {
+              let _ = name;
+
               format!(
-                r#"{}<template id="{}"></template>"#,
+                r#"{}<l-m id="{}"></l-m>"#,
                 content(),
                 HydrationCtx::to_string(&id, true)
               ).into()
@@ -329,6 +369,41 @@ impl View {
       View::Transparent(_) => Default::default(),
     }
   }
+}
+
+fn to_kebab_case(name: &str) -> String {
+  if name.is_empty() {
+    return String::new();
+  }
+
+  let mut new_name = String::with_capacity(name.len() + 8);
+
+  let mut chars = name.chars();
+
+  new_name.push(
+    chars
+      .next()
+      .map(|mut c| {
+        if c.is_ascii() {
+          c.make_ascii_lowercase();
+        }
+
+        c
+      })
+      .unwrap(),
+  );
+
+  for mut char in chars {
+    if char.is_ascii_uppercase() {
+      char.make_ascii_lowercase();
+
+      new_name.push('-');
+    }
+
+    new_name.push(char);
+  }
+
+  new_name
 }
 
 #[cfg(test)]
