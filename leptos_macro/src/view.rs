@@ -146,17 +146,15 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
         } else {
             fragment_to_tokens_ssr(cx, Span::call_site(), nodes)
         }
-    } else {
-        if nodes.is_empty() {
-            let span = Span::call_site();
-            quote_spanned! {
-                span => leptos::Unit
-            }
-        } else if nodes.len() == 1 {
-            node_to_tokens(cx, &nodes[0])
-        } else {
-            fragment_to_tokens(cx, Span::call_site(), nodes, false)
+    } else if nodes.is_empty() {
+        let span = Span::call_site();
+        quote_spanned! {
+            span => leptos::Unit
         }
+    } else if nodes.len() == 1 {
+        node_to_tokens(cx, &nodes[0])
+    } else {
+        fragment_to_tokens(cx, Span::call_site(), nodes, false)
     }
 }
 
@@ -182,7 +180,7 @@ fn root_node_to_tokens_ssr(cx: &Ident, node: &Node) -> TokenStream {
     }
 }
 
-fn fragment_to_tokens_ssr(cx: &Ident, span: Span, nodes: &[Node]) -> TokenStream {
+fn fragment_to_tokens_ssr(cx: &Ident, _span: Span, nodes: &[Node]) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
         let node = root_node_to_tokens_ssr(cx, node);
         quote! {
@@ -202,8 +200,6 @@ fn root_element_to_tokens_ssr(cx: &Ident, node: &NodeElement) -> TokenStream {
     let mut template = String::new();
     let mut holes = Vec::<TokenStream>::new();
     let mut exprs_for_compiler = Vec::<TokenStream>::new();
-
-    let span = node.name.span();
 
     element_to_tokens_ssr(cx, node, &mut template, &mut holes, &mut exprs_for_compiler);
 
@@ -236,8 +232,6 @@ fn element_to_tokens_ssr(
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
 ) {
-    let span = node.name.span();
-
     if is_component_node(node) {
         template.push_str("{}");
         let component = component_to_tokens(cx, node);
@@ -283,7 +277,6 @@ fn element_to_tokens_ssr(
                         } else {
                             template.push_str("{}");
                             let value = block.value.as_ref();
-                            let span = block.value.span();
                             holes.push(quote! {
                               #value.into_view(#cx).render_to_string(#cx),
                             })
@@ -321,12 +314,10 @@ fn attribute_to_tokens_ssr(
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
 ) {
-    let span = node.key.span();
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" {
         // ignore refs on SSR
     } else if let Some(name) = name.strip_prefix("on:") {
-        let span = name.span();
         let handler = node
             .value
             .as_ref()
@@ -344,9 +335,8 @@ fn attribute_to_tokens_ssr(
         exprs_for_compiler.push(quote! {
             leptos::ssr_event_listener(leptos::ev::#event_type, #handler);
         })
-    } else if let Some(name) = name.strip_prefix("prop:") {
+    } else if name.strip_prefix("prop:").is_some() || name.strip_prefix("class:").is_some() {
         // ignore props for SSR
-    } else if let Some(name) = name.strip_prefix("class:") {
         // ignore classes: we'll handle these separately
     } else {
         let name = name.replacen("attr:", "", 1);
@@ -360,7 +350,6 @@ fn attribute_to_tokens_ssr(
                     template.push_str(&value);
                 } else {
                     template.push_str("{}");
-                    let span = value.span();
                     let value = value.as_ref();
                     holes.push(quote! {
                       leptos::escape_attr(&{#value}.into_attribute(#cx).as_value_string(#name)),
@@ -384,11 +373,7 @@ fn set_class_attribute_ssr(
         .filter_map(|a| {
             if let Node::Attribute(a) = a {
                 if a.key.to_string() == "class" {
-                    if let Some(value) = a.value.as_ref().and_then(|v| value_to_string(v)) {
-                        Some(value)
-                    } else {
-                        None
-                    }
+                    a.value.as_ref().and_then(value_to_string)
                 } else {
                     None
                 }
@@ -454,7 +439,7 @@ fn set_class_attribute_ssr(
 
         template.push_str(&static_class_attr);
 
-        for (span, value) in dyn_class_attr {
+        for (_span, value) in dyn_class_attr {
             if let Some(value) = value {
                 template.push_str(" {}");
                 let value = value.as_ref();
@@ -464,7 +449,7 @@ fn set_class_attribute_ssr(
             }
         }
 
-        for (span, name, value) in &class_attrs {
+        for (_span, name, value) in &class_attrs {
             template.push_str(" {}");
             holes.push(quote! {
               (cx, #value).into_class(#cx).as_value_string(#name),
@@ -475,7 +460,7 @@ fn set_class_attribute_ssr(
     }
 }
 
-fn fragment_to_tokens(cx: &Ident, span: Span, nodes: &[Node], lazy: bool) -> TokenStream {
+fn fragment_to_tokens(cx: &Ident, _span: Span, nodes: &[Node], lazy: bool) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
         let node = node_to_tokens(cx, node);
 
@@ -522,7 +507,6 @@ fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
 }
 
 fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
-    let span = node.name.span();
     if is_component_node(node) {
         component_to_tokens(cx, node)
     } else {
@@ -546,14 +530,12 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
                     fragment_to_tokens(cx, Span::call_site(), &fragment.children, false)
                 }
                 Node::Text(node) => {
-                    let span = node.value.span();
                     let value = node.value.as_ref();
                     quote! {
                         #[allow(unused_braces)] #value
                     }
                 }
                 Node::Block(node) => {
-                    let span = node.value.span();
                     let value = node.value.as_ref();
                     quote! {
                         #[allow(unused_braces)] #value
@@ -589,7 +571,6 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .#node_ref(#value)
         }
     } else if let Some(name) = name.strip_prefix("on:") {
-        let span = name.span();
         let handler = node
             .value
             .as_ref()
