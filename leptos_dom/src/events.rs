@@ -1,7 +1,5 @@
 pub mod typed;
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::window;
 use std::{borrow::Cow, cell::RefCell, collections::HashSet};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::{
