@@ -27,6 +27,7 @@ reqwest = { version = "0.11", features = ["json"] }
 # openssl = { version = "0.10", features = ["v110"] }
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
+tracing = "0.1"
 
 [features]
 default = ["csr"]
