@@ -1,8 +1,6 @@
 mod api;
 
-use api::{Contact, ContactSummary};
 use leptos::*;
-use leptos_meta::*;
 use leptos_router::*;
 
 use crate::api::{get_contact, get_contacts};
