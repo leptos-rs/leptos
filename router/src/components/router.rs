@@ -3,7 +3,6 @@ use std::{cell::RefCell, rc::Rc};
 
 use leptos::*;
 use thiserror::Error;
-use typed_builder::TypedBuilder;
 
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;

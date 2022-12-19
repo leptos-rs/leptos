@@ -1,10 +1,6 @@
 use cfg_if::cfg_if;
 use leptos::leptos_dom::IntoView;
 use leptos::*;
-use typed_builder::TypedBuilder;
-
-#[cfg(any(feature = "csr", feature = "hydrate"))]
-use wasm_bindgen::JsCast;
 
 use crate::{use_location, use_resolved_path, State};
 

@@ -12,12 +12,11 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
     let (outlet, set_outlet) = create_signal(cx, None);
     create_effect(cx, move |_| {
         let is_showing_val = { is_showing.borrow().clone() };
-        let child = route.child();
         match (route.child(), &is_showing_val) {
             (None, _) => {
                 set_outlet.set(None);
             }
-            (Some(child), Some(path))
+            (Some(child), Some(_))
                 if Some(child.original_path().to_string()) == is_showing_val =>
             {
                 // do nothing: we don't need to rerender the component, because it's the same

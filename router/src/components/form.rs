@@ -1,7 +1,6 @@
 use crate::{use_navigate, use_resolved_path, ToHref};
 use leptos::*;
 use std::{error::Error, rc::Rc};
-use typed_builder::TypedBuilder;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
