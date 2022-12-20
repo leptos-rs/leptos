@@ -27,6 +27,9 @@ pub struct StylesheetProps {
     /// The URL at which the stylesheet can be located.
     #[builder(setter(into))]
     pub href: String,
+    /// The URL at which the stylesheet can be located.
+    #[builder(setter(into, strip_option))]
+    pub id: Option<String>,
 }
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -49,7 +52,7 @@ pub struct StylesheetProps {
 /// ```
 #[allow(non_snake_case)]
 pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
-    let StylesheetProps { href } = props;
+    let StylesheetProps { href, id } = props;
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             use leptos::document;
@@ -66,6 +69,9 @@ pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
             } else {
                 let el = document().create_element("link").unwrap_throw();
                 el.set_attribute("rel", "stylesheet").unwrap_throw();
+                if let Some(id) = id{
+                    el.set_attribute("id", &id).unwrap_throw();
+                }
                 el.set_attribute("href", &href).unwrap_throw();
                 document()
                     .query_selector("head")
