@@ -28,7 +28,6 @@ members = [
   "examples/router",
   "examples/todomvc",
   "examples/todo-app-sqlite",
-  "examples/view-tests",
 
   # book
   "docs/book/project/ch02_getting_started",
