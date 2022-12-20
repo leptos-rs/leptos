@@ -8,4 +8,10 @@ repository = "https://github.com/gbj/leptos"
 description = "Configuraiton for the Leptos web framework."
 
 [dependencies]
+config = "0.13.3"
+fs = "0.0.5"
+regex = "1.7.0"
+serde = { version = "1.0.151", features = ["derive"] }
+thiserror = "1.0.38"
 typed-builder = "0.11.0"
+
