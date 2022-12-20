@@ -93,19 +93,16 @@ where
     use leptos_dom::DynChild;
 
     Component::new("Suspense", move |cx| {
-        let cached_id = HydrationCtx::peek();
+       let mut cached_id = HydrationCtx::peek();
+       let mut id_to_replace = cached_id.clone();
+       id_to_replace.offset += 0;
 
-        DynChild::new(move || {
-            let mut id_to_replace = cached_id.clone();
-            id_to_replace.offset += 2;
+        if context.ready() {
             HydrationCtx::continue_from(id_to_replace);
-
-            if context.ready() {
-                child(cx).into_view(cx)
-            } else {
-                fallback().into_view(cx)
-            }
-        })
+            child(cx).into_view(cx)
+        } else {
+            fallback().into_view(cx)
+        }
     })
 }
 
@@ -125,32 +122,37 @@ where
     let orig_child = Rc::clone(&orig_child);
 
     Component::new("Suspense", move |cx| {
-        DynChild::new(move || {
-            let current_id = HydrationCtx::peek();
+        let current_id = HydrationCtx::peek();
 
-            // run the child; we'll probably throw this away, but it will register resource reads
-            let child = orig_child(cx).into_view(cx);
+        // run the child; we'll probably throw this away, but it will register resource reads
+        let child = orig_child(cx).into_view(cx);
 
-            let initial = {    
-                // no resources were read under this, so just return the child
-                if context.pending_resources.get() == 0 {
-                    child.clone()
-                }
-                // show the fallback, but also prepare to stream HTML
-                else {
-                    let orig_child = Rc::clone(&orig_child);
-                    cx.register_suspense(context, &current_id.to_string(), move || {
+        let initial = {    
+            // no resources were read under this, so just return the child
+            if context.pending_resources.get() == 0 {
+                child.clone()
+            }
+            // show the fallback, but also prepare to stream HTML
+            else {
+                let orig_child = Rc::clone(&orig_child);
+                cx.register_suspense(context, &current_id.to_string(), {
+                    let current_id = current_id.clone();
+                    move || {
+                        HydrationCtx::continue_from(current_id);
                         orig_child(cx)
                             .into_view(cx)
                             .render_to_string(cx)
                             .to_string()
-                    });
-        
-                    // return the fallback for now, wrapped in fragment identifer
-                    fallback().into_view(cx)
-                }
-            };
-            initial
-        })
+                    }
+                });
+    
+                // return the fallback for now, wrapped in fragment identifer
+                fallback().into_view(cx)
+            }
+        };
+
+        HydrationCtx::continue_from(current_id);
+
+        initial
     })
 }
