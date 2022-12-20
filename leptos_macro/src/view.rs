@@ -559,7 +559,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
 fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
     let span = node.key.span();
     let name = node.key.to_string();
-    if name == "ref" || name == "_ref" {
+    if name == "ref" || name == "_ref" || name == "node_ref" {
         let value = node
             .value
             .as_ref()
@@ -568,7 +568,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
         let node_ref = quote_spanned! { span => node_ref };
 
         quote! {
-            .#node_ref(#value)
+            .#node_ref(&#value)
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         let handler = node
