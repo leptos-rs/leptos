@@ -6,7 +6,7 @@ use leptos::*;
 pub fn App(cx: Scope) -> impl IntoView {
   let pending_thing = create_resource(
     cx,
-    || (),
+    || false,
     |_| async {
       if cfg!(feature = "ssr") {
         let (tx, rx) = futures::channel::oneshot::channel();
@@ -17,7 +17,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         rx.await;
       } else {
       }
-      ()
+      true
     },
   );
 
@@ -42,7 +42,7 @@ pub fn ComponentA(
 
   // Test to make sure hydration isn't broken by
   // something like this
-  let _ = [div(cx)].into_view(cx);
+  //let _ = [div(cx)].into_view(cx);
 
   div(cx)
     .id("the-div")
