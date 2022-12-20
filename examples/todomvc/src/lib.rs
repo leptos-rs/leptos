@@ -12,9 +12,7 @@ const STORAGE_KEY: &str = "todos-leptos";
 // Basic operations to manipulate the todo list: nothing really interesting here
 impl Todos {
     pub fn new(cx: Scope) -> Self {
-        let starting_todos = if is_server!() {
-            Vec::new()
-        } else if let Ok(Some(storage)) = window().local_storage() {
+        let starting_todos = if let Ok(Some(storage)) = window().local_storage() {
             storage
                 .get_item(STORAGE_KEY)
                 .ok()
@@ -117,7 +115,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope) -> Element {
+pub fn TodoMVC(cx: Scope) -> impl IntoView {
     // The `todos` are a signal, since we need to reactively update the list
     let (todos, set_todos) = create_signal(cx, Todos::new(cx));
 
@@ -215,9 +213,11 @@ pub fn TodoMVC(cx: Scope) -> Element {
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
-                        <For each=filtered_todos key=|todo| todo.id>
-                            {move |cx, todo: &Todo| view! { cx,  <Todo todo=todo.clone() /> }}
-                        </For>
+                        <For
+                            each=filtered_todos
+                            key=|todo| todo.id
+                            view=move |todo: Todo| view! { cx,  <Todo todo /> }
+                        />
                     </ul>
                 </section>
                 <footer
@@ -257,12 +257,12 @@ pub fn TodoMVC(cx: Scope) -> Element {
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> Element {
+pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let input: Element;
+    let input = NodeRef::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -294,9 +294,10 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                 <label on:dblclick=move |_| {
                     set_editing(true);
 
-                    // guard against the fact that in SSR mode, that ref is actually to a String
-                    #[cfg(any(feature = "csr", feature = "hydrate"))]
-                    if let Some(input) = input.dyn_ref::<HtmlInputElement>() {
+                    if let Some(input) = input.get()
+                        .as_ref()
+                        .and_then(|n| n.dyn_ref::<HtmlInputElement>())
+                    {
                         input.focus();
                     }
                 }>
