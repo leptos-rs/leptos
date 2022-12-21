@@ -359,7 +359,6 @@ where
         Binary(Vec<u8>),
         Url(String),
     }
-    // log!("ARGS TO ENCODE: {:#}", &args);
     let args_encoded = match &enc {
         Encoding::Url => Payload::Url(
             serde_urlencoded::to_string(&args)
@@ -372,8 +371,6 @@ where
             Payload::Binary(buffer)
         }
     };
-
-    //log!("ENCODED DATA: {:#?}", args_encoded);
 
     let content_type_header = match &enc {
         Encoding::Url => "application/x-www-form-urlencoded",

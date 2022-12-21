@@ -28,8 +28,8 @@ pub struct StylesheetProps {
     #[builder(setter(into))]
     pub href: String,
     /// The URL at which the stylesheet can be located.
-    #[builder(setter(into, strip_option))]
-    pub id: Option<String>,
+    #[builder(setter(into), default = "".to_string())]
+    pub id: String,
 }
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -69,7 +69,7 @@ pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
             } else {
                 let el = document().create_element("link").unwrap_throw();
                 el.set_attribute("rel", "stylesheet").unwrap_throw();
-                if let Some(id) = id{
+                if id != ""{
                     el.set_attribute("id", &id).unwrap_throw();
                 }
                 el.set_attribute("href", &href).unwrap_throw();

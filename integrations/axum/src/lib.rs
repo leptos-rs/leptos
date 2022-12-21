@@ -236,8 +236,8 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// async fn main() {
 ///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
 /// let render_options: LeptosOptions = LeptosOptions::builder()
-///     .pkg_path("/pkg")
-///     .pkg_name("leptos_example")
+///     .site_root("/pkg")
+///     .package_name("leptos_example")
 ///     .site_address(addr)
 ///     .reload_port(3001)
 ///     .environment(&env::var("LEPTOS_ENV")).build();
@@ -285,23 +285,21 @@ pub fn render_app_to_stream(
                     full_path = "http://leptos".to_string() + &path.to_string()
                 }
 
-                let pkg_path = &options.pkg_path;
-                let pkg_name = &options.pkg_name;
+                let site_root = &options.site_root;
+                let package_name = &options.package_name;
 
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
                 // we add _bg to the wasm files if cargo-leptos doesn't set the env var PACKAGE_NAME
-                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.pkg_name, which is set regardless
-                let wasm_pkg_name;
-                if std::env::var("PACKAGE_NAME").is_ok() {
-                    wasm_pkg_name = pkg_name
-                } else {
-                    wasm_pkg_name = pkg_name.push_str("_bg");
+                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.package_name, which is set regardless
+                let mut wasm_package_name = package_name.clone();
+                if std::env::var("LEPTOS__PKG_NAME").is_err() {
+                    wasm_package_name.push_str("_bg");
                 }
 
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
 
-                let leptos_autoreload = match options.leptos_watch {
+                let leptos_autoreload = match options.watch {
                     true => format!(
                         r#"
                             <script crossorigin="">(function () {{
@@ -324,9 +322,9 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{pkg_path}]{pkg_name}.js">
-                            <link rel="preload" href="{pkg_path}/{wasm_pkg_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{pkg_path}/{pkg_name}.js'; init('{pkg_path}]{wasm_pkg_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="{site_root}]{package_name}.js">
+                            <link rel="preload" href="{site_root}/{wasm_package_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{site_root}/{package_name}.js'; init('{site_root}]{wasm_package_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );

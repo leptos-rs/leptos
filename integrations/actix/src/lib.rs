@@ -228,18 +228,18 @@ pub fn render_app_to_stream(
 
                            // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
                 // we add _bg to the wasm files if cargo-leptos doesn't set the env var PACKAGE_NAME
-                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.pkg_name, which is set regardless
-                let wasm_pkg_name;
+                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.package_name, which is set regardless
+                let wasm_package_name;
                 if std::env::var("PACKAGE_NAME").is_ok() {
-                    wasm_pkg_name = pkg_name
+                    wasm_package_name = package_name
                 } else {
-                    wasm_pkg_name = pkg_name.push_str("_bg");
+                    wasm_package_name = package_name.push_str("_bg");
                 }
 
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
 
-                let leptos_autoreload = match options.leptos_watch {
+                let leptos_autoreload = match options.watch {
                     true => format!(
                         r#"
                             <script crossorigin="">(function () {{
@@ -262,9 +262,9 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{pkg_path}]{pkg_name}.js">
-                            <link rel="preload" href="{pkg_path}/{wasm_pkg_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{pkg_path}/{pkg_name}.js'; init('{pkg_path}]{wasm_pkg_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="{pkg_path}]{package_name}.js">
+                            <link rel="preload" href="{pkg_path}/{wasm_package_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{pkg_path}/{package_name}.js'; init('{pkg_path}]{wasm_package_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
