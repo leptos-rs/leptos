@@ -93,14 +93,12 @@ where
     use leptos_dom::DynChild;
 
     Component::new("Suspense", move |cx| {
-       let mut cached_id = HydrationCtx::peek();
-       let mut id_to_replace = cached_id.clone();
-       id_to_replace.offset += 0;
-
+       let current_id = HydrationCtx::peek();
         if context.ready() {
-            HydrationCtx::continue_from(id_to_replace);
+            HydrationCtx::continue_from(current_id);
             child(cx).into_view(cx)
         } else {
+            HydrationCtx::continue_from(current_id);
             fallback().into_view(cx)
         }
     })
