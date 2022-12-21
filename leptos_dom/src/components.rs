@@ -128,7 +128,7 @@ impl IntoView for ComponentRepr {
 impl ComponentRepr {
   /// Creates a new [`Component`].
   pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-    Self::new_with_id(name, HydrationCtx::next_component())
+    Self::new_with_id(name, HydrationCtx::id())
   }
 
   /// Creates a new [`Component`] with the given hydration ID.
@@ -186,6 +186,7 @@ where
   F: FnOnce(Scope) -> V,
   V: IntoView,
 {
+  id: HydrationKey,
   name: Cow<'static, str>,
   children_fn: F,
 }
@@ -198,6 +199,7 @@ where
   /// Creates a new component.
   pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
     Self {
+      id: HydrationCtx::next_component(),
       name: name.into(),
       children_fn: f,
     }
@@ -209,10 +211,11 @@ where
   F: FnOnce(Scope) -> V,
   V: IntoView,
 {
+  #[track_caller]
   fn into_view(self, cx: Scope) -> View {
-    let Self { name, children_fn } = self;
+    let Self { id, name, children_fn } = self;
 
-    let mut repr = ComponentRepr::new(name);
+    let mut repr = ComponentRepr::new_with_id(name.clone(), id);
 
     // disposed automatically when the parent scope is disposed
     let (child, _) =
