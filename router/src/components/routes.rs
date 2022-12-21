@@ -30,6 +30,7 @@ pub fn Routes(
     });
 
     let mut branches = Vec::new();
+    let id_before = HydrationCtx::peek();
     let frag = children(cx);
     let children = frag
         .as_children()
@@ -198,10 +199,8 @@ pub fn Routes(
         })
     });
 
-    Fragment::new_with_id(
-        frag.id().clone(),
-        vec![(move || root.get()).into_view(cx)]
-    )
+    HydrationCtx::continue_from(id_before);
+    (move || root.get()).into_view(cx)
 }
 
 #[derive(Clone, Debug, PartialEq)]
