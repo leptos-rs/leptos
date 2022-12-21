@@ -7,7 +7,7 @@ use typed_builder::TypedBuilder;
 /// Manages all of the stylesheets set by [Stylesheet] components.
 #[derive(Clone, Default, Debug)]
 pub struct StylesheetContext {
-    els: Rc<RefCell<HashMap<String, Option<web_sys::HtmlLinkElement>>>>,
+    els: Rc<RefCell<HashMap<(Option<String>, String), Option<web_sys::HtmlLinkElement>>>>,
 }
 
 impl StylesheetContext {
@@ -16,7 +16,13 @@ impl StylesheetContext {
         self.els
             .borrow()
             .iter()
-            .map(|(href, _)| format!(r#"<link rel="stylesheet" href="{href}">"#))
+            .map(|((id, href), _)| {
+                if let Some(id) = id {
+                    format!(r#"<link rel="stylesheet" id="{id}" href="{href}">"#)
+                } else {
+                    format!(r#"<link rel="stylesheet" href="{href}">"#)
+                }
+            })
             .collect()
     }
 }
@@ -28,8 +34,8 @@ pub struct StylesheetProps {
     #[builder(setter(into))]
     pub href: String,
     /// The URL at which the stylesheet can be located.
-    #[builder(setter(into), default = "".to_string())]
-    pub id: String,
+    #[builder(setter(into, strip_option), default = None)]
+    pub id: Option<String>,
 }
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -62,15 +68,16 @@ pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
             // TODO I guess this will create a duplicated <link> when hydrating
             let existing_el = {
                 let els = meta.stylesheets.els.borrow();
-                els.get(&href).cloned()
+                let key = (id.clone(), href.clone());
+                els.get(&key).cloned()
             };
             if let Some(Some(_)) = existing_el {
                 leptos::leptos_dom::debug_warn!("<Stylesheet/> already loaded stylesheet {href}");
             } else {
                 let el = document().create_element("link").unwrap_throw();
                 el.set_attribute("rel", "stylesheet").unwrap_throw();
-                if id != ""{
-                    el.set_attribute("id", &id).unwrap_throw();
+                if let Some(id_val) = &id{
+                    el.set_attribute("id", id_val).unwrap_throw();
                 }
                 el.set_attribute("href", &href).unwrap_throw();
                 document()
@@ -82,11 +89,11 @@ pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
                 meta.stylesheets
                     .els
                     .borrow_mut()
-                    .insert(href, Some(el.unchecked_into()));
+                    .insert((id, href), Some(el.unchecked_into()));
             }
         } else {
             let meta = use_head(cx);
-            meta.stylesheets.els.borrow_mut().insert(href, None);
+            meta.stylesheets.els.borrow_mut().insert((id,href), None);
         }
     }
 }

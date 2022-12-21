@@ -8,6 +8,8 @@ use std::fs;
 use std::{env::VarError, net::SocketAddr, str::FromStr};
 use typed_builder::TypedBuilder;
 
+/// A Struct to allow us to parse LeptosOptions from the file. Not really needed, most interactions should
+/// occur with LeptosOptions
 #[derive(Clone, serde::Deserialize)]
 pub struct ConfFile {
     pub leptos_options: LeptosOptions,

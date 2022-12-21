@@ -322,9 +322,9 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{site_root}]{package_name}.js">
+                            <link rel="modulepreload" href="{site_root}/{package_name}.js">
                             <link rel="preload" href="{site_root}/{wasm_package_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{site_root}/{package_name}.js'; init('{site_root}]{wasm_package_name}.wasm').then(hydrate);</script>
+                            <script type="module">import init, {{ hydrate }} from '{site_root}/{package_name}.js'; init('{site_root}/{wasm_package_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );

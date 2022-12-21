@@ -55,7 +55,7 @@ pub use title::*;
 pub struct MetaContext {
     pub(crate) title: TitleContext,
     pub(crate) stylesheets: StylesheetContext,
-    pub(crate) meta_tags: MetaTagsContext
+    pub(crate) meta_tags: MetaTagsContext,
 }
 
 /// Returns the current [MetaContext].
@@ -122,7 +122,7 @@ impl MetaContext {
             tags.push_str(&title);
             tags.push_str("</title>");
         }
-
+        println!("Stylesheets {:#?}", &self.stylesheets);
         // Stylesheets
         tags.push_str(&self.stylesheets.as_string());
 
