@@ -20,7 +20,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
     let meta_description = move || story.read().and_then(|story| story.map(|story| story.title.clone())).unwrap_or_else(|| "Loading story...".to_string());
 
     view! { cx,
-        <div>
+        <>
             <Meta name="description" content=meta_description/>
             {move || story.read().map(|story| match story {
                 None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
@@ -58,7 +58,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
                     </div>
                 </div>
             }})}
-        </div>
+        </>
     }
 }
 

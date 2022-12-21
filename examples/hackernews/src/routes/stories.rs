@@ -151,10 +151,8 @@ fn Story(cx: Scope, story: api::Story) -> impl IntoView {
                 }}
             </span>
             {(story.story_type != "link").then(|| view! { cx,
-                <span>
-                    //{" "}
-                    <span class="label">{story.story_type}</span>
-                </span>
+                " "
+                <span class="label">{story.story_type}</span>
             })}
         </li>
     }
