@@ -177,15 +177,15 @@ pub fn handle_server_fns() -> Route {
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///
-///     let addr = SocketAddr::from(([127,0,0,1],3000));
+///     let conf = get_configuration().await.unwrap();
+///     let addr = conf.leptos_options.site_address.clone();
 ///     HttpServer::new(move || {
-///         let render_options: LeptosOptions = LeptosOptions::builder().pkg_path("/pkg/leptos_example").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
-///         render_options.write_to_file();
+///         let leptos_options = &conf.leptos_options;
+///     
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }))
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <MyApp/> }))
 ///     })
 ///     .bind(&addr)?
 ///     .run()
@@ -218,7 +218,6 @@ pub fn render_app_to_stream(
                     let integration = ServerIntegration { path: path.clone() };
                     provide_context(cx, RouterIntegrationContext::new(integration));
                     provide_context(cx, MetaContext::new());
-                    println!("Setting Default options");
                     provide_context(cx, res_options_default.clone());
                     provide_context(cx, req.clone());
 
@@ -226,14 +225,15 @@ pub fn render_app_to_stream(
                 }
             };
 
-                           // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+                let site_root = &options.site_root;
+
+                // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
                 // we add _bg to the wasm files if cargo-leptos doesn't set the env var PACKAGE_NAME
                 // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.package_name, which is set regardless
-                let wasm_package_name;
-                if std::env::var("PACKAGE_NAME").is_ok() {
-                    wasm_package_name = package_name
-                } else {
-                    wasm_package_name = package_name.push_str("_bg");
+                let package_name = &options.package_name;
+                let mut wasm_package_name = package_name.clone();
+                if std::env::var("PACKAGE_NAME").is_err() {
+                    wasm_package_name.push_str("_bg");
                 }
 
                 let site_ip = &options.site_address.ip().to_string();
@@ -262,9 +262,9 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{pkg_path}]{package_name}.js">
-                            <link rel="preload" href="{pkg_path}/{wasm_package_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{pkg_path}/{package_name}.js'; init('{pkg_path}]{wasm_package_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="{site_root}/{package_name}.js">
+                            <link rel="preload" href="{site_root}/{wasm_package_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{site_root}/{package_name}.js'; init('{site_root}/{wasm_package_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
@@ -288,8 +288,7 @@ pub fn render_app_to_stream(
             let third_chunk = stream.next().await;
 
             let res_options = res_options.0.read().await;
-            println!("Reading Options");
-            println!("Response Options: {:#?}", res_options);
+
             let (status, mut headers) = (res_options.status.clone(), res_options.headers.clone());
             let status = status.unwrap_or_default();
             

@@ -158,7 +158,7 @@ pub async fn get_configuration() -> Result<ConfFile, LeptosConfigError> {
         // Layer on the environment-specific values.
         // Add in settings from environment variables (with a prefix of APP and '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
-        .add_source(config::Environment::with_prefix("LEPTOS").separator("__"))
+        .add_source(config::Environment::with_prefix("LEPTOS").separator("_"))
         .build()?;
 
     settings

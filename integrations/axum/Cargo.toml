@@ -23,4 +23,5 @@ leptos_meta = { path = "../../meta", default-features = false, version = "0.0", 
 leptos_router = { path = "../../router", default-features = false, version = "0.0", features = [
 	"ssr",
 ] }
+leptos_config = { path = "../../leptos_config", default-features = false, version = "0.0"}
 tokio = { version = "1.0", features = ["full"] }

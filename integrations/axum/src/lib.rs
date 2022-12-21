@@ -225,6 +225,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// use axum::Router;
 /// use std::{net::SocketAddr, env};
 /// use leptos::*;
+/// use leptos_config::get_configuration;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> Element {
@@ -234,17 +235,14 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
 /// async fn main() {
-///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
-/// let render_options: LeptosOptions = LeptosOptions::builder()
-///     .site_root("/pkg")
-///     .package_name("leptos_example")
-///     .site_address(addr)
-///     .reload_port(3001)
-///     .environment(&env::var("LEPTOS_ENV")).build();
-///
+///     
+///     let conf = get_configuration().await.unwrap();
+///     let leptos_options = conf.leptos_options;
+///     let addr = leptos_options.site_address.clone();
+///     
 ///     // build our application with a route
 ///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }));
+///     .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -292,7 +290,7 @@ pub fn render_app_to_stream(
                 // we add _bg to the wasm files if cargo-leptos doesn't set the env var PACKAGE_NAME
                 // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.package_name, which is set regardless
                 let mut wasm_package_name = package_name.clone();
-                if std::env::var("LEPTOS__PKG_NAME").is_err() {
+                if std::env::var("PACKAGE_NAME").is_err() {
                     wasm_package_name.push_str("_bg");
                 }
 
