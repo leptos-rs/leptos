@@ -16,7 +16,7 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-            let conf = get_configuration("Cargo.toml").await.unwrap();
+            let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
             let addr = conf.leptos_options.site_address.clone();
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;

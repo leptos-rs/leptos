@@ -127,7 +127,7 @@ impl TryFrom<String> for Env {
 }
 /// Loads LeptosOptions from a Caego.toml with layered overrides. If an en var is specified, like LEPTOS_ENV,
 /// it will override a setting  in the file. Returns a `ConfFile, which contains `
-pub async fn get_configuration(path: Option<String>) -> Result<ConfFile, LeptosConfigError> {
+pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosConfigError> {
     // Allow Cargo.toml path to be specified in case of workspace wonkiness
     let text = match path {
         Some(p) => fs::read_to_string(p).map_err(|_| LeptosConfigError::ConfigNotFound)?,

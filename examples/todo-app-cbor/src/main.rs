@@ -24,7 +24,7 @@ cfg_if! {
                 .expect("could not run SQLx migrations");
 
             crate::todo::register_server_functions();
-            let conf = get_configuration("Cargo.toml").await.unwrap();
+            let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
             let addr = conf.leptos_options.site_address.clone();
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
