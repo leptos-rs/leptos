@@ -122,7 +122,6 @@ impl MetaContext {
             tags.push_str(&title);
             tags.push_str("</title>");
         }
-        println!("Stylesheets {:#?}", &self.stylesheets);
         // Stylesheets
         tags.push_str(&self.stylesheets.as_string());
 

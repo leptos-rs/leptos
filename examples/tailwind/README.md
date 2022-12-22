@@ -16,7 +16,7 @@ and
 
 in this directory.
 
-You can begin editing your app at `src/app/mod.rs`.
+You can begin editing your app at `src/app.rs`.
 
 ## Installing Tailwind
 
@@ -68,6 +68,37 @@ By default, `cargo-leptos` uses `nightly` Rust, `cargo-generate`, and `sass`. If
 3. `rustup target add wasm32-unknown-unknown` - add the ability to compile Rust to WebAssembly
 4. `cargo install cargo-generate` - install `cargo-generate` binary (should be installed automatically in future)
 5. `npm install -g sass` - install `dart-sass` (should be optional in future
+
+## Alternatives to cargo-leptos
+
+This crate can be run without `cargo-leptos`, using `wasm-pack` and `cargo`. To do so, you'll need to install some other tools.
+
+1. `cargo install wasm-pack`
+
+### Server Side Rendering With Hydration
+
+To run it as a server side app with hydration, first you should run
+
+```bash
+wasm-pack build --target=web --no-default-features --features=hydrate
+```
+
+to generate the WebAssembly to hydrate the HTML delivered from the server.
+
+Then run the server with `cargo run` to serve the server side rendered HTML and the WASM bundle for hydration.
+
+```bash
+cargo run --no-default-features --features=ssr
+```
+
+> Note that if your hydration code changes, you will have to rerun the wasm-pack command above before running 
+> `cargo run`
+
+### Client Side Rendering
+
+You'll need to install trunk to client side render this bundle.
+1. `cargo install trunk`
+Then the site can be served with `trunk serve --open`
 
 ## Attribution
 

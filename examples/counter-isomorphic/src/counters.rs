@@ -9,9 +9,9 @@ use broadcaster::BroadcastChannel;
 
 #[cfg(feature = "ssr")]
 pub fn register_server_functions() {
-    GetServerCount::register();
-    AdjustServerCount::register();
-    ClearServerCount::register();
+    _ = GetServerCount::register();
+    _ = AdjustServerCount::register();
+    _ = ClearServerCount::register();
 }
 
 #[cfg(feature = "ssr")]

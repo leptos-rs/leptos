@@ -14,10 +14,12 @@ console_log = "0.2"
 console_error_panic_hook = "0.1"
 futures = "0.3"
 cfg-if = "1"
-leptos = { version = "0.0.20", default-features = false, features = ["serde"] }
-leptos_meta = { version = "0.0", default-features = false }
-leptos_actix = { version = "0.0.2", default-features = false, optional = true }
-leptos_router = { version = "0.0", default-features = false }
+leptos = { path = "../../leptos", default-features = false, features = [
+	"serde",
+] }
+leptos_actix = { path = "../../integrations/actix", optional = true }
+leptos_meta = { path = "../../meta", default-features = false }
+leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 simple_logger = "2"
 serde = { version = "1", features = ["derive"] }
@@ -43,3 +45,28 @@ ssr = [
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
+package_name = "leptos-hackernews"	
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site_root = "target/site"
+# The site_root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg	
+site_pkg_dir = "pkg" 	
+# [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site_root>/<site_pkg>/app.css
+# style_file = "src/styles/tailwind.css"
+# [Optional] Files in the asset_dir will be copied to the site_root directory
+# assets_dir = "static/assets"
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+site_address = "127.0.0.1:3000"	
+# The port to use for automatic reload monitoring
+reload_port = 3001	
+# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
+end2end_cmd = "npx playwright test"
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults" 	
+# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+watch = false 	
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"

@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use cfg_if::cfg_if;
 use leptos::*;
 mod todo;
@@ -11,7 +9,7 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use crate::todo::*;
-        use std::env;
+
 
         #[get("/style.css")]
         async fn css() -> impl Responder {
@@ -28,16 +26,15 @@ cfg_if! {
 
             crate::todo::register_server_functions();
 
-            let addr = SocketAddr::from(([127,0,0,1],3000));
-
+            let conf = get_configuration().await.unwrap();
+            let addr = conf.leptos_options.site_address.clone();
             HttpServer::new(move || {
-                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
-                render_options.write_to_file();
+                let leptos_options = &conf.leptos_options;
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
                     .service(css)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <TodoApp/> }))
+                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <TodoApp/> }))
                 //.wrap(middleware::Compress::default())
             })
             .bind(&addr)?
