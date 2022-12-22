@@ -216,11 +216,12 @@ fn root_element_to_tokens_ssr(cx: &Ident, node: &NodeElement) -> TokenStream {
         }
     };
 
-    // TODO get proper element types for return-type purposes
+    let tag_name = node.name.to_string();
+    let typed_element_name = Ident::new(&camel_case_tag_name(&tag_name), node.name.span());
     quote! {
       {
         #(#exprs_for_compiler)*
-        ::leptos::HtmlElement::from_html(cx, leptos::Div::default(), #template)
+        ::leptos::HtmlElement::from_html(cx, leptos::#typed_element_name::default(), #template)
       }
     }
 }
@@ -732,4 +733,12 @@ fn is_self_closing(node: &NodeElement) -> bool {
             | "track"
             | "wbr"
     )
+}
+
+fn camel_case_tag_name(tag_name: &str) -> String {
+    let mut chars = tag_name.chars();
+    let first = chars.next();
+    first.map(|f| f.to_ascii_uppercase()).into_iter()
+        .chain(chars)
+        .collect()
 }
