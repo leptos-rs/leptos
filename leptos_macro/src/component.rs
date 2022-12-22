@@ -1,10 +1,10 @@
-use std::collections::HashSet;
-
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
+use std::collections::HashSet;
 use syn::{
-    parse::Parse, parse_quote, Attribute, FnArg, ItemFn, LitStr, Meta, MetaList,
-    MetaNameValue, NestedMeta, Pat, PatIdent, Path, ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
+    ItemFn, LitStr, Meta, MetaList, MetaNameValue, NestedMeta, Pat, PatIdent, Path, PathArguments,
+    ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -309,7 +309,7 @@ impl Docs {
             .collect()
     }
 
-    fn typed_builder(&self) -> TokenStream {
+    fn typed_builder(&self) -> String {
         let doc_str = self
             .0
             .iter()
@@ -331,9 +331,9 @@ impl Docs {
             .collect::<String>();
 
         if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
-            quote! { #[builder(setter(doc = #doc_str))] }
+            format!("\n\n{doc_str}")
         } else {
-            quote! {}
+            String::new()
         }
     }
 }
@@ -448,25 +448,25 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
     props
         .iter()
         .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
-        .map(
-            |Prop {
-                 docs,
-                 name,
-                 prop_opts,
-                 ty,
-             }| {
-                let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+        .map(|prop| {
+            let Prop {
+                docs,
+                name,
+                prop_opts,
+                ty,
+            } = prop;
 
-                let builder_docs = docs.typed_builder();
+            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
 
-                quote! {
-                   #docs
-                   #builder_docs
-                   #builder_attrs
-                   #vis #name: #ty,
-                }
-            },
-        )
+            let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
+
+            quote! {
+                #docs
+                #builder_docs
+                #builder_attrs
+                #vis #name: #ty,
+            }
+        })
         .collect()
 }
 
@@ -479,28 +479,44 @@ fn prop_names(props: &[Prop]) -> TokenStream {
 }
 
 fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
-    let header = quote! { #[doc = "# Props"] };
-
-    let prop_docs = props
+    let required_prop_docs = props
         .iter()
-        .map(|Prop { docs, name, ty, .. }| {
-            let arg_ty_doc = LitStr::new(
-                &format!("- **{}**: [`{}`]", quote!(#name), quote!(#ty)),
-                name.ident.span(),
-            );
-
-            let arg_user_docs = docs.padded();
-
-            quote! {
-                #[doc = #arg_ty_doc]
-                #arg_user_docs
-            }
+        .filter(|Prop { prop_opts, .. }| {
+            !(prop_opts.contains(&PropOpt::Optional)
+                || prop_opts.contains(&PropOpt::OptionalNoStrip))
         })
+        .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
 
+    let optional_prop_docs = props
+        .iter()
+        .filter(|Prop { prop_opts, .. }| {
+            prop_opts.contains(&PropOpt::Optional) || prop_opts.contains(&PropOpt::OptionalNoStrip)
+        })
+        .map(|p| prop_to_doc(p, PropDocStyle::List))
+        .collect::<TokenStream>();
+
+    let required_prop_docs = if !required_prop_docs.is_empty() {
+        quote! {
+            #[doc = "# Required Props"]
+            #required_prop_docs
+        }
+    } else {
+        quote! {}
+    };
+
+    let optional_prop_docs = if !optional_prop_docs.is_empty() {
+        quote! {
+            #[doc = "# Optional Props"]
+            #optional_prop_docs
+        }
+    } else {
+        quote! {}
+    };
+
     quote! {
-        #header
-        #prop_docs
+        #required_prop_docs
+        #optional_prop_docs
     }
 }
 
@@ -517,5 +533,136 @@ fn is_option(ty: &Type) -> bool {
         }
     } else {
         false
+    }
+}
+
+fn unwrap_option(ty: &Type) -> Option<Type> {
+    const STD_OPTION_MSG: &str = "make sure you're not shadowing the \
+    `std::option::Option` type that is automatically imported from the \
+    standard prelude";
+
+    if let Type::Path(TypePath {
+        path: Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            if first.ident == "Option" {
+                if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                    args, ..
+                }) = &first.arguments
+                {
+                    if let [first] = &args.iter().collect::<Vec<_>>()[..] {
+                        if let GenericArgument::Type(ty) = first {
+                            Some(ty.clone())
+                        } else {
+                            abort!(
+                                first,
+                                "`Option` must be `std::option::Option`";
+                                help = STD_OPTION_MSG
+                            );
+                        }
+                    } else {
+                        abort!(
+                            first,
+                            "`Option` must be `std::option::Option`";
+                            help = STD_OPTION_MSG
+                        );
+                    }
+                } else {
+                    abort!(
+                        first,
+                        "`Option` must be `std::option::Option`";
+                        help = STD_OPTION_MSG
+                    );
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PropDocStyle {
+    List,
+    Inline,
+}
+
+fn prop_to_doc(
+    Prop {
+        docs,
+        name,
+        ty,
+        prop_opts,
+    }: &Prop,
+    style: PropDocStyle,
+) -> TokenStream {
+    let ty = if prop_opts.contains(&PropOpt::Optional) && is_option(ty) {
+        unwrap_option(ty).unwrap()
+    } else {
+        ty.to_owned()
+    };
+
+    let type_item: syn::Item = parse_quote! {
+        type SomeType = #ty;
+    };
+
+    let file = syn::File {
+        shebang: None,
+        attrs: vec![],
+        items: vec![type_item],
+    };
+
+    let pretty_ty = prettyplease::unparse(&file);
+
+    let pretty_ty = &pretty_ty[16..&pretty_ty.len() - 2];
+
+    match style {
+        PropDocStyle::List => {
+            let arg_ty_doc = LitStr::new(
+                &if !prop_opts.contains(&PropOpt::Into) {
+                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
+                } else {
+                    format!("- **{}**: `impl`[`Into<{}>`]", quote!(#name), pretty_ty)
+                },
+                name.ident.span(),
+            );
+
+            let arg_user_docs = docs.padded();
+
+            quote! {
+                #[doc = #arg_ty_doc]
+                #arg_user_docs
+            }
+        }
+        PropDocStyle::Inline => {
+            let arg_ty_doc = LitStr::new(
+                &if !prop_opts.contains(&PropOpt::Into) {
+                    format!(
+                        "**{}**: [`{}`]{}",
+                        quote!(#name),
+                        pretty_ty,
+                        docs.typed_builder()
+                    )
+                } else {
+                    format!(
+                        "**{}**: `impl`[`Into<{}>`]{}",
+                        quote!(#name),
+                        pretty_ty,
+                        docs.typed_builder()
+                    )
+                },
+                name.ident.span(),
+            );
+
+            quote! {
+                #[builder(setter(doc = #arg_ty_doc))]
+            }
+        }
     }
 }
