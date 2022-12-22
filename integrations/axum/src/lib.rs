@@ -296,19 +296,37 @@ pub fn render_app_to_stream(
 
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
+                let watch = match std::env::var("LEPTOS_WATCH")
+                    .unwrap_or("false".to_string())
+                    .as_ref()
+                {
+                    "false" => false,
+                    "true" => true,
+                    _ => false,
+                };
 
-                let leptos_autoreload = match options.watch {
+                let leptos_autoreload = match watch {
                     true => format!(
                         r#"
-                            <script crossorigin="">(function () {{
-                                var ws = new WebSocket('ws://{site_ip}:{reload_port}/autoreload');
-                                ws.onmessage = (ev) => {{
-                                    console.log(`Reload message: `);
-                                    if (ev.data === 'reload') window.location.reload();
+                        <script crossorigin="">(function () {{
+                            var ws = new WebSocket('ws://{site_ip}/live_reload');
+                            ws.onmessage = (ev) => {{
+                                let msg = JSON.parse(event.data);
+                                if (msg.all) window.location.reload();
+                                if (msg.css) {{
+                                    const link = document.querySelector("link#leptos");
+                                    if (link) {{
+                                        let href = link.getAttribute('href').split('?')[0];
+                                        let newHref = href + '?version=' + new Date().getMilliseconds();
+                                        link.setAttribute('href', newHref);
+                                    }} else {{
+                                        console.warn("Could not find link#leptos");
+                                    }}
                                 }};
-                                ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
-                            }})()
-                            </script>
+                            }};
+                            ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+                        }})()
+                        </script>
                         "#
                     ),
                     false => "".to_string(),

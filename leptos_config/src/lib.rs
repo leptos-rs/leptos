@@ -44,10 +44,6 @@ pub struct LeptosOptions {
     /// Defaults to `3001`
     #[builder(default = 3001)]
     pub reload_port: u32,
-    /// This controls whether the Leptos Websocket Autoreload JS is included for each page
-    /// Defaults to false
-    #[builder(default = false)]
-    pub watch: bool,
 }
 
 /// An enum that can be used to define the environment Leptos is running in. Can be passed to RenderOptions.
