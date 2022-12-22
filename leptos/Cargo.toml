@@ -9,12 +9,14 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 readme = "../README.md"
 
 [dependencies]
+cfg-if = "1"
 leptos_config = { path = "../leptos_config", default-features = false, version = "0.0.18" }
-leptos_core = { path = "../leptos_core", default-features = false, version = "0.0.18" }
 leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.18" }
 leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.18" }
 leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
 leptos_server = { path = "../leptos_server", default-features = false, version = "0.0.18" }
+tracing = "0.1"
+typed-builder = "0.11"
 
 [dev-dependencies]
 leptos = { path = ".", default-features = false }
@@ -23,7 +25,6 @@ leptos = { path = ".", default-features = false }
 default = ["csr", "serde"]
 csr = [
 	"leptos/csr",
-	"leptos_core/csr",
 	"leptos_dom/web",
 	"leptos_macro/csr",
 	"leptos_reactive/csr",
@@ -31,7 +32,6 @@ csr = [
 ]
 hydrate = [
 	"leptos/hydrate",
-	"leptos_core/hydrate",
 	"leptos_dom/web",
 	"leptos_macro/hydrate",
 	"leptos_reactive/hydrate",
@@ -40,14 +40,12 @@ hydrate = [
 ssr = [
 	"leptos/ssr",
 	"leptos_dom/ssr",
-	"leptos_core/ssr",
 	"leptos_macro/ssr",
 	"leptos_reactive/ssr",
 	"leptos_server/ssr",
 ]
 stable = [
 	"leptos/stable",
-	"leptos_core/stable",
 	"leptos_dom/stable",
 	"leptos_macro/stable",
 	"leptos_reactive/stable",

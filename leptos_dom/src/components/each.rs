@@ -37,12 +37,9 @@ cfg_if! {
   }
 }
 
-use leptos_reactive::Scope;
-
 use smallvec::SmallVec;
 
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
-use typed_builder::TypedBuilder;
 
 /// The internal representation of the [`EachKey`] core-component.
 #[derive(Clone, PartialEq, Eq)]
@@ -544,7 +541,7 @@ enum DiffOpAddMode {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn apply_cmds<T, EF, N>(
-  cx: Scope,
+  cx: leptos_reactive::Scope,
   opening: &web_sys::Node,
   closing: &web_sys::Node,
   mut cmds: Diff,
@@ -657,94 +654,4 @@ fn apply_cmds<T, EF, N>(
   // Now, remove the holes that might have been left from removing
   // items
   children.drain_filter(|c| c.is_none());
-}
-
-/// Properties for the [For](crate::For) component, a keyed list.
-#[derive(TypedBuilder)]
-#[builder(doc)]
-pub struct ForProps<IF, I, T, EF, N, KF, K>
-where
-  IF: Fn() -> I + 'static,
-  I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
-  N: IntoView,
-  KF: Fn(&T) -> K + 'static,
-  K: Eq + Hash + 'static,
-  T: 'static,
-{
-  /// Items over which the component should iterate.
-  #[builder(setter(doc = "Items over which the component should iterate."))]
-  pub each: IF,
-  /// A key function that will be applied to each item
-  #[builder(setter(doc = "A key function that will be applied to each item"))]
-  pub key: KF,
-  /// Should provide a single child function, which takes
-  #[builder(setter(
-    doc = "Should provide a single child function, which takes"
-  ))]
-  pub view: EF,
-}
-
-/// Iterates over children and displays them, keyed by the `key` function given.
-///
-/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { cx,  ... })...`,
-/// as it avoids re-creating DOM nodes that are not being changed.
-///
-/// ```
-/// # use leptos::*;
-///
-/// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-/// struct Counter {
-///   id: HydrationKey,
-///   count: RwSignal<i32>
-/// }
-///
-/// fn Counters(cx: Scope) -> Element {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>(cx, vec![]);
-///
-///   view! {
-///     cx,
-///     <div>
-///       <For
-///         // a function that returns the items we're iterating over; a signal is fine
-///         each=counters
-///         // a unique key for each item
-///         key=|counter| counter.id
-///         view=move |counter: Counter| {
-///           view! {
-///             cx,
-///             <button>"Value: " {move || counter.count.get()}</button>
-///           }
-///         }
-///       />
-///     </div>
-///   }
-/// }
-/// ```
-///
-/// # Props
-/// ## Required
-/// - **cx**: [`Scope`]
-/// - **each**: [`IF`]
-///   - Items over which the component should iterate.
-/// - **key**: KF
-///   - A key function that will be applied to each item
-/// - **view**: EF
-///   - Should provide a single child function, which takes
-#[allow(non_snake_case)]
-pub fn For<IF, I, T, EF, N, KF, K>(
-  cx: Scope,
-  props: ForProps<IF, I, T, EF, N, KF, K>,
-) -> View
-where
-  IF: Fn() -> I + 'static,
-  I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
-  N: IntoView,
-  KF: Fn(&T) -> K + 'static,
-  K: Eq + Hash + 'static,
-  T: 'static,
-{
-  let each_fn = props.view;
-  Each::new(props.each, props.key, each_fn).into_view(cx)
 }

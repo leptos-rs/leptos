@@ -132,7 +132,7 @@ impl ToTokens for Model {
             #[doc = ""]
             #docs
             #component_fn_prop_docs
-            #[derive(::leptos::TypedBuilder)]
+            #[derive(::leptos::typed_builder::TypedBuilder)]
             #[builder(doc)]
             #vis struct #props_name #generics #where_clause {
                 #prop_builder_fields

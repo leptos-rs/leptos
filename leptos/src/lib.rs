@@ -127,7 +127,6 @@
 //! ```
 
 pub use leptos_config::*;
-pub use leptos_core::*;
 pub use leptos_dom;
 pub use leptos_dom::wasm_bindgen::{JsCast, UnwrapThrowExt};
 pub use leptos_dom::*;
@@ -136,4 +135,16 @@ pub use leptos_reactive::*;
 pub use leptos_server;
 pub use leptos_server::*;
 
+pub use tracing;
+pub use typed_builder;
+
+mod for_loop;
+pub use for_loop::*;
+mod suspense;
+pub use suspense::*;
+mod transition;
+pub use transition::*;
+
 pub use leptos_reactive::debug_warn;
+
+extern crate self as leptos;

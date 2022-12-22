@@ -23,7 +23,6 @@ rustc-hash = "1.1.0"
 serde_json = "1"
 smallvec = "1"
 tracing = "0.1"
-typed-builder = "0.11"
 wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
 
