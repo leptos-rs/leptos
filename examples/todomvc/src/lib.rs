@@ -262,7 +262,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let input = NodeRef::new(cx);
+    let todo_input = NodeRef::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -282,7 +282,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
         >
             <div class="view">
                 <input
-                    _ref=input
+                    _ref=todo_input
                     class="toggle"
                     type="checkbox"
                     prop:checked={move || (todo.completed)()}
@@ -293,12 +293,9 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
                 />
                 <label on:dblclick=move |_| {
                     set_editing(true);
-
-                    if let Some(input) = input.get()
-                        .as_ref()
-                        .and_then(|n| n.dyn_ref::<HtmlInputElement>())
-                    {
-                        input.focus();
+            
+                    if let Some(input) = todo_input.get() {
+                        _ = input.focus();
                     }
                 }>
                     {move || todo.title.get()}

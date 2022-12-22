@@ -28,10 +28,10 @@ use leptos_reactive::{create_rw_signal, RwSignal, Scope};
 ///   }
 /// }
 /// ```
-#[derive(Copy, Clone, PartialEq)]
-pub struct NodeRef(RwSignal<Option<web_sys::Element>>);
+#[derive(Clone, PartialEq)]
+pub struct NodeRef<T: Clone + 'static>(RwSignal<Option<T>>);
 
-impl NodeRef {
+impl<T: Clone + 'static> NodeRef<T> {
   /// Creates an empty reference.
   pub fn new(cx: Scope) -> Self {
     Self(create_rw_signal(cx, None))
@@ -43,7 +43,7 @@ impl NodeRef {
   /// Initially, the value will be `None`, but once it is loaded the effect
   /// will rerun and its value will be `Some(Element)`.
   #[track_caller]
-  pub fn get(&self) -> Option<web_sys::Element> {
+  pub fn get(&self) -> Option<T> {
     self.0.get()
   }
 
@@ -52,7 +52,7 @@ impl NodeRef {
   /// so that effects that use the node reference will rerun once it is loaded,
   /// i.e., effects can be forward-declared.
   #[track_caller]
-  pub fn load(&self, node: &web_sys::Element) {
+  pub fn load(&self, node: &T) {
     self.0.update(|current| {
       if current.is_some() {
         crate::debug_warn!(
@@ -66,23 +66,25 @@ impl NodeRef {
   }
 }
 
+impl<T: Clone + 'static> Copy for NodeRef<T> { }
+
 cfg_if::cfg_if! {
     if #[cfg(not(feature = "stable"))] {
-        impl FnOnce<()> for NodeRef {
-            type Output = Option<web_sys::Element>;
+        impl<T: Clone + 'static> FnOnce<()> for NodeRef<T> {
+            type Output = Option<T>;
 
             extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
                 self.get()
             }
         }
 
-        impl FnMut<()> for NodeRef {
+        impl<T: Clone + 'static> FnMut<()> for NodeRef<T> {
             extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                 self.get()
             }
         }
 
-        impl Fn<()> for NodeRef {
+        impl<T: Clone + 'static> Fn<()> for NodeRef<T> {
             extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                 self.get()
             }

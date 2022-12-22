@@ -14,12 +14,12 @@ cfg_if! {
 
     /// Trait alias for the trait bounts on [`IntoElement`].
     pub trait IntoElementBounds:
-      fmt::Debug + AsRef<web_sys::HtmlElement>
+      fmt::Debug + AsRef<web_sys::HtmlElement> + Clone
     {
     }
 
     impl<El> IntoElementBounds for El where
-      El: fmt::Debug + AsRef<web_sys::HtmlElement>
+      El: fmt::Debug + AsRef<web_sys::HtmlElement> + Clone
     {
     }
   } else {
@@ -202,6 +202,7 @@ impl IntoElement for Custom {
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
+    #[derive(Clone)]
     pub struct HtmlElement<El: IntoElement> {
       pub(crate) cx: Scope,
       pub(crate) element: El,
@@ -209,7 +210,7 @@ cfg_if! {
   // Server needs to build a virtualized DOM tree
   } else {
     /// Represents an HTML element.
-    #[derive(educe::Educe)]
+    #[derive(educe::Educe, Clone)]
     #[educe(Debug)]
     pub struct HtmlElement<El: IntoElement> {
       pub(crate) cx: Scope,
@@ -225,12 +226,12 @@ cfg_if! {
   }
 }
 
-impl<El: IntoElement> std::ops::Deref for HtmlElement<El> {
-  type Target = web_sys::HtmlElement;
+impl<El> std::ops::Deref for HtmlElement<El> where El: IntoElement + std::ops::Deref {
+  type Target = <El as std::ops::Deref>::Target;
 
   fn deref(&self) -> &Self::Target {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    return self.element.as_ref();
+    return self.element.deref();
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
@@ -341,7 +342,7 @@ impl<El: IntoElement> HtmlElement<El> {
   }
 
   /// Binds the element reference to [`NodeRef`].
-  pub fn node_ref(self, node_ref: &NodeRef) -> Self {
+  pub fn node_ref(self, node_ref: &NodeRef<Self>) -> Self where Self: Clone {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node_ref.load(&self);
 
