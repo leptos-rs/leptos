@@ -7,7 +7,7 @@ use leptos::*;
 pub struct RouteDefinition {
     pub path: &'static str,
     pub children: Vec<RouteDefinition>,
-    pub element: Rc<dyn Fn(Scope) -> View>,
+    pub view: Rc<dyn Fn(Scope) -> View>,
 }
 
 impl std::fmt::Debug for RouteDefinition {
