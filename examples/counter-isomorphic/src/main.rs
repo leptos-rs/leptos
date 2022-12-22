@@ -30,7 +30,7 @@ cfg_if! {
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
             crate::counters::register_server_functions();
-            let conf = get_configuration().await.unwrap();
+            let conf = get_configuration("Cargo.toml").await.unwrap();
             let addr = conf.leptos_options.site_address.clone();
 
             HttpServer::new(move || {

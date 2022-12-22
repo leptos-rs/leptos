@@ -36,7 +36,7 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
-        let conf = get_configuration().await.unwrap();
+        let conf = get_configuration("Cargo.toml").await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_address.clone();
         // build our application with a route
