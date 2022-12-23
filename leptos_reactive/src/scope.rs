@@ -1,9 +1,12 @@
-use crate::{
-    runtime::{with_runtime, RuntimeId},
-    EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
-};
+use cfg_if::cfg_if;
+
+use crate::runtime::{with_runtime, RuntimeId};
+use crate::{hydration::SharedContext, EffectId, ResourceId, SignalId};
+use crate::{PinnedFuture, SuspenseContext};
 use futures::stream::FuturesUnordered;
-use std::{collections::HashMap, fmt, future::Future, pin::Pin};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::{future::Future, pin::Pin};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -275,9 +278,180 @@ impl ScopeDisposer {
 }
 
 impl Scope {
+    // hydration-specific code
+    cfg_if! {
+        if #[cfg(any(feature = "hydrate", doc))] {
+            /// `hydrate` only: Whether we're currently hydrating the page.
+            pub fn is_hydrating(&self) -> bool {
+                with_runtime(self.runtime, |runtime| {
+                runtime.shared_context.borrow().is_some()
+                })
+            }
+
+            /// `hydrate` only: Begins the hydration process.
+            pub fn start_hydration(&self, element: &web_sys::Element) {
+                with_runtime(self.runtime, |runtime| {
+                    runtime.start_hydration(element);
+                })
+            }
+
+            /// `hydrate` only: Ends the hydration process.
+            pub fn end_hydration(&self) {
+                with_runtime(self.runtime, |runtime| {
+                    runtime.end_hydration();
+                })
+            }
+
+            /// `hydrate` only: Gets the next element in the hydration queue, either from the
+            /// server-rendered DOM or from the template.
+            pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
+                use wasm_bindgen::{JsCast, UnwrapThrowExt};
+
+                let cloned_template = |t: &web_sys::Element| {
+                    let t = t
+                        .unchecked_ref::<web_sys::HtmlTemplateElement>()
+                        .content()
+                        .clone_node_with_deep(true)
+                        .expect_throw("(get_next_element) could not clone template")
+                        .unchecked_into::<web_sys::Element>()
+                        .first_element_child()
+                        .expect_throw("(get_next_element) could not get first child of template");
+                    t
+                };
+
+                with_runtime(self.runtime, |runtime| {
+                    if let Some(ref mut shared_context) = &mut *runtime.shared_context.borrow_mut() {
+                        if shared_context.context.is_some() {
+                            let key = shared_context.next_hydration_key();
+                            let node = shared_context.registry.remove(&key);
+
+                            //log::debug!("(hy) searching for {key}");
+
+                            if let Some(node) = node {
+                                //log::debug!("(hy) found {key}");
+                                shared_context.completed.push(node.clone());
+                                node
+                            } else {
+                                //log::debug!("(hy) did NOT find {key}");
+                                cloned_template(template)
+                            }
+                        } else {
+                            cloned_template(template)
+                        }
+                    } else {
+                        cloned_template(template)
+                    }
+                })
+            }
+        }
+    }
+
+    /// `hydrate` only: Given the current node, gets the span of the next component that has
+    /// been marked for hydration, returning its starting node and the set of all its nodes.
+    #[cfg(any(feature = "csr", feature = "hydrate", doc))]
+    pub fn get_next_marker(&self, start: &web_sys::Node) -> (web_sys::Node, Vec<web_sys::Node>) {
+        let mut end = Some(start.clone());
+        let mut count = 0;
+        let mut current = Vec::new();
+        let mut start = start.clone();
+
+        with_runtime(self.runtime, |runtime| {
+            if runtime
+                .shared_context
+                .borrow()
+                .as_ref()
+                .map(|sc| sc.context.as_ref())
+                .is_some()
+            {
+                while let Some(curr) = end {
+                    start = curr.clone();
+                    if curr.node_type() == 8 {
+                        // COMMENT
+                        let v = curr.node_value();
+                        if v == Some("#".to_string()) {
+                            count += 1;
+                        } else if v == Some("/".to_string()) {
+                            count -= 1;
+                            if count == 0 {
+                                current.push(curr.clone());
+                                return (curr, current);
+                            }
+                        }
+                    }
+                    current.push(curr.clone());
+                    end = curr.next_sibling();
+                }
+            }
+
+            (start, current)
+        })
+    }
+
+    /// On either the server side or the browser side, generates the next key in the hydration process.
+    pub fn next_hydration_key(&self) -> String {
+        with_runtime(self.runtime, |runtime| {
+            let mut sc = runtime.shared_context.borrow_mut();
+            if let Some(ref mut sc) = *sc {
+                sc.next_hydration_key()
+            } else {
+                let mut new_sc = SharedContext::default();
+                let id = new_sc.next_hydration_key();
+                *sc = Some(new_sc);
+                id
+            }
+        })
+    }
+
+    /// Runs the given function with the next hydration context.
+    pub fn with_next_context<T>(&self, f: impl FnOnce() -> T) -> T {
+        with_runtime(self.runtime, |runtime| {
+            if runtime
+                .shared_context
+                .borrow()
+                .as_ref()
+                .and_then(|sc| sc.context.as_ref())
+                .is_some()
+            {
+                let c = {
+                    if let Some(ref mut sc) = *runtime.shared_context.borrow_mut() {
+                        if let Some(ref mut context) = sc.context {
+                            let next = context.next_hydration_context();
+                            Some(std::mem::replace(context, next))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                let res = self.untrack(f);
+
+                if let Some(ref mut sc) = *runtime.shared_context.borrow_mut() {
+                    sc.context = c;
+                }
+                res
+            } else {
+                self.untrack(f)
+            }
+        })
+    }
+
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn all_resources(&self) -> Vec<ResourceId> {
         with_runtime(self.runtime, |runtime| runtime.all_resources())
+    }
+
+    /// The current key for an HTML fragment created by server-rendering a `<Suspense/>` component.
+    pub fn current_fragment_key(&self) -> String {
+        with_runtime(self.runtime, |runtime| {
+            runtime
+                .shared_context
+                .borrow()
+                .as_ref()
+                .map(|context| context.current_fragment_key())
+                .unwrap_or_else(|| String::from("0f"))
+        })
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
@@ -297,37 +471,41 @@ impl Scope {
         use futures::StreamExt;
 
         with_runtime(self.runtime, |runtime| {
-            let mut shared_context = runtime.shared_context.borrow_mut();
-            let (tx, mut rx) = futures::channel::mpsc::unbounded();
+            if let Some(ref mut shared_context) = *runtime.shared_context.borrow_mut() {
+                let (tx, mut rx) = futures::channel::mpsc::unbounded();
 
-            create_isomorphic_effect(*self, move |_| {
-                let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
-                if pending == 0 {
-                    _ = tx.unbounded_send(());
-                }
-            });
+                create_isomorphic_effect(*self, move |_| {
+                    let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
+                    if pending == 0 {
+                        _ = tx.unbounded_send(());
+                    }
+                });
 
-            shared_context.pending_fragments.insert(
-                key.to_string(),
-                Box::pin(async move {
-                    rx.next().await;
-                    resolver()
-                }),
-            );
+                shared_context.pending_fragments.insert(
+                    key.to_string(),
+                    Box::pin(async move {
+                        rx.next().await;
+                        resolver()
+                    }),
+                );
+            }
         })
     }
 
     /// The set of all HTML fragments current pending, by their keys (see [Self::current_fragment_key]).
     pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
         with_runtime(self.runtime, |runtime| {
-            let mut shared_context = runtime.shared_context.borrow_mut();
-            std::mem::take(&mut shared_context.pending_fragments)
+            if let Some(ref mut shared_context) = *runtime.shared_context.borrow_mut() {
+                std::mem::take(&mut shared_context.pending_fragments)
+            } else {
+                HashMap::new()
+            }
         })
     }
 }
 
-impl fmt::Debug for ScopeDisposer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for ScopeDisposer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ScopeDisposer").finish()
     }
 }

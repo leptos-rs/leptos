@@ -7,7 +7,7 @@ use crate::{Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
 ///
 /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
 /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
-/// function call, `with()`, and `get()` APIs as over signals.
+/// function call, `with()`, and `get()` APIs as other signals.
 ///
 /// ```rust
 /// # use leptos_reactive::*;
