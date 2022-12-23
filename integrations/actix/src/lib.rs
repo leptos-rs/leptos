@@ -249,7 +249,7 @@ pub fn render_app_to_stream(
                     true => format!(
                         r#"
                         <script crossorigin="">(function () {{
-                            var ws = new WebSocket('ws://{site_ip}/live_reload');
+                            var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                             ws.onmessage = (ev) => {{
                                 let msg = JSON.parse(event.data);
                                 if (msg.all) window.location.reload();
