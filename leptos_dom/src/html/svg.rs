@@ -1,6 +1,8 @@
 //! SVG elements.
 
 use super::{ElementDescriptor, HtmlElement, IntoView};
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
 use crate::HydrationCtx;
 use leptos_reactive::Scope;
 use std::{borrow::Cow, cell::LazyCell};
