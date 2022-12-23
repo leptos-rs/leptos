@@ -30,7 +30,6 @@ web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 tracing = "0.1"
 
 [features]
-default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
