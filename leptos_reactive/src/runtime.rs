@@ -296,6 +296,19 @@ impl Runtime {
             .collect()
     }
 
+    /// Returns IDs for all [Resource]s found on any scope, pending from the server.
+    pub(crate) fn pending_resources(&self) -> Vec<ResourceId> {
+        self.resources
+            .borrow()
+            .iter()
+            .filter_map(|(resource_id, res)| if matches!(res, AnyResource::Serializable(_)) {
+                Some(resource_id)
+            } else {
+                None
+            })
+            .collect()
+    }
+
     pub(crate) fn serialization_resolvers(
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {

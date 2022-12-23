@@ -282,6 +282,12 @@ impl Scope {
         with_runtime(self.runtime, |runtime| runtime.all_resources())
     }
 
+     /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are 
+     /// pending from the server.
+     pub fn pending_resources(&self) -> Vec<ResourceId> {
+        with_runtime(self.runtime, |runtime| runtime.pending_resources())
+    }
+
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn serialization_resolvers(&self) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
         with_runtime(self.runtime, |runtime| runtime.serialization_resolvers())
