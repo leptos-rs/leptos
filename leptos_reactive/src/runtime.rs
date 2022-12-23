@@ -234,7 +234,16 @@ impl Debug for Runtime {
 
 impl Runtime {
     pub fn new() -> Self {
-        Self::default()
+        cfg_if! {
+            if #[cfg(any(feature = "csr", feature = "hydration"))] {
+                Self::default()
+            } else {
+                Runtime {
+                    shared_context: RefCell::new(Some(Default::default())),
+                    ..Self::default()
+                }
+            }
+        }
     }
 
     pub(crate) fn create_unserializable_resource<S, T>(
