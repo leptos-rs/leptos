@@ -74,7 +74,6 @@ where
         DynChild::new(move || {
             let current_id = HydrationCtx::peek();
 
-        
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                     if context.ready() {
