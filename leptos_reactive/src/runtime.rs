@@ -75,15 +75,7 @@ impl RuntimeId {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
                 let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self));
-                if let Some(runtime) = runtime {
-                    for (scope_id, _) in runtime.scopes.borrow().iter() {
-                        let scope = Scope {
-                            runtime: self,
-                            id: scope_id,
-                        };
-                        scope.dispose();
-                    }
-                }
+                drop(runtime);
             }
         }
     }
@@ -200,7 +192,7 @@ impl RuntimeId {
 
 #[derive(Default)]
 pub(crate) struct Runtime {
-    pub shared_context: RefCell<Option<SharedContext>>,
+    pub shared_context: RefCell<SharedContext>,
     pub observer: Cell<Option<EffectId>>,
     pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
     pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
@@ -234,16 +226,7 @@ impl Debug for Runtime {
 
 impl Runtime {
     pub fn new() -> Self {
-        cfg_if! {
-            if #[cfg(any(feature = "csr", feature = "hydration"))] {
-                Self::default()
-            } else {
-                Runtime {
-                    shared_context: RefCell::new(Some(Default::default())),
-                    ..Self::default()
-                }
-            }
-        }
+        Self::default()
     }
 
     pub(crate) fn create_unserializable_resource<S, T>(
@@ -270,33 +253,6 @@ impl Runtime {
         self.resources
             .borrow_mut()
             .insert(AnyResource::Serializable(state))
-    }
-
-    #[cfg(feature = "hydrate")]
-    pub fn start_hydration(&self, element: &web_sys::Element) {
-        use wasm_bindgen::{JsCast, UnwrapThrowExt};
-
-        // gather hydratable elements
-        let mut registry = HashMap::new();
-        if let Ok(templates) = element.query_selector_all("*[data-hk]") {
-            for i in 0..templates.length() {
-                let node = templates
-                    .item(i)
-                    .unwrap_throw() // ok to unwrap; we already have the index, so this can't fail
-                    .unchecked_into::<web_sys::Element>();
-                let key = node.get_attribute("data-hk").unwrap_throw();
-                registry.insert(key, node);
-            }
-        }
-
-        *self.shared_context.borrow_mut() = Some(SharedContext::new_with_registry(registry));
-    }
-
-    #[cfg(feature = "hydrate")]
-    pub fn end_hydration(&self) {
-        if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
-            sc.context = None;
-        }
     }
 
     pub(crate) fn resource<S, T, U>(
