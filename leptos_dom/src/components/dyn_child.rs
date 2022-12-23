@@ -233,21 +233,22 @@ where
         else {
           // We need to remove the text created from SSR
           if HydrationCtx::is_hydrating() && new_child.get_text().is_some() {
-            if let Some(t) = closing.previous_sibling() {
-              let t = t.unchecked_into::<web_sys::Element>();
+            let t = closing
+              .previous_sibling()
+              .unwrap()
+              .unchecked_into::<web_sys::Element>();
 
-              // See note on ssr.rs when matching on `DynChild`
-              // for more details on why we need to do this for
-              // release
-              if !cfg!(debug_assertions) {
-                t.previous_sibling()
-                  .unwrap()
-                  .unchecked_into::<web_sys::Element>()
-                  .remove();
-              }
-
-              t.remove();
+            // See note on ssr.rs when matching on `DynChild`
+            // for more details on why we need to do this for
+            // release
+            if !cfg!(debug_assertions) {
+              t.previous_sibling()
+                .unwrap()
+                .unchecked_into::<web_sys::Element>()
+                .remove();
             }
+
+            t.remove();
 
             mount_child(MountKind::Before(&closing), &new_child);
           }
