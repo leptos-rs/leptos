@@ -1,7 +1,7 @@
 use cfg_if::cfg_if;
 use leptos_macro::component;
 use std::rc::Rc;
-use leptos_dom::{Fragment, HydrationCtx, IntoView, Component};
+use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView, Component};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
@@ -68,52 +68,55 @@ where
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    Component::new("Suspense", move |cx| {
-        let current_id = HydrationCtx::peek();
+    let orig_child = Rc::new(children);
 
-        let orig_child = Rc::new(children);
-    
-        cfg_if! {
-            if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                if context.ready() {
-                    HydrationCtx::continue_from(current_id);
-                    orig_child(cx).into_view(cx)
-                } else {
-                    HydrationCtx::continue_from(current_id);
-                    fallback().into_view(cx)
-                }
-            } else {
-                // run the child; we'll probably throw this away, but it will register resource reads
-                let child = orig_child(cx).into_view(cx);
+    Component::new("Suspense", move |cx| {
+        DynChild::new(move || {
+            let current_id = HydrationCtx::peek();
+
         
-                let initial = {    
-                    // no resources were read under this, so just return the child
-                    if context.pending_resources.get() == 0 {
-                        child.clone()
-                    }
-                    // show the fallback, but also prepare to stream HTML
-                    else {
-                        let orig_child = Rc::clone(&orig_child);
-                        cx.register_suspense(context, &current_id.to_string(), {
-                            let current_id = current_id.clone();
-                            move || {
-                                HydrationCtx::continue_from(current_id);
-                                orig_child(cx)
-                                    .into_view(cx)
-                                    .render_to_string(cx)
-                                    .to_string()
-                            }
-                        });
-            
-                        // return the fallback for now, wrapped in fragment identifer
+            cfg_if! {
+                if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+                    if context.ready() {
+                        HydrationCtx::continue_from(current_id);
+                        orig_child(cx).into_view(cx)
+                    } else {
+                        HydrationCtx::continue_from(current_id);
                         fallback().into_view(cx)
                     }
-                };
-        
-                HydrationCtx::continue_from(current_id);
-        
-                initial
+                } else {
+                    // run the child; we'll probably throw this away, but it will register resource reads
+                    let child = orig_child(cx).into_view(cx);
+            
+                    let initial = {    
+                        // no resources were read under this, so just return the child
+                        if context.pending_resources.get() == 0 {
+                            child.clone()
+                        }
+                        // show the fallback, but also prepare to stream HTML
+                        else {
+                            let orig_child = Rc::clone(&orig_child);
+                            cx.register_suspense(context, &current_id.to_string(), {
+                                let current_id = current_id.clone();
+                                move || {
+                                    HydrationCtx::continue_from(current_id);
+                                    orig_child(cx)
+                                        .into_view(cx)
+                                        .render_to_string(cx)
+                                        .to_string()
+                                }
+                            });
+                
+                            // return the fallback for now, wrapped in fragment identifer
+                            fallback().into_view(cx)
+                        }
+                    };
+            
+                    HydrationCtx::continue_from(current_id);
+            
+                    initial
+                }
             }
-        }
+        })
     })
 }
