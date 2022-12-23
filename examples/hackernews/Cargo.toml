@@ -14,10 +14,12 @@ console_log = "0.2"
 console_error_panic_hook = "0.1"
 futures = "0.3"
 cfg-if = "1"
-leptos = { version = "0.0.20", default-features = false, features = ["serde"] }
-leptos_meta = { version = "0.0", default-features = false }
-leptos_actix = { version = "0.0.2", default-features = false, optional = true }
-leptos_router = { version = "0.0", default-features = false }
+leptos = { path = "../../leptos", default-features = false, features = [
+	"serde",
+] }
+leptos_actix = { path = "../../integrations/actix", optional = true }
+leptos_meta = { path = "../../meta", default-features = false }
+leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 simple_logger = "2"
 serde = { version = "1", features = ["derive"] }
