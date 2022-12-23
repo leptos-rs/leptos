@@ -11,7 +11,7 @@ pub fn App(cx: Scope) -> impl IntoView {
       if cfg!(feature = "ssr") {
         let (tx, rx) = futures::channel::oneshot::channel();
         spawn_local(async {
-          std::thread::sleep(std::time::Duration::from_secs(1));
+          std::thread::sleep(std::time::Duration::from_millis(10));
           tx.send(());
         });
         rx.await;
@@ -26,17 +26,15 @@ pub fn App(cx: Scope) -> impl IntoView {
       <div>
         "This is some text"
       </div>
-      <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
+      // <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
         {move || pending_thing.read().map(|n| view! { cx, <ComponentA/> })}
-      </Suspense>
+      // </Suspense>
     </div>
   }
 }
 
 #[component]
-pub fn ComponentA(
-  cx: Scope,
-) -> impl IntoView {
+pub fn ComponentA(cx: Scope) -> impl IntoView {
   let (value, set_value) = create_signal(cx, "Hello?".to_string());
   let (counter, set_counter) = create_signal(cx, 0);
 
