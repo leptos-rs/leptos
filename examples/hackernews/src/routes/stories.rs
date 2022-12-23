@@ -78,9 +78,9 @@ pub fn Stories(cx: Scope) -> impl IntoView {
             </div>
             <main class="news-list">
                 <div>
-                    <Suspense
+                    <Transition
                         fallback=move || view! { cx,  <p>"Loading..."</p> }
-                        //set_pending
+                        set_pending
                     >
                         {move || match stories.read() {
                             None => None,
@@ -101,7 +101,7 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                                 }.into_any())
                             }
                         }}
-                    </Suspense>
+                    </Transition>
                 </div>
             </main>
         </div>
