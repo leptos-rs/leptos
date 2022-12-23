@@ -18,9 +18,12 @@ static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
   return crate::document().get_element_by_id("_0-0-0").is_some();
 });
 
+/// A stable identifer within the server-rendering or hydration process.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HydrationKey {
+  /// The key of the previous component.
   pub previous: String,
+  /// The element offset within the current component.
   pub offset: usize
 }
 

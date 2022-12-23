@@ -1,8 +1,10 @@
 use cfg_if::cfg_if;
 use leptos_macro::component;
 use std::rc::Rc;
-use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView, Component};
+use leptos_dom::{DynChild, Fragment, IntoView, Component};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+use leptos_dom::{HydrationCtx, HydrationKey};
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -71,16 +73,15 @@ where
     let orig_child = Rc::new(children);
 
     Component::new("Suspense", move |cx| {
-        DynChild::new(move || {
-            let current_id = HydrationCtx::peek();
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        let current_id = HydrationCtx::peek();
 
+        DynChild::new(move || {
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                     if context.ready() {
-                        HydrationCtx::continue_from(current_id);
                         orig_child(cx).into_view(cx)
                     } else {
-                        HydrationCtx::continue_from(current_id);
                         fallback().into_view(cx)
                     }
                 } else {
@@ -95,10 +96,15 @@ where
                         // show the fallback, but also prepare to stream HTML
                         else {
                             let orig_child = Rc::clone(&orig_child);
+                            
                             cx.register_suspense(context, &current_id.to_string(), {
                                 let current_id = current_id.clone();
+                                let fragment_id = HydrationKey {
+                                    previous: current_id.previous,
+                                    offset: current_id.offset + 1
+                                };
                                 move || {
-                                    HydrationCtx::continue_from(current_id);
+                                    HydrationCtx::continue_from(fragment_id);
                                     orig_child(cx)
                                         .into_view(cx)
                                         .render_to_string(cx)
@@ -111,7 +117,7 @@ where
                         }
                     };
             
-                    HydrationCtx::continue_from(current_id);
+                    HydrationCtx::continue_from(current_id.clone());
             
                     initial
                 }
