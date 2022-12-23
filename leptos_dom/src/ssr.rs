@@ -131,11 +131,11 @@ pub fn render_to_stream_with_prefix(
                   var start = document.getElementById("_{fragment_id}o");
                   var end = document.getElementById("_{fragment_id}c");
                   var range = new Range();
-                  range.setStartBefore(start.nextSibling);
-                  range.setEndAfter(end.previousSibling);
+                  range.setStartBefore(start.nextSibling.nextSibling);
+                  range.setEndAfter(end.previousSibling.previousSibling);
                   range.deleteContents();
                   var tpl = document.getElementById("{fragment_id}f");
-                  end.parentNode.insertBefore(tpl.content.cloneNode(true), end);
+                  end.parentNode.insertBefore(tpl.content.cloneNode(true), end.previousSibling);
               </script>
               "#
     )

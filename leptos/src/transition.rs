@@ -1,8 +1,10 @@
 use cfg_if::cfg_if;
-use leptos_dom::{Component, DynChild, Fragment, IntoView, HydrationCtx};
+use leptos_dom::{Component, DynChild, Fragment, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use std::{cell::RefCell, rc::Rc};
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+use leptos_dom::{HydrationCtx, HydrationKey};
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -84,14 +86,13 @@ where
     let prev_child = RefCell::new(None);
 
     Component::new("Transition", move |cx| {
-        DynChild::new(move || {
-            let current_id = HydrationCtx::peek();
-        
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        let current_id = HydrationCtx::peek();
+
+        DynChild::new(move || {        
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                     if context.ready() {  
-                        leptos_dom::log!("showing reading view");  
-                        HydrationCtx::continue_from(current_id);
                         let current_child = orig_child(cx).into_view(cx);
                         *prev_child.borrow_mut() = Some(current_child.clone());
                         if let Some(pending) = &set_pending {
@@ -99,14 +100,11 @@ where
                         }
                         current_child
                     } else if let Some(prev_child) = &*prev_child.borrow() {
-                        leptos_dom::log!("holding current view {prev_child:?}");
                         if let Some(pending) = &set_pending {
                             pending.set(true);
                         }
                         prev_child.clone()
                     } else {
-                        HydrationCtx::continue_from(current_id);
-                        leptos_dom::log!("showing fallback view");
                         if let Some(pending) = &set_pending {
                             pending.set(true);
                         }
@@ -128,8 +126,12 @@ where
                             let orig_child = Rc::clone(&orig_child);
                             cx.register_suspense(context, &current_id.to_string(), {
                                 let current_id = current_id.clone();
+                                let fragment_id = HydrationKey {
+                                    previous: current_id.previous,
+                                    offset: current_id.offset + 1
+                                };
                                 move || {
-                                    HydrationCtx::continue_from(current_id);
+                                    HydrationCtx::continue_from(fragment_id);
                                     orig_child(cx)
                                         .into_view(cx)
                                         .render_to_string(cx)
@@ -142,7 +144,7 @@ where
                         }
                     };
             
-                    HydrationCtx::continue_from(current_id);
+                    HydrationCtx::continue_from(current_id.clone());
             
                     initial
                 }
