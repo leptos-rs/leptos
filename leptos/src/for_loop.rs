@@ -40,24 +40,24 @@ use std::hash::Hash;
 ///   }
 /// }
 /// ```
-#[component]
+#[component(transparent)]
 pub fn For<IF, I, T, EF, N, KF, K>(
-  cx: Scope,
-  /// Items over which the component should iterate.
-  each: IF,
-  /// A key function that will be applied to each item.
-  key: KF,
-  /// The view that will be displayed for each item.
-  view: EF,
+    cx: Scope,
+    /// Items over which the component should iterate.
+    each: IF,
+    /// A key function that will be applied to each item.
+    key: KF,
+    /// The view that will be displayed for each item.
+    view: EF,
 ) -> impl IntoView
 where
-  IF: Fn() -> I + 'static,
-  I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
-  N: IntoView,
-  KF: Fn(&T) -> K + 'static,
-  K: Eq + Hash + 'static,
-  T: 'static,
+    IF: Fn() -> I + 'static,
+    I: IntoIterator<Item = T>,
+    EF: Fn(T) -> N + 'static,
+    N: IntoView,
+    KF: Fn(&T) -> K + 'static,
+    K: Eq + Hash + 'static,
+    T: 'static,
 {
-  leptos_dom::Each::new(each, key, view).into_view(cx)
+    leptos_dom::Each::new(each, key, view).into_view(cx)
 }
