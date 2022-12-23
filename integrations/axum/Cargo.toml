@@ -1,6 +1,6 @@
 [package]
 name = "leptos_axum"
-version = "0.0.1"
+version = "0.0.4"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,8 +8,12 @@ repository = "https://github.com/gbj/leptos"
 description = "Axum integrations for the Leptos web framework."
 
 [dependencies]
-axum = "0.5"
+axum = {version="0.6", features=["macros"]}
+derive_builder = "0.12.0"
 futures = "0.3"
+http = "0.2.8"
+hyper = "0.14.23"
+kdl = "4.6.0"
 leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
 	"ssr",
 ] }
