@@ -19,7 +19,7 @@ pub fn Route<E, F>(
     /// The view that should be shown when this route is matched. This can be any function
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
-    element: F,
+    view: F,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Box<dyn Fn(Scope) -> Fragment>>,
@@ -45,7 +45,7 @@ where
     RouteDefinition {
         path,
         children,
-        element: Rc::new(move |cx| element(cx).into_view(cx)),
+        view: Rc::new(move |cx| view(cx).into_view(cx)),
     }
 }
 
@@ -72,7 +72,7 @@ impl RouteContext {
         let base = base.path();
         let RouteMatch { path_match, route } = matcher()?;
         let PathMatch { path, .. } = path_match;
-        let RouteDefinition { element, .. } = route.key;
+        let RouteDefinition { view: element, .. } = route.key;
         let params = create_memo(cx, move |_| {
             matcher()
                 .map(|matched| matched.path_match.params)

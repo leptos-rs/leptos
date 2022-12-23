@@ -148,4 +148,4 @@ mod matching;
 pub use components::*;
 pub use history::*;
 pub use hooks::*;
-pub use matching::Branch;
+pub use matching::*;
