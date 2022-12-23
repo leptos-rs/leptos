@@ -8,7 +8,7 @@ use std::{
     pin::Pin,
     rc::Rc,
 };
-
+use cfg_if::cfg_if;
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
     runtime::{with_runtime, RuntimeId},
@@ -116,9 +116,23 @@ where
         suspense_contexts: Default::default(),
     });
 
-    let id = with_runtime(cx.runtime, |runtime| {
-        runtime.create_serializable_resource(Rc::clone(&r))
-    });
+    cfg_if! {
+        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+            let id = with_runtime(cx.runtime, |runtime| {
+                runtime.create_serializable_resource(Rc::clone(&r))
+            });
+        } else {
+            let id = if use_context::<SuspenseContext>(cx).is_some() {
+                with_runtime(cx.runtime, |runtime| {
+                    runtime.create_serializable_resource(Rc::clone(&r))
+                })
+            } else {
+                with_runtime(cx.runtime, |runtime| {
+                    runtime.create_unserializable_resource(Rc::clone(&r))
+                })
+            };
+        }
+    }
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
