@@ -159,6 +159,7 @@ macro_rules! generate_svg_tags {
     }
   };
 }
+
 generate_svg_tags![
   /// SVG Element.
   a,

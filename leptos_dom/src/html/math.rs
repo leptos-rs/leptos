@@ -1,7 +1,163 @@
 //! MathML elements.
 
+use super::{ElementDescriptor, HtmlElement, IntoView};
+use crate::HydrationCtx;
+use leptos_reactive::Scope;
+use std::{borrow::Cow, cell::LazyCell};
+use wasm_bindgen::JsCast;
+
 macro_rules! generate_math_tags {
-  ($($tt:tt)*) => {};
+  (
+    $(
+      #[$meta:meta]
+      $(#[$void:ident])?
+      $tag:ident $(- $second:ident $(- $third:ident)?)? $(@ $trailing_:pat)?
+    ),* $(,)?
+  ) => {
+    paste::paste! {
+      $(
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        #[thread_local]
+        static [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
+          crate::document()
+            .create_element_ns(
+              Some(wasm_bindgen::intern("http://www.w3.org/2000/svg")),
+              concat![
+                stringify!($tag),
+                $(
+                  "-", stringify!($second),
+                  $(
+                    "-", stringify!($third)
+                  )?
+                )?
+              ],
+            )
+            .unwrap()
+            .unchecked_into()
+        });
+
+        #[derive(Clone, Debug)]
+        #[$meta]
+        pub struct [<$tag:camel $($second:camel $($third:camel)?)?>] {
+          #[cfg(all(target_arch = "wasm32", feature = "web"))]
+          element: web_sys::HtmlElement,
+          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          id: HydrationKey,
+        }
+
+        impl Default for [<$tag:camel $($second:camel $($third:camel)?)?>] {
+          fn default() -> Self {
+            let id = HydrationCtx::id();
+
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            let element = if HydrationCtx::is_hydrating() {
+              if let Some(el) = crate::document().get_element_by_id(
+                &format!("_{id}")
+              ) {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                  el.node_name(),
+                  stringify!([<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]),
+                  "SSR and CSR elements have the same `TopoId` \
+                    but different node kinds. This is either a \
+                    discrepancy between SSR and CSR rendering
+                    logic, which is considered a bug, or it \
+                    can also be a leptos hydration issue."
+                );
+
+                el.remove_attribute("id").unwrap();
+
+                el.unchecked_into()
+              } else if let Ok(Some(el)) = crate::document().query_selector(
+                &format!("[leptos-hk=_{id}]")
+              ) {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                  el.node_name(),
+                  stringify!([<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]),
+                  "SSR and CSR elements have the same `TopoId` \
+                    but different node kinds. This is either a \
+                    discrepancy between SSR and CSR rendering
+                    logic, which is considered a bug, or it \
+                    can also be a leptos hydration issue."
+                );
+
+                el.remove_attribute("leptos-hk").unwrap();
+
+                el.unchecked_into()
+              } else {
+                gloo::console::warn!(
+                  "element with id",
+                  format!("_{id}"),
+                  "not found, ignoring it for hydration"
+                );
+
+                [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>].clone_node().unwrap().unchecked_into()
+              }
+            } else {
+              [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>].clone_node().unwrap().unchecked_into()
+            };
+
+            Self {
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              element,
+              #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+              id
+            }
+          }
+        }
+
+        impl std::ops::Deref for [<$tag:camel $($second:camel $($third:camel)?)?>] {
+          type Target = web_sys::SvgElement;
+
+          fn deref(&self) -> &Self::Target {
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            {
+              use wasm_bindgen::JsCast;
+              return &self.element.unchecked_ref();
+            }
+
+            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
+          }
+        }
+
+        impl std::convert::AsRef<web_sys::HtmlElement> for [<$tag:camel $($second:camel $($third:camel)?)?>] {
+          fn as_ref(&self) -> &web_sys::HtmlElement {
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            return &self.element;
+
+            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
+          }
+        }
+
+        impl ElementDescriptor for [<$tag:camel $($second:camel $($third:camel)?)?>] {
+          fn name(&self) -> Cow<'static, str> {
+            stringify!($tag).into()
+          }
+
+          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          fn hydration_id(&self) -> &HydrationKey {
+            &self.id
+          }
+
+          generate_math_tags! { @void $($void)? }
+        }
+
+        #[$meta]
+        pub fn [<$tag $(_ $second $(_ $third)?)? $($trailing_)?>](cx: Scope) -> HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]> {
+          HtmlElement::new(cx, [<$tag:camel $($second:camel $($third:camel)?)?>]::default())
+        }
+      )*
+    }
+  };
+  (@void) => {};
+  (@void void) => {
+    fn is_void(&self) -> bool {
+      true
+    }
+  };
 }
 
 generate_math_tags![
