@@ -40,7 +40,7 @@ use std::hash::Hash;
 ///   }
 /// }
 /// ```
-#[component]
+#[component(transparent)]
 pub fn For<IF, I, T, EF, N, KF, K>(
   cx: Scope,
   /// Items over which the component should iterate.
