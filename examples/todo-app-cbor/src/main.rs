@@ -28,7 +28,7 @@ cfg_if! {
             let addr = SocketAddr::from(([127,0,0,1],3000));
 
             HttpServer::new(move || {
-                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
+                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_cbor").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
                 render_options.write_to_file();
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
