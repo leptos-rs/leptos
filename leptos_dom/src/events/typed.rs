@@ -4,7 +4,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
 
 /// A trait for converting types into [web_sys events](web_sys).
-pub trait EventDescriptor {
+pub trait EventDescriptor: Clone {
   /// The [`web_sys`] event type, such as [`web_sys::MouseEvent`].
   type EventType: FromWasmAbi;
 
@@ -23,6 +23,7 @@ pub trait EventDescriptor {
 
 /// Overrides the [`EventDescriptor::bubbles`] method to always return
 /// `false`, which forces the event to not be globally delegated.
+#[derive(Clone)]
 pub struct Undelegated<Ev: EventDescriptor>(pub Ev);
 
 impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
@@ -41,6 +42,15 @@ impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
 pub struct Custom<E: FromWasmAbi = web_sys::Event> {
   name: Cow<'static, str>,
   _event_type: PhantomData<E>,
+}
+
+impl<E: FromWasmAbi> Clone for Custom<E> {
+  fn clone(&self) -> Self {
+    Self {
+      name: self.name.clone(),
+      _event_type: PhantomData,
+    }
+  }
 }
 
 impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
@@ -74,6 +84,7 @@ macro_rules! generate_event_types {
       #[doc = stringify!($event)]
       #[doc = " event."]
       #[allow(non_camel_case_types)]
+      #[derive(Clone, Copy)]
       pub struct $event;
 
       impl EventDescriptor for $event {
