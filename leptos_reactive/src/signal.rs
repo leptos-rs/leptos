@@ -228,7 +228,7 @@ impl<T> Copy for ReadSignal<T> {}
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for ReadSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     type Output = T;
 
@@ -240,7 +240,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for ReadSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -250,7 +250,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for ReadSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
@@ -734,7 +734,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for RwSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     type Output = T;
 
@@ -746,7 +746,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for RwSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -756,7 +756,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for RwSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
