@@ -70,15 +70,8 @@ where
     T: Debug + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
-    #[cfg(not(feature = "ssr"))]
+    // can't check this on the server without running the future
     let initial_value = None;
-    #[cfg(feature = "ssr")]
-    let initial_value = {
-        use futures::FutureExt;
-
-        let initial_fut = fetcher(source());
-        initial_fut.now_or_never()
-    };
 
     create_resource_with_initial_value(cx, source, fetcher, initial_value)
 }
@@ -266,56 +259,60 @@ where
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
     with_runtime(cx.runtime, |runtime| {
-        let mut context = runtime.shared_context.borrow_mut();
-        if let Some(data) = context.resolved_resources.remove(&id) {
-            // The server already sent us the serialized resource value, so
-            // deserialize & set it now
-            context.pending_resources.remove(&id); // no longer pending
-            r.resolved.set(true);
+        if let Some(ref mut context) = *runtime.shared_context.borrow_mut() {
+            if let Some(data) = context.resolved_resources.remove(&id) {
+                // The server already sent us the serialized resource value, so
+                // deserialize & set it now
+                context.pending_resources.remove(&id); // no longer pending
+                r.resolved.set(true);
 
-            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
-            r.set_value.update(|n| *n = Some(res));
-            r.set_loading.update(|n| *n = false);
+                let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
+                r.set_value.update(|n| *n = Some(res));
+                r.set_loading.update(|n| *n = false);
 
-            // for reactivity
-            r.source.subscribe();
-        } else if context.pending_resources.remove(&id) {
-            // We're still waiting for the resource, add a "resolver" closure so
-            // that it will be set as soon as the server sends the serialized
-            // value
-            r.set_loading.update(|n| *n = true);
+                // for reactivity
+                r.source.subscribe();
+            } else if context.pending_resources.remove(&id) {
+                // We're still waiting for the resource, add a "resolver" closure so
+                // that it will be set as soon as the server sends the serialized
+                // value
+                r.set_loading.update(|n| *n = true);
 
-            let resolve = {
-                let resolved = r.resolved.clone();
-                let set_value = r.set_value;
-                let set_loading = r.set_loading;
-                move |res: String| {
-                    let res =
-                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
-                    resolved.set(true);
-                    set_value.update(|n| *n = Some(res));
-                    set_loading.update(|n| *n = false);
-                }
-            };
-            let resolve =
-                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
-            let resource_resolvers = js_sys::Reflect::get(
-                &web_sys::window().unwrap(),
-                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
-            )
-            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
-            _ = js_sys::Reflect::set(
-                &resource_resolvers,
-                &wasm_bindgen::JsValue::from_str(&id),
-                resolve.as_ref().unchecked_ref(),
-            );
+                let resolve = {
+                    let resolved = r.resolved.clone();
+                    let set_value = r.set_value;
+                    let set_loading = r.set_loading;
+                    move |res: String| {
+                        let res =
+                            T::from_json(&res).expect_throw("could not deserialize Resource JSON");
+                        resolved.set(true);
+                        set_value.update(|n| *n = Some(res));
+                        set_loading.update(|n| *n = false);
+                    }
+                };
+                let resolve =
+                    wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+                let resource_resolvers = js_sys::Reflect::get(
+                    &web_sys::window().unwrap(),
+                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
+                )
+                .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
+                let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
+                _ = js_sys::Reflect::set(
+                    &resource_resolvers,
+                    &wasm_bindgen::JsValue::from_str(&id),
+                    resolve.as_ref().unchecked_ref(),
+                );
 
-            // for reactivity
-            r.source.subscribe()
+                // for reactivity
+                r.source.subscribe()
+            } else {
+                // Server didn't mark the resource as pending, so load it on the
+                // client
+                r.load(false);
+            }
         } else {
-            // Server didn't mark the resource as pending, so load it on the client
-            r.load(false);
+            r.load(false)
         }
     })
 }
@@ -625,10 +622,26 @@ where
     where
         T: Serializable,
     {
-        let fut = self.source.with(|s| (self.fetcher)(s.clone()));
+        use futures::StreamExt;
+
+        let (tx, mut rx) = futures::channel::mpsc::channel(1);
+        let value = self.value;
+        create_isomorphic_effect(self.scope, {
+            let tx = tx.clone();
+            move |_| {
+                value.with({
+                    let mut tx = tx.clone();
+                    move |value| {
+                        if let Some(value) = value.as_ref() {
+                            tx.try_send((id, value.to_json().expect("could not serialize Resource")))
+                                .expect("failed while trying to write to Resource serializer");
+                        }
+                    }
+                })
+            }
+        });
         Box::pin(async move {
-            let res = fut.await;
-            (id, res.to_json().expect("could not serialize Resource"))
+            rx.next().await.expect("failed while trying to resolve Resource serializer")
         })
     }
 }

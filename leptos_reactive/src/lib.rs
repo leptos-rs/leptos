@@ -76,7 +76,7 @@ mod scope;
 mod selector;
 mod serialization;
 mod signal;
-mod signal_wrappers;
+mod signal_wrappers_read;
 mod signal_wrappers_write;
 mod spawn;
 mod suspense;
@@ -91,7 +91,7 @@ pub use scope::*;
 pub use selector::*;
 pub use serialization::*;
 pub use signal::*;
-pub use signal_wrappers::*;
+pub use signal_wrappers_read::*;
 pub use signal_wrappers_write::*;
 pub use spawn::*;
 pub use suspense::*;
@@ -123,6 +123,11 @@ pub trait UntrackedSettableSignal<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents.
     fn update_untracked(&self, f: impl FnOnce(&mut T));
+
+    /// Runs the provided closure with a mutable reference to the current
+    /// value without notifying dependents and returns
+    /// the value the closure returned.
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U>;
 }
 
 #[doc(hidden)]
