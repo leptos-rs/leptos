@@ -92,11 +92,11 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> impl IntoView {
                         let comments = comment.comments.clone();
                         move || view! { cx,
                             <ul class="comment-children">
-                                /* <For
+                                <For
                                     each=move || comments.clone()
                                     key=|comment| comment.id
                                     view=move |comment: api::Comment| view! { cx, <Comment comment /> }
-                                /> */
+                                />
                             </ul>
                         }
                     })}
