@@ -23,7 +23,7 @@ macro_rules! generate_math_tags {
         static [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
           crate::document()
             .create_element_ns(
-              Some(wasm_bindgen::intern("http://www.w3.org/2000/svg")),
+              Some(wasm_bindgen::intern("http://www.w3.org/1998/Math/MathML")),
               concat![
                 stringify!($tag),
                 $(
