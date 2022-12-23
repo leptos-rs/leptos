@@ -98,6 +98,7 @@ impl ToTokens for Model {
         let mut body = body.to_owned();
 
         body.sig.ident = format_ident!("__{}", body.sig.ident);
+        let body_name = body.sig.ident.clone();
 
         let (_, generics, where_clause) = body.sig.generics.split_for_impl();
 
@@ -115,7 +116,7 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             quote! {
-                #name(cx, #prop_names)
+                #body_name(cx, #prop_names)
             }
         } else {
             quote! {
@@ -125,7 +126,7 @@ impl ToTokens for Model {
                         #[cfg(debug_assertions)]
                         let _guard = span.entered();
 
-                        #name(cx, #prop_names)
+                        #body_name(cx, #prop_names)
                     }
                 )
             }
