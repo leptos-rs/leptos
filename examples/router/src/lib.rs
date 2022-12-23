@@ -20,24 +20,24 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 <Routes>
                     <Route
                         path=""
-                        element=move |cx| view! { cx,  <ContactList/> }
+                        view=move |cx| view! { cx,  <ContactList/> }
                     >
                         <Route
                             path=":id"
-                            element=move |cx| view! { cx,  <Contact/> }
+                            view=move |cx| view! { cx,  <Contact/> }
                         />
                         <Route
                             path="/"
-                            element=move |_| view! { cx,  <p>"Select a contact."</p> }
+                            view=move |_| view! { cx,  <p>"Select a contact."</p> }
                         />
                     </Route>
                     <Route
                         path="about"
-                        element=move |cx| view! { cx,  <About/> }
+                        view=move |cx| view! { cx,  <About/> }
                     />
                     <Route
                         path="settings"
-                        element=move |cx| view! { cx,  <Settings/> }
+                        view=move |cx| view! { cx,  <Settings/> }
                     />
                 </Routes>
             </main>

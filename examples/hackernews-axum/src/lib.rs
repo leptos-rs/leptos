@@ -22,9 +22,9 @@ pub fn App(cx: Scope) -> Element {
                 <Nav />
                 <main>
                     <Routes>
-                        <Route path="users/:id" element=|cx| view! { cx,  <User/> }/>
-                        <Route path="stories/:id" element=|cx| view! { cx,  <Story/> }/>
-                        <Route path="*stories" element=|cx| view! { cx,  <Stories/> }/>
+                        <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
+                        <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
+                        <Route path="*stories" view=|cx| view! { cx,  <Stories/> }/>
                     </Routes>
                 </main>
             </Router>

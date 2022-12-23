@@ -61,15 +61,15 @@ pub fn Counters(cx: Scope) -> impl IntoView {
             </nav>
             <main>
                 <Routes>
-                    <Route path="" element=|cx| view! {
+                    <Route path="" view=|cx| view! {
                         cx,
                         <Counter/>
                     }/>
-                    <Route path="form" element=|cx| view! {
+                    <Route path="form" view=|cx| view! {
                         cx,
                         <FormCounter/>
                     }/>
-                    <Route path="multi" element=|cx| view! {
+                    <Route path="multi" view=|cx| view! {
                         cx,
                         <MultiuserCounter/>
                     }/>
