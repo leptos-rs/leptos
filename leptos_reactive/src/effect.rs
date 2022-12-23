@@ -49,7 +49,7 @@ use std::fmt::Debug;
 /// ```
 pub fn create_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
-    T: Debug + 'static,
+    T: 'static,
 {
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
@@ -90,7 +90,7 @@ where
 /// # }).dispose();
 pub fn create_isomorphic_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
-    T: Debug + 'static,
+    T: 'static,
 {
     let e = cx.runtime.create_effect(f);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
@@ -99,7 +99,7 @@ where
 #[doc(hidden)]
 pub fn create_render_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
-    T: Debug + 'static,
+    T: 'static,
 {
     create_effect(cx, f);
 }
