@@ -77,6 +77,30 @@ pub fn render_to_stream_with_prefix(
   view: impl FnOnce(Scope) -> View + 'static,
   prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
+  let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(view, prefix);
+  runtime.dispose();
+  stream
+}
+
+/// Renders a function to a stream of HTML strings and returns the [Scope] and [Runtime] that were created, so
+/// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
+/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+///
+/// This renders:
+/// 1) the prefix
+/// 2) the application shell
+///   a) HTML for everything that is not under a `<Suspense/>`,
+///   b) the `fallback` for any `<Suspense/>` component that is not already resolved, and
+///   c) JavaScript necessary to receive streaming [Resource](leptos_reactive::Resource) data.
+/// 3) streaming [Resource](leptos_reactive::Resource) data. Resources begin loading on the
+///    server and are sent down to the browser to resolve. On the browser, if the app sees that
+///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
+/// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
+///    read under that `<Suspense/>` resolve.
+pub fn render_to_stream_with_prefix_undisposed(
+  view: impl FnOnce(Scope) -> View + 'static,
+  prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static
+) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
   HydrationCtx::reset_id();
 
   // create the runtime
@@ -84,8 +108,8 @@ pub fn render_to_stream_with_prefix(
 
   let (
     (shell, prefix, pending_resources, pending_fragments, serializers),
+    scope,
     _,
-    disposer,
   ) = run_scope_undisposed(runtime, {
     move |cx| {
       // the actual app body/template code
@@ -155,7 +179,7 @@ pub fn render_to_stream_with_prefix(
   });
 
   // HTML for the view function and script to store resources
-  futures::stream::once(async move {
+  let stream = futures::stream::once(async move {
     format!(
       r#"
               {prefix}
@@ -171,13 +195,9 @@ pub fn render_to_stream_with_prefix(
   // TODO these should be combined again in a way that chains them appropriately
   // such that individual resources can resolve before all fragments are done
   .chain(fragments)
-  .chain(resources)
-  // dispose of Scope and Runtime
-  .chain(futures::stream::once(async move {
-    disposer.dispose();
-    runtime.dispose();
-    Default::default()
-  }))
+  .chain(resources);
+
+  (stream, runtime, scope)
 }
 
 impl View {

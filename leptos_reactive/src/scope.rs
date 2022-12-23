@@ -70,8 +70,10 @@ pub fn run_scope_undisposed<T>(
 /// is [Copy] and `'static` this does not add much overhead or lifetime complexity.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scope {
-    pub(crate) runtime: RuntimeId,
-    pub(crate) id: ScopeId,
+    #[doc(hidden)]
+    pub runtime: RuntimeId,
+    #[doc(hidden)]
+    pub id: ScopeId,
 }
 
 impl Scope {
