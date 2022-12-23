@@ -91,22 +91,20 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 pub fn TodoApp(cx: Scope) -> impl IntoView {
     view! {
         cx,
-        <div>
-            <Stylesheet href="/style.css"/>
-            <Router>
-                <header>
-                    <h1>"My Tasks"</h1>
-                </header>
-                <main>
-                    <Routes>
-                        <Route path="" view=|cx| view! {
-                            cx,
-                            <Todos/>
-                        }/>
-                    </Routes>
-                </main>
-            </Router> 
-        </div>
+        <Stylesheet href="/style.css"/>
+        <Router>
+            <header>
+                <h1>"My Tasks"</h1>
+            </header>
+            <main>
+                <Routes>
+                    <Route path="" view=|cx| view! {
+                        cx,
+                        <Todos/>
+                    }/>
+                </Routes>
+            </main>
+        </Router> 
     }
 }
 
