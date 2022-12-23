@@ -1,3 +1,6 @@
+pub mod math;
+pub mod svg;
+
 use cfg_if::cfg_if;
 
 cfg_if! {
@@ -757,7 +760,6 @@ macro_rules! generate_html_tags {
       )*
     }
   };
-
   (@void) => {};
   (@void void) => {
     fn is_void(&self) -> bool {
