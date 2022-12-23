@@ -95,6 +95,10 @@ impl ToTokens for Model {
             ret,
         } = self;
 
+        let mut body = body.to_owned();
+
+        body.sig.ident = format_ident!("__{}", body.sig.ident);
+
         let (_, generics, where_clause) = body.sig.generics.split_for_impl();
 
         let props_name = format_ident!("{name}Props");
