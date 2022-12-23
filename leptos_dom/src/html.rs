@@ -12,13 +12,13 @@ cfg_if! {
     use std::cell::LazyCell;
     use wasm_bindgen::JsCast;
 
-    /// Trait alias for the trait bounts on [`IntoElement`].
-    pub trait IntoElementBounds:
+    /// Trait alias for the trait bounts on [`ElementDescriptor`].
+    pub trait ElementDescriptorBounds:
       fmt::Debug + AsRef<web_sys::HtmlElement> + Clone
     {
     }
 
-    impl<El> IntoElementBounds for El where
+    impl<El> ElementDescriptorBounds for El where
       El: fmt::Debug + AsRef<web_sys::HtmlElement> + Clone
     {
     }
@@ -33,10 +33,10 @@ cfg_if! {
       only in the browser. Please use `leptos::is_server()` or \
       `leptos::is_browser()` to check where you're running.";
 
-    /// Trait alias for the trait bounts on [`IntoElement`].
-    pub trait IntoElementBounds: fmt::Debug {}
+    /// Trait alias for the trait bounts on [`ElementDescriptor`].
+    pub trait ElementDescriptorBounds: fmt::Debug {}
 
-    impl<El> IntoElementBounds for El where El: fmt::Debug {}
+    impl<El> ElementDescriptorBounds for El where El: fmt::Debug {}
   }
 }
 
@@ -51,13 +51,9 @@ use leptos_reactive::Scope;
 use std::{borrow::Cow, fmt};
 
 /// Trait which allows creating an element tag.
-pub trait IntoElement: IntoElementBounds {
+pub trait ElementDescriptor: ElementDescriptorBounds {
   /// The name of the element, i.e., `div`, `p`, `custom-element`.
   fn name(&self) -> Cow<'static, str>;
-
-  /// Get a reference to the underlying [`web_sys::HtmlElement`].
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn get_element(&self) -> &web_sys::HtmlElement;
 
   /// Determains if the tag is void, i.e., `<input>` and `<br>`.
   fn is_void(&self) -> bool {
@@ -65,7 +61,7 @@ pub trait IntoElement: IntoElementBounds {
   }
 
   /// A unique `id` that should be generated for each new instance of
-  /// this element, and be consitant for both SSR and CSR.
+  /// this element, and be consistant for both SSR and CSR.
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
   fn hydration_id(&self) -> &HydrationKey;
 }
@@ -137,14 +133,9 @@ impl std::convert::AsRef<web_sys::HtmlElement> for AnyElement {
   }
 }
 
-impl IntoElement for AnyElement {
+impl ElementDescriptor for AnyElement {
   fn name(&self) -> Cow<'static, str> {
     self.name.clone()
-  }
-
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn get_element(&self) -> &web_sys::HtmlElement {
-    &self.element
   }
 
   fn is_void(&self) -> bool {
@@ -183,14 +174,9 @@ impl std::convert::AsRef<web_sys::HtmlElement> for Custom {
   }
 }
 
-impl IntoElement for Custom {
+impl ElementDescriptor for Custom {
   fn name(&self) -> Cow<'static, str> {
     self.name.clone()
-  }
-
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  fn get_element(&self) -> &web_sys::HtmlElement {
-    &self.element
   }
 
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -203,7 +189,7 @@ cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// Represents an HTML element.
     #[derive(Clone)]
-    pub struct HtmlElement<El: IntoElement> {
+    pub struct HtmlElement<El: ElementDescriptor> {
       pub(crate) cx: Scope,
       pub(crate) element: El,
     }
@@ -212,7 +198,7 @@ cfg_if! {
     /// Represents an HTML element.
     #[derive(educe::Educe, Clone)]
     #[educe(Debug)]
-    pub struct HtmlElement<El: IntoElement> {
+    pub struct HtmlElement<El: ElementDescriptor> {
       pub(crate) cx: Scope,
       pub(crate) element: El,
       #[educe(Debug(ignore))]
@@ -226,7 +212,10 @@ cfg_if! {
   }
 }
 
-impl<El> std::ops::Deref for HtmlElement<El> where El: IntoElement + std::ops::Deref {
+impl<El> std::ops::Deref for HtmlElement<El>
+where
+  El: ElementDescriptor + std::ops::Deref,
+{
   type Target = <El as std::ops::Deref>::Target;
 
   fn deref(&self) -> &Self::Target {
@@ -238,7 +227,7 @@ impl<El> std::ops::Deref for HtmlElement<El> where El: IntoElement + std::ops::D
   }
 }
 
-impl<El: IntoElement> HtmlElement<El> {
+impl<El: ElementDescriptor> HtmlElement<El> {
   fn new(cx: Scope, element: El) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -287,7 +276,7 @@ impl<El: IntoElement> HtmlElement<El> {
           cx,
           element: AnyElement {
             name: element.name(),
-            element: element.get_element().clone(),
+            element: element.as_ref().clone(),
             is_void: element.is_void(),
           },
         }
@@ -324,7 +313,7 @@ impl<El: IntoElement> HtmlElement<El> {
     {
       self
         .element
-        .get_element()
+        .as_ref()
         .set_attribute(wasm_bindgen::intern("id"), &id)
         .unwrap();
 
@@ -342,7 +331,10 @@ impl<El: IntoElement> HtmlElement<El> {
   }
 
   /// Binds the element reference to [`NodeRef`].
-  pub fn node_ref(self, node_ref: &NodeRef<Self>) -> Self where Self: Clone {
+  pub fn node_ref(self, node_ref: &NodeRef<Self>) -> Self
+  where
+    Self: Clone,
+  {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     node_ref.load(&self);
 
@@ -363,7 +355,7 @@ impl<El: IntoElement> HtmlElement<El> {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-      let el = self.element.get_element();
+      let el = self.element.as_ref();
       let value = attr.into_attribute(self.cx);
       match value {
         Attribute::Fn(cx, f) => {
@@ -421,7 +413,7 @@ impl<El: IntoElement> HtmlElement<El> {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-      let el = self.element.get_element();
+      let el = self.element.as_ref();
       let class_list = el.class_list();
       let value = class.into_class(self.cx);
       match value {
@@ -476,7 +468,7 @@ impl<El: IntoElement> HtmlElement<El> {
     {
       let name = name.into();
       let value = value.into_property(self.cx);
-      let el = self.element.get_element();
+      let el = self.element.as_ref();
       match value {
         Property::Fn(cx, f) => {
           let el = el.clone();
@@ -519,14 +511,10 @@ impl<El: IntoElement> HtmlElement<El> {
       let event_name = event.name();
 
       if event.bubbles() {
-        add_event_listener(
-          self.element.get_element(),
-          event_name,
-          event_handler,
-        );
+        add_event_listener(self.element.as_ref(), event_name, event_handler);
       } else {
         add_event_listener_undelegated(
-          self.element.get_element(),
+          self.element.as_ref(),
           &event_name,
           event_handler,
         );
@@ -552,7 +540,7 @@ impl<El: IntoElement> HtmlElement<El> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       if !HydrationCtx::is_hydrating() {
-        mount_child(MountKind::Append(self.element.get_element()), &child);
+        mount_child(MountKind::Append(self.element.as_ref()), &child);
       }
 
       self
@@ -569,7 +557,7 @@ impl<El: IntoElement> HtmlElement<El> {
   }
 }
 
-impl<El: IntoElement> IntoView for HtmlElement<El> {
+impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
   #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
   fn into_view(self, _: Scope) -> View {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -606,7 +594,7 @@ impl<El: IntoElement> IntoView for HtmlElement<El> {
   }
 }
 
-impl<El: IntoElement, const N: usize> IntoView for [HtmlElement<El>; N] {
+impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
   #[cfg_attr(
     debug_assertions,
     instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
@@ -618,13 +606,13 @@ impl<El: IntoElement, const N: usize> IntoView for [HtmlElement<El>; N] {
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: IntoElement>(cx: Scope, el: El) -> HtmlElement<Custom> {
+pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
   HtmlElement::new(
     cx,
     Custom {
       name: el.name(),
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      element: el.get_element().clone(),
+      element: el.as_ref().clone(),
       #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
       id: el.hydration_id().clone(),
     },
@@ -749,14 +737,9 @@ macro_rules! generate_html_tags {
           }
         }
 
-        impl IntoElement for [<$tag:camel $($trailing_)?>] {
+        impl ElementDescriptor for [<$tag:camel $($trailing_)?>] {
           fn name(&self) -> Cow<'static, str> {
             stringify!($tag).into()
-          }
-
-          #[cfg(all(target_arch = "wasm32", feature = "web"))]
-          fn get_element(&self) -> &web_sys::HtmlElement {
-            &self.element
           }
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]

@@ -22,6 +22,8 @@ mod transparent;
 use cfg_if::cfg_if;
 pub use components::*;
 pub use events::typed as ev;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use events::{add_event_listener, add_event_listener_undelegated};
 pub use helpers::*;
 pub use html::*;
 pub use hydration::{HydrationCtx, HydrationKey};
@@ -36,7 +38,7 @@ use smallvec::SmallVec;
 pub use ssr::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::cell::LazyCell;
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, cell::RefCell, fmt, rc::Rc};
 pub use transparent::*;
 pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -230,13 +232,13 @@ impl IntoView for Element {
 
 impl Element {
   #[track_caller]
-  fn new<El: IntoElement>(el: El) -> Self {
+  fn new<El: ElementDescriptor>(el: El) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
           Self {
             #[cfg(debug_assertions)]
             name: el.name(),
-            element: el.get_element().clone(),
+            element: el.as_ref().clone(),
           }
       }
       else {
@@ -498,6 +500,48 @@ impl View {
     } else {
       Err(self)
     }
+  }
+
+  /// Adds an event listener, analogous to [`HtmlElement::on`].
+  ///
+  /// This method will attach an event listener to **all** child
+  /// [`HtmlElement`] children.
+  pub fn on<E: ev::EventDescriptor + 'static>(
+    self,
+    event: E,
+    event_handler: impl FnMut(E::EventType) + 'static,
+  ) -> Self {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    match &self {
+      Self::Element(el) => {
+        if event.bubbles() {
+          add_event_listener(&el.element, event.name(), event_handler);
+        } else {
+          add_event_listener_undelegated(
+            &el.element,
+            &event.name(),
+            event_handler,
+          );
+        }
+      }
+      Self::Component(c) => {
+        let event_handler = Rc::new(RefCell::new(event_handler));
+
+        c.children.iter().cloned().for_each(|c| {
+          let event_handler = event_handler.clone();
+
+          c.on(event.clone(), move |e| event_handler.borrow_mut()(e));
+        });
+      }
+      Self::CoreComponent(c) => match c {
+        CoreComponent::DynChild(_) => {}
+        CoreComponent::Each(_) => {}
+        _ => {}
+      },
+      _ => {}
+    }
+
+    self
   }
 }
 
