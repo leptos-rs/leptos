@@ -116,23 +116,9 @@ where
         suspense_contexts: Default::default(),
     });
 
-    cfg_if! {
-        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            let id = with_runtime(cx.runtime, |runtime| {
-                runtime.create_serializable_resource(Rc::clone(&r))
-            });
-        } else {
-            let id = if use_context::<SuspenseContext>(cx).is_some() {
-                with_runtime(cx.runtime, |runtime| {
-                    runtime.create_serializable_resource(Rc::clone(&r))
-                })
-            } else {
-                with_runtime(cx.runtime, |runtime| {
-                    runtime.create_unserializable_resource(Rc::clone(&r))
-                })
-            };
-        }
-    }
+    let id = with_runtime(cx.runtime, |runtime| {
+        runtime.create_serializable_resource(Rc::clone(&r))
+    });
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
@@ -281,8 +267,19 @@ where
             r.resolved.set(true);
 
             let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
-            r.set_value.update(|n| *n = Some(res));
-            r.set_loading.update(|n| *n = false);
+
+            // if we're under Suspense, the HTML has already streamed in so we can just set it
+            // if not under Suspense, there will be a hydration mismatch, so let's wait a tick
+            if use_context::<SuspenseContext>(cx).is_some() {
+                r.set_value.update(|n| *n = Some(res));
+                r.set_loading.update(|n| *n = false);
+            } else {
+                let r = Rc::clone(&r);
+                spawn_local(async move {
+                    r.set_value.update(|n| *n = Some(res));
+                    r.set_loading.update(|n| *n = false);
+                });
+            }
 
             // for reactivity
             r.source.subscribe();
