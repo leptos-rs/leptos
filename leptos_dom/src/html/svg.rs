@@ -1,11 +1,12 @@
 //! SVG elements.
 
-use super::{ElementDescriptor, HtmlElement, IntoView};
+use super::{ElementDescriptor, HtmlElement};
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
 use crate::HydrationCtx;
 use leptos_reactive::Scope;
-use std::{borrow::Cow, cell::LazyCell};
+use std::{borrow::Cow};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 
 macro_rules! generate_svg_tags {
@@ -148,6 +149,7 @@ macro_rules! generate_svg_tags {
         }
 
         #[$meta]
+        #[allow(non_snake_case)]
         pub fn [<$tag $(_ $second $(_ $third)?)? $($trailing_)?>](cx: Scope) -> HtmlElement<[<$tag:camel $($second:camel $($third:camel)?)?>]> {
           HtmlElement::new(cx, [<$tag:camel $($second:camel $($third:camel)?)?>]::default())
         }
