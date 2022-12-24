@@ -110,7 +110,7 @@ macro_rules! generate_math_tags {
         }
 
         impl std::ops::Deref for [<$tag:camel $($second:camel $($third:camel)?)?>] {
-          type Target = web_sys::SvgElement;
+          type Target = web_sys::Element;
 
           fn deref(&self) -> &Self::Target {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
