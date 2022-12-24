@@ -128,8 +128,8 @@ where
         } else {
             view! { cx,
                 <a
-                    href=move || href().unwrap_or_default()
-                    aria-current=move || if is_active() { Some("page") } else { None }
+                    href=move || href.get().unwrap_or_default()
+                    aria-current=move || if is_active.get() { Some("page") } else { None }
                     class=move || class.as_ref().map(|class| class.get())
                 >
                     {child}

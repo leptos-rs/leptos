@@ -134,7 +134,7 @@ where
 
     cfg_if! {
         if #[cfg(feature = "stable")] {
-            let on_submit = move |ev: web_sys::Event| on_submit(ev.unchecked_into());
+            let on_submit = move |ev: web_sys::SubmitEvent| on_submit(ev.unchecked_into());
         }
     };
 
@@ -307,7 +307,7 @@ where
 
     cfg_if! {
         if #[cfg(feature = "stable")] {
-            let on_submit = move |ev: web_sys::Event| on_submit(ev.unchecked_into());
+            let on_submit = move |ev: web_sys::SubmitEvent| on_submit(ev.unchecked_into());
         }
     };
 
