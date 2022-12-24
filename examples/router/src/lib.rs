@@ -115,9 +115,9 @@ pub fn Contact(cx: Scope) -> impl IntoView {
 
     view! { cx,
         <div class="contact">
-            <Suspense fallback=move || view! { cx,  <p>"Loading..."</p> }>
+            <Transition fallback=move || view! { cx,  <p>"Loading..."</p> }>
                 {contact_display}
-            </Suspense>
+            </Transition>
         </div>
     }
 }

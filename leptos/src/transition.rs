@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos_dom::{Component, DynChild, Fragment, IntoView};
+use leptos_dom::{Component, DynChild, Fragment, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{provide_context, Scope, SignalSetter, SuspenseContext};
 use std::{cell::RefCell, rc::Rc};
@@ -75,7 +75,30 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    let context = SuspenseContext::new(cx);
+    let prev_children = std::rc::Rc::new(RefCell::new(None::<Vec<View>>));
+    crate::Suspense(
+        cx,
+        crate::SuspenseProps::builder()
+            .fallback({
+                let prev_child = Rc::clone(&prev_children);
+                move || {
+                    if let Some(prev_children) = &*prev_child.borrow() {
+                        crate::log!("prev_children = {:#?}", prev_children);
+                        prev_children.clone().into_view(cx)
+                    } else {
+                        fallback().into_view(cx)
+                    }
+                }
+            })
+            .children(Box::new(move |cx| {
+                let frag = children(cx);
+                *prev_children.borrow_mut() = Some(frag.nodes.clone());
+                frag
+            }))
+            .build()
+    )
+
+    /* let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
@@ -103,6 +126,7 @@ where
                         if let Some(pending) = &set_pending {
                             pending.set(true);
                         }
+                        leptos::log!("prev_child = {prev_child:#?}");
                         prev_child.clone()
                     } else {
                         if let Some(pending) = &set_pending {
@@ -150,5 +174,5 @@ where
                 }
             }
         })
-    })
+    }) */
 }
