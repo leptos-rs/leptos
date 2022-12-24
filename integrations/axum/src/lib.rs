@@ -296,16 +296,8 @@ pub fn render_app_to_stream(
 
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
-                let watch = match std::env::var("LEPTOS_WATCH")
-                    .unwrap_or("false".to_string())
-                    .as_ref()
-                {
-                    "false" => false,
-                    "true" => true,
-                    _ => false,
-                };
 
-                let leptos_autoreload = match watch {
+                let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
                     true => format!(
                         r#"
                         <script crossorigin="">(function () {{
