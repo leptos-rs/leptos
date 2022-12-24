@@ -24,7 +24,8 @@ where
 #[derive(Debug, Clone)]
 pub struct Fragment {
   id: HydrationKey,
-  nodes: Vec<View>,
+  /// The nodes contained in the fragment.
+  pub nodes: Vec<View>,
 }
 
 impl FromIterator<View> for Fragment {
