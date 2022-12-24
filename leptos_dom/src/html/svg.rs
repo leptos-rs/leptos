@@ -8,6 +8,8 @@ use leptos_reactive::Scope;
 use std::{borrow::Cow};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::cell::LazyCell;
 
 macro_rules! generate_svg_tags {
   (
