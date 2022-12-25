@@ -35,6 +35,7 @@ mod server;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
+/// 
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
@@ -71,7 +72,7 @@ mod server;
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use typed_builder::TypedBuilder; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
 /// # #[derive(TypedBuilder)] struct CounterProps { initial_value: i32 }
-/// # fn Counter(cx: Scope, props: CounterProps) -> Element { view! { cx, <p></p>} }
+/// # fn Counter(cx: Scope, props: CounterProps) -> impl IntoView { view! { cx, <p></p>} }
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <div><Counter initial_value=3 /></div> }
@@ -96,11 +97,12 @@ mod server;
 ///
 /// view! {
 ///   cx,
-///   <div>
-///     "Count: " {count} // pass a signal
-///     <br/>
-///     "Double Count: " {move || count() % 2} // or derive a signal inline
-///   </div>
+///   // ❌ not like this: `count()` returns an `i32`, not a function
+///   <p>{count()}</p>
+///   // ✅ this is good: Leptos sees the function and knows it's a dynamic value
+///   <p>{move || count.get()}</p>
+///   // 🔥 `count` is itself a function, so you can pass it directly (unless you're on `stable`)
+///   <p>{count}</p>
 /// }
 /// # ;
 /// # }
@@ -175,13 +177,14 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a variable to use later.
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
+///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (value, set_value) = create_signal(cx, 0);
-/// let my_input: Element;
+/// let my_input = NodeRef::new(cx);
 /// view! { cx, <input type="text" _ref=my_input/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
 /// # ;
@@ -194,7 +197,7 @@ mod server;
 /// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use leptos_dom as leptos; use leptos_dom::Marker; use leptos_dom::wasm_bindgen::JsCast;
 ///
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
-/// pub fn SimpleCounter(cx: Scope) -> Element {
+/// pub fn SimpleCounter(cx: Scope) -> impl IntoView {
 ///     // create a reactive signal with the initial value
 ///     let (value, set_value) = create_signal(cx, 0);
 ///
@@ -241,9 +244,61 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     }
 }
 
-/// Annotates a function so that it can be used with your template as a <Component/>
+/// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
+/// 
+/// The `#[component]` macro allows you to annotate plain Rust functions as components
+/// and use them within your Leptos [view](mod@view) as if they were custom HTML elements. The 
+/// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
+/// When you use the component somewhere else, the names of its arguments are the names
+/// of the properties you use in the [view](mod@view) macro.
+/// 
+/// Every component function should have the return type `-> impl [IntoView](leptos_dom::IntoView)`.
+/// 
+/// You can add Rust doc comments to component function arguments and the macro will use them to 
+/// generate documentation for the component.
+/// 
+/// Here’s how you would define and use a simple Leptos component which can accept custom properties for a name and age:
+/// ```rust
+/// # use leptos::*;
+/// use std::time::Duration;
+/// 
+/// #[component]
+/// fn HelloComponent(
+///   cx: Scope,
+///   /// The user's name.
+///   name: String,
+///   /// The user's age.
+///   age: u8
+/// ) -> impl IntoView {
+///   // create the signals (reactive values) that will update the UI
+///   let (age, set_age) = create_signal(cx, age);
+///   // increase `age` by 1 every second
+///   set_interval(move || {
+///     set_age.update(|age| *age += 1)
+///   }, Duration::from_secs(1));
+///   
+///   // return the user interface, which will be automatically updated
+///   // when signal values change
+///   view! { cx,
+///     <p>"Your name is " {name} " and you are " {age} " years old."</p>
+///   }
+/// }
+/// 
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///   view! { cx,
+///     <main>
+///       <HelloComponent name="Greg".to_string() age=32/>
+///     </main>
+///   }
+/// }
+/// ```
+/// 
+/// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. If you define
+/// your component in one module and import it into another, make sure you import this `___Props`
+/// struct as well.
 ///
-/// Here are some things you should know.
+/// Here are some important details about how Leptos components work within the framework:
 /// 1. **The component function only runs once.** Your component function is not a “render” function
 ///    that re-runs whenever changes happen in the state. It’s a “setup” function that runs once to
 ///    create the user interface, and sets up a reactive system to update it. This means it’s okay
@@ -257,11 +312,11 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// # use leptos::*;
 /// // ❌ not snake_case
 /// #[component]
-/// fn my_component(cx: Scope) -> Element { todo!() }
+/// fn my_component(cx: Scope) -> impl IntoView { todo!() }
 ///
 /// // ✅ CamelCase
 /// #[component]
-/// fn MyComponent(cx: Scope) -> Element { todo!() }
+/// fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
 /// ```
 ///
 /// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
@@ -277,7 +332,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///   use leptos::*;
 ///
 ///   #[component]
-///   pub fn MyComponent(cx: Scope) -> Element { todo!() }
+///   pub fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
 /// }
 /// ```
 ///
@@ -287,7 +342,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// // ❌ This won't work.
 /// # use leptos::*;
 /// #[component]
-/// fn MyComponent<T: Fn() -> Element>(cx: Scope, render_prop: T) -> Element {
+/// fn MyComponent<T: Fn() -> impl IntoView>(cx: Scope, render_prop: T) -> impl IntoView {
 ///   todo!()
 /// }
 /// ```
@@ -296,49 +351,31 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// // ✅ Do this instead
 /// # use leptos::*;
 /// #[component]
-/// fn MyComponent<T>(cx: Scope, render_prop: T) -> Element where T: Fn() -> Element {
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView where T: Fn() -> impl IntoView {
 ///   todo!()
 /// }
 /// ```
 ///
 /// 5. You can access the children passed into the component with the `children` property, which takes
-///    an argument of the form `Box<dyn Fn() -> Vec<T>>` where `T` is the child type (usually `Element`).
+///    an argument of the form `Box<dyn Fn() -> [Fragment](leptos_dom::Fragment)>`.
 ///
 /// ```
 /// # use leptos::*;
 /// #[component]
-/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn() -> Vec<Element>>) -> Element {
-///   // wrap each child in a <strong> element
-///   let children = children()
-///     .into_iter()
-///     .map(|child| view! { cx, <strong>{child}</strong> })
-///     .collect::<Vec<_>>();
-///
-///   // wrap the whole set in a fancy wrapper
+/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn() -> Fragment>) -> impl IntoView {
 ///   view! { cx,
-///     <p class="fancy-wrapper">{children}</p>
+///     <p class="fancy-wrapper">{children()}</p>
 ///   }
 /// }
 ///
 /// #[component]
-/// fn WrapSomeChildren(cx: Scope) -> Element {
+/// fn WrapSomeChildren(cx: Scope) -> impl IntoView {
 ///   view! { cx,
 ///     <ComponentWithChildren>
 ///       <span>"Ooh, look at us!"</span>
 ///       <span>"We're being projected!"</span>
 ///     </ComponentWithChildren>
 ///   }
-/// }
-/// ```
-///
-/// ```
-/// # use leptos::*;
-/// #[component]
-/// fn MyComponent<T>(cx: Scope, render_prop: T) -> Element
-/// where
-///     T: Fn() -> Element,
-/// {
-///     todo!()
 /// }
 /// ```
 #[proc_macro_error::proc_macro_error]
