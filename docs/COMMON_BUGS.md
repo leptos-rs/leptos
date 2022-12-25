@@ -10,7 +10,7 @@ This document is intended as a running list of common issues, with example code 
 
 ```rust
 let (a, set_a) = create_signal(cx, 0);
-let (b, set_a) = create_signal(cx, false);
+let (b, set_b) = create_signal(cx, false);
 
 create_effect(cx, move |_| {
 	if a() > 5 {
