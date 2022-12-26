@@ -1,6 +1,6 @@
 [package]
 name = "leptos_dom"
-version = "0.0.18"
+version = "0.1.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -16,7 +16,7 @@ html-escape = "0.2"
 indexmap = "1.9"
 itertools = "0.10"
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.1.0-alpha" }
 pad-adapter = "0.1"
 paste = "1"
 rustc-hash = "1.1.0"
@@ -26,9 +26,6 @@ tracing = "0.1"
 wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
 
-[dev-dependencies]
-leptos = { path = "../leptos", default-features = false, version = "0.0.18" }
-
 [dependencies.web-sys]
 version = "0.3"
 features = [
@@ -36,6 +33,7 @@ features = [
   "DomTokenList",
   "Range",
   "Text",
+  "HtmlCollection",
 
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
   "AnimationEvent",
@@ -137,6 +135,6 @@ features = [
 ]
 
 [features]
-web = ["leptos_reactive/csr", "leptos/csr"]
-ssr = ["leptos_reactive/ssr", "leptos/ssr"]
+web = ["leptos_reactive/csr"]
+ssr = ["leptos_reactive/ssr"]
 stable = ["leptos_reactive/stable"]

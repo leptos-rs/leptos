@@ -511,10 +511,19 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     if is_component_node(node) {
         component_to_tokens(cx, node)
     } else {
-        let name = if is_custom_element(&node.name) {
+        let tag = node.name.to_string();
+        let name = if is_custom_element(&tag) {
             let name = node.name.to_string();
             quote! { leptos::leptos_dom::custom(#cx, #name) }
-        } else {
+        } else if is_svg_element(&tag) {
+            let name = &node.name;
+            quote! { leptos::leptos_dom::svg::#name(#cx) }
+        }
+        else if is_math_ml_element(&tag) {
+            let name = &node.name;
+            quote! { leptos::leptos_dom::math::#name(#cx) }
+        }
+        else {
             let name = &node.name;
             quote! { leptos::leptos_dom::#name(#cx) }
         };
@@ -709,8 +718,8 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
     }
 }
 
-fn is_custom_element(name: &NodeName) -> bool {
-    name.to_string().contains('-')
+fn is_custom_element(tag: &str) -> bool {
+    tag.contains('-')
 }
 
 fn is_self_closing(node: &NodeElement) -> bool {
@@ -741,4 +750,108 @@ fn camel_case_tag_name(tag_name: &str) -> String {
     first.map(|f| f.to_ascii_uppercase()).into_iter()
         .chain(chars)
         .collect()
+}
+
+fn is_svg_element(tag: &str) -> bool {
+    matches!(tag, "animate" | 
+        "animateMotion" | 
+        "animateTransform" | 
+        "circle" | 
+        "clipPath" | 
+        "defs" | 
+        "desc" | 
+        "discard" | 
+        "ellipse" | 
+        "feBlend" | 
+        "feColorMatrix" | 
+        "feComponentTransfer" | 
+        "feComposite" | 
+        "feConvolveMatrix" | 
+        "feDiffuseLighting" | 
+        "feDisplacementMap" | 
+        "feDistantLight" | 
+        "feDropShadow" | 
+        "feFlood" | 
+        "feFuncA" | 
+        "feFuncB" | 
+        "feFuncG" | 
+        "feFuncR" | 
+        "feGaussianBlur" | 
+        "feImage" | 
+        "feMerge" |   
+        "feMergeNode" |   
+        "feMorphology" |   
+        "feOffset" |   
+        "fePointLight" |   
+        "feSpecularLighting" |   
+        "feSpotLight" |   
+        "feTile" |   
+        "feTurbulence" |   
+        "filter" |   
+        "foreignObject" |   
+        "g" |   
+        "hatch" |   
+        "hatchpath" |   
+        "image" |   
+        "line" |   
+        "linearGradient" |   
+        "marker" |   
+        "mask" |   
+        "metadata" |   
+        "mpath" |   
+        "path" |   
+        "pattern" |   
+        "polygon" |   
+        "polyline" |   
+        "radialGradient" |   
+        "rect" |   
+        "script" |   
+        "set" |   
+        "stop" |   
+        "style" |   
+        "svg" |   
+        "switch" |   
+        "symbol" |   
+        "text" |   
+        "textPath" |   
+        "title" |   
+        "tspan" |   
+        "use" |   
+        "use_" |
+        "view")
+}
+
+fn is_math_ml_element(tag: &str) -> bool {
+    matches!(tag, "math" | 
+        "mi" | 
+        "mn" | 
+        "mo" | 
+        "ms" | 
+        "mspace" | 
+        "mtext" | 
+        "menclose" | 
+        "merror" | 
+        "mfenced" | 
+        "mfrac" | 
+        "mpadded" | 
+        "mphantom" | 
+        "mroot" | 
+        "mrow" | 
+        "msqrt" | 
+        "mstyle" | 
+        "mmultiscripts" | 
+        "mover" | 
+        "mprescripts" | 
+        "msub" | 
+        "msubsup" | 
+        "msup" | 
+        "munder" | 
+        "munderover" | 
+        "mtable" | 
+        "mtd" | 
+        "mtr" | 
+        "maction" | 
+        "annotation" | 
+        "annotation" | 
+        "semantics")
 }

@@ -16,12 +16,11 @@ use leptos_dom::{HydrationCtx, HydrationKey};
 ///
 /// ```
 /// # use leptos_reactive::*;
-/// # use leptos_core::*;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
+/// # if false {
 /// # run_scope(create_runtime(), |cx| {
-/// # if cfg!(not(any(feature = "csr", feature = "hydrate", feature = "ssr"))) {
-/// async fn fetch_cats(how_many: u32) -> Result<Vec<String>, ()> { Ok(vec![]) }
+/// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> { Some(vec![]) }
 ///
 /// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
 ///
@@ -32,8 +31,8 @@ use leptos_dom::{HydrationCtx, HydrationKey};
 ///     <Suspense fallback=move || view! { cx, <p>"Loading (Suspense Fallback)..."</p> }>
 ///       {move || {
 ///           cats.read().map(|data| match data {
-///             Err(_) => view! { cx,  <pre>"Error"</pre> },
-///             Ok(cats) => view! { cx,
+///             None => view! { cx,  <pre>"Error"</pre> }.into_any(),
+///             Some(cats) => view! { cx,
 ///               <div>{
 ///                 cats.iter()
 ///                   .map(|src| {
@@ -43,15 +42,15 @@ use leptos_dom::{HydrationCtx, HydrationKey};
 ///                   })
 ///                   .collect::<Vec<_>>()
 ///               }</div>
-///             },
+///             }.into_any(),
 ///           })
 ///         }
 ///       }
 ///     </Suspense>
 ///   </div>
 /// };
-/// # }
 /// # });
+/// # }
 /// ```
 #[component(transparent)]
 pub fn Suspense<F, E>(

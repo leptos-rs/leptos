@@ -1,6 +1,6 @@
 [package]
 name = "leptos_server"
-version = "0.0.18"
+version = "0.1.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,8 +8,8 @@ repository = "https://github.com/gbj/leptos"
 description = "RPC for the Leptos web framework."
 
 [dependencies]
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.18" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.18" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.1.0-alpha" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.1.0-alpha" }
 form_urlencoded = "1"
 gloo-net = "0.2"
 lazy_static = "1"
@@ -25,33 +25,21 @@ syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1.0.47"
 ciborium = "0.2.0"
 
-[dev-dependencies]
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }
-leptos = { path = "../leptos", default-features = false, version = "0.0" }
-
 [features]
 csr = [
 	"leptos_dom/web",
 	"leptos_reactive/csr",
-	"leptos_macro/csr",
-	"leptos/csr",
 ]
 hydrate = [
 	"leptos_dom/web",
 	"leptos_reactive/hydrate",
-	"leptos_macro/hydrate",
-	"leptos/hydrate",
 ]
 ssr = [
 	"leptos_reactive/ssr",
-	"leptos_macro/ssr",
-	"leptos/csr",
 ]
 stable = [
 	"leptos_dom/stable",
 	"leptos_reactive/stable",
-	"leptos_macro/stable",
-	"leptos/stable",
 ]
 
 [package.metadata.cargo-all-features]

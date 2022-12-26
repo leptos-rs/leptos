@@ -8,7 +8,6 @@ use std::{
     pin::Pin,
     rc::Rc,
 };
-use cfg_if::cfg_if;
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
     runtime::{with_runtime, RuntimeId},
