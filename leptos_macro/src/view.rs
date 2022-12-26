@@ -852,6 +852,5 @@ fn is_math_ml_element(tag: &str) -> bool {
         "mtr" | 
         "maction" | 
         "annotation" | 
-        "annotation" | 
         "semantics")
 }
