@@ -26,8 +26,8 @@ proc-macro2 = "1.0.47"
 ciborium = "0.2.0"
 
 [dev-dependencies]
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.1.0-alpha" }
-leptos = { path = "../leptos", default-features = false, version = "0.1.0-alpha" }
+leptos_macro = { path = "../leptos_macro", default-features = false }
+leptos = { path = "../leptos", default-features = false }
 
 [features]
 csr = [
