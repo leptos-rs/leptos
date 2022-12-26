@@ -5,6 +5,14 @@ use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
 
 use crate::{is_component_node, Mode};
 
+#[derive(Clone, Copy)]
+enum TagType {
+    Unknown,
+    Html,
+    Svg,
+    Math,
+}
+
 const TYPED_EVENTS: [&str; 126] = [
     "afterprint",
     "beforeprint",
@@ -152,9 +160,9 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
             span => leptos::Unit
         }
     } else if nodes.len() == 1 {
-        node_to_tokens(cx, &nodes[0])
+        node_to_tokens(cx, &nodes[0], TagType::Unknown)
     } else {
-        fragment_to_tokens(cx, Span::call_site(), nodes, false)
+        fragment_to_tokens(cx, Span::call_site(), nodes, false, TagType::Unknown)
     }
 }
 
@@ -461,9 +469,15 @@ fn set_class_attribute_ssr(
     }
 }
 
-fn fragment_to_tokens(cx: &Ident, _span: Span, nodes: &[Node], lazy: bool) -> TokenStream {
+fn fragment_to_tokens(
+    cx: &Ident,
+    _span: Span,
+    nodes: &[Node],
+    lazy: bool,
+    parent_type: TagType,
+) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
-        let node = node_to_tokens(cx, node);
+        let node = node_to_tokens(cx, node, parent_type);
 
         quote! {
             #node.into_view(#cx)
@@ -488,11 +502,15 @@ fn fragment_to_tokens(cx: &Ident, _span: Span, nodes: &[Node], lazy: bool) -> To
     }
 }
 
-fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
+fn node_to_tokens(cx: &Ident, node: &Node, parent_type: TagType) -> TokenStream {
     match node {
-        Node::Fragment(fragment) => {
-            fragment_to_tokens(cx, Span::call_site(), &fragment.children, false)
-        }
+        Node::Fragment(fragment) => fragment_to_tokens(
+            cx,
+            Span::call_site(),
+            &fragment.children,
+            false,
+            parent_type,
+        ),
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
             let value = node.value.as_ref();
@@ -505,11 +523,11 @@ fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
             quote! { #value }
         }
         Node::Attribute(node) => attribute_to_tokens(cx, node),
-        Node::Element(node) => element_to_tokens(cx, node),
+        Node::Element(node) => element_to_tokens(cx, node, parent_type),
     }
 }
 
-fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
+fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -> TokenStream {
     if is_component_node(node) {
         component_to_tokens(cx, node)
     } else {
@@ -519,12 +537,29 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
             quote! { leptos::leptos_dom::custom(#cx, #name) }
         } else if is_svg_element(&tag) {
             let name = &node.name;
+            parent_type = TagType::Svg;
             quote! { leptos::leptos_dom::svg::#name(#cx) }
         } else if is_math_ml_element(&tag) {
             let name = &node.name;
+            parent_type = TagType::Math;
             quote! { leptos::leptos_dom::math::#name(#cx) }
+        } else if is_ambiguous_element(&tag) {
+            let name = &node.name;
+            match parent_type {
+                TagType::Unknown => {
+                    proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
+                    but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::");
+                    quote! {
+                        leptos::leptos_dom::#name(#cx)
+                    }
+                }
+                TagType::Html => quote! { leptos::leptos_dom::#name(#cx) },
+                TagType::Svg => quote! { leptos::leptos_dom::svg::#name(#cx) },
+                TagType::Math => quote! { leptos::leptos_dom::math::#name(#cx) },
+            }
         } else {
             let name = &node.name;
+            parent_type = TagType::Html;
             quote! { leptos::leptos_dom::#name(#cx) }
         };
         let attrs = node.attributes.iter().filter_map(|node| {
@@ -536,9 +571,13 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
         });
         let children = node.children.iter().map(|node| {
             let child = match node {
-                Node::Fragment(fragment) => {
-                    fragment_to_tokens(cx, Span::call_site(), &fragment.children, false)
-                }
+                Node::Fragment(fragment) => fragment_to_tokens(
+                    cx,
+                    Span::call_site(),
+                    &fragment.children,
+                    false,
+                    parent_type,
+                ),
                 Node::Text(node) => {
                     let value = node.value.as_ref();
                     quote! {
@@ -551,7 +590,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
                         #[allow(unused_braces)] #value
                     }
                 }
-                Node::Element(node) => element_to_tokens(cx, node),
+                Node::Element(node) => element_to_tokens(cx, node, parent_type),
                 Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
             };
             quote! {
@@ -687,7 +726,7 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        let children = fragment_to_tokens(cx, span, &node.children, true);
+        let children = fragment_to_tokens(cx, span, &node.children, true, TagType::Unknown);
 
         let clonables = items_to_clone
             .iter()
@@ -887,4 +926,8 @@ fn is_math_ml_element(tag: &str) -> bool {
             | "annotation"
             | "semantics"
     )
+}
+
+fn is_ambiguous_element(tag: &str) -> bool {
+    matches!(tag, "a")
 }
