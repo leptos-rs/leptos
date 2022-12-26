@@ -26,9 +26,6 @@ tracing = "0.1"
 wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
 
-[dev-dependencies]
-leptos = { path = "../leptos", default-features = false, version = "0.1.0-alpha" }
-
 [dependencies.web-sys]
 version = "0.3"
 features = [
@@ -138,6 +135,6 @@ features = [
 ]
 
 [features]
-web = ["leptos_reactive/csr", "leptos/csr"]
-ssr = ["leptos_reactive/ssr", "leptos/ssr"]
+web = ["leptos_reactive/csr"]
+ssr = ["leptos_reactive/ssr"]
 stable = ["leptos_reactive/stable"]
