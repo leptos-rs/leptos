@@ -4,7 +4,7 @@ use leptos_reactive::Scope;
 use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-    use crate::{mount_child, unmount_child, MountKind, Mountable};
+    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
     use leptos_reactive::{create_effect, ScopeDisposer};
     use wasm_bindgen::JsCast;
   } else {
@@ -46,7 +46,15 @@ impl fmt::Debug for DynChildRepr {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for DynChildRepr {
   fn get_mountable_node(&self) -> web_sys::Node {
-    self.document_fragment.clone().unchecked_into()
+    if self.document_fragment.child_nodes().length() != 0 {
+      self.document_fragment.clone().unchecked_into()
+    } else {
+      let opening = self.get_opening_node();
+
+      prepare_to_move(&self.document_fragment, &opening, &self.closing.node);
+
+      self.document_fragment.clone().unchecked_into()
+    }
   }
 
   fn get_opening_node(&self) -> web_sys::Node {
@@ -61,6 +69,10 @@ impl Mountable for DynChildRepr {
       .as_ref()
       .unwrap()
       .get_opening_node();
+  }
+
+  fn get_closing_node(&self) -> web_sys::Node {
+    self.closing.node.clone()
   }
 }
 
@@ -142,7 +154,10 @@ where
     let component = DynChildRepr::new();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let closing = component.closing.node.clone();
+    let (frag, closing) = (
+      component.document_fragment.clone(),
+      component.closing.node.clone(),
+    );
 
     let child = component.child.clone();
 
@@ -168,29 +183,46 @@ where
           // Dispose of the scope
           prev_disposer.dispose();
 
+          // We need to know if our child wasn't moved elsewhere.
+          // If it was, `DynChild` no longer "owns" that child, and
+          // is therefore no longer sound to unmount it from the DOM
+          // or to reuse it in the case of a text node
+          let was_child_moved =
+            child.get_closing_node().next_sibling().as_ref() != Some(&closing);
+
           // If the previous child was a text node, we would like to
           // make use of it again if our current child is also a text
           // node
           let ret = if let Some(prev_t) = prev_t {
             // Here, our child is also a text node
             if let Some(new_t) = new_child.get_text() {
-              prev_t
-                .unchecked_ref::<web_sys::Text>()
-                .set_data(&new_t.content);
+              if !was_child_moved && child != new_child {
+                prev_t
+                  .unchecked_ref::<web_sys::Text>()
+                  .set_data(&new_t.content);
 
-              **child_borrow = Some(new_child);
+                **child_borrow = Some(new_child);
 
-              (Some(prev_t), disposer)
+                (Some(prev_t), disposer)
+              } else {
+                mount_child(MountKind::Before(&closing), &new_child);
+
+                **child_borrow = Some(new_child.clone());
+
+                (Some(new_t.node.clone()), disposer)
+              }
             }
             // Child is not a text node, so we can remove the previous
             // text node
             else {
-              // Remove the text
-              closing
-                .previous_sibling()
-                .unwrap()
-                .unchecked_into::<web_sys::Element>()
-                .remove();
+              if !was_child_moved && child != new_child {
+                // Remove the text
+                closing
+                  .previous_sibling()
+                  .unwrap()
+                  .unchecked_into::<web_sys::Element>()
+                  .remove();
+              }
 
               // Mount the new child, and we're done
               mount_child(MountKind::Before(&closing), &new_child);
@@ -208,11 +240,13 @@ where
             // I can imagine some edge case that the child changes while
             // hydration is ongoing
             if !HydrationCtx::is_hydrating() {
-              // Remove the child
-              let start = child.get_opening_node();
-              let end = &closing;
+              if !was_child_moved && child != new_child {
+                // Remove the child
+                let start = child.get_opening_node();
+                let end = &closing;
 
-              unmount_child(&start, end);
+                unmount_child(&start, end);
+              }
 
               // Mount the new child
               mount_child(MountKind::Before(&closing), &new_child);

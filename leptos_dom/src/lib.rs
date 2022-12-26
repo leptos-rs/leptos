@@ -66,14 +66,23 @@ trait Mountable {
   /// Gets the [`web_sys::Node`] that can be directly inserted as
   /// a child of another node. Typically, this is a [`web_sys::DocumentFragment`]
   /// for components, and [`web_sys::HtmlElement`] for elements.
+  ///
+  /// ### Important Note
+  /// Calling this method assumes that you are intending to move this
+  /// view, and will unmount it's nodes from the DOM if this view is a
+  /// component. In other words, don't call this method unless you intend
+  /// to mount this view to another view or element.
   fn get_mountable_node(&self) -> web_sys::Node;
 
-  /// Get's the first node of the [`Node`].
+  /// Get's the first node of the [`View`].
   /// Typically, for [`HtmlElement`], this will be the
   /// `element` node. For components, this would be the
   /// first child node, or the `closing` marker comment node if
   /// no children are available.
   fn get_opening_node(&self) -> web_sys::Node;
+
+  /// Get's the closing marker node.
+  fn get_closing_node(&self) -> web_sys::Node;
 }
 
 impl IntoView for () {
@@ -433,6 +442,22 @@ impl Mountable for View {
       }
     }
   }
+
+  fn get_closing_node(&self) -> web_sys::Node {
+    match self {
+      Self::Text(t) => t.node.clone(),
+      Self::Element(el) => el.element.clone().unchecked_into(),
+      Self::CoreComponent(c) => match c {
+        CoreComponent::DynChild(dc) => dc.get_closing_node(),
+        CoreComponent::Each(e) => e.get_closing_node(),
+        CoreComponent::Unit(u) => u.get_closing_node(),
+      },
+      Self::Component(c) => c.get_closing_node(),
+      Self::Transparent(_) => {
+        panic!("tried to get closing node for a Transparent node.")
+      }
+    }
+  }
 }
 
 impl View {
@@ -566,18 +591,47 @@ fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[track_caller]
 fn unmount_child(start: &web_sys::Node, end: &web_sys::Node) {
   let mut sibling = start.clone();
 
   while sibling != *end {
     if let Some(next_sibling) = sibling.next_sibling() {
-      sibling.unchecked_into::<web_sys::Element>().remove();
+      sibling.unchecked_ref::<web_sys::Element>().remove();
 
       sibling = next_sibling;
     } else {
       break;
     }
   }
+}
+
+/// Similar to [`unmount_child`], but instead of removing entirely
+/// from the DOM, it inserts all child nodes into the [`DocumentFragment`].
+///
+/// [DocumentFragment]: web_sys::DocumentFragment
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[track_caller]
+fn prepare_to_move(
+  frag: &web_sys::DocumentFragment,
+  opening: &web_sys::Node,
+  closing: &web_sys::Node,
+) {
+  let mut sibling = opening.clone();
+
+  while sibling != *closing {
+    if let Some(next_sibling) = sibling.next_sibling() {
+      frag.append_child(&sibling).unwrap();
+
+      sibling = next_sibling;
+    } else {
+      frag.append_child(&sibling).unwrap();
+
+      break;
+    }
+  }
+
+  frag.append_child(closing).unwrap();
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

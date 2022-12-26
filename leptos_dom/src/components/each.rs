@@ -1,8 +1,8 @@
-use cfg_if::cfg_if;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
+use cfg_if::cfg_if;
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-    use crate::{mount_child, MountKind, Mountable, RANGE};
+    use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
     use leptos_reactive::create_effect;
     use rustc_hash::FxHasher;
     use std::hash::BuildHasherDefault;
@@ -118,7 +118,15 @@ impl Default for EachRepr {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for EachRepr {
   fn get_mountable_node(&self) -> web_sys::Node {
-    self.document_fragment.clone().unchecked_into()
+    if self.document_fragment.children().length() != 0 {
+      self.document_fragment.clone().unchecked_into()
+    } else {
+      let opening = self.get_opening_node();
+
+      prepare_to_move(&self.document_fragment, &opening, &self.closing.node);
+
+      self.document_fragment.clone().unchecked_into()
+    }
   }
 
   fn get_opening_node(&self) -> web_sys::Node {
@@ -135,6 +143,10 @@ impl Mountable for EachRepr {
         self.closing.node.clone()
       }
     };
+  }
+
+  fn get_closing_node(&self) -> web_sys::Node {
+    self.closing.node.clone()
   }
 }
 
@@ -220,6 +232,10 @@ impl Mountable for EachItem {
 
     #[cfg(not(debug_assertions))]
     return self.child.get_opening_node();
+  }
+
+  fn get_closing_node(&self) -> web_sys::Node {
+    self.closing.node.clone()
   }
 }
 

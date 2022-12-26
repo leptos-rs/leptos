@@ -1,5 +1,5 @@
-use std::fmt;
 use cfg_if::cfg_if;
+use std::fmt;
 
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -45,6 +45,10 @@ impl Mountable for UnitRepr {
   }
 
   fn get_opening_node(&self) -> web_sys::Node {
+    self.comment.node.clone().unchecked_into()
+  }
+
+  fn get_closing_node(&self) -> web_sys::Node {
     self.comment.node.clone().unchecked_into()
   }
 }
