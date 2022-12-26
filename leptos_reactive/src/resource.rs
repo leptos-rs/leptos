@@ -633,19 +633,16 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(self.scope, {
-            let tx = tx.clone();
-            move |_| {
-                value.with({
-                    let mut tx = tx.clone();
-                    move |value| {
-                        if let Some(value) = value.as_ref() {
-                            tx.try_send((id, value.to_json().expect("could not serialize Resource")))
-                                .expect("failed while trying to write to Resource serializer");
-                        }
+        create_isomorphic_effect(self.scope, move |_| {
+            value.with({
+                let mut tx = tx.clone();
+                move |value| {
+                    if let Some(value) = value.as_ref() {
+                        tx.try_send((id, value.to_json().expect("could not serialize Resource")))
+                            .expect("failed while trying to write to Resource serializer");
                     }
-                })
-            }
+                }
+            })
         });
         Box::pin(async move {
             rx.next().await.expect("failed while trying to resolve Resource serializer")

@@ -198,9 +198,9 @@ where
 impl<T> Clone for SignalTypes<T> {
     fn clone(&self) -> Self {
         match self {
-            Self::ReadSignal(arg0) => Self::ReadSignal(arg0.clone()),
-            Self::Memo(arg0) => Self::Memo(arg0.clone()),
-            Self::DerivedSignal(arg0, arg1) => Self::DerivedSignal(arg0.clone(), arg1.clone()),
+            Self::ReadSignal(arg0) => Self::ReadSignal(*arg0),
+            Self::Memo(arg0) => Self::Memo(*arg0),
+            Self::DerivedSignal(arg0, arg1) => Self::DerivedSignal(*arg0, Rc::clone(arg1)),
         }
     }
 }
