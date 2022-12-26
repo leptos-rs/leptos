@@ -106,7 +106,7 @@ impl Default for EachRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
-      #[cfg(debug_assertions)]
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
       mounted: Default::default(),
       #[cfg(debug_assertions)]
       opening: markers.1,
