@@ -1,12 +1,18 @@
 //! MathML elements.
 
-use super::{ElementDescriptor, HtmlElement, IntoView};
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
+use cfg_if::cfg_if;
+use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
 use leptos_reactive::Scope;
-use std::{borrow::Cow, cell::LazyCell};
-use wasm_bindgen::JsCast;
+use std::borrow::Cow;
+cfg_if! {
+  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    use std::cell::LazyCell;
+    use wasm_bindgen::JsCast;
+  } else {
+    use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
+  }
+}
 
 macro_rules! generate_math_tags {
   (

@@ -36,6 +36,7 @@ features = [
   "DomTokenList",
   "Range",
   "Text",
+  "HtmlCollection",
 
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
   "AnimationEvent",

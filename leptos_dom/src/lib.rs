@@ -37,8 +37,8 @@ use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::cell::LazyCell;
-use std::{borrow::Cow, cell::RefCell, fmt, rc::Rc};
+use std::{cell::{LazyCell, RefCell}, rc::Rc};
+use std::{borrow::Cow, fmt};
 pub use transparent::*;
 pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -591,36 +591,49 @@ enum MountKind<'a> {
 }
 
 /// Runs the provided closure and mounts the result to eht `<body>`.
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn mount_to_body<F, N>(f: F)
 where
   F: FnOnce(Scope) -> N + 'static,
   N: IntoView,
 {
-  mount_to(crate::document().body().expect("body element to exist"), f)
+  cfg_if! {
+    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+      mount_to(crate::document().body().expect("body element to exist"), f)
+    } else {
+      _ = f;
+      crate::warn!("`mount_to_body` should not be called outside the browser.");
+    }
+  }
 }
 
 /// Runs the provided closure and mounts the result to the provided element.
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
   F: FnOnce(Scope) -> N + 'static,
   N: IntoView,
 {
-  let disposer = leptos_reactive::create_scope(
-    leptos_reactive::create_runtime(),
-    move |cx| {
-      let node = f(cx).into_view(cx);
-
-      HydrationCtx::stop_hydrating();
-
-      parent.append_child(&node.get_mountable_node()).unwrap();
-
-      std::mem::forget(node);
-    },
-  );
-
-  std::mem::forget(disposer);
+  cfg_if! {
+    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+      let disposer = leptos_reactive::create_scope(
+        leptos_reactive::create_runtime(),
+        move |cx| {
+          let node = f(cx).into_view(cx);
+    
+          HydrationCtx::stop_hydrating();
+    
+          parent.append_child(&node.get_mountable_node()).unwrap();
+    
+          std::mem::forget(node);
+        },
+      );
+    
+      std::mem::forget(disposer);
+    } else {
+      _ = parent;
+      _ = f;
+      crate::warn!("`mount_to` should not be called outside the browser.");
+    }
+  }
 }
 
 thread_local! {

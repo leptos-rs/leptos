@@ -13,11 +13,12 @@ use std::hash::Hash;
 ///
 /// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// struct Counter {
-///   id: HydrationKey,
+///   id: usize,
 ///   count: RwSignal<i32>
 /// }
 ///
-/// fn Counters(cx: Scope) -> Element {
+/// #[component]
+/// fn Counters(cx: Scope) -> impl IntoView {
 ///   let (counters, set_counters) = create_signal::<Vec<Counter>>(cx, vec![]);
 ///
 ///   view! {

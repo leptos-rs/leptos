@@ -16,7 +16,7 @@ fn simple_ssr_test() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            r#"<div data-hk="0-0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"# //r#"<div data-hk="0" id="hydrated" data-hk="0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"#
+            "<div id=\"_0-1\"><button id=\"_0-2\">-1</button><span id=\"_0-3\">Value: <leptos-dyn-child-start leptos id=\"_0-4o\"></leptos-dyn-child-start>0<leptos-dyn-child-end leptos id=\"_0-4c\"></leptos-dyn-child-end>!</span><button id=\"_0-5\">+1</button></div>"
         );
     });
 }
@@ -50,7 +50,7 @@ fn ssr_test_with_components() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div data-hk=\"0-0\" class=\"counters\"><!--#--><div data-hk=\"0-2-0\"><button>-1</button><span>Value: <!--#-->1<!--/-->!</span><button>+1</button></div><!--/--><!--#--><div data-hk=\"0-3-0\"><button>-1</button><span>Value: <!--#-->2<!--/-->!</span><button>+1</button></div><!--/--></div>"
+            "<div class=\"counters\" id=\"_0-1\"><leptos-counter-start leptos id=\"_0-1-0o\"></leptos-counter-start><div id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span id=\"_0-1-3\">Value: <leptos-dyn-child-start leptos id=\"_0-1-4o\"></leptos-dyn-child-start>1<leptos-dyn-child-end leptos id=\"_0-1-4c\"></leptos-dyn-child-end>!</span><button id=\"_0-1-5\">+1</button></div><leptos-counter-end leptos id=\"_0-1-0c\"></leptos-counter-end><leptos-counter-start leptos id=\"_0-1-5-0o\"></leptos-counter-start><div id=\"_0-1-5-1\"><button id=\"_0-1-5-2\">-1</button><span id=\"_0-1-5-3\">Value: <leptos-dyn-child-start leptos id=\"_0-1-5-4o\"></leptos-dyn-child-start>2<leptos-dyn-child-end leptos id=\"_0-1-5-4c\"></leptos-dyn-child-end>!</span><button id=\"_0-1-5-5\">+1</button></div><leptos-counter-end leptos id=\"_0-1-5-0c\"></leptos-counter-end></div>"
         );
     });
 }
@@ -69,7 +69,7 @@ fn test_classes() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            r#"<div data-hk="0-0" class="my big  red car"></div>"#
+            "<div class=\"my big red car\" id=\"_0-1\"></div>"
         );
     });
 }
