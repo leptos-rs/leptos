@@ -3,6 +3,7 @@ use cfg_if::cfg_if;
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
+    use std::cell::OnceCell;
     use leptos_reactive::create_effect;
     use rustc_hash::FxHasher;
     use std::hash::BuildHasherDefault;
@@ -36,9 +37,7 @@ cfg_if! {
     use crate::hydration::HydrationKey;
   }
 }
-
 use smallvec::SmallVec;
-
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 
 /// The internal representation of the [`EachKey`] core-component.
@@ -46,6 +45,8 @@ use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  mounted: Rc<OnceCell<()>>,
   #[cfg(debug_assertions)]
   opening: Comment,
   pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
@@ -106,6 +107,8 @@ impl Default for EachRepr {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
       #[cfg(debug_assertions)]
+      mounted: Default::default(),
+      #[cfg(debug_assertions)]
       opening: markers.1,
       children: Default::default(),
       closing: markers.0,
@@ -118,7 +121,9 @@ impl Default for EachRepr {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for EachRepr {
   fn get_mountable_node(&self) -> web_sys::Node {
-    if self.document_fragment.children().length() != 0 {
+    if self.mounted.get().is_none() {
+      self.mounted.set(()).unwrap();
+
       self.document_fragment.clone().unchecked_into()
     } else {
       let opening = self.get_opening_node();
