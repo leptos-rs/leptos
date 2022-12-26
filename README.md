@@ -76,7 +76,18 @@ Here are some resources for learning more about Leptos:
 
 ## `nightly` Note
 
-Most of the examples assume you’re using `nightly` Rust. If you’re on stable, note the following:
+Most of the examples assume you’re using `nightly` Rust.
+To set up your rustup toolchain using nightly and
+add the ability to compile Rust to WebAssembly:
+
+```
+rustup toolchain install nightly
+rustup default nightly
+rustup target add wasm32-unknown-unknown
+```
+
+
+If you’re on stable, note the following:
 
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
