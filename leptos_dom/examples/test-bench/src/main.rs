@@ -24,30 +24,54 @@ fn main() {
     .init();
 
   mount_to_body(view_fn);
-
-  // let disposer =
-  //   leptos_reactive::create_scope(leptos_reactive::create_runtime(), |cx| {
-  //     let view = view_fn(cx).into_view(cx);
-
-  //     let render = view.render_to_string();
-
-  //     println!("{render}");
-  // });
 }
 
 fn view_fn(cx: Scope) -> impl IntoView {
-  let my_in = input(cx).attr("type", "text");
-  let val = my_in.value();
+  let view = view! { cx,
+   <For
+     each=|| vec![0, 1, 2, 3, 4, 5, 6, 7]
+     key=|i| *i
+     view=|i| view! { cx, {i} }
+     />
+  }
+  .into_view(cx);
+
+  let (a, set_a) = create_signal(cx, view.clone());
+  let (b, set_b) = create_signal(cx, view);
+
+  let (is_a, set_is_a) = create_signal(cx, true);
+
+  let handle_toggle = move |_| {
+    if is_a() {
+      set_b(a());
+
+      set_is_a(false);
+    } else {
+      set_a(a());
+
+      set_is_a(true);
+    }
+  };
+
+  view! { cx,
+    <>
+      <div>
+        <button on:click=handle_toggle>"Toggle"</button>
+      </div>
+      <A child=Signal::from(a) />
+      <A child=Signal::from(b) />
+    </>
+  }
 }
 
-struct MyComponent;
+#[component]
+fn A(cx: Scope, child: Signal<View>) -> impl IntoView {
+  move || child()
+}
 
-impl IntoView for MyComponent {
-  fn into_view(self, cx: Scope) -> View {
-    let component = Component::new("MyComponent", |cx| {
-      h2(cx).child(text("MyComponent")).into_view(cx)
-    });
-
-    component.into_view(cx)
+#[component]
+fn Example(cx: Scope) -> impl IntoView {
+  view! { cx,
+    <h1>"Example"</h1>
   }
 }

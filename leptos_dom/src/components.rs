@@ -8,12 +8,14 @@ use crate::{
   Comment, IntoView, View,
 };
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use crate::{mount_child, MountKind, Mountable};
+use crate::{mount_child, prepare_to_move, MountKind, Mountable};
 pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
 use leptos_reactive::Scope;
 use std::{borrow::Cow, fmt};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::{cell::OnceCell, rc::Rc};
 pub use unit::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -46,6 +48,8 @@ impl fmt::Debug for CoreComponent {
 pub struct ComponentRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) document_fragment: web_sys::DocumentFragment,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  mounted: Rc<OnceCell<()>>,
   #[cfg(debug_assertions)]
   pub(crate) name: Cow<'static, str>,
   #[cfg(debug_assertions)]
@@ -92,10 +96,22 @@ impl fmt::Debug for ComponentRepr {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for ComponentRepr {
   fn get_mountable_node(&self) -> web_sys::Node {
-    self
-      .document_fragment
-      .unchecked_ref::<web_sys::Node>()
-      .to_owned()
+    if self.mounted.get().is_none() {
+      self.mounted.set(()).unwrap();
+
+      self
+        .document_fragment
+        .unchecked_ref::<web_sys::Node>()
+        .to_owned()
+    }
+    // We need to prepare all children to move
+    else {
+      let opening = self.get_opening_node();
+
+      prepare_to_move(&self.document_fragment, &opening, &self.closing.node);
+
+      self.document_fragment.clone().unchecked_into()
+    }
   }
 
   fn get_opening_node(&self) -> web_sys::Node {
@@ -108,6 +124,10 @@ impl Mountable for ComponentRepr {
     } else {
       self.closing.node.clone()
     };
+  }
+
+  fn get_closing_node(&self) -> web_sys::Node {
+    self.closing.node.clone()
   }
 }
 
@@ -168,6 +188,8 @@ impl ComponentRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      mounted: Default::default(),
       #[cfg(debug_assertions)]
       _opening: markers.1,
       closing: markers.0,
@@ -213,7 +235,11 @@ where
 {
   #[track_caller]
   fn into_view(self, cx: Scope) -> View {
-    let Self { id, name, children_fn } = self;
+    let Self {
+      id,
+      name,
+      children_fn,
+    } = self;
 
     let mut repr = ComponentRepr::new_with_id(name.clone(), id);
 
