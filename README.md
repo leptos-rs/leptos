@@ -81,7 +81,7 @@ To set up your rustup toolchain using nightly and
 add the ability to compile Rust to WebAssembly:
 
 ```
-rustup toolchain install nightly --allow-downgrade
+rustup toolchain install nightly
 rustup default nightly
 rustup target add wasm32-unknown-unknown
 ```
