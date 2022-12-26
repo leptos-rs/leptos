@@ -14,6 +14,8 @@ pub use each::*;
 pub use fragment::*;
 use leptos_reactive::Scope;
 use std::{borrow::Cow, fmt};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::{cell::OnceCell, rc::Rc};
 pub use unit::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
@@ -46,6 +48,8 @@ impl fmt::Debug for CoreComponent {
 pub struct ComponentRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) document_fragment: web_sys::DocumentFragment,
+  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+  mounted: Rc<OnceCell<()>>,
   #[cfg(debug_assertions)]
   pub(crate) name: Cow<'static, str>,
   #[cfg(debug_assertions)]
@@ -92,7 +96,9 @@ impl fmt::Debug for ComponentRepr {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for ComponentRepr {
   fn get_mountable_node(&self) -> web_sys::Node {
-    if self.document_fragment.child_nodes().length() != 0 {
+    if self.mounted.get().is_none() {
+      self.mounted.set(()).unwrap();
+
       self
         .document_fragment
         .unchecked_ref::<web_sys::Node>()
@@ -182,6 +188,8 @@ impl ComponentRepr {
     Self {
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      mounted: Default::default(),
       #[cfg(debug_assertions)]
       _opening: markers.1,
       closing: markers.0,
