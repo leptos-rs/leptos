@@ -1,10 +1,10 @@
 use cfg_if::cfg_if;
 use leptos_macro::component;
 use std::rc::Rc;
-use leptos_dom::{DynChild, Fragment, IntoView, Component};
+use leptos_dom::{DynChild, Fragment, IntoView, Component, HydrationCtx};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-use leptos_dom::{HydrationCtx, HydrationKey};
+use leptos_dom::HydrationKey;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -64,6 +64,8 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+    let id_before_suspense = HydrationCtx::peek();
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
@@ -96,20 +98,25 @@ where
                         else {
                             let orig_child = Rc::clone(&orig_child);
                             
-                            cx.register_suspense(context, &current_id.to_string(), {
-                                let current_id = current_id.clone();
-                                let fragment_id = HydrationKey {
-                                    previous: current_id.previous,
-                                    offset: current_id.offset + 1
-                                };
-                                move || {
-                                    HydrationCtx::continue_from(fragment_id);
-                                    orig_child(cx)
-                                        .into_view(cx)
-                                        .render_to_string(cx)
-                                        .to_string()
+                            cx.register_suspense(
+                                context,
+                                &id_before_suspense.to_string(), 
+                                &current_id.to_string(),
+                                {
+                                    let current_id = current_id.clone();
+                                    let fragment_id = HydrationKey {
+                                        previous: current_id.previous,
+                                        offset: current_id.offset + 1
+                                    };
+                                    move || {
+                                        HydrationCtx::continue_from(fragment_id);
+                                        orig_child(cx)
+                                            .into_view(cx)
+                                            .render_to_string(cx)
+                                            .to_string()
+                                    }
                                 }
-                            });
+                            );
                 
                             // return the fallback for now, wrapped in fragment identifer
                             fallback().into_view(cx)

@@ -298,6 +298,7 @@ impl Scope {
     pub fn register_suspense(
         &self,
         context: SuspenseContext,
+        key_before_suspense: &str,
         key: &str,
         resolver: impl FnOnce() -> String + 'static,
     ) {
@@ -317,16 +318,19 @@ impl Scope {
 
             shared_context.pending_fragments.insert(
                 key.to_string(),
-                Box::pin(async move {
-                    rx.next().await;
-                    resolver()
-                }),
+                (
+                    key_before_suspense.to_string(),
+                    Box::pin(async move {
+                        rx.next().await;
+                        resolver()
+                    })
+                ),
             );
         })
     }
 
     /// The set of all HTML fragments current pending, by their keys (see [Self::current_fragment_key]).
-    pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
+    pub fn pending_fragments(&self) -> HashMap<String, (String, Pin<Box<dyn Future<Output = String>>>)> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)

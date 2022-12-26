@@ -1,16 +1,14 @@
-use crate::ResourceId;
-use std::{
-    collections::{HashMap, HashSet},
-    future::Future,
-    pin::Pin,
-};
+use crate::{ResourceId, runtime::PinnedFuture};
+use std::collections::{HashMap, HashSet};
 use cfg_if::cfg_if;
 
 pub struct SharedContext {
     pub events: Vec<()>,
     pub pending_resources: HashSet<ResourceId>,
     pub resolved_resources: HashMap<ResourceId, String>,
-    pub pending_fragments: HashMap<String, Pin<Box<dyn Future<Output = String>>>>,
+    #[allow(clippy::type_complexity)]
+    // index String is the fragment ID: tuple is (ID of previous component, Future of <Suspense/> HTML when resolved)
+    pub pending_fragments: HashMap<String, (String, PinnedFuture<String>)>,
 }
 
 impl std::fmt::Debug for SharedContext {

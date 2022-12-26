@@ -141,28 +141,50 @@ pub fn render_to_stream_with_prefix_undisposed(
   });
 
   let fragments = FuturesUnordered::new();
-  for (fragment_id, fut) in pending_fragments {
-    fragments.push(async move { (fragment_id, fut.await) })
+  for (fragment_id, (key_before, fut)) in pending_fragments {
+    fragments.push(async move { (fragment_id, key_before, fut.await) })
   }
 
   // resources and fragments
   // stream HTML for each <Suspense/> as it resolves
-  let fragments = fragments.map(|(fragment_id, html)| {
-    format!(
-      r#"
-              <template id="{fragment_id}f">{html}</template>
-              <script>
-                  var start = document.getElementById("_{fragment_id}o");
-                  var end = document.getElementById("_{fragment_id}c");
-                  var range = new Range();
-                  range.setStartBefore(start.nextSibling.nextSibling);
-                  range.setEndAfter(end.previousSibling.previousSibling);
-                  range.deleteContents();
-                  var tpl = document.getElementById("{fragment_id}f");
-                  end.parentNode.insertBefore(tpl.content.cloneNode(true), end.previousSibling);
-              </script>
-              "#
-    )
+  let fragments = fragments.map(|(fragment_id, id_before_suspense, html)| {
+    cfg_if! {
+      if #[cfg(debug_assertions)] {
+        // Debug-mode <Suspense/>-replacement code
+        format!(
+          r#"
+                  <template id="{fragment_id}f">{html}</template>
+                  <script>
+                      var start = document.getElementById("_{fragment_id}o");
+                      var end = document.getElementById("_{fragment_id}c");
+                      var range = new Range();
+                      range.setStartBefore(start.nextSibling.nextSibling);
+                      range.setEndAfter(end.previousSibling.previousSibling);
+                      range.deleteContents();
+                      var tpl = document.getElementById("{fragment_id}f");
+                      end.parentNode.insertBefore(tpl.content.cloneNode(true), end.previousSibling);
+                  </script>
+                  "#
+        )
+      } else {
+        // Release-mode <Suspense/>-replacement code
+        format!(
+          r#"
+                  <template id="{fragment_id}f">{html}</template>
+                  <script>
+                      var start = document.getElementById("_{id_before_suspense}");
+                      var end = document.getElementById("_{fragment_id}");
+                      var range = new Range();
+                      range.setStartAfter(start);
+                      range.setEndBefore(end);
+                      range.deleteContents();
+                      var tpl = document.getElementById("{fragment_id}f");
+                      end.parentNode.insertBefore(tpl.content.cloneNode(true), end.previousSibling);
+                  </script>
+                  "#
+        )
+      }
+    }
   });
   // stream data for each Resource as it resolves
   let resources = serializers.map(|(id, json)| {
