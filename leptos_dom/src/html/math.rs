@@ -1,8 +1,8 @@
 //! MathML elements.
 
-use cfg_if::cfg_if;
 use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
+use cfg_if::cfg_if;
 use leptos_reactive::Scope;
 use std::borrow::Cow;
 cfg_if! {

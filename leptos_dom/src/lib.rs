@@ -36,9 +36,12 @@ pub use node_ref::*;
 use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::{LazyCell, RefCell}, rc::Rc};
 use std::{borrow::Cow, fmt};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::{
+  cell::{LazyCell, RefCell},
+  rc::Rc,
+};
 pub use transparent::*;
 pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -672,15 +675,15 @@ where
         leptos_reactive::create_runtime(),
         move |cx| {
           let node = f(cx).into_view(cx);
-    
+
           HydrationCtx::stop_hydrating();
-    
+
           parent.append_child(&node.get_mountable_node()).unwrap();
-    
+
           std::mem::forget(node);
         },
       );
-    
+
       std::mem::forget(disposer);
     } else {
       _ = parent;

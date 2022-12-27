@@ -1,5 +1,4 @@
-use std::fmt::Display;
-use std::cell::RefCell;
+use std::{cell::RefCell, fmt::Display};
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::cell::LazyCell;
@@ -24,19 +23,22 @@ pub struct HydrationKey {
   /// The key of the previous component.
   pub previous: String,
   /// The element offset within the current component.
-  pub offset: usize
+  pub offset: usize,
 }
 
 impl Display for HydrationKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-      write!(f, "{}{}", self.previous, self.offset)
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}{}", self.previous, self.offset)
+  }
 }
 
 impl Default for HydrationKey {
-    fn default() -> Self {
-        Self { previous: "0-".to_string(), offset: 0 }
+  fn default() -> Self {
+    Self {
+      previous: "0-".to_string(),
+      offset: 0,
     }
+  }
 }
 
 thread_local!(static ID: RefCell<HydrationKey> = Default::default());

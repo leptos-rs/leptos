@@ -66,7 +66,7 @@ impl<T: Clone + 'static> NodeRef<T> {
   }
 }
 
-impl<T: Clone + 'static> Copy for NodeRef<T> { }
+impl<T: Clone + 'static> Copy for NodeRef<T> {}
 
 cfg_if::cfg_if! {
     if #[cfg(not(feature = "stable"))] {

@@ -77,7 +77,8 @@ pub fn render_to_stream_with_prefix(
   view: impl FnOnce(Scope) -> View + 'static,
   prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
-  let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(view, prefix);
+  let (stream, runtime, _) =
+    render_to_stream_with_prefix_undisposed(view, prefix);
   runtime.dispose();
   stream
 }
@@ -99,7 +100,7 @@ pub fn render_to_stream_with_prefix(
 ///    read under that `<Suspense/>` resolve.
 pub fn render_to_stream_with_prefix_undisposed(
   view: impl FnOnce(Scope) -> View + 'static,
-  prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static
+  prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
   HydrationCtx::reset_id();
 

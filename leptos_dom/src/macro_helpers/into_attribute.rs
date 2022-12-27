@@ -63,9 +63,7 @@ impl Attribute {
         .as_ref()
         .map(|value| value.to_string())
         .unwrap_or_default(),
-      Attribute::Bool(_) => {
-        String::new()
-      }
+      Attribute::Bool(_) => String::new(),
     }
   }
 }
