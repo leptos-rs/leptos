@@ -27,7 +27,9 @@ cfg_if! {
             let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
             let addr = conf.leptos_options.site_address.clone();
             HttpServer::new(move || {
+
                 let leptos_options = &conf.leptos_options;
+
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
                     .service(css)

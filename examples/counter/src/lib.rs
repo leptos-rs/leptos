@@ -9,7 +9,7 @@ use leptos::*;
 /// - **step** [`i32`] - The change that should be applied on each step.
 #[component]
 pub fn SimpleCounter(cx: Scope, initial_value: i32, step: i32) -> web_sys::Element {
-    let (value, set_value) = create_signal(cx, 0);
+    let (value, set_value) = create_signal(cx, initial_value);
 
     view! { cx,
         <div>
