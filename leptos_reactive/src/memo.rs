@@ -215,7 +215,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for Memo<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     type Output = T;
 
@@ -227,7 +227,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for Memo<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -237,7 +237,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for Memo<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
