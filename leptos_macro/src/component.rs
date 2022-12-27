@@ -607,7 +607,10 @@ fn prop_to_doc(
     }: &Prop,
     style: PropDocStyle,
 ) -> TokenStream {
-    let ty = if prop_opts.contains(&PropOpt::Optional) && is_option(ty) {
+    let ty = if (prop_opts.contains(&PropOpt::Optional)
+        || prop_opts.contains(&PropOpt::StripOption))
+        && is_option(ty)
+    {
         unwrap_option(ty).unwrap()
     } else {
         ty.to_owned()
