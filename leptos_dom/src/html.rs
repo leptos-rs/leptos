@@ -549,7 +549,7 @@ impl<El: ElementDescriptor> HtmlElement<El> {
       let event_name = event.name();
 
       if event_handler.should_attach() {
-        let event_handler = move |e| event_handler.call_mut(e);
+        let event_handler = move |e: E::EventType| event_handler.call_mut(e);
 
         if event.bubbles() {
           add_event_listener(self.element.as_ref(), event_name, event_handler);
