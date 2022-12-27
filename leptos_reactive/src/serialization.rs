@@ -50,7 +50,7 @@ cfg_if! {
             }
 
             fn from_json(json: &str) -> Result<Self, SerializationError> {
-                json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+                json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
             }
         }
 

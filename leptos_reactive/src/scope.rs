@@ -3,7 +3,7 @@ use crate::{
     EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
-use std::{collections::HashMap, fmt, future::Future, pin::Pin};
+use std::{collections::HashMap, fmt};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -298,6 +298,7 @@ impl Scope {
     pub fn register_suspense(
         &self,
         context: SuspenseContext,
+        key_before_suspense: &str,
         key: &str,
         resolver: impl FnOnce() -> String + 'static,
     ) {
@@ -317,16 +318,21 @@ impl Scope {
 
             shared_context.pending_fragments.insert(
                 key.to_string(),
-                Box::pin(async move {
-                    rx.next().await;
-                    resolver()
-                }),
+                (
+                    key_before_suspense.to_string(),
+                    Box::pin(async move {
+                        rx.next().await;
+                        resolver()
+                    })
+                ),
             );
         })
     }
 
     /// The set of all HTML fragments current pending, by their keys (see [Self::current_fragment_key]).
-    pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
+    /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
+    /// `<Suspense/>` HTML when all resources are resolved.
+    pub fn pending_fragments(&self) -> HashMap<String, (String, PinnedFuture<String>)> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
