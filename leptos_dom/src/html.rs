@@ -608,18 +608,33 @@ impl<El: ElementDescriptor> HtmlElement<El> {
   /// Be very careful when using this method. Always remember to
   /// sanitize the input to avoid a cross-site scripting (XSS)
   /// vulnerability.
-  pub fn inner_html(self, html: &str) -> Self {
+  pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
+    let html = html.into();
+
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-      self.element.as_ref().set_inner_html(html);
+      self.element.as_ref().set_inner_html(&html);
+
+      self
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     {
-      todo!("impl this method for SSR");
-    }
+      let mut this = self;
 
-    self
+      let child = HtmlElement::from_html(
+        this.cx,
+        Custom {
+          name: "inner-html".into(),
+          id: Default::default(),
+        },
+        html,
+      );
+
+      this.children = smallvec![child.into_view(this.cx)];
+
+      this
+    }
   }
 }
 
