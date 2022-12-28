@@ -154,7 +154,7 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
     } else if nodes.len() == 1 {
         node_to_tokens(cx, &nodes[0])
     } else {
-        fragment_to_tokens(cx, Span::call_site(), nodes, false)
+        fragment_to_tokens(cx, Span::call_site(), nodes, false).0
     }
 }
 
@@ -461,36 +461,70 @@ fn set_class_attribute_ssr(
     }
 }
 
-fn fragment_to_tokens(cx: &Ident, _span: Span, nodes: &[Node], lazy: bool) -> TokenStream {
+fn fragment_to_tokens(
+    cx: &Ident,
+    _span: Span,
+    nodes: &[Node],
+    lazy: bool,
+) -> (TokenStream, Option<TokenStream>) {
     let nodes = nodes.iter().map(|node| {
         let node = node_to_tokens(cx, node);
 
         quote! {
-            #node.into_view(#cx)
+            #node
         }
     });
+
     if lazy {
-        quote! {
-            {
-                leptos::Fragment::lazy(|| vec![
-                    #(#nodes),*
-                ])
-            }
-        }
+        let (view_names, exprs): (Vec<_>, Vec<_>) = nodes
+            .clone()
+            .enumerate()
+            .map(|(i, expr)| {
+                let lazy_view_enumerated = format_ident!("__expr_{i}");
+
+                (
+                    lazy_view_enumerated.clone(),
+                    quote! {
+                        let #lazy_view_enumerated = #expr;
+
+                        let #lazy_view_enumerated
+                            = leptos::LazyView::new(move |cx| #lazy_view_enumerated.into_view(cx));
+                    },
+                )
+            })
+            .unzip();
+
+        let expr_names = view_names.iter();
+
+        (
+            quote! {
+                {
+                    leptos::Fragment::lazy(|| vec![
+                        #(#expr_names.get_view(#cx)),*
+                    ])
+                }
+            },
+            Some(exprs.into_iter().collect()),
+        )
     } else {
-        quote! {
-            {
-                leptos::Fragment::new(vec![
-                    #(#nodes),*
-                ])
-            }
-        }
+        (
+            quote! {
+                {
+                    leptos::Fragment::new(vec![
+                        #(#nodes.into_view(#cx)),*
+                    ])
+                }
+            },
+            None,
+        )
     }
 }
 
 fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
     match node {
-        Node::Fragment(fragment) => fragment_to_tokens(cx, Span::call_site(), &fragment.children, false),
+        Node::Fragment(fragment) => {
+            fragment_to_tokens(cx, Span::call_site(), &fragment.children, false).0
+        }
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
             let value = node.value.as_ref();
@@ -518,12 +552,10 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
         } else if is_svg_element(&tag) {
             let name = &node.name;
             quote! { leptos::leptos_dom::svg::#name(#cx) }
-        }
-        else if is_math_ml_element(&tag) {
+        } else if is_math_ml_element(&tag) {
             let name = &node.name;
             quote! { leptos::leptos_dom::math::#name(#cx) }
-        }
-        else {
+        } else {
             let name = &node.name;
             quote! { leptos::leptos_dom::#name(#cx) }
         };
@@ -537,7 +569,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
         let children = node.children.iter().map(|node| {
             let child = match node {
                 Node::Fragment(fragment) => {
-                    fragment_to_tokens(cx, Span::call_site(), &fragment.children, false)
+                    fragment_to_tokens(cx, Span::call_site(), &fragment.children, false).0
                 }
                 Node::Text(node) => {
                     let value = node.value.as_ref();
@@ -645,8 +677,15 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        let children = fragment_to_tokens(cx, span, &node.children, true);
-        quote! { .children(Box::new(move |#cx| #children)) }
+        let (children, exprs) = fragment_to_tokens(cx, span, &node.children, true);
+
+        let exprs = exprs.unwrap();
+
+        quote! { .children(Box::new({
+            #exprs
+
+            move |#cx| #children
+        }))}
     };
 
     let props = node
@@ -747,110 +786,118 @@ fn is_self_closing(node: &NodeElement) -> bool {
 fn camel_case_tag_name(tag_name: &str) -> String {
     let mut chars = tag_name.chars();
     let first = chars.next();
-    first.map(|f| f.to_ascii_uppercase()).into_iter()
+    first
+        .map(|f| f.to_ascii_uppercase())
+        .into_iter()
         .chain(chars)
         .collect()
 }
 
 fn is_svg_element(tag: &str) -> bool {
-    matches!(tag, "animate" | 
-        "animateMotion" | 
-        "animateTransform" | 
-        "circle" | 
-        "clipPath" | 
-        "defs" | 
-        "desc" | 
-        "discard" | 
-        "ellipse" | 
-        "feBlend" | 
-        "feColorMatrix" | 
-        "feComponentTransfer" | 
-        "feComposite" | 
-        "feConvolveMatrix" | 
-        "feDiffuseLighting" | 
-        "feDisplacementMap" | 
-        "feDistantLight" | 
-        "feDropShadow" | 
-        "feFlood" | 
-        "feFuncA" | 
-        "feFuncB" | 
-        "feFuncG" | 
-        "feFuncR" | 
-        "feGaussianBlur" | 
-        "feImage" | 
-        "feMerge" |   
-        "feMergeNode" |   
-        "feMorphology" |   
-        "feOffset" |   
-        "fePointLight" |   
-        "feSpecularLighting" |   
-        "feSpotLight" |   
-        "feTile" |   
-        "feTurbulence" |   
-        "filter" |   
-        "foreignObject" |   
-        "g" |   
-        "hatch" |   
-        "hatchpath" |   
-        "image" |   
-        "line" |   
-        "linearGradient" |   
-        "marker" |   
-        "mask" |   
-        "metadata" |   
-        "mpath" |   
-        "path" |   
-        "pattern" |   
-        "polygon" |   
-        "polyline" |   
-        "radialGradient" |   
-        "rect" |   
-        "script" |   
-        "set" |   
-        "stop" |   
-        "style" |   
-        "svg" |   
-        "switch" |   
-        "symbol" |   
-        "text" |   
-        "textPath" |   
-        "title" |   
-        "tspan" |   
-        "use" |   
-        "use_" |
-        "view")
+    matches!(
+        tag,
+        "animate"
+            | "animateMotion"
+            | "animateTransform"
+            | "circle"
+            | "clipPath"
+            | "defs"
+            | "desc"
+            | "discard"
+            | "ellipse"
+            | "feBlend"
+            | "feColorMatrix"
+            | "feComponentTransfer"
+            | "feComposite"
+            | "feConvolveMatrix"
+            | "feDiffuseLighting"
+            | "feDisplacementMap"
+            | "feDistantLight"
+            | "feDropShadow"
+            | "feFlood"
+            | "feFuncA"
+            | "feFuncB"
+            | "feFuncG"
+            | "feFuncR"
+            | "feGaussianBlur"
+            | "feImage"
+            | "feMerge"
+            | "feMergeNode"
+            | "feMorphology"
+            | "feOffset"
+            | "fePointLight"
+            | "feSpecularLighting"
+            | "feSpotLight"
+            | "feTile"
+            | "feTurbulence"
+            | "filter"
+            | "foreignObject"
+            | "g"
+            | "hatch"
+            | "hatchpath"
+            | "image"
+            | "line"
+            | "linearGradient"
+            | "marker"
+            | "mask"
+            | "metadata"
+            | "mpath"
+            | "path"
+            | "pattern"
+            | "polygon"
+            | "polyline"
+            | "radialGradient"
+            | "rect"
+            | "script"
+            | "set"
+            | "stop"
+            | "style"
+            | "svg"
+            | "switch"
+            | "symbol"
+            | "text"
+            | "textPath"
+            | "title"
+            | "tspan"
+            | "use"
+            | "use_"
+            | "view"
+    )
 }
 
 fn is_math_ml_element(tag: &str) -> bool {
-    matches!(tag, "math" | 
-        "mi" | 
-        "mn" | 
-        "mo" | 
-        "ms" | 
-        "mspace" | 
-        "mtext" | 
-        "menclose" | 
-        "merror" | 
-        "mfenced" | 
-        "mfrac" | 
-        "mpadded" | 
-        "mphantom" | 
-        "mroot" | 
-        "mrow" | 
-        "msqrt" | 
-        "mstyle" | 
-        "mmultiscripts" | 
-        "mover" | 
-        "mprescripts" | 
-        "msub" | 
-        "msubsup" | 
-        "msup" | 
-        "munder" | 
-        "munderover" | 
-        "mtable" | 
-        "mtd" | 
-        "mtr" | 
-        "maction" | 
-        "annotation" | 
-        "semantics")
+    matches!(
+        tag,
+        "math"
+            | "mi"
+            | "mn"
+            | "mo"
+            | "ms"
+            | "mspace"
+            | "mtext"
+            | "menclose"
+            | "merror"
+            | "mfenced"
+            | "mfrac"
+            | "mpadded"
+            | "mphantom"
+            | "mroot"
+            | "mrow"
+            | "msqrt"
+            | "mstyle"
+            | "mmultiscripts"
+            | "mover"
+            | "mprescripts"
+            | "msub"
+            | "msubsup"
+            | "msup"
+            | "munder"
+            | "munderover"
+            | "mtable"
+            | "mtd"
+            | "mtr"
+            | "maction"
+            | "annotation"
+            | "semantics"
+    )
 }
