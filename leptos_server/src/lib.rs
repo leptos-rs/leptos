@@ -32,7 +32,7 @@
 //! crate that is enabled).
 //!
 //! ```rust,ignore
-//! # use leptos_reactive::*;
+//! # use leptos::*;
 //! #[server(ReadFromDB)]
 //! async fn read_posts(cx: Scope, how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 //!   // do some server-only work here to access the database
@@ -266,11 +266,8 @@ where
             let value = match Self::encoding() {
                 Encoding::Url => serde_urlencoded::from_bytes(data)
                     .map_err(|e| ServerFnError::Deserialization(e.to_string())),
-                Encoding::Cbor => {
-                    println!("Deserialize Cbor!: {:x?}", &data);
-                    ciborium::de::from_reader(data)
-                        .map_err(|e| ServerFnError::Deserialization(e.to_string()))
-                }
+                Encoding::Cbor => ciborium::de::from_reader(data)
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
             };
             Box::pin(async move {
                 let value: Self = match value {
