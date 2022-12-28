@@ -36,7 +36,11 @@ pub use node_ref::*;
 use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
-use std::{borrow::Cow, fmt};
+use std::{
+  borrow::Cow,
+  cell::{OnceCell, RefCell},
+  fmt,
+};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::{
   cell::{LazyCell, RefCell},
@@ -570,6 +574,36 @@ impl View {
     }
 
     self
+  }
+}
+
+/// Initializes a view only once.
+pub struct LazyView<F: FnOnce(Scope) -> View>(
+  RefCell<Option<F>>,
+  OnceCell<View>,
+);
+
+impl<F: FnOnce(Scope) -> View> LazyView<F> {
+  /// Creates a new instance of [`LazyView`].
+  pub fn new(view_fn: F) -> Self {
+    Self(RefCell::new(Some(view_fn)), Default::default())
+  }
+
+  /// Gets the view, or initializes it if not already set.
+  pub fn get_view(&self, cx: Scope) -> View {
+    let mut view_fn_borrow = self.0.borrow_mut();
+
+    if let Some(view_fn) = view_fn_borrow.take() {
+      let view = view_fn(cx);
+
+      let ret = view.clone();
+
+      self.1.set(view).unwrap();
+
+      ret
+    } else {
+      self.1.get().unwrap().clone()
+    }
   }
 }
 
