@@ -600,6 +600,27 @@ impl<El: ElementDescriptor> HtmlElement<El> {
       this
     }
   }
+
+  /// Sets the inner HTML of this element from the provided
+  /// string slice.
+  ///
+  /// # Security
+  /// Be very careful when using this method. Always remember to
+  /// sanitize the input to avoid a cross-site scripting (XSS)
+  /// vulnerability.
+  pub fn inner_html(self, html: &str) -> Self {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      self.element.as_ref().set_inner_html(html);
+    }
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      todo!("impl this method for SSR");
+    }
+
+    self
+  }
 }
 
 impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
