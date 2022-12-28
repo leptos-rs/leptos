@@ -102,42 +102,6 @@ where
   }
 }
 
-/// A helper trait that allows [`HtmlElement::on`] to take
-/// either a `impl Fn(EventType)` or `Option<impl Fn(EventType)>`.
-pub trait EventHandler<E: EventDescriptor>: 'static {
-  /// Returns true if we should attach this event handler.
-  fn should_attach(&self) -> bool;
-
-  /// Invokes self.
-  fn call_mut(&mut self, event: E::EventType);
-}
-
-impl<F, E: EventDescriptor> EventHandler<E> for F
-where
-  F: FnMut(E::EventType) + 'static,
-{
-  fn should_attach(&self) -> bool {
-    true
-  }
-
-  fn call_mut(&mut self, event: E::EventType) {
-    self(event);
-  }
-}
-
-impl<F, E: EventDescriptor> EventHandler<E> for Option<F>
-where
-  F: EventHandler<E>,
-{
-  fn should_attach(&self) -> bool {
-    self.is_some()
-  }
-
-  fn call_mut(&mut self, event: E::EventType) {
-    self.as_mut().unwrap().call_mut(event);
-  }
-}
-
 /// Represents potentially any element.
 #[derive(Clone, Debug)]
 pub struct AnyElement {
@@ -542,27 +506,20 @@ impl<El: ElementDescriptor> HtmlElement<El> {
   pub fn on<E: EventDescriptor + 'static>(
     self,
     event: E,
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    mut event_handler: impl EventHandler<E>,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    event_handler: impl EventHandler<E>,
+    event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       let event_name = event.name();
 
-      if event_handler.should_attach() {
-        let event_handler = move |e: E::EventType| event_handler.call_mut(e);
-
-        if event.bubbles() {
-          add_event_listener(self.element.as_ref(), event_name, event_handler);
-        } else {
-          add_event_listener_undelegated(
-            self.element.as_ref(),
-            &event_name,
-            event_handler,
-          );
-        }
+      if event.bubbles() {
+        add_event_listener(self.element.as_ref(), event_name, event_handler);
+      } else {
+        add_event_listener_undelegated(
+          self.element.as_ref(),
+          &event_name,
+          event_handler,
+        );
       }
 
       self
