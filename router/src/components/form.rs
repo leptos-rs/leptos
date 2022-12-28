@@ -1,5 +1,7 @@
-use crate::{use_navigate, use_resolved_path, ToHref};
+use crate::{use_navigate, use_resolved_path, TextProp};
+use cfg_if::cfg_if;
 use leptos::*;
+use leptos::typed_builder::*;
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -39,10 +41,10 @@ pub fn Form<A>(
     children: Box<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
-    A: ToHref + 'static,
+    A: TextProp + 'static,
 {
     let action_version = version;
-    let action = use_resolved_path(cx, move || action.to_href()());
+    let action = use_resolved_path(cx, move || action.to_value()());
 
     let on_submit = move |ev: web_sys::SubmitEvent| {
         if ev.default_prevented() {

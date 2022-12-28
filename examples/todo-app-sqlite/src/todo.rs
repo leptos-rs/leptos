@@ -7,15 +7,17 @@ use serde::{Deserialize, Serialize};
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
+        use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
             Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)
         }
 
         pub fn register_server_functions() {
-            GetTodos::register();
-            AddTodo::register();
-            DeleteTodo::register();
+            _ = GetTodos::register();
+            _ = AddTodo::register();
+            _ = DeleteTodo::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -39,11 +41,15 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req =
         use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
-    println!("req.path = {:?}", req.path());
+    println!("\ncalling server fn");
+    println!("  req.path = {:?}", req.path());
 
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
+
+    // fake API delay
+    std::thread::sleep(std::time::Duration::from_millis(350));
 
     let mut todos = Vec::new();
     let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
@@ -63,16 +69,14 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
     // fake API delay
-    std::thread::sleep(std::time::Duration::from_millis(1250));
+    std::thread::sleep(std::time::Duration::from_millis(350));
 
-    match sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
+    sqlx::query("INSERT INTO todos (title, completed) VALUES ($1, false)")
         .bind(title)
         .execute(&mut conn)
         .await
-    {
-        Ok(row) => Ok(()),
-        Err(e) => Err(ServerFnError::ServerError(e.to_string())),
-    }
+        .map(|_| ())
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))
 }
 
 #[server(DeleteTodo, "/api")]

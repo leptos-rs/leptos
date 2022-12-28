@@ -6,7 +6,7 @@ pub fn Nav(cx: Scope) -> impl IntoView {
     view! { cx,
         <header class="header">
             <nav class="inner">
-                <A href="/">
+                <A href="/" class="home".to_string()>
                     <strong>"HN"</strong>
                 </A>
                 <A href="/new">

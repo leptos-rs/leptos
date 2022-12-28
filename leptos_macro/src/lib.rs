@@ -7,7 +7,6 @@ extern crate proc_macro_error;
 use proc_macro::{TokenStream, TokenTree};
 use quote::ToTokens;
 use server::server_macro_impl;
-use syn::{parse_macro_input, DeriveInput};
 use syn_rsx::{parse, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -30,7 +29,6 @@ mod params;
 mod view;
 use view::render_view;
 mod component;
-mod props;
 mod server;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -179,11 +177,14 @@ mod server;
 ///
 /// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
 ///    [NodeRef](leptos_reactive::NodeRef) to use later.
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
+///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (value, set_value) = create_signal(cx, 0);
+/// let my_input = NodeRef::new(cx);
 /// let my_input = NodeRef::new(cx);
 /// view! { cx, <input type="text" _ref=my_input/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
@@ -413,21 +414,60 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         .into()
 }
 
+/// Declares that a function is a [server function](leptos_server). This means that 
+/// its body will only run on the server, i.e., when the `ssr` feature is enabled.
+///
+/// If you call a server function from the client (i.e., when the `csr` or `hydrate` features
+/// are enabled), it will instead make a network request to the server.
+///
+/// You can specify one, two, or three arguments to the server function:
+/// 1. **Required**: A type name that will be used to identify and register the server function
+///   (e.g., `MyServerFn`).
+/// 2. *Optional*: A URL prefix at which the function will be mounted when it’s registered
+///   (e.g., `"/api"`). Defaults to `"/"`.
+/// 3. *Optional*: either `"Cbor"` (specifying that it should use the binary `cbor` format for
+///   serialization) or `"Url"` (specifying that it should be use a URL-encoded form-data string).
+///   Defaults to `"Url"`. If you want to use this server function to power an 
+///   [ActionForm](leptos_router::ActionForm) the encoding must be `"Url"`.
+///
+/// The server function itself can take any number of arguments, each of which should be serializable 
+/// and deserializable with `serde`. Optionally, its first argument can be a Leptos [Scope](leptos::Scope),
+/// which will be injected *on the server side.* This can be used to inject the raw HTTP request or other
+/// server-side context into the server function.
+///
+/// ```
+/// # use leptos::*; use serde::{Serialize, Deserialize};
+/// # #[derive(Serialize, Deserialize)]
+/// # pub struct Post { }
+/// #[server(ReadPosts, "/api")]
+/// pub async fn read_posts(how_many: u8, query: String) -> Result<Vec<Post>, ServerFnError> {
+///   // do some work on the server to access the database
+///   todo!()   
+/// }
+/// ```
+///
+/// Note the following:
+/// - **Server functions must be `async`.** Even if the work being done inside the function body
+///   can run synchronously on the server, from the client’s perspective it involves an asynchronous
+///   function call.
+/// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
+///   inside the function body can’t fail, the processes of serialization/deserialization and the
+///   network call are fallible.
+/// - **Return types must be [Serializable](leptos_reactive::Serializable).**
+///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
+///   need to deserialize the result to return it to the client.
+/// - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
+///   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
+///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
+/// - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
+///   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
+///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 #[proc_macro_attribute]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(args, s.into()) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),
     }
-}
-
-#[proc_macro_derive(Props, attributes(builder))]
-pub fn derive_prop(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    props::impl_derive_prop(&input)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
 }
 
 // Derive Params trait for routing

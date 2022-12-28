@@ -22,7 +22,7 @@ typed-builder = "0.11"
 leptos = { path = ".", default-features = false }
 
 [features]
-default = ["csr", "serde"]
+default = ["csr", "serde", "interning"]
 csr = [
 	"leptos_dom/web",
 	"leptos_macro/csr",
@@ -53,4 +53,30 @@ miniserde = ["leptos_reactive/miniserde"]
 tracing = ["leptos_macro/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["stable", "interning"]
+skip_feature_sets = [
+  [
+    "csr",
+    "ssr",
+  ],
+  [
+    "csr",
+    "hydrate",
+  ],
+  [
+    "ssr",
+    "hydrate",
+  ],
+  [
+    "serde",
+    "serde-lite",
+  ],
+  [
+    "serde-lite",
+    "miniserde",
+  ],
+  [
+    "serde",
+    "miniserde",
+  ],
+]

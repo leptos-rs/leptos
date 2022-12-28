@@ -6,6 +6,7 @@ use syn::{
     ItemFn, LitStr, Meta, MetaList, MetaNameValue, NestedMeta, Pat, PatIdent, Path, PathArguments,
     ReturnType, Type, TypePath, Visibility,
 };
+use itertools::Itertools;
 
 pub struct Model {
     is_transparent: bool,
@@ -69,6 +70,24 @@ impl Parse for Model {
             );
         }
 
+        let doc_comment = attrs.iter().filter_map(|attr| if attr.path.segments[0].ident == "doc" {
+            
+            Some(attr.clone().tokens.into_iter().filter_map(|token| if let TokenTree::Literal(_) = token {
+                // remove quotes
+                let chars = token.to_string();
+                let mut chars = chars.chars();
+                chars.next();
+                chars.next_back();
+                Some(chars.as_str().to_string())
+            } else {
+                None
+            }).collect::<String>())
+            } else {
+                None
+            })
+            .intersperse_with(|| "\n".to_string())
+            .collect();
+
         Ok(Self {
             is_transparent: false,
             docs,
@@ -94,6 +113,45 @@ impl ToTokens for Model {
             body,
             ret,
         } = self;
+
+        let field_docs: HashMap<String, String> = {
+            let mut map = HashMap::new();
+            let mut pieces = doc_comment.split("# Props");
+            pieces.next();
+            let rest = pieces.next().unwrap_or_default();
+            let mut current_field_name = String::new();
+            let mut current_field_value = String::new();
+            for line in rest.split('\n') {
+                if let Some(line) = line.strip_prefix(" - ") {
+                    let mut pieces = line.split("**");
+                    pieces.next();
+                    let field_name = pieces.next();
+                    let field_value = pieces.next().unwrap_or_default();
+                    let field_value = if let Some((_ty, desc)) = field_value.split_once('-') {
+                        desc
+                    } else {
+                        field_value
+                    };
+                    if let Some(field_name) = field_name {
+                        if !current_field_name.is_empty() {
+                            map.insert(current_field_name.clone(), current_field_value.clone());
+                        }
+                        current_field_name = field_name.to_string();
+                        current_field_value = String::new();
+                        current_field_value.push_str(field_value);
+                    } else  {
+                        current_field_value.push_str(field_value);
+                    }
+                } else {
+                    current_field_value.push_str(line);
+                }
+            }
+            if !current_field_name.is_empty() {
+                map.insert(current_field_name, current_field_value.clone());
+            }
+
+            map
+        };
 
         let mut body = body.to_owned();
 
@@ -225,6 +283,10 @@ impl Prop {
                 if acc.intersection(&cur.1).next().is_some() {
                     abort!(typed.attrs[cur.0], "`#[prop]` options are repeated");
                 }
+            } else {
+                quote! { #vis #f }
+            }
+        });
 
                 acc.extend(cur.1);
 

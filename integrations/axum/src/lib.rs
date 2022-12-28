@@ -1,16 +1,66 @@
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
+    body::{Body, Bytes, Full, StreamBody},
     extract::Path,
     http::{HeaderMap, HeaderValue, Request, StatusCode},
     response::IntoResponse,
+    response::IntoResponse,
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
+use http::{method::Method, uri::Uri, version::Version, Response};
+use hyper::body;
 use http::{method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
+use tokio::{sync::RwLock, task::spawn_blocking};
+
+/// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
+/// to construct this for Leptos to use in Axum
+#[derive(Debug, Clone)]
+pub struct RequestParts {
+    pub version: Version,
+    pub method: Method,
+    pub uri: Uri,
+    pub headers: HeaderMap<HeaderValue>,
+    pub body: Bytes,
+}
+/// This struct lets you define headers and override the status of the Response from an Element or a Server Function
+/// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
+#[derive(Debug, Clone, Default)]
+pub struct ResponseParts {
+    pub status: Option<StatusCode>,
+    pub headers: HeaderMap,
+}
+
+/// Adding this Struct to your Scope inside of a Server Fn or Elements will allow you to override details of the Response
+/// like StatusCode and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
+/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced
+#[derive(Debug, Clone, Default)]
+pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
+
+impl ResponseOptions {
+    /// A less boilerplatey way to overwrite the default contents of `ResponseOptions` with a new `ResponseParts`
+    pub async fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write().await;
+        *writable = parts
+    }
+}
+
+pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
+    // provide request headers as context in server scope
+    let (parts, body) = req.into_parts();
+    let body = body::to_bytes(body).await.unwrap_or_default();
+    RequestParts {
+        method: parts.method,
+        uri: parts.uri,
+        headers: parts.headers,
+        version: parts.version,
+        body: body.clone(),
+    }
+}
 use tokio::{sync::RwLock, task::spawn_blocking};
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
@@ -324,6 +374,7 @@ where IV: IntoView
 
                 let (mut tx, rx) = futures::channel::mpsc::channel(8);
 
+                spawn_blocking({
                 spawn_blocking({
                     let app_fn = app_fn.clone();
                     move || {

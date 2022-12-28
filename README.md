@@ -54,6 +54,17 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 - **Fine-grained reactivity**: The entire framework is build from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (_So, no virtual DOM!_)
 - **Declarative**: Tell Leptos how you want the page to look, and let the framework tell the browser how to do it.
 
+## Getting Started
+
+The best way to get started with a Leptos project right now is to use the [`cargo-leptos`](https://github.com/akesson/cargo-leptos) build tool and our [starter template](https://github.com/leptos-rs/start).
+
+```bash
+cargo install cargo-leptos
+cargo leptos new --git https://github.com/leptos-rs/start
+cd [your project name]
+cargo leptos watch
+```
+
 ## Learn more
 
 Here are some resources for learning more about Leptos:
@@ -65,7 +76,18 @@ Here are some resources for learning more about Leptos:
 
 ## `nightly` Note
 
-Most of the examples assume you’re using `nightly` Rust. If you’re on stable, note the following:
+Most of the examples assume you’re using `nightly` Rust.
+To set up your rustup toolchain using nightly and
+add the ability to compile Rust to WebAssembly:
+
+```
+rustup toolchain install nightly
+rustup default nightly
+rustup target add wasm32-unknown-unknown
+```
+
+
+If you’re on stable, note the following:
 
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
@@ -136,17 +158,17 @@ There are some practical differences that make a significant difference:
 - **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
-```rust
-let (count, set_count) = create_signal(cx, 0); // a signal
-let double_count = move || count() * 2; // a derived signal
-let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
-// all are accessed by calling them
-assert_eq!(count(), 0);
-assert_eq!(double_count(), 0);
-assert_eq!(memoized_count(), 0);
+  ```rust
+  let (count, set_count) = create_signal(cx, 0); // a signal
+  let double_count = move || count() * 2; // a derived signal
+  let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
+  // all are accessed by calling them
+  assert_eq!(count(), 0);
+  assert_eq!(double_count(), 0);
+  assert_eq!(memoized_count(), 0);
 
-// this function can accept any of those signals
-fn do_work_on_signal(my_signal: impl Fn() -> i32) { ... }
-```
+  // this function can accept any of those signals
+  fn do_work_on_signal(my_signal: impl Fn() -> i32) { ... }
+  ```
 
 - **Signals and scopes are `'static`:** Both Leptos and Sycamore ease the pain of moving signals in closures (in particular, event listeners) by making them `Copy`, to avoid the `{ let count = count.clone(); move |_| ... }` that's very familiar in Rust UI code. Sycamore does this by using bump allocation to tie the lifetimes of its signals to its scopes: since references are `Copy`, `&'a Signal<T>` can be moved into a closure. Leptos does this by using arena allocation and passing around indices: types like `ReadSignal<T>`, `WriteSignal<T>`, and `Memo<T>` are actually wrapper for indices into an arena. This means that both scopes and signals are both `Copy` and `'static` in Leptos, which means that they can be moved easily into closures without adding lifetime complexity.

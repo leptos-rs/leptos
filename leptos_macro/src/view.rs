@@ -702,14 +702,34 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
         }
     };
 
-    quote! {
-        #name(
-            #cx,
-            #component_props_name::builder()
-                #(#props)*
-                #children
-                .build(),
-        )
+    if other_attrs.peek().is_none() {
+        quote_spanned! {
+            span => create_component(#cx, move || {
+                #initialize_children
+                #component_name(
+                    #cx,
+                    #component_props_name::builder()
+                        #(#props)*
+                        #children
+                        .build(),
+                )
+            })
+        }
+    } else {
+        quote_spanned! {
+            span => create_component(#cx, move || {
+                #initialize_children
+                let #component_name = #component_name(
+                    #cx,
+                    #component_props_name::builder()
+                        #(#props)*
+                        #children
+                        .build(),
+                );
+                #(#other_attrs);*;
+                #component_name
+            })
+        }
     }
 }
 

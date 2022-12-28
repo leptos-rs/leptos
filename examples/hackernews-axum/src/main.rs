@@ -17,7 +17,7 @@ if #[cfg(feature = "ssr")] {
     #[tokio::main]
     async fn main() {
         use leptos_hackernews_axum::*;
-        let addr = SocketAddr::from(([127, 0, 0, 1], 3002));
+        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
 
         log::debug!("serving at {addr}");
 

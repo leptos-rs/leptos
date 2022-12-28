@@ -102,6 +102,11 @@ impl RouteContext {
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
     /// For the opposite behavior, see [RouteContext::original_path].
+    /// Returns the URL path of the current route,
+    /// including param values in their places.
+    ///
+    /// e.g., this will return `/article/0` rather than `/article/:id`.
+    /// For the opposite behavior, see [RouteContext::original_path].
     pub fn path(&self) -> &str {
         &self.inner.path
     }

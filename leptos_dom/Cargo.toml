@@ -137,6 +137,11 @@ features = [
   "HtmlOptionElement"
 ]
 
+[dev-dependencies]
+leptos = { path = "../leptos", default-features = false, version = "0.0" }
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }
+
+
 [features]
 web = ["leptos_reactive/csr"]
 ssr = ["leptos_reactive/ssr"]

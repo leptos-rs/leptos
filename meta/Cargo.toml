@@ -21,3 +21,7 @@ default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr"]
+stable = ["leptos/stable"]
+
+[package.metadata.cargo-all-features]
+denylist = ["stable"]

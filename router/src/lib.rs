@@ -32,6 +32,9 @@
 //!    them with server-side rendering (with or without hydration), they just work,
 //!    whether JS/WASM have loaded or not.
 //!
+//!    Note as well that client-side routing works with ordinary `<a>` tags, as well,
+//!    so you do not even need to use the `<A/>` component in most cases.
+//!
 //! ## Example
 //!
 //! ```rust
@@ -136,10 +139,9 @@
 //!
 //! ```
 
-#![feature(auto_traits)]
-#![feature(let_chains)]
-#![feature(negative_impls)]
-#![feature(type_name_of_val)]
+#![cfg_attr(not(feature = "stable"), feature(auto_traits))]
+#![cfg_attr(not(feature = "stable"), feature(negative_impls))]
+#![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 mod components;
 mod history;

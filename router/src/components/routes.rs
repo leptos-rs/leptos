@@ -4,6 +4,12 @@ use std::{
     ops::IndexMut,
     rc::Rc,
 };
+use std::{
+    cell::{Cell, RefCell},
+    cmp::Reverse,
+    ops::IndexMut,
+    rc::Rc,
+};
 
 use leptos::*;
 
@@ -15,6 +21,8 @@ use crate::{
     RouteContext, RouterContext,
 };
 
+/// Contains route definitions and manages the actual routing process.
+///
 /// Contains route definitions and manages the actual routing process.
 ///
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
@@ -100,7 +108,48 @@ pub fn Routes(
                         if i == 0 {
                             root_equal.set(false);
                         }
+                match (prev_routes, prev_match) {
+                    (Some(prev), Some(prev_match))
+                        if next_match.route.key == prev_match.route.key =>
+                    {
+                        let prev_one = { prev.borrow()[i].clone() };
+                        if i >= next.borrow().len() {
+                            next.borrow_mut().push(prev_one);
+                        } else {
+                            *(next.borrow_mut().index_mut(i)) = prev_one;
+                        }
+                    }
+                    _ => {
+                        equal = false;
+                        if i == 0 {
+                            root_equal.set(false);
+                        }
 
+                        let disposer = cx.child_scope({
+                            let next = next.clone();
+                            let router = Rc::clone(&router.inner);
+                            move |cx| {
+                                let next = next.clone();
+                                let next_ctx = RouteContext::new(
+                                    cx,
+                                    &RouterContext { inner: router },
+                                    {
+                                        let next = next.clone();
+                                        move || {
+                                            if let Some(route_states) =
+                                                use_context::<Memo<RouterState>>(cx)
+                                            {
+                                                route_states.with(|route_states| {
+                                                    let routes = route_states.routes.borrow();
+                                                    routes.get(i + 1).cloned()
+                                                })
+                                            } else {
+                                                next.borrow().get(i + 1).cloned()
+                                            }
+                                        }
+                                    },
+                                    move || matches.with(|m| m.get(i).cloned()),
+                                );
                         let disposer = cx.child_scope({
                             let next = next.clone();
                             let router = Rc::clone(&router.inner);
@@ -136,7 +185,26 @@ pub fn Routes(
                                 }
                             }
                         });
+                                if let Some(next_ctx) = next_ctx {
+                                    if next.borrow().len() > i + 1 {
+                                        next.borrow_mut()[i] = next_ctx;
+                                    } else {
+                                        next.borrow_mut().push(next_ctx);
+                                    }
+                                }
+                            }
+                        });
 
+                        if disposers.borrow().len() > i + 1 {
+                            let mut disposers = disposers.borrow_mut();
+                            let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
+                            old_route_disposer.dispose();
+                        } else {
+                            disposers.borrow_mut().push(disposer);
+                        }
+                    }
+                }
+            }
                         if disposers.borrow().len() > i + 1 {
                             let mut disposers = disposers.borrow_mut();
                             let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
@@ -154,7 +222,27 @@ pub fn Routes(
                     disposer.dispose();
                 }
             }
+            if disposers.borrow().len() > next_matches.len() {
+                let surplus_disposers = disposers.borrow_mut().split_off(next_matches.len() + 1);
+                for disposer in surplus_disposers {
+                    disposer.dispose();
+                }
+            }
 
+            if let Some(prev) = &prev {
+                if equal {
+                    RouterState {
+                        matches: next_matches.to_vec(),
+                        routes: prev_routes.cloned().unwrap_or_default(),
+                        root: prev.root.clone(),
+                    }
+                } else {
+                    let root = next.borrow().get(0).cloned();
+                    RouterState {
+                        matches: next_matches.to_vec(),
+                        routes: Rc::new(RefCell::new(next.borrow().to_vec())),
+                        root,
+                    }
             if let Some(prev) = &prev {
                 if equal {
                     RouterState {
