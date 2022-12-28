@@ -307,8 +307,8 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
                     class="edit"
                     class:hidden={move || !(editing)()}
                     prop:value={move || todo.title.get()}
-                    on:focusout=move |ev| save(&event_target_value(&ev))
-                    on:keyup={move |ev| {
+                    on:focusout=move |ev: web_sys::FocusEvent| save(&event_target_value(&ev))
+                    on:keyup={move |ev: web_sys::KeyboardEvent| {
                         let key_code = ev.key_code();
                         if key_code == ENTER_KEY {
                             save(&event_target_value(&ev));

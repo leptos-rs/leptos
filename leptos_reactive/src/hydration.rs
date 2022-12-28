@@ -27,11 +27,11 @@ impl PartialEq for SharedContext {
 
 impl Eq for SharedContext {}
 
+#[allow(clippy::derivable_impls)]
 impl Default for SharedContext {
-
     fn default() -> Self {
         cfg_if! {
-            if #[cfg(feature = "hydrate")] {
+            if #[cfg(all(feature = "hydrate", target_arch = "wasm32"))] {
                 let pending_resources = js_sys::Reflect::get(
                     &web_sys::window().unwrap(),
                     &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),

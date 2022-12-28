@@ -1,10 +1,10 @@
 use cfg_if::cfg_if;
 use leptos_macro::component;
 use std::rc::Rc;
-use leptos_dom::{DynChild, Fragment, IntoView, Component, HydrationCtx};
+use leptos_dom::{DynChild, Fragment, IntoView, Component};
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-use leptos_dom::HydrationKey;
+use leptos_dom::{HydrationCtx, HydrationKey};
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,

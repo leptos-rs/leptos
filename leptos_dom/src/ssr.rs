@@ -11,11 +11,12 @@ use std::borrow::Cow;
 ///
 /// ```
 /// # cfg_if::cfg_if! { if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view;
+/// # use leptos::*;
 /// let html = render_to_string(|cx| view! { cx,
 ///   <p>"Hello, world!"</p>
 /// });
-/// assert_eq!(html, r#"<p>Hello, world!</p>"#);
+/// // static HTML includes some hydration info
+/// assert_eq!(html, "<style>[leptos]{display:none;}</style><p id=\"_0-1\">Hello, world!</p>");
 /// # }}
 /// ```
 pub fn render_to_string<F, N>(f: F) -> String
@@ -151,6 +152,7 @@ pub fn render_to_stream_with_prefix_undisposed(
   let fragments = fragments.map(|(fragment_id, id_before_suspense, html)| {
     cfg_if! {
       if #[cfg(debug_assertions)] {
+        _ = id_before_suspense;
         // Debug-mode <Suspense/>-replacement code
         format!(
           r#"
@@ -447,89 +449,4 @@ fn to_kebab_case(name: &str) -> String {
   }
 
   new_name
-}
-
-#[cfg(test)]
-mod tests {
-  #[test]
-  fn simple_ssr_test() {
-    use leptos::*;
-
-    _ = create_scope(create_runtime(), |cx| {
-      let (value, set_value) = create_signal(cx, 0);
-      let rendered = view! {
-        cx,
-        <div>
-            <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
-            <span>"Value: " {move || value.get().to_string()} "!"</span>
-            <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
-        </div>
-    }.render_to_string();
-
-      assert_eq!(
-        rendered,
-        "<div><button id=\"1-1-2\">-1</button><span>Value: <template \
-         id=\"2-4-6o\"/> <template id=\"2-4-6c\"/>!</span><button \
-         id=\"1-3-4\">+1</button></div>"
-      );
-    });
-  }
-
-  #[test]
-  fn ssr_test_with_components() {
-    use leptos::*;
-
-    #[component]
-    fn Counter(cx: Scope, initial_value: i32) -> View {
-      let (value, set_value) = create_signal(cx, initial_value);
-      view! {
-          cx,
-          <div>
-              <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
-              <span>"Value: " {move || value.get().to_string()} "!"</span>
-              <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
-          </div>
-      }
-    }
-
-    _ = create_scope(create_runtime(), |cx| {
-      let rendered = view! {
-          cx,
-          <div class="counters">
-              <Counter initial_value=1/>
-              <Counter initial_value=2/>
-          </div>
-      }
-      .render_to_string();
-
-      assert_eq!(
-        rendered,
-        "<div class=\"counters\"><template id=\"1-1-2o\"/><div><button \
-         id=\"3-1-4\">-1</button><span>Value: <template id=\"4-4-8o\"/> \
-         <template id=\"4-4-8c\"/>!</span><button \
-         id=\"3-3-6\">+1</button></div><template id=\"1-1-2c\"/><template \
-         id=\"1-2-3o\"/><div><button id=\"3-1-4\">-1</button><span>Value: \
-         <template id=\"4-4-8o\"/> <template id=\"4-4-8c\"/>!</span><button \
-         id=\"3-3-6\">+1</button></div><template id=\"1-2-3c\"/></div>"
-      );
-    });
-  }
-
-  #[test]
-  fn test_classes() {
-    use leptos::*;
-
-    _ = create_scope(create_runtime(), |cx| {
-      let (value, set_value) = create_signal(cx, 5);
-      let rendered = view! {
-          cx,
-          <div class="my big" class:a={move || value.get() > 10} class:red=true class:car={move || value.get() > 1}></div>
-      }.render_to_string();
-
-      assert_eq!(
-        rendered,
-        "<div class=\"my big red car\" id=\"0-0-0\"></div>"
-      );
-    });
-  }
 }

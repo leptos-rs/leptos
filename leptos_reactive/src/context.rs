@@ -27,7 +27,7 @@ use crate::{runtime::with_runtime, Scope};
 /// struct ValueSetter(WriteSignal<i32>);
 /// 
 /// #[component]
-/// pub fn Provider(cx: Scope) -> Element {
+/// pub fn Provider(cx: Scope) -> impl IntoView {
 ///     let (value, set_value) = create_signal(cx, 0);
 ///     
 ///     // the newtype pattern isn't *necessary* here but is a good practice
@@ -41,7 +41,7 @@ use crate::{runtime::with_runtime, Scope};
 /// }
 /// 
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> Element {
+/// pub fn Consumer(cx: Scope) -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
@@ -85,7 +85,7 @@ where
 /// struct ValueSetter(WriteSignal<i32>);
 /// 
 /// #[component]
-/// pub fn Provider(cx: Scope) -> Element {
+/// pub fn Provider(cx: Scope) -> impl IntoView {
 ///     let (value, set_value) = create_signal(cx, 0);
 ///     
 ///     // the newtype pattern isn't *necessary* here but is a good practice
@@ -99,7 +99,7 @@ where
 /// }
 /// 
 /// #[component]
-/// pub fn Consumer(cx: Scope) -> Element {
+/// pub fn Consumer(cx: Scope) -> impl IntoView {
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
