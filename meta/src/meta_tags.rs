@@ -121,7 +121,7 @@ pub fn Meta(cx: Scope, props: MetaProps) {
 			let meta_tags = meta.meta_tags;
 			let id = meta_tags.get_next_id();
 
-			let el = if let Ok(Some(el)) = document().query_selector(&format!("[data-leptos-meta={}]", id.0)) {
+			let el = if let Ok(Some(el)) = document().query_selector(&format!("[data-leptos-meta='{}']", id.0)) {
 				el
 			} else {
 				document().create_element("meta").unwrap_throw()
