@@ -36,15 +36,12 @@ pub use node_ref::*;
 use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::rc::Rc;
 use std::{
   borrow::Cow,
-  cell::{OnceCell, RefCell},
+  cell::{LazyCell, OnceCell, RefCell},
   fmt,
-};
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{
-  cell::{LazyCell, RefCell},
-  rc::Rc,
 };
 pub use transparent::*;
 pub use wasm_bindgen;
