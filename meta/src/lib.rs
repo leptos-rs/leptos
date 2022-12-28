@@ -14,7 +14,7 @@
 //! use leptos_meta::*;
 //!
 //! #[component]
-//! fn MyApp(cx: Scope) -> Element {
+//! fn MyApp(cx: Scope) -> impl IntoView {
 //!   let (name, set_name) = create_signal(cx, "Alice".to_string());
 //!
 //!   view! { cx,
@@ -56,6 +56,15 @@ pub struct MetaContext {
     pub(crate) title: TitleContext,
     pub(crate) stylesheets: StylesheetContext,
     pub(crate) meta_tags: MetaTagsContext
+}
+
+/// Provides a [MetaContext], if there is not already one provided. This ensures that you can provide it
+/// at the highest possible level, without overwriting a [MetaContext] that has already been provided 
+/// (for example, by a server-rendering integration.)
+pub fn provide_meta_context(cx: Scope) {
+    if use_context::<MetaContext>(cx).is_none() {
+        provide_context(cx, MetaContext::new());
+    }
 }
 
 /// Returns the current [MetaContext].
@@ -107,7 +116,10 @@ impl MetaContext {
     ///   };
     ///
     ///   // `app` contains only the body content w/ hydration stuff, not the meta tags
-    ///   assert_eq!(app, r#"<main data-hk="0-0"><!--#--><!--/--><!--#--><!--/--><p>Some text</p></main>"#);
+    ///   assert_eq!(
+    ///      app.into_view(cx).render_to_string(cx),
+    ///      "<main id=\"_0-1\"><leptos-unit leptos id=_0-2c></leptos-unit><leptos-unit leptos id=_0-3c></leptos-unit><p id=\"_0-4\">Some text</p></main>"
+    ///   );
     ///   // `MetaContext::dehydrate()` gives you HTML that should be in the `<head>`
     ///   assert_eq!(use_head(cx).dehydrate(), r#"<title>my title</title><link rel="stylesheet" href="/style.css">"#)
     /// });

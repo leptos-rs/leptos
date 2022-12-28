@@ -37,8 +37,8 @@ pub struct StylesheetProps {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
-///   provide_context(cx, MetaContext::new());
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///   provide_meta_context(cx);
 ///
 ///   view! { cx,
 ///     <main>

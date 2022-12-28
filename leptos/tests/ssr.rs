@@ -61,7 +61,7 @@ fn test_classes() {
     use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 5);
+        let (value, _set_value) = create_signal(cx, 5);
         let rendered = view! {
             cx,
             <div class="my big" class:a={move || value.get() > 10} class:red=true class:car={move || value.get() > 1}></div>

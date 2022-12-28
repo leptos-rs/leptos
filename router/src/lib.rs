@@ -39,7 +39,8 @@
 //! use leptos::*;
 //! use leptos_router::*;
 //!
-//! pub fn router_example(cx: Scope) -> View {
+//! #[component]
+//! pub fn RouterExample(cx: Scope) -> impl IntoView {
 //!   view! {
 //!     cx,
 //!     <div id="root">
@@ -60,23 +61,23 @@
 //!             // our root route: the contact list is always shown
 //!             <Route
 //!               path=""
-//!               element=move |cx| view! { cx,  <ContactList/> }
+//!               view=move |cx| view! { cx,  <ContactList/> }
 //!             >
 //!               // users like /gbj or /bob
 //!               <Route
 //!                 path=":id"
-//!                 element=move |cx| view! { cx,  <Contact/> }
+//!                 view=move |cx| view! { cx,  <Contact/> }
 //!               />
 //!               // a fallback if the /:id segment is missing from the URL
 //!               <Route
 //!                 path=""
-//!                 element=move |_| view! { cx,  <p class="contact">"Select a contact."</p> }
+//!                 view=move |_| view! { cx,  <p class="contact">"Select a contact."</p> }
 //!               />
 //!             </Route>
 //!             // LR will automatically use this for /about, not the /:id match above
 //!             <Route
 //!               path="about"
-//!               element=move |cx| view! { cx,  <About/> }
+//!               view=move |cx| view! { cx,  <About/> }
 //!             />
 //!           </Routes>
 //!         </main>
@@ -100,7 +101,7 @@
 //! }
 //!
 //! #[component]
-//! fn ContactList(cx: Scope) -> View {
+//! fn ContactList(cx: Scope) -> impl IntoView {
 //!   // loads the contact list data once; doesn't reload when nested routes change
 //!   let contacts = create_resource(cx, || (), |_| contact_list_data());
 //!   view! {
@@ -118,7 +119,7 @@
 //! }
 //!
 //! #[component]
-//! fn Contact(cx: Scope) -> View {
+//! fn Contact(cx: Scope) -> impl IntoView {
 //!   let params = use_params_map(cx);
 //!   let data = create_resource(
 //!     cx,
@@ -129,7 +130,7 @@
 //! }
 //!
 //! #[component]
-//! fn About(cx: Scope) -> View {
+//! fn About(cx: Scope) -> impl IntoView {
 //!   todo!()
 //! }
 //!

@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::*;
+use leptos::{component, Scope, IntoView, provide_context, view};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -11,13 +11,12 @@ use routes::story::*;
 use routes::users::*;
 
 #[component]
-pub fn App(cx: Scope) -> Element {
-    provide_context(cx, MetaContext::default());
-
+pub fn App(cx: Scope) -> impl IntoView {
     view! {
         cx,
-        <div>
-            <Stylesheet href="/static/style.css"/>
+        <>
+            <Stylesheet href="/style.css"/>
+            <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
                 <Nav />
                 <main>
@@ -28,7 +27,7 @@ pub fn App(cx: Scope) -> Element {
                     </Routes>
                 </main>
             </Router>
-        </div>
+        </>
     }
 }
 
@@ -41,7 +40,7 @@ cfg_if! {
         pub fn hydrate() {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
-            leptos::hydrate(body().unwrap(), move |cx| {
+            leptos::mount_to_body(move |cx| {
                 view! { cx, <App/> }
             });
         }

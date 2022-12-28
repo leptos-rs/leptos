@@ -539,34 +539,40 @@ impl View {
     event: E,
     event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    match &self {
-      Self::Element(el) => {
-        if event.bubbles() {
-          add_event_listener(&el.element, event.name(), event_handler);
-        } else {
-          add_event_listener_undelegated(
-            &el.element,
-            &event.name(),
-            event_handler,
-          );
+    cfg_if! {
+      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        match &self {
+          Self::Element(el) => {
+            if event.bubbles() {
+              add_event_listener(&el.element, event.name(), event_handler);
+            } else {
+              add_event_listener_undelegated(
+                &el.element,
+                &event.name(),
+                event_handler,
+              );
+            }
+          }
+          Self::Component(c) => {
+            let event_handler = Rc::new(RefCell::new(event_handler));
+
+            c.children.iter().cloned().for_each(|c| {
+              let event_handler = event_handler.clone();
+
+              c.on(event.clone(), move |e| event_handler.borrow_mut()(e));
+            });
+          }
+          Self::CoreComponent(c) => match c {
+            CoreComponent::DynChild(_) => {}
+            CoreComponent::Each(_) => {}
+            _ => {}
+          },
+          _ => {}
         }
+      } else {
+        _ = event;
+        _ = event_handler;
       }
-      Self::Component(c) => {
-        let event_handler = Rc::new(RefCell::new(event_handler));
-
-        c.children.iter().cloned().for_each(|c| {
-          let event_handler = event_handler.clone();
-
-          c.on(event.clone(), move |e| event_handler.borrow_mut()(e));
-        });
-      }
-      Self::CoreComponent(c) => match c {
-        CoreComponent::DynChild(_) => {}
-        CoreComponent::Each(_) => {}
-        _ => {}
-      },
-      _ => {}
     }
 
     self
@@ -751,7 +757,7 @@ pub const fn is_browser() -> bool {
 /// Returns true if `debug_assertions` are enabled.
 /// ```
 /// # use leptos_dom::is_dev;
-/// if is_dev!() {
+/// if is_dev() {
 ///   // log something or whatever
 /// }
 /// ```

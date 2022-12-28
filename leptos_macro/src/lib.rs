@@ -38,7 +38,7 @@ mod server;
 /// 
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <p>"Here’s some text"</p> };
@@ -48,7 +48,7 @@ mod server;
 ///
 /// 2. Self-closing tags need an explicit `/` as in XML/XHTML
 /// ```rust,compile_fail
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ❌ not like this
@@ -58,7 +58,7 @@ mod server;
 /// # });
 /// ```
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ✅ add that slash
@@ -70,9 +70,9 @@ mod server;
 ///
 /// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use typed_builder::TypedBuilder; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
-/// # #[derive(TypedBuilder)] struct CounterProps { initial_value: i32 }
-/// # fn Counter(cx: Scope, props: CounterProps) -> impl IntoView { view! { cx, <p></p>} }
+/// # use leptos::*;
+/// # #[component]
+/// # fn Counter(cx: Scope, initial_value: i32) -> impl IntoView { view! { cx, <p></p>} }
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <div><Counter initial_value=3 /></div> }
@@ -90,7 +90,7 @@ mod server;
 ///    take an `Option`, in which case `Some` sets the attribute and `None` removes the attribute.
 ///
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast; use leptos_dom as leptos; use leptos_dom::Marker;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 0);
@@ -112,7 +112,7 @@ mod server;
 /// 5. Event handlers can be added with `on:` attributes. In most cases, the events are given the correct type
 ///    based on the event name.
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
@@ -132,7 +132,7 @@ mod server;
 ///    that returns a primitive or JsValue). They can also take an `Option`, in which case `Some` sets the property
 ///    and `None` deletes the property.
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
@@ -154,7 +154,7 @@ mod server;
 ///
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
@@ -166,7 +166,7 @@ mod server;
 ///
 /// Class names can include dashes, but cannot (at the moment) include a dash-separated segment of only numbers.
 /// ```rust,compile_fail
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
@@ -180,7 +180,7 @@ mod server;
 /// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
 ///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::view; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (value, set_value) = create_signal(cx, 0);
@@ -194,7 +194,7 @@ mod server;
 ///
 /// Here’s a simple example that shows off several of these features, put together
 /// ```rust
-/// # use leptos_reactive::*; use leptos_dom::*; use leptos_macro::*; use leptos_dom as leptos; use leptos_dom::Marker; use leptos_dom::wasm_bindgen::JsCast;
+/// # use leptos::*;
 ///
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// pub fn SimpleCounter(cx: Scope) -> impl IntoView {
@@ -342,7 +342,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// // ❌ This won't work.
 /// # use leptos::*;
 /// #[component]
-/// fn MyComponent<T: Fn() -> impl IntoView>(cx: Scope, render_prop: T) -> impl IntoView {
+/// fn MyComponent<T: Fn() -> HtmlElement<Div>>(cx: Scope, render_prop: T) -> impl IntoView {
 ///   todo!()
 /// }
 /// ```
@@ -351,18 +351,19 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// // ✅ Do this instead
 /// # use leptos::*;
 /// #[component]
-/// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView where T: Fn() -> impl IntoView {
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView 
+/// where T: Fn() -> HtmlElement<Div> {
 ///   todo!()
 /// }
 /// ```
 ///
 /// 5. You can access the children passed into the component with the `children` property, which takes
-///    an argument of the form `Box<dyn Fn(Scope) -> [Fragment](leptos_dom::Fragment)>`.
+///    an argument of the form `Box<dyn Fn(Scope) -> Fragment>`.
 ///
 /// ```
 /// # use leptos::*;
 /// #[component]
-/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn() -> Fragment>) -> impl IntoView {
+/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn(Scope) -> Fragment>) -> impl IntoView {
 ///   view! {
 ///     cx,
 ///     <ul>

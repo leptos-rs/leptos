@@ -66,7 +66,7 @@ pub struct TitleProps {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
+/// fn MyApp(cx: Scope) -> impl IntoView {
 ///   provide_context(cx, MetaContext::new());
 ///   let formatter = |text| format!("{text} — Leptos Online");
 ///
@@ -79,7 +79,7 @@ pub struct TitleProps {
 /// }
 ///
 /// #[component]
-/// fn PageA(cx: Scope) -> Element {
+/// fn PageA(cx: Scope) -> impl IntoView {
 ///   view! { cx,
 ///     <main>
 ///       <Title text="Page A"/> // sets title to "Page A — Leptos Online"
@@ -88,7 +88,7 @@ pub struct TitleProps {
 /// }
 ///
 /// #[component]
-/// fn PageB(cx: Scope) -> Element {
+/// fn PageB(cx: Scope) -> impl IntoView {
 ///   view! { cx,
 ///     <main>
 ///       <Title text="Page B"/> // sets title to "Page B — Leptos Online"

@@ -6,14 +6,15 @@ use leptos_reactive::{create_rw_signal, RwSignal, Scope};
 /// ```
 /// # use leptos::*;
 /// #[component]
-/// pub fn MyComponent(cx: Scope) -> Element {
-///   let input_ref = NodeRef::new(cx);
+/// pub fn MyComponent(cx: Scope) -> impl IntoView {
+///   let input_ref = NodeRef::<HtmlElement<Input>>::new(cx);
 ///
 ///   let on_click = move |_| {
 ///     let node = input_ref
 ///       .get()
-///       .expect("input_ref should be loaded by now")
-///       .unchecked_into::<web_sys::HtmlInputElement>();
+///       .expect("input_ref should be loaded by now");
+///     // `node` is strongly typed
+///     // it is dereferenced to an `HtmlInputElement` automatically
 ///     log!("value is {:?}", node.value())
 ///   };
 ///

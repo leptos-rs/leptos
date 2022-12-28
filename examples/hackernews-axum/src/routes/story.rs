@@ -1,18 +1,27 @@
 use crate::api;
 use leptos::*;
+use leptos_meta::*;
 use leptos_router::*;
 
 #[component]
-pub fn Story(cx: Scope) -> Element {
+pub fn Story(cx: Scope) -> impl IntoView {
     let params = use_params_map(cx);
     let story = create_resource(
         cx,
         move || params().get("id").cloned().unwrap_or_default(),
-        move |id| async move { api::fetch_api::<api::Story>(&api::story(&format!("item/{id}"))).await },
+        move |id| async move {
+            if id.is_empty() {
+                None
+            } else {
+                api::fetch_api::<api::Story>(cx, &api::story(&format!("item/{id}"))).await
+            }
+        },
     );
+    let meta_description = move || story.read().and_then(|story| story.map(|story| story.title.clone())).unwrap_or_else(|| "Loading story...".to_string());
 
     view! { cx,
-        <div>
+        <>
+            <Meta name="description" content=meta_description/>
             {move || story.read().map(|story| match story {
                 None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
                 Some(story) => view! { cx,
@@ -40,19 +49,21 @@ pub fn Story(cx: Scope) -> Element {
                             }}
                         </p>
                         <ul class="comment-children">
-                            <For each=move || story.comments.clone().unwrap_or_default() key=|comment| comment.id>
-                                {move |cx, comment: &api::Comment| view! { cx,  <Comment comment=comment.clone() /> }}
-                            </For>
+                            <For
+                                each=move || story.comments.clone().unwrap_or_default()
+                                key=|comment| comment.id
+                                view=move |comment| view! { cx,  <Comment comment /> }
+                            />
                         </ul>
                     </div>
                 </div>
             }})}
-        </div>
+        </>
     }
 }
 
 #[component]
-pub fn Comment(cx: Scope, comment: api::Comment) -> Element {
+pub fn Comment(cx: Scope, comment: api::Comment) -> impl IntoView {
     let (open, set_open) = create_signal(cx, true);
 
     view! { cx,
@@ -81,9 +92,11 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> Element {
                         let comments = comment.comments.clone();
                         move || view! { cx,
                             <ul class="comment-children">
-                                <For each=move || comments.clone() key=|comment| comment.id>
-                                    {|cx, comment: &api::Comment| view! { cx, <Comment comment=comment.clone() /> }}
-                                </For>
+                                <For
+                                    each=move || comments.clone()
+                                    key=|comment| comment.id
+                                    view=move |comment: api::Comment| view! { cx, <Comment comment /> }
+                                />
                             </ul>
                         }
                     })}

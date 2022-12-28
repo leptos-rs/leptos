@@ -228,7 +228,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// use leptos::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
+/// fn MyApp(cx: Scope) -> impl IntoView {
 ///   view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///

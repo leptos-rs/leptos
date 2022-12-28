@@ -542,7 +542,10 @@ impl<El: ElementDescriptor> HtmlElement<El> {
   pub fn on<E: EventDescriptor + 'static>(
     self,
     event: E,
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     mut event_handler: impl EventHandler<E>,
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    event_handler: impl EventHandler<E>,
   ) -> Self {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {

@@ -9,7 +9,7 @@ app into one CRS bundle
 ## Server Side Rendering With Hydration
 To run it as a server side app with hydration, first you should run 
 ```bash
-wasm-pack build --target=web --no-default-features --features=hydrate
+wasm-pack build --target=web --debug --no-default-features --features=hydrate
 ```
 to generate the Webassembly to provide hydration features for the server.
 Then run the server with `cargo run` to serve the server side rendered HTML and the WASM bundle for hydration. 
