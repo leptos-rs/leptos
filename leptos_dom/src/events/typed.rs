@@ -24,7 +24,8 @@ pub trait EventDescriptor: Clone {
 /// Overrides the [`EventDescriptor::bubbles`] method to always return
 /// `false`, which forces the event to not be globally delegated.
 #[derive(Clone)]
-pub struct Undelegated<Ev: EventDescriptor>(pub Ev);
+#[allow(non_camel_case_types)]
+pub struct undelegated<Ev: EventDescriptor>(pub Ev);
 
 impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
   type EventType = Ev::EventType;
