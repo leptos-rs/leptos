@@ -1,5 +1,3 @@
-**Please note:** This framework is in active development. I'm keeping it in a cycle of 0.0.x releases at the moment to indicate that it’s not even ready for its 0.1.0. Active work is being done on documentation and features, and APIs should not necessarily be considered stable. At the same time, it is more than a toy project or proof of concept, and I am actively using it for my own application development.
-
 <img src="https://raw.githubusercontent.com/gbj/leptos/main/docs/logos/logo.svg" alt="Leptos Logo" style="width: 100%; height: auto; display: block; margin: auto;">
 
 [![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
@@ -22,7 +20,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
     let decrement = move |_| set_value.update(|value| *value -= 1);
     let increment = move |_| set_value.update(|value| *value += 1);
 
-    // this JSX is compiled to an HTML template string for performance
+    // create user interfaces with the declarative `view!` macro
     view! {
         cx,
         <div>
@@ -89,41 +87,11 @@ rustup target add wasm32-unknown-unknown
 
 If you’re on stable, note the following:
 
-1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }`
+1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
    [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
    for examples of the correct API.
-
-## Benchmarks
-
-### Server-Side Rendering
-
-I’ve created a benchmark comparing Leptos’s HTML rendering on the server to [Tera](https://github.com/Keats/tera), [Yew](https://github.com/yewstack/yew), and [Sycamore](https://github.com/sycamore-rs/sycamore). You can find the benchmark [here](https://github.com/gbj/leptos/tree/main/benchmarks) and run it yourself using `cargo bench`. Leptos renders HTML roughly as fast as Tera, and scales well as templates become larger. It's significantly faster than the server-side HTML rendering done by similar frameworks.
-
-<details>
-  <summary>Click to show results</summary>
-<table>
-<thead>
-<tr><td><em>ns/iter</em></td><td>Tera</td><td>Leptos</td><td>Yew</td><td>Sycamore</td></tr>
-</thead>
-<tbody>
-<tr><td>3 Counters</td><td align="right">3,454</td><td align="right">5,666</td><td align="right">34,984</td><td align="right">32,412</td></tr>
-<tr><td>TodoMVC (no todos)</td><td align="right">2,396</td><td align="right">5,561</td><td align="right">38,725</td><td align="right">68,749</td></tr>
-<tr><td>TodoMVC (1000 todos)</td><td align="right">3,829,447</td><td align="right">3,077,907</td><td align="right">5,125,639</td><td align="right">19,448,900</td></tr>
-<tr><td><em>Average</em></td><td align="right">1.08</td><td align="right">1.65</td><td align="right">6.25</td><td align="right">9.36</td></tr>
-</tbody>
-</table>
-</details>
-
-### Client-Side Rendering
-
-The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). The official results list Leptos as the fastest Rust/Wasm framework, slightly slower than SolidJS and significantly faster than popular JS frameworks like Svelte, Preact, and React.
-
-<details>
-  <summary>Click to show results</summary>
-  <img width="913" alt="js-framework-benchmark results" src="https://user-images.githubusercontent.com/286622/198388168-d21e938b-5d59-4000-b373-91b48f1ec4d3.png">
-</details>
 
 ## FAQs
 
