@@ -148,7 +148,7 @@ impl ToTokens for Model {
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #[cfg_attr(
                 debug_assertions,
-                ::leptos::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
               )]
             #vis fn #name #generics (
                 #[allow(unused_variables)]
@@ -163,7 +163,7 @@ impl ToTokens for Model {
                     #prop_names
                 } = props;
 
-                let span = ::leptos::tracing::Span::current();
+                let span = ::leptos::leptos_dom::tracing::Span::current();
 
                 #component
             }
@@ -607,7 +607,10 @@ fn prop_to_doc(
     }: &Prop,
     style: PropDocStyle,
 ) -> TokenStream {
-    let ty = if prop_opts.contains(&PropOpt::Optional) && is_option(ty) {
+    let ty = if (prop_opts.contains(&PropOpt::Optional)
+        || prop_opts.contains(&PropOpt::StripOption))
+        && is_option(ty)
+    {
         unwrap_option(ty).unwrap()
     } else {
         ty.to_owned()

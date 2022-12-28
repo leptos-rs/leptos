@@ -490,7 +490,9 @@ fn fragment_to_tokens(cx: &Ident, _span: Span, nodes: &[Node], lazy: bool) -> To
 
 fn node_to_tokens(cx: &Ident, node: &Node) -> TokenStream {
     match node {
-        Node::Fragment(fragment) => fragment_to_tokens(cx, Span::call_site(), &fragment.children, false),
+        Node::Fragment(fragment) => {
+            fragment_to_tokens(cx, Span::call_site(), &fragment.children, false)
+        }
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
             let value = node.value.as_ref();
@@ -518,12 +520,10 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
         } else if is_svg_element(&tag) {
             let name = &node.name;
             quote! { leptos::leptos_dom::svg::#name(#cx) }
-        }
-        else if is_math_ml_element(&tag) {
+        } else if is_math_ml_element(&tag) {
             let name = &node.name;
             quote! { leptos::leptos_dom::math::#name(#cx) }
-        }
-        else {
+        } else {
             let name = &node.name;
             quote! { leptos::leptos_dom::#name(#cx) }
         };
@@ -642,23 +642,17 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     let span = node.name.span();
     let component_props_name = format_ident!("{component_name}Props");
 
-    let children = if node.children.is_empty() {
-        quote! {}
-    } else {
-        let children = fragment_to_tokens(cx, span, &node.children, true);
-        quote! { .children(Box::new(move |#cx| #children)) }
-    };
+    let attrs = node.attributes.iter().filter_map(|node| {
+        if let Node::Attribute(node) = node {
+            Some(node)
+        } else {
+            None
+        }
+    });
 
-    let props = node
-        .attributes
-        .iter()
-        .filter_map(|node| {
-            if let Node::Attribute(node) = node {
-                Some(node)
-            } else {
-                None
-            }
-        })
+    let props = attrs
+        .clone()
+        .filter(|attr| !attr.key.to_string().starts_with("clone:"))
         .map(|attr| {
             let name = &attr.key;
 
@@ -675,6 +669,38 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
                 .#name(#[allow(unused_braces)] #value)
             }
         });
+
+    let items_to_clone = attrs
+        .filter(|attr| attr.key.to_string().starts_with("clone:"))
+        .map(|attr| {
+            let ident = attr
+                .key
+                .to_string()
+                .strip_prefix("clone:")
+                .unwrap()
+                .to_owned();
+
+            format_ident!("{ident}", span = attr.key.span())
+        })
+        .collect::<Vec<_>>();
+
+    let children = if node.children.is_empty() {
+        quote! {}
+    } else {
+        let children = fragment_to_tokens(cx, span, &node.children, true);
+
+        let clonables = items_to_clone
+            .iter()
+            .map(|ident| quote! { let #ident = #ident.clone(); });
+
+        quote! {
+            .children({
+                #(#clonables)*
+
+                Box::new(move |#cx| #children)
+            })
+        }
+    };
 
     quote! {
         #name(
@@ -747,110 +773,118 @@ fn is_self_closing(node: &NodeElement) -> bool {
 fn camel_case_tag_name(tag_name: &str) -> String {
     let mut chars = tag_name.chars();
     let first = chars.next();
-    first.map(|f| f.to_ascii_uppercase()).into_iter()
+    first
+        .map(|f| f.to_ascii_uppercase())
+        .into_iter()
         .chain(chars)
         .collect()
 }
 
 fn is_svg_element(tag: &str) -> bool {
-    matches!(tag, "animate" | 
-        "animateMotion" | 
-        "animateTransform" | 
-        "circle" | 
-        "clipPath" | 
-        "defs" | 
-        "desc" | 
-        "discard" | 
-        "ellipse" | 
-        "feBlend" | 
-        "feColorMatrix" | 
-        "feComponentTransfer" | 
-        "feComposite" | 
-        "feConvolveMatrix" | 
-        "feDiffuseLighting" | 
-        "feDisplacementMap" | 
-        "feDistantLight" | 
-        "feDropShadow" | 
-        "feFlood" | 
-        "feFuncA" | 
-        "feFuncB" | 
-        "feFuncG" | 
-        "feFuncR" | 
-        "feGaussianBlur" | 
-        "feImage" | 
-        "feMerge" |   
-        "feMergeNode" |   
-        "feMorphology" |   
-        "feOffset" |   
-        "fePointLight" |   
-        "feSpecularLighting" |   
-        "feSpotLight" |   
-        "feTile" |   
-        "feTurbulence" |   
-        "filter" |   
-        "foreignObject" |   
-        "g" |   
-        "hatch" |   
-        "hatchpath" |   
-        "image" |   
-        "line" |   
-        "linearGradient" |   
-        "marker" |   
-        "mask" |   
-        "metadata" |   
-        "mpath" |   
-        "path" |   
-        "pattern" |   
-        "polygon" |   
-        "polyline" |   
-        "radialGradient" |   
-        "rect" |   
-        "script" |   
-        "set" |   
-        "stop" |   
-        "style" |   
-        "svg" |   
-        "switch" |   
-        "symbol" |   
-        "text" |   
-        "textPath" |   
-        "title" |   
-        "tspan" |   
-        "use" |   
-        "use_" |
-        "view")
+    matches!(
+        tag,
+        "animate"
+            | "animateMotion"
+            | "animateTransform"
+            | "circle"
+            | "clipPath"
+            | "defs"
+            | "desc"
+            | "discard"
+            | "ellipse"
+            | "feBlend"
+            | "feColorMatrix"
+            | "feComponentTransfer"
+            | "feComposite"
+            | "feConvolveMatrix"
+            | "feDiffuseLighting"
+            | "feDisplacementMap"
+            | "feDistantLight"
+            | "feDropShadow"
+            | "feFlood"
+            | "feFuncA"
+            | "feFuncB"
+            | "feFuncG"
+            | "feFuncR"
+            | "feGaussianBlur"
+            | "feImage"
+            | "feMerge"
+            | "feMergeNode"
+            | "feMorphology"
+            | "feOffset"
+            | "fePointLight"
+            | "feSpecularLighting"
+            | "feSpotLight"
+            | "feTile"
+            | "feTurbulence"
+            | "filter"
+            | "foreignObject"
+            | "g"
+            | "hatch"
+            | "hatchpath"
+            | "image"
+            | "line"
+            | "linearGradient"
+            | "marker"
+            | "mask"
+            | "metadata"
+            | "mpath"
+            | "path"
+            | "pattern"
+            | "polygon"
+            | "polyline"
+            | "radialGradient"
+            | "rect"
+            | "script"
+            | "set"
+            | "stop"
+            | "style"
+            | "svg"
+            | "switch"
+            | "symbol"
+            | "text"
+            | "textPath"
+            | "title"
+            | "tspan"
+            | "use"
+            | "use_"
+            | "view"
+    )
 }
 
 fn is_math_ml_element(tag: &str) -> bool {
-    matches!(tag, "math" | 
-        "mi" | 
-        "mn" | 
-        "mo" | 
-        "ms" | 
-        "mspace" | 
-        "mtext" | 
-        "menclose" | 
-        "merror" | 
-        "mfenced" | 
-        "mfrac" | 
-        "mpadded" | 
-        "mphantom" | 
-        "mroot" | 
-        "mrow" | 
-        "msqrt" | 
-        "mstyle" | 
-        "mmultiscripts" | 
-        "mover" | 
-        "mprescripts" | 
-        "msub" | 
-        "msubsup" | 
-        "msup" | 
-        "munder" | 
-        "munderover" | 
-        "mtable" | 
-        "mtd" | 
-        "mtr" | 
-        "maction" | 
-        "annotation" | 
-        "semantics")
+    matches!(
+        tag,
+        "math"
+            | "mi"
+            | "mn"
+            | "mo"
+            | "ms"
+            | "mspace"
+            | "mtext"
+            | "menclose"
+            | "merror"
+            | "mfenced"
+            | "mfrac"
+            | "mpadded"
+            | "mphantom"
+            | "mroot"
+            | "mrow"
+            | "msqrt"
+            | "mstyle"
+            | "mmultiscripts"
+            | "mover"
+            | "mprescripts"
+            | "msub"
+            | "msubsup"
+            | "msup"
+            | "munder"
+            | "munderover"
+            | "mtable"
+            | "mtd"
+            | "mtr"
+            | "maction"
+            | "annotation"
+            | "semantics"
+    )
 }
