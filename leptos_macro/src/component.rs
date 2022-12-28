@@ -148,7 +148,7 @@ impl ToTokens for Model {
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #[cfg_attr(
                 debug_assertions,
-                ::leptos::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
               )]
             #vis fn #name #generics (
                 #[allow(unused_variables)]
@@ -163,7 +163,7 @@ impl ToTokens for Model {
                     #prop_names
                 } = props;
 
-                let span = ::leptos::tracing::Span::current();
+                let span = ::leptos::leptos_dom::tracing::Span::current();
 
                 #component
             }
