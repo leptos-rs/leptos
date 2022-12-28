@@ -27,7 +27,7 @@ pub trait EventDescriptor: Clone {
 #[allow(non_camel_case_types)]
 pub struct undelegated<Ev: EventDescriptor>(pub Ev);
 
-impl<Ev: EventDescriptor> EventDescriptor for Undelegated<Ev> {
+impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
   type EventType = Ev::EventType;
 
   fn name(&self) -> Cow<'static, str> {
