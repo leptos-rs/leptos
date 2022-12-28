@@ -27,12 +27,8 @@
 //! the [examples](https://github.com/gbj/leptos/tree/main/examples):
 //! - [`counter`](https://github.com/gbj/leptos/tree/main/examples/counter) is the classic
 //!   counter example, showing the basics of client-side rendering and reactive DOM updates
-//! - [`counter-isomorphic`](https://github.com/gbj/leptos/tree/main/examples/counter-isomorphic) is the classic
-//!   counter example run on the server using an isomorphic function, showing the basics of client-side rendering and reactive DOM updates
-//! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counters) introduces parent-child
+//! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counter) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
-//! - [`counters-stable`](https://github.com/gbj/leptos/tree/main/examples/counters-stable) introduces parent-child
-//!   communication via contexts, and the `<For/>` component for efficient keyed list updates. Unlike counters, this compiles in Rust stable.
 //! - [`parent-child`](https://github.com/gbj/leptos/tree/main/examples/parent-child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`todomvc`](https://github.com/gbj/leptos/tree/main/examples/todomvc) implements the classic to-do
@@ -51,13 +47,6 @@
 //! - [`hackernews`](https://github.com/gbj/leptos/tree/main/examples/hackernews) pulls everything together.
 //!   It integrates calls to a real external REST API, routing, server-side rendering and hydration to create
 //!   a fully-functional PEMPA that works as intended even before WASM has loaded and begun to run.
-//! - [`hackernews-axum`](https://github.com/gbj/leptos/tree/main/examples/hackernews-axum) pulls everything together.
-//!   It integrates calls to a real external REST API, routing, server-side rendering and hydration to create
-//!   a fully-functional PEMPA that works as intended even before WASM has loaded and begun to run. This one uses Axum as it's backend.
-//! - [`todo-app-sqlite`](https://github.com/gbj/leptos/tree/main/examples/todo-app-sqlite) is a simple todo app, showcasing the use of
-//!  functions that run only on the server, but are called from client side function calls
-//! - [`todo-app-sqlite-axum`](https://github.com/gbj/leptos/tree/main/examples/todo-app-sqlite-axum) is a simple todo app, showcasing the use of
-//!  functions that run only on the server, but are called from client side function calls. Now with Axum backend
 //!
 //! (The SPA examples can be run using `trunk serve`. For information about Trunk,
 //! [see here]((https://trunkrs.dev/)).)
@@ -88,10 +77,6 @@
 //!   from the server to the client.
 //! - `miniserde` In SSR/hydrate mode, uses [miniserde](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
 //!   from the server to the client.
-//! - `interning` (*Default*) When client-side rendering, Leptos uses [`wasm_bindgen::intern`](https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/fn.intern.html)
-//!   to reduce the cost of copying class names, attribute names, attribute values, and properties through JavaScript to the DOM. This feature
-//!   (included by default) makes DOM updates marginally faster and WASM binary size marginally larger. Disabling the feature makes binary sizes
-//!   marginally smaller at the cost of a small decrease in speed.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in.

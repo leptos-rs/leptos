@@ -2,7 +2,6 @@ use cfg_if::cfg_if;
 use std::{cell::RefCell, rc::Rc};
 
 use leptos::*;
-use leptos::typed_builder::*;
 use thiserror::Error;
 
 #[cfg(not(feature = "ssr"))]
@@ -65,6 +64,7 @@ impl std::fmt::Debug for RouterContextInner {
         f.debug_struct("RouterContextInner")
             .field("location", &self.location)
             .field("base", &self.base)
+            .field("history", &std::any::type_name_of_val(&self.history))
             .field("cx", &self.cx)
             .field("reference", &self.reference)
             .field("set_reference", &self.set_reference)
@@ -86,10 +86,7 @@ impl RouterContext {
                 let history = use_context::<RouterIntegrationContext>(cx)
                     .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
             } else {
-                let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.\n\n \
-                If you are using `leptos_actix` or `leptos_axum` and seeing this message, it is a bug: \n \
-                1. Please check to make sure you're on the latest versions of `leptos_actix` or `leptos_axum` and of `leptos_router`. \n
-                2. If you're on the latest versions, please open an issue at https://github.com/gbj/leptos/issues");
+                let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.");
             }
         };
 
@@ -102,16 +99,14 @@ impl RouterContext {
         let base = base.unwrap_or_default();
         let base_path = resolve_path("", base, None);
 
-        if let Some(base_path) = &base_path {
-            if source.with(|s| s.value.is_empty()) {
-                history.navigate(&LocationChange {
-                    value: base_path.to_string(),
-                    replace: true,
-                    scroll: false,
-                    state: State(None),
-                });
-            }
-        }
+        if let Some(base_path) = &base_path && source.with(|s| s.value.is_empty()) {
+			history.navigate(&LocationChange {
+				value: base_path.to_string(),
+				replace: true,
+				scroll: false,
+				state: State(None)
+			});
+		}
 
         // the current URL
         let (reference, set_reference) = create_signal(cx, source.with(|s| s.value.clone()));

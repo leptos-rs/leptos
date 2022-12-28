@@ -1,7 +1,6 @@
 use crate::api;
 use leptos::*;
 use leptos_meta::*;
-use leptos_meta::*;
 use leptos_router::*;
 
 #[component]

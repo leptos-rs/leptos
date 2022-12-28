@@ -10,7 +10,7 @@ To run it as a server side app with hydration, first you should run
 wasm-pack build --target=web --debug --no-default-features --features=hydrate
 ```
 
-to generate the WebAssembly to provide hydration features for the server.
+to generate the Webassembly to provide hydration features for the server.
 Then run the server with `cargo run` to serve the server side rendered HTML and the WASM bundle for hydration.
 
 ```bash

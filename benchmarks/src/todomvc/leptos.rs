@@ -121,21 +121,21 @@ pub fn TodoMVC(cx: Scope,todos: Todos) -> impl IntoView {
     set_mode(new_mode);
   });
 
-    let add_todo = move |ev: web_sys::KeyboardEvent| {
-        let target = event_target::<HtmlInputElement>(&ev);
-        ev.stop_propagation();
-        let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
-        if key_code == ENTER_KEY {
-            let title = event_target_value(&ev);
-            let title = title.trim();
-            if !title.is_empty() {
-                let new = Todo::new(cx, next_id, title.to_string());
-                set_todos.update(|t| t.add(new));
-                next_id += 1;
-                target.set_value("");
-            }
-        }
-    };
+  let add_todo = move |ev: web_sys::KeyboardEvent| {
+    let target = event_target::<HtmlInputElement>(&ev);
+    ev.stop_propagation();
+    let key_code = ev.unchecked_ref::<web_sys::KeyboardEvent>().key_code();
+    if key_code == ENTER_KEY {
+      let title = event_target_value(&ev);
+      let title = title.trim();
+      if !title.is_empty() {
+        let new = Todo::new(cx, next_id, title.to_string());
+        set_todos.update(|t| t.add(new));
+        next_id += 1;
+        target.set_value("");
+      }
+    }
+  };
 
   let filtered_todos = create_memo::<Vec<Todo>>(cx, move |_| {
     todos.with(|todos| match mode.get() {
@@ -227,10 +227,10 @@ pub fn TodoMVC(cx: Scope,todos: Todos) -> impl IntoView {
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> Element {
-    let (editing, set_editing) = create_signal(cx, false);
-    let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
-    let input: Element;
+pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
+  let (editing, set_editing) = create_signal(cx, false);
+  let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
+  //let input = NodeRef::new(cx);
 
   let save = move |value: &str| {
     let value = value.trim();

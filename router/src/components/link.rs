@@ -6,31 +6,31 @@ use crate::{use_location, use_resolved_path, State};
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
-pub trait TextProp {
+pub trait ToHref {
     /// Converts the (static or reactive) URL into a function that can be called to
     /// return the URL.
-    fn to_value(&self) -> Box<dyn Fn() -> String + '_>;
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_>;
 }
 
-impl TextProp for &str {
-    fn to_value(&self) -> Box<dyn Fn() -> String> {
+impl ToHref for &str {
+    fn to_href(&self) -> Box<dyn Fn() -> String> {
         let s = self.to_string();
         Box::new(move || s.clone())
     }
 }
 
-impl TextProp for String {
-    fn to_value(&self) -> Box<dyn Fn() -> String> {
+impl ToHref for String {
+    fn to_href(&self) -> Box<dyn Fn() -> String> {
         let s = self.clone();
         Box::new(move || s.clone())
     }
 }
 
-impl<F> TextProp for F
+impl<F> ToHref for F
 where
     F: Fn() -> String + 'static,
 {
-    fn to_value(&self) -> Box<dyn Fn() -> String + '_> {
+    fn to_href(&self) -> Box<dyn Fn() -> String + '_> {
         Box::new(self)
     }
 }
@@ -91,7 +91,6 @@ where
                     prop:state={state.map(|s| s.to_js_value())}
                     prop:replace={replace}
                     aria-current=move || if is_active.get() { Some("page") } else { None }
-                    class=move || class.as_ref().map(|class| class.get())
                     class=move || class.as_ref().map(|class| class.get())
                 >
                     {children(cx)}

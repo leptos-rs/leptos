@@ -14,9 +14,9 @@ cfg_if! {
         }
 
         pub fn register_server_functions() {
-            _ = GetTodos::register();
-            _ = AddTodo::register();
-            _ = DeleteTodo::register();
+            GetTodos::register();
+            AddTodo::register();
+            DeleteTodo::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
