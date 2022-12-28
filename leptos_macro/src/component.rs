@@ -114,6 +114,27 @@ impl ToTokens for Model {
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
+        let (tracing_instrument_attr, tracing_span_expr, tracing_guard_expr) = if cfg!(
+            feature = "tracing"
+        ) {
+            (
+                quote! {
+                    #[cfg_attr(
+                        debug_assertions,
+                        ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                    )]
+                },
+                quote! {
+                    let span = ::leptos::leptos_dom::tracing::Span::current();
+                },
+                quote! {
+                    let _guard = span.entered();
+                },
+            )
+        } else {
+            (quote! {}, quote! {}, quote! {})
+        };
+
         let component = if *is_transparent {
             quote! {
                 #body_name(cx, #prop_names)
@@ -124,7 +145,7 @@ impl ToTokens for Model {
                     stringify!(#name),
                     move |cx| {
                         #[cfg(debug_assertions)]
-                        let _guard = span.entered();
+                        #tracing_guard_expr
 
                         #body_name(cx, #prop_names)
                     }
@@ -146,10 +167,7 @@ impl ToTokens for Model {
             #docs
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
-            #[cfg_attr(
-                debug_assertions,
-                ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
-              )]
+            #tracing_instrument_attr
             #vis fn #name #generics (
                 #[allow(unused_variables)]
                 #scope_name: Scope,
@@ -163,7 +181,7 @@ impl ToTokens for Model {
                     #prop_names
                 } = props;
 
-                let span = ::leptos::leptos_dom::tracing::Span::current();
+                #tracing_span_expr
 
                 #component
             }
