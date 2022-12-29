@@ -207,7 +207,6 @@ where
 
                 (Some(prev_t), disposer)
               } else {
-                crate::log!("path Ab");
                 mount_child(MountKind::Before(&closing), &new_child);
 
                 **child_borrow = Some(new_child.clone());
@@ -218,7 +217,6 @@ where
             // Child is not a text node, so we can remove the previous
             // text node
             else {
-              crate::log!("path B");
               if !was_child_moved && child != new_child {
                 // Remove the text
                 closing
