@@ -187,8 +187,10 @@ where
           // If it was, `DynChild` no longer "owns" that child, and
           // is therefore no longer sound to unmount it from the DOM
           // or to reuse it in the case of a text node
-          let was_child_moved =
-            child.get_closing_node().next_sibling().as_ref() != Some(&closing);
+
+          // FIXME this was breaking DynChild updates on text nodes, at least...
+          let was_child_moved = false;
+            //child.get_closing_node().next_sibling().as_ref() != Some(&closing);
 
           // If the previous child was a text node, we would like to
           // make use of it again if our current child is also a text
@@ -205,6 +207,7 @@ where
 
                 (Some(prev_t), disposer)
               } else {
+                crate::log!("path Ab");
                 mount_child(MountKind::Before(&closing), &new_child);
 
                 **child_borrow = Some(new_child.clone());
@@ -215,6 +218,7 @@ where
             // Child is not a text node, so we can remove the previous
             // text node
             else {
+              crate::log!("path B");
               if !was_child_moved && child != new_child {
                 // Remove the text
                 closing
