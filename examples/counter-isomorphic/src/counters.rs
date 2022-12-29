@@ -228,7 +228,7 @@ pub fn MultiuserCounter(cx: Scope) -> Element {
             <div>
                 <button on:click=move |_| clear.dispatch(())>"Clear"</button>
                 <button on:click=move |_| dec.dispatch(())>"-1"</button>
-                <span>"Multiplayer Value: " {move || multiplayer_value().unwrap_or_default().to_string()}</span>
+                <span>"Multiplayer Value: " {move || multiplayer_value.get().unwrap_or_default().to_string()}</span>
                 <button on:click=move |_| inc.dispatch(())>"+1"</button>
             </div>
         </div>
