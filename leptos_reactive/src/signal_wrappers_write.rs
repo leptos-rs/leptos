@@ -29,10 +29,16 @@ use crate::{RwSignal, Scope, WriteSignal};
 /// assert_eq!(count(), 8);
 /// # });
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SignalSetter<T>(SignalSetterTypes<T>)
 where
     T: 'static;
+
+impl<T> Clone for SignalSetter<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<T> SignalSetter<T>
 where
@@ -103,13 +109,21 @@ impl<T> From<RwSignal<T>> for SignalSetter<T> {
     }
 }
 
-#[derive(Clone)]
 enum SignalSetterTypes<T>
 where
     T: 'static,
 {
     Write(WriteSignal<T>),
     Mapped(Scope, Rc<dyn Fn(T)>),
+}
+
+impl<T> Clone for SignalSetterTypes<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Write(arg0) => Self::Write(*arg0),
+            Self::Mapped(cx, f) => Self::Mapped(*cx, f.clone()),
+        }
+    }
 }
 
 impl<T> std::fmt::Debug for SignalSetterTypes<T>
