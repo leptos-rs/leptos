@@ -1,7 +1,6 @@
 use cfg_if::cfg_if;
-use leptos::Scope;
+use leptos::{Scope, component, IntoView};
 use std::{rc::Rc, cell::{RefCell, Cell}, collections::HashMap};
-use typed_builder::TypedBuilder;
 
 use crate::{use_head, TextProp};
 
@@ -65,23 +64,6 @@ impl MetaTagsContext {
     }
 }
 
-/// Properties for the [Meta] component.
-#[derive(TypedBuilder)]
-pub struct MetaProps {
-    /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
-    #[builder(default, setter(strip_option, into))]
-    pub charset: Option<TextProp>,
-	/// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
-	#[builder(default, setter(strip_option, into))]
-	pub name: Option<TextProp>,
-	/// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
-	#[builder(default, setter(strip_option, into))]
-	pub http_equiv: Option<TextProp>,
-	/// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
-	#[builder(default, setter(strip_option, into))]
-	pub content: Option<TextProp>,
-}
-
 /// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
 ///
@@ -90,8 +72,8 @@ pub struct MetaProps {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
-///   provide_context(cx, MetaContext::new());
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///   provide_meta_context(cx);
 ///
 ///   view! { cx,
 ///     <main>
@@ -102,9 +84,22 @@ pub struct MetaProps {
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
-pub fn Meta(cx: Scope, props: MetaProps) {
-    let MetaProps { charset, name, http_equiv, content } = props;
+#[component(transparent)]
+pub fn Meta(
+	cx: Scope,
+    /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
+    #[prop(optional, into)]
+    charset: Option<TextProp>,
+	/// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
+	#[prop(optional, into)]
+	name: Option<TextProp>,
+	/// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
+	#[prop(optional, into)]
+	http_equiv: Option<TextProp>,
+	/// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
+	#[prop(optional, into)]
+	content: Option<TextProp>
+) -> impl IntoView {
 
 	let tag = match (charset, name, http_equiv, content) {
 		(Some(charset), _, _, _) => MetaTag::Charset(charset),
@@ -115,16 +110,16 @@ pub fn Meta(cx: Scope, props: MetaProps) {
 
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            use leptos::{document, JsCast, UnwrapThrowExt, create_element, create_effect, set_attribute};
+            use leptos::{document, JsCast, UnwrapThrowExt, create_effect};
 
             let meta = use_head(cx);
 			let meta_tags = meta.meta_tags;
 			let id = meta_tags.get_next_id();
 
-			let el = if let Ok(Some(el)) = document().query_selector(&format!("[data-leptos-meta={}]", id.0)) {
+			let el = if let Ok(Some(el)) = document().query_selector(&format!("[data-leptos-meta='{}']", id.0)) {
 				el
 			} else {
-				create_element("meta")
+				document().create_element("meta").unwrap_throw()
 			};
 
 			match tag {
@@ -132,7 +127,7 @@ pub fn Meta(cx: Scope, props: MetaProps) {
 					create_effect(cx, {
 						let el = el.clone();
 						move |_| {
-							set_attribute(&el, "charset", &charset.get());
+							_ = el.set_attribute("charset", &charset.get());
 						}
 					})
 				},
@@ -140,14 +135,14 @@ pub fn Meta(cx: Scope, props: MetaProps) {
 					create_effect(cx, {
 						let el = el.clone();
 						move |_| {
-							set_attribute(&el, "http-equiv", &http_equiv.get());
+							_ = el.set_attribute("http-equiv", &http_equiv.get());
 						}
 					});
 					if let Some(content) = content {
 						create_effect(cx, {
 							let el = el.clone();
 							move |_| {
-								set_attribute(&el, "content", &content.get());
+								_ = el.set_attribute("content", &content.get());
 							}
 						});
 					}
@@ -156,13 +151,13 @@ pub fn Meta(cx: Scope, props: MetaProps) {
 					create_effect(cx, {
 						let el = el.clone();
 						move |_| {
-							set_attribute(&el, "name", &name.get());
+							_ = el.set_attribute("name", &name.get());
 						}
 					});
 					create_effect(cx, {
 						let el = el.clone();
 						move |_| {
-							set_attribute(&el, "content", &content.get());
+							_ = el.set_attribute("content", &content.get());
 						}
 					});
 				},

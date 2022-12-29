@@ -1,261 +1,694 @@
-// Based in large part on Dioxus: https://github.com/DioxusLabs/dioxus/blob/master/packages/core-macro/src/inlineprops.rs
-
-#![allow(unstable_name_collisions)]
-
-use std::collections::HashMap;
-
-use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
-use quote::{quote, ToTokens, TokenStreamExt,};
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, ToTokens, TokenStreamExt};
+use std::collections::HashSet;
 use syn::{
-    parse::{Parse, ParseStream},
-    punctuated::Punctuated,
-    *,
+    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
+    ItemFn, LitStr, Meta, MetaList, MetaNameValue, NestedMeta, Pat, PatIdent, Path, PathArguments,
+    ReturnType, Type, TypePath, Visibility,
 };
-use itertools::Itertools;
 
-pub struct InlinePropsBody {
-    pub attrs: Vec<Attribute>,
-    pub vis: syn::Visibility,
-    pub fn_token: Token![fn],
-    pub ident: Ident,
-    pub cx_token: Box<Pat>,
-    pub generics: Generics,
-    pub paren_token: token::Paren,
-    pub inputs: Punctuated<FnArg, Token![,]>,
-    // pub fields: FieldsNamed,
-    pub output: ReturnType,
-    pub where_clause: Option<WhereClause>,
-    pub block: Box<Block>,
-    pub doc_comment: String
+pub struct Model {
+    is_transparent: bool,
+    docs: Docs,
+    vis: Visibility,
+    name: Ident,
+    scope_name: PatIdent,
+    props: Vec<Prop>,
+    body: ItemFn,
+    ret: ReturnType,
 }
 
-/// The custom rusty variant of parsing rsx!
-impl Parse for InlinePropsBody {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
-        let vis: Visibility = input.parse()?;
+impl Parse for Model {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut item = ItemFn::parse(input)?;
 
-        let fn_token = input.parse()?;
-        let ident = input.parse()?;
-        let generics: Generics = input.parse()?;
+        let docs = Docs::new(&item.attrs);
 
-        let content;
-        let paren_token = syn::parenthesized!(content in input);
+        let props = item
+            .sig
+            .inputs
+            .clone()
+            .into_iter()
+            .map(Prop::new)
+            .collect::<Vec<_>>();
 
-        let first_arg: FnArg = content.parse()?;
-        let cx_token = {
-            match first_arg {
-                FnArg::Receiver(_) => panic!("first argument must not be a receiver argument"),
-                FnArg::Typed(f) => f.pat,
-            }
+        let scope_name = if props.is_empty() {
+            abort!(
+                item.sig,
+                "this method requires a `Scope` parameter";
+                help = "try `fn {}(cx: Scope, /* ... */)`", item.sig.ident
+            );
+        } else if props[0].ty != parse_quote!(Scope) {
+            abort!(
+                item.sig.inputs,
+                "this method requires a `Scope` parameter";
+                help = "try `fn {}(cx: Scope, /* ... */ */)`", item.sig.ident
+            );
+        } else {
+            props[0].name.clone()
         };
 
-        let _: Result<Token![,]> = content.parse();
+        // We need to remove the `#[doc = ""]` and `#[builder(_)]`
+        // attrs from the function signature
+        item.attrs
+            .drain_filter(|attr| attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop));
+        item.sig.inputs.iter_mut().for_each(|arg| {
+            if let FnArg::Typed(ty) = arg {
+                ty.attrs.drain_filter(|attr| {
+                    attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+                });
+            }
+        });
 
-        let inputs = syn::punctuated::Punctuated::parse_terminated(&content)?;
-
-        let output = input.parse()?;
-
-        let where_clause = input
-            .peek(syn::token::Where)
-            .then(|| input.parse())
-            .transpose()?;
-
-        let block = input.parse()?;
-
-        let doc_comment = attrs.iter().filter_map(|attr| if attr.path.segments[0].ident == "doc" {
-            
-            Some(attr.clone().tokens.into_iter().filter_map(|token| if let TokenTree::Literal(_) = token {
-                // remove quotes
-                let chars = token.to_string();
-                let mut chars = chars.chars();
-                chars.next();
-                chars.next_back();
-                Some(chars.as_str().to_string())
-            } else {
-                None
-            }).collect::<String>())
-            } else {
-                None
-            })
-            .intersperse_with(|| "\n".to_string())
-            .collect();
+        // Make sure return type is correct
+        if item.sig.output != parse_quote!(-> impl IntoView) {
+            abort!(
+                item.sig,
+                "return type is incorrect";
+                help = "return signature must be `-> impl IntoView`"
+            );
+        }
 
         Ok(Self {
-            vis,
-            fn_token,
-            ident,
-            generics,
-            paren_token,
-            inputs,
-            output,
-            where_clause,
-            block,
-            cx_token,
-            attrs,
-            doc_comment
+            is_transparent: false,
+            docs,
+            vis: item.vis.clone(),
+            name: item.sig.ident.clone(),
+            scope_name,
+            props,
+            ret: item.sig.output.clone(),
+            body: item,
         })
     }
 }
 
-/// Serialize the same way, regardless of flavor
-impl ToTokens for InlinePropsBody {
-    fn to_tokens(&self, out_tokens: &mut TokenStream2) {
+impl ToTokens for Model {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
+            is_transparent,
+            docs,
             vis,
-            ident,
-            generics,
-            inputs,
-            output,
-            where_clause,
-            block,
-            cx_token,
-            attrs,
-            doc_comment,
-            ..
+            name,
+            scope_name,
+            props,
+            body,
+            ret,
         } = self;
 
-        let field_docs: HashMap<String, String> = {
-            let mut map = HashMap::new();
-            let mut pieces = doc_comment.split("# Props");
-            pieces.next();
-            let rest = pieces.next().unwrap_or_default();
-            let mut current_field_name = String::new();
-            let mut current_field_value = String::new();
-            for line in rest.split('\n') {
-                if let Some(line) = line.strip_prefix(" - ") {
-                    let mut pieces = line.split("**");
-                    pieces.next();
-                    let field_name = pieces.next();
-                    let field_value = pieces.next().unwrap_or_default();
-                    let field_value = if let Some((_ty, desc)) = field_value.split_once('-') {
-                        desc
-                    } else {
-                        field_value
-                    };
-                    if let Some(field_name) = field_name {
-                        if !current_field_name.is_empty() {
-                            map.insert(current_field_name.clone(), current_field_value.clone());
-                        }
-                        current_field_name = field_name.to_string();
-                        current_field_value = String::new();
-                        current_field_value.push_str(field_value);
-                    } else  {
-                        current_field_value.push_str(field_value);
-                    }
-                } else {
-                    current_field_value.push_str(line);
-                }
-            }
-            if !current_field_name.is_empty() {
-                map.insert(current_field_name, current_field_value.clone());
-            }
+        let mut body = body.to_owned();
 
-            map
-        };
+        body.sig.ident = format_ident!("__{}", body.sig.ident);
+        let body_name = body.sig.ident.clone();
 
-        let fields = inputs.iter().map(|f| {
-            let typed_arg = match f {
-                FnArg::Receiver(_) => todo!(),
-                FnArg::Typed(t) => t,
-            };
-            let comment = if let Pat::Ident(ident) = &*typed_arg.pat {
-                field_docs.get(&ident.ident.to_string()).cloned()
-            } else {
-                None
-            }.unwrap_or_default();
-            let comment_macro = quote! {
-                #[doc = #comment]
-            };
-            if let Type::Path(pat) = &*typed_arg.ty {
-                if pat.path.segments[0].ident == "Option" {
-                    quote! {
-                        #comment_macro
-                        #[builder(default, setter(strip_option, doc = #comment))]
-                        pub #f
-                    }
-                } else {
-                    quote! {
-                        #comment_macro
-                        #[builder(setter(doc = #comment))]
-                        pub #f
-                    }
-                }
-            } else {
-                quote! {
-                    #comment
-                    #vis #f
-                }
-            }
-        });
+        let (_, generics, where_clause) = body.sig.generics.split_for_impl();
 
-        let struct_name = Ident::new(&format!("{}Props", ident), Span::call_site());
-        let prop_struct_comments = format!("Props for the [`{ident}`] component.");
+        let props_name = format_ident!("{name}Props");
+        let trace_name = format!("<{name} />");
 
-        let field_names = inputs.iter().filter_map(|f| match f {
-            FnArg::Receiver(_) => todo!(),
-            FnArg::Typed(t) => Some(&t.pat),
-        });
+        let prop_builder_fields = prop_builder_fields(vis, props);
 
-        let first_lifetime = if let Some(GenericParam::Lifetime(lt)) = generics.params.first() {
-            Some(lt)
-        } else {
-            None
-        };
+        let prop_names = prop_names(props);
 
-        //let modifiers = if first_lifetime.is_some() {
-        let modifiers = quote! {
-            #[derive(leptos::typed_builder::TypedBuilder)]
-            #[builder(doc)]
-        };
-        /* } else {
-            quote! { #[derive(Props, PartialEq, Eq)] }
-        }; */
+        let builder_name_doc =
+            LitStr::new(&format!("Props for the [`{name}`] component."), name.span());
 
-        let (_scope_lifetime, fn_generics, struct_generics) = if let Some(lt) = first_lifetime {
-            let struct_generics: Punctuated<_, token::Comma> = generics
-                .params
-                .iter()
-                .map(|it| match it {
-                    GenericParam::Type(tp) => {
-                        let mut tp = tp.clone();
-                        tp.bounds.push(parse_quote!( 'a ));
+        let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
-                        GenericParam::Type(tp)
-                    }
-                    _ => it.clone(),
-                })
-                .collect();
-
+        let (tracing_instrument_attr, tracing_span_expr, tracing_guard_expr) = if cfg!(
+            feature = "tracing"
+        ) {
             (
-                quote! { #lt, },
-                generics.clone(),
-                quote! { <#struct_generics> },
+                quote! {
+                    #[cfg_attr(
+                        debug_assertions,
+                        ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                    )]
+                },
+                quote! {
+                    let span = ::leptos::leptos_dom::tracing::Span::current();
+                },
+                quote! {
+                    let _guard = span.entered();
+                },
             )
         } else {
-            let fn_generics = generics.clone();
-
-            (quote! { }, fn_generics, quote! { #generics })
+            (quote! {}, quote! {}, quote! {})
         };
 
-        out_tokens.append_all(quote! {
-            #modifiers
-            #[doc = #prop_struct_comments]
-            #[allow(non_camel_case_types)]
-            #vis struct #struct_name #struct_generics
-            #where_clause
-            {
-                #(#fields),*
+        let component = if *is_transparent {
+            quote! {
+                #body_name(cx, #prop_names)
+            }
+        } else {
+            quote! {
+                ::leptos::Component::new(
+                    stringify!(#name),
+                    move |cx| {
+                        #[cfg(debug_assertions)]
+                        #tracing_guard_expr
+
+                        #body_name(cx, #prop_names)
+                    }
+                )
+            }
+        };
+
+        let output = quote! {
+            #[doc = #builder_name_doc]
+            #[doc = ""]
+            #docs
+            #component_fn_prop_docs
+            #[derive(::leptos::typed_builder::TypedBuilder)]
+            #[builder(doc)]
+            #vis struct #props_name #generics #where_clause {
+                #prop_builder_fields
             }
 
-            #[allow(non_snake_case)]
-            #(#attrs)*
-            #vis fn #ident #fn_generics (#cx_token: Scope, props: #struct_name #struct_generics) #output
+            #docs
+            #component_fn_prop_docs
+            #[allow(non_snake_case, clippy::too_many_arguments)]
+            #tracing_instrument_attr
+            #vis fn #name #generics (
+                #[allow(unused_variables)]
+                #scope_name: Scope,
+                props: #props_name #generics
+            ) #ret
             #where_clause
             {
-                let #struct_name { #(#field_names),* } = props;
-                #block
+                #body
+
+                let #props_name {
+                    #prop_names
+                } = props;
+
+                #tracing_span_expr
+
+                #component
             }
-        });
+        };
+
+        tokens.append_all(output)
+    }
+}
+
+impl Model {
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_transparent(mut self, is_transparent: bool) -> Self {
+        self.is_transparent = is_transparent;
+
+        self
+    }
+}
+
+struct Prop {
+    docs: Docs,
+    prop_opts: HashSet<PropOpt>,
+    name: PatIdent,
+    ty: Type,
+}
+
+impl Prop {
+    fn new(arg: FnArg) -> Self {
+        let typed = if let FnArg::Typed(ty) = arg {
+            ty
+        } else {
+            abort!(arg, "receiver not allowed in `fn`");
+        };
+
+        let prop_opts = typed
+            .attrs
+            .iter()
+            .enumerate()
+            .filter_map(|(i, attr)| PropOpt::from_attribute(attr).map(|opt| (i, opt)))
+            .fold(HashSet::new(), |mut acc, cur| {
+                // Make sure opts aren't repeated
+                if acc.intersection(&cur.1).next().is_some() {
+                    abort!(typed.attrs[cur.0], "`#[prop]` options are repeated");
+                }
+
+                acc.extend(cur.1);
+
+                acc
+            });
+
+        // Make sure conflicting options are not present
+        if prop_opts.contains(&PropOpt::Optional) && prop_opts.contains(&PropOpt::OptionalNoStrip) {
+            abort!(
+                typed,
+                "`optional` and `optional_no_strip` options are mutually exclusive"
+            );
+        } else if prop_opts.contains(&PropOpt::Optional)
+            && prop_opts.contains(&PropOpt::StripOption)
+        {
+            abort!(
+                typed,
+                "`optional` and `strip_option` options are mutually exclusive"
+            );
+        } else if prop_opts.contains(&PropOpt::OptionalNoStrip)
+            && prop_opts.contains(&PropOpt::StripOption)
+        {
+            abort!(
+                typed,
+                "`optional_no_strip` and `strip_option` options are mutually exclusive"
+            );
+        }
+
+        let name = if let Pat::Ident(i) = *typed.pat {
+            i
+        } else {
+            abort!(
+                typed.pat,
+                "only `prop: bool` style types are allowed within the \
+                 `#[component]` macro"
+            );
+        };
+
+        Self {
+            docs: Docs::new(&typed.attrs),
+            prop_opts,
+            name,
+            ty: *typed.ty,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Docs(Vec<Attribute>);
+
+impl ToTokens for Docs {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let s = self
+            .0
+            .iter()
+            .map(|attr| attr.to_token_stream())
+            .collect::<TokenStream>();
+
+        tokens.append_all(s);
+    }
+}
+
+impl Docs {
+    fn new(attrs: &[Attribute]) -> Self {
+        let attrs = attrs
+            .iter()
+            .filter(|attr| attr.path == parse_quote!(doc))
+            .cloned()
+            .collect();
+
+        Self(attrs)
+    }
+
+    fn padded(&self) -> TokenStream {
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(idx, attr)| {
+                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) = attr.parse_meta().unwrap()
+                {
+                    let doc_str = quote!(#doc);
+
+                    // We need to remove the leading and trailing `"`"
+                    let mut doc_str = doc_str.to_string();
+                    doc_str.pop();
+                    doc_str.remove(0);
+
+                    let doc_str = if idx == 0 {
+                        format!("    - {doc_str}")
+                    } else {
+                        format!("      {doc_str}")
+                    };
+
+                    let docs = LitStr::new(&doc_str, doc.span());
+
+                    if !doc_str.is_empty() {
+                        quote! { #[doc = #docs] }
+                    } else {
+                        quote! {}
+                    }
+                } else {
+                    unreachable!()
+                }
+            })
+            .collect()
+    }
+
+    fn typed_builder(&self) -> String {
+        let doc_str = self
+            .0
+            .iter()
+            .map(|attr| {
+                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) = attr.parse_meta().unwrap()
+                {
+                    let mut doc_str = quote!(#doc).to_string();
+
+                    // Remove the leading and trailing `"`
+                    doc_str.pop();
+                    doc_str.remove(0);
+
+                    doc_str
+                } else {
+                    unreachable!()
+                }
+            })
+            .intersperse("\n".to_string())
+            .collect::<String>();
+
+        if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
+            format!("\n\n{doc_str}")
+        } else {
+            String::new()
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum PropOpt {
+    Optional,
+    OptionalNoStrip,
+    StripOption,
+    Into,
+}
+
+impl PropOpt {
+    fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
+        const ABORT_OPT_MESSAGE: &str = "only `optional`, \
+                                         `optional_no_strip`, \
+                                         `strip_option`, and `into` are \
+                                         allowed as arguments to `#[prop()]`";
+
+        if attr.path != parse_quote!(prop) {
+            return None;
+        }
+
+        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().ok()? {
+            Some(
+                nested
+                    .iter()
+                    .map(|opt| {
+                        if let NestedMeta::Meta(Meta::Path(opt)) = opt {
+                            if *opt == parse_quote!(optional) {
+                                PropOpt::Optional
+                            } else if *opt == parse_quote!(optional_no_strip) {
+                                PropOpt::OptionalNoStrip
+                            } else if *opt == parse_quote!(strip_option) {
+                                PropOpt::StripOption
+                            } else if *opt == parse_quote!(into) {
+                                PropOpt::Into
+                            } else {
+                                abort!(
+                                    opt,
+                                    "invalid prop option";
+                                    help = ABORT_OPT_MESSAGE
+                                );
+                            }
+                        } else {
+                            abort!(opt, ABORT_OPT_MESSAGE,);
+                        }
+                    })
+                    .collect(),
+            )
+        } else {
+            abort!(
+                attr,
+                "the syntax for `#[prop]` is incorrect";
+                help = "try `#[prop(optional)]`";
+                help = ABORT_OPT_MESSAGE
+            );
+        }
+    }
+}
+
+struct TypedBuilderOpts {
+    default: bool,
+    strip_option: bool,
+    into: bool,
+}
+
+impl TypedBuilderOpts {
+    fn from_opts(opts: &HashSet<PropOpt>, is_ty_option: bool) -> Self {
+        Self {
+            default: opts.contains(&PropOpt::Optional) || opts.contains(&PropOpt::OptionalNoStrip),
+            strip_option: opts.contains(&PropOpt::StripOption)
+                || (opts.contains(&PropOpt::Optional) && is_ty_option),
+            into: opts.contains(&PropOpt::Into),
+        }
+    }
+}
+
+impl ToTokens for TypedBuilderOpts {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let default = if self.default {
+            quote! { default, }
+        } else {
+            quote! {}
+        };
+
+        let strip_option = if self.strip_option {
+            quote! { strip_option, }
+        } else {
+            quote! {}
+        };
+
+        let into = if self.into {
+            quote! { into, }
+        } else {
+            quote! {}
+        };
+
+        let setter = if !strip_option.is_empty() || !into.is_empty() {
+            quote! { setter(#strip_option #into) }
+        } else {
+            quote! {}
+        };
+
+        let output = quote! { #[builder(#default #setter)] };
+
+        tokens.append_all(output);
+    }
+}
+
+fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
+    props
+        .iter()
+        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .map(|prop| {
+            let Prop {
+                docs,
+                name,
+                prop_opts,
+                ty,
+            } = prop;
+
+            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+
+            let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
+
+            quote! {
+                #docs
+                #builder_docs
+                #builder_attrs
+                #vis #name: #ty,
+            }
+        })
+        .collect()
+}
+
+fn prop_names(props: &[Prop]) -> TokenStream {
+    props
+        .iter()
+        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .map(|Prop { name, .. }| quote! { #name, })
+        .collect()
+}
+
+fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
+    let required_prop_docs = props
+        .iter()
+        .filter(|Prop { prop_opts, .. }| {
+            !(prop_opts.contains(&PropOpt::Optional)
+                || prop_opts.contains(&PropOpt::OptionalNoStrip))
+        })
+        .map(|p| prop_to_doc(p, PropDocStyle::List))
+        .collect::<TokenStream>();
+
+    let optional_prop_docs = props
+        .iter()
+        .filter(|Prop { prop_opts, .. }| {
+            prop_opts.contains(&PropOpt::Optional) || prop_opts.contains(&PropOpt::OptionalNoStrip)
+        })
+        .map(|p| prop_to_doc(p, PropDocStyle::List))
+        .collect::<TokenStream>();
+
+    let required_prop_docs = if !required_prop_docs.is_empty() {
+        quote! {
+            #[doc = "# Required Props"]
+            #required_prop_docs
+        }
+    } else {
+        quote! {}
+    };
+
+    let optional_prop_docs = if !optional_prop_docs.is_empty() {
+        quote! {
+            #[doc = "# Optional Props"]
+            #optional_prop_docs
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        #required_prop_docs
+        #optional_prop_docs
+    }
+}
+
+fn is_option(ty: &Type) -> bool {
+    if let Type::Path(TypePath {
+        path: Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            first.ident == "Option"
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+fn unwrap_option(ty: &Type) -> Option<Type> {
+    const STD_OPTION_MSG: &str = "make sure you're not shadowing the \
+    `std::option::Option` type that is automatically imported from the \
+    standard prelude";
+
+    if let Type::Path(TypePath {
+        path: Path { segments, .. },
+        ..
+    }) = ty
+    {
+        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
+            if first.ident == "Option" {
+                if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                    args, ..
+                }) = &first.arguments
+                {
+                    if let [first] = &args.iter().collect::<Vec<_>>()[..] {
+                        if let GenericArgument::Type(ty) = first {
+                            Some(ty.clone())
+                        } else {
+                            abort!(
+                                first,
+                                "`Option` must be `std::option::Option`";
+                                help = STD_OPTION_MSG
+                            );
+                        }
+                    } else {
+                        abort!(
+                            first,
+                            "`Option` must be `std::option::Option`";
+                            help = STD_OPTION_MSG
+                        );
+                    }
+                } else {
+                    abort!(
+                        first,
+                        "`Option` must be `std::option::Option`";
+                        help = STD_OPTION_MSG
+                    );
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PropDocStyle {
+    List,
+    Inline,
+}
+
+fn prop_to_doc(
+    Prop {
+        docs,
+        name,
+        ty,
+        prop_opts,
+    }: &Prop,
+    style: PropDocStyle,
+) -> TokenStream {
+    let ty = if (prop_opts.contains(&PropOpt::Optional)
+        || prop_opts.contains(&PropOpt::StripOption))
+        && is_option(ty)
+    {
+        unwrap_option(ty).unwrap()
+    } else {
+        ty.to_owned()
+    };
+
+    let type_item: syn::Item = parse_quote! {
+        type SomeType = #ty;
+    };
+
+    let file = syn::File {
+        shebang: None,
+        attrs: vec![],
+        items: vec![type_item],
+    };
+
+    let pretty_ty = prettyplease::unparse(&file);
+
+    let pretty_ty = &pretty_ty[16..&pretty_ty.len() - 2];
+
+    match style {
+        PropDocStyle::List => {
+            let arg_ty_doc = LitStr::new(
+                &if !prop_opts.contains(&PropOpt::Into) {
+                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
+                } else {
+                    format!("- **{}**: `impl`[`Into<{}>`]", quote!(#name), pretty_ty)
+                },
+                name.ident.span(),
+            );
+
+            let arg_user_docs = docs.padded();
+
+            quote! {
+                #[doc = #arg_ty_doc]
+                #arg_user_docs
+            }
+        }
+        PropDocStyle::Inline => {
+            let arg_ty_doc = LitStr::new(
+                &if !prop_opts.contains(&PropOpt::Into) {
+                    format!(
+                        "**{}**: [`{}`]{}",
+                        quote!(#name),
+                        pretty_ty,
+                        docs.typed_builder()
+                    )
+                } else {
+                    format!(
+                        "**{}**: `impl`[`Into<{}>`]{}",
+                        quote!(#name),
+                        pretty_ty,
+                        docs.typed_builder()
+                    )
+                },
+                name.ident.span(),
+            );
+
+            quote! {
+                #[builder(setter(doc = #arg_ty_doc))]
+            }
+        }
     }
 }

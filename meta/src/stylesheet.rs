@@ -2,7 +2,6 @@ use crate::use_head;
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use typed_builder::TypedBuilder;
 
 /// Manages all of the stylesheets set by [Stylesheet] components.
 #[derive(Clone, Default, Debug)]
@@ -27,17 +26,6 @@ impl StylesheetContext {
     }
 }
 
-/// Properties for the [Stylesheet] component.
-#[derive(TypedBuilder)]
-pub struct StylesheetProps {
-    /// The URL at which the stylesheet can be located.
-    #[builder(setter(into))]
-    pub href: String,
-    /// The URL at which the stylesheet can be located.
-    #[builder(setter(into, strip_option), default = None)]
-    pub id: Option<String>,
-}
-
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head that loads a stylesheet from the URL given by the `href` property.
 ///
@@ -46,8 +34,8 @@ pub struct StylesheetProps {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
-///   provide_context(cx, MetaContext::new());
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///   provide_meta_context(cx);
 ///
 ///   view! { cx,
 ///     <main>
@@ -56,9 +44,13 @@ pub struct StylesheetProps {
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
-pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
-    let StylesheetProps { href, id } = props;
+#[component(transparent)]
+pub fn Stylesheet(
+    cx: Scope,
+    /// The URL at which the stylesheet is located.
+    #[prop(into)]
+    href: String,
+) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             use leptos::document;

@@ -3,7 +3,6 @@ members = [
   # core
   "leptos",
   "leptos_dom",
-  "leptos_core",
   "leptos_config",
   "leptos_macro",
   "leptos_reactive",
@@ -30,8 +29,6 @@ members = [
   "examples/todomvc",
   "examples/todo-app-sqlite",
   "examples/todo-app-sqlite-axum",
-  "examples/todo-app-cbor",
-  "examples/view-tests",
 
   # book
   "docs/book/project/ch02_getting_started",
@@ -46,29 +43,4 @@ lto = true
 opt-level = 'z'
 
 [workspace.metadata.cargo-all-features]
-skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

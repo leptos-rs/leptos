@@ -43,41 +43,39 @@ pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     Ok(0)
 }
 #[component]
-pub fn Counters(cx: Scope) -> Element {
+pub fn Counters(cx: Scope) -> impl IntoView {
     view! {
         cx,
-        <div>
-            <Router>
-                <header>
-                    <h1>"Server-Side Counters"</h1>
-                    <p>"Each of these counters stores its data in the same variable on the server."</p>
-                    <p>"The value is shared across connections. Try opening this is another browser tab to see what I mean."</p>
-                </header>
-                <nav>
-                    <ul>
-                        <li><A href="">"Simple"</A></li>
-                        <li><A href="form">"Form-Based"</A></li>
-                        <li><A href="multi">"Multi-User"</A></li>
-                    </ul>
-                </nav>
-                <main>
-                    <Routes>
-                        <Route path="" element=|cx| view! {
-                            cx,
-                            <Counter/>
-                        }/>
-                        <Route path="form" element=|cx| view! {
-                            cx,
-                            <FormCounter/>
-                        }/>
-                        <Route path="multi" element=|cx| view! {
-                            cx,
-                            <MultiuserCounter/>
-                        }/>
-                    </Routes>
-                </main>
-            </Router>
-        </div>
+        <Router>
+            <header>
+                <h1>"Server-Side Counters"</h1>
+                <p>"Each of these counters stores its data in the same variable on the server."</p>
+                <p>"The value is shared across connections. Try opening this is another browser tab to see what I mean."</p>
+            </header>
+            <nav>
+                <ul>
+                    <li><A href="">"Simple"</A></li>
+                    <li><A href="form">"Form-Based"</A></li>
+                    <li><A href="multi">"Multi-User"</A></li>
+                </ul>
+            </nav>
+            <main>
+                <Routes>
+                    <Route path="" view=|cx| view! {
+                        cx,
+                        <Counter/>
+                    }/>
+                    <Route path="form" view=|cx| view! {
+                        cx,
+                        <FormCounter/>
+                    }/>
+                    <Route path="multi" view=|cx| view! {
+                        cx,
+                        <MultiuserCounter/>
+                    }/>
+                </Routes>
+            </main>
+        </Router>
     }
 }
 
@@ -86,7 +84,7 @@ pub fn Counters(cx: Scope) -> Element {
 // it's invalidated by one of the user's own actions
 // This is the typical pattern for a CRUD app
 #[component]
-pub fn Counter(cx: Scope) -> Element {
+pub fn Counter(cx: Scope) -> impl IntoView {
     let dec = create_action(cx, |_| adjust_server_count(-1, "decing".into()));
     let inc = create_action(cx, |_| adjust_server_count(1, "incing".into()));
     let clear = create_action(cx, |_| clear_server_count());
@@ -126,7 +124,7 @@ pub fn Counter(cx: Scope) -> Element {
 // It uses the same invalidation pattern as the plain counter,
 // but uses HTML forms to submit the actions
 #[component]
-pub fn FormCounter(cx: Scope) -> Element {
+pub fn FormCounter(cx: Scope) -> impl IntoView {
     let adjust = create_server_action::<AdjustServerCount>(cx);
     let clear = create_server_action::<ClearServerCount>(cx);
 
@@ -189,7 +187,7 @@ pub fn FormCounter(cx: Scope) -> Element {
 // Whenever another user updates the value, it will update here
 // This is the primitive pattern for live chat, collaborative editing, etc.
 #[component]
-pub fn MultiuserCounter(cx: Scope) -> Element {
+pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
     let dec = create_action(cx, |_| adjust_server_count(-1, "dec dec goose".into()));
     let inc = create_action(cx, |_| adjust_server_count(1, "inc inc moose".into()));
     let clear = create_action(cx, |_| clear_server_count());
@@ -198,7 +196,7 @@ pub fn MultiuserCounter(cx: Scope) -> Element {
     let multiplayer_value = {
         use futures::StreamExt;
 
-        let mut source = gloo::net::eventsource::futures::EventSource::new("/api/events")
+        let mut source = gloo_net::eventsource::futures::EventSource::new("/api/events")
             .expect_throw("couldn't connect to SSE stream");
         let s = create_signal_from_stream(
             cx,

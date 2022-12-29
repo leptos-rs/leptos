@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_meta::*;
 
 #[component]
-pub fn App(cx: Scope) -> Element {
+pub fn App(cx: Scope) -> impl IntoView {
     provide_context(cx, MetaContext::default());
     let (count, set_count) = create_signal(cx, 0);
 

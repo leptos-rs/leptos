@@ -32,7 +32,7 @@
 //! crate that is enabled).
 //!
 //! ```rust,ignore
-//! # use leptos_reactive::*;
+//! # use leptos::*;
 //! #[server(ReadFromDB)]
 //! async fn read_posts(cx: Scope, how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 //!   // do some server-only work here to access the database

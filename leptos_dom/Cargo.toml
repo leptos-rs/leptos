@@ -1,6 +1,6 @@
 [package]
 name = "leptos_dom"
-version = "0.0.22"
+version = "0.1.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -9,76 +9,135 @@ description = "DOM operations for the Leptos web framework."
 
 [dependencies]
 cfg-if = "1"
+educe = "0.4"
 futures = "0.3"
+gloo = "0.8"
 html-escape = "0.2"
+indexmap = "1.9"
+itertools = "0.10"
 js-sys = "0.3"
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.22" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.1.0-alpha" }
+pad-adapter = "0.1"
+paste = "1"
+rustc-hash = "1.1.0"
 serde_json = "1"
-wasm-bindgen = "0.2"
+smallvec = "1"
+tracing = "0.1"
+wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
 wasm-bindgen-futures = "0.4.31"
-log = "0.4"
+
+[dev-dependencies]
+leptos = { path = "../leptos" }
 
 [dependencies.web-sys]
 version = "0.3"
 features = [
-  "Attr",
-  "console",
   "Comment",
-  "CssStyleDeclaration",
-  "CustomEvent",
-  "CustomEventInit",
-  "Document",
-  "DocumentFragment",
-  "DomStringMap",
   "DomTokenList",
-  "Element",
-  "Event",
-  "EventTarget",
-  "HtmlCollection",
-  "HtmlDivElement",
-  "HtmlElement",
-  "HtmlInputElement",
-  "HtmlTemplateElement",
-  "KeyboardEvent",
-  "Location",
-  "MutationObserver",
-  "NamedNodeMap",
-  "Node",
-  "NodeList",
-  "Performance",
-  "ShadowRoot",
-  "ShadowRootInit",
-  "ShadowRootMode",
-  "Storage",
+  "Range",
   "Text",
-  "TreeWalker",
-  "Window",
+  "HtmlCollection",
 
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
-  "MouseEvent",
+  "AnimationEvent",
+  "BeforeUnloadEvent",
+  "ClipboardEvent",
+  "CompositionEvent",
+  "DeviceMotionEvent",
+  "DeviceOrientationEvent",
   "DragEvent",
   "FocusEvent",
-  "KeyboardEvent",
-  "ProgressEvent",
-  "WheelEvent",
+  "GamepadEvent",
+  "HashChangeEvent",
   "InputEvent",
-  "SubmitEvent",
-  "AnimationEvent",
+  "KeyboardEvent",
+  "MouseEvent",
+  "PageTransitionEvent",
   "PointerEvent",
+  "PopStateEvent",
+  "ProgressEvent",
+  "PromiseRejectionEvent",
+  "SecurityPolicyViolationEvent",
+  "StorageEvent",
+  "SubmitEvent",
   "TouchEvent",
   "TransitionEvent",
+  "UiEvent",
+  "WheelEvent",
+
+  # HTML Element Types
+  "HtmlHtmlElement",
+  "HtmlBaseElement",
+  "HtmlHeadElement",
+  "HtmlLinkElement",
+  "HtmlMetaElement",
+  "HtmlStyleElement",
+  "HtmlTitleElement",
+  "HtmlBodyElement",
+  "HtmlHeadingElement",
+  "HtmlQuoteElement",
+  "HtmlDivElement",
+  "HtmlDListElement",
+  "HtmlHrElement",
+  "HtmlLiElement",
+  "HtmlOListElement",
+  "HtmlParagraphElement",
+  "HtmlPreElement",
+  "HtmlUListElement",
+  "HtmlAnchorElement",
+  "HtmlBrElement",
+  "HtmlDataElement",
+  "HtmlQuoteElement",
+  "HtmlSpanElement",
+  "HtmlTimeElement",
+  "HtmlAreaElement",
+  "HtmlAudioElement",
+  "HtmlImageElement",
+  "HtmlMapElement",
+  "HtmlTrackElement",
+  "HtmlVideoElement",
+  "HtmlEmbedElement",
+  "HtmlIFrameElement",
+  "HtmlObjectElement",
+  "HtmlParamElement",
+  "HtmlPictureElement",
+  "HtmlSourceElement",
+  "SvgElement",
+  "HtmlCanvasElement",
+  "HtmlScriptElement",
+  "HtmlModElement",
+  "HtmlTableCaptionElement",
+  "HtmlTableColElement",
+  "HtmlTableColElement",
+  "HtmlTableElement",
+  "HtmlTableSectionElement",
+  "HtmlTableCellElement",
+  "HtmlTableSectionElement",
+  "HtmlTableCellElement",
+  "HtmlTableSectionElement",
+  "HtmlTableRowElement",
+  "HtmlButtonElement",
+  "HtmlDataListElement",
+  "HtmlFieldSetElement",
+  "HtmlFormElement",
+  "HtmlInputElement",
+  "HtmlLabelElement",
+  "HtmlLegendElement",
+  "HtmlMeterElement",
+  "HtmlOptGroupElement",
+  "HtmlOutputElement",
+  "HtmlProgressElement",
+  "HtmlSelectElement",
+  "HtmlTextAreaElement",
+  "HtmlDetailsElement",
+  "HtmlDialogElement",
+  "HtmlMenuElement",
+  "HtmlSlotElement",
+  "HtmlTemplateElement",
+  "HtmlOptionElement"
 ]
 
-[build-dependencies]
-rustc_version = "0.4"
-
-[dev-dependencies]
-leptos = { path = "../leptos", default-features = false, version = "0.0" }
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0" }
-
 [features]
-csr = ["leptos_reactive/csr", "leptos_macro/csr", "leptos/csr"]
-hydrate = ["leptos_reactive/hydrate", "leptos_macro/hydrate", "leptos/hydrate"]
-ssr = ["leptos_reactive/ssr", "leptos_macro/ssr", "leptos/ssr"]
-stable = ["leptos_reactive/stable", "leptos_macro/stable", "leptos/stable"]
-interning = ["wasm-bindgen/enable-interning"]
+web = ["leptos_reactive/csr"]
+ssr = ["leptos_reactive/ssr"]
+stable = ["leptos_reactive/stable"]

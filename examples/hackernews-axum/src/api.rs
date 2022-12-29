@@ -1,4 +1,4 @@
-use leptos::Serializable;
+use leptos::{on_cleanup, Scope, Serializable};
 use serde::{Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
@@ -10,11 +10,15 @@ pub fn user(path: &str) -> String {
 }
 
 #[cfg(not(feature = "ssr"))]
-pub async fn fetch_api<T>(path: &str) -> Option<T>
+pub async fn fetch_api<T>(cx: Scope, path: &str) -> Option<T>
 where
     T: Serializable,
 {
+    let abort_controller = web_sys::AbortController::new().ok();
+    let abort_signal = abort_controller.as_ref().map(|a| a.signal());
+
     let json = gloo_net::http::Request::get(path)
+        .abort_signal(abort_signal.as_ref())
         .send()
         .await
         .map_err(|e| log::error!("{e}"))
@@ -22,11 +26,19 @@ where
         .text()
         .await
         .ok()?;
+
+    // abort in-flight requests if the Scope is disposed
+    // i.e., if we've navigated away from this page
+    on_cleanup(cx, move || {
+        if let Some(abort_controller) = abort_controller {
+            abort_controller.abort()
+        }
+    });
     T::from_json(&json).ok()
 }
 
 #[cfg(feature = "ssr")]
-pub async fn fetch_api<T>(path: &str) -> Option<T>
+pub async fn fetch_api<T>(cx: Scope, path: &str) -> Option<T>
 where
     T: Serializable,
 {

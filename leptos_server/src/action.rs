@@ -9,8 +9,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// run an `async` function in response to something like a user clicking a button, you're in the right place.
 ///
 /// ```rust
-/// # use leptos_reactive::*;
-/// # use leptos_server::create_action;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
@@ -37,7 +36,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// assert_eq!(pending(), false); // isn't pending a response
 /// assert_eq!(result_of_call(), None); // there's no "last value"
 /// assert_eq!(version(), 0);
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
@@ -60,8 +59,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// function, because it is stored in [Action::input] as well.
 ///
 /// ```rust
-/// # use leptos_reactive::*;
-/// # use leptos_server::create_action;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// // if there's a single argument, just use that
 /// let action1 = create_action(cx, |input: &String| {
@@ -150,8 +148,7 @@ where
 /// you're in the right place.
 ///
 /// ```rust
-/// # use leptos_reactive::*;
-/// # use leptos_server::create_action;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
@@ -178,7 +175,7 @@ where
 /// assert_eq!(pending(), false); // isn't pending a response
 /// assert_eq!(result_of_call(), None); // there's no "last value"
 /// assert_eq!(version(), 0);
-/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
@@ -201,8 +198,7 @@ where
 /// function, because it is stored in [Action::input] as well.
 ///
 /// ```rust
-/// # use leptos_reactive::*;
-/// # use leptos_server::create_action;
+/// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// // if there's a single argument, just use that
 /// let action1 = create_action(cx, |input: &String| {
@@ -246,9 +242,7 @@ where
 /// Creates an [Action] that can be used to call a server function.
 ///
 /// ```rust
-/// # use leptos_reactive::*;
-/// # use leptos_server::{create_server_action, ServerFnError, ServerFn};
-/// # use leptos_macro::server;
+/// # use leptos::*;
 ///
 /// #[server(MyServerFn)]
 /// async fn my_server_fn() -> Result<(), ServerFnError> {

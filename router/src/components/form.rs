@@ -1,69 +1,48 @@
-use crate::{use_navigate, use_resolved_path, TextProp};
-use cfg_if::cfg_if;
+use crate::{use_navigate, use_resolved_path, ToHref};
 use leptos::*;
-use leptos::typed_builder::*;
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
-/// Properties that can be passed to the [Form] component, which is an HTML
-/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-/// progressively enhanced to use client-side routing.
-#[derive(TypedBuilder)]
-pub struct FormProps<A>
-where
-    A: TextProp + 'static,
-{
+/// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
+/// enhanced to use client-side routing.
+#[component]
+pub fn Form<A>(
+    cx: Scope,
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
     /// is the HTTP method to submit the form with (`get` or `post`).
-    #[builder(default, setter(strip_option))]
-    pub method: Option<&'static str>,
+    #[prop(optional)]
+    method: Option<&'static str>,
     /// [`action`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-action)
     /// is the URL that processes the form submission. Takes a [String], [&str], or a reactive
     /// function that returns a [String].
-    pub action: A,
+    action: A,
     /// [`enctype`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-enctype)
     /// is the MIME type of the form submission if `method` is `post`.
-    #[builder(default, setter(strip_option))]
-    pub enctype: Option<String>,
+    #[prop(optional)]
+    enctype: Option<String>,
     /// A signal that will be incremented whenever the form is submitted with `post`. This can useful
     /// for reactively updating a [Resource] or another signal whenever the form has been submitted.
-    #[builder(default, setter(strip_option))]
-    pub version: Option<RwSignal<usize>>,
+    #[prop(optional)]
+    version: Option<RwSignal<usize>>,
     /// A signal that will be set if the form submission ends in an error.
-    #[builder(default, setter(strip_option))]
-    pub error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    #[prop(optional)]
+    error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// A callback will be called with the [FormData](web_sys::FormData) when the form is submitted.
-    #[builder(default, setter(strip_option))]
-    pub on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    #[prop(optional)]
+    on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
-    #[builder(default, setter(strip_option))]
-    pub on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+    #[prop(optional)]
+    on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
     /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Vec<Element>>,
-}
-
-/// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
-/// enhanced to use client-side routing.
-#[allow(non_snake_case)]
-pub fn Form<A>(cx: Scope, props: FormProps<A>) -> Element
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView
 where
-    A: TextProp + 'static,
+    A: ToHref + 'static,
 {
-    let FormProps {
-        method,
-        action,
-        enctype,
-        children,
-        version,
-        error,
-        on_form_data,
-        on_response,
-    } = props;
-
     let action_version = version;
-    let action = use_resolved_path(cx, move || action.to_value()());
+    let action = use_resolved_path(cx, move || action.to_href()());
 
     let on_submit = move |ev: web_sys::SubmitEvent| {
         if ev.default_prevented() {
@@ -130,78 +109,46 @@ where
         }
     };
 
-    let children = children();
+    let method = method.unwrap_or("get");
 
-    cfg_if! {
-        if #[cfg(feature = "stable")] {
-            let on_submit = move |ev: web_sys::SubmitEvent| on_submit(ev.unchecked_into());
-        }
-    };
-
-    cfg_if! {
-        if #[cfg(not(feature = "stable"))] {
-            view! { cx,
-                <form
-                    method=method
-                    action=action
-                    enctype=enctype
-                    on:submit=on_submit
-                >
-                    {children}
-                </form>
-            }
-        }
-        else {
-            view! { cx,
-                <form
-                    method=method
-                    action=move || action.get()
-                    enctype=enctype
-                    on:submit=on_submit
-                >
-                    {children}
-                </form>
-            }
-        }
+    view! { cx,
+        <form
+            method=method
+            action=move || action.get()
+            enctype=enctype
+            on:submit=on_submit
+        >
+            {children(cx)}
+        </form>
     }
-}
-
-/// Properties that can be passed to the [ActionForm] component, which
-/// automatically turns a server [Action](leptos_server::Action) into an HTML
-/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-/// progressively enhanced to use client-side routing.
-#[derive(TypedBuilder)]
-pub struct ActionFormProps<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-    /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [create_server_action](leptos_server::create_server_action) or added
-    /// manually using [leptos_server::Action::using_server_fn].
-    pub action: Action<I, Result<O, ServerFnError>>,
-    /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Vec<Element>>,
 }
 
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
-#[allow(non_snake_case)]
-pub fn ActionForm<I, O>(cx: Scope, props: ActionFormProps<I, O>) -> Element
+#[component]
+pub fn ActionForm<I, O>(
+    cx: Scope,
+    /// The action from which to build the form. This should include a URL, which can be generated
+    /// by default using [create_server_action](leptos_server::create_server_action) or added
+    /// manually using [leptos_server::Action::using_server_fn].
+    action: Action<I, Result<O, ServerFnError>>,
+    /// Component children; should include the HTML of the form elements.
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
 {
-    let action = if let Some(url) = props.action.url() {
+    let action_url = if let Some(url) = action.url() {
         url
     } else {
         debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
         ""
     }.to_string();
-    let version = props.action.version;
-    let value = props.action.value;
-    let input = props.action.input;
+    let version = action.version;
+    let value = action.value;
+    let input = action.input;
 
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
         let data = action_input_from_form_data(form_data);
@@ -240,44 +187,34 @@ where
     Form(
         cx,
         FormProps::builder()
-            .action(action)
+            .action(action_url)
             .version(version)
             .on_form_data(on_form_data)
             .on_response(on_response)
             .method("post")
-            .children(props.children)
+            .children(children)
             .build(),
     )
-}
-
-/// Properties that can be passed to the [MultiActionForm] component, which
-/// automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
-/// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
-/// progressively enhanced to use client-side routing.
-#[derive(TypedBuilder)]
-pub struct MultiActionFormProps<I, O>
-where
-    I: 'static,
-    O: 'static,
-{
-    /// The action from which to build the form. This should include a URL, which can be generated
-    /// by default using [create_server_action](leptos_server::create_server_action) or added
-    /// manually using [leptos_server::Action::using_server_fn].
-    pub action: MultiAction<I, Result<O, ServerFnError>>,
-    /// Component children; should include the HTML of the form elements.
-    pub children: Box<dyn Fn() -> Vec<Element>>,
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
-#[allow(non_snake_case)]
-pub fn MultiActionForm<I, O>(cx: Scope, props: MultiActionFormProps<I, O>) -> Element
+#[component]
+pub fn MultiActionForm<I, O>(
+    cx: Scope,
+    /// The action from which to build the form. This should include a URL, which can be generated
+    /// by default using [create_server_action](leptos_server::create_server_action) or added
+    /// manually using [leptos_server::Action::using_server_fn].
+    action: MultiAction<I, Result<O, ServerFnError>>,
+    /// Component children; should include the HTML of the form elements.
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
 {
-    let multi_action = props.action;
+    let multi_action = action;
     let action = if let Some(url) = multi_action.url() {
         url
     } else {
@@ -303,21 +240,13 @@ where
         }
     };
 
-    let children = (props.children)();
-
-    cfg_if! {
-        if #[cfg(feature = "stable")] {
-            let on_submit = move |ev: web_sys::SubmitEvent| on_submit(ev.unchecked_into());
-        }
-    };
-
     view! { cx,
         <form
             method="POST"
             action=action
             on:submit=on_submit
         >
-            {children}
+            {children(cx)}
         </form>
     }
 }

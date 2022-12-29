@@ -3,7 +3,7 @@ use leptos::*;
 use leptos_router::*;
 
 #[component]
-pub fn User(cx: Scope) -> Element {
+pub fn User(cx: Scope) -> impl IntoView {
     let params = use_params_map(cx);
     let user = create_resource(
         cx,
@@ -19,7 +19,7 @@ pub fn User(cx: Scope) -> Element {
     view! { cx,
         <div class="user-view">
             {move || user.read().map(|user| match user {
-                None => view! { cx,  <h1>"User not found."</h1> },
+                None => view! { cx,  <h1>"User not found."</h1> }.into_any(),
                 Some(user) => view! { cx,
                     <div>
                         <h1>"User: " {&user.id}</h1>
@@ -38,7 +38,7 @@ pub fn User(cx: Scope) -> Element {
                             <a href=format!("https://news.ycombinator.com/threads?id={}", user.id)>"comments"</a>
                         </p>
                     </div>
-                }
+                }.into_any()
             })}
         </div>
     }

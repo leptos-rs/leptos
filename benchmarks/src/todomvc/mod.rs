@@ -7,15 +7,14 @@ mod yew;
 
 #[bench]
 fn leptos_todomvc_ssr(b: &mut Bencher) {
-    use self::leptos::*;
-    use ::leptos::*;
-
     b.iter(|| {
+        use crate::todomvc::leptos::*;
+
         _ = create_scope(create_runtime(), |cx| {
             let rendered = view! {
                 cx,
                 <TodoMVC todos=Todos::new(cx)/>
-            };
+            }.into_view(cx).render_to_string(cx);
 
             assert!(rendered.len() > 1);
         });
@@ -59,15 +58,15 @@ fn yew_todomvc_ssr(b: &mut Bencher) {
 
 #[bench]
 fn leptos_todomvc_ssr_with_1000(b: &mut Bencher) {
-    use self::leptos::*;
-    use ::leptos::*;
-
     b.iter(|| {
+        use self::leptos::*;
+        use ::leptos::*;
+
         _ = create_scope(create_runtime(), |cx| {
             let rendered = view! {
                 cx,
                 <TodoMVC todos=Todos::new_with_1000(cx)/>
-            };
+            }.into_view(cx).render_to_string(cx);
 
             assert!(rendered.len() > 1);
         });
