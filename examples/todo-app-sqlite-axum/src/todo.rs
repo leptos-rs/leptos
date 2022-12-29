@@ -151,7 +151,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <Suspense fallback=move || view! {cx, <p>"Loading..."</p> }>
+            <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
                 {
                     let delete_todo = delete_todo.clone();
                     move || {
@@ -221,7 +221,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                     }
                 }
             }
-            </Suspense>
+            </Transition>
         </div>
     }
 }
