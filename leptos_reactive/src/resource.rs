@@ -316,7 +316,7 @@ where
 
 impl<S, T> Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: 'static,
 {
     /// Clones and returns the current value of the resource ([Option::None] if the
@@ -423,7 +423,7 @@ where
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T>
 where
-    S: Debug + 'static,
+    S: 'static,
     T: 'static,
 {
     runtime: RuntimeId,
@@ -440,7 +440,7 @@ slotmap::new_key_type! {
 
 impl<S, T> Clone for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: Clone + 'static,
 {
     fn clone(&self) -> Self {
@@ -455,7 +455,7 @@ where
 
 impl<S, T> Copy for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: Clone + 'static,
 {
 }
@@ -463,7 +463,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<S, T> FnOnce<()> for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: Clone + 'static,
 {
     type Output = Option<T>;
@@ -476,7 +476,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<S, T> FnMut<()> for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: Clone + 'static,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
@@ -487,7 +487,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<S, T> Fn<()> for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: Clone + 'static,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
@@ -516,7 +516,7 @@ where
 
 impl<S, T> ResourceState<S, T>
 where
-    S: Debug + Clone + 'static,
+    S: Clone + 'static,
     T: 'static,
 {
     pub fn read(&self) -> Option<T>
@@ -656,7 +656,7 @@ pub(crate) trait SerializableResource {
 
 impl<S, T> SerializableResource for ResourceState<S, T>
 where
-    S: Debug + Clone,
+    S: Clone,
     T: Serializable,
 {
     fn as_any(&self) -> &dyn Any {
@@ -676,11 +676,7 @@ pub(crate) trait UnserializableResource {
     fn as_any(&self) -> &dyn Any;
 }
 
-impl<S, T> UnserializableResource for ResourceState<S, T>
-where
-    S: Debug,
-    T: Debug,
-{
+impl<S, T> UnserializableResource for ResourceState<S, T> {
     fn as_any(&self) -> &dyn Any {
         self
     }
