@@ -234,7 +234,7 @@ impl Runtime {
         state: Rc<ResourceState<S, T>>,
     ) -> ResourceId
     where
-        S: Debug + Clone + 'static,
+        S: Clone + 'static,
         T: 'static,
     {
         self.resources
@@ -247,7 +247,7 @@ impl Runtime {
         state: Rc<ResourceState<S, T>>,
     ) -> ResourceId
     where
-        S: Debug + Clone + 'static,
+        S: Clone + 'static,
         T: Serializable + 'static,
     {
         self.resources
@@ -261,7 +261,7 @@ impl Runtime {
         f: impl FnOnce(&ResourceState<S, T>) -> U,
     ) -> U
     where
-        S: Debug + 'static,
+        S: 'static,
         T: 'static,
     {
         let resources = self.resources.borrow();
