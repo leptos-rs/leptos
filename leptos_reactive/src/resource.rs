@@ -267,18 +267,8 @@ where
 
             let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
 
-            // if we're under Suspense, the HTML has already streamed in so we can just set it
-            // if not under Suspense, there will be a hydration mismatch, so let's wait a tick
-            if use_context::<SuspenseContext>(cx).is_some() {
-                r.set_value.update(|n| *n = Some(res));
-                r.set_loading.update(|n| *n = false);
-            } else {
-                let r = Rc::clone(&r);
-                spawn_local(async move {
-                    r.set_value.update(|n| *n = Some(res));
-                    r.set_loading.update(|n| *n = false);
-                });
-            }
+            r.set_value.update(|n| *n = Some(res));
+            r.set_loading.update(|n| *n = false);
 
             // for reactivity
             r.source.subscribe();
