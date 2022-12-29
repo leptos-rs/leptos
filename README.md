@@ -1,3 +1,5 @@
+**NOTE: We're in the middle of merging changes and making fixes to support our upcoming `0.1.0` release. Some of the examples may be in a broken state. You can continue using the `0.0` releases with no issues.**
+
 <img src="https://raw.githubusercontent.com/gbj/leptos/main/docs/logos/logo.svg" alt="Leptos Logo" style="width: 100%; height: auto; display: block; margin: auto;">
 
 [![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
