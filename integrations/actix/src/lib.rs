@@ -1,5 +1,5 @@
 use actix_web::{http::header::HeaderMap, web::Bytes, *};
-use futures::{StreamExt, executor}; 
+use futures::{StreamExt}; 
 
 use http::StatusCode;
 use leptos::*;
@@ -94,22 +94,12 @@ pub fn handle_server_fns() -> Route {
 
                             let mut res: HttpResponseBuilder;
                             let mut res_parts = res_options.0.write().await;
-                            // let (status, mut res_headers) = match res_parts {
-                            //     Some(parts) => (parts.status, parts.headers),
-                            //     None => (None, HeaderMap::new()),
-                            // };
-
+                         
                             if accept_header == Some("application/json")
                                 || accept_header == Some("application/x-www-form-urlencoded")
                                 || accept_header == Some("application/cbor")
                             {
                                 res = HttpResponse::Ok();
-
-                                // Override Status if Status is set in ResponseParts and
-                                // We're not trying to do a form submit
-                                if let Some(status) = res_parts.status {
-                                    res.status(status);
-                                }
                             }
                             // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                             else {
@@ -122,13 +112,18 @@ pub fn handle_server_fns() -> Route {
                                 res.insert_header(("Location", referer))
                                     .content_type("application/json");
                             };
+                            // Override StatusCode if it was set in a Resource or Element
+                            if let Some(status) = res_parts.status {
+                                res.status(status);
+                            }
+
                             // Use provided ResponseParts headers if they exist
                             let _count = res_parts
                                 .headers
                                 .drain()
                                 .map(|(k, v)| {
                                     if let Some(k) = k {
-                                        res.insert_header((k, v));
+                                        res.append_header((k, v));
                                     }
                                 })
                                 .count();
@@ -182,15 +177,15 @@ pub fn handle_server_fns() -> Route {
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///
-///     let addr = SocketAddr::from(([127,0,0,1],3000));
+///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let addr = conf.leptos_options.site_address.clone();
 ///     HttpServer::new(move || {
-///         let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_example").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
-///         render_options.write_to_file();
+///         let leptos_options = &conf.leptos_options;
+///     
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }))
+///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <MyApp/> }))
 ///     })
 ///     .bind(&addr)?
 ///     .run()
@@ -199,7 +194,7 @@ pub fn handle_server_fns() -> Route {
 /// # }
 /// ```
 pub fn render_app_to_stream(
-    options: RenderOptions,
+    options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + 'static,
 ) -> Route {
     web::get().to(move |req: HttpRequest| {
@@ -223,7 +218,6 @@ pub fn render_app_to_stream(
                     let integration = ServerIntegration { path: path.clone() };
                     provide_context(cx, RouterIntegrationContext::new(integration));
                     provide_context(cx, MetaContext::new());
-                    println!("Setting Default options");
                     provide_context(cx, res_options_default.clone());
                     provide_context(cx, req.clone());
 
@@ -231,41 +225,60 @@ pub fn render_app_to_stream(
                 }
             };
 
-            let pkg_path = &options.pkg_path;
-            let socket_ip = &options.socket_address.ip().to_string();
-            let reload_port = options.reload_port;
+                let site_root = &options.site_root;
 
-            let leptos_autoreload = match options.environment {
-                RustEnv::DEV => format!(
-                    r#"
+                // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+                // we add _bg to the wasm files if cargo-leptos doesn't set the env var OUTPUT_NAME
+                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
+                let output_name = &options.output_name;
+                let mut wasm_output_name = output_name.clone();
+                if std::env::var("OUTPUT_NAME").is_err() {
+                    wasm_output_name.push_str("_bg");
+                }
+
+                let site_ip = &options.site_address.ip().to_string();
+                let reload_port = options.reload_port;
+             
+                let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
+                    true => format!(
+                        r#"
                         <script crossorigin="">(function () {{
-                            var ws = new WebSocket('ws://{socket_ip}:{reload_port}/autoreload');
+                            var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                             ws.onmessage = (ev) => {{
-                                console.log(`Reload message: `);
-                                if (ev.data === 'reload') window.location.reload();
+                                let msg = JSON.parse(event.data);
+                                if (msg.all) window.location.reload();
+                                if (msg.css) {{
+                                    const link = document.querySelector("link#leptos");
+                                    if (link) {{
+                                        let href = link.getAttribute('href').split('?')[0];
+                                        let newHref = href + '?version=' + new Date().getMilliseconds();
+                                        link.setAttribute('href', newHref);
+                                    }} else {{
+                                        console.warn("Could not find link#leptos");
+                                    }}
+                                }};
                             }};
-                            ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
+                            ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
                         }})()
                         </script>
-                    "#
-                ),
-                RustEnv::PROD => "".to_string(),
-            };
-
-            let head = format!(
-                r#"<!DOCTYPE html>
-                <html lang="en">
-                    <head>
-                        <meta charset="utf-8"/>
-                        <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                        <link rel="modulepreload" href="{pkg_path}.js">
-                        <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-                        <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
-                        {leptos_autoreload}
                         "#
-            );
+                    ),
+                    false => "".to_string(),
+                };
 
-            let tail = "</body></html>";
+                let head = format!(
+                    r#"<!DOCTYPE html>
+                    <html lang="en">
+                        <head>
+                            <meta charset="utf-8"/>
+                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                            <link rel="modulepreload" href="{site_root}/{output_name}.js">
+                            <link rel="preload" href="{site_root}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{site_root}/{output_name}.js'; init('{site_root}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            {leptos_autoreload}
+                            "#
+                );
+                let tail = "</body></html>";
 
             let mut stream = Box::pin(futures::stream::once(async move { head.clone() }) 
             // TODO this leaks a runtime once per invocation
@@ -285,8 +298,7 @@ pub fn render_app_to_stream(
             let third_chunk = stream.next().await;
 
             let res_options = res_options.0.read().await;
-            println!("Reading Options");
-            println!("Response Options: {:#?}", res_options);
+
             let (status, mut headers) = (res_options.status.clone(), res_options.headers.clone());
             let status = status.unwrap_or_default();
             

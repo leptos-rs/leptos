@@ -12,7 +12,6 @@ if #[cfg(feature = "ssr")] {
     use http::StatusCode;
     use std::net::SocketAddr;
     use tower_http::services::ServeDir;
-    use std::env;
 
     #[tokio::main]
     async fn main() {
@@ -37,14 +36,15 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
-        let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_hackernews_axum").socket_address(addr).reload_port(3001).environment(&env::var("RUST_ENV")).build();
-        render_options.write_to_file();
+        let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+        let leptos_options = conf.leptos_options;
+        let addr = leptos_options.site_address.clone();
         // build our application with a route
         let app = Router::new()
         // `GET /` goes to `root`
         .nest_service("/pkg", pkg_service)
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream(render_options, |cx| view! { cx, <App/> }));
+        .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <App/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

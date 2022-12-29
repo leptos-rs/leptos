@@ -1,7 +1,7 @@
 [workspace]
 
 [package]
-name = "example"
+name = "leptos_tailwind_example"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,12 +12,12 @@ crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
-leptos = { git = "https://github.com/gbj/leptos", default-features = false, features = [
-  "serde",
+leptos = { path = "../../leptos", default-features = false, features = [
+	"serde",
 ] }
-leptos_meta = { git = "https://github.com/gbj/leptos", default-features = false }
-leptos_router = { git = "https://github.com/gbj/leptos", default-features = false }
-
+leptos_actix = { path = "../../integrations/actix", optional = true }
+leptos_meta = { path = "../../meta", default-features = false }
+leptos_router = { path = "../../router", default-features = false }
 gloo-net = { version = "0.2", features = ["http"] }
 log = "0.4"
 cfg-if = "1.0"
@@ -35,13 +35,9 @@ simple_logger = { version = "4.0", optional = true }
 serde_json = { version = "1.0", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = 'z'
+
 
 [features]
-leptos_autoreload = []
 default = ["csr"]
 hydrate = [
   "leptos/hydrate",
@@ -64,6 +60,7 @@ ssr = [
   "leptos_meta/ssr",
   "leptos_router/ssr",
   "dep:reqwest",
+  "dep:leptos_actix",
   "dep:actix-web",
   "dep:actix-files",
   "dep:futures",
@@ -71,22 +68,55 @@ ssr = [
   "dep:serde_json",
 ]
 
-[package.metadata.leptos]
-# Path, relative to root, to generat rust code to
-gen_file = "src/server/generated.rs"
-# Path to the source index.html file
-index_file = "index.html"
-# [Optional] Files in the asset_dir will be copied to the target/site directory
-assets_dir = "assets"
-# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
-end2end_test_cmd = "npx playwright test"
-# On which port to serve the client side rendered site (when using --csr option)
-csr_port = 3000
-# The port to use for automatic reload monitoring
-reload_port = 3001
+[package.metadata.cargo-all-features]
+denylist = ["actix-files", "actix-web", "leptos_actix"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
-[package.metadata.leptos.style]
-# This points to the TailwindCSS output file
-file = "style/output.css"
-# A https://browsersl.ist query
-browserquery = "defaults"
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 'z'
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
+output-name = "leptos_tailwind_example"	
+# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
+site-root = "/pkg"
+# The site-root relative folder where all compiled output (JS, WASM and CSS) is written
+# Defaults to pkg	
+site-pkg-dir = "pkg" 	
+# [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
+# style-file = "src/styles/tailwind.css"
+# [Optional] Files in the asset-dir will be copied to the site-root directory
+assets-dir = "assets"
+# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
+site-address = "127.0.0.1:3000"	
+# The port to use for automatic reload monitoring
+reload-port = 3001	
+# [Optional] Command to use when running end2end tests. It will run in the end2end dir.
+end2end-cmd = "npx playwright test"
+#  The browserlist query used for optimizing the CSS.
+browserquery = "defaults" 	
+# Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
+watch = false 	
+# The environment Leptos will run in, usually either "DEV" or "PROD"
+env = "DEV"
+# The features to use when compiling the bin target
+#
+# Optional. Can be over-ridden with the command line parameter --bin-features
+bin-features = ["ssr"]
+
+# If the --no-default-features flag should be used when compiling the bin target
+#
+# Optional. Defaults to false.
+bin-default-features = false
+
+# The features to use when compiling the lib target
+#
+# Optional. Can be over-ridden with the command line parameter --lib-features
+lib-features = ["hydrate"]
+
+# If the --no-default-features flag should be used when compiling the lib target
+#
+# Optional. Defaults to false.
+lib-default-features = false

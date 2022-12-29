@@ -31,9 +31,9 @@ pub struct ResponseParts {
     pub headers: HeaderMap,
 }
 
-/// Adding this Struct to your Scope inside of a Server Fn or Elements will allow you to override details of the Response
-/// like StatusCode and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
-/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced
+/// Adding this Struct to your Scope inside of a Server Fn or Element will allow you to override details of the Response
+/// like status and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
+/// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
@@ -154,13 +154,6 @@ pub async fn handle_server_fns(
                                         || accept_header == Some("application/cbor")
                                     {
                                         res = res.status(StatusCode::OK);
-
-                                        // Override Status if Status is set in ResponseParts and
-                                        // We're not trying to do a form submit
-                                        res = match status {
-                                            Some(status) => res.status(status),
-                                            None => res,
-                                        }
                                     }
                                     // otherwise, it's probably a <form> submit or something: redirect back to the referrer
                                     else {
@@ -168,10 +161,16 @@ pub async fn handle_server_fns(
                                             .get("Referer")
                                             .and_then(|value| value.to_str().ok())
                                             .unwrap_or("/");
+
                                         res = res
                                             .status(StatusCode::SEE_OTHER)
                                             .header("Location", referer);
                                     }
+                                    // Override StatusCode if it was set in a Resource or Element
+                                    res = match status {
+                                        Some(status) => res.status(status),
+                                        None => res,
+                                    };
                                     match serialized {
                                         Payload::Binary(data) => res
                                             .header("Content-Type", "application/cbor")
@@ -226,6 +225,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// use axum::Router;
 /// use std::{net::SocketAddr, env};
 /// use leptos::*;
+/// use leptos_config::get_configuration;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> Element {
@@ -235,16 +235,14 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
 /// async fn main() {
-///     let addr = SocketAddr::from(([127, 0, 0, 1], 8082));
-/// let render_options: RenderOptions = RenderOptions::builder()
-///     .pkg_path("/pkg/leptos_example")
-///     .socket_address(addr)
-///     .reload_port(3001)
-///     .environment(&env::var("RUST_ENV")).build();
-///
+///     
+///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let leptos_options = conf.leptos_options;
+///     let addr = leptos_options.site_address.clone();
+///     
 ///     // build our application with a route
 ///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream(render_options, |cx| view! { cx, <MyApp/> }));
+///     .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <MyApp/> }));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -257,7 +255,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// ```
 ///
 pub fn render_app_to_stream(
-    options: RenderOptions,
+    options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> Element + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
@@ -285,25 +283,45 @@ pub fn render_app_to_stream(
                     full_path = "http://leptos".to_string() + &path.to_string()
                 }
 
-                let pkg_path = &options.pkg_path;
-                let socket_ip = &options.socket_address.ip().to_string();
+                let site_root = &options.site_root;
+                let output_name = &options.output_name;
+
+                // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+                // we add _bg to the wasm files if cargo-leptos doesn't set the env var OUTPUT_NAME
+                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
+                let mut wasm_output_name = output_name.clone();
+                if std::env::var("OUTPUT_NAME").is_err() {
+                    wasm_output_name.push_str("_bg");
+                }
+
+                let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
 
-                let leptos_autoreload = match options.environment {
-                    RustEnv::DEV => format!(
+                let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
+                    true => format!(
                         r#"
-                            <script crossorigin="">(function () {{
-                                var ws = new WebSocket('ws://{socket_ip}:{reload_port}/autoreload');
-                                ws.onmessage = (ev) => {{
-                                    console.log(`Reload message: `);
-                                    if (ev.data === 'reload') window.location.reload();
+                        <script crossorigin="">(function () {{
+                            var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+                            ws.onmessage = (ev) => {{
+                                let msg = JSON.parse(event.data);
+                                if (msg.all) window.location.reload();
+                                if (msg.css) {{
+                                    const link = document.querySelector("link#leptos");
+                                    if (link) {{
+                                        let href = link.getAttribute('href').split('?')[0];
+                                        let newHref = href + '?version=' + new Date().getMilliseconds();
+                                        link.setAttribute('href', newHref);
+                                    }} else {{
+                                        console.warn("Could not find link#leptos");
+                                    }}
                                 }};
-                                ws.onclose = () => console.warn('Autoreload stopped. Manual reload necessary.');
-                            }})()
-                            </script>
+                            }};
+                            ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+                        }})()
+                        </script>
                         "#
                     ),
-                    RustEnv::PROD => "".to_string(),
+                    false => "".to_string(),
                 };
 
                 let head = format!(
@@ -312,9 +330,9 @@ pub fn render_app_to_stream(
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{pkg_path}.js">
-                            <link rel="preload" href="{pkg_path}_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{pkg_path}.js'; init('{pkg_path}_bg.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="{site_root}/{output_name}.js">
+                            <link rel="preload" href="{site_root}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '{site_root}/{output_name}.js'; init('{site_root}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );

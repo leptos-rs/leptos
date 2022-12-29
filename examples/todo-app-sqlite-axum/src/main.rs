@@ -9,18 +9,13 @@ if #[cfg(feature = "ssr")] {
         error_handling::HandleError,
         Router,
     };
-    use std::net::SocketAddr;
     use crate::todo::*;
     use todo_app_sqlite_axum::*;
     use http::StatusCode;
     use tower_http::services::ServeDir;
-    use std::env;
 
     #[tokio::main]
     async fn main() {
-        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-        log::debug!("serving at {addr}");
-
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
         let mut conn = db().await.expect("couldn't connect to DB");
@@ -46,19 +41,22 @@ if #[cfg(feature = "ssr")] {
         }
 
 
-        let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/todo_app_sqlite_axum").socket_address(addr).reload_port(3001).environment(&env::var("RUST_ENV")).build();
-        render_options.write_to_file();
+        let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+        let leptos_options = conf.leptos_options;
+        let addr = leptos_options.site_address.clone();
+        log::debug!("serving at {addr}");
+
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .nest_service("/pkg", pkg_service)
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream(render_options.clone(), |cx| view! { cx, <TodoApp/> }));
+        .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <TodoApp/> }));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
-        log!("listening on {}", &render_options.socket_address);
-        axum::Server::bind(&render_options.socket_address)
+        log!("listening on {}", &addr);
+        axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .await
             .unwrap();

@@ -8,7 +8,6 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use leptos_hackernews::*;
-        use std::{net::SocketAddr, env};
 
         #[get("/style.css")]
         async fn css() -> impl Responder {
@@ -17,16 +16,15 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-            let addr = SocketAddr::from(([127,0,0,1],3000));
-
+            let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+            let addr = conf.leptos_options.site_address.clone();
             HttpServer::new(move || {
-                let render_options: RenderOptions = RenderOptions::builder().pkg_path("/pkg/leptos_hackernews").reload_port(3001).socket_address(addr.clone()).environment(&env::var("RUST_ENV")).build();
-                render_options.write_to_file();
+                let leptos_options = &conf.leptos_options;
                 App::new()
                     .service(Files::new("/pkg", "./pkg"))
                     .service(css)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(render_options, |cx| view! { cx, <App/> }))
+                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <App/> }))
                 //.wrap(middleware::Compress::default())
             })
             .bind(&addr)?
