@@ -1,6 +1,6 @@
 [package]
 name = "leptos_core"
-version = "0.0.21"
+version = "0.0.22"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,9 +8,9 @@ repository = "https://github.com/gbj/leptos"
 description = "Core functionality for the Leptos web framework."
 
 [dependencies]
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.21" }
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.21" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.21" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.22" }
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.22" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.22" }
 log = "0.4"
 typed-builder = "0.11"
 
