@@ -18,13 +18,13 @@
 //!   let (name, set_name) = create_signal(cx, "Alice".to_string());
 //!
 //!   view! { cx,
+//!     <Title
+//!       // reactively sets document.title when `name` changes
+//!       text=name
+//!       // applies the `formatter` function to the `text` value
+//!       formatter=|text| format!("“{text}” is your name")
+//!     />
 //!     <main>
-//!       <Title
-//!         // reactively sets document.title when `name` changes
-//!         text=name
-//!         // applies the `formatter` function to the `text` value
-//!         formatter=|text| format!("“{text}” is your name")
-//!       />
 //!       <input
 //!         prop:value=name
 //!         on:input=move |ev| set_name(event_target_value(&ev))
@@ -50,7 +50,7 @@ pub use title::*;
 /// Contains the current state of meta tags. To access it, you can use [use_head].
 ///
 /// This should generally by provided somewhere in the root of your application using
-/// `provide_context(cx, MetaContext::new())`.
+/// [provide_meta_context].
 #[derive(Debug, Clone, Default)]
 pub struct MetaContext {
     pub(crate) title: TitleContext,

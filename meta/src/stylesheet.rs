@@ -2,7 +2,6 @@ use crate::use_head;
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use typed_builder::TypedBuilder;
 
 /// Manages all of the stylesheets set by [Stylesheet] components.
 #[derive(Clone, Default, Debug)]
@@ -19,14 +18,6 @@ impl StylesheetContext {
             .map(|(href, _)| format!(r#"<link rel="stylesheet" href="{href}">"#))
             .collect()
     }
-}
-
-/// Properties for the [Stylesheet] component.
-#[derive(TypedBuilder)]
-pub struct StylesheetProps {
-    /// The URL at which the stylesheet can be located.
-    #[builder(setter(into))]
-    pub href: String,
 }
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -47,9 +38,13 @@ pub struct StylesheetProps {
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
-pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
-    let StylesheetProps { href } = props;
+#[component(transparent)]
+pub fn Stylesheet(
+    cx: Scope,
+    /// The URL at which the stylesheet is located.
+    #[prop(into)]
+    href: String,
+) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             use leptos::document;

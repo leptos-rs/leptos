@@ -1,7 +1,6 @@
 use cfg_if::cfg_if;
-use leptos::Scope;
+use leptos::{Scope, component, IntoView};
 use std::{rc::Rc, cell::{RefCell, Cell}, collections::HashMap};
-use typed_builder::TypedBuilder;
 
 use crate::{use_head, TextProp};
 
@@ -65,23 +64,6 @@ impl MetaTagsContext {
     }
 }
 
-/// Properties for the [Meta] component.
-#[derive(TypedBuilder)]
-pub struct MetaProps {
-    /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
-    #[builder(default, setter(strip_option, into))]
-    pub charset: Option<TextProp>,
-	/// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
-	#[builder(default, setter(strip_option, into))]
-	pub name: Option<TextProp>,
-	/// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
-	#[builder(default, setter(strip_option, into))]
-	pub http_equiv: Option<TextProp>,
-	/// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
-	#[builder(default, setter(strip_option, into))]
-	pub content: Option<TextProp>,
-}
-
 /// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
 ///
@@ -102,9 +84,22 @@ pub struct MetaProps {
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
-pub fn Meta(cx: Scope, props: MetaProps) {
-    let MetaProps { charset, name, http_equiv, content } = props;
+#[component(transparent)]
+pub fn Meta(
+	cx: Scope,
+    /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
+    #[prop(optional, into)]
+    charset: Option<TextProp>,
+	/// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
+	#[prop(optional, into)]
+	name: Option<TextProp>,
+	/// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
+	#[prop(optional, into)]
+	http_equiv: Option<TextProp>,
+	/// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
+	#[prop(optional, into)]
+	content: Option<TextProp>
+) -> impl IntoView {
 
 	let tag = match (charset, name, http_equiv, content) {
 		(Some(charset), _, _, _) => MetaTag::Charset(charset),
