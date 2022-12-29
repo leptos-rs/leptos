@@ -6,6 +6,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 /// Manages all of the stylesheets set by [Stylesheet] components.
 #[derive(Clone, Default, Debug)]
 pub struct StylesheetContext {
+    #[allow(clippy::type_complexity)]
     els: Rc<RefCell<HashMap<(Option<String>, String), Option<web_sys::HtmlLinkElement>>>>,
 }
 
@@ -50,6 +51,9 @@ pub fn Stylesheet(
     /// The URL at which the stylesheet is located.
     #[prop(into)]
     href: String,
+    /// An ID for the stylesheet.
+    #[prop(optional, into)]
+    id: Option<String>
 ) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
