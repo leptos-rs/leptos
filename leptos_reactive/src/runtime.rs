@@ -235,7 +235,7 @@ impl Runtime {
     ) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + 'static,
+        T: 'static,
     {
         self.resources
             .borrow_mut()
@@ -248,7 +248,7 @@ impl Runtime {
     ) -> ResourceId
     where
         S: Debug + Clone + 'static,
-        T: Debug + Serializable + 'static,
+        T: Serializable + 'static,
     {
         self.resources
             .borrow_mut()
@@ -262,7 +262,7 @@ impl Runtime {
     ) -> U
     where
         S: Debug + 'static,
-        T: Debug + 'static,
+        T: 'static,
     {
         let resources = self.resources.borrow();
         let res = resources.get(id);

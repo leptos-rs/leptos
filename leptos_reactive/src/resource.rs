@@ -66,7 +66,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Serializable + 'static,
+    T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     // can't check this on the server without running the future
@@ -91,7 +91,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Serializable + 'static,
+    T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -173,7 +173,7 @@ pub fn create_local_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
@@ -195,7 +195,7 @@ pub fn create_local_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -244,7 +244,7 @@ where
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     r.load(false)
 }
@@ -253,7 +253,7 @@ where
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Serializable + 'static,
+    T: Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
@@ -317,7 +317,7 @@ where
 impl<S, T> Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     /// Clones and returns the current value of the resource ([Option::None] if the
     /// resource is still pending). Also subscribes the running effect to this
@@ -424,7 +424,7 @@ where
 pub struct Resource<S, T>
 where
     S: Debug + 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     runtime: RuntimeId,
     pub(crate) id: ResourceId,
@@ -441,7 +441,7 @@ slotmap::new_key_type! {
 impl<S, T> Clone for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Clone + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -456,7 +456,7 @@ where
 impl<S, T> Copy for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Clone + 'static,
 {
 }
 
@@ -464,7 +464,7 @@ where
 impl<S, T> FnOnce<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Clone + 'static,
 {
     type Output = Option<T>;
 
@@ -477,7 +477,7 @@ where
 impl<S, T> FnMut<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Clone + 'static,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.read()
@@ -488,7 +488,7 @@ where
 impl<S, T> Fn<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    T: Clone + 'static,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.read()
@@ -499,7 +499,7 @@ where
 pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     scope: Scope,
     value: ReadSignal<Option<T>>,
@@ -517,7 +517,7 @@ where
 impl<S, T> ResourceState<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     pub fn read(&self) -> Option<T>
     where
@@ -657,7 +657,7 @@ pub(crate) trait SerializableResource {
 impl<S, T> SerializableResource for ResourceState<S, T>
 where
     S: Debug + Clone,
-    T: Debug + Serializable,
+    T: Serializable,
 {
     fn as_any(&self) -> &dyn Any {
         self
