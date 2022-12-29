@@ -402,6 +402,12 @@ impl IntoView for View {
   }
 }
 
+impl IntoView for &View {
+  fn into_view(self, _: Scope) -> View {
+    self.clone()
+  }
+}
+
 impl<const N: usize> IntoView for [View; N] {
   #[cfg_attr(
     debug_assertions,
