@@ -8,7 +8,6 @@ use std::{
     pin::Pin,
     rc::Rc,
 };
-
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
     runtime::{with_runtime, RuntimeId},
@@ -67,7 +66,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Serializable + 'static,
+    T: Debug + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     // can't check this on the server without running the future
@@ -92,7 +91,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Serializable + 'static,
+    T: Debug + Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -174,7 +173,7 @@ pub fn create_local_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: 'static,
+    T: Debug + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
@@ -196,7 +195,7 @@ pub fn create_local_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: 'static,
+    T: Debug + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -245,7 +244,7 @@ where
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: 'static,
+    T: Debug + 'static,
 {
     r.load(false)
 }
@@ -254,65 +253,73 @@ where
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Serializable + 'static,
+    T: Debug + Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
     with_runtime(cx.runtime, |runtime| {
-        if let Some(ref mut context) = *runtime.shared_context.borrow_mut() {
-            if let Some(data) = context.resolved_resources.remove(&id) {
-                // The server already sent us the serialized resource value, so
-                // deserialize & set it now
-                context.pending_resources.remove(&id); // no longer pending
-                r.resolved.set(true);
+        let mut context = runtime.shared_context.borrow_mut();
+        if let Some(data) = context.resolved_resources.remove(&id) {
+            // The server already sent us the serialized resource value, so
+            // deserialize & set it now
+            context.pending_resources.remove(&id); // no longer pending
+            r.resolved.set(true);
 
-                let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
+            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
+
+            // if we're under Suspense, the HTML has already streamed in so we can just set it
+            // if not under Suspense, there will be a hydration mismatch, so let's wait a tick
+            if use_context::<SuspenseContext>(cx).is_some() {
                 r.set_value.update(|n| *n = Some(res));
                 r.set_loading.update(|n| *n = false);
-
-                // for reactivity
-                r.source.subscribe();
-            } else if context.pending_resources.remove(&id) {
-                // We're still waiting for the resource, add a "resolver" closure so
-                // that it will be set as soon as the server sends the serialized
-                // value
-                r.set_loading.update(|n| *n = true);
-
-                let resolve = {
-                    let resolved = r.resolved.clone();
-                    let set_value = r.set_value;
-                    let set_loading = r.set_loading;
-                    move |res: String| {
-                        let res =
-                            T::from_json(&res).expect_throw("could not deserialize Resource JSON");
-                        resolved.set(true);
-                        set_value.update(|n| *n = Some(res));
-                        set_loading.update(|n| *n = false);
-                    }
-                };
-                let resolve =
-                    wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
-                let resource_resolvers = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
-                )
-                .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-                let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
-                _ = js_sys::Reflect::set(
-                    &resource_resolvers,
-                    &wasm_bindgen::JsValue::from_str(&id),
-                    resolve.as_ref().unchecked_ref(),
-                );
-
-                // for reactivity
-                r.source.subscribe()
             } else {
-                // Server didn't mark the resource as pending, so load it on the
-                // client
-                r.load(false);
+                let r = Rc::clone(&r);
+                spawn_local(async move {
+                    r.set_value.update(|n| *n = Some(res));
+                    r.set_loading.update(|n| *n = false);
+                });
             }
+
+            // for reactivity
+            r.source.subscribe();
+        } else if context.pending_resources.remove(&id) {
+            // We're still waiting for the resource, add a "resolver" closure so
+            // that it will be set as soon as the server sends the serialized
+            // value
+            r.set_loading.update(|n| *n = true);
+
+            let resolve = {
+                let resolved = r.resolved.clone();
+                let set_value = r.set_value;
+                let set_loading = r.set_loading;
+                move |res: String| {
+                    let res =
+                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
+                    resolved.set(true);
+                    set_value.update(|n| *n = Some(res));
+                    set_loading.update(|n| *n = false);
+                }
+            };
+            let resolve =
+                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+            let resource_resolvers = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
+            )
+            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
+            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
+            _ = js_sys::Reflect::set(
+                &resource_resolvers,
+                &wasm_bindgen::JsValue::from_str(&id),
+                resolve.as_ref().unchecked_ref(),
+            );
+
+            // for reactivity
+            r.source.subscribe()
         } else {
-            r.load(false)
+            // Server didn't mark the resource as pending, so load it on the
+            // client
+            r.load(false);
         }
     })
 }
@@ -320,7 +327,7 @@ where
 impl<S, T> Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: 'static,
+    T: Debug + 'static,
 {
     /// Clones and returns the current value of the resource ([Option::None] if the
     /// resource is still pending). Also subscribes the running effect to this
@@ -427,7 +434,7 @@ where
 pub struct Resource<S, T>
 where
     S: Debug + 'static,
-    T: 'static,
+    T: Debug + 'static,
 {
     runtime: RuntimeId,
     pub(crate) id: ResourceId,
@@ -444,7 +451,7 @@ slotmap::new_key_type! {
 impl<S, T> Clone for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Clone + 'static,
+    T: Debug + Clone + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -459,7 +466,7 @@ where
 impl<S, T> Copy for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Clone + 'static,
+    T: Debug + Clone + 'static,
 {
 }
 
@@ -467,7 +474,7 @@ where
 impl<S, T> FnOnce<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Clone + 'static,
+    T: Debug + Clone + 'static,
 {
     type Output = Option<T>;
 
@@ -480,7 +487,7 @@ where
 impl<S, T> FnMut<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Clone + 'static,
+    T: Debug + Clone + 'static,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.read()
@@ -491,7 +498,7 @@ where
 impl<S, T> Fn<()> for Resource<S, T>
 where
     S: Debug + Clone + 'static,
-    T: Clone + 'static,
+    T: Debug + Clone + 'static,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.read()
@@ -502,7 +509,7 @@ where
 pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
-    T: 'static,
+    T: Debug + 'static,
 {
     scope: Scope,
     value: ReadSignal<Option<T>>,
@@ -520,7 +527,7 @@ where
 impl<S, T> ResourceState<S, T>
 where
     S: Debug + Clone + 'static,
-    T: 'static,
+    T: Debug + 'static,
 {
     pub fn read(&self) -> Option<T>
     where
@@ -626,19 +633,16 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(self.scope, {
-            let tx = tx.clone();
-            move |_| {
-                value.with({
-                    let mut tx = tx.clone();
-                    move |value| {
-                        if let Some(value) = value.as_ref() {
-                            tx.try_send((id, value.to_json().expect("could not serialize Resource")))
-                                .expect("failed while trying to write to Resource serializer");
-                        }
+        create_isomorphic_effect(self.scope, move |_| {
+            value.with({
+                let mut tx = tx.clone();
+                move |value| {
+                    if let Some(value) = value.as_ref() {
+                        tx.try_send((id, value.to_json().expect("could not serialize Resource")))
+                            .expect("failed while trying to write to Resource serializer");
                     }
-                })
-            }
+                }
+            })
         });
         Box::pin(async move {
             rx.next().await.expect("failed while trying to resolve Resource serializer")
@@ -663,7 +667,7 @@ pub(crate) trait SerializableResource {
 impl<S, T> SerializableResource for ResourceState<S, T>
 where
     S: Debug + Clone,
-    T: Serializable,
+    T: Debug + Serializable,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -683,6 +687,9 @@ pub(crate) trait UnserializableResource {
 }
 
 impl<S, T> UnserializableResource for ResourceState<S, T>
+where
+    S: Debug,
+    T: Debug,
 {
     fn as_any(&self) -> &dyn Any {
         self

@@ -27,9 +27,9 @@ pub struct Contact {
     pub phone: String,
 }
 
-pub async fn get_contacts(search: String) -> Vec<ContactSummary> {
+pub async fn get_contacts(_search: String) -> Vec<ContactSummary> {
     // fake an API call with an artificial delay
-    delay(Duration::from_millis(300)).await;
+    _ = delay(Duration::from_millis(300)).await;
     vec![
         ContactSummary {
             id: 0,
@@ -51,7 +51,7 @@ pub async fn get_contacts(search: String) -> Vec<ContactSummary> {
 
 pub async fn get_contact(id: Option<usize>) -> Option<Contact> {
     // fake an API call with an artificial delay
-    delay(Duration::from_millis(500)).await;
+    _ = delay(Duration::from_millis(500)).await;
     match id {
         Some(0) => Some(Contact {
             id: 0,
@@ -97,7 +97,7 @@ fn delay(duration: Duration) -> impl Future<Output = Result<(), Canceled>> {
     let (tx, rx) = oneshot::channel();
     set_timeout(
         move || {
-            tx.send(());
+            _ = tx.send(());
         },
         duration,
     );

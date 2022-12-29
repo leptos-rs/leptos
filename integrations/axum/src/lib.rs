@@ -228,7 +228,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// use leptos_config::get_configuration;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
+/// fn MyApp(cx: Scope) -> impl IntoView {
 ///   view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
@@ -254,15 +254,17 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// # }
 /// ```
 ///
-pub fn render_app_to_stream(
+pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> Element + Clone + Send + 'static,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<Box<dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>> + Send + 'static>>
        + Clone
        + Send
-       + 'static {
+       + 'static
+where IV: IntoView
+{
     move |req: Request<Body>| {
         Box::pin({
             let options = options.clone();
@@ -350,37 +352,47 @@ pub fn render_app_to_stream(
                                 async move {
                                     tokio::task::LocalSet::new()
                                         .run_until(async {
-                                            let (cx, disposer, bundle) =
-                                                render_to_stream_undisposed({
-                                                    let full_path = full_path.clone();
-                                                    let req_parts =
-                                                        generate_request_parts(req).await;
-                                                    move |cx| {
-                                                        let integration = ServerIntegration {
-                                                            path: full_path.clone(),
-                                                        };
-                                                        provide_context(
-                                                            cx,
-                                                            RouterIntegrationContext::new(
-                                                                integration,
-                                                            ),
-                                                        );
-                                                        provide_context(cx, MetaContext::new());
-                                                        provide_context(cx, req_parts);
-                                                        provide_context(cx, default_res_options);
-                                                        let app = app_fn(cx);
+                                            let app = {
+                                                let full_path = full_path.clone();
+                                                let req_parts =
+                                                    generate_request_parts(req).await;
+                                                move |cx| {
+                                                    let integration = ServerIntegration {
+                                                        path: full_path.clone(),
+                                                    };
+                                                    provide_context(
+                                                        cx,
+                                                        RouterIntegrationContext::new(
+                                                            integration,
+                                                        ),
+                                                    );
+                                                    provide_context(cx, MetaContext::new());
+                                                    provide_context(cx, req_parts);
+                                                    provide_context(cx, default_res_options);
+                                                    app_fn(cx).into_view(cx)
+                                                }
+                                            };
+
+                                            let (bundle, runtime, scope) =
+                                                render_to_stream_with_prefix_undisposed(
+                                                    app,
+                                                |cx| {
                                                         let head = use_context::<MetaContext>(cx)
                                                             .map(|meta| meta.dehydrate())
                                                             .unwrap_or_default();
-                                                        format!("{head}</head><body>{app}")
+                                                        format!("{head}</head><body>").into()
                                                     }
-                                                });
+                                            );
                                             let mut shell = Box::pin(bundle);
                                             while let Some(fragment) = shell.next().await {
                                                 _ = tx.send(fragment).await;
                                             }
 
                                             // Extract the value of ResponseOptions from here
+                                            let cx = Scope {
+                                                runtime,
+                                                id: scope
+                                            };
                                             let res_options =
                                                 use_context::<ResponseOptions>(cx).unwrap();
 
@@ -389,8 +401,7 @@ pub fn render_app_to_stream(
                                             let mut writable = res_options2.0.write().await;
                                             *writable = new_res_parts;
 
-                                            // Dispose of things
-                                            disposer.dispose();
+                                            runtime.dispose();
 
                                             tx.close_channel();
                                         })

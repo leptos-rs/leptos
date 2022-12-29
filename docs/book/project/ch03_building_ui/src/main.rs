@@ -4,7 +4,7 @@ fn main() {
     mount_to_body(|cx| {
         let name = "gbj";
         let userid = 0;
-        let _input_element = NodeRef::new(cx);
+        let _input_element: Element;
 
         view! {
             cx,

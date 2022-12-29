@@ -10,7 +10,6 @@ cfg_if! {
         use actix_web::*;
         use crate::todo::*;
 
-
         #[get("/style.css")]
         async fn css() -> impl Responder {
             actix_files::NamedFile::open_async("./style.css").await
@@ -18,6 +17,7 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
+            let addr = SocketAddr::from(([127,0,0,1],3000));
             let mut conn = db().await.expect("couldn't connect to DB");
             sqlx::migrate!()
                 .run(&mut conn)
@@ -37,7 +37,7 @@ cfg_if! {
                     .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <TodoApp/> }))
                 //.wrap(middleware::Compress::default())
             })
-            .bind(&addr)?
+            .bind(addr)?
             .run()
             .await
         }

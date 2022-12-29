@@ -1,6 +1,6 @@
 [package]
 name = "leptos_reactive"
-version = "0.0.22"
+version = "0.1.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -30,11 +30,10 @@ web-sys = { version = "0.3", features = [
   "Window",
 ] }
 cfg-if = "1.0.0"
-rmp-serde = "1.1.1"
 
 [dev-dependencies]
-leptos = "0.0"
 tokio-test = "0.4"
+leptos = { path = "../leptos" }
 
 [features]
 default = []
@@ -46,34 +45,5 @@ serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 
-[build-dependencies]
-rustc_version = "0.4"
-
 [package.metadata.cargo-all-features]
 denylist = ["stable"]
-skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-]

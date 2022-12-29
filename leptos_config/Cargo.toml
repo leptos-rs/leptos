@@ -1,6 +1,6 @@
 [package]
 name = "leptos_config"
-version = "0.0.22"
+version = "0.1.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"

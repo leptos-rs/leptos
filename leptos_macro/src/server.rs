@@ -133,7 +133,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             #(#fields),*
         }
 
-        impl ServerFn for #struct_name {
+        impl leptos::ServerFn for #struct_name {
             type Output = #output_ty;
 
             fn prefix() -> &'static str {

@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.0.22"
+version = "0.1.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -13,33 +13,31 @@ proc-macro = true
 [dependencies]
 cfg-if = "1"
 itertools = "0.10"
+pad-adapter = "0.1"
+prettyplease = "0.1"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
-syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
+syn = { version = "1", features = ["full"] }
 syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
-leptos_dom = { path = "../leptos_dom", version = "0.0.22" }
-leptos_reactive = { path = "../leptos_reactive", version = "0.0.22" }
-leptos_server = { path = "../leptos_server", version = "0.0.22" }
+leptos_dom = { path = "../leptos_dom", version = "0.1.0-alpha" }
+leptos_reactive = { path = "../leptos_reactive", version = "0.1.0-alpha" }
+leptos_server = { path = "../leptos_server", version = "0.1.0-alpha" }
 lazy_static = "1.4"
 
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.10"
-leptos = { path = "../leptos", version = "0.0", default-features = false }
-leptos_router = { path = "../router", version = "0.0 " }
-serde = { version = "1", features = ["derive"] }
-
-[build-dependencies]
-rustc_version = "0.4"
+leptos = { path = "../leptos" }
 
 [features]
 default = ["ssr"]
-csr = ["leptos_dom/csr", "leptos_reactive/csr", "leptos/csr"]
-hydrate = ["leptos_dom/hydrate", "leptos_reactive/hydrate", "leptos/hydrate"]
-ssr = ["leptos_dom/ssr", "leptos_reactive/ssr", "leptos/ssr"]
-stable = ["leptos_dom/stable", "leptos_reactive/stable", "leptos/stable"]
+csr = ["leptos_dom/web", "leptos_reactive/csr"]
+hydrate = ["leptos_dom/web", "leptos_reactive/hydrate"]
+ssr = ["leptos_dom/ssr", "leptos_reactive/ssr"]
+stable = ["leptos_dom/stable", "leptos_reactive/stable"]
+tracing = []
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]

@@ -24,10 +24,10 @@ leptos_meta = { path = "../../meta", default-features = false }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 simple_logger = "2"
-gloo = { git = "https://github.com/rustwasm/gloo" }
+gloo-net = { git = "https://github.com/rustwasm/gloo" }
 
 [features]
-default = ["csr"]
+default = []
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [

@@ -12,9 +12,7 @@ const STORAGE_KEY: &str = "todos-leptos";
 // Basic operations to manipulate the todo list: nothing really interesting here
 impl Todos {
     pub fn new(cx: Scope) -> Self {
-        let starting_todos = if is_server!() {
-            Vec::new()
-        } else if let Ok(Some(storage)) = window().local_storage() {
+        let starting_todos = if let Ok(Some(storage)) = window().local_storage() {
             storage
                 .get_item(STORAGE_KEY)
                 .ok()
@@ -117,7 +115,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope) -> Element {
+pub fn TodoMVC(cx: Scope) -> impl IntoView {
     // The `todos` are a signal, since we need to reactively update the list
     let (todos, set_todos) = create_signal(cx, Todos::new(cx));
 
@@ -215,9 +213,11 @@ pub fn TodoMVC(cx: Scope) -> Element {
                     />
                     <label for="toggle-all">"Mark all as complete"</label>
                     <ul class="todo-list">
-                        <For each=filtered_todos key=|todo| todo.id>
-                            {move |cx, todo: &Todo| view! { cx,  <Todo todo=todo.clone() /> }}
-                        </For>
+                        <For
+                            each=filtered_todos
+                            key=|todo| todo.id
+                            view=move |todo: Todo| view! { cx,  <Todo todo /> }
+                        />
                     </ul>
                 </section>
                 <footer
@@ -257,12 +257,12 @@ pub fn TodoMVC(cx: Scope) -> Element {
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> Element {
+pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let input = NodeRef::new(cx);
+    let todo_input = NodeRef::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -282,7 +282,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         >
             <div class="view">
                 <input
-                    _ref=input
+                    _ref=todo_input
                     class="toggle"
                     type="checkbox"
                     prop:checked={move || (todo.completed)()}
@@ -293,10 +293,9 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                 />
                 <label on:dblclick=move |_| {
                     set_editing(true);
-
-                    // guard against the fact that in SSR mode, that ref is actually to a String
-                    if let Some(input) = input.get().expect("should have loaded input already").dyn_ref::<HtmlInputElement>() {
-                        input.focus();
+            
+                    if let Some(input) = todo_input.get() {
+                        _ = input.focus();
                     }
                 }>
                     {move || todo.title.get()}
@@ -308,8 +307,8 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
                     class="edit"
                     class:hidden={move || !(editing)()}
                     prop:value={move || todo.title.get()}
-                    on:focusout=move |ev| save(&event_target_value(&ev))
-                    on:keyup={move |ev| {
+                    on:focusout=move |ev: web_sys::FocusEvent| save(&event_target_value(&ev))
+                    on:keyup={move |ev: web_sys::KeyboardEvent| {
                         let key_code = ev.key_code();
                         if key_code == ENTER_KEY {
                             save(&event_target_value(&ev));

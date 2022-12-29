@@ -170,7 +170,7 @@ pub fn handle_server_fns() -> Route {
 /// use std::{env,net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
+/// fn MyApp(cx: Scope) -> impl IntoView {
 ///   view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
@@ -193,10 +193,12 @@ pub fn handle_server_fns() -> Route {
 /// }
 /// # }
 /// ```
-pub fn render_app_to_stream(
+pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> Element + Clone + 'static,
-) -> Route {
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where IV: IntoView
+{
     web::get().to(move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
@@ -221,7 +223,7 @@ pub fn render_app_to_stream(
                     provide_context(cx, res_options_default.clone());
                     provide_context(cx, req.clone());
 
-                    (app_fn)(cx)
+                    (app_fn)(cx).into_view(cx)
                 }
             };
 
@@ -280,16 +282,21 @@ pub fn render_app_to_stream(
                 );
                 let tail = "</body></html>";
 
+            let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(
+                app,
+                move |cx| {
+                    let head = use_context::<MetaContext>(cx)
+                        .map(|meta| meta.dehydrate())
+                        .unwrap_or_default();
+                    format!("{head}</head><body>").into()
+                });
+
             let mut stream = Box::pin(futures::stream::once(async move { head.clone() }) 
-            // TODO this leaks a runtime once per invocation
-            .chain(render_to_stream(move |cx| {
-                let app = app(cx);
-                let head = use_context::<MetaContext>(cx)
-                    .map(|meta| meta.dehydrate())
-                    .unwrap_or_default();
-                format!("{head}</head><body>{app}")
-            }))
-                .chain(futures::stream::once(async { tail.to_string() }))
+                .chain(stream)
+                .chain(futures::stream::once(async move {
+                    runtime.dispose();
+                    tail.to_string()
+                }))
                 .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
 
             // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run

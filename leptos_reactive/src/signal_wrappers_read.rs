@@ -28,10 +28,16 @@ use crate::{Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// # });
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Signal<T>(SignalTypes<T>)
 where
     T: 'static;
+
+impl<T> Clone for Signal<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 /// Please note that using `Signal::with_untracked` still clones the inner value,
 /// so there's no benefit to using it as opposed to calling
@@ -180,7 +186,6 @@ impl<T> From<Memo<T>> for Signal<T> {
     }
 }
 
-#[derive(Clone)]
 enum SignalTypes<T>
 where
     T: 'static,
@@ -188,6 +193,16 @@ where
     ReadSignal(ReadSignal<T>),
     Memo(Memo<T>),
     DerivedSignal(Scope, Rc<dyn Fn() -> T>),
+}
+
+impl<T> Clone for SignalTypes<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::ReadSignal(arg0) => Self::ReadSignal(*arg0),
+            Self::Memo(arg0) => Self::Memo(*arg0),
+            Self::DerivedSignal(arg0, arg1) => Self::DerivedSignal(*arg0, Rc::clone(arg1)),
+        }
+    }
 }
 
 impl<T> std::fmt::Debug for SignalTypes<T>

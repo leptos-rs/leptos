@@ -1,5 +1,3 @@
-**Please note:** This framework is in active development. I'm keeping it in a cycle of 0.0.x releases at the moment to indicate that it’s not even ready for its 0.1.0. Active work is being done on documentation and features, and APIs should not necessarily be considered stable. At the same time, it is more than a toy project or proof of concept, and I am actively using it for my own application development.
-
 <img src="https://raw.githubusercontent.com/gbj/leptos/main/docs/logos/logo.svg" alt="Leptos Logo" style="width: 100%; height: auto; display: block; margin: auto;">
 
 [![crates.io](https://img.shields.io/crates/v/leptos.svg)](https://crates.io/crates/leptos)
@@ -12,7 +10,7 @@
 use leptos::*;
 
 #[component]
-pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
+pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
     // create a reactive signal with the initial value
     let (value, set_value) = create_signal(cx, initial_value);
 
@@ -22,7 +20,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> Element {
     let decrement = move |_| set_value.update(|value| *value -= 1);
     let increment = move |_| set_value.update(|value| *value += 1);
 
-    // this JSX is compiled to an HTML template string for performance
+    // create user interfaces with the declarative `view!` macro
     view! {
         cx,
         <div>
@@ -54,17 +52,6 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 - **Fine-grained reactivity**: The entire framework is build from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (_So, no virtual DOM!_)
 - **Declarative**: Tell Leptos how you want the page to look, and let the framework tell the browser how to do it.
 
-## Getting Started
-
-The best way to get started with a Leptos project right now is to use the [`cargo-leptos`](https://github.com/akesson/cargo-leptos) build tool and our [starter template](https://github.com/leptos-rs/start).
-
-```bash
-cargo install cargo-leptos
-cargo leptos new --git https://github.com/leptos-rs/start
-cd [your project name]
-cargo leptos watch
-```
-
 ## Learn more
 
 Here are some resources for learning more about Leptos:
@@ -76,54 +63,13 @@ Here are some resources for learning more about Leptos:
 
 ## `nightly` Note
 
-Most of the examples assume you’re using `nightly` Rust.
-To set up your rustup toolchain using nightly and
-add the ability to compile Rust to WebAssembly:
+Most of the examples assume you’re using `nightly` Rust. If you’re on stable, note the following:
 
-```
-rustup toolchain install nightly
-rustup default nightly
-rustup target add wasm32-unknown-unknown
-```
-
-
-If you’re on stable, note the following:
-
-1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }`
+1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
    [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
    for examples of the correct API.
-
-## Benchmarks
-
-### Server-Side Rendering
-
-I’ve created a benchmark comparing Leptos’s HTML rendering on the server to [Tera](https://github.com/Keats/tera), [Yew](https://github.com/yewstack/yew), and [Sycamore](https://github.com/sycamore-rs/sycamore). You can find the benchmark [here](https://github.com/gbj/leptos/tree/main/benchmarks) and run it yourself using `cargo bench`. Leptos renders HTML roughly as fast as Tera, and scales well as templates become larger. It's significantly faster than the server-side HTML rendering done by similar frameworks.
-
-<details>
-  <summary>Click to show results</summary>
-<table>
-<thead>
-<tr><td><em>ns/iter</em></td><td>Tera</td><td>Leptos</td><td>Yew</td><td>Sycamore</td></tr>
-</thead>
-<tbody>
-<tr><td>3 Counters</td><td align="right">3,454</td><td align="right">5,666</td><td align="right">34,984</td><td align="right">32,412</td></tr>
-<tr><td>TodoMVC (no todos)</td><td align="right">2,396</td><td align="right">5,561</td><td align="right">38,725</td><td align="right">68,749</td></tr>
-<tr><td>TodoMVC (1000 todos)</td><td align="right">3,829,447</td><td align="right">3,077,907</td><td align="right">5,125,639</td><td align="right">19,448,900</td></tr>
-<tr><td><em>Average</em></td><td align="right">1.08</td><td align="right">1.65</td><td align="right">6.25</td><td align="right">9.36</td></tr>
-</tbody>
-</table>
-</details>
-
-### Client-Side Rendering
-
-The gold standard for testing raw rendering performance for front-end web frameworks is the [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark). The official results list Leptos as the fastest Rust/Wasm framework, slightly slower than SolidJS and significantly faster than popular JS frameworks like Svelte, Preact, and React.
-
-<details>
-  <summary>Click to show results</summary>
-  <img width="913" alt="js-framework-benchmark results" src="https://user-images.githubusercontent.com/286622/198388168-d21e938b-5d59-4000-b373-91b48f1ec4d3.png">
-</details>
 
 ## FAQs
 
@@ -158,17 +104,17 @@ There are some practical differences that make a significant difference:
 - **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
-  ```rust
-  let (count, set_count) = create_signal(cx, 0); // a signal
-  let double_count = move || count() * 2; // a derived signal
-  let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
-  // all are accessed by calling them
-  assert_eq!(count(), 0);
-  assert_eq!(double_count(), 0);
-  assert_eq!(memoized_count(), 0);
+```rust
+let (count, set_count) = create_signal(cx, 0); // a signal
+let double_count = move || count() * 2; // a derived signal
+let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
+// all are accessed by calling them
+assert_eq!(count(), 0);
+assert_eq!(double_count(), 0);
+assert_eq!(memoized_count(), 0);
 
-  // this function can accept any of those signals
-  fn do_work_on_signal(my_signal: impl Fn() -> i32) { ... }
-  ```
+// this function can accept any of those signals
+fn do_work_on_signal(my_signal: impl Fn() -> i32) { ... }
+```
 
 - **Signals and scopes are `'static`:** Both Leptos and Sycamore ease the pain of moving signals in closures (in particular, event listeners) by making them `Copy`, to avoid the `{ let count = count.clone(); move |_| ... }` that's very familiar in Rust UI code. Sycamore does this by using bump allocation to tie the lifetimes of its signals to its scopes: since references are `Copy`, `&'a Signal<T>` can be moved into a closure. Leptos does this by using arena allocation and passing around indices: types like `ReadSignal<T>`, `WriteSignal<T>`, and `Memo<T>` are actually wrapper for indices into an arena. This means that both scopes and signals are both `Copy` and `'static` in Leptos, which means that they can be moved easily into closures without adding lifetime complexity.

@@ -6,7 +6,6 @@ use std::{
 };
 
 use leptos::*;
-use leptos::typed_builder::*;
 
 use crate::{
     matching::{
@@ -16,28 +15,36 @@ use crate::{
     RouteContext, RouterContext,
 };
 
-/// Props for the [Routes] component, which contains route definitions and manages routing.
-#[derive(TypedBuilder)]
-pub struct RoutesProps {
-    #[builder(default, setter(strip_option))]
-    base: Option<String>,
-    children: Box<dyn Fn() -> Vec<RouteDefinition>>,
-}
-
 /// Contains route definitions and manages the actual routing process.
 ///
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
-#[allow(non_snake_case)]
-pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
+#[component]
+pub fn Routes(
+    cx: Scope,
+    #[prop(optional)] base: Option<String>,
+    children: Box<dyn Fn(Scope) -> Fragment>,
+) -> impl IntoView {
     let router = use_context::<RouterContext>(cx).unwrap_or_else(|| {
         log::warn!("<Routes/> component should be nested within a <Router/>.");
         panic!()
     });
 
     let mut branches = Vec::new();
+    let id_before = HydrationCtx::peek();
+    let frag = children(cx);
+    let children = frag
+        .as_children()
+        .iter()
+        .filter_map(|child| {
+            child
+                .as_transparent()
+                .and_then(|t| t.downcast_ref::<RouteDefinition>())
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     create_branches(
-        &(props.children)(),
-        &props.base.unwrap_or_default(),
+        &children,
+        &base.unwrap_or_default(),
         &mut Vec::new(),
         &mut branches,
     );
@@ -185,20 +192,15 @@ pub fn Routes(cx: Scope, props: RoutesProps) -> impl IntoChild {
             }
 
             if prev.is_none() || !root_equal.get() {
-                root.as_ref().map(|route| route.outlet().into_child(cx))
+                root.as_ref().map(|route| route.outlet().into_view(cx))
             } else {
                 prev.cloned().unwrap()
             }
         })
     });
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "stable")] {
-            move || root.get()
-        } else {
-            root
-        }
-    }
+    HydrationCtx::continue_from(id_before);
+    (move || root.get()).into_view(cx)
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -7,7 +7,7 @@ This example creates a basic todo app with an Axum backend that uses Leptos' ser
 To run it as a server side app with hydration, first you should run
 
 ```bash
-wasm-pack build --target=web --no-default-features --features=hydrate
+wasm-pack build --target=web --debug --no-default-features --features=hydrate
 ```
 
 to generate the WebAssembly to hydrate the HTML that is generated on the server.
