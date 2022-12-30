@@ -13,9 +13,9 @@ cfg_if! {
         }
 
         pub fn register_server_functions() {
-            GetTodos::register();
-            AddTodo::register();
-            DeleteTodo::register();
+            _ = GetTodos::register();
+            _ = AddTodo::register();
+            _ = DeleteTodo::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -104,7 +104,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                     }/>
                 </Routes>
             </main>
-        </Router> 
+        </Router>
     }
 }
 

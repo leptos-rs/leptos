@@ -17,7 +17,6 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-            let addr = SocketAddr::from(([127,0,0,1],3000));
             let mut conn = db().await.expect("couldn't connect to DB");
             sqlx::migrate!()
                 .run(&mut conn)

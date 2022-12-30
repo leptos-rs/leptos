@@ -58,18 +58,18 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     }
 
     // Add a random header(because why not)
-    let mut res_headers = HeaderMap::new();
-    res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
+    // let mut res_headers = HeaderMap::new();
+    // res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
 
-    let res_parts = leptos_axum::ResponseParts {
-        headers: res_headers,
-        status: Some(StatusCode::IM_A_TEAPOT),
-    };
+    // let res_parts = leptos_axum::ResponseParts {
+    //     headers: res_headers,
+    //     status: Some(StatusCode::IM_A_TEAPOT),
+    // };
 
-    let res_options_outer = use_context::<leptos_axum::ResponseOptions>(cx);
-    if let Some(res_options) = res_options_outer {
-        res_options.overwrite(res_parts).await;
-    }
+    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>(cx);
+    // if let Some(res_options) = res_options_outer {
+    //     res_options.overwrite(res_parts).await;
+    // }
 
     Ok(todos)
 }
@@ -120,7 +120,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                     }/>
                 </Routes>
             </main>
-        </Router> 
+        </Router>
     }
 }
 
