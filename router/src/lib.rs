@@ -136,10 +136,9 @@
 //!
 //! ```
 
-#![feature(auto_traits)]
-#![feature(let_chains)]
-#![feature(negative_impls)]
-#![feature(type_name_of_val)]
+#![cfg_attr(not(feature = "stable"), feature(auto_traits))]
+#![cfg_attr(not(feature = "stable"), feature(negative_impls))]
+#![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 mod components;
 mod history;

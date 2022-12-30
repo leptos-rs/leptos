@@ -80,13 +80,15 @@ impl Matcher {
                 path.push_str(loc_segment);
             }
 
-            if let Some(splat) = &self.splat && !splat.is_empty() {
-                let value = if len_diff > 0 {
-                    loc_segments[self.len..].join("/")
-                } else {
-                    "".into()
-                };
-                params.insert(splat.into(), value);
+            if let Some(splat) = &self.splat {
+                if !splat.is_empty() {
+                    let value = if len_diff > 0 {
+                        loc_segments[self.len..].join("/")
+                    } else {
+                        "".into()
+                    };
+                    params.insert(splat.into(), value);
+                }
             }
 
             Some(PathMatch { path, params })

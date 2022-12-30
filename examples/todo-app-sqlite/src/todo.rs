@@ -13,9 +13,9 @@ cfg_if! {
         }
 
         pub fn register_server_functions() {
-            GetTodos::register();
-            AddTodo::register();
-            DeleteTodo::register();
+            _ = GetTodos::register();
+            _ = AddTodo::register();
+            _ = DeleteTodo::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -135,7 +135,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <Suspense fallback=move || view! {cx, <p>"Loading..."</p> }>
+            <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
                 {
                     let delete_todo = delete_todo.clone();
                     move || {
@@ -205,7 +205,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                     }
                 }
             }
-            </Suspense>
+            </Transition>
         </div>
     }
 }

@@ -63,15 +63,37 @@ Here are some resources for learning more about Leptos:
 - [Common Bugs](https://github.com/gbj/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
 - Leptos Guide (in progress)
 
+
 ## `nightly` Note
 
-Most of the examples assume you’re using `nightly` Rust. If you’re on stable, note the following:
+Most of the examples assume you’re using `nightly` Rust.
+
+To set up your Rust toolchain using `nightly` (and add the ability to compile Rust to WebAssembly, if you haven’t already)
+
+```
+rustup toolchain install nightly
+rustup default nightly
+rustup target add wasm32-unknown-unknown
+```
+
+If you’re on `stable`, note the following:
 
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
    [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
    for examples of the correct API.
+
+## `cargo-leptos`
+
+[`cargo-leptos`](https://github.com/akesson/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our [starter template](https://github.com/leptos-rs/start).
+
+```bash
+cargo install cargo-leptos
+cargo leptos new --git https://github.com/leptos-rs/start
+cd [your project name]
+cargo leptos watch
+```
 
 ## FAQs
 
@@ -106,17 +128,16 @@ There are some practical differences that make a significant difference:
 - **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
-```rust
-let (count, set_count) = create_signal(cx, 0); // a signal
-let double_count = move || count() * 2; // a derived signal
-let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
-// all are accessed by calling them
-assert_eq!(count(), 0);
-assert_eq!(double_count(), 0);
-assert_eq!(memoized_count(), 0);
-
-// this function can accept any of those signals
-fn do_work_on_signal(my_signal: impl Fn() -> i32) { ... }
-```
+  ```rust
+  let (count, set_count) = create_signal(cx, 0); // a signal
+  let double_count = move || count() * 2; // a derived signal
+  let memoized_count = create_memo(cx, move |_| count() * 3); // a memo
+  // all are accessed by calling them
+  assert_eq!(count(), 0);
+  assert_eq!(double_count(), 0);
+  assert_eq!(memoized_count(), 0);
+  // this function can accept any of those signals
+  fn do_work_on_signal(my_signal: impl Fn() -> i32) { ... }
+  ```
 
 - **Signals and scopes are `'static`:** Both Leptos and Sycamore ease the pain of moving signals in closures (in particular, event listeners) by making them `Copy`, to avoid the `{ let count = count.clone(); move |_| ... }` that's very familiar in Rust UI code. Sycamore does this by using bump allocation to tie the lifetimes of its signals to its scopes: since references are `Copy`, `&'a Signal<T>` can be moved into a closure. Leptos does this by using arena allocation and passing around indices: types like `ReadSignal<T>`, `WriteSignal<T>`, and `Memo<T>` are actually wrapper for indices into an arena. This means that both scopes and signals are both `Copy` and `'static` in Leptos, which means that they can be moved easily into closures without adding lifetime complexity.

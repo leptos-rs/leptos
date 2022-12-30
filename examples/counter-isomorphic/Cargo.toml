@@ -38,6 +38,7 @@ ssr = [
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
+stable = ["leptos/stable", "leptos_router/stable"]
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix"]
