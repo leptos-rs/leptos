@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
+#![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
