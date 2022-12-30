@@ -1,5 +1,7 @@
 use crate::{ServerFn, ServerFnError};
-use leptos_reactive::{create_rw_signal, spawn_local, ReadSignal, RwSignal, Scope};
+use leptos_reactive::{
+    create_rw_signal, spawn_local, store_value, ReadSignal, RwSignal, Scope, StoredValue,
+};
 use std::{future::Future, pin::Pin, rc::Rc};
 
 /// An action synchronizes an imperative `async` call to the synchronous reactive system.
@@ -74,8 +76,81 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// let action3 = create_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
-#[derive(Clone)]
-pub struct Action<I, O>
+pub struct Action<I, O>(StoredValue<ActionState<I, O>>)
+where
+    I: 'static,
+    O: 'static;
+
+impl<I, O> Action<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// Calls the `async` function with a reference to the input type as its argument.
+    pub fn dispatch(&self, input: I) {
+        self.0.with(|a| a.dispatch(input))
+    }
+
+    /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
+    pub fn pending(&self) -> ReadSignal<bool> {
+        self.0.with(|a| a.pending.read_only())
+    }
+
+    /// The URL associated with the action (typically as part of a server function.)
+    /// This enables integration with the `ActionForm` component in `leptos_router`.
+    pub fn url(&self) -> Option<String> {
+        self.0.with(|a| a.url.as_ref().cloned())
+    }
+
+    /// Associates the URL of the given server function with this action.
+    /// This enables integration with the `ActionForm` component in `leptos_router`.
+    pub fn using_server_fn<T: ServerFn>(self) -> Self {
+        let prefix = T::prefix();
+        self.0.update(|state| {
+            state.url = if prefix.is_empty() {
+                Some(T::url().to_string())
+            } else {
+                Some(prefix.to_string() + "/" + T::url())
+            };
+        });
+        self
+    }
+
+    /// How many times the action has successfully resolved.
+    pub fn version(&self) -> RwSignal<usize> {
+        self.0.with(|a| a.version)
+    }
+
+    /// The current argument that was dispatched to the `async` function.
+    /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    pub fn input(&self) -> RwSignal<Option<I>> {
+        self.0.with(|a| a.input)
+    }
+
+    /// The most recent return value of the `async` function.
+    pub fn value(&self) -> RwSignal<Option<O>> {
+        self.0.with(|a| a.value)
+    }
+}
+
+impl<I, O> Clone for Action<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl<I, O> Copy for Action<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+}
+
+struct ActionState<I, O>
 where
     I: 'static,
     O: 'static,
@@ -93,7 +168,7 @@ where
     action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
 
-impl<I, O> Action<I, O>
+impl<I, O> ActionState<I, O>
 where
     I: 'static,
     O: 'static,
@@ -114,29 +189,6 @@ where
             value.set(Some(new_value));
             version.update(|n| *n += 1);
         })
-    }
-
-    /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
-    pub fn pending(&self) -> ReadSignal<bool> {
-        self.pending.read_only()
-    }
-
-    /// The URL associated with the action (typically as part of a server function.)
-    /// This enables integration with the `ActionForm` component in `leptos_router`.
-    pub fn url(&self) -> Option<&str> {
-        self.url.as_deref()
-    }
-
-    /// Associates the URL of the given server function with this action.
-    /// This enables integration with the `ActionForm` component in `leptos_router`.
-    pub fn using_server_fn<T: ServerFn>(mut self) -> Self {
-        let prefix = T::prefix();
-        self.url = if prefix.is_empty() {
-            Some(T::url().to_string())
-        } else {
-            Some(prefix.to_string() + "/" + T::url())
-        };
-        self
     }
 }
 
@@ -229,14 +281,17 @@ where
         Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = O>>>
     });
 
-    Action {
-        version,
-        url: None,
-        input,
-        value,
-        pending,
-        action_fn,
-    }
+    Action(store_value(
+        cx,
+        ActionState {
+            version,
+            url: None,
+            input,
+            value,
+            pending,
+            action_fn,
+        },
+    ))
 }
 
 /// Creates an [Action] that can be used to call a server function.
