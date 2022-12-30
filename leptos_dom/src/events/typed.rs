@@ -60,6 +60,10 @@ impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
   fn name(&self) -> Cow<'static, str> {
     self.name.clone()
   }
+
+  fn bubbles(&self) -> bool {
+    false
+  }
 }
 
 impl<E: FromWasmAbi> Custom<E> {
