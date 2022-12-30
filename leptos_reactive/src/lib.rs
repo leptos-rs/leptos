@@ -79,6 +79,7 @@ mod signal;
 mod signal_wrappers_read;
 mod signal_wrappers_write;
 mod spawn;
+mod stored_value;
 mod suspense;
 
 pub use context::*;
@@ -94,6 +95,7 @@ pub use signal::*;
 pub use signal_wrappers_read::*;
 pub use signal_wrappers_write::*;
 pub use spawn::*;
+pub use stored_value::*;
 pub use suspense::*;
 
 /// Trait implemented for all signal types which you can `get` a value
