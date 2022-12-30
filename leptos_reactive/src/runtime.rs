@@ -234,8 +234,8 @@ impl Runtime {
         state: Rc<ResourceState<S, T>>,
     ) -> ResourceId
     where
-        S: Debug + Clone + 'static,
-        T: Debug + 'static,
+        S: Clone + 'static,
+        T: 'static,
     {
         self.resources
             .borrow_mut()
@@ -247,8 +247,8 @@ impl Runtime {
         state: Rc<ResourceState<S, T>>,
     ) -> ResourceId
     where
-        S: Debug + Clone + 'static,
-        T: Debug + Serializable + 'static,
+        S: Clone + 'static,
+        T: Serializable + 'static,
     {
         self.resources
             .borrow_mut()
@@ -261,8 +261,8 @@ impl Runtime {
         f: impl FnOnce(&ResourceState<S, T>) -> U,
     ) -> U
     where
-        S: Debug + 'static,
-        T: Debug + 'static,
+        S: 'static,
+        T: 'static,
     {
         let resources = self.resources.borrow();
         let res = resources.get(id);

@@ -9,8 +9,8 @@ description = "Tools to set HTML metadata in the Leptos web framework."
 
 [dependencies]
 cfg-if = "1"
-leptos = { path = "../leptos", version = "0.1.0-alpha", default-features = false }
-tracing = "0.1"
+leptos = { path = "../leptos", default-features = false }
+typed-builder = "0.11"
 
 [dependencies.web-sys]
 version = "0.3"
@@ -18,6 +18,10 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "leptos/tracing"]
-hydrate = ["leptos/hydrate", "leptos/tracing"]
-ssr = ["leptos/ssr", "leptos/tracing"]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate"]
+ssr = ["leptos/ssr"]
+stable = ["leptos/stable"]
+
+[package.metadata.cargo-all-features]
+denylist = ["stable"]

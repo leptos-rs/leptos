@@ -22,42 +22,45 @@ pub fn Story(cx: Scope) -> impl IntoView {
     view! { cx,
         <>
             <Meta name="description" content=meta_description/>
-            {move || story.read().map(|story| match story {
-                None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
-                Some(story) => view! { cx,
-                    <div class="item-view">
-                        <div class="item-view-header">
-                        <a href=story.url target="_blank">
-                            <h1>{story.title}</h1>
-                        </a>
-                        <span class="host">
-                            "("{story.domain}")"
-                        </span>
-                        {story.user.map(|user| view! { cx,  <p class="meta">
-                            {story.points}
-                            " points | by "
-                            <A href=format!("/users/{}", user)>{user.clone()}</A>
-                            {format!(" {}", story.time_ago)}
-                        </p>})}
+                <Suspense fallback=|| view! { cx, "Loading..." }>
+                    {move || story.read().map(|story| match story {
+                        None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
+                        Some(story) => view! { cx,
+                            <div class="item-view">
+                                <div class="item-view-header">
+                                <a href=story.url target="_blank">
+                                    <h1>{story.title}</h1>
+                                </a>
+                                <span class="host">
+                                    "("{story.domain}")"
+                                </span>
+                                {story.user.map(|user| view! { cx,  <p class="meta">
+                                    {story.points}
+                                    " points | by "
+                                    <A href=format!("/users/{}", user)>{user.clone()}</A>
+                                    {format!(" {}", story.time_ago)}
+                                </p>})}
+                                </div>
+                                <div class="item-view-comments">
+                                <p class="item-view-comments-header">
+                                    {if story.comments_count.unwrap_or_default() > 0 {
+                                        format!("{} comments", story.comments_count.unwrap_or_default())
+                                    } else {
+                                        "No comments yet.".into()
+                                    }}
+                                </p>
+                                <ul class="comment-children">
+                                    <For
+                                        each=move || story.comments.clone().unwrap_or_default()
+                                        key=|comment| comment.id
+                                        view=move |comment| view! { cx,  <Comment comment /> }
+                                    />
+                                </ul>
+                            </div>
                         </div>
-                        <div class="item-view-comments">
-                        <p class="item-view-comments-header">
-                            {if story.comments_count.unwrap_or_default() > 0 {
-                                format!("{} comments", story.comments_count.unwrap_or_default())
-                            } else {
-                                "No comments yet.".into()
-                            }}
-                        </p>
-                        <ul class="comment-children">
-                            <For
-                                each=move || story.comments.clone().unwrap_or_default()
-                                key=|comment| comment.id
-                                view=move |comment| view! { cx,  <Comment comment /> }
-                            />
-                        </ul>
-                    </div>
-                </div>
-            }})}
+                    }})
+                }
+            </Suspense>
         </>
     }
 }

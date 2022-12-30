@@ -57,7 +57,8 @@ default = ["csr"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
+stable = ["leptos/stable"]
 
 [package.metadata.cargo-all-features]
 # No need to test optional dependencies as they are enabled by the ssr feature
-denylist = ["url", "regex"]
+denylist = ["url", "regex", "stable"]
