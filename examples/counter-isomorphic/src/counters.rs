@@ -90,7 +90,7 @@ pub fn Counter(cx: Scope) -> impl IntoView {
     let clear = create_action(cx, |_| clear_server_count());
     let counter = create_resource(
         cx,
-        move || (dec.version.get(), inc.version.get(), clear.version.get()),
+        move || (dec.version().get(), inc.version().get(), clear.version().get()),
         |_| get_server_count(),
     );
 
@@ -130,14 +130,9 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
 
     let counter = create_resource(
         cx,
-        {
-            let adjust = adjust.version;
-            let clear = clear.version;
-            move || (adjust.get(), clear.get())
-        },
+        move || (adjust.version().get(), clear.version().get()),
         |_| {
             log::debug!("FormCounter running fetcher");
-
             get_server_count()
         },
     );
@@ -150,8 +145,6 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
             .map(|n| n)
             .unwrap_or(0)
     };
-
-    let adjust2 = adjust.clone();
 
     view! {
         cx,
@@ -172,7 +165,7 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
                     <input type="submit" value="-1"/>
                 </ActionForm>
                 <span>"Value: " {move || value().to_string()} "!"</span>
-                <ActionForm action=adjust2>
+                <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="1"/>
                     <input type="hidden" name="msg" value="form value up"/>
                     <input type="submit" value="+1"/>

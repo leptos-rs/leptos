@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
-        use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
             Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)
@@ -38,10 +37,9 @@ cfg_if! {
 #[server(GetTodos, "/api")]
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
-    // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>(cx).unwrap();
-    println!("\ncalling server fn");
-    println!("Uri = {:?}", req_parts.uri);
+    let req =
+        use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
+    println!("req.path = {:?}", req.path());
 
     use futures::TryStreamExt;
 
@@ -55,20 +53,6 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?
     {
         todos.push(row);
-    }
-
-    // Add a random header(because why not)
-    let mut res_headers = HeaderMap::new();
-    res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
-
-    let res_parts = leptos_axum::ResponseParts {
-        headers: res_headers,
-        status: Some(StatusCode::IM_A_TEAPOT),
-    };
-
-    let res_options_outer = use_context::<leptos_axum::ResponseOptions>(cx);
-    if let Some(res_options) = res_options_outer {
-        res_options.overwrite(res_parts).await;
     }
 
     Ok(todos)
@@ -86,7 +70,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
         .execute(&mut conn)
         .await
     {
-        Ok(_row) => Ok(()),
+        Ok(row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
     }
 }
@@ -120,7 +104,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                     }/>
                 </Routes>
             </main>
-        </Router> 
+        </Router>
     }
 }
 
@@ -130,14 +114,10 @@ pub fn Todos(cx: Scope) -> impl IntoView {
     let delete_todo = create_server_action::<DeleteTodo>(cx);
     let submissions = add_todo.submissions();
 
-    // track mutations that should lead us to refresh the list
-    let add_changed = add_todo.version;
-    let todo_deleted = delete_todo.version;
-
     // list of todos is loaded from the server in reaction to changes
     let todos = create_resource(
         cx,
-        move || (add_changed(), todo_deleted()),
+        move || (add_todo.version().get(), delete_todo.version().get()),
         move |_| get_todos(cx),
     );
 
@@ -152,17 +132,11 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 <input type="submit" value="Add"/>
             </MultiActionForm>
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
-                {
-                    let delete_todo = delete_todo.clone();
-                    move || {
+                {move || {
                     let existing_todos = {
-                        let delete_todo = delete_todo.clone();
                         move || {
-                            todos
-                            .read()
-                            .map({
-                                let delete_todo = delete_todo.clone();
-                                move |todos| match todos {
+                            todos.read()
+                                .map(move |todos| match todos {
                                     Err(e) => {
                                         vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
                                     }
@@ -172,29 +146,24 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                         } else {
                                             todos
                                                 .into_iter()
-                                                .map({
-                                                    let delete_todo = delete_todo.clone();
-                                                    move |todo| {
-                                                        let delete_todo = delete_todo.clone();
-                                                        view! {
-                                                            cx,
-                                                            <li>
-                                                                {todo.title}
-                                                                <ActionForm action=delete_todo.clone()>
-                                                                    <input type="hidden" name="id" value={todo.id}/>
-                                                                    <input type="submit" value="X"/>
-                                                                </ActionForm>
-                                                            </li>
-                                                        }
-                                                        .into_any()
+                                                .map(move |todo| {
+                                                    view! {
+                                                        cx,
+                                                        <li>
+                                                            {todo.title}
+                                                            <ActionForm action=delete_todo>
+                                                                <input type="hidden" name="id" value={todo.id}/>
+                                                                <input type="submit" value="X"/>
+                                                            </ActionForm>
+                                                        </li>
                                                     }
+                                                    .into_any()
                                                 })
                                                 .collect::<Vec<_>>()
                                         }
                                     }
-                                }
-                            })
-                            .unwrap_or_default()
+                                })
+                                .unwrap_or_default()
                         }
                     };
 
