@@ -287,7 +287,7 @@ where
                 }
 
                 let site_root = &options.site_root;
-                let pkg_path = &options.site_root;
+                let pkg_path = &options.site_pkg_dir;
 
                 // We need to do some logic to check if the site_root is /pkg
                 // if it is, then we need to not add pkg_path
@@ -342,9 +342,9 @@ where
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{bundle_path}/{output_name}.js">
-                            <link rel="preload" href="{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{bundle_path}/{output_name}.js'; init('{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="/{bundle_path}/{output_name}.js">
+                            <link rel="preload" href="/{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '/{bundle_path}/{output_name}.js'; init('/{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
