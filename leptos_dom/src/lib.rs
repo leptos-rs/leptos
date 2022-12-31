@@ -543,6 +543,14 @@ impl View {
   pub fn on<E: ev::EventDescriptor + 'static>(
     self,
     event: E,
+    event_handler: impl FnMut(E::EventType) + 'static,
+  ) -> Self {
+    self.on_impl(event, Box::new(event_handler))
+  }
+
+  fn on_impl<E: ev::EventDescriptor + 'static>(
+    self,
+    event: E,
     event_handler: Box<dyn FnMut(E::EventType)>,
   ) -> Self {
     cfg_if! {
