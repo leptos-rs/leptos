@@ -61,7 +61,13 @@ denylist = [
 ]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
-[package.metadata.leptos]
+[[workspace.metadata.leptos]]
+# The name of your app
+name = "todo_app_sqlite_axum"
+# The name of the leptos server/bin package. Can be different from your lib package if they are in different crates. Otherwise, can be the same
+bin-package = "todo_app_sqlite_axum"
+# The name of the leptos frontend/lib package. Can be different from your bin package if they are in different crates. Otherwise, they'd be the same
+lib-package = "todo_app_sqlite_axum"
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
 output-name = "todo_app_sqlite_axum"	
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.

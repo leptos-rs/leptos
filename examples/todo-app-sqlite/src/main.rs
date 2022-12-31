@@ -9,7 +9,6 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use crate::todo::*;
-        use std::net::SocketAddr;
 
         #[get("/style.css")]
         async fn css() -> impl Responder {

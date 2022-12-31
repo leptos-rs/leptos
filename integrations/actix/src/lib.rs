@@ -245,10 +245,11 @@ where IV: IntoView
                 let site_root = &options.site_root;
                 let pkg_path = &options.site_pkg_dir;
 
-                // We need to do some logic to check if the site_root is /pkg
-                // if it is, then we need to not add pkg_path
+                // We need to do some logic to check if the site_root is pkg
+                // if it is, then we need to not add pkg_path. This would mean
+                // the site was built with cargo run and not cargo-leptos
                 let bundle_path = match site_root.as_ref() {
-                    "/pkg" => "/pkg".to_string(),
+                    "pkg" => "pkg".to_string(),
                     _ => format!("{}/{}", site_root, pkg_path),
                 };
              

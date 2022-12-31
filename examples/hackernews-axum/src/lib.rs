@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{component, Scope, IntoView, provide_context, view};
+use leptos::{component, provide_context, view, IntoView, Scope};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -12,6 +12,7 @@ use routes::users::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
+    provide_context(cx, MetaContext::default());
     view! {
         cx,
         <>

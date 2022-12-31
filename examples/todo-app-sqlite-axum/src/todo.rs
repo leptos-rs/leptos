@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
-        use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
+        // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
             Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)

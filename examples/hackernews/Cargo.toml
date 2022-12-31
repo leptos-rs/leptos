@@ -1,5 +1,5 @@
 [package]
-name = "leptos-hackernews"
+name = "leptos_hackernews"
 version = "0.1.0"
 edition = "2021"
 
@@ -45,11 +45,17 @@ ssr = [
 denylist = ["actix-files", "actix-web", "leptos_actix"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
-[package.metadata.leptos]
+[[workspace.metadata.leptos]]
+# The name of your leptos package
+name = "leptos_hackernews"
+# The name of the leptos server/bin package. Can be different from your lib package if they are in different crates. Otherwise, they'd be the same
+bin-package = "leptos_hackernews"
+# The name of the leptos frontend/lib package. Can be different from your bin package if they are in different crates. Otherwise, they'd be the same
+lib-package = "leptos_hackernews"
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
 output-name = "leptos_hackernews"	
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
-site-root = "/pkg"
+site-root = "pkg"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
 # Defaults to pkg	
 site-pkg-dir = "pkg" 	

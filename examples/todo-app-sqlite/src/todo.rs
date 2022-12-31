@@ -57,8 +57,9 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
 
     Ok(todos)
 }
-
-#[server(AddTodo, "/api")]
+// This is an example of leptos's server functions using an alternative CBOR encoding. Both the function arguments being sent
+// to the server and the server response will be encoded with CBOR. Good for binary data that doesn't encode well via the default methods
+#[server(AddTodo, "/api", "Cbor")]
 pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
