@@ -133,7 +133,6 @@ pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosCon
         Some(p) => fs::read_to_string(p).map_err(|_| LeptosConfigError::ConfigNotFound)?,
         None => fs::read_to_string("Cargo.toml").map_err(|_| LeptosConfigError::ConfigNotFound)?,
     };
-    // text = text.replace("[[workspace.metadata.leptos]]", "[package.metadata.leptos]");
 
     let re: Regex =
         Regex::new(r#"(?m)^\[package.metadata.leptos\]|(?m)^\[\[workspace.metadata.leptos\]\]"#)

@@ -3,9 +3,8 @@ use leptos_meta::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-    provide_context(cx, MetaContext::default());
+    provide_context(cx, MetaContext::new());
     let (count, set_count) = create_signal(cx, 0);
-
     view! {
         cx,
         <main class="my-0 mx-auto max-w-3xl text-center">

@@ -7,7 +7,7 @@ cfg_if! {
     if #[cfg(feature = "ssr")] {
         use actix_files::{Files};
         use actix_web::*;
-        use leptos_hackernews::*;
+        use hackernews::{App,AppProps};
 
         #[get("/style.css")]
         async fn css() -> impl Responder {

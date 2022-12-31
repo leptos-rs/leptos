@@ -3,8 +3,6 @@ name = "test-bench"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-
 [dependencies]
 console_error_panic_hook = "0.1"
 gloo = { version = "0.8", features = ["futures"] }

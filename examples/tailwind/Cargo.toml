@@ -1,7 +1,5 @@
-[workspace]
-
 [package]
-name = "leptos_tailwind_example"
+name = "tailwind"
 version = "0.1.0"
 edition = "2021"
 
@@ -79,9 +77,9 @@ opt-level = 'z'
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
-output-name = "leptos_tailwind_example"	
+output-name = "tailwind"	
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
-site-root = "/pkg"
+site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
 # Defaults to pkg	
 site-pkg-dir = "pkg" 	

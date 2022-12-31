@@ -25,6 +25,7 @@ cfg_if! {
 
             crate::todo::register_server_functions();
 
+
             let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
             let addr = conf.leptos_options.site_address.clone();
 

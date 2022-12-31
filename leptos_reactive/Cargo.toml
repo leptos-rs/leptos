@@ -47,3 +47,4 @@ miniserde = ["dep:miniserde"]
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]
+

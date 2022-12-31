@@ -16,26 +16,12 @@ members = [
   "meta",
   "router",
 
-  # examples
-  "examples/counter",
-  "examples/counter-isomorphic",
-  "examples/counters",
-  "examples/counters-stable",
-  "examples/fetch",
-  "examples/hackernews",
-  "examples/hackernews-axum",
-  "examples/parent-child",
-  "examples/router",
-  "examples/todomvc",
-  "examples/todo-app-sqlite",
-  "examples/todo-app-sqlite-axum",
-
   # book
   "docs/book/project/ch02_getting_started",
   "docs/book/project/ch03_building_ui",
   "docs/book/project/ch04_reactivity",
 ]
-exclude = ["benchmarks"]
+exclude = ["benchmarks", "examples"]
 
 [profile.release]
 codegen-units = 1

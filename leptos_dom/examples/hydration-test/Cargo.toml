@@ -21,5 +21,3 @@ futures = "0.3"
 default = ["ssr"]
 ssr = ["leptos/ssr", "dep:actix-files", "dep:actix-web"]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:gloo"]
-
-[workspace]
