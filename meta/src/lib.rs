@@ -59,7 +59,7 @@ pub struct MetaContext {
 }
 
 /// Provides a [MetaContext], if there is not already one provided. This ensures that you can provide it
-/// at the highest possible level, without overwriting a [MetaContext] that has already been provided 
+/// at the highest possible level, without overwriting a [MetaContext] that has already been provided
 /// (for example, by a server-rendering integration.)
 pub fn provide_meta_context(cx: Scope) {
     if use_context::<MetaContext>(cx).is_none() {
@@ -74,11 +74,16 @@ pub fn provide_meta_context(cx: Scope) {
 ///
 /// Note that this may cause confusing behavior, e.g., if multiple nested routes independently
 /// call `use_head()` but a single [MetaContext] has not been provided at the application root.
-/// The best practice is always to `provide_context(cx, MetaContext::new())` early in the application.
+/// The best practice is always to call [provide_meta_context] early in the application.
 pub fn use_head(cx: Scope) -> MetaContext {
     match use_context::<MetaContext>(cx) {
         None => {
-            debug_warn!("use_head() is being called with a MetaContext being provided. We'll automatically create and provide one, but if this is being called in a child route it will cause bugs. To be safe, you should provide_context(cx, MetaContext::new()) somewhere in the root of the app.");
+            debug_warn!(
+                "use_head() is being called without a MetaContext being provided. \
+            We'll automatically create and provide one, but if this is being called in a child \
+            route it may cause bugs. To be safe, you should provide_meta_context(cx) \
+            somewhere in the root of the app."
+            );
             let meta = MetaContext::new();
             provide_context(cx, meta.clone());
             meta
