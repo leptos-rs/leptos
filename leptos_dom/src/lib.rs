@@ -543,7 +543,7 @@ impl View {
   pub fn on<E: ev::EventDescriptor + 'static>(
     self,
     event: E,
-    event_handler: impl FnMut(E::EventType) + 'static,
+    event_handler: Box<dyn FnMut(E::EventType)>,
   ) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -565,7 +565,7 @@ impl View {
             c.children.iter().cloned().for_each(|c| {
               let event_handler = event_handler.clone();
 
-              c.on(event.clone(), move |e| event_handler.borrow_mut()(e));
+              c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
             });
           }
           Self::CoreComponent(c) => match c {
