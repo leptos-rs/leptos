@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
+#![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
@@ -79,6 +80,7 @@ mod signal;
 mod signal_wrappers_read;
 mod signal_wrappers_write;
 mod spawn;
+mod stored_value;
 mod suspense;
 
 pub use context::*;
@@ -94,6 +96,7 @@ pub use signal::*;
 pub use signal_wrappers_read::*;
 pub use signal_wrappers_write::*;
 pub use spawn::*;
+pub use stored_value::*;
 pub use suspense::*;
 
 /// Trait implemented for all signal types which you can `get` a value

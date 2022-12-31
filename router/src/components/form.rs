@@ -144,11 +144,11 @@ where
         url
     } else {
         debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
-        ""
-    }.to_string();
-    let version = action.version;
-    let value = action.value;
-    let input = action.input;
+        String::new()
+    };
+    let version = action.version();
+    let value = action.value();
+    let input = action.input();
 
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
         let data = action_input_from_form_data(form_data);
@@ -219,8 +219,8 @@ where
         url
     } else {
         debug_warn!("<MultiActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
-        ""
-    }.to_string();
+        String::new()
+    };
 
     let on_submit = move |ev: web_sys::SubmitEvent| {
         if ev.default_prevented() {
