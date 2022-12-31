@@ -188,9 +188,8 @@ where
           // is therefore no longer sound to unmount it from the DOM
           // or to reuse it in the case of a text node
 
-          // FIXME this was breaking DynChild updates on text nodes, at least...
-          let was_child_moved = false;
-            //child.get_closing_node().next_sibling().as_ref() != Some(&closing);
+          // TODO check does this still detect moves correctly?
+          let was_child_moved = prev_t.is_none() && child.get_closing_node().next_sibling().as_ref() != Some(&closing);
 
           // If the previous child was a text node, we would like to
           // make use of it again if our current child is also a text
