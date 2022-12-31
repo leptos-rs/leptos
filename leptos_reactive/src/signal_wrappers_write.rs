@@ -1,6 +1,4 @@
-use std::rc::Rc;
-
-use crate::{RwSignal, Scope, WriteSignal};
+use crate::{store_value, RwSignal, Scope, StoredValue, WriteSignal};
 
 /// A wrapper for any kind of settable reactive signal: a [WriteSignal](crate::WriteSignal),
 /// [RwSignal](crate::RwSignal), or closure that receives a value and sets a signal depending
@@ -36,9 +34,11 @@ where
 
 impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
+
+impl<T> Copy for SignalSetter<T> {}
 
 impl<T> SignalSetter<T>
 where
@@ -66,7 +66,10 @@ where
     /// # });
     /// ```
     pub fn map(cx: Scope, mapped_setter: impl Fn(T) + 'static) -> Self {
-        Self(SignalSetterTypes::Mapped(cx, Rc::new(mapped_setter)))
+        Self(SignalSetterTypes::Mapped(
+            cx,
+            store_value(cx, Box::new(mapped_setter)),
+        ))
     }
 
     /// Calls the setter function with the given value.
@@ -92,7 +95,7 @@ where
     pub fn set(&self, value: T) {
         match &self.0 {
             SignalSetterTypes::Write(s) => s.set(value),
-            SignalSetterTypes::Mapped(_, s) => s(value),
+            SignalSetterTypes::Mapped(_, s) => s.with(|s| s(value)),
         }
     }
 }
@@ -114,17 +117,19 @@ where
     T: 'static,
 {
     Write(WriteSignal<T>),
-    Mapped(Scope, Rc<dyn Fn(T)>),
+    Mapped(Scope, StoredValue<Box<dyn Fn(T)>>),
 }
 
 impl<T> Clone for SignalSetterTypes<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Write(arg0) => Self::Write(*arg0),
-            Self::Mapped(cx, f) => Self::Mapped(*cx, f.clone()),
+            Self::Mapped(cx, f) => Self::Mapped(*cx, *f),
         }
     }
 }
+
+impl<T> Copy for SignalSetterTypes<T> {}
 
 impl<T> std::fmt::Debug for SignalSetterTypes<T>
 where

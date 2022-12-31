@@ -1,5 +1,7 @@
 use crate::{ServerFn, ServerFnError};
-use leptos_reactive::{create_rw_signal, spawn_local, ReadSignal, RwSignal, Scope};
+use leptos_reactive::{
+    create_rw_signal, spawn_local, store_value, ReadSignal, RwSignal, Scope, StoredValue,
+};
 use std::{future::Future, pin::Pin, rc::Rc};
 
 /// An action that synchronizes multiple imperative `async` calls to the reactive system,
@@ -55,8 +57,78 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// let action3 = create_multi_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
-#[derive(Clone)]
-pub struct MultiAction<I, O>
+pub struct MultiAction<I, O>(StoredValue<MultiActionState<I, O>>)
+where
+    I: 'static,
+    O: 'static;
+
+impl<I, O> MultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+}
+
+impl<I, O> Clone for MultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl<I, O> Copy for MultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+}
+
+impl<I, O> MultiAction<I, O>
+where
+    I: 'static,
+    O: 'static,
+{
+    /// Calls the `async` function with a reference to the input type as its argument.
+    pub fn dispatch(&self, input: I) {
+        self.0.with(|a| a.dispatch(input))
+    }
+
+    /// The set of all submissions to this multi-action.
+    pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
+        self.0.with(|a| a.submissions())
+    }
+
+    /// The URL associated with the action (typically as part of a server function.)
+    /// This enables integration with the `MultiActionForm` component in `leptos_router`.
+    pub fn url(&self) -> Option<String> {
+        self.0.with(|a| a.url.as_ref().cloned())
+    }
+
+    /// How many times an action has successfully resolved.
+    pub fn version(&self) -> RwSignal<usize> {
+        self.0.with(|a| a.version)
+    }
+
+    /// Associates the URL of the given server function with this action.
+    /// This enables integration with the `MultiActionForm` component in `leptos_router`.
+    pub fn using_server_fn<T: ServerFn>(self) -> Self {
+        let prefix = T::prefix();
+        self.0.update(|a| {
+            a.url = if prefix.is_empty() {
+                Some(T::url().to_string())
+            } else {
+                Some(prefix.to_string() + "/" + T::url())
+            };
+        });
+
+        self
+    }
+}
+
+struct MultiActionState<I, O>
 where
     I: 'static,
     O: 'static,
@@ -115,7 +187,7 @@ where
     }
 }
 
-impl<I, O> MultiAction<I, O>
+impl<I, O> MultiActionState<I, O>
 where
     I: 'static,
     O: 'static,
@@ -155,24 +227,6 @@ where
     /// The set of all submissions to this multi-action.
     pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
         self.submissions.read_only()
-    }
-
-    /// The URL associated with the action (typically as part of a server function.)
-    /// This enables integration with the `MultiActionForm` component in `leptos_router`.
-    pub fn url(&self) -> Option<&str> {
-        self.url.as_deref()
-    }
-
-    /// Associates the URL of the given server function with this action.
-    /// This enables integration with the `MultiActionForm` component in `leptos_router`.
-    pub fn using_server_fn<T: ServerFn>(mut self) -> Self {
-        let prefix = T::prefix();
-        self.url = if prefix.is_empty() {
-            Some(T::url().to_string())
-        } else {
-            Some(prefix.to_string() + "/" + T::url())
-        };
-        self
     }
 }
 
@@ -240,13 +294,16 @@ where
         Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = O>>>
     });
 
-    MultiAction {
+    MultiAction(store_value(
         cx,
-        version,
-        submissions,
-        url: None,
-        action_fn,
-    }
+        MultiActionState {
+            cx,
+            version,
+            submissions,
+            url: None,
+            action_fn,
+        },
+    ))
 }
 
 /// Creates an [MultiAction] that can be used to call a server function.

@@ -1,6 +1,4 @@
-use std::rc::Rc;
-
-use crate::{Memo, ReadSignal, RwSignal, Scope, UntrackedGettableSignal};
+use crate::{store_value, Memo, ReadSignal, RwSignal, Scope, StoredValue, UntrackedGettableSignal};
 
 /// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
 /// [Memo](crate::Memo), [RwSignal](crate::RwSignal), or derived signal closure.
@@ -35,9 +33,11 @@ where
 
 impl<T> Clone for Signal<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
+
+impl<T> Copy for Signal<T> {}
 
 /// Please note that using `Signal::with_untracked` still clones the inner value,
 /// so there's no benefit to using it as opposed to calling
@@ -53,7 +53,7 @@ where
         match &self.0 {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f()),
+            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with(|f| f())),
         }
     }
 
@@ -64,7 +64,7 @@ where
             SignalTypes::DerivedSignal(cx, v_f) => {
                 let mut o = None;
 
-                cx.untrack(|| o = Some(f(&v_f())));
+                cx.untrack(|| o = Some(f(&v_f.with(|v_f| v_f()))));
 
                 o.unwrap()
             }
@@ -94,7 +94,10 @@ where
     /// # });
     /// ```
     pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
-        Self(SignalTypes::DerivedSignal(cx, Rc::new(derived_signal)))
+        Self(SignalTypes::DerivedSignal(
+            cx,
+            store_value(cx, Box::new(derived_signal)),
+        ))
     }
 
     /// Applies a function to the current value of the signal, and subscribes
@@ -130,7 +133,7 @@ where
         match &self.0 {
             SignalTypes::ReadSignal(s) => s.with(f),
             SignalTypes::Memo(s) => s.with(f),
-            SignalTypes::DerivedSignal(_, s) => f(&s()),
+            SignalTypes::DerivedSignal(_, s) => f(&s.with(|s| s())),
         }
     }
 
@@ -163,7 +166,7 @@ where
         match &self.0 {
             SignalTypes::ReadSignal(s) => s.get(),
             SignalTypes::Memo(s) => s.get(),
-            SignalTypes::DerivedSignal(_, s) => s(),
+            SignalTypes::DerivedSignal(_, s) => s.with(|s| s()),
         }
     }
 }
@@ -192,7 +195,7 @@ where
 {
     ReadSignal(ReadSignal<T>),
     Memo(Memo<T>),
-    DerivedSignal(Scope, Rc<dyn Fn() -> T>),
+    DerivedSignal(Scope, StoredValue<Box<dyn Fn() -> T>>),
 }
 
 impl<T> Clone for SignalTypes<T> {
@@ -200,10 +203,12 @@ impl<T> Clone for SignalTypes<T> {
         match self {
             Self::ReadSignal(arg0) => Self::ReadSignal(*arg0),
             Self::Memo(arg0) => Self::Memo(*arg0),
-            Self::DerivedSignal(arg0, arg1) => Self::DerivedSignal(*arg0, Rc::clone(arg1)),
+            Self::DerivedSignal(arg0, arg1) => Self::DerivedSignal(*arg0, *arg1),
         }
     }
 }
+
+impl<T> Copy for SignalTypes<T> {}
 
 impl<T> std::fmt::Debug for SignalTypes<T>
 where
