@@ -128,6 +128,7 @@ impl ToTokens for Model {
                     let span = ::leptos::leptos_dom::tracing::Span::current();
                 },
                 quote! {
+                    #[cfg(debug_assertions)]
                     let _guard = span.entered();
                 },
             )
@@ -144,7 +145,6 @@ impl ToTokens for Model {
                 ::leptos::Component::new(
                     stringify!(#name),
                     move |cx| {
-                        #[cfg(debug_assertions)]
                         #tracing_guard_expr
 
                         #body_name(cx, #prop_names)
