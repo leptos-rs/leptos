@@ -221,6 +221,7 @@ mod server;
 /// # ;
 /// # }
 /// ```
+#[proc_macro_error::proc_macro_error]
 #[proc_macro]
 pub fn view(tokens: TokenStream) -> TokenStream {
     let mut tokens = tokens.into_iter();
