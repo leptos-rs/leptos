@@ -45,7 +45,6 @@ if #[cfg(feature = "ssr")] {
         let pkg_service = HandleError::new( ServeDir::new("./pkg"), handle_file_error);
         let cargo_leptos_service = HandleError::new( ServeDir::new(&bundle_filepath), handle_file_error);
 
-
         /// Convert the Errors from ServeDir to a type that implements IntoResponse
         async fn handle_file_error(err: std::io::Error) -> (StatusCode, String) {
             (
@@ -57,8 +56,8 @@ if #[cfg(feature = "ssr")] {
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .nest_service("/pkg", pkg_service)
-        .nest_service(&bundle_path, cargo_leptos_service)
+        .nest_service("/pkg", pkg_service) // Only need if using wasm-pack. Can be deleted if using cargo-leptos
+        .nest_service(&bundle_path, cargo_leptos_service) // Only needed if using cargo-leptos. Can be deleted if using wasm-pack and cargo-run
         .nest_service("/static", static_service)
         .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <TodoApp/> }));
 

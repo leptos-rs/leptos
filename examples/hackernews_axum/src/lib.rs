@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{component, provide_context, view, IntoView, Scope};
+use leptos::{component, view, IntoView, Scope};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -12,11 +12,11 @@ use routes::users::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-    provide_context(cx, MetaContext::default());
+    provide_meta_context(cx);
     view! {
         cx,
         <>
-            <Stylesheet href="/static/style.css"/>
+            <Stylesheet id="leptos" href="./target/site/pkg/hackernews_axum.css"/>
             <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
                 <Nav />

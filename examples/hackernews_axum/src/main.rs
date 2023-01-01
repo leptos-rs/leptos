@@ -5,19 +5,26 @@ use leptos::*;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        routing::{get},
         Router,
         error_handling::HandleError,
     };
     use http::StatusCode;
-    use std::net::SocketAddr;
     use tower_http::services::ServeDir;
 
     #[tokio::main]
     async fn main() {
-        use leptos_hackernews_axum::*;
-        let addr = SocketAddr::from(([127, 0, 0, 1], 3002));
+        use hackernews_axum::*;
 
+        let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+        let leptos_options = conf.leptos_options;
+        let site_root = &leptos_options.site_root;
+        let pkg_dir = &leptos_options.site_pkg_dir;
+
+        // The URL path of the generated JS/WASM bundle from cargo-leptos
+        let bundle_path = format!("/{site_root}/{pkg_dir}");
+        // The filesystem path of the generated JS/WASM bundle from cargo-leptos
+        let bundle_filepath = format!("./{site_root}/{pkg_dir}");
+        let addr = leptos_options.site_address.clone();
         log::debug!("serving at {addr}");
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
@@ -27,6 +34,7 @@ if #[cfg(feature = "ssr")] {
         // because all Errors are converted into Responses
         let static_service = HandleError::new( ServeDir::new("./static"), handle_file_error);
         let pkg_service =HandleError::new( ServeDir::new("./pkg"), handle_file_error);
+        let cargo_leptos_service = HandleError::new( ServeDir::new(&bundle_filepath), handle_file_error);
 
         /// Convert the Errors from ServeDir to a type that implements IntoResponse
         async fn handle_file_error(err: std::io::Error) -> (StatusCode, String) {
@@ -36,13 +44,11 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
-        let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-        let leptos_options = conf.leptos_options;
-        let addr = leptos_options.site_address.clone();
         // build our application with a route
         let app = Router::new()
         // `GET /` goes to `root`
-        .nest_service("/pkg", pkg_service)
+        .nest_service("/pkg", pkg_service) // Only need if using wasm-pack. Can be deleted if using cargo-leptos
+        .nest_service(&bundle_path, cargo_leptos_service) // Only needed if using cargo-leptos. Can be deleted if using wasm-pack and cargo-run
         .nest_service("/static", static_service)
         .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <App/> }));
 
@@ -58,7 +64,7 @@ if #[cfg(feature = "ssr")] {
 
     // client-only stuff for Trunk
     else {
-        use leptos_hackernews_axum::*;
+        use hackernews_axum::*;
 
         pub fn main() {
             console_error_panic_hook::set_once();

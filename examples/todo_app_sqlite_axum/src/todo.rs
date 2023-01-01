@@ -107,7 +107,7 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 pub fn TodoApp(cx: Scope) -> impl IntoView {
     view! {
         cx,
-        <Stylesheet href="/style.css"/>
+        <Stylesheet id="leptos" href="./target/site/pkg/todo_app_sqlite_axum.css"/>
         <Router>
             <header>
                 <h1>"My Tasks"</h1>
