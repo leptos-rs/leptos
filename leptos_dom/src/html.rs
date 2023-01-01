@@ -699,7 +699,7 @@ macro_rules! generate_html_tags {
               ) {
                 #[cfg(debug_assertions)]
                 assert_eq!(
-                  el.node_name(),
+                  el.node_name().to_ascii_uppercase(),
                   stringify!([<$tag:upper>]),
                   "SSR and CSR elements have the same `TopoId` \
                     but different node kinds. This is either a \
@@ -716,7 +716,7 @@ macro_rules! generate_html_tags {
               ) {
                 #[cfg(debug_assertions)]
                 assert_eq!(
-                  el.node_name(),
+                  el.node_name().to_ascii_uppercase(),
                   stringify!([<$tag:upper>]),
                   "SSR and CSR elements have the same `TopoId` \
                     but different node kinds. This is either a \
