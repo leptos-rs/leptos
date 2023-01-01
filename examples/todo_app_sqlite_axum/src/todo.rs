@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
+        // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
             Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)
@@ -37,9 +38,10 @@ cfg_if! {
 #[server(GetTodos, "/api")]
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
-    let req =
-        use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
-    println!("req.path = {:?}", req.path());
+    // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
+    let req_parts = use_context::<leptos_axum::RequestParts>(cx).unwrap();
+    println!("\ncalling server fn");
+    println!("Uri = {:?}", req_parts.uri);
 
     use futures::TryStreamExt;
 
@@ -54,6 +56,20 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     {
         todos.push(row);
     }
+
+    // Add a random header(because why not)
+    // let mut res_headers = HeaderMap::new();
+    // res_headers.insert(SET_COOKIE, HeaderValue::from_str("fizz=buzz").unwrap());
+
+    // let res_parts = leptos_axum::ResponseParts {
+    //     headers: res_headers,
+    //     status: Some(StatusCode::IM_A_TEAPOT),
+    // };
+
+    // let res_options_outer = use_context::<leptos_axum::ResponseOptions>(cx);
+    // if let Some(res_options) = res_options_outer {
+    //     res_options.overwrite(res_parts).await;
+    // }
 
     Ok(todos)
 }
@@ -70,7 +86,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
         .execute(&mut conn)
         .await
     {
-        Ok(row) => Ok(()),
+        Ok(_row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
     }
 }
@@ -91,7 +107,7 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 pub fn TodoApp(cx: Scope) -> impl IntoView {
     view! {
         cx,
-        <Stylesheet href="/style.css"/>
+        <Stylesheet id="leptos" href="./target/site/pkg/todo_app_sqlite_axum.css"/>
         <Router>
             <header>
                 <h1>"My Tasks"</h1>

@@ -1,7 +1,0 @@
-// This file is auto-generated. Changing it will have no effect on leptos. Change these by changing RenderOptions and rerunning
-RenderOptions {
-    pkg-path "/pkg/leptos_hackernews"
-    environment "PROD"
-    socket-address "127.0.0.1:3000"
-    reload-port 3001
-}

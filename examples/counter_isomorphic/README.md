@@ -1,6 +1,6 @@
-# Leptos Hacker News Example
+# Leptos Counter Isomorphic Example
 
-This example creates a basic clone of the Hacker News site. It showcases Leptos' ability to create both a client-side rendered app, and a server side rendered app with hydration, in a single repository
+This example demonstrates how to use a function isomorphically, to run a server side function from the browser and receive a result.
 
 ## Client Side Rendering
 To run it as a Client Side App, you can issue  `trunk serve --open` in the root. This will build the entire

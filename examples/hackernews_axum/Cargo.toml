@@ -1,5 +1,5 @@
 [package]
-name = "todo_app_sqlite"
+name = "hackernews_axum"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,56 +7,62 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-actix-files = { version = "0.6", optional = true }
-actix-web = { version = "4", optional = true, features = ["openssl", "macros"] }
-anyhow = "1"
-broadcaster = "1"
-console_log = "0.2"
-console_error_panic_hook = "0.1"
-serde = { version = "1", features = ["derive"] }
-futures = "0.3"
-cfg-if = "1"
+anyhow = "1.0.66"
+console_log = "0.2.0"
+console_error_panic_hook = "0.1.7"
+futures = "0.3.25"
+cfg-if = "1.0.0"
 leptos = { path = "../../leptos", default-features = false, features = [
 	"serde",
 ] }
-leptos_actix = { path = "../../integrations/actix", optional = true }
+leptos_axum = { path = "../../integrations/axum", optional = true }
 leptos_meta = { path = "../../meta", default-features = false }
 leptos_router = { path = "../../router", default-features = false }
-log = "0.4"
-simple_logger = "2"
-gloo = { git = "https://github.com/rustwasm/gloo" }
-sqlx = { version = "0.6", features = [
-	"runtime-tokio-rustls",
-	"sqlite",
-], optional = true }
+log = "0.4.17"
+simple_logger = "4.0.0"
+serde = { version = "1.0.148", features = ["derive"] }
+serde_json = "1.0.89"
+gloo-net = { version = "0.2.5", features = ["http"] }
+reqwest = { version = "0.11.13", features = ["json"] }
+axum = { version = "0.6.1", optional = true }
+tower = { version = "0.4.13", optional = true }
+tower-http = { version = "0.3.4", features = ["fs"], optional = true }
+tokio = { version = "1.22.0", features = ["full"], optional = true }
+http = { version = "0.2.8", optional = true }
+web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
+wasm-bindgen = "0.2"
+tracing = "0.1"
 
 [features]
-default = ["ssr"]
+default = ["csr"]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-	"dep:actix-files",
-	"dep:actix-web",
-	"dep:sqlx",
+	"dep:axum",
+	"dep:tower",
+	"dep:tower-http",
+	"dep:tokio",
+	"dep:http",
 	"leptos/ssr",
-	"leptos_actix",
+	"leptos_axum",
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
 
 [package.metadata.cargo-all-features]
-denylist = ["actix-files", "actix-web", "leptos_actix", "sqlx"]
+denylist = ["axum", "tower", "tower-http", "tokio", "http", "leptos_axum"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
-output-name = "todo_app_sqlite"	
+output-name = "hackernews_axum"	
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
-site-root = "/pkg"
+site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
 # Defaults to pkg	
 site-pkg-dir = "pkg" 	
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
-# style-file = "src/styles/tailwind.css"
+style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 # assets-dir = "static/assets"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.

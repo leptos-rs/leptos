@@ -25,3 +25,5 @@ stable = ["leptos/stable"]
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]
+
+

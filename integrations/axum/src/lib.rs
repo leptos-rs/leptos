@@ -263,7 +263,8 @@ pub fn render_app_to_stream<IV>(
        + Clone
        + Send
        + 'static
-where IV: IntoView
+where
+    IV: IntoView,
 {
     move |req: Request<Body>| {
         Box::pin({
@@ -286,6 +287,16 @@ where IV: IntoView
                 }
 
                 let site_root = &options.site_root;
+                let pkg_path = &options.site_pkg_dir;
+
+                // We need to do some logic to check if the site_root is pkg
+                // if it is, then we need to not add pkg_path. This would mean
+                // the site was built with cargo run and not cargo-leptos
+                let bundle_path = match site_root.as_ref() {
+                    "pkg" => "pkg".to_string(),
+                    _ => format!("{}/{}", site_root, pkg_path),
+                };
+
                 let output_name = &options.output_name;
 
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
@@ -332,9 +343,9 @@ where IV: IntoView
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="{site_root}/{output_name}.js">
-                            <link rel="preload" href="{site_root}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '{site_root}/{output_name}.js'; init('{site_root}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="/{bundle_path}/{output_name}.js">
+                            <link rel="preload" href="/{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '/{bundle_path}/{output_name}.js'; init('/{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
@@ -354,17 +365,14 @@ where IV: IntoView
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts =
-                                                    generate_request_parts(req).await;
+                                                let req_parts = generate_request_parts(req).await;
                                                 move |cx| {
                                                     let integration = ServerIntegration {
                                                         path: full_path.clone(),
                                                     };
                                                     provide_context(
                                                         cx,
-                                                        RouterIntegrationContext::new(
-                                                            integration,
-                                                        ),
+                                                        RouterIntegrationContext::new(integration),
                                                     );
                                                     provide_context(cx, MetaContext::new());
                                                     provide_context(cx, req_parts);
@@ -376,23 +384,20 @@ where IV: IntoView
                                             let (bundle, runtime, scope) =
                                                 render_to_stream_with_prefix_undisposed(
                                                     app,
-                                                |cx| {
+                                                    |cx| {
                                                         let head = use_context::<MetaContext>(cx)
                                                             .map(|meta| meta.dehydrate())
                                                             .unwrap_or_default();
                                                         format!("{head}</head><body>").into()
-                                                    }
-                                            );
+                                                    },
+                                                );
                                             let mut shell = Box::pin(bundle);
                                             while let Some(fragment) = shell.next().await {
                                                 _ = tx.send(fragment).await;
                                             }
 
                                             // Extract the value of ResponseOptions from here
-                                            let cx = Scope {
-                                                runtime,
-                                                id: scope
-                                            };
+                                            let cx = Scope { runtime, id: scope };
                                             let res_options =
                                                 use_context::<ResponseOptions>(cx).unwrap();
 
