@@ -57,28 +57,6 @@ where
 {
     let id = value.type_id();
 
-    #[cfg(debug_assertions)]
-    if use_context::<T>(cx).is_some() {
-        #[cfg(not(feature = "stable"))]
-        let type_name = format!(" ({})", std::any::type_name_of_val(&value));
-        #[cfg(feature = "stable")]
-        let type_name = "";
-
-        let warning = format!(
-            "WARNING: You are providing a context of a type{type_name}\
-            that's already been provided higher in the context tree. \
-            If this is unintentional, there's a chance it will cause bugs, because \
-            the value of the context is now 'shadowed' in the lower parts of the tree.",
-        );
-        cfg_if! {
-            if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                web_sys::console::log_1(&wasm_bindgen::JsValue::from(warning));
-            } else {
-                eprintln!("{}", warning);
-            }
-        }
-    }
-
     with_runtime(cx.runtime, |runtime| {
         let mut contexts = runtime.scope_contexts.borrow_mut();
         let context = contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
