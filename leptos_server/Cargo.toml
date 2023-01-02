@@ -30,21 +30,21 @@ leptos = { path = "../leptos", default-features = false }
 
 [features]
 csr = [
-	"leptos/csr",
+	#"leptos/csr",
 	"leptos_dom/web",
 	"leptos_reactive/csr",
 ]
 hydrate = [
-	"leptos/hydrate",
+	#"leptos/hydrate",
 	"leptos_dom/web",
 	"leptos_reactive/hydrate",
 ]
 ssr = [
-	"leptos/ssr",
+	#"leptos/ssr",
 	"leptos_reactive/ssr",
 ]
 stable = [
-	"leptos/stable",
+	#"leptos/stable",
 	"leptos_dom/stable",
 	"leptos_reactive/stable",
 ]
