@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(iter_intersperse, drain_filter)]
+#![feature(drain_filter)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
