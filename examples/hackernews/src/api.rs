@@ -38,7 +38,7 @@ where
 }
 
 #[cfg(feature = "ssr")]
-pub async fn fetch_api<T>(cx: Scope, path: &str) -> Option<T>
+pub async fn fetch_api<T>(_cx: Scope, path: &str) -> Option<T>
 where
     T: Serializable,
 {
