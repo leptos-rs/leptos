@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use std::collections::HashSet;
@@ -50,11 +51,12 @@ impl Parse for Model {
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
-        item.attrs
-            .drain_filter(|attr| attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop));
+        drain_filter(&mut item.attrs, |attr| {
+            attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+        });
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
-                ty.attrs.drain_filter(|attr| {
+                drain_filter(&mut ty.attrs, |attr| {
                     attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
                 });
             }
@@ -79,6 +81,19 @@ impl Parse for Model {
             ret: item.sig.output.clone(),
             body: item,
         })
+    }
+}
+
+// implemented manually because Vec::drain_filter is nightly only
+// follows std recommended parallel
+fn drain_filter<T>(vec: &mut Vec<T>, mut some_predicate: impl FnMut(&mut T) -> bool) {
+    let mut i = 0;
+    while i < vec.len() {
+        if some_predicate(&mut vec[i]) {
+            _ = vec.remove(i);
+        } else {
+            i += 1;
+        }
     }
 }
 
@@ -333,6 +348,7 @@ impl Docs {
     }
 
     fn typed_builder(&self) -> String {
+        #[allow(unstable_name_collisions)]
         let doc_str = self
             .0
             .iter()
