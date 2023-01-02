@@ -921,7 +921,6 @@ viewable_primitive![
   std::net::SocketAddrV6,
   std::net::Ipv4Addr,
   std::net::Ipv6Addr,
-  std::backtrace::Backtrace,
   std::char::ToUppercase,
   std::char::ToLowercase,
   std::num::NonZeroI8,
@@ -939,3 +938,11 @@ viewable_primitive![
   std::panic::Location<'_>,
   std::fmt::Arguments<'_>,
 ];
+
+cfg_if! {
+  if #[cfg(not(feature = "stable"))] {
+    viewable_primitive! {
+        std::backtrace::Backtrace
+    }
+  }
+}
