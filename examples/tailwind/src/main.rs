@@ -1,5 +1,4 @@
 mod app;
-#[cfg(feature = "ssr")]
 use cfg_if::cfg_if;
 
 cfg_if! {

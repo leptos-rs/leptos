@@ -116,6 +116,7 @@ pub fn Counter(cx: Scope) -> impl IntoView {
                 <span>"Value: " {move || value().to_string()} "!"</span>
                 <button on:click=move |_| inc.dispatch(())>"+1"</button>
             </div>
+            {move || error_msg().map(|msg| view! { cx, <p>"Error: " {msg}</p>})}
         </div>
     }
 }
