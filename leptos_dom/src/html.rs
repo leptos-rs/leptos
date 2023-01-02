@@ -12,7 +12,7 @@ cfg_if! {
     };
     use crate::{mount_child, MountKind};
     use leptos_reactive::create_render_effect;
-    use std::cell::LazyCell;
+    use once_cell::unsync::Lazy as LazyCell;
     use wasm_bindgen::JsCast;
 
     /// Trait alias for the trait bounts on [`ElementDescriptor`].

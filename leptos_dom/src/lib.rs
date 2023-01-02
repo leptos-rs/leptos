@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(once_cell, iter_intersperse, drain_filter, thread_local)]
+#![feature(iter_intersperse, drain_filter, thread_local)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
@@ -32,16 +32,15 @@ use leptos_reactive::Scope;
 pub use logging::*;
 pub use macro_helpers::{IntoAttribute, IntoClass, IntoProperty};
 pub use node_ref::*;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
 use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{
-  cell::{LazyCell, RefCell},
-  rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 pub use transparent::*;
 pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

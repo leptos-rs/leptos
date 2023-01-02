@@ -13,9 +13,11 @@ pub use dyn_child::*;
 pub use each::*;
 pub use fragment::*;
 use leptos_reactive::Scope;
-use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{cell::OnceCell, rc::Rc};
+use once_cell::unsync::OnceCell;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use std::rc::Rc;
+use std::{borrow::Cow, fmt};
 pub use unit::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;

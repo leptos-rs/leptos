@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt::Display};
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::cell::LazyCell;
+use once_cell::unsync::Lazy as LazyCell;
 
 /// We can tell if we start in hydration mode by checking to see if the
 /// id "_0" is present in the DOM. If it is, we know we are hydrating from

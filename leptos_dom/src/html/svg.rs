@@ -5,9 +5,9 @@ use super::{ElementDescriptor, HtmlElement};
 use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
 use crate::HydrationCtx;
 use leptos_reactive::Scope;
-use std::borrow::Cow;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::cell::LazyCell;
+use once_cell::unsync::Lazy as LazyCell;
+use std::borrow::Cow;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 

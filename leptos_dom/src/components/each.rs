@@ -3,7 +3,7 @@ use cfg_if::cfg_if;
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
-    use std::cell::OnceCell;
+    use once_cell::unsync::OnceCell;
     use leptos_reactive::create_effect;
     use rustc_hash::FxHasher;
     use std::hash::BuildHasherDefault;
