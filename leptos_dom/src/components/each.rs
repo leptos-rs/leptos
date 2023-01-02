@@ -573,7 +573,7 @@ fn apply_cmds<T, EF, N>(
   EF: Fn(T) -> N,
   N: IntoView,
 {
-  let range = &RANGE;
+  let range = RANGE.with(|range| (*range).clone());
 
   // Resize children if needed
   if cmds.added.len().checked_sub(cmds.removed.len()).is_some() {

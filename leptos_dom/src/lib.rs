@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(iter_intersperse, drain_filter, thread_local)]
+#![feature(iter_intersperse, drain_filter)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
@@ -49,13 +49,12 @@ use wasm_bindgen::UnwrapThrowExt;
 pub use web_sys;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-#[thread_local]
-static COMMENT: LazyCell<web_sys::Node> =
-  LazyCell::new(|| document().create_comment("").unchecked_into());
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-#[thread_local]
-static RANGE: LazyCell<web_sys::Range> =
-  LazyCell::new(|| web_sys::Range::new().unwrap());
+thread_local! {
+  static COMMENT: LazyCell<web_sys::Node> =
+    LazyCell::new(|| document().create_comment("").unchecked_into());
+  static RANGE: LazyCell<web_sys::Range> =
+    LazyCell::new(|| web_sys::Range::new().unwrap());
+}
 
 /// Converts the value into a [`View`].
 pub trait IntoView {
@@ -288,7 +287,7 @@ impl Comment {
     }
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let node = COMMENT.clone_node().unwrap();
+    let node = COMMENT.with(|comment| comment.clone_node().unwrap());
 
     #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     node.set_text_content(Some(&format!(" {content} ")));

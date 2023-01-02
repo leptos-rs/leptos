@@ -22,24 +22,25 @@ macro_rules! generate_svg_tags {
     paste::paste! {
       $(
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        #[thread_local]
-        static [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
-          crate::document()
-            .create_element_ns(
-              Some(wasm_bindgen::intern("http://www.w3.org/2000/svg")),
-              concat![
-                stringify!($tag),
-                $(
-                  "-", stringify!($second),
+        thread_local! {
+          static [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
+            crate::document()
+              .create_element_ns(
+                Some(wasm_bindgen::intern("http://www.w3.org/2000/svg")),
+                concat![
+                  stringify!($tag),
                   $(
-                    "-", stringify!($third)
+                    "-", stringify!($second),
+                    $(
+                      "-", stringify!($third)
+                    )?
                   )?
-                )?
-              ],
-            )
-            .unwrap()
-            .unchecked_into()
-        });
+                ],
+              )
+              .unwrap()
+              .unchecked_into()
+          });
+        }
 
         #[derive(Clone, Debug)]
         #[$meta]
@@ -97,10 +98,20 @@ macro_rules! generate_svg_tags {
                   "not found, ignoring it for hydration"
                 );
 
-                [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>].clone_node().unwrap().unchecked_into()
+                [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]
+                  .with(|el|
+                    el.clone_node()
+                      .unwrap()
+                      .unchecked_into()
+                  )
               }
             } else {
-              [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>].clone_node().unwrap().unchecked_into()
+              [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]
+                .with(|el|
+                  el.clone_node()
+                    .unwrap()
+                    .unchecked_into()
+                )
             };
 
             Self {

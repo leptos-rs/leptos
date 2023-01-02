@@ -671,13 +671,14 @@ macro_rules! generate_html_tags {
     paste::paste! {
       $(
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        #[thread_local]
-        static [<$tag:upper>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
-          crate::document()
-            .create_element(stringify!($tag))
-            .unwrap()
-            .unchecked_into()
-        });
+        thread_local! {
+          static [<$tag:upper>]: LazyCell<web_sys::HtmlElement> = LazyCell::new(|| {
+            crate::document()
+              .create_element(stringify!($tag))
+              .unwrap()
+              .unchecked_into()
+          });
+        }
 
         #[derive(Clone, Debug)]
         #[$meta]
@@ -735,10 +736,20 @@ macro_rules! generate_html_tags {
                   "not found, ignoring it for hydration"
                 );
 
-                [<$tag:upper>].clone_node().unwrap().unchecked_into()
+                [<$tag:upper>]
+                  .with(|el|
+                    el.clone_node()
+                      .unwrap()
+                      .unchecked_into()
+                  )
               }
             } else {
-              [<$tag:upper>].clone_node().unwrap().unchecked_into()
+              [<$tag:upper>]
+                .with(|el|
+                  el.clone_node()
+                    .unwrap()
+                    .unchecked_into()
+                )
             };
 
             Self {
