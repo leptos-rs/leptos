@@ -8,6 +8,7 @@ cfg_if! {
     use rustc_hash::FxHasher;
     use std::hash::BuildHasherDefault;
     use wasm_bindgen::JsCast;
+    use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 
     type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
 

@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![feature(drain_filter)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
