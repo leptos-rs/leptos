@@ -1,21 +1,22 @@
 use std::{cell::RefCell, fmt::Display};
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::cell::LazyCell;
+use once_cell::unsync::Lazy as LazyCell;
 
 /// We can tell if we start in hydration mode by checking to see if the
 /// id "_0" is present in the DOM. If it is, we know we are hydrating from
 /// the server, if not, we are starting off in CSR
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-#[thread_local]
-static mut IS_HYDRATING: LazyCell<bool> = LazyCell::new(|| {
-  #[cfg(debug_assertions)]
-  return crate::document().get_element_by_id("_0-0-0").is_some()
-    || crate::document().get_element_by_id("_0-0-0o").is_some();
+thread_local! {
+  static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
+    #[cfg(debug_assertions)]
+    return crate::document().get_element_by_id("_0-0-0").is_some()
+      || crate::document().get_element_by_id("_0-0-0o").is_some();
 
-  #[cfg(not(debug_assertions))]
-  return crate::document().get_element_by_id("_0-0-0").is_some();
-});
+    #[cfg(not(debug_assertions))]
+    return crate::document().get_element_by_id("_0-0-0").is_some();
+  }));
+}
 
 /// A stable identifer within the server-rendering or hydration process.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,14 +87,14 @@ impl HydrationCtx {
 
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) fn stop_hydrating() {
-    unsafe {
-      std::mem::take(&mut IS_HYDRATING);
-    }
+    IS_HYDRATING.with(|is_hydrating| {
+      std::mem::take(&mut *is_hydrating.borrow_mut());
+    })
   }
 
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   pub(crate) fn is_hydrating() -> bool {
-    unsafe { *IS_HYDRATING }
+    IS_HYDRATING.with(|is_hydrating| **is_hydrating.borrow())
   }
 
   pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {

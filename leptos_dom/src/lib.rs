@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![feature(once_cell, iter_intersperse, drain_filter, thread_local)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
@@ -32,16 +31,15 @@ use leptos_reactive::Scope;
 pub use logging::*;
 pub use macro_helpers::{IntoAttribute, IntoClass, IntoProperty};
 pub use node_ref::*;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
 use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::{
-  cell::{LazyCell, RefCell},
-  rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 pub use transparent::*;
 pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -50,13 +48,12 @@ use wasm_bindgen::UnwrapThrowExt;
 pub use web_sys;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-#[thread_local]
-static COMMENT: LazyCell<web_sys::Node> =
-  LazyCell::new(|| document().create_comment("").unchecked_into());
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-#[thread_local]
-static RANGE: LazyCell<web_sys::Range> =
-  LazyCell::new(|| web_sys::Range::new().unwrap());
+thread_local! {
+  static COMMENT: LazyCell<web_sys::Node> =
+    LazyCell::new(|| document().create_comment("").unchecked_into());
+  static RANGE: LazyCell<web_sys::Range> =
+    LazyCell::new(|| web_sys::Range::new().unwrap());
+}
 
 /// Converts the value into a [`View`].
 pub trait IntoView {
@@ -289,7 +286,7 @@ impl Comment {
     }
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let node = COMMENT.clone_node().unwrap();
+    let node = COMMENT.with(|comment| comment.clone_node().unwrap());
 
     #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
     node.set_text_content(Some(&format!(" {content} ")));

@@ -3,11 +3,12 @@ use cfg_if::cfg_if;
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
-    use std::cell::OnceCell;
+    use once_cell::unsync::OnceCell;
     use leptos_reactive::create_effect;
     use rustc_hash::FxHasher;
     use std::hash::BuildHasherDefault;
     use wasm_bindgen::JsCast;
+    use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 
     type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
 
@@ -573,7 +574,7 @@ fn apply_cmds<T, EF, N>(
   EF: Fn(T) -> N,
   N: IntoView,
 {
-  let range = &RANGE;
+  let range = RANGE.with(|range| (*range).clone());
 
   // Resize children if needed
   if cmds.added.len().checked_sub(cmds.removed.len()).is_some() {
