@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.1.0-alpha"
+version = "0.1.0-beta"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Router for the Leptos web framework."
 
 [dependencies]
-leptos = { path = "../leptos", version = "0.1.0-alpha", default-features = false }
+leptos = { path = "../leptos", version = "0.1.0-beta", default-features = false }
 cfg-if = "1"
 common_macros = "0.1"
 gloo-net = "0.2"

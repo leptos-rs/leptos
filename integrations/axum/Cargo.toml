@@ -1,6 +1,6 @@
 [package]
 name = "leptos_axum"
-version = "0.1.0-alpha"
+version = "0.1.0-beta"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -14,14 +14,14 @@ futures = "0.3"
 http = "0.2.8"
 hyper = "0.14.23"
 kdl = "4.6.0"
-leptos = { path = "../../leptos", default-features = false, version = "0.1.0-alpha", features = [
+leptos = { path = "../../leptos", default-features = false, version = "0.1.0-beta", features = [
 	"ssr",
 ] }
-leptos_meta = { path = "../../meta", default-features = false, version = "0.1.0-alpha", features = [
+leptos_meta = { path = "../../meta", default-features = false, version = "0.1.0-beta", features = [
 	"ssr",
 ] }
-leptos_router = { path = "../../router", default-features = false, version = "0.1.0-alpha", features = [
+leptos_router = { path = "../../router", default-features = false, version = "0.1.0-beta", features = [
 	"ssr",
 ] }
-leptos_config = { path = "../../leptos_config", default-features = false, version = "0.1.0-alpha" }
+leptos_config = { path = "../../leptos_config", default-features = false, version = "0.1.0-beta" }
 tokio = { version = "1.0", features = ["full"] }

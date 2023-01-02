@@ -20,4 +20,3 @@ leptos_router = { path = "../../router", default-features = false, version = "0.
 	"ssr",
 ] }
 tokio = { version = "1.0", features = ["full"] }
-

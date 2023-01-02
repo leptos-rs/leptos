@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.1.0-alpha"
+version = "0.1.0-beta"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -10,11 +10,11 @@ readme = "../README.md"
 
 [dependencies]
 cfg-if = "1"
-leptos_config = { path = "../leptos_config", default-features = false, version = "0.1.0-alpha" }
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.1.0-alpha" }
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.1.0-alpha" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.1.0-alpha" }
-leptos_server = { path = "../leptos_server", default-features = false, version = "0.1.0-alpha" }
+leptos_config = { path = "../leptos_config", default-features = false, version = "0.1.0-beta" }
+leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.1.0-beta" }
+leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.1.0-beta" }
+leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.1.0-beta" }
+leptos_server = { path = "../leptos_server", default-features = false, version = "0.1.0-beta" }
 tracing = "0.1"
 typed-builder = "0.11"
 
