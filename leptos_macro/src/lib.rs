@@ -1,4 +1,3 @@
-#![feature(drain_filter, iter_intersperse)]
 #![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
 
 #[macro_use]
@@ -35,7 +34,7 @@ mod server;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
-/// 
+///
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
 /// # use leptos::*;
@@ -177,7 +176,7 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a 
+/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a
 ///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos::*;
@@ -246,23 +245,23 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
-/// 
+///
 /// The `#[component]` macro allows you to annotate plain Rust functions as components
-/// and use them within your Leptos [view](mod@view) as if they were custom HTML elements. The 
+/// and use them within your Leptos [view](mod@view) as if they were custom HTML elements. The
 /// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
 /// When you use the component somewhere else, the names of its arguments are the names
 /// of the properties you use in the [view](mod@view) macro.
-/// 
+///
 /// Every component function should have the return type `-> impl [IntoView](leptos_dom::IntoView)`.
-/// 
-/// You can add Rust doc comments to component function arguments and the macro will use them to 
+///
+/// You can add Rust doc comments to component function arguments and the macro will use them to
 /// generate documentation for the component.
-/// 
+///
 /// Here’s how you would define and use a simple Leptos component which can accept custom properties for a name and age:
 /// ```rust
 /// # use leptos::*;
 /// use std::time::Duration;
-/// 
+///
 /// #[component]
 /// fn HelloComponent(
 ///   cx: Scope,
@@ -284,7 +283,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///     <p>"Your name is " {name} " and you are " {age} " years old."</p>
 ///   }
 /// }
-/// 
+///
 /// #[component]
 /// fn App(cx: Scope) -> impl IntoView {
 ///   view! { cx,
@@ -294,7 +293,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///   }
 /// }
 /// ```
-/// 
+///
 /// The `#[component]` macro creates a struct with a name like `HelloComponentProps`. If you define
 /// your component in one module and import it into another, make sure you import this `___Props`
 /// struct as well.
@@ -352,7 +351,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// // ✅ Do this instead
 /// # use leptos::*;
 /// #[component]
-/// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView 
+/// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView
 /// where T: Fn() -> HtmlElement<Div> {
 ///   todo!()
 /// }

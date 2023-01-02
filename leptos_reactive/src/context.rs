@@ -3,8 +3,6 @@ use std::{
     collections::HashMap,
 };
 
-use cfg_if::cfg_if;
-
 use crate::{runtime::with_runtime, Scope};
 
 /// Provides a context value of type `T` to the current reactive [Scope](crate::Scope)

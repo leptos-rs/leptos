@@ -551,14 +551,19 @@ struct DiffOpRemove {
   at: usize,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 #[allow(unused)]
 enum DiffOpAddMode {
-  #[default]
   Normal,
   Append,
   // Todo
   _Prepend,
+}
+
+impl Default for DiffOpAddMode {
+  fn default() -> Self {
+    Self::Normal
+  }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -675,5 +680,6 @@ fn apply_cmds<T, EF, N>(
 
   // Now, remove the holes that might have been left from removing
   // items
+  #[allow(unstable_name_collisions)]
   children.drain_filter(|c| c.is_none());
 }
