@@ -55,7 +55,7 @@ cfg_if! {
 
     // client-only stuff for Trunk
     else {
-        use leptos_counter_isomorphic::counters::*;
+        use counter_isomorphic::counters::*;
 
         pub fn main() {
             _ = console_log::init_with_level(log::Level::Debug);
