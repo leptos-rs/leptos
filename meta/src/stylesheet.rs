@@ -53,7 +53,7 @@ pub fn Stylesheet(
     href: String,
     /// An ID for the stylesheet.
     #[prop(optional, into)]
-    id: Option<String>
+    id: Option<String>,
 ) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -70,18 +70,27 @@ pub fn Stylesheet(
             if let Some(Some(_)) = existing_el {
                 leptos::leptos_dom::debug_warn!("<Stylesheet/> already loaded stylesheet {href}");
             } else {
-                let el = document().create_element("link").unwrap_throw();
-                el.set_attribute("rel", "stylesheet").unwrap_throw();
-                if let Some(id_val) = &id{
-                    el.set_attribute("id", id_val).unwrap_throw();
-                }
-                el.set_attribute("href", &href).unwrap_throw();
-                document()
-                    .query_selector("head")
-                    .unwrap_throw()
-                    .unwrap_throw()
-                    .append_child(el.unchecked_ref())
-                    .unwrap_throw();
+                let element_to_hydrate = id.as_ref()
+                    .and_then(|id| {
+                        document().get_element_by_id(&id)
+                    });
+
+                let el = element_to_hydrate.unwrap_or_else(|| {
+                    let el = document().create_element("link").unwrap_throw();
+                    el.set_attribute("rel", "stylesheet").unwrap_throw();
+                    if let Some(id_val) = &id{
+                        el.set_attribute("id", id_val).unwrap_throw();
+                    }
+                    el.set_attribute("href", &href).unwrap_throw();
+                    document()
+                        .query_selector("head")
+                        .unwrap_throw()
+                        .unwrap_throw()
+                        .append_child(el.unchecked_ref())
+                        .unwrap_throw();
+                    el
+                });
+
                 meta.stylesheets
                     .els
                     .borrow_mut()
