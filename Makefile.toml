@@ -8,7 +8,7 @@
 default_to_workspace = false
 
 [tasks.ci]
-dependencies = ["build", "test"]
+dependencies = ["build", "build-examples", "test"]
 
 [tasks.build]
 clear = true
@@ -18,6 +18,24 @@ dependencies = ["build-all"]
 command = "cargo"
 args = ["+nightly", "build-all-features"]
 install_crate = "cargo-all-features"
+
+[tasks.build-examples]
+clear = true
+dependencies = [
+	{ name = "build", path = "examples/counter" },
+	{ name = "build", path = "examples/counter_isomorphic" },
+	{ name = "build", path = "examples/counters" },
+	{ name = "build", path = "examples/counters_stable" },
+	{ name = "build", path = "examples/fetch" },
+	{ name = "build", path = "examples/hackernews" },
+	{ name = "build", path = "examples/hackernews_axum" },
+	{ name = "build", path = "examples/parent_child" },
+	{ name = "build", path = "examples/router" },
+	{ name = "build", path = "examples/tailwind" },
+	{ name = "build", path = "examples/todo_app_sqlite" },
+	{ name = "build", path = "examples/todo_app_sqlite_axum" },
+	{ name = "build", path = "examples/todomvc" },
+]
 
 [tasks.test]
 clear = true
