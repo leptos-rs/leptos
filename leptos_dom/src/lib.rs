@@ -10,7 +10,8 @@ pub extern crate tracing;
 mod components;
 mod events;
 mod helpers;
-mod html;
+#[doc(hidden)]
+pub mod html;
 mod hydration;
 mod logging;
 mod macro_helpers;
