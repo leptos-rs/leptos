@@ -332,6 +332,9 @@ fn attribute_to_tokens_ssr(
             .as_ref()
             .expect("event listener attributes need a value")
             .as_ref();
+
+        let (name, is_force_undelegated) = parse_event(name);
+
         let event_type = TYPED_EVENTS
             .iter()
             .find(|e| **e == name)
@@ -342,7 +345,13 @@ fn attribute_to_tokens_ssr(
             .expect("couldn't parse event name");
 
         exprs_for_compiler.push(quote! {
-            leptos::ssr_event_listener(leptos::ev::#event_type, #handler);
+            let event_type = if is_force_undelegated {
+                quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+            } else {
+                quote! { ::leptos::ev::#event_type }
+            };
+
+            leptos::ssr_event_listener(#event_type, #handler);
         })
     } else if name.strip_prefix("prop:").is_some() || name.strip_prefix("class:").is_some() {
         // ignore props for SSR
@@ -625,6 +634,9 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .as_ref()
             .expect("event listener attributes need a value")
             .as_ref();
+
+        let (name, is_force_undelegated) = parse_event(name);
+
         let event_type = TYPED_EVENTS
             .iter()
             .find(|e| **e == name)
@@ -638,8 +650,14 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
         // would point `on:` to `.on`, but I don't know how to
         // get the "subspan" of a span, so this is good enough
 
+        let event_type = if is_force_undelegated {
+            quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+        } else {
+            quote! { ::leptos::ev::#event_type }
+        };
+
         quote! {
-            .on(leptos::ev::#event_type, #handler)
+            .on(#event_type, #handler)
         }
     } else if let Some(name) = name.strip_prefix("prop:") {
         let value = node
@@ -930,4 +948,12 @@ fn is_math_ml_element(tag: &str) -> bool {
 
 fn is_ambiguous_element(tag: &str) -> bool {
     matches!(tag, "a")
+}
+
+fn parse_event(event_name: &str) -> (&str, bool) {
+    if let Some(event_name) = event_name.strip_suffix(":undelegated") {
+        (event_name, true)
+    } else {
+        (event_name, false)
+    }
 }
