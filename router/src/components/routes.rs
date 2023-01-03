@@ -228,6 +228,7 @@ impl RouteData {
             .split('/')
             .filter(|n| !n.is_empty())
             .collect::<Vec<_>>();
+        #[allow(clippy::bool_to_int_with_if)] // on the splat.is_none()
         segments.iter().fold(
             (segments.len() as i32) - if splat.is_none() { 0 } else { 1 },
             |score, segment| score + if segment.starts_with(':') { 2 } else { 3 },
