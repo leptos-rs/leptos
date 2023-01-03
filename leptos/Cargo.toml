@@ -24,28 +24,28 @@ leptos = { path = ".", default-features = false }
 [features]
 default = ["csr", "serde"]
 csr = [
-	"leptos_dom/web",
-	"leptos_macro/csr",
-	"leptos_reactive/csr",
-	"leptos_server/csr",
+  "leptos_dom/web",
+  "leptos_macro/csr",
+  "leptos_reactive/csr",
+  "leptos_server/csr",
 ]
 hydrate = [
-	"leptos_dom/web",
-	"leptos_macro/hydrate",
-	"leptos_reactive/hydrate",
-	"leptos_server/hydrate",
+  "leptos_dom/web",
+  "leptos_macro/hydrate",
+  "leptos_reactive/hydrate",
+  "leptos_server/hydrate",
 ]
 ssr = [
-	"leptos_dom/ssr",
-	"leptos_macro/ssr",
-	"leptos_reactive/ssr",
-	"leptos_server/ssr",
+  "leptos_dom/ssr",
+  "leptos_macro/ssr",
+  "leptos_reactive/ssr",
+  "leptos_server/ssr",
 ]
 stable = [
-	"leptos_dom/stable",
-	"leptos_macro/stable",
-	"leptos_reactive/stable",
-	"leptos_server/stable",
+  "leptos_dom/stable",
+  "leptos_macro/stable",
+  "leptos_reactive/stable",
+  "leptos_server/stable",
 ]
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
@@ -53,7 +53,7 @@ miniserde = ["leptos_reactive/miniserde"]
 tracing = ["leptos_macro/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["stable", "tracing"]
 skip_feature_sets = [
   [
     "csr",

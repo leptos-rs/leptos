@@ -40,4 +40,4 @@ stable = ["leptos_dom/stable", "leptos_reactive/stable"]
 tracing = []
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
+denylist = ["stable", "tracing"]
