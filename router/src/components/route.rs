@@ -10,12 +10,12 @@ use crate::{
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
 #[component(transparent)]
-pub fn Route<E, F>(
+pub fn Route<E, F, P>(
     cx: Scope,
     /// The path fragment that this route should match. This can be static (`users`),
     /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
     /// wildcard (`user/*any`).
-    path: &'static str,
+    path: P,
     /// The view that should be shown when this route is matched. This can be any function
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
@@ -27,6 +27,7 @@ pub fn Route<E, F>(
 where
     E: IntoView,
     F: Fn(Scope) -> E + 'static,
+    P: std::fmt::Display,
 {
     let children = children
         .map(|children| {
@@ -43,7 +44,7 @@ where
         })
         .unwrap_or_default();
     RouteDefinition {
-        path,
+        path: path.to_string(),
         children,
         view: Rc::new(move |cx| view(cx).into_view(cx)),
     }

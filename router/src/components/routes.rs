@@ -273,7 +273,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
     let mut acc = Vec::new();
-    for original_path in expand_optionals(route_def.path) {
+    for original_path in expand_optionals(&route_def.path) {
         let path = join_paths(base, &original_path);
         let pattern = if is_leaf {
             path
