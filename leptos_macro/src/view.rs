@@ -951,24 +951,8 @@ fn is_ambiguous_element(tag: &str) -> bool {
 }
 
 fn parse_event(event_name: &str) -> (&str, bool) {
-    let event_split = event_name.split(':').collect::<Vec<_>>();
-
-    assert!(
-        event_split.len() <= 2,
-        "valid event formats are `on:eventname` and `on:eventname:undelegated`"
-    );
-
-    let event_name = event_split[0];
-
-    if event_split.len() > 1 {
-        (
-            event_name,
-            if event_split[1] == "undelegated" {
-                true
-            } else {
-                panic!("the only currently supported event modifier is `on:eventname:undelegated`")
-            },
-        )
+    if let Some(event_name) = event_name.strip_suffix(":undelegated") {
+        (event_name, true)
     } else {
         (event_name, false)
     }
