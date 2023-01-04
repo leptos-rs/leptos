@@ -7,9 +7,6 @@
 #[cfg_attr(debug_assertions, macro_use)]
 pub extern crate tracing;
 
-#[macro_use]
-extern crate doc_comment;
-
 mod components;
 mod events;
 mod helpers;

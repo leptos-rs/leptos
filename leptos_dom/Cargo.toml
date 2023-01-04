@@ -9,7 +9,6 @@ description = "DOM operations for the Leptos web framework."
 
 [dependencies]
 cfg-if = "1"
-doc-comment = "0.3"
 drain_filter_polyfill = "0.1"
 educe = "0.4"
 futures = "0.3"
