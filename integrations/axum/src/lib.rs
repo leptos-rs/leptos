@@ -1,11 +1,11 @@
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
     extract::Path,
-    http::{HeaderMap, HeaderValue, Request, StatusCode},
+    http::{header::HeaderName, header::HeaderValue, HeaderMap, Request, StatusCode},
     response::IntoResponse,
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
-use http::{method::Method, uri::Uri, version::Version, Response};
+use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::*;
 use leptos_meta::MetaContext;
@@ -31,6 +31,17 @@ pub struct ResponseParts {
     pub headers: HeaderMap,
 }
 
+impl ResponseParts {
+    /// Insert a header, overwriting any previous value with the same key
+    pub fn insert_header(&mut self, key: HeaderName, value: HeaderValue) {
+        self.headers.insert(key, value);
+    }
+    /// Append a header, leaving any header with the same key intact
+    pub fn append_header(&mut self, key: HeaderName, value: HeaderValue) {
+        self.headers.append(key, value);
+    }
+}
+
 /// Adding this Struct to your Scope inside of a Server Fn or Element will allow you to override details of the Response
 /// like status and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
 /// code, it needs to be wrapped in an `Arc<RwLock<>>` so that it can be surfaced.
@@ -38,11 +49,43 @@ pub struct ResponseParts {
 pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
-    /// A less boilerplatey way to overwrite the default contents of `ResponseOptions` with a new `ResponseParts`
+    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
     pub async fn overwrite(&self, parts: ResponseParts) {
         let mut writable = self.0.write().await;
         *writable = parts
     }
+    /// Set the status of the returned Response
+    pub async fn set_status(&self, status: StatusCode) {
+        let mut writeable = self.0.write().await;
+        let res_parts = &mut *writeable;
+        res_parts.status = Some(status);
+    }
+    /// Insert a header, overwriting any previous value with the same key
+    pub async fn insert_header(&self, key: HeaderName, value: HeaderValue) {
+        let mut writeable = self.0.write().await;
+        let res_parts = &mut *writeable;
+        res_parts.headers.insert(key, value);
+    }
+    /// Append a header, leaving any header with the same key intact
+    pub async fn append_header(&self, key: HeaderName, value: HeaderValue) {
+        let mut writeable = self.0.write().await;
+        let res_parts = &mut *writeable;
+        res_parts.headers.append(key, value);
+    }
+}
+
+/// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
+/// it sets a StatusCode of 302 and a LOCATION header with the provided value.
+/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+pub async fn redirect(cx: leptos::Scope, path: &str) {
+    let response_options = use_context::<ResponseOptions>(cx).unwrap();
+    response_options.set_status(StatusCode::FOUND).await;
+    response_options
+        .insert_header(
+            header::LOCATION,
+            header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
+        )
+        .await;
 }
 
 pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
