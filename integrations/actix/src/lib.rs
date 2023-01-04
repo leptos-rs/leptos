@@ -21,8 +21,8 @@ impl ResponseParts{
     pub fn insert_header(&mut self, key: header::HeaderName, value: header::HeaderValue){
         self.headers.insert(key, value);
     }
-     /// Insert a header, overwriting any previous value with the same key
-     pub fn append_header(&mut self, key: header::HeaderName, value: header::HeaderValue){
+    /// Append a header, leaving any header with the same key intact
+    pub fn append_header(&mut self, key: header::HeaderName, value: header::HeaderValue){
         self.headers.append(key, value);
     }
 }
@@ -39,8 +39,8 @@ impl ResponseOptions {
         let mut writable = self.0.write().await;
         *writable = parts
     }
-    /// Insert a header, overwriting any previous value with the same key
-    pub async fn status(&self, status: StatusCode){
+    /// Set the status of the returned Response
+    pub async fn set_status(&self, status: StatusCode){
         let mut writeable = self.0.write().await;
         let res_parts = &mut*writeable;
         res_parts.status = Some(status);
@@ -51,7 +51,7 @@ impl ResponseOptions {
         let res_parts = &mut*writeable;
         res_parts.headers.insert(key, value);
     }
-    /// Insert a header, overwriting any previous value with the same key
+    /// Append a header, leaving any header with the same key intact
     pub async fn append_header(&self, key: header::HeaderName, value: header::HeaderValue){
         let mut writeable = self.0.write().await;
         let res_parts = &mut*writeable;
@@ -64,7 +64,7 @@ impl ResponseOptions {
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub async fn redirect(cx: leptos::Scope, path: &str){
     let response_options = use_context::<ResponseOptions>(cx).unwrap();
-    response_options.status(StatusCode::FOUND).await;
+    response_options.set_status(StatusCode::FOUND).await;
     response_options.insert_header(header::LOCATION, header::HeaderValue::from_str(path).expect("Failed to create HeaderValue")).await;
 }
 
