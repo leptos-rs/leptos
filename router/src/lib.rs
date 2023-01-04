@@ -135,6 +135,49 @@
 //! }
 //!
 //! ```
+//!
+//! ## Module Route Definitions
+//! Routes can also be modularized and nested by defining them in separate components, which can be
+//! located in and imported from other modules. Components that return `<Route/>` should be marked
+//! `#[component(transparent)]`, as in this example:
+//! ```rust
+//! use leptos::*;
+//! use leptos_router::*;
+//!
+//! #[component]
+//! pub fn App(cx: Scope) -> impl IntoView {
+//!   view! { cx,
+//!     <Router>
+//!       <Routes>
+//!         <Route path="/" view=move |cx| {
+//!           view! { cx, "-> /" }
+//!         }/>
+//!         <ExternallyDefinedRoute/>
+//!       </Routes>
+//!     </Router>
+//!   }
+//! }
+//!
+//! // `transparent` here marks the component as returning data (a RouteDefinition), not a view
+//! #[component(transparent)]
+//! pub fn ExternallyDefinedRoute(cx: Scope) -> impl IntoView {
+//!   view! { cx,
+//!     <Route path="/some-area" view=move |cx| {
+//!       view! { cx, <div>
+//!         <h2>"Some Area"</h2>
+//!         <Outlet/>
+//!       </div> }
+//!     }>
+//!       <Route path="/path-a/:id" view=move |cx| {
+//!         view! { cx, <p>"Path A"</p> }
+//!       }/>
+//!       <Route path="/path-b/:id" view=move |cx| {
+//!         view! { cx, <p>"Path B"</p> }
+//!       }/>
+//!     </Route>
+//!   }
+//! }
+//! ```
 
 #![cfg_attr(not(feature = "stable"), feature(auto_traits))]
 #![cfg_attr(not(feature = "stable"), feature(negative_impls))]
