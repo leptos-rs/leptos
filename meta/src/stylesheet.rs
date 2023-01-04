@@ -61,7 +61,6 @@ pub fn Stylesheet(
 
             let meta = use_head(cx);
 
-            // TODO I guess this will create a duplicated <link> when hydrating
             let existing_el = {
                 let els = meta.stylesheets.els.borrow();
                 let key = (id.clone(), href.clone());
@@ -82,13 +81,25 @@ pub fn Stylesheet(
                         el.set_attribute("id", id_val).unwrap_throw();
                     }
                     el.set_attribute("href", &href).unwrap_throw();
-                    document()
-                        .query_selector("head")
-                        .unwrap_throw()
-                        .unwrap_throw()
+                    let head = document().head().unwrap_throw();
+                    head
                         .append_child(el.unchecked_ref())
                         .unwrap_throw();
+
                     el
+                });
+
+                on_cleanup(cx, {
+                    let el = el.clone();
+                    let els = meta.stylesheets.els.clone();
+                    let href = href.clone();
+                    let id = id.clone();
+                    move || {
+                        leptos::log!("removing stylesheet");
+                        let head = document().head().unwrap_throw();
+                        head.remove_child(&el);
+                        els.borrow_mut().remove(&(id, href));
+                    }
                 });
 
                 meta.stylesheets

@@ -96,6 +96,11 @@ pub fn Title(
 ) -> impl IntoView {
     let meta = use_head(cx);
 
+    let prev = meta.title.clone();
+    on_cleanup(cx, move || {
+        leptos::log!("cleaning up <Title/>");
+    });
+
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             if let Some(formatter) = formatter {
@@ -106,24 +111,40 @@ pub fn Title(
             }
 
             let el = {
-                let el_ref = meta.title.el.borrow_mut();
+                let mut el_ref = meta.title.el.borrow_mut();
                 let el = if let Some(el) = &*el_ref {
+                    let prev_text = el.inner_text();
+                    on_cleanup(cx, {
+                        let el = el.clone();
+                        move || {
+                            el.set_text(&prev_text);
+                        }
+                    });
+
                     el.clone()
                 } else {
                     match document().query_selector("title") {
                         Ok(Some(title)) => title.unchecked_into(),
                         _ => {
                             let el = document().create_element("title").unwrap_throw();
-                            document()
-                                .query_selector("head")
-                                .unwrap_throw()
-                                .unwrap_throw()
-                                .append_child(el.unchecked_ref())
+                            let head = document().head().unwrap_throw();
+                            head.append_child(el.unchecked_ref())
                                 .unwrap_throw();
+
+                            on_cleanup(cx, {
+                                let el = el.clone();
+                                move || {
+                                    head.remove_child(&el);
+                                }
+                            });
+
+
                             el.unchecked_into()
                         }
                     }
                 };
+                *el_ref = Some(el.clone().unchecked_into());
+
                 el
             };
 

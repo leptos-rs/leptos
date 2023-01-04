@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{Scope, component, IntoView};
+use leptos::{Scope, component, IntoView, on_cleanup};
 use std::{rc::Rc, cell::{RefCell, Cell}, collections::HashMap};
 
 use crate::{use_head, TextProp};
@@ -164,12 +164,19 @@ pub fn Meta(
 			}
 
 			// add to head
-			document()
-                    .query_selector("head")
-                    .unwrap_throw()
-                    .unwrap_throw()
-                    .append_child(&el)
-                    .unwrap_throw();
+            let head = document()
+                .query_selector("head")
+                .unwrap_throw()
+                .unwrap_throw();
+            head.append_child(&el)
+                .unwrap_throw();
+
+            on_cleanup(cx, {
+                let el = el.clone();
+                move || {
+                    head.remove_child(&el);
+                }
+            });
 
 			// add to meta tags
 			meta_tags.els.borrow_mut().insert(id, (None, Some(el.unchecked_into())));
