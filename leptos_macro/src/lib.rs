@@ -252,7 +252,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// When you use the component somewhere else, the names of its arguments are the names
 /// of the properties you use in the [view](mod@view) macro.
 ///
-/// Every component function should have the return type `-> impl [IntoView](leptos_dom::IntoView)`.
+/// Every component function should have the return type `-> impl IntoView`.
 ///
 /// You can add Rust doc comments to component function arguments and the macro will use them to
 /// generate documentation for the component.
@@ -386,6 +386,51 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///   }
 /// }
 /// ```
+///
+/// ## Customizing Properties
+/// You can use the `#[prop]` attribute on individual component properties (function arguments) to
+/// customize the types that component property can receive. You can use the following attributes:
+/// * `#[prop(into)]`: This will call `.into()` on any value passed into the component prop. (For example,
+///   you could apply `#[prop(into)]` to a prop that takes [Signal](leptos_reactive::Signal), which would
+///   allow users to pass a [ReadSignal](leptos_reactive::ReadSignal) or [RwSignal](leptos_reactive::RwSignal)
+///   and automatically convert it.)
+/// * `#[prop(optional)]`: If the user does not specify this property when they use the component,
+///   it will be set to its default value. If the property type is `Option<T>`, values should be passed
+///   as `name=T` and will be received as `Some(T)`.
+/// * `#[prop(optional_no_strip)]`: The same as `optional`, but requires values to be passed as `None` or
+///   `Some(T)` explicitly. This means that the optional property can be omitted (and be `None`), or explicitly
+///   specified as either `None` or `Some(T)`.
+/// ```rust
+/// # use leptos::*;
+///
+/// #[component]
+/// pub fn MyComponent(
+///   cx: Scope,
+///   #[prop(into)]
+///   name: String,
+///   #[prop(optional)]
+///   optional_value: Option<i32>,
+///   #[prop(optional_no_strip)]
+///   optional_no_strip: Option<i32>
+/// ) -> impl IntoView {
+///   // whatever UI you need
+/// }
+///
+///  #[component]
+/// pub fn App(cx: Scope) -> impl IntoView {
+///   view! { cx,
+///     <MyComponent
+///       name="Greg" // automatically converted to String with `.into()`
+///       optional_value=42 // received as `Some(42)`
+///       optional_no_strip=Some(42) // received as `Some(42)`
+///     />
+///     <MyComponent
+///       name="Bob" // automatically converted to String with `.into()`
+///       // optional values can both be omitted, and received as `None`
+///     />
+///   }
+/// }
+/// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro_attribute]
 pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
@@ -434,7 +479,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// which will be injected *on the server side.* This can be used to inject the raw HTTP request or other
 /// server-side context into the server function.
 ///
-/// ```
+/// ```ignore
 /// # use leptos::*; use serde::{Serialize, Deserialize};
 /// # #[derive(Serialize, Deserialize)]
 /// # pub struct Post { }
