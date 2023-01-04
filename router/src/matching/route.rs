@@ -5,7 +5,8 @@ use leptos::*;
 
 #[derive(Clone)]
 pub struct RouteDefinition {
-    pub path: &'static str,
+    pub id: usize,
+    pub path: String,
     pub children: Vec<RouteDefinition>,
     pub view: Rc<dyn Fn(Scope) -> View>,
 }

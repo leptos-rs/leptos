@@ -88,7 +88,7 @@ where
                             error.set(None);
                         }
                         if let Some(on_response) = on_response.clone() {
-                            on_response(&resp.as_raw());
+                            on_response(resp.as_raw());
                         }
 
                         if resp.status() == 303 {
@@ -264,7 +264,7 @@ fn extract_form_attributes(
                         .unwrap_or_else(|| "get".to_string())
                         .to_lowercase(),
                     form.get_attribute("action")
-                        .unwrap_or_else(|| "".to_string())
+                        .unwrap_or_default()
                         .to_lowercase(),
                     form.get_attribute("enctype")
                         .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
@@ -284,7 +284,7 @@ fn extract_form_attributes(
                     }),
                     input.get_attribute("action").unwrap_or_else(|| {
                         form.get_attribute("action")
-                            .unwrap_or_else(|| "".to_string())
+                            .unwrap_or_default()
                             .to_lowercase()
                     }),
                     input.get_attribute("enctype").unwrap_or_else(|| {
@@ -307,7 +307,7 @@ fn extract_form_attributes(
                     }),
                     button.get_attribute("action").unwrap_or_else(|| {
                         form.get_attribute("action")
-                            .unwrap_or_else(|| "".to_string())
+                            .unwrap_or_default()
                             .to_lowercase()
                     }),
                     button.get_attribute("enctype").unwrap_or_else(|| {
@@ -344,7 +344,7 @@ fn extract_form_attributes(
 fn action_input_from_form_data<I: serde::de::DeserializeOwned>(
     form_data: &web_sys::FormData,
 ) -> Result<I, serde_urlencoded::de::Error> {
-    let data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+    let data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data).unwrap_throw();
     let data = data.to_string().as_string().unwrap_or_default();
     serde_urlencoded::from_str::<I>(&data)
 }

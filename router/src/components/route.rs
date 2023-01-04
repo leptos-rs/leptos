@@ -1,4 +1,4 @@
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use leptos::*;
 
@@ -7,15 +7,19 @@ use crate::{
     ParamsMap, RouterContext,
 };
 
+thread_local! {
+    static ROUTE_ID: Cell<usize> = Cell::new(0);
+}
+
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
 #[component(transparent)]
-pub fn Route<E, F>(
+pub fn Route<E, F, P>(
     cx: Scope,
     /// The path fragment that this route should match. This can be static (`users`),
     /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
     /// wildcard (`user/*any`).
-    path: &'static str,
+    path: P,
     /// The view that should be shown when this route is matched. This can be any function
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
@@ -27,6 +31,7 @@ pub fn Route<E, F>(
 where
     E: IntoView,
     F: Fn(Scope) -> E + 'static,
+    P: std::fmt::Display,
 {
     let children = children
         .map(|children| {
@@ -42,8 +47,14 @@ where
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    let id = ROUTE_ID.with(|id| {
+        let next = id.get() + 1;
+        id.set(next);
+        next
+    });
     RouteDefinition {
-        path,
+        id,
+        path: path.to_string(),
         children,
         view: Rc::new(move |cx| view(cx).into_view(cx)),
     }
@@ -72,7 +83,9 @@ impl RouteContext {
         let base = base.path();
         let RouteMatch { path_match, route } = matcher()?;
         let PathMatch { path, .. } = path_match;
-        let RouteDefinition { view: element, .. } = route.key;
+        let RouteDefinition {
+            view: element, id, ..
+        } = route.key;
         let params = create_memo(cx, move |_| {
             matcher()
                 .map(|matched| matched.path_match.params)
@@ -82,6 +95,7 @@ impl RouteContext {
         Some(Self {
             inner: Rc::new(RouteContextInner {
                 cx,
+                id,
                 base_path: base.to_string(),
                 child: Box::new(child),
                 path,
@@ -95,6 +109,10 @@ impl RouteContext {
     /// Returns the reactive scope of the current route.
     pub fn cx(&self) -> Scope {
         self.inner.cx
+    }
+
+    pub(crate) fn id(&self) -> usize {
+        self.inner.id
     }
 
     /// Returns the URL path of the current route,
@@ -124,6 +142,7 @@ impl RouteContext {
         Self {
             inner: Rc::new(RouteContextInner {
                 cx,
+                id: 0,
                 base_path: path.to_string(),
                 child: Box::new(|| None),
                 path: path.to_string(),
@@ -153,6 +172,7 @@ impl RouteContext {
 pub(crate) struct RouteContextInner {
     cx: Scope,
     base_path: String,
+    pub(crate) id: usize,
     pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
     pub(crate) path: String,
     pub(crate) original_path: String,

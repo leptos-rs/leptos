@@ -86,7 +86,8 @@ pub fn Routes(
 
                 match (prev_routes, prev_match) {
                     (Some(prev), Some(prev_match))
-                        if next_match.route.key == prev_match.route.key =>
+                        if next_match.route.key == prev_match.route.key
+                            && next_match.route.id == prev_match.route.id =>
                     {
                         let prev_one = { prev.borrow()[i].clone() };
                         if i >= next.borrow().len() {
@@ -212,6 +213,7 @@ struct RouterState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteData {
+    pub id: usize,
     pub key: RouteDefinition,
     pub pattern: String,
     pub original_path: String,
@@ -228,6 +230,7 @@ impl RouteData {
             .split('/')
             .filter(|n| !n.is_empty())
             .collect::<Vec<_>>();
+        #[allow(clippy::bool_to_int_with_if)] // on the splat.is_none()
         segments.iter().fold(
             (segments.len() as i32) - if splat.is_none() { 0 } else { 1 },
             |score, segment| score + if segment.starts_with(':') { 2 } else { 3 },
@@ -273,7 +276,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();
     let mut acc = Vec::new();
-    for original_path in expand_optionals(route_def.path) {
+    for original_path in expand_optionals(&route_def.path) {
         let path = join_paths(base, &original_path);
         let pattern = if is_leaf {
             path
@@ -285,6 +288,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
         };
         acc.push(RouteData {
             key: route_def.clone(),
+            id: route_def.id,
             matcher: Matcher::new_with_partial(&pattern, !is_leaf),
             pattern,
             original_path: original_path.to_string(),

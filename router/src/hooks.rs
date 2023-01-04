@@ -64,7 +64,7 @@ pub fn use_resolved_path(cx: Scope, path: impl Fn() -> String + 'static) -> Memo
 
     create_memo(cx, move |_| {
         let path = path();
-        if path.starts_with("/") {
+        if path.starts_with('/') {
             Some(path)
         } else {
             route.resolve_path(&path).map(String::from)
