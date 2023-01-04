@@ -18,7 +18,7 @@
 //! 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }`
 //! 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
 //!    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
-//!    [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
+//!    [`counters_stable` example](https://github.com/gbj/leptos/blob/main/examples/counters_stable/src/main.rs)
 //!    for examples of the correct API.
 //!
 //! # Learning by Example
@@ -29,7 +29,7 @@
 //!   counter example, showing the basics of client-side rendering and reactive DOM updates
 //! - [`counters`](https://github.com/gbj/leptos/tree/main/examples/counter) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
-//! - [`parent-child`](https://github.com/gbj/leptos/tree/main/examples/parent-child) shows four different
+//! - [`parent_child`](https://github.com/gbj/leptos/tree/main/examples/parent_child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`todomvc`](https://github.com/gbj/leptos/tree/main/examples/todomvc) implements the classic to-do
 //!   app in Leptos. This is a good example of a complete, simple app. In particular, you might want to
