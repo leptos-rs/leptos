@@ -1,8 +1,5 @@
 //! Collection of typed events.
 
-// allow for all event types in module
-#![allow(non_camel_case_types)]
-
 use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
 
@@ -88,30 +85,22 @@ macro_rules! generate_event_types {
   ),* $(,)?} => {
 
     $(
-      doc_comment!(
-        concat!("The ", stringify!($event), "event, receives a [web_sys::", stringify!($web_sys_event), "] as its argument."),
-          pub struct $event;
+        #[doc = concat!("The `", stringify!($event), "` event, which receives [", stringify!($web_sys_event), "](web_sys::", stringify!($web_sys_event), ") as its argument.")]
+        #[derive(Copy, Clone)]
+        #[allow(non_camel_case_types)]
+        pub struct $event;
 
-          impl Clone for $event {
-            fn clone(&self) -> Self {
-              Self { }
-            }
+        impl EventDescriptor for $event {
+          type EventType = web_sys::$web_sys_event;
+
+          fn name(&self) -> Cow<'static, str> {
+            stringify!($event).into()
           }
 
-          impl Copy for $event { }
-
-          impl EventDescriptor for $event {
-            type EventType = web_sys::$web_sys_event;
-
-            fn name(&self) -> Cow<'static, str> {
-              stringify!($event).into()
-            }
-
-            $(
-              generate_event_types!($does_not_bubble);
-            )?
-          }
-      );
+          $(
+            generate_event_types!($does_not_bubble);
+          )?
+        }
     )*
   };
 
