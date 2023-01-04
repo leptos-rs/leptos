@@ -781,9 +781,17 @@ impl SignalId {
     pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
+            // add this observer to the signal's dependencies (to allow notification)
             let mut subs = runtime.signal_subscribers.borrow_mut();
             if let Some(subs) = subs.entry(*self) {
                 subs.or_default().borrow_mut().insert(observer);
+            }
+
+            // add this signal to the effect's sources (to allow cleanup)
+            let mut effect_sources = runtime.effect_sources.borrow_mut();
+            if let Some(effect_sources) = effect_sources.entry(observer) {
+                let sources = effect_sources.or_default();
+                sources.borrow_mut().insert(*self);
             }
         }
     }
