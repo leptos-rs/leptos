@@ -194,7 +194,9 @@ pub async fn handle_server_fns(
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
                                 .body(Full::from(
-                                    "Could not find a server function at that route.".to_string(),
+                                    format!("Could not find a server function at the route {:?}. \
+                                    \n\nIt's likely that you need to call ServerFn::register() on the \
+                                    server function type, somewhere in your `main` function.", fn_name)
                                 ))
                         }
                         .expect("could not build Response");

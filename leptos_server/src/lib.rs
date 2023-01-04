@@ -31,6 +31,9 @@
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
+//! **Important**: All server functions must be registered by calling [ServerFn::register]
+//! somewhere within your `main` function.
+//!
 //! ```rust,ignore
 //! # use leptos::*;
 //! #[server(ReadFromDB)]
@@ -47,6 +50,11 @@
 //!   log::debug!("posts = {posts{:#?}");
 //! })
 //! # });
+//!
+//! // make sure you've registered it somewhere in main
+//! fn main() {
+//!   _ = ReadFromDB::register();
+//! }
 //! ```
 //!
 //! If you call this function from the client, it will serialize the function arguments and `POST`
@@ -163,6 +171,15 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
         .read()
         .ok()
         .and_then(|fns| fns.get(path).cloned())
+}
+
+/// Returns the set of currently-registered server function paths, for debugging purposes.
+#[cfg(any(feature = "ssr", doc))]
+pub fn server_fns_by_path() -> Vec<&'static str> {
+    REGISTERED_SERVER_FUNCTIONS
+        .read()
+        .map(|vals| vals.keys().copied().collect())
+        .unwrap_or_default()
 }
 
 /// Holds the current options for encoding types.

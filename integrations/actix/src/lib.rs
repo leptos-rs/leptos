@@ -147,7 +147,9 @@ pub fn handle_server_fns() -> Route {
                     }
                 } else {
                     HttpResponse::BadRequest()
-                        .body(format!("Could not find a server function at that route."))
+                        .body(format!("Could not find a server function at the route {:?}. \
+                        \n\nIt's likely that you need to call ServerFn::register() on the \
+                        server function type, somewhere in your `main` function.", req.path()))
                 }
             }
         },
