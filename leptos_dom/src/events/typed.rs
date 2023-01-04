@@ -85,24 +85,22 @@ macro_rules! generate_event_types {
   ),* $(,)?} => {
 
     $(
-      #[doc = "The "]
-      #[doc = stringify!($event)]
-      #[doc = " event."]
-      #[allow(non_camel_case_types)]
-      #[derive(Clone, Copy)]
-      pub struct $event;
+        #[doc = concat!("The `", stringify!($event), "` event, which receives [", stringify!($web_sys_event), "](web_sys::", stringify!($web_sys_event), ") as its argument.")]
+        #[derive(Copy, Clone)]
+        #[allow(non_camel_case_types)]
+        pub struct $event;
 
-      impl EventDescriptor for $event {
-        type EventType = web_sys::$web_sys_event;
+        impl EventDescriptor for $event {
+          type EventType = web_sys::$web_sys_event;
 
-        fn name(&self) -> Cow<'static, str> {
-          stringify!($event).into()
+          fn name(&self) -> Cow<'static, str> {
+            stringify!($event).into()
+          }
+
+          $(
+            generate_event_types!($does_not_bubble);
+          )?
         }
-
-        $(
-          generate_event_types!($does_not_bubble);
-        )?
-      }
     )*
   };
 

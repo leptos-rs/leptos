@@ -333,6 +333,7 @@ fn attribute_to_tokens_ssr(
             .expect("event listener attributes need a value")
             .as_ref();
 
+        #[allow(unused_variables)]
         let (name, is_force_undelegated) = parse_event(name);
 
         let event_type = TYPED_EVENTS
@@ -642,22 +643,74 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .find(|e| **e == name)
             .copied()
             .unwrap_or("Custom");
+        let is_custom = event_type == "Custom";
         let event_type = event_type
             .parse::<TokenStream>()
             .expect("couldn't parse event name");
 
-        // the `on:event_name` is 1 single name. Ideally, we
-        // would point `on:` to `.on`, but I don't know how to
-        // get the "subspan" of a span, so this is good enough
+        let event_type = if is_custom {
+            quote! { Custom::new(#name) }
+        } else {
+            event_type
+        };
+
+        let event_name_ident = match &node.key {
+            NodeName::Punctuated(parts) => {
+                if parts.len() >= 2 {
+                    Some(&parts[1])
+                } else {
+                    None
+                }
+            }
+            _ => unreachable!(),
+        };
+        let undelegated_ident = match &node.key {
+            NodeName::Punctuated(parts) => parts.last().and_then(|last| {
+                if last == "undelegated" {
+                    Some(last)
+                } else {
+                    None
+                }
+            }),
+            _ => unreachable!(),
+        };
+        let on = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let on = {
+            let span = on.span();
+            quote_spanned! {
+                span => .on
+            }
+        };
+        let event_type = if is_custom {
+            event_type
+        } else if let Some(ev_name) = event_name_ident {
+            let span = ev_name.span();
+            quote_spanned! {
+                span => #ev_name
+            }
+        } else {
+            event_type
+        };
 
         let event_type = if is_force_undelegated {
-            quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+            let undelegated = if let Some(undelegated) = undelegated_ident {
+                let span = undelegated.span();
+                quote_spanned! {
+                    span => #undelegated
+                }
+            } else {
+                quote! { undelegated }
+            };
+            quote! { ::leptos::ev::#undelegated(::leptos::ev::#event_type) }
         } else {
             quote! { ::leptos::ev::#event_type }
         };
 
         quote! {
-            .on(#event_type, #handler)
+            #on(#event_type, #handler)
         }
     } else if let Some(name) = name.strip_prefix("prop:") {
         let value = node
@@ -665,8 +718,18 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .as_ref()
             .expect("prop: attributes need a value")
             .as_ref();
+        let prop = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let prop = {
+            let span = prop.span();
+            quote_spanned! {
+                span => .prop
+            }
+        };
         quote! {
-            .prop(#name, (#cx, #[allow(unused_braces)] #value))
+            #prop(#name, (#cx, #[allow(unused_braces)] #value))
         }
     } else if let Some(name) = name.strip_prefix("class:") {
         let value = node
@@ -674,8 +737,18 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .as_ref()
             .expect("class: attributes need a value")
             .as_ref();
+        let class = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let class = {
+            let span = class.span();
+            quote_spanned! {
+                span => .class
+            }
+        };
         quote! {
-            .class(#name, (#cx, #[allow(unused_braces)] #value))
+            #class(#name, (#cx, #[allow(unused_braces)] #value))
         }
     } else {
         let name = name.replacen("attr:", "", 1);
@@ -687,8 +760,22 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             }
             None => quote_spanned! { span => "" },
         };
+        let attr = match &node.key {
+            NodeName::Punctuated(parts) => Some(&parts[0]),
+            _ => None,
+        };
+        let attr = if let Some(attr) = attr {
+            let span = attr.span();
+            quote_spanned! {
+                span => .attr
+            }
+        } else {
+            quote! {
+                .attr
+            }
+        };
         quote! {
-            .attr(#name, (#cx, #value))
+            #attr(#name, (#cx, #value))
         }
     }
 }
