@@ -434,7 +434,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// which will be injected *on the server side.* This can be used to inject the raw HTTP request or other
 /// server-side context into the server function.
 ///
-/// ```ignore
+/// ```
 /// # use leptos::*; use serde::{Serialize, Deserialize};
 /// # #[derive(Serialize, Deserialize)]
 /// # pub struct Post { }
