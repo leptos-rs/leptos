@@ -86,7 +86,8 @@ pub fn Routes(
 
                 match (prev_routes, prev_match) {
                     (Some(prev), Some(prev_match))
-                        if next_match.route.key == prev_match.route.key =>
+                        if next_match.route.key == prev_match.route.key
+                            && next_match.route.id == prev_match.route.id =>
                     {
                         let prev_one = { prev.borrow()[i].clone() };
                         if i >= next.borrow().len() {
@@ -212,6 +213,7 @@ struct RouterState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteData {
+    pub id: usize,
     pub key: RouteDefinition,
     pub pattern: String,
     pub original_path: String,
@@ -286,6 +288,7 @@ fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
         };
         acc.push(RouteData {
             key: route_def.clone(),
+            id: route_def.id,
             matcher: Matcher::new_with_partial(&pattern, !is_leaf),
             pattern,
             original_path: original_path.to_string(),
