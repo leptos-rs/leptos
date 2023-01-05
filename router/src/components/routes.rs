@@ -140,7 +140,8 @@ pub fn Routes(
 
                         if disposers.borrow().len() > i + 1 {
                             let mut disposers = disposers.borrow_mut();
-                            let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
+                            let old_route_disposer =
+                                std::mem::replace(&mut disposers[i + 1], disposer);
                             old_route_disposer.dispose();
                         } else {
                             disposers.borrow_mut().push(disposer);

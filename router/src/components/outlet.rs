@@ -20,7 +20,6 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
             }
             (Some(child), prev) => {
                 if let Some(prev_scope) = prev.map(|(_, scope)| scope) {
-                    leptos::log!("disposing previous scope");
                     prev_scope.dispose();
                 }
                 is_showing.set(Some((child.id(), child.cx())));
