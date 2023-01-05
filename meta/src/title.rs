@@ -96,11 +96,6 @@ pub fn Title(
 ) -> impl IntoView {
     let meta = use_head(cx);
 
-    let prev = meta.title.clone();
-    on_cleanup(cx, move || {
-        leptos::log!("cleaning up <Title/>");
-    });
-
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             if let Some(formatter) = formatter {
@@ -117,7 +112,7 @@ pub fn Title(
                     on_cleanup(cx, {
                         let el = el.clone();
                         move || {
-                            el.set_text(&prev_text);
+                            _ = el.set_text(&prev_text);
                         }
                     });
 
@@ -134,7 +129,7 @@ pub fn Title(
                             on_cleanup(cx, {
                                 let el = el.clone();
                                 move || {
-                                    head.remove_child(&el);
+                                    _ = head.remove_child(&el);
                                 }
                             });
 
