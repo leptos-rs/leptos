@@ -8,18 +8,22 @@ use leptos::*;
 #[component]
 pub fn Outlet(cx: Scope) -> impl IntoView {
     let route = use_route(cx);
-    let is_showing = Rc::new(Cell::new(None));
+    let is_showing = Rc::new(Cell::new(None::<(usize, Scope)>));
     let (outlet, set_outlet) = create_signal(cx, None);
     create_isomorphic_effect(cx, move |_| {
         match (route.child(), &is_showing.get()) {
             (None, _) => {
                 set_outlet.set(None);
             }
-            (Some(child), Some(is_showing_val)) if child.id() == *is_showing_val => {
+            (Some(child), Some((is_showing_val, _))) if child.id() == *is_showing_val => {
                 // do nothing: we don't need to rerender the component, because it's the same
             }
-            (Some(child), _) => {
-                is_showing.set(Some(child.id()));
+            (Some(child), prev) => {
+                if let Some(prev_scope) = prev.map(|(_, scope)| scope) {
+                    leptos::log!("disposing previous scope");
+                    prev_scope.dispose();
+                }
+                is_showing.set(Some((child.id(), child.cx())));
                 provide_context(child.cx(), child.clone());
                 set_outlet.set(Some(child.outlet().into_view(cx)))
             }
