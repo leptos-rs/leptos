@@ -1,4 +1,4 @@
-use actix_web::{http::header, web::Bytes, *};
+use actix_web::{http::header, web::Bytes, *, guard::{GuardContext, Guard}};
 use futures::{StreamExt}; 
 
 use http::StatusCode;
@@ -7,6 +7,17 @@ use leptos_meta::*;
 use leptos_router::*;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+pub struct HtmlGuard;
+
+impl Guard for HtmlGuard {
+    fn check(&self, ctx: &GuardContext<'_>) -> bool {
+        match ctx.header::<header::Accept>() {
+            Some(hdr) => hdr.preference() == "text/html",
+            None => false,
+        }
+    }
+}
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -267,8 +278,6 @@ where IV: IntoView
                 }
             };
 
-                let site_root = &options.site_root;
-
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
                 // we add _bg to the wasm files if cargo-leptos doesn't set the env var OUTPUT_NAME
                 // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
@@ -282,17 +291,8 @@ where IV: IntoView
 
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
-                let site_root = &options.site_root;
                 let pkg_path = &options.site_pkg_dir;
 
-                // We need to do some logic to check if the site_root is pkg
-                // if it is, then we need to not add pkg_path. This would mean
-                // the site was built with cargo run and not cargo-leptos
-                let bundle_path = match site_root.as_ref() {
-                    "pkg" => "pkg".to_string(),
-                    _ => format!("{}/{}", site_root, pkg_path),
-                };
-             
                 let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
                     true => format!(
                         r#"
@@ -326,9 +326,9 @@ where IV: IntoView
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{bundle_path}/{output_name}.js">
-                            <link rel="preload" href="/{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{bundle_path}/{output_name}.js'; init('/{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );

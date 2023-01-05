@@ -15,7 +15,7 @@ pub fn App(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <>
-            <Stylesheet id="leptos" href="./target/site/pkg/hackernews.css"/>
+            <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
             <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
                 <Nav />

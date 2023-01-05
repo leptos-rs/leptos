@@ -18,23 +18,24 @@ cfg_if! {
         async fn main() -> std::io::Result<()> {
             let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
             let addr = conf.leptos_options.site_address.clone();
+
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
                 let site_root = &leptos_options.site_root;
-                let pkg_dir = &leptos_options.site_pkg_dir;
-                let bundle_path = format!("/{site_root}/{pkg_dir}");
 
                 App::new()
-                    .service(Files::new("/pkg", "./pkg")) // used by wasm-pack and cargo run. Can be removed if using cargo-leptos
-                    .service(Files::new(&bundle_path, format!("./{bundle_path}"))) // used by cargo-leptos. Can be removed if using wasm-pack and cargo run.
                     .service(css)
+                    .service(
+                        web::scope("/{tail:.*}")
+                        .guard(leptos_actix::HtmlGuard)
+                        .route("", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <App/> }))
+                    )
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-                    .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <App/> }))
-                //.wrap(middleware::Compress::default())
-            })
-            .bind(&addr)?
-            .run()
-            .await
+                    .service(Files::new("/", &site_root)) // used by wasm-pack and cargo run. Can be removed if using cargo-leptos
+                })
+                .bind(&addr)?
+                .run()
+                .await
         }
     } else {
         fn main() {
