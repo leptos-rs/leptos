@@ -10,7 +10,7 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
     let route = use_route(cx);
     let is_showing = Rc::new(Cell::new(None));
     let (outlet, set_outlet) = create_signal(cx, None);
-    create_effect(cx, move |_| {
+    create_isomorphic_effect(cx, move |_| {
         match (route.child(), &is_showing.get()) {
             (None, _) => {
                 set_outlet.set(None);
