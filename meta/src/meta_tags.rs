@@ -174,7 +174,7 @@ pub fn Meta(
             head.append_child(&el)
                 .unwrap_throw();
 
-            on_cleanup(cx, {
+            leptos::on_cleanup(cx, {
                 let el = el.clone();
                 move || {
                     head.remove_child(&el);
