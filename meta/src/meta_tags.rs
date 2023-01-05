@@ -1,14 +1,18 @@
 use cfg_if::cfg_if;
-use leptos::{Scope, component, IntoView};
-use std::{rc::Rc, cell::{RefCell, Cell}, collections::HashMap};
+use leptos::{component, IntoView, Scope};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::Rc,
+};
 
 use crate::{use_head, TextProp};
 
 /// Manages all of the `<meta>` elements set by [Meta] components.
 #[derive(Clone, Default, Debug)]
 pub struct MetaTagsContext {
-	next_id: Cell<MetaTagId>,
-	#[allow(clippy::type_complexity)]
+    next_id: Cell<MetaTagId>,
+    #[allow(clippy::type_complexity)]
     els: Rc<RefCell<HashMap<MetaTagId, (Option<MetaTag>, Option<web_sys::HtmlMetaElement>)>>>,
 }
 
@@ -16,25 +20,25 @@ pub struct MetaTagsContext {
 struct MetaTagId(usize);
 
 impl MetaTagsContext {
-	fn get_next_id(&self) -> MetaTagId {
-		let current_id = self.next_id.get();
-		let next_id = MetaTagId(current_id.0 + 1);
-		self.next_id.set(next_id);
-		next_id
-	}
+    fn get_next_id(&self) -> MetaTagId {
+        let current_id = self.next_id.get();
+        let next_id = MetaTagId(current_id.0 + 1);
+        self.next_id.set(next_id);
+        next_id
+    }
 }
 
 #[derive(Clone, Debug)]
 enum MetaTag {
-	Charset(TextProp),
-	HttpEquiv {
-		http_equiv: TextProp,
-		content: Option<TextProp>
-	},
-	Name {
-		name: TextProp,
-		content: TextProp
-	}
+    Charset(TextProp),
+    HttpEquiv {
+        http_equiv: TextProp,
+        content: Option<TextProp>,
+    },
+    Name {
+        name: TextProp,
+        content: TextProp,
+    },
 }
 
 impl MetaTagsContext {
@@ -86,22 +90,21 @@ impl MetaTagsContext {
 /// ```
 #[component(transparent)]
 pub fn Meta(
-	cx: Scope,
+    cx: Scope,
     /// The [`charset`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-charset) attribute.
     #[prop(optional, into)]
     charset: Option<TextProp>,
-	/// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
-	#[prop(optional, into)]
-	name: Option<TextProp>,
-	/// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
-	#[prop(optional, into)]
-	http_equiv: Option<TextProp>,
-	/// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
-	#[prop(optional, into)]
-	content: Option<TextProp>
+    /// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
+    #[prop(optional, into)]
+    name: Option<TextProp>,
+    /// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
+    #[prop(optional, into)]
+    http_equiv: Option<TextProp>,
+    /// The [`content`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-content) attribute.
+    #[prop(optional, into)]
+    content: Option<TextProp>,
 ) -> impl IntoView {
-
-	let tag = match (charset, name, http_equiv, content) {
+    let tag = match (charset, name, http_equiv, content) {
 		(Some(charset), _, _, _) => MetaTag::Charset(charset),
 		(_, _, Some(http_equiv), content) => MetaTag::HttpEquiv { http_equiv, content },
 		(_, Some(name), _, Some(content)) => MetaTag::Name { name, content },
@@ -113,69 +116,76 @@ pub fn Meta(
             use leptos::{document, JsCast, UnwrapThrowExt, create_effect};
 
             let meta = use_head(cx);
-			let meta_tags = meta.meta_tags;
-			let id = meta_tags.get_next_id();
+            let meta_tags = meta.meta_tags;
+            let id = meta_tags.get_next_id();
 
-			let el = if let Ok(Some(el)) = document().query_selector(&format!("[data-leptos-meta='{}']", id.0)) {
-				el
-			} else {
-				document().create_element("meta").unwrap_throw()
-			};
+            let el = if let Ok(Some(el)) = document().query_selector(&format!("[data-leptos-meta='{}']", id.0)) {
+                el
+            } else {
+                document().create_element("meta").unwrap_throw()
+            };
 
-			match tag {
-				MetaTag::Charset(charset) => {
-					create_effect(cx, {
-						let el = el.clone();
-						move |_| {
-							_ = el.set_attribute("charset", &charset.get());
-						}
-					})
-				},
-				MetaTag::HttpEquiv { http_equiv, content } => {
-					create_effect(cx, {
-						let el = el.clone();
-						move |_| {
-							_ = el.set_attribute("http-equiv", &http_equiv.get());
-						}
-					});
-					if let Some(content) = content {
-						create_effect(cx, {
-							let el = el.clone();
-							move |_| {
-								_ = el.set_attribute("content", &content.get());
-							}
-						});
-					}
-				},
-				MetaTag::Name { name, content } => {
-					create_effect(cx, {
-						let el = el.clone();
-						move |_| {
-							_ = el.set_attribute("name", &name.get());
-						}
-					});
-					create_effect(cx, {
-						let el = el.clone();
-						move |_| {
-							_ = el.set_attribute("content", &content.get());
-						}
-					});
-				},
-			}
+            match tag {
+                MetaTag::Charset(charset) => {
+                    create_effect(cx, {
+                        let el = el.clone();
+                        move |_| {
+                            _ = el.set_attribute("charset", &charset.get());
+                        }
+                    })
+                },
+                MetaTag::HttpEquiv { http_equiv, content } => {
+                    create_effect(cx, {
+                        let el = el.clone();
+                        move |_| {
+                            _ = el.set_attribute("http-equiv", &http_equiv.get());
+                        }
+                    });
+                    if let Some(content) = content {
+                        create_effect(cx, {
+                            let el = el.clone();
+                            move |_| {
+                                _ = el.set_attribute("content", &content.get());
+                            }
+                        });
+                    }
+                },
+                MetaTag::Name { name, content } => {
+                    create_effect(cx, {
+                        let el = el.clone();
+                        move |_| {
+                            _ = el.set_attribute("name", &name.get());
+                        }
+                    });
+                    create_effect(cx, {
+                        let el = el.clone();
+                        move |_| {
+                            _ = el.set_attribute("content", &content.get());
+                        }
+                    });
+                },
+            }
 
-			// add to head
-			document()
-                    .query_selector("head")
-                    .unwrap_throw()
-                    .unwrap_throw()
-                    .append_child(&el)
-                    .unwrap_throw();
+            // add to head
+            let head = document()
+                .query_selector("head")
+                .unwrap_throw()
+                .unwrap_throw();
+            head.append_child(&el)
+                .unwrap_throw();
 
-			// add to meta tags
-			meta_tags.els.borrow_mut().insert(id, (None, Some(el.unchecked_into())));
+            leptos::on_cleanup(cx, {
+                let el = el.clone();
+                move || {
+                    head.remove_child(&el);
+                }
+            });
+
+            // add to meta tags
+            meta_tags.els.borrow_mut().insert(id, (None, Some(el.unchecked_into())));
         } else {
             let meta = use_head(cx);
-			let meta_tags = meta.meta_tags;
+            let meta_tags = meta.meta_tags;
             meta_tags.els.borrow_mut().insert(meta_tags.get_next_id(), (Some(tag), None));
         }
     }

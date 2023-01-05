@@ -155,7 +155,13 @@ impl Scope {
 // Internals
 
 impl Scope {
-    pub(crate) fn dispose(self) {
+    /// Disposes of this reactive scope.
+    ///
+    /// This will
+    /// 1. dispose of all child `Scope`s
+    /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+    /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
+    pub fn dispose(self) {
         with_runtime(self.runtime, |runtime| {
             // dispose of all child scopes
             let children = {
@@ -282,9 +288,9 @@ impl Scope {
         with_runtime(self.runtime, |runtime| runtime.all_resources())
     }
 
-     /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are 
-     /// pending from the server.
-     pub fn pending_resources(&self) -> Vec<ResourceId> {
+    /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are
+    /// pending from the server.
+    pub fn pending_resources(&self) -> Vec<ResourceId> {
         with_runtime(self.runtime, |runtime| runtime.pending_resources())
     }
 
@@ -323,7 +329,7 @@ impl Scope {
                     Box::pin(async move {
                         rx.next().await;
                         resolver()
-                    })
+                    }),
                 ),
             );
         })
