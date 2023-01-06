@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{store_value, Memo, ReadSignal, RwSignal, Scope, StoredValue, UntrackedGettableSignal};
 
 /// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
@@ -484,75 +482,5 @@ where
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
-    }
-}
-
-/// Signal which only emits the default value when read.
-pub struct DefaultSignal<T: Default + 'static>(PhantomData<T>);
-
-impl<T: Default> Default for DefaultSignal<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl<T: Default + std::fmt::Debug> std::fmt::Debug for DefaultSignal<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("DefaultSignal").field(&T::default()).finish()
-    }
-}
-
-impl<T: Default> Clone for DefaultSignal<T> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<T: Default> Copy for DefaultSignal<T> {}
-
-impl<T: Default> DefaultSignal<T> {
-    /// Get's the default value of `T`.
-    pub fn get(self) -> T {
-        T::default()
-    }
-}
-
-impl<T: Default> PartialEq for DefaultSignal<T> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-
-impl<T: Default> Eq for DefaultSignal<T> {}
-
-#[cfg(not(feature = "stable"))]
-impl<T: Default> FnOnce<()> for DefaultSignal<T> {
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _: ()) -> Self::Output {
-        T::default()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T: Default> FnOnce<(bool,)> for DefaultSignal<T> {
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _: (bool,)) -> Self::Output {
-        T::default()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T: Default> FnMut<()> for DefaultSignal<T> {
-    extern "rust-call" fn call_mut(&mut self, _: ()) -> Self::Output {
-        T::default()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T: Default> Fn<()> for DefaultSignal<T> {
-    extern "rust-call" fn call(&self, _: ()) -> Self::Output {
-        T::default()
     }
 }
