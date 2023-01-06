@@ -28,19 +28,33 @@ use crate::{store_value, RwSignal, Scope, StoredValue, WriteSignal};
 /// # });
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub struct SignalSetter<T>(SignalSetterTypes<T>)
+pub struct SignalSetter<T>
 where
-    T: 'static;
+    T: 'static,
+{
+    inner: SignalSetterTypes<T>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static std::panic::Location<'static>,
+}
 
 impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self {
+            inner: self.inner,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
+        }
     }
 }
 
 impl<T: Default + 'static> Default for SignalSetter<T> {
+    #[track_caller]
     fn default() -> Self {
-        Self(SignalSetterTypes::Default)
+        Self {
+            inner: SignalSetterTypes::Default,
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 }
 
@@ -71,11 +85,23 @@ where
     /// assert_eq!(count(), 8);
     /// # });
     /// ```
+    #[track_caller]
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            skip_all,
+            fields(
+                cx = %format!("{:?}", cx.id),
+            )
+        )
+    )]
     pub fn map(cx: Scope, mapped_setter: impl Fn(T) + 'static) -> Self {
-        Self(SignalSetterTypes::Mapped(
-            cx,
-            store_value(cx, Box::new(mapped_setter)),
-        ))
+        Self {
+            inner: SignalSetterTypes::Mapped(cx, store_value(cx, Box::new(mapped_setter))),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 
     /// Calls the setter function with the given value.
@@ -98,8 +124,19 @@ where
     /// set_to_4(&set_double_count);
     /// assert_eq!(count(), 8);
     /// # });
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            skip_all,
+            fields(
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn set(&self, value: T) {
-        match &self.0 {
+        match &self.inner {
             SignalSetterTypes::Write(s) => s.set(value),
             SignalSetterTypes::Mapped(_, s) => s.with(|s| s(value)),
             SignalSetterTypes::Default => {}
@@ -108,14 +145,24 @@ where
 }
 
 impl<T> From<WriteSignal<T>> for SignalSetter<T> {
+    #[track_caller]
     fn from(value: WriteSignal<T>) -> Self {
-        Self(SignalSetterTypes::Write(value))
+        Self {
+            inner: SignalSetterTypes::Write(value),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 }
 
 impl<T> From<RwSignal<T>> for SignalSetter<T> {
+    #[track_caller]
     fn from(value: RwSignal<T>) -> Self {
-        Self(SignalSetterTypes::Write(value.write_only()))
+        Self {
+            inner: SignalSetterTypes::Write(value.write_only()),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 }
 
