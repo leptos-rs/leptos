@@ -299,7 +299,7 @@ where IV: IntoView
                         <script crossorigin="">(function () {{
                             var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                             ws.onmessage = (ev) => {{
-                                let msg = JSON.parse(event.data);
+                                let msg = JSON.parse(ev.data);
                                 if (msg.all) window.location.reload();
                                 if (msg.css) {{
                                     const link = document.querySelector("link#leptos");
