@@ -143,10 +143,23 @@ where
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::get_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -154,6 +167,19 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
         self.with_no_subscription(|v| v.clone())
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::with_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.with_no_subscription(f)
     }
@@ -185,8 +211,13 @@ where
         debug_assertions,
         instrument(
             level = "trace",
+            name = "ReadSignal::with()",
             skip_all,
-            fields(signal = %format!("{:?}", self.id))
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
     )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
@@ -220,8 +251,13 @@ where
         debug_assertions,
         instrument(
             level = "trace",
+            name = "ReadSignal::get()",
             skip_all,
-            fields(signal = %format!("{:?}", self.id))
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
     )]
     pub fn get(&self) -> T
@@ -260,7 +296,7 @@ impl<T> Clone for ReadSignal<T> {
             id: self.id,
             ty: PhantomData,
             #[cfg(debug_assertions)]
-            defined_at: self.defined_at
+            defined_at: self.defined_at,
         }
     }
 }
@@ -341,22 +377,61 @@ where
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> UntrackedSettableSignal<T> for WriteSignal<T>
 where
     T: 'static,
 {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::set_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn set_untracked(&self, new_value: T) {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::updated_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::update_returning_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
@@ -394,7 +469,8 @@ where
             skip_all,
             fields(
                 id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at)
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -427,10 +503,12 @@ where
         debug_assertions,
         instrument(
             level = "trace",
+            name = "WriteSignal::update_returning()"
             skip_all,
             fields(
                 id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at)
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -461,10 +539,12 @@ where
         debug_assertions,
         instrument(
             level = "trace",
+            name = "WriteSignal::set()",
             skip_all,
             fields(
                 id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at)
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -480,7 +560,7 @@ impl<T> Clone for WriteSignal<T> {
             id: self.id,
             ty: PhantomData,
             #[cfg(debug_assertions)]
-            defined_at: self.defined_at
+            defined_at: self.defined_at,
         }
     }
 }
@@ -586,7 +666,7 @@ where
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> Clone for RwSignal<T> {
@@ -596,7 +676,7 @@ impl<T> Clone for RwSignal<T> {
             id: self.id,
             ty: self.ty,
             #[cfg(debug_assertions)]
-            defined_at: self.defined_at
+            defined_at: self.defined_at,
         }
     }
 }
@@ -604,6 +684,19 @@ impl<T> Clone for RwSignal<T> {
 impl<T> Copy for RwSignal<T> {}
 
 impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::get_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -612,21 +705,73 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
             .with_no_subscription(self.runtime, |v: &T| v.clone())
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::with_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id.with_no_subscription(self.runtime, f)
     }
 }
 
 impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::set_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn set_untracked(&self, new_value: T) {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_returning_untracked()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
@@ -655,6 +800,19 @@ where
     /// # }).dispose();
     /// #
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::with()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
     }
@@ -673,17 +831,19 @@ where
     /// # }).dispose();
     /// #
     /// ```   
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::get()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -708,17 +868,19 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.id.update(self.runtime, f);
     }
@@ -742,17 +904,19 @@ where
     /// assert_eq!(count(), 2);
     /// # }).dispose();
     /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_returning()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update(self.runtime, f)
     }
@@ -771,17 +935,19 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::set()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     pub fn set(&self, value: T) {
         self.id.update(self.runtime, |n| *n = value);
     }
@@ -802,17 +968,19 @@ where
     /// assert_eq!(read_count(), 1);
     /// # }).dispose();
     /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::read_only()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     #[track_caller]
     pub fn read_only(&self) -> ReadSignal<T> {
         ReadSignal {
@@ -820,7 +988,7 @@ where
             id: self.id,
             ty: PhantomData,
             #[cfg(debug_assertions)]
-            defined_at: std::panic::Location::caller()
+            defined_at: std::panic::Location::caller(),
         }
     }
 
@@ -838,17 +1006,19 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::write_only()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     #[track_caller]
     pub fn write_only(&self) -> WriteSignal<T> {
         WriteSignal {
@@ -856,7 +1026,7 @@ where
             id: self.id,
             ty: PhantomData,
             #[cfg(debug_assertions)]
-            defined_at: std::panic::Location::caller()
+            defined_at: std::panic::Location::caller(),
         }
     }
 
@@ -873,17 +1043,19 @@ where
     /// assert_eq!(get_count(), 1);
     /// # }).dispose();
     /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            id = %format!("{:?}", self.id),
-            defined_at = %format!("{:?}", self.defined_at)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::split()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     #[track_caller]
     pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
         (
@@ -891,20 +1063,33 @@ where
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: std::panic::Location::caller()
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: std::panic::Location::caller()
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
             },
         )
     }
 
     /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::to_stream()",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self.id),
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn to_stream(&self) -> impl Stream<Item = T>
     where
         T: Clone,

@@ -78,9 +78,12 @@ fn Example(cx: Scope) -> impl IntoView {
     let (value, set_value) = create_signal(cx, 10);
 
     let memo = create_memo(cx, move |_| value() * 2);
+    let derived = Signal::derive(cx, move || {
+        value() * 3
+    });
 
     create_effect(cx, move |_| {
-        trace!("logging value of memo..., {}", memo.get());
+        trace!("logging value of derived..., {}", derived.get());
     });
 
 

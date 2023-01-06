@@ -127,8 +127,7 @@ where
 #[derive(Debug, PartialEq, Eq)]
 pub struct Memo<T>(
     pub(crate) ReadSignal<Option<T>>,
-    #[cfg(debug_assertions)]
-    pub(crate) &'static std::panic::Location<'static>
+    #[cfg(debug_assertions)] pub(crate) &'static std::panic::Location<'static>,
 )
 where
     T: 'static;
@@ -139,9 +138,9 @@ where
 {
     fn clone(&self) -> Self {
         Self(
-            self.0, 
+            self.0,
             #[cfg(debug_assertions)]
-            self.1
+            self.1,
         )
     }
 }
@@ -153,10 +152,12 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
         debug_assertions,
         instrument(
             level = "trace",
+            name = "Memo::get_untracked()",
             skip_all,
             fields(
                 id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1)
+                defined_at = %format!("{:?}", self.1),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -173,10 +174,12 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
         debug_assertions,
         instrument(
             level = "trace",
+            name = "Memo::with_untracked()",
             skip_all,
             fields(
                 id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1)
+                defined_at = %format!("{:?}", self.1),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -254,7 +257,8 @@ where
             skip_all,
             fields(
                 id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1)
+                defined_at = %format!("{:?}", self.1),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]

@@ -153,7 +153,7 @@ where
     pub(crate) f: F,
     pub(crate) value: RefCell<Option<T>>,
     #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 pub(crate) trait AnyEffect {
@@ -173,7 +173,8 @@ where
             skip_all,
             fields(
                 id = %format!("{:?}", id),
-                defined_at = %format!("{:?}", self.defined_at)
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
