@@ -229,7 +229,7 @@ where
   }
 }
 
-impl<El: ElementDescriptor> HtmlElement<El> {
+impl<El: ElementDescriptor + 'static> HtmlElement<El> {
   fn new(cx: Scope, element: El) -> Self {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
@@ -343,6 +343,72 @@ impl<El: ElementDescriptor> HtmlElement<El> {
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     let _ = node_ref;
 
+    self
+  }
+
+  /// Runs the callback when this element has been mounted to the DOM.
+  ///
+  /// ### Important Note
+  /// This method will only ever run at most once. If this element
+  /// is unmounted and remounted, or moved somewhere else, it will not
+  /// re-run unless you call this method again.
+  pub fn on_mount(self, f: impl FnOnce(Self) + 'static) -> Self {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    {
+      use futures::future::poll_fn;
+      use once_cell::unsync::OnceCell;
+      use std::{
+        cell::RefCell,
+        rc::Rc,
+        task::{Poll, Waker},
+      };
+
+      let this = self.clone();
+      let el = self.element.as_ref().clone();
+
+      wasm_bindgen_futures::spawn_local(async move {
+        while !crate::document().body().unwrap().contains(Some(&el)) {
+          let waker = Rc::new(RefCell::new(None::<Waker>));
+          let ready = Rc::new(OnceCell::new());
+
+          // We need to bind this value to the current scope to stop it from
+          // dropping and preventing the animation frame from running
+          let _animation_request_guard =
+            gloo::render::request_animation_frame({
+              let waker = waker.clone();
+              let ready = ready.clone();
+
+              move |_| {
+                let _ = ready.set(());
+                if let Some(waker) = &*waker.borrow() {
+                  waker.wake_by_ref();
+                }
+              }
+            });
+
+          // Wait for the animation frame to become available
+          poll_fn(move |cx| {
+            let mut waker_borrow = waker.borrow_mut();
+
+            *waker_borrow = Some(cx.waker().clone());
+
+            if ready.get().is_some() {
+              Poll::Ready(())
+            } else {
+              Poll::<()>::Pending
+            }
+          })
+          .await;
+        }
+
+        f(this);
+      });
+    }
+
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    {
+      let _ = f;
+    }
     self
   }
 

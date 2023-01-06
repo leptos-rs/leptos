@@ -12,7 +12,7 @@ cfg-if = "1"
 drain_filter_polyfill = "0.1"
 educe = "0.4"
 futures = "0.3"
-gloo = "0.8"
+gloo = { version = "0.8", features = ["futures"] }
 html-escape = "0.2"
 indexmap = "1.9"
 itertools = "0.10"
@@ -140,6 +140,7 @@ features = [
 ]
 
 [features]
+default = []
 web = ["leptos_reactive/csr"]
 ssr = ["leptos_reactive/ssr"]
 stable = ["leptos_reactive/stable"]
