@@ -186,7 +186,8 @@
 mod components;
 mod history;
 mod hooks;
-mod matching;
+#[doc(hidden)]
+pub mod matching;
 
 pub use components::*;
 pub use history::*;
