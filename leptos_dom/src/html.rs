@@ -377,7 +377,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             let waker = waker.clone();
             let ready = ready.clone();
 
-            move |_| {
+            move || {
               let _ = ready.set(());
               if let Some(waker) = &*waker.borrow() {
                 waker.wake_by_ref();
