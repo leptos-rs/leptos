@@ -40,9 +40,11 @@ use std::{fmt::Debug, rc::Rc};
 
 use leptos::{leptos_dom::debug_warn, *};
 
+mod link;
 mod meta_tags;
 mod stylesheet;
 mod title;
+pub use link::*;
 pub use meta_tags::*;
 pub use stylesheet::*;
 pub use title::*;
@@ -54,8 +56,8 @@ pub use title::*;
 #[derive(Debug, Clone, Default)]
 pub struct MetaContext {
     pub(crate) title: TitleContext,
-    pub(crate) stylesheets: StylesheetContext,
     pub(crate) meta_tags: MetaTagsContext,
+    pub(crate) links: LinkContext,
 }
 
 /// Provides a [MetaContext], if there is not already one provided. This ensures that you can provide it
@@ -131,6 +133,7 @@ impl MetaContext {
     /// # }
     /// ```
     pub fn dehydrate(&self) -> String {
+        let prev_key = HydrationCtx::peek();
         let mut tags = String::new();
 
         // Title
@@ -140,11 +143,12 @@ impl MetaContext {
             tags.push_str("</title>");
         }
         // Stylesheets
-        tags.push_str(&self.stylesheets.as_string());
+        tags.push_str(&self.links.as_string());
 
         // Meta tags
         tags.push_str(&self.meta_tags.as_string());
 
+        HydrationCtx::continue_from(prev_key);
         tags
     }
 }
