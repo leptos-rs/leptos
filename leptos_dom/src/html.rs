@@ -368,23 +368,22 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
       wasm_bindgen_futures::spawn_local(async move {
         while !crate::document().body().unwrap().contains(Some(&el)) {
+          // We need to cook ourselves a small future that resolves
+          // when the next animation frame is available
           let waker = Rc::new(RefCell::new(None::<Waker>));
           let ready = Rc::new(OnceCell::new());
 
-          // We need to bind this value to the current scope to stop it from
-          // dropping and preventing the animation frame from running
-          let _animation_request_guard =
-            gloo::render::request_animation_frame({
-              let waker = waker.clone();
-              let ready = ready.clone();
+          crate::request_animation_frame({
+            let waker = waker.clone();
+            let ready = ready.clone();
 
-              move |_| {
-                let _ = ready.set(());
-                if let Some(waker) = &*waker.borrow() {
-                  waker.wake_by_ref();
-                }
+            move |_| {
+              let _ = ready.set(());
+              if let Some(waker) = &*waker.borrow() {
+                waker.wake_by_ref();
               }
-            });
+            }
+          });
 
           // Wait for the animation frame to become available
           poll_fn(move |cx| {
