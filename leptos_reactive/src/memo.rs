@@ -54,6 +54,16 @@ use std::fmt::Debug;
 /// });
 /// # }).dispose();
 /// ```
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            cx = %format!("{:?}", cx.id),
+        )
+    )
+)]
 pub fn create_memo<T>(cx: Scope, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
     T: PartialEq + Debug + 'static,
