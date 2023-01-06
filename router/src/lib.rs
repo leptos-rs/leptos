@@ -184,12 +184,14 @@
 #![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 mod components;
+mod extract_routes;
 mod history;
 mod hooks;
 #[doc(hidden)]
 pub mod matching;
 
 pub use components::*;
+pub use extract_routes::*;
 pub use history::*;
 pub use hooks::*;
 pub use matching::*;

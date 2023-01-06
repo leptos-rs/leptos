@@ -38,9 +38,11 @@ cfg_if! {
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req =
-        use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
-    println!("req.path = {:?}", req.path());
-
+        use_context::<actix_web::HttpRequest>(cx);
+    
+    if let Some(req) = req{
+    println!("req.path = {:#?}", req.path());
+    }
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
@@ -100,6 +102,10 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     <Route path="" view=|cx| view! {
+                        cx,
+                        <Todos/>
+                    }/>
+                    <Route path="potato" view=|cx| view! {
                         cx,
                         <Todos/>
                     }/>
