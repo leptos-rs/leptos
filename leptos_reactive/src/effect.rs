@@ -47,13 +47,26 @@ use std::fmt::Debug;
 /// # }
 /// # }).dispose();
 /// ```
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = %format!("{:?}", cx.id),
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
 pub fn create_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
 {
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
-            create_isomorphic_effect(cx, f);
+            let e = cx.runtime.create_effect(f);
+            cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
         } else {
             // clear warnings
             _ = cx;
@@ -88,6 +101,18 @@ where
 /// });
 /// # assert_eq!(b(), 2);
 /// # }).dispose();
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = %format!("{:?}", cx.id),
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
 pub fn create_isomorphic_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
@@ -97,6 +122,17 @@ where
 }
 
 #[doc(hidden)]
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = %format!("{:?}", cx.id),
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
 pub fn create_render_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
@@ -116,6 +152,8 @@ where
 {
     pub(crate) f: F,
     pub(crate) value: RefCell<Option<T>>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>
 }
 
 pub(crate) trait AnyEffect {
@@ -127,6 +165,18 @@ where
     T: 'static,
     F: Fn(Option<T>) -> T,
 {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            name = "Effect::run()",
+            level = "debug",
+            skip_all,
+            fields(
+                id = %format!("{:?}", id),
+                defined_at = %format!("{:?}", self.defined_at)
+            )
+        )
+    )]
     fn run(&self, id: EffectId, runtime: RuntimeId) {
         with_runtime(runtime, |runtime| {
             // clear previous dependencies
@@ -162,6 +212,17 @@ impl EffectId {
         })
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            name = "Effect::cleanup()",
+            level = "debug",
+            skip_all,
+            fields(
+                id = %format!("{:?}", self),
+            )
+        )
+    )]
     pub(crate) fn cleanup(&self, runtime: &Runtime) {
         let sources = runtime.effect_sources.borrow();
         if let Some(sources) = sources.get(*self) {

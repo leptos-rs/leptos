@@ -6,6 +6,7 @@ extern crate tracing;
 mod utils;
 
 use leptos::*;
+use tracing::field::debug;
 use tracing_subscriber::util::SubscriberInitExt;
 
 fn main() {
@@ -58,6 +59,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
       <div>
         <button on:click=handle_toggle>"Toggle"</button>
       </div>
+      <Example/>
       <A child=Signal::from(a) />
       <A child=Signal::from(b) />
     </>
@@ -71,7 +73,20 @@ fn A(cx: Scope, child: Signal<View>) -> impl IntoView {
 
 #[component]
 fn Example(cx: Scope) -> impl IntoView {
-  view! { cx,
+    trace!("rendering <Example/>");
+    
+    let (value, set_value) = create_signal(cx, 10);
+
+    let memo = create_memo(cx, move |_| value() * 2);
+
+    create_effect(cx, move |_| {
+        trace!("logging value of memo..., {}", memo.get());
+    });
+
+
+    set_timeout(move || { set_value.update(|v| *v += 1)}, std::time::Duration::from_millis(50));
+
+    view! { cx,
     <h1>"Example"</h1>
   }
 }
