@@ -38,6 +38,12 @@ impl<T> Clone for SignalSetter<T> {
     }
 }
 
+impl<T: Default + 'static> Default for SignalSetter<T> {
+    fn default() -> Self {
+        Self(SignalSetterTypes::Default)
+    }
+}
+
 impl<T> Copy for SignalSetter<T> {}
 
 impl<T> SignalSetter<T>
@@ -96,6 +102,7 @@ where
         match &self.0 {
             SignalSetterTypes::Write(s) => s.set(value),
             SignalSetterTypes::Mapped(_, s) => s.with(|s| s(value)),
+            SignalSetterTypes::Default => {}
         }
     }
 }
@@ -118,6 +125,7 @@ where
 {
     Write(WriteSignal<T>),
     Mapped(Scope, StoredValue<Box<dyn Fn(T)>>),
+    Default,
 }
 
 impl<T> Clone for SignalSetterTypes<T> {
@@ -125,6 +133,7 @@ impl<T> Clone for SignalSetterTypes<T> {
         match self {
             Self::Write(arg0) => Self::Write(*arg0),
             Self::Mapped(cx, f) => Self::Mapped(*cx, *f),
+            Self::Default => Self::Default,
         }
     }
 }
@@ -139,6 +148,7 @@ where
         match self {
             Self::Write(arg0) => f.debug_tuple("WriteSignal").field(arg0).finish(),
             Self::Mapped(_, _) => f.debug_tuple("Mapped").finish(),
+            Self::Default => f.debug_tuple("SignalSetter<Default>").finish(),
         }
     }
 }

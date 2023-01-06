@@ -169,6 +169,15 @@ where
             SignalTypes::DerivedSignal(_, s) => s.with(|s| s()),
         }
     }
+
+    /// Creates a signal that yields the default value of `T` when
+    /// you call `.get()` or `signal()`.
+    pub fn default(cx: Scope) -> Self
+    where
+        T: Default,
+    {
+        Self::derive(cx, || Default::default())
+    }
 }
 
 impl<T> From<ReadSignal<T>> for Signal<T> {
