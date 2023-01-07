@@ -118,7 +118,7 @@ where
             Some(value) => match T::from_str(value) {
                 Ok(value) => Ok(Some(value)),
                 Err(e) => {
-                    eprintln!("{}", e);
+                    eprintln!("{e}");
                     Err(ParamsError::Params(Rc::new(e)))
                 }
             },

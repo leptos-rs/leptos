@@ -45,7 +45,7 @@ macro_rules! debug_warn {
 /// or via `println!()` (if not in the browser).
 pub fn console_log(s: &str) {
   if is_server() {
-    println!("{}", s);
+    println!("{s}");
   } else {
     web_sys::console::log_1(&JsValue::from_str(s));
   }
@@ -55,7 +55,7 @@ pub fn console_log(s: &str) {
 /// or via `println!()` (if not in the browser).
 pub fn console_warn(s: &str) {
   if is_server() {
-    eprintln!("{}", s);
+    eprintln!("{s}");
   } else {
     web_sys::console::warn_1(&JsValue::from_str(s));
   }
@@ -65,7 +65,7 @@ pub fn console_warn(s: &str) {
 /// or via `println!()` (if not in the browser).
 pub fn console_error(s: &str) {
   if is_server() {
-    eprintln!("{}", s);
+    eprintln!("{s}");
   } else {
     web_sys::console::warn_1(&JsValue::from_str(s));
   }
@@ -77,7 +77,7 @@ pub fn console_debug_warn(s: &str) {
   cfg_if! {
       if #[cfg(debug_assertions)] {
           if is_server() {
-              eprintln!("{}", s);
+              eprintln!("{s}");
           } else {
               web_sys::console::warn_1(&JsValue::from_str(s));
           }

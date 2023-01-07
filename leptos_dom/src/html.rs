@@ -683,9 +683,9 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
       let children = children;
 
       if attrs.iter_mut().any(|(name, _)| name == "id") {
-        attrs.push(("leptos-hk".into(), format!("_{}", id).into()));
+        attrs.push(("leptos-hk".into(), format!("_{id}").into()));
       } else {
-        attrs.push(("id".into(), format!("_{}", id).into()));
+        attrs.push(("id".into(), format!("_{id}").into()));
       }
 
       element.attrs = attrs;

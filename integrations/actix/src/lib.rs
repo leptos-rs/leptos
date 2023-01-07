@@ -290,7 +290,7 @@ where IV: IntoView
                 // the site was built with cargo run and not cargo-leptos
                 let bundle_path = match site_root.as_ref() {
                     "pkg" => "pkg".to_string(),
-                    _ => format!("{}/{}", site_root, pkg_path),
+                    _ => format!("{site_root}/{pkg_path}"),
                 };
              
                 let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {

@@ -172,7 +172,7 @@ where
             level = "debug",
             skip_all,
             fields(
-                id = %format!("{:?}", id),
+                id = %format!("{id:?}"),
                 defined_at = %format!("{:?}", self.defined_at),
                 ty = %std::any::type_name::<T>()
             )
@@ -220,7 +220,7 @@ impl EffectId {
             level = "debug",
             skip_all,
             fields(
-                id = %format!("{:?}", self),
+                id = %format!("{self:?}"),
             )
         )
     )]
