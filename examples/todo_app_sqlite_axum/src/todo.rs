@@ -110,7 +110,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
     provide_meta_context(cx);
     view! {
         cx,
-        <Stylesheet id="leptos" href="./target/site/pkg/todo_app_sqlite_axum.css"/>
+        <Stylesheet id="leptos" href="./pkg/todo_app_sqlite_axum.css"/>
         <Router>
             <header>
                 <h1>"My Tasks"</h1>
