@@ -282,7 +282,7 @@ mod struct_info {
             });
             let reconstructing = self.included_fields().map(|f| f.name);
 
-            let &FieldInfo {
+            let FieldInfo {
                 name: ref field_name,
                 ty: ref field_type,
                 ..
