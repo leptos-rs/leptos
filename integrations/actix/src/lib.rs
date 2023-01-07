@@ -1,12 +1,12 @@
-use actix_web::{http::header, web::Bytes, *};
-use futures::{StreamExt}; 
-
+use actix_web::{http::header, web::Bytes, dev::{ServiceFactory, ServiceRequest}, *};
+use futures::StreamExt; 
 use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use regex::Regex;
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -279,20 +279,11 @@ where IV: IntoView
                     wasm_output_name.push_str("_bg");
                 }
                
-
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
                 let site_root = &options.site_root;
                 let pkg_path = &options.site_pkg_dir;
 
-                // We need to do some logic to check if the site_root is pkg
-                // if it is, then we need to not add pkg_path. This would mean
-                // the site was built with cargo run and not cargo-leptos
-                let bundle_path = match site_root.as_ref() {
-                    "pkg" => "pkg".to_string(),
-                    _ => format!("{}/{}", site_root, pkg_path),
-                };
-             
                 let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
                     true => format!(
                         r#"
@@ -326,9 +317,9 @@ where IV: IntoView
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{bundle_path}/{output_name}.js">
-                            <link rel="preload" href="/{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{bundle_path}/{output_name}.js'; init('/{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
@@ -381,4 +372,72 @@ where IV: IntoView
 
         }
     })
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
+pub fn generate_route_list<IV>(app_fn: impl FnOnce(leptos::Scope) -> IV + 'static) -> Vec<String>
+where
+    IV: IntoView + 'static,
+{
+    let mut routes = leptos_router::generate_route_list_inner(app_fn);
+    
+    // Empty strings screw with Actix pathing, they need to be "/"
+    routes = routes.iter().map(|s| {
+        if s.is_empty() {
+           return "/".to_string()
+        }
+        s.to_string()
+    }).collect();
+    
+    // Actix's Router doesn't do "/*" or "/*someting", so we need to replace it with "/{tail.*}"
+    // These are the regular expressions to support that
+    // Match `*` or `*someword`
+    let wildcard_re = Regex::new(r"\*.*").unwrap();
+    // Match `:some_word` but only capture `some_word` in the groups
+    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
+    routes.iter().map(|s| 
+       wildcard_re.replace_all(s, "{tail:.*}").to_string()
+    )
+    .map(|s| {
+        capture_re.replace_all(&s, "{$1}").to_string()
+    })
+    .collect()
+}
+
+/// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
+/// having to use wildcards or manually define all routes in multiple places.
+pub trait LeptosRoutes {
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+}
+/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// to those paths to Leptos's renderer.
+impl <T>LeptosRoutes for actix_web::App<T> where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>{
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                render_app_to_stream(options.clone(), app_fn.clone()),
+            );
+        }
+        router
+    }
 }

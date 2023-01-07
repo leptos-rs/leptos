@@ -19,4 +19,5 @@ leptos_meta = { path = "../../meta", default-features = false, version = "0.1.0-
 leptos_router = { path = "../../router", default-features = false, version = "0.1.0-alpha", features = [
 	"ssr",
 ] }
+regex = "1.7.0"
 tokio = { version = "1.0", features = ["full"] }

@@ -338,7 +338,7 @@ where
                 // We need to do some logic to check if the site_root is pkg
                 // if it is, then we need to not add pkg_path. This would mean
                 // the site was built with cargo run and not cargo-leptos
-                let bundle_path = match site_root.as_ref() {
+                let pkg_path = match site_root.as_ref() {
                     "pkg" => "pkg".to_string(),
                     _ => format!("{}/{}", site_root, pkg_path),
                 };
@@ -389,9 +389,9 @@ where
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{bundle_path}/{output_name}.js">
-                            <link rel="preload" href="/{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{bundle_path}/{output_name}.js'; init('/{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
@@ -501,6 +501,9 @@ where
     }
 }
 
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 pub async fn generate_route_list<IV>(app_fn: impl FnOnce(Scope) -> IV + 'static) -> Vec<String>
 where
     IV: IntoView + 'static,
@@ -527,9 +530,12 @@ where
         .await;
 
     let routes = routes.0.read().await.to_owned();
+    // Axum's Router defines Root routes as "/" not ""
     routes.iter().map(|s| s.replace("", "/")).collect()
 }
 
+/// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
+/// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
@@ -540,7 +546,8 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 }
-
+/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// to those paths to Leptos's renderer.
 impl LeptosRoutes for axum::Router {
     fn leptos_routes<IV>(
         self,
