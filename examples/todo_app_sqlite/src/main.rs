@@ -31,7 +31,7 @@ cfg_if! {
             let addr = conf.leptos_options.site_address.clone();
             println!("BEFFOORE");
             let routes = generate_route_list(|cx| view! { cx, <TodoApp/> });
-            println!("HIIIIIIIIIIII");
+
             println!("Routes: {:#?}", routes);
 
             HttpServer::new(move || {

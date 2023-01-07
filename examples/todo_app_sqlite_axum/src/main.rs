@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use leptos::*;
-
 // boilerplate to run in different modes
 cfg_if! {
 if #[cfg(feature = "ssr")] {
@@ -13,12 +12,18 @@ if #[cfg(feature = "ssr")] {
     use todo_app_sqlite_axum::*;
     use http::StatusCode;
     use tower_http::services::ServeDir;
+    use tokio::{sync::RwLock, task::spawn_blocking, task::LocalSet};
+    use leptos_axum::{generate_route_list, LeptosRoutes};
+
+
+    use std::sync::Arc;
+
 
     #[tokio::main]
     async fn main() {
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
-        let mut conn = db().await.expect("couldn't connect to DB");
+        let conn = db().await.expect("couldn't connect to DB");
         /* sqlx::migrate!()
             .run(&mut conn)
             .await
@@ -53,13 +58,18 @@ if #[cfg(feature = "ssr")] {
             )
         }
 
+        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+         println!("Routes_Outside: {:#?}",&routes);
+
+
         // build our application with a route
-        let app = Router::new()
+        let mut app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .nest_service("/pkg", pkg_service) // Only need if using wasm-pack. Can be deleted if using cargo-leptos
         .nest_service(&bundle_path, cargo_leptos_service) // Only needed if using cargo-leptos. Can be deleted if using wasm-pack and cargo-run
         .nest_service("/static", static_service)
-        .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <TodoApp/> }));
+        .leptos_routes(leptos_options, routes, |cx| view! { cx, <TodoApp/> } );
+
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

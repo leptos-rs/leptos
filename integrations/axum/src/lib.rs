@@ -3,6 +3,7 @@ use axum::{
     extract::Path,
     http::{header::HeaderName, header::HeaderValue, HeaderMap, Request, StatusCode},
     response::IntoResponse,
+    routing::get,
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
 use http::{header, method::Method, uri::Uri, version::Version, Response};
@@ -11,7 +12,7 @@ use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
-use tokio::{sync::RwLock, task::spawn_blocking};
+use tokio::{sync::RwLock, task::spawn_blocking, task::LocalSet};
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
@@ -497,5 +498,66 @@ where
                 res
             }
         })
+    }
+}
+
+pub async fn generate_route_list<IV>(app_fn: impl FnOnce(Scope) -> IV + 'static) -> Vec<String>
+where
+    IV: IntoView + 'static,
+{
+    #[derive(Default, Clone, Debug)]
+    pub struct Routes(pub Arc<RwLock<Vec<String>>>);
+
+    let routes = Routes::default();
+    let routes_inner = routes.clone();
+
+    let local = LocalSet::new();
+    // Run the local task set.
+
+    local
+        .run_until(async move {
+            tokio::task::spawn_local(async move {
+                let routes = leptos_router::generate_route_list_inner(app_fn);
+                let mut writable = routes_inner.0.write().await;
+                *writable = routes;
+            })
+            .await
+            .unwrap();
+        })
+        .await;
+
+    let routes = routes.0.read().await.to_owned();
+    routes.iter().map(|s| s.replace("", "/")).collect()
+}
+
+pub trait LeptosRoutes {
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+}
+
+impl LeptosRoutes for axum::Router {
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                get(render_app_to_stream(options.clone(), app_fn.clone())),
+            );
+        }
+        router
     }
 }

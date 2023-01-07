@@ -9,7 +9,7 @@ pub struct PossibleBranchContext(pub(crate) Rc<RefCell<Vec<Branch>>>);
 
 /// Generates a list of all routes this application could possibly serve.
 #[cfg(feature = "ssr")]
-pub fn generate_route_list<IV>(app_fn: impl FnOnce(Scope) -> IV + 'static) -> Vec<String>
+pub fn generate_route_list_inner<IV>(app_fn: impl FnOnce(Scope) -> IV + 'static) -> Vec<String>
 where
     IV: IntoView + 'static,
 {

@@ -92,6 +92,7 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
+    provide_meta_context(cx);
     view! {
         cx,
         <Stylesheet id="leptos" href="./target/site/pkg/todo_app_sqlite.css"/>
