@@ -41,7 +41,7 @@ cfg_if! {
 use smallvec::SmallVec;
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 
-/// The internal representation of the [`EachKey`] core-component.
+/// The internal representation of the [`Each`] core-component.
 #[derive(Clone, PartialEq, Eq)]
 pub struct EachRepr {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -156,7 +156,7 @@ impl Mountable for EachRepr {
   }
 }
 
-/// The internal representation of an [`EachKey`] item.
+/// The internal representation of an [`Each`] item.
 #[derive(PartialEq, Eq)]
 pub(crate) struct EachItem {
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -293,7 +293,7 @@ where
   K: Eq + Hash + 'static,
   T: 'static,
 {
-  /// Creates a new [`EachKey`] component.
+  /// Creates a new [`Each`] component.
   pub fn new(items_fn: IF, key_fn: KF, each_fn: EF) -> Self {
     Self {
       items_fn,

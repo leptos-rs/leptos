@@ -1,5 +1,21 @@
 use crate::{store_value, Memo, ReadSignal, RwSignal, Scope, StoredValue, UntrackedGettableSignal};
 
+/// Helper trait for converting `Fn() -> T` closures into
+/// [`Signal<T>`].
+pub trait IntoSignal<T>: Sized {
+    /// Consumes `self`, returning a [`Signal<T>`].
+    fn derive_signal(self, cx: Scope) -> Signal<T>;
+}
+
+impl<F, T> IntoSignal<T> for F
+where
+    F: Fn() -> T + 'static,
+{
+    fn derive_signal(self, cx: Scope) -> Signal<T> {
+        Signal::derive(cx, self)
+    }
+}
+
 /// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
 /// [Memo](crate::Memo), [RwSignal](crate::RwSignal), or derived signal closure.
 ///
@@ -27,13 +43,22 @@ use crate::{store_value, Memo, ReadSignal, RwSignal, Scope, StoredValue, Untrack
 /// # });
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub struct Signal<T>(SignalTypes<T>)
+pub struct Signal<T>
 where
-    T: 'static;
+    T: 'static,
+{
+    inner: SignalTypes<T>,
+    #[cfg(debug_assertions)]
+    defined_at: &'static std::panic::Location<'static>,
+}
 
 impl<T> Clone for Signal<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self {
+            inner: self.inner,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
+        }
     }
 }
 
@@ -50,7 +75,7 @@ where
     where
         T: Clone,
     {
-        match &self.0 {
+        match &self.inner {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
             SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with(|f| f())),
@@ -58,7 +83,7 @@ where
     }
 
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match &self.0 {
+        match &self.inner {
             SignalTypes::ReadSignal(s) => s.with_untracked(f),
             SignalTypes::Memo(s) => s.with_untracked(f),
             SignalTypes::DerivedSignal(cx, v_f) => {
@@ -93,11 +118,30 @@ where
     /// assert_eq!(above_3(&double_count), true);
     /// # });
     /// ```
+    #[track_caller]
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            skip_all,
+            fields(
+                cx = %format!("{:?}", cx.id)
+            )
+        )
+    )]
     pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
-        Self(SignalTypes::DerivedSignal(
-            cx,
-            store_value(cx, Box::new(derived_signal)),
-        ))
+        let span = ::tracing::Span::current();
+
+        let derived_signal = move || {
+            let _guard = span.enter();
+            derived_signal()
+        };
+
+        Self {
+            inner: SignalTypes::DerivedSignal(cx, store_value(cx, Box::new(derived_signal))),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 
     /// Applies a function to the current value of the signal, and subscribes
@@ -129,8 +173,19 @@ where
     /// assert_eq!(memoized_lower(), "alice");
     /// });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            skip_all,
+            fields(
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        match &self.0 {
+        match &self.inner {
             SignalTypes::ReadSignal(s) => s.with(f),
             SignalTypes::Memo(s) => s.with(f),
             SignalTypes::DerivedSignal(_, s) => f(&s.with(|s| s())),
@@ -159,11 +214,22 @@ where
     /// assert_eq!(above_3(&memoized_double_count.into()), true);
     /// # });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            skip_all,
+            fields(
+                defined_at = %format!("{:?}", self.defined_at),
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn get(&self) -> T
     where
         T: Clone,
     {
-        match &self.0 {
+        match &self.inner {
             SignalTypes::ReadSignal(s) => s.get(),
             SignalTypes::Memo(s) => s.get(),
             SignalTypes::DerivedSignal(_, s) => s.with(|s| s()),
@@ -181,20 +247,35 @@ where
 }
 
 impl<T> From<ReadSignal<T>> for Signal<T> {
+    #[track_caller]
     fn from(value: ReadSignal<T>) -> Self {
-        Self(SignalTypes::ReadSignal(value))
+        Self {
+            inner: SignalTypes::ReadSignal(value),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 }
 
 impl<T> From<RwSignal<T>> for Signal<T> {
+    #[track_caller]
     fn from(value: RwSignal<T>) -> Self {
-        Self(SignalTypes::ReadSignal(value.read_only()))
+        Self {
+            inner: SignalTypes::ReadSignal(value.read_only()),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 }
 
 impl<T> From<Memo<T>> for Signal<T> {
+    #[track_caller]
     fn from(value: Memo<T>) -> Self {
-        Self(SignalTypes::Memo(value))
+        Self {
+            inner: SignalTypes::Memo(value),
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
     }
 }
 

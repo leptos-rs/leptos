@@ -66,11 +66,13 @@
 //! });
 //! ```
 
+#[cfg_attr(debug_assertions, macro_use)]
+pub extern crate tracing;
+
 mod context;
 mod effect;
 mod hydration;
 mod memo;
-
 mod resource;
 mod runtime;
 mod scope;

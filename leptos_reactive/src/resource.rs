@@ -1,3 +1,10 @@
+use crate::{
+    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::{with_runtime, RuntimeId},
+    serialization::Serializable,
+    spawn::spawn_local,
+    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
+};
 use std::{
     any::Any,
     cell::{Cell, RefCell},
@@ -7,13 +14,6 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
-};
-use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
-    runtime::{with_runtime, RuntimeId},
-    serialization::Serializable,
-    spawn::spawn_local,
-    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -83,6 +83,19 @@ where
 /// output type of the Future to be [Serializable]. If your output cannot be
 /// serialized, or you just want to make sure the [Future] runs locally, use
 /// [create_local_resource_with_initial_value()].
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = %format!("{:?}", cx.id),
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
+#[track_caller]
 pub fn create_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -133,6 +146,8 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
     }
 }
 
@@ -187,6 +202,19 @@ where
 /// Unlike [create_resource_with_initial_value()], this [Future] will always run
 /// on the local system and therefore its output type does not need to be
 /// [Serializable].
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = %format!("{:?}", cx.id),
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
+#[track_caller]
 pub fn create_local_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -237,6 +265,8 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
     }
 }
 
@@ -430,6 +460,8 @@ where
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 // Resources
@@ -449,6 +481,8 @@ where
             id: self.id,
             source_ty: PhantomData,
             out_ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
@@ -635,7 +669,9 @@ where
             })
         });
         Box::pin(async move {
-            rx.next().await.expect("failed while trying to resolve Resource serializer")
+            rx.next()
+                .await
+                .expect("failed while trying to resolve Resource serializer")
         })
     }
 }
