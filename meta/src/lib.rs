@@ -36,14 +36,26 @@
 //!
 //! ```
 
-use std::{fmt::Debug, rc::Rc};
+use cfg_if::cfg_if;
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    fmt::Debug,
+    rc::Rc,
+};
 
 use leptos::{leptos_dom::debug_warn, *};
 
+mod link;
 mod meta_tags;
+mod script;
+mod style;
 mod stylesheet;
 mod title;
+pub use link::*;
 pub use meta_tags::*;
+pub use script::*;
+pub use style::*;
 pub use stylesheet::*;
 pub use title::*;
 
@@ -51,11 +63,87 @@ pub use title::*;
 ///
 /// This should generally by provided somewhere in the root of your application using
 /// [provide_meta_context].
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct MetaContext {
     pub(crate) title: TitleContext,
-    pub(crate) stylesheets: StylesheetContext,
-    pub(crate) meta_tags: MetaTagsContext,
+    pub(crate) tags: MetaTagsContext,
+}
+
+/// Manages all of the element created by components.
+#[derive(Clone, Default)]
+pub(crate) struct MetaTagsContext {
+    next_id: Rc<Cell<MetaTagId>>,
+    #[allow(clippy::type_complexity)]
+    els: Rc<RefCell<HashMap<String, (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>)>>>,
+}
+
+impl MetaTagsContext {
+    #[cfg(feature = "ssr")]
+    pub fn as_string(&self) -> String {
+        println!(
+            "\n\nrendering {} elements to strings\n\n",
+            self.els.borrow().len()
+        );
+        self.els
+            .borrow()
+            .iter()
+            .map(|(_, (builder_el, cx, _))| builder_el.clone().into_view(*cx).render_to_string(*cx))
+            .collect()
+    }
+
+    pub fn register(&self, cx: Scope, id: String, builder_el: HtmlElement<AnyElement>) {
+        cfg_if! {
+            if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+                use leptos::document;
+
+                let element_to_hydrate = document()
+                    .get_element_by_id(&id);
+
+                let el = element_to_hydrate.unwrap_or_else({
+                    let builder_el = builder_el.clone();
+                    move || {
+                        let head = document().head().unwrap_throw();
+                        head
+                            .append_child(&builder_el)
+                            .unwrap_throw();
+
+                        (*builder_el).clone().unchecked_into()
+                    }
+                });
+
+                on_cleanup(cx, {
+                    let el = el.clone();
+                    let els = self.els.clone();
+                    let id = id.clone();
+                    move || {
+                        let head = document().head().unwrap_throw();
+                        _ = head.remove_child(&el);
+                        els.borrow_mut().remove(&id);
+                    }
+                });
+
+                self
+                    .els
+                    .borrow_mut()
+                    .insert(id, (builder_el.into_any(), cx, Some(el)));
+
+            } else {
+                self.els.borrow_mut().insert(id, (builder_el, cx, None));
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+struct MetaTagId(usize);
+
+impl MetaTagsContext {
+    fn get_next_id(&self) -> MetaTagId {
+        let current_id = self.next_id.get();
+        let next_id = MetaTagId(current_id.0 + 1);
+        self.next_id.set(next_id);
+        next_id
+    }
 }
 
 /// Provides a [MetaContext], if there is not already one provided. This ensures that you can provide it
@@ -98,7 +186,7 @@ impl MetaContext {
         Default::default()
     }
 
-    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+    #[cfg(feature = "ssr")]
     /// Converts the existing metadata tags into HTML that can be injected into the document head.
     ///
     /// This should be called *after* the app’s component tree has been rendered into HTML, so that
@@ -123,14 +211,15 @@ impl MetaContext {
     ///   // `app` contains only the body content w/ hydration stuff, not the meta tags
     ///   assert_eq!(
     ///      app.into_view(cx).render_to_string(cx),
-    ///      "<main id=\"_0-1\"><leptos-unit leptos id=_0-2c></leptos-unit><leptos-unit leptos id=_0-3c></leptos-unit><p id=\"_0-4\">Some text</p></main>"
+    ///      "<main id=\"_0-1\"><leptos-unit leptos id=_0-2c></leptos-unit><leptos-unit leptos id=_0-4c></leptos-unit><p id=\"_0-5\">Some text</p></main>"
     ///   );
     ///   // `MetaContext::dehydrate()` gives you HTML that should be in the `<head>`
-    ///   assert_eq!(use_head(cx).dehydrate(), r#"<title>my title</title><link rel="stylesheet" href="/style.css">"#)
+    ///   assert_eq!(use_head(cx).dehydrate(), r#"<title>my title</title><link id="leptos-link-1" href="/style.css" rel="stylesheet" leptos-hk="_0-3"/>"#)
     /// });
     /// # }
     /// ```
     pub fn dehydrate(&self) -> String {
+        let prev_key = HydrationCtx::peek();
         let mut tags = String::new();
 
         // Title
@@ -139,12 +228,9 @@ impl MetaContext {
             tags.push_str(&title);
             tags.push_str("</title>");
         }
-        // Stylesheets
-        tags.push_str(&self.stylesheets.as_string());
+        tags.push_str(&self.tags.as_string());
 
-        // Meta tags
-        tags.push_str(&self.meta_tags.as_string());
-
+        HydrationCtx::continue_from(prev_key);
         tags
     }
 }
