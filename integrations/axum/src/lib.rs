@@ -531,7 +531,15 @@ where
 
     let routes = routes.0.read().await.to_owned();
     // Axum's Router defines Root routes as "/" not ""
-    routes.iter().map(|s| s.replace("", "/")).collect()
+    routes
+        .iter()
+        .map(|s| {
+            if s.is_empty() {
+                return "/".to_string();
+            }
+            s.to_string()
+        })
+        .collect()
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
