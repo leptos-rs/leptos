@@ -180,7 +180,7 @@ pub async fn handle_server_fns(
                                     let res_options_outer = res_options.unwrap().0;
                                     let res_options_inner = res_options_outer.read().await;
                                     let (status, mut res_headers) = (
-                                        res_options_inner.status.clone(),
+                                        res_options_inner.status,
                                         res_options_inner.headers.clone(),
                                     );
 

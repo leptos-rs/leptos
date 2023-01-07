@@ -358,7 +358,7 @@ where IV: IntoView
 
             let res_options = res_options.0.read().await;
 
-            let (status, mut headers) = (res_options.status.clone(), res_options.headers.clone());
+            let (status, mut headers) = (res_options.status, res_options.headers.clone());
             let status = status.unwrap_or_default();
             
             let complete_stream =
