@@ -26,3 +26,4 @@ stable = ["leptos/stable", "leptos/tracing"]
 
 [package.metadata.cargo-all-features]
 denylist = ["stable"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

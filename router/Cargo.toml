@@ -62,3 +62,4 @@ stable = ["leptos/stable"]
 [package.metadata.cargo-all-features]
 # No need to test optional dependencies as they are enabled by the ssr feature
 denylist = ["url", "regex", "stable"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
