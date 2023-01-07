@@ -3,9 +3,9 @@ use std::{cell::RefCell, fmt::Display};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::Lazy as LazyCell;
 
-/// We can tell if we start in hydration mode by checking to see if the
-/// id "_0" is present in the DOM. If it is, we know we are hydrating from
-/// the server, if not, we are starting off in CSR
+// We can tell if we start in hydration mode by checking to see if the
+// id "_0-0-0" is present in the DOM. If it is, we know we are hydrating from
+// the server, if not, we are starting off in CSR
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 thread_local! {
   static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {

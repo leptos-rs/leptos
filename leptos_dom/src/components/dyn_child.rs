@@ -154,10 +154,7 @@ where
     let component = DynChildRepr::new();
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let (frag, closing) = (
-      component.document_fragment.clone(),
-      component.closing.node.clone(),
-    );
+    let closing = component.closing.node.clone();
 
     let child = component.child.clone();
 
@@ -189,7 +186,9 @@ where
           // or to reuse it in the case of a text node
 
           // TODO check does this still detect moves correctly?
-          let was_child_moved = prev_t.is_none() && child.get_closing_node().next_sibling().as_ref() != Some(&closing);
+          let was_child_moved = prev_t.is_none()
+            && child.get_closing_node().next_sibling().as_ref()
+              != Some(&closing);
 
           // If the previous child was a text node, we would like to
           // make use of it again if our current child is also a text
