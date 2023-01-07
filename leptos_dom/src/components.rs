@@ -243,7 +243,7 @@ where
       children_fn,
     } = self;
 
-    let mut repr = ComponentRepr::new_with_id(name.clone(), id);
+    let mut repr = ComponentRepr::new_with_id(name, id);
 
     // disposed automatically when the parent scope is disposed
     let (child, _) =
