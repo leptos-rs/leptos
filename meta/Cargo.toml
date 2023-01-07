@@ -18,7 +18,7 @@ version = "0.3"
 features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
-default = ["csr"]
+default = []
 csr = ["leptos/csr", "leptos/tracing"]
 hydrate = ["leptos/hydrate", "leptos/tracing"]
 ssr = ["leptos/ssr", "leptos/tracing"]
