@@ -358,12 +358,12 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// 5. You can access the children passed into the component with the `children` property, which takes
-///    an argument of the form `Box<dyn Fn(Scope) -> Fragment>`.
+///    an argument of the form `Box<dyn FnOnce(Scope) -> Fragment>`.
 ///
 /// ```
 /// # use leptos::*;
 /// #[component]
-/// fn ComponentWithChildren(cx: Scope, children: Box<dyn Fn(Scope) -> Fragment>) -> impl IntoView {
+/// fn ComponentWithChildren(cx: Scope, children: Box<dyn FnOnce(Scope) -> Fragment>) -> impl IntoView {
 ///   view! {
 ///     cx,
 ///     <ul>

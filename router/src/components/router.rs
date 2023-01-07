@@ -32,7 +32,7 @@ pub fn Router(
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn FnOnce(Scope) -> Fragment>,
 ) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
     let router = RouterContext::new(cx, base, fallback);
@@ -104,10 +104,10 @@ impl RouterContext {
                     value: base_path.to_string(),
                     replace: true,
                     scroll: false,
-                    state: State(None)
+                    state: State(None),
                 });
             }
-		}
+        }
 
         // the current URL
         let (reference, set_reference) = create_signal(cx, source.with(|s| s.value.clone()));
