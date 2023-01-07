@@ -80,10 +80,6 @@ pub(crate) struct MetaTagsContext {
 impl MetaTagsContext {
     #[cfg(feature = "ssr")]
     pub fn as_string(&self) -> String {
-        println!(
-            "\n\nrendering {} elements to strings\n\n",
-            self.els.borrow().len()
-        );
         self.els
             .borrow()
             .iter()
