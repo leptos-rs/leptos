@@ -184,11 +184,8 @@ pub async fn handle_server_fns(
                                         res_options_inner.headers.clone(),
                                     );
 
-                                    match res.headers_mut() {
-                                        Some(header_ref) => {
-                                            header_ref.extend(res_headers.drain());
-                                        }
-                                        None => (),
+                                    if let Some(header_ref) = res.headers_mut() {
+                                           header_ref.extend(res_headers.drain());
                                     };
 
                                     if accept_header == Some("application/json")
@@ -487,10 +484,9 @@ where
                     Box::pin(complete_stream) as PinnedHtmlStream
                 ));
 
-                match res_options.status {
-                    Some(status) => *res.status_mut() = status,
-                    None => (),
-                };
+                if let Some(status) = res_options.status {
+                    *res.status_mut() = status
+                }
                 let mut res_headers = res_options.headers.clone();
                 res.headers_mut().extend(res_headers.drain());
 
