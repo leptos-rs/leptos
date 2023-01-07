@@ -1,5 +1,20 @@
 use crate::{store_value, RwSignal, Scope, StoredValue, WriteSignal};
 
+/// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
+pub trait IntoSignalSetter<T>: Sized {
+    /// Consumes `self`, returning [`SignalSetter<T>`].
+    fn mapped_signal_setter(self, cx: Scope) -> SignalSetter<T>;
+}
+
+impl<F, T> IntoSignalSetter<T> for F
+where
+    F: Fn(T) + 'static,
+{
+    fn mapped_signal_setter(self, cx: Scope) -> SignalSetter<T> {
+        SignalSetter::map(cx, self)
+    }
+}
+
 /// A wrapper for any kind of settable reactive signal: a [WriteSignal](crate::WriteSignal),
 /// [RwSignal](crate::RwSignal), or closure that receives a value and sets a signal depending
 /// on it.
