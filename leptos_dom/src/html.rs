@@ -903,8 +903,6 @@ macro_rules! generate_html_tags {
         )
       )]
         pub fn $tag(cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
-            #[cfg(debug_assertions)]
-            trace!("creating <{}/>", stringify!($tag));
           HtmlElement::new(cx, [<$tag:camel $($trailing_)?>]::default())
         }
       )*
