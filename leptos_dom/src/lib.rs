@@ -206,7 +206,12 @@ impl Element {
         is_void: false,
       };
 
-      HtmlElement { cx, element }
+      HtmlElement {
+          cx,
+          element,
+          #[cfg(debug_assertions)]
+          span: ::tracing::Span::current()
+      }
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
