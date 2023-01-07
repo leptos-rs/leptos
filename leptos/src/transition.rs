@@ -66,7 +66,7 @@ pub fn Transition<F, E>(
     #[prop(optional)]
     set_pending: Option<SignalSetter<bool>>,
     /// Will be displayed once all resources have resolved.
-    children: Box<dyn FnOnce(Scope) -> Fragment>,
+    children: Box<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
@@ -78,7 +78,6 @@ where
         crate::SuspenseProps::builder()
             .fallback({
                 let prev_child = Rc::clone(&prev_children);
-                let set_pending = set_pending.clone();
                 move || {
                     if let Some(set_pending) = &set_pending {
                         set_pending.set(true);

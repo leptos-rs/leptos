@@ -58,7 +58,7 @@ pub fn Suspense<F, E>(
     /// Returns a fallback UI that will be shown while `async` [Resources](leptos_reactive::Resource) are still loading.
     fallback: F,
     /// Children will be displayed once all `async` [Resources](leptos_reactive::Resource) have resolved.
-    children: Box<dyn FnOnce(Scope) -> Fragment>,
+    children: Box<dyn Fn(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
