@@ -8,7 +8,7 @@ repository = "https://github.com/gbj/leptos"
 description = "Router for the Leptos web framework."
 
 [dependencies]
-leptos = { path = "../leptos", version = "0.1.0-beta", default-features = false }
+leptos.workspace = true
 cfg-if = "1"
 common_macros = "0.1"
 gloo-net = "0.2"
@@ -53,7 +53,7 @@ features = [
 ]
 
 [features]
-default = ["csr"]
+default = []
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
@@ -62,3 +62,4 @@ stable = ["leptos/stable"]
 [package.metadata.cargo-all-features]
 # No need to test optional dependencies as they are enabled by the ssr feature
 denylist = ["url", "regex", "stable"]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

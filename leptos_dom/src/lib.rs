@@ -192,7 +192,7 @@ cfg_if! {
 }
 
 impl Element {
-  /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement`].
+  /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement>`].
   pub fn into_html_element(self, cx: Scope) -> HtmlElement<AnyElement> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
@@ -327,7 +327,8 @@ pub struct Text {
   /// to possibly reuse a previous node.
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   node: web_sys::Node,
-  content: Cow<'static, str>,
+  /// The current contents of the text node.
+  pub content: Cow<'static, str>,
 }
 
 impl fmt::Debug for Text {
