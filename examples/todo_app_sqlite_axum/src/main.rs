@@ -14,10 +14,7 @@ if #[cfg(feature = "ssr")] {
     use tower_http::services::ServeDir;
     use tokio::{sync::RwLock, task::spawn_blocking, task::LocalSet};
     use leptos_axum::{generate_route_list, LeptosRoutes};
-
-
     use std::sync::Arc;
-
 
     #[tokio::main]
     async fn main() {
@@ -61,7 +58,6 @@ if #[cfg(feature = "ssr")] {
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
          println!("Routes_Outside: {:#?}",&routes);
 
-
         // build our application with a route
         let mut app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
@@ -69,7 +65,6 @@ if #[cfg(feature = "ssr")] {
         .nest_service(&bundle_path, cargo_leptos_service) // Only needed if using cargo-leptos. Can be deleted if using wasm-pack and cargo-run
         .nest_service("/static", static_service)
         .leptos_routes(leptos_options, routes, |cx| view! { cx, <TodoApp/> } );
-
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
