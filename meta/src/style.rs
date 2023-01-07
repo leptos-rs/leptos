@@ -13,9 +13,9 @@ use leptos::*;
 ///
 ///   view! { cx,
 ///     <main>
-///       <Script>
-///         "console.log('Hello, world!');"
-///       </Script>
+///       <Style>
+///         "body { font-weight: bold; }"
+///       </Style>
 ///     </main>
 ///   }
 /// }
