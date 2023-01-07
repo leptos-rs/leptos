@@ -139,7 +139,7 @@ pub async fn handle_server_fns(
     req: Request<Body>,
 ) -> impl IntoResponse {
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
-    let fn_name: String = match fn_name.strip_prefix("/") {
+    let fn_name: String = match fn_name.strip_prefix('/') {
         Some(path) => path.to_string(),
         None => fn_name,
     };
@@ -234,9 +234,9 @@ pub async fn handle_server_fns(
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
                                 .body(Full::from(
-                                    format!("Could not find a server function at the route {:?}. \
+                                    format!("Could not find a server function at the route {fn_name}. \
                                     \n\nIt's likely that you need to call ServerFn::register() on the \
-                                    server function type, somewhere in your `main` function.", fn_name)
+                                    server function type, somewhere in your `main` function." )
                                 ))
                         }
                         .expect("could not build Response");
@@ -336,7 +336,7 @@ where
                 // the site was built with cargo run and not cargo-leptos
                 let bundle_path = match site_root.as_ref() {
                     "pkg" => "pkg".to_string(),
-                    _ => format!("{}/{}", site_root, pkg_path),
+                    _ => format!("{site_root}/{pkg_path}"),
                 };
 
                 let output_name = &options.output_name;

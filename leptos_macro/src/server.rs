@@ -47,7 +47,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             use proc_macro::Span;
             let span = Span::call_site();
             #[cfg(not(target_os = "windows"))]
-            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
+            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace('/', "-");
             #[cfg(target_os = "windows")]
             let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
         } else {
