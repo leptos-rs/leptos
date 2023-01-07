@@ -1,7 +1,7 @@
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
+    if #[cfg(feature = "ssr")] {
         use leptos_router::expand_optionals;
 
         #[test]
