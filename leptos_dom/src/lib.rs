@@ -192,7 +192,7 @@ cfg_if! {
 }
 
 impl Element {
-  /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement`].
+  /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement>`].
   pub fn into_html_element(self, cx: Scope) -> HtmlElement<AnyElement> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
