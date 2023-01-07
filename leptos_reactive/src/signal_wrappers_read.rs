@@ -1,5 +1,21 @@
 use crate::{store_value, Memo, ReadSignal, RwSignal, Scope, StoredValue, UntrackedGettableSignal};
 
+/// Helper trait for converting `Fn() -> T` closures into
+/// [`Signal<T>`].
+pub trait IntoSignal<T>: Sized {
+    /// Consumes `self`, returning a [`Signal<T>`].
+    fn derive_signal(self, cx: Scope) -> Signal<T>;
+}
+
+impl<F, T> IntoSignal<T> for F
+where
+    F: Fn() -> T + 'static,
+{
+    fn derive_signal(self, cx: Scope) -> Signal<T> {
+        Signal::derive(cx, self)
+    }
+}
+
 /// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
 /// [Memo](crate::Memo), [RwSignal](crate::RwSignal), or derived signal closure.
 ///
