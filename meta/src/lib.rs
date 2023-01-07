@@ -48,10 +48,14 @@ use leptos::{leptos_dom::debug_warn, *};
 
 mod link;
 mod meta_tags;
+mod script;
+mod style;
 mod stylesheet;
 mod title;
 pub use link::*;
 pub use meta_tags::*;
+pub use script::*;
+pub use style::*;
 pub use stylesheet::*;
 pub use title::*;
 
