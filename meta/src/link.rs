@@ -15,8 +15,8 @@ use leptos::*;
 ///     <main>
 ///       <Link rel="preload"
 ///         href="myFont.woff2"
-///         as="font"
-///         type="font/woff2"
+///         as_="font"
+///         type_="font/woff2"
 ///         crossorigin="anonymous"
 ///       />
 ///     </main>
