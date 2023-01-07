@@ -109,7 +109,7 @@ where
             level = "trace",
             skip_all,
             fields(
-                cx = %format!("{:?}", cx.id)
+                cx = ?cx.id
             )
         )
     )]
@@ -163,7 +163,7 @@ where
             level = "trace",
             skip_all,
             fields(
-                defined_at = %format!("{:?}", self.defined_at),
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -204,7 +204,7 @@ where
             level = "trace",
             skip_all,
             fields(
-                defined_at = %format!("{:?}", self.defined_at),
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -425,6 +425,18 @@ where
     /// assert_eq!(above_3(&double_count), true);
     /// # });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "MaybeSignal::derive()",
+            skip_all,
+            fields(
+                cx = ?cx.id,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn derive(cx: Scope, derived_signal: impl Fn() -> T + 'static) -> Self {
         Self::Dynamic(Signal::derive(cx, derived_signal))
     }
@@ -461,6 +473,15 @@ where
     /// assert_eq!(static_value(), "Bob");
     /// });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "MaybeSignal::derive()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         match &self {
             Self::Static(value) => f(value),
@@ -492,6 +513,15 @@ where
     /// assert_eq!(above_3(&static_value.into()), true);
     /// # });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "MaybeSignal::derive()",
+            skip_all,
+            fields(ty = %std::any::type_name::<T>())
+        )
+    )]
     pub fn get(&self) -> T
     where
         T: Clone,

@@ -92,7 +92,7 @@ where
             level = "trace",
             skip_all,
             fields(
-                cx = %format!("{:?}", cx.id),
+                cx = ?cx.id,
             )
         )
     )]
@@ -130,7 +130,7 @@ where
             level = "trace",
             skip_all,
             fields(
-                defined_at = %format!("{:?}", self.defined_at),
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )

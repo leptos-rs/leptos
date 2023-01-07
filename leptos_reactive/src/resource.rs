@@ -89,7 +89,7 @@ where
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
@@ -208,7 +208,7 @@ where
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
