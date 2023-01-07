@@ -568,14 +568,38 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
   /// Adds an event listener to this element.
   #[track_caller]
+  #[cfg_attr(
+    debug_assertions,
+    instrument(
+      level = "trace",
+      name = "event handler",
+      skip_all,
+      fields(
+        tag = %self.element.name(),
+        event = %event.name(),
+        defined_at =  %std::panic::Location::caller()
+      )
+    )
+  )]
   pub fn on<E: EventDescriptor + 'static>(
     self,
     event: E,
-    event_handler: impl FnMut(E::EventType) + 'static,
+    #[allow(unused_mut)] // used for tracing in debug
+    mut event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       let event_name = event.name();
+
+      cfg_if::cfg_if! {
+        if #[cfg(debug_assertions)] {
+          let span = ::tracing::Span::current();
+          let event_handler = move |e| {
+            let _guard = span.enter();
+            event_handler(e);
+          };
+        }
+      }
 
       if event.bubbles() {
         add_event_listener(self.element.as_ref(), event_name, event_handler);
