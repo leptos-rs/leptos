@@ -290,7 +290,7 @@ where IV: IntoView
                 // the site was built with cargo run and not cargo-leptos
                 let bundle_path = match site_root.as_ref() {
                     "pkg" => "pkg".to_string(),
-                    _ => format!("{}/{}", site_root, pkg_path),
+                    _ => format!("{site_root}/{pkg_path}"),
                 };
              
                 let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
@@ -358,7 +358,7 @@ where IV: IntoView
 
             let res_options = res_options.0.read().await;
 
-            let (status, mut headers) = (res_options.status.clone(), res_options.headers.clone());
+            let (status, mut headers) = (res_options.status, res_options.headers.clone());
             let status = status.unwrap_or_default();
             
             let complete_stream =
