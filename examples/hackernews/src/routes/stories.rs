@@ -48,12 +48,12 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                     {move || if page() > 1 {
                         view! {
                             cx,
-                            <a class="page-link"
+                            <html::a class="page-link"
                                 href=move || format!("/{}?page={}", story_type(), page() - 1)
                                 attr:aria_label="Previous Page"
                             >
                                 "< prev"
-                            </a>
+                            </html::a>
                         }.into_any()
                     } else {
                         view! {
@@ -134,7 +134,7 @@ fn Story(cx: Scope, story: api::Story) -> impl IntoView {
                     view! { cx,
                         <span>
                             {"by "}
-                            {story.user.map(|user| view ! { cx, <A href=format!("/users/{}", user)>{user.clone()}</A>})}
+                            {story.user.map(|user| view ! { cx, <A href=format!("/users/{user}")>{user.clone()}</A>})}
                             {format!(" {} | ", story.time_ago)}
                             <A href=format!("/stories/{}", story.id)>
                                 {if story.comments_count.unwrap_or_default() > 0 {

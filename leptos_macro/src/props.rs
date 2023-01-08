@@ -188,8 +188,7 @@ mod struct_info {
                     Some(ref doc) => quote!(#[doc = #doc]),
                     None => {
                         let doc = format!(
-                        "Builder for [`{name}`] instances.\n\nSee [`{name}::builder()`] for more info.",
-                        name = name
+                        "Builder for [`{name}`] instances.\n\nSee [`{name}::builder()`] for more info."
                     );
                         quote!(#[doc = #doc])
                     }
