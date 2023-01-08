@@ -1,8 +1,9 @@
 use crate::{
     debug_warn,
     runtime::{with_runtime, RuntimeId},
-    spawn_local, Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
+    Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
 };
+use cfg_if::cfg_if;
 use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
 use thiserror::Error;
@@ -67,6 +68,9 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
 /// [Stream](futures::stream::Stream).
 /// If the stream has not yet emitted a value since the signal was created, the signal's
 /// value will be `None`.
+///
+/// **Note**: If used on the server side during server rendering, this will return `None`
+/// immediately and not begin driving the stream.
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -79,17 +83,27 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
 )]
 pub fn create_signal_from_stream<T>(
     cx: Scope,
+    #[allow(unused_mut)] // allowed because needed for SSR
     mut stream: impl Stream<Item = T> + Unpin + 'static,
 ) -> ReadSignal<Option<T>> {
-    use futures::StreamExt;
+    cfg_if! {
+        if #[cfg(feature = "ssr")] {
+            _ = stream;
+            let (read, _) = create_signal(cx, None);
+            read
+        } else {
+            use crate::spawn_local;
+            use futures::StreamExt;
 
-    let (read, write) = create_signal(cx, None);
-    spawn_local(async move {
-        while let Some(value) = stream.next().await {
-            write.set(Some(value));
+            let (read, write) = create_signal(cx, None);
+            spawn_local(async move {
+                while let Some(value) = stream.next().await {
+                    write.set(Some(value));
+                }
+            });
+            read
         }
-    });
-    read
+    }
 }
 
 /// The getter for a reactive signal.

@@ -209,8 +209,8 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
     };
 
     #[cfg(feature = "ssr")]
-    let multiplayer_value =
-        create_signal_from_stream(cx, futures::stream::once(Box::pin(async { 0.to_string() })));
+    let (multiplayer_value, _) =
+        create_signal(cx, None::<i32>);
 
     view! {
         cx,
