@@ -16,10 +16,20 @@ thread_local! {
 pub fn add_event_listener<E>(
   target: &web_sys::Element,
   event_name: Cow<'static, str>,
-  cb: impl FnMut(E) + 'static,
+  mut cb: impl FnMut(E) + 'static,
 ) where
   E: FromWasmAbi + 'static,
 {
+  cfg_if::cfg_if! {
+    if #[cfg(debug_assertions)] {
+      let span = ::tracing::Span::current();
+      let cb = move |e| {
+        let _guard = span.enter();
+        cb(e);
+      };
+    }
+  }
+
   let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
   let key = event_delegation_key(&event_name);
   _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
@@ -31,10 +41,20 @@ pub fn add_event_listener<E>(
 pub fn add_event_listener_undelegated<E>(
   target: &web_sys::Element,
   event_name: &str,
-  cb: impl FnMut(E) + 'static,
+  mut cb: impl FnMut(E) + 'static,
 ) where
   E: FromWasmAbi + 'static,
 {
+  cfg_if::cfg_if! {
+    if #[cfg(debug_assertions)] {
+      let span = ::tracing::Span::current();
+      let cb = move |e| {
+        let _guard = span.enter();
+        cb(e);
+      };
+    }
+  }
+
   let event_name = intern(event_name);
   let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
   _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
@@ -97,7 +117,20 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
         }
       };
 
-      crate::window_event_listener(&event_name, handler);
+      cfg_if::cfg_if! {
+        if #[cfg(debug_assertions)] {
+          let span = ::tracing::Span::current();
+          let handler = move |e| {
+            let _guard = span.enter();
+            handler(e);
+          };
+        }
+      }
+
+      let handler = Box::new(handler) as Box<dyn FnMut(web_sys::Event)>;
+      let handler = Closure::wrap(handler).into_js_value();
+      _ = crate::window()
+        .add_event_listener_with_callback(&event_name, handler.unchecked_ref());
 
       // register that we've created handler
       events.insert(event_name);

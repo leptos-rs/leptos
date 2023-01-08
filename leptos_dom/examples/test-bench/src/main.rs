@@ -43,6 +43,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
   let (is_a, set_is_a) = create_signal(cx, true);
 
   let handle_toggle = move |_| {
+      trace!("toggling");
     if is_a() {
       set_b(a());
 
@@ -91,5 +92,8 @@ fn Example(cx: Scope) -> impl IntoView {
 
     view! { cx,
     <h1>"Example"</h1>
+    <button on:click=move |_| set_value.update(|value| *value += 1)>
+      "Click me"
+    </button>
   }
 }
