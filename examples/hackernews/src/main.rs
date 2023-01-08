@@ -1,4 +1,5 @@
 use cfg_if::cfg_if;
+use leptos::*;
 
 // boilerplate to run in different modes
 cfg_if! {
