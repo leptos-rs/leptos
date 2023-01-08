@@ -63,7 +63,8 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
     s
 }
 
-/// Creates a signal that always contains the most recent value emitted by a [Stream].
+/// Creates a signal that always contains the most recent value emitted by a
+/// [Stream](futures::stream::Stream).
 /// If the stream has not yet emitted a value since the signal was created, the signal's
 /// value will be `None`.
 #[cfg_attr(
