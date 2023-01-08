@@ -90,7 +90,12 @@ where
         element: el,
       };
 
-      HtmlElement { cx, element }
+      HtmlElement { 
+          cx, 
+          element,
+          #[cfg(debug_assertions)]
+          span: ::tracing::Span::current()
+      }
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -192,6 +197,8 @@ cfg_if! {
     /// Represents an HTML element.
     #[derive(Clone)]
     pub struct HtmlElement<El: ElementDescriptor> {
+      #[cfg(debug_assertions)]
+      pub(crate) span: ::tracing::Span,
       pub(crate) cx: Scope,
       pub(crate) element: El,
     }
@@ -236,6 +243,8 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         Self {
           cx,
           element,
+          #[cfg(debug_assertions)]
+          span: ::tracing::Span::current()
         }
       } else {
         Self {
@@ -272,6 +281,8 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         let Self {
           cx,
           element,
+          #[cfg(debug_assertions)]
+          span        
         } = self;
 
         HtmlElement {
@@ -281,6 +292,8 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             element: element.as_ref().clone(),
             is_void: element.is_void(),
           },
+          #[cfg(debug_assertions)]
+          span
         }
       } else {
         let Self {
@@ -571,10 +584,23 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
   pub fn on<E: EventDescriptor + 'static>(
     self,
     event: E,
-    event_handler: impl FnMut(E::EventType) + 'static,
+    #[allow(unused_mut)] // used for tracing in debug
+    mut event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
+        cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let span = self.span.clone();
+                let onspan = ::tracing::span!(
+                    parent: &self.span,
+                    ::tracing::Level::TRACE,
+                    "on",
+                    event = %event.name()
+                );
+                let _onguard = onspan.enter();
+            }
+        }
       let event_name = event.name();
 
       if event.bubbles() {
@@ -865,6 +891,17 @@ macro_rules! generate_html_tags {
         }
 
         #[$meta]
+      #[cfg_attr(
+        debug_assertions,
+        instrument(
+          level = "trace",
+          name = "HtmlElement",
+          skip_all,
+          fields(
+            tag = %format!("<{}/>", stringify!($tag))
+          )
+        )
+      )]
         pub fn $tag(cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
           HtmlElement::new(cx, [<$tag:camel $($trailing_)?>]::default())
         }

@@ -206,7 +206,12 @@ impl Element {
         is_void: false,
       };
 
-      HtmlElement { cx, element }
+      HtmlElement {
+          cx,
+          element,
+          #[cfg(debug_assertions)]
+          span: ::tracing::Span::current()
+      }
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -542,8 +547,19 @@ impl View {
   pub fn on<E: ev::EventDescriptor + 'static>(
     self,
     event: E,
-    event_handler: impl FnMut(E::EventType) + 'static,
+    mut event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
+    cfg_if::cfg_if! {
+      if #[cfg(debug_assertions)] {
+        trace!("calling on() {}", event.name());
+        let span = ::tracing::Span::current();
+        let event_handler = move |e| {
+          let _guard = span.enter();
+          event_handler(e);
+        };
+      }
+    }
+
     self.on_impl(event, Box::new(event_handler))
   }
 

@@ -36,7 +36,7 @@ pub fn Form<A>(
     #[prop(optional)]
     on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
     /// Component children; should include the HTML of the form elements.
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn FnOnce(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     A: ToHref + 'static,
@@ -134,7 +134,7 @@ pub fn ActionForm<I, O>(
     /// manually using [leptos_server::Action::using_server_fn].
     action: Action<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn FnOnce(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
@@ -208,7 +208,7 @@ pub fn MultiActionForm<I, O>(
     /// manually using [leptos_server::Action::using_server_fn].
     action: MultiAction<I, Result<O, ServerFnError>>,
     /// Component children; should include the HTML of the form elements.
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn FnOnce(Scope) -> Fragment>,
 ) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,

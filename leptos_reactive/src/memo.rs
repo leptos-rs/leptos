@@ -60,7 +60,7 @@ use std::fmt::Debug;
         level = "trace",
         skip_all,
         fields(
-            cx = %format!("{:?}", cx.id),
+            cx = ?cx.id,
         )
     )
 )]
@@ -155,8 +155,8 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
             name = "Memo::get_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1),
+                id = ?self.0.id,
+                defined_at = %self.1,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -177,8 +177,8 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
             name = "Memo::with_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1),
+                id = ?self.0.id,
+                defined_at = %self.1,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -217,8 +217,8 @@ where
             level = "trace",
             skip_all,
             fields(
-                id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1)
+                id = ?self.0.id,
+                defined_at = %self.1
             )
         )
     )]
@@ -256,8 +256,8 @@ where
             level = "trace",
             skip_all,
             fields(
-                id = %format!("{:?}", self.0.id),
-                defined_at = %format!("{:?}", self.1),
+                id = ?self.0.id,
+                defined_at = %self.1,
                 ty = %std::any::type_name::<T>()
             )
         )

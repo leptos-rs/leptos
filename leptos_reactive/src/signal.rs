@@ -51,7 +51,7 @@ use thiserror::Error;
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
@@ -72,7 +72,7 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
         )
     )
 )]
@@ -154,8 +154,8 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
             name = "ReadSignal::get_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -174,8 +174,8 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
             name = "ReadSignal::with_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -214,8 +214,8 @@ where
             name = "ReadSignal::with()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -254,8 +254,8 @@ where
             name = "ReadSignal::get()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -391,8 +391,8 @@ where
             name = "WriteSignal::set_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -409,8 +409,8 @@ where
             name = "WriteSignal::updated_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -426,8 +426,8 @@ where
             name = "WriteSignal::update_returning_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -468,8 +468,8 @@ where
             level = "trace",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -506,8 +506,8 @@ where
             name = "WriteSignal::update_returning()"
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -542,8 +542,8 @@ where
             name = "WriteSignal::set()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -691,8 +691,8 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
             name = "RwSignal::get_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -712,8 +712,8 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
             name = "RwSignal::with_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -731,8 +731,8 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
             name = "RwSignal::set_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -749,8 +749,8 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
             name = "RwSignal::update_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -766,8 +766,8 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
             name = "RwSignal::update_returning_untracked()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -807,8 +807,8 @@ where
             name = "RwSignal::with()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -838,8 +838,8 @@ where
             name = "RwSignal::get()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -875,8 +875,8 @@ where
             name = "RwSignal::update()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -911,8 +911,8 @@ where
             name = "RwSignal::update_returning()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -942,8 +942,8 @@ where
             name = "RwSignal::set()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -975,8 +975,8 @@ where
             name = "RwSignal::read_only()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -1013,8 +1013,8 @@ where
             name = "RwSignal::write_only()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -1050,8 +1050,8 @@ where
             name = "RwSignal::split()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -1084,8 +1084,8 @@ where
             name = "RwSignal::to_stream()",
             skip_all,
             fields(
-                id = %format!("{:?}", self.id),
-                defined_at = %format!("{:?}", self.defined_at),
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )

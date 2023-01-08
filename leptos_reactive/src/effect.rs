@@ -53,7 +53,7 @@ use std::fmt::Debug;
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
@@ -107,7 +107,7 @@ where
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
@@ -128,7 +128,7 @@ where
         level = "trace",
         skip_all,
         fields(
-            scope = %format!("{:?}", cx.id),
+            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
@@ -172,9 +172,9 @@ where
             level = "debug",
             skip_all,
             fields(
-                id = %format!("{id:?}"),
-                defined_at = %format!("{:?}", self.defined_at),
-                ty = %std::any::type_name::<T>()
+              id = ?id,
+              defined_at = %self.defined_at,
+              ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -220,7 +220,7 @@ impl EffectId {
             level = "debug",
             skip_all,
             fields(
-                id = %format!("{self:?}"),
+              id = ?self,
             )
         )
     )]
