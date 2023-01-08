@@ -434,7 +434,7 @@ fn set_class_attribute_ssr(
             if let Node::Attribute(node) = node {
                 let name = node.key.to_string();
                 if name == "class" {
-                    return if let Some((_, name, value)) = fancy_class_name(&name, &cx, &node) {
+                    return if let Some((_, name, value)) = fancy_class_name(&name, cx, node) {
                        let span = node.key.span();
                        Some((span, name, value))
                     } else {
@@ -765,7 +765,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
     } else {
         let name = name.replacen("attr:", "", 1);
         
-        if let Some((fancy, _, _)) = fancy_class_name(&name, &cx, &node) {
+        if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
             return fancy;
         }
 
