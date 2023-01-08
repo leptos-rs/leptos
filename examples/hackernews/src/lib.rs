@@ -15,7 +15,7 @@ pub fn App(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <>
-            <Stylesheet id="leptos" href="/target/site/pkg/hackernews.css"/>
+            <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
             <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
                 <Nav />
@@ -23,7 +23,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                     <Routes>
                         <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
                         <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
-                        <Route path="*stories" view=|cx| view! { cx,  <Stories/> }/>
+                        <Route path="/" view=|cx| view! { cx,  <Stories/> }/>
                     </Routes>
                 </main>
             </Router>

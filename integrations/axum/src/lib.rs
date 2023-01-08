@@ -98,7 +98,7 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
         uri: parts.uri,
         headers: parts.headers,
         version: parts.version,
-        body: body.clone(),
+        body,
     }
 }
 
@@ -329,17 +329,7 @@ where
                     full_path = "http://leptos".to_string() + &path.to_string()
                 }
 
-                let site_root = &options.site_root;
                 let pkg_path = &options.site_pkg_dir;
-
-                // We need to do some logic to check if the site_root is pkg
-                // if it is, then we need to not add pkg_path. This would mean
-                // the site was built with cargo run and not cargo-leptos
-                let pkg_path = match site_root.as_ref() {
-                    "pkg" => "pkg".to_string(),
-                    _ => format!("{site_root}/{pkg_path}"),
-                };
-
                 let output_name = &options.output_name;
 
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options

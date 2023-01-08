@@ -1,7 +1,6 @@
 use cfg_if::cfg_if;
 use leptos::*;
 mod todo;
-use leptos_actix::{generate_route_list, LeptosRoutes};
 
 // boilerplate to run in different modes
 cfg_if! {
@@ -10,6 +9,7 @@ cfg_if! {
         use actix_files::{Files};
         use actix_web::*;
         use crate::todo::*;
+        use leptos_actix::{generate_route_list, LeptosRoutes};
 
         #[get("/style.css")]
         async fn css() -> impl Responder {
@@ -35,7 +35,6 @@ cfg_if! {
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
                 let site_root = &leptos_options.site_root;
-                let pkg_dir = &leptos_options.site_pkg_dir;
                 let routes = &routes;
 
                 App::new()

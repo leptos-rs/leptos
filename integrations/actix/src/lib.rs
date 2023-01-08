@@ -267,8 +267,6 @@ where IV: IntoView
                 }
             };
 
-                let site_root = &options.site_root;
-
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
                 // we add _bg to the wasm files if cargo-leptos doesn't set the env var OUTPUT_NAME
                 // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
@@ -281,7 +279,6 @@ where IV: IntoView
                
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
-                let site_root = &options.site_root;
                 let pkg_path = &options.site_pkg_dir;
 
                 let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
@@ -391,11 +388,10 @@ where
         s.to_string()
     }).collect();
     
-    // Actix's Router doesn't do "/*" or "/*someting", so we need to replace it with "/{tail.*}"
-    // These are the regular expressions to support that
-    // Match `*` or `*someword`
+    // Actix's Router doesn't follow Leptos's
+    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
     let wildcard_re = Regex::new(r"\*.*").unwrap();
-    // Match `:some_word` but only capture `some_word` in the groups
+    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
     routes.iter().map(|s| 
        wildcard_re.replace_all(s, "{tail:.*}").to_string()
