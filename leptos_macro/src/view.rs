@@ -884,7 +884,11 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .last()
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
-        NodeName::Block(_) => panic!("blocks not allowed in tag-name position"),
+        NodeName::Block(_) => {
+            let span = tag_name.span();
+            proc_macro_error::emit_error!(span, "blocks not allowed in tag-name position");
+            Ident::new("", span)
+        }
         _ => Ident::new(
             &tag_name.to_string().replace(['-', ':'], "_"),
             tag_name.span(),
