@@ -23,8 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Run Rustfmt
-        run: cargo fmt -- --check
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -48,6 +46,8 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Run Rustfmt
+        run: cargo fmt -- --check
       - name: Run tests with all features
         run: cargo make ci
 
