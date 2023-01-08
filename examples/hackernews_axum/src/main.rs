@@ -6,12 +6,12 @@ cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
         Router,
+        routing::{get},
         extract::Extension,
-        error_handling::HandleError,
     };
-    use http::StatusCode;
-    use tower_http::services::ServeDir;
     use leptos_axum::{generate_route_list, LeptosRoutes};
+    use std::sync::Arc;
+    use hackernews_axum::file::file_handler;
 
     #[tokio::main]
     async fn main() {

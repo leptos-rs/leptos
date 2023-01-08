@@ -3,7 +3,7 @@ use leptos::{component, view, IntoView, Scope};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
-mod file;
+pub mod file;
 pub mod handlers;
 mod routes;
 use routes::nav::*;
@@ -25,7 +25,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                     <Routes>
                         <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
                         <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
-                        <Route path="*stories" view=|cx| view! { cx,  <Stories/> }/>
+                        <Route path="/" view=|cx| view! { cx,  <Stories/> }/>
                     </Routes>
                 </main>
             </Router>
