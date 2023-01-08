@@ -97,7 +97,7 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
         uri: parts.uri,
         headers: parts.headers,
         version: parts.version,
-        body: body.clone(),
+        body,
     }
 }
 
