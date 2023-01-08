@@ -116,6 +116,7 @@ impl ToTokens for Model {
         let body_name = body.sig.ident.clone();
 
         let (_, generics, where_clause) = body.sig.generics.split_for_impl();
+        let lifetimes = body.sig.generics.lifetimes();
 
         let props_name = format_ident!("{name}Props");
         let trace_name = format!("<{name} />");
@@ -187,7 +188,7 @@ impl ToTokens for Model {
                 #[allow(unused_variables)]
                 #scope_name: Scope,
                 props: #props_name #generics
-            ) #ret
+            ) #ret #(+ #lifetimes)*
             #where_clause
             {
                 #body
