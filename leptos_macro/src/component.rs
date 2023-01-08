@@ -391,7 +391,8 @@ impl PropOpt {
     fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
         const ABORT_OPT_MESSAGE: &str = "only `optional`, \
                                          `optional_no_strip`, \
-                                         `strip_option`, and `into` are \
+                                         `strip_option`, \
+                                         `default` and `into` are \
                                          allowed as arguments to `#[prop()]`";
 
         if attr.path != parse_quote!(prop) {
