@@ -90,11 +90,11 @@ where
         element: el,
       };
 
-      HtmlElement { 
-          cx, 
-          element,
-          #[cfg(debug_assertions)]
-          span: ::tracing::Span::current()
+      HtmlElement {
+        cx,
+        element,
+        #[cfg(debug_assertions)]
+        span: ::tracing::Span::current(),
       }
     }
 
@@ -282,7 +282,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
           cx,
           element,
           #[cfg(debug_assertions)]
-          span        
+          span
         } = self;
 
         HtmlElement {
@@ -589,17 +589,17 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
   ) -> Self {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-        cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let onspan = ::tracing::span!(
-                    parent: &self.span,
-                    ::tracing::Level::TRACE,
-                    "on",
-                    event = %event.name()
-                );
-                let _onguard = onspan.enter();
-            }
-        }
+      cfg_if! {
+          if #[cfg(debug_assertions)] {
+              let onspan = ::tracing::span!(
+                  parent: &self.span,
+                  ::tracing::Level::TRACE,
+                  "on",
+                  event = %event.name()
+              );
+              let _onguard = onspan.enter();
+          }
+      }
       let event_name = event.name();
 
       if event.bubbles() {

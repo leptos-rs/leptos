@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
-use syn::{spanned::Spanned, ExprPath, Expr, ExprLit, Lit};
+use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
 use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
 
 use crate::{is_component_node, Mode};
@@ -435,11 +435,11 @@ fn set_class_attribute_ssr(
                 let name = node.key.to_string();
                 if name == "class" {
                     return if let Some((_, name, value)) = fancy_class_name(&name, cx, node) {
-                       let span = node.key.span();
-                       Some((span, name, value))
+                        let span = node.key.span();
+                        Some((span, name, value))
                     } else {
-                       None
-                    }
+                        None
+                    };
                 }
                 if name.starts_with("class:") || name.starts_with("class-") {
                     let name = if name.starts_with("class:") {
@@ -764,7 +764,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
         }
     } else {
         let name = name.replacen("attr:", "", 1);
-        
+
         if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
             return fancy;
         }
@@ -1067,8 +1067,12 @@ fn parse_event(event_name: &str) -> (&str, bool) {
     }
 }
 
-fn fancy_class_name<'a>(name: &str, cx: &Ident, node: &'a NodeAttribute) -> Option<(TokenStream, String, &'a Expr)> {
-    // special case for complex class names: 
+fn fancy_class_name<'a>(
+    name: &str,
+    cx: &Ident,
+    node: &'a NodeAttribute,
+) -> Option<(TokenStream, String, &'a Expr)> {
+    // special case for complex class names:
     // e.g., Tailwind `class=("mt-[calc(100vh_-_3rem)]", true)`
     if name == "class" {
         if let Some(expr) = node.value.as_ref() {
@@ -1079,7 +1083,10 @@ fn fancy_class_name<'a>(name: &str, cx: &Ident, node: &'a NodeAttribute) -> Opti
                         span => .class
                     };
                     let class_name = &tuple.elems[0];
-                    let class_name = if let Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) = class_name {
+                    let class_name = if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }) = class_name
+                    {
                         s.value()
                     } else {
                         proc_macro_error::emit_error!(
@@ -1094,8 +1101,8 @@ fn fancy_class_name<'a>(name: &str, cx: &Ident, node: &'a NodeAttribute) -> Opti
                             #class(#class_name, (#cx, #value))
                         },
                         class_name,
-                        value
-                    ))
+                        value,
+                    ));
                 } else {
                     proc_macro_error::emit_error!(
                         tuple.span(),
