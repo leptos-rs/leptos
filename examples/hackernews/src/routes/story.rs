@@ -17,7 +17,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
             }
         },
     );
-    let meta_description = move || story.read().and_then(|story| story.map(|story| story.title.clone())).unwrap_or_else(|| "Loading story...".to_string());
+    let meta_description = move || story.read().and_then(|story| story.map(|story| story.title)).unwrap_or_else(|| "Loading story...".to_string());
 
     view! { cx,
         <>
@@ -37,7 +37,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
                                 {story.user.map(|user| view! { cx,  <p class="meta">
                                     {story.points}
                                     " points | by "
-                                    <A href=format!("/users/{}", user)>{user.clone()}</A>
+                                    <A href=format!("/users/{user}")>{user.clone()}</A>
                                     {format!(" {}", story.time_ago)}
                                 </p>})}
                                 </div>
