@@ -591,7 +591,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     {
         cfg_if! {
             if #[cfg(debug_assertions)] {
-                let span = self.span.clone();
                 let onspan = ::tracing::span!(
                     parent: &self.span,
                     ::tracing::Level::TRACE,
