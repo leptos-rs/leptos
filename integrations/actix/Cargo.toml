@@ -14,3 +14,4 @@ leptos = { workspace = true, features = ["ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 regex = "1.7.0"
+tokio = "1.24.1"
