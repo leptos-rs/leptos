@@ -1,10 +1,10 @@
 use cfg_if::cfg_if;
-use leptos_macro::component;
-use std::rc::Rc;
-use leptos_dom::{DynChild, Fragment, IntoView, Component};
-use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use leptos_dom::{Component, DynChild, Fragment, IntoView};
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 use leptos_dom::{HydrationCtx, HydrationKey};
+use leptos_macro::component;
+use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use std::rc::Rc;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -88,8 +88,8 @@ where
                 } else {
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let child = orig_child(cx).into_view(cx);
-            
-                    let initial = {    
+
+                    let initial = {
                         // no resources were read under this, so just return the child
                         if context.pending_resources.get() == 0 {
                             child.clone()
@@ -97,10 +97,10 @@ where
                         // show the fallback, but also prepare to stream HTML
                         else {
                             let orig_child = Rc::clone(&orig_child);
-                            
+
                             cx.register_suspense(
                                 context,
-                                &id_before_suspense.to_string(), 
+                                &id_before_suspense.to_string(),
                                 &current_id.to_string(),
                                 {
                                     let current_id = current_id.clone();
@@ -117,14 +117,14 @@ where
                                     }
                                 }
                             );
-                
+
                             // return the fallback for now, wrapped in fragment identifer
                             fallback().into_view(cx)
                         }
                     };
-            
+
                     HydrationCtx::continue_from(current_id.clone());
-            
+
                     initial
                 }
             }
