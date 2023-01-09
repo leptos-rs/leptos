@@ -1,12 +1,17 @@
-use actix_web::{http::header, web::Bytes, dev::{ServiceFactory, ServiceRequest}, *};
-use futures::StreamExt; 
+use actix_web::{
+    dev::{ServiceFactory, ServiceRequest},
+    http::header,
+    web::Bytes,
+    *,
+};
+use futures::StreamExt;
 use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use regex::Regex;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use regex::Regex;
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -387,27 +392,28 @@ where
     IV: IntoView + 'static,
 {
     let mut routes = leptos_router::generate_route_list_inner(app_fn);
-    
+
     // Empty strings screw with Actix pathing, they need to be "/"
-    routes = routes.iter().map(|s| {
-        if s.is_empty() {
-           return "/".to_string()
-        }
-        s.to_string()
-    }).collect();
-    
+    routes = routes
+        .iter()
+        .map(|s| {
+            if s.is_empty() {
+                return "/".to_string();
+            }
+            s.to_string()
+        })
+        .collect();
+
     // Actix's Router doesn't follow Leptos's
     // Match `*` or `*someword` to replace with replace it with "/{tail.*}
     let wildcard_re = Regex::new(r"\*.*").unwrap();
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-    routes.iter().map(|s| 
-       wildcard_re.replace_all(s, "{tail:.*}").to_string()
-    )
-    .map(|s| {
-        capture_re.replace_all(&s, "{$1}").to_string()
-    })
-    .collect()
+    routes
+        .iter()
+        .map(|s| wildcard_re.replace_all(s, "{tail:.*}").to_string())
+        .map(|s| capture_re.replace_all(&s, "{$1}").to_string())
+        .collect()
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
@@ -424,8 +430,10 @@ pub trait LeptosRoutes {
 }
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
-impl <T>LeptosRoutes for actix_web::App<T> where
-    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>{
+impl<T> LeptosRoutes for actix_web::App<T>
+where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+{
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -437,10 +445,7 @@ impl <T>LeptosRoutes for actix_web::App<T> where
     {
         let mut router = self;
         for path in paths.iter() {
-            router = router.route(
-                path,
-                render_app_to_stream(options.clone(), app_fn.clone()),
-            );
+            router = router.route(path, render_app_to_stream(options.clone(), app_fn.clone()));
         }
         router
     }
