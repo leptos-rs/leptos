@@ -4,7 +4,7 @@ cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
         body::{boxed, Body, BoxBody},
-        extract::{Path, Extension},
+        extract::Extension,
         http::{Request, Response, StatusCode, Uri},
     };
     use tower::ServiceExt;

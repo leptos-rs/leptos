@@ -6,7 +6,6 @@ cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
         Router,
-        routing::{get},
         extract::Extension,
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
