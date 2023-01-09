@@ -378,10 +378,11 @@ impl Docs {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 enum PropOpt {
     Optional,
     OptionalNoStrip,
+    OptionalWithDefault(syn::Lit),
     StripOption,
     Into,
 }
@@ -390,7 +391,8 @@ impl PropOpt {
     fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
         const ABORT_OPT_MESSAGE: &str = "only `optional`, \
                                          `optional_no_strip`, \
-                                         `strip_option`, and `into` are \
+                                         `strip_option`, \
+                                         `default` and `into` are \
                                          allowed as arguments to `#[prop()]`";
 
         if attr.path != parse_quote!(prop) {
@@ -401,8 +403,8 @@ impl PropOpt {
             Some(
                 nested
                     .iter()
-                    .map(|opt| {
-                        if let NestedMeta::Meta(Meta::Path(opt)) = opt {
+                    .map(|opt| match opt {
+                        NestedMeta::Meta(Meta::Path(opt)) => {
                             if *opt == parse_quote!(optional) {
                                 PropOpt::Optional
                             } else if *opt == parse_quote!(optional_no_strip) {
@@ -418,9 +420,23 @@ impl PropOpt {
                                     help = ABORT_OPT_MESSAGE
                                 );
                             }
-                        } else {
-                            abort!(opt, ABORT_OPT_MESSAGE,);
                         }
+                        NestedMeta::Meta(Meta::NameValue(MetaNameValue {
+                            path,
+                            eq_token: _,
+                            lit,
+                        })) => {
+                            if *path == parse_quote!(default) {
+                                PropOpt::OptionalWithDefault(lit.to_owned())
+                            } else {
+                                abort!(
+                                    opt,
+                                    "invalid prop option";
+                                    help = ABORT_OPT_MESSAGE
+                                );
+                            }
+                        }
+                        _ => abort!(opt, ABORT_OPT_MESSAGE,),
                     })
                     .collect(),
             )
@@ -437,6 +453,7 @@ impl PropOpt {
 
 struct TypedBuilderOpts {
     default: bool,
+    default_with_value: Option<syn::Lit>,
     strip_option: bool,
     into: bool,
 }
@@ -445,6 +462,10 @@ impl TypedBuilderOpts {
     fn from_opts(opts: &HashSet<PropOpt>, is_ty_option: bool) -> Self {
         Self {
             default: opts.contains(&PropOpt::Optional) || opts.contains(&PropOpt::OptionalNoStrip),
+            default_with_value: opts.iter().find_map(|p| match p {
+                PropOpt::OptionalWithDefault(v) => Some(v.to_owned()),
+                _ => None,
+            }),
             strip_option: opts.contains(&PropOpt::StripOption)
                 || (opts.contains(&PropOpt::Optional) && is_ty_option),
             into: opts.contains(&PropOpt::Into),
@@ -454,7 +475,9 @@ impl TypedBuilderOpts {
 
 impl ToTokens for TypedBuilderOpts {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let default = if self.default {
+        let default = if let Some(v) = &self.default_with_value {
+            quote! { default=#v, }
+        } else if self.default {
             quote! { default, }
         } else {
             quote! {}
