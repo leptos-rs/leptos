@@ -38,9 +38,11 @@ cfg_if! {
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     let req =
-        use_context::<actix_web::HttpRequest>(cx).expect("couldn't get HttpRequest from context");
-    println!("req.path = {:?}", req.path());
-
+        use_context::<actix_web::HttpRequest>(cx);
+    
+    if let Some(req) = req{
+    println!("req.path = {:#?}", req.path());
+    }
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
@@ -90,9 +92,10 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
+    provide_meta_context(cx);
     view! {
         cx,
-        <Stylesheet id="leptos" href="./target/site/pkg/todo_app_sqlite.css"/>
+        <Stylesheet id="leptos" href="/pkg/todo_app_sqlite.css"/>
         <Router>
             <header>
                 <h1>"My Tasks"</h1>

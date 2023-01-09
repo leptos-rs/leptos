@@ -3,6 +3,7 @@ use axum::{
     extract::Path,
     http::{header::HeaderName, header::HeaderValue, HeaderMap, Request, StatusCode},
     response::IntoResponse,
+    routing::get,
 };
 use futures::{Future, SinkExt, Stream, StreamExt};
 use http::{header, method::Method, uri::Uri, version::Version, Response};
@@ -11,7 +12,7 @@ use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use std::{io, pin::Pin, sync::Arc};
-use tokio::{sync::RwLock, task::spawn_blocking};
+use tokio::{sync::RwLock, task::spawn_blocking, task::LocalSet};
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
@@ -328,17 +329,7 @@ where
                     full_path = "http://leptos".to_string() + &path.to_string()
                 }
 
-                let site_root = &options.site_root;
                 let pkg_path = &options.site_pkg_dir;
-
-                // We need to do some logic to check if the site_root is pkg
-                // if it is, then we need to not add pkg_path. This would mean
-                // the site was built with cargo run and not cargo-leptos
-                let bundle_path = match site_root.as_ref() {
-                    "pkg" => "pkg".to_string(),
-                    _ => format!("{site_root}/{pkg_path}"),
-                };
-
                 let output_name = &options.output_name;
 
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
@@ -385,9 +376,9 @@ where
                         <head>
                             <meta charset="utf-8"/>
                             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{bundle_path}/{output_name}.js">
-                            <link rel="preload" href="/{bundle_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{bundle_path}/{output_name}.js'; init('/{bundle_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                             {leptos_autoreload}
                             "#
                 );
@@ -493,5 +484,81 @@ where
                 res
             }
         })
+    }
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
+pub async fn generate_route_list<IV>(app_fn: impl FnOnce(Scope) -> IV + 'static) -> Vec<String>
+where
+    IV: IntoView + 'static,
+{
+    #[derive(Default, Clone, Debug)]
+    pub struct Routes(pub Arc<RwLock<Vec<String>>>);
+
+    let routes = Routes::default();
+    let routes_inner = routes.clone();
+
+    let local = LocalSet::new();
+    // Run the local task set.
+
+    local
+        .run_until(async move {
+            tokio::task::spawn_local(async move {
+                let routes = leptos_router::generate_route_list_inner(app_fn);
+                let mut writable = routes_inner.0.write().await;
+                *writable = routes;
+            })
+            .await
+            .unwrap();
+        })
+        .await;
+
+    let routes = routes.0.read().await.to_owned();
+    // Axum's Router defines Root routes as "/" not ""
+    routes
+        .iter()
+        .map(|s| {
+            if s.is_empty() {
+                return "/".to_string();
+            }
+            s.to_string()
+        })
+        .collect()
+}
+
+/// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
+/// having to use wildcards or manually define all routes in multiple places.
+pub trait LeptosRoutes {
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+}
+/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// to those paths to Leptos's renderer.
+impl LeptosRoutes for axum::Router {
+    fn leptos_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                get(render_app_to_stream(options.clone(), app_fn.clone())),
+            );
+        }
+        router
     }
 }

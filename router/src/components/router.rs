@@ -11,8 +11,8 @@ use wasm_bindgen::JsCast;
 use leptos_reactive::use_transition;
 
 use crate::{
-    create_location, matching::resolve_path, History, Location, LocationChange, RouteContext,
-    RouterIntegrationContext, State,
+    create_location, matching::resolve_path, Branch, History, Location, LocationChange,
+    RouteContext, RouterIntegrationContext, State,
 };
 
 #[cfg(not(feature = "ssr"))]
@@ -49,6 +49,7 @@ pub struct RouterContext {
 pub(crate) struct RouterContextInner {
     pub location: Location,
     pub base: RouteContext,
+    pub possible_routes: RefCell<Option<Vec<Branch>>>,
     base_path: String,
     history: Box<dyn History>,
     cx: Scope,
@@ -153,6 +154,7 @@ impl RouterContext {
             referrers,
             state,
             set_state,
+            possible_routes: Default::default(),
         });
 
         // handle all click events on anchor tags
@@ -174,6 +176,15 @@ impl RouterContext {
     /// The [RouteContext] of the base route.
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
+    }
+
+    /// A list of all possible routes this router can match.
+    pub fn possible_branches(&self) -> Vec<Branch> {
+        self.inner
+            .possible_routes
+            .borrow()
+            .clone()
+            .unwrap_or_default()
     }
 }
 

@@ -12,7 +12,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher, RouteDefinition,
         RouteMatch,
     },
-    RouteContext, RouterContext,
+    PossibleBranchContext, RouteContext, RouterContext,
 };
 
 /// Contains route definitions and manages the actual routing process.
@@ -42,12 +42,17 @@ pub fn Routes(
         })
         .cloned()
         .collect::<Vec<_>>();
+
     create_branches(
         &children,
         &base.unwrap_or_default(),
         &mut Vec::new(),
         &mut branches,
     );
+
+    if let Some(context) = use_context::<PossibleBranchContext>(cx) {
+        *context.0.borrow_mut() = branches.clone();
+    }
 
     // whenever path changes, update matches
     let matches = create_memo(cx, {

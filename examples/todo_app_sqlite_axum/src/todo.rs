@@ -39,9 +39,11 @@ cfg_if! {
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
-    let req_parts = use_context::<leptos_axum::RequestParts>(cx).unwrap();
-    println!("\ncalling server fn");
+    let req_parts = use_context::<leptos_axum::RequestParts>(cx);
+    
+    if let Some(req_parts) = req_parts{
     println!("Uri = {:?}", req_parts.uri);
+    }
 
     use futures::TryStreamExt;
 
@@ -105,9 +107,10 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
+    provide_meta_context(cx);
     view! {
         cx,
-        <Stylesheet id="leptos" href="./target/site/pkg/todo_app_sqlite_axum.css"/>
+        <Stylesheet id="leptos" href="./pkg/todo_app_sqlite_axum.css"/>
         <Router>
             <header>
                 <h1>"My Tasks"</h1>
