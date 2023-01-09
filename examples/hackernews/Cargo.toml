@@ -19,7 +19,7 @@ leptos_meta = { path = "../../meta", default-features = false }
 leptos_actix = { path = "../../integrations/actix", default-features = false, optional = true }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
-simple_logger = "2"
+simple_logger = "4.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 gloo-net = { version = "0.2", features = ["http"] }

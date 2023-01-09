@@ -23,7 +23,7 @@ leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_meta = { path = "../../meta", default-features = false }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
-simple_logger = "2"
+simple_logger = "4.0.0"
 gloo-net = { git = "https://github.com/rustwasm/gloo" }
 
 [features]
