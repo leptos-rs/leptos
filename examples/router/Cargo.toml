@@ -14,4 +14,4 @@ console_error_panic_hook = "0.1.7"
 leptos_meta = { path = "../../meta", features = ["csr"] }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = { workspace = true }

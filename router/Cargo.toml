@@ -24,8 +24,8 @@ thiserror = "1"
 serde_urlencoded = "0.7"
 serde = "1"
 js-sys = { version = "0.3" }
-wasm-bindgen = { version = "0.2" }
-wasm-bindgen-futures = { version = "0.4" }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
 
 [dependencies.web-sys]
 version = "0.3"

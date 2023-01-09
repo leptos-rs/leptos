@@ -11,20 +11,15 @@ tokio-test = "0.4"
 miniserde = "0.1"
 gloo = "0.8"
 uuid = { version = "1", features = ["serde", "v4", "wasm-bindgen"] }
-wasm-bindgen = "0.2"
+wasm-bindgen = { workspace = true }
 lazy_static = "1"
 log = "0.4"
 strum = "0.24"
 strum_macros = "0.24"
-serde = { version = "1", features = ["derive", "rc"]}
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 tera = "1"
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-	"Window",
-	"Document",
-	"HtmlElement",
-	"HtmlInputElement"
-]
+features = ["Window", "Document", "HtmlElement", "HtmlInputElement"]
