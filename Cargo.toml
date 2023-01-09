@@ -35,6 +35,7 @@ leptos_server = { path = "./leptos_server", default-features = false, version = 
 leptos_config = { path = "./leptos_config", default-features = false, version = "0.1.0-beta" }
 leptos_router = { path = "./router", version = "0.1.0-beta" }
 leptos_meta = { path = "./meta", default-feature = false, version = "0.1.0-beta" }
+simple_logger = "4.0.0"
 
 [profile.release]
 codegen-units = 1
