@@ -14,6 +14,10 @@ cfg_if! {
         async fn css() -> impl Responder {
             actix_files::NamedFile::open_async("./style.css").await
         }
+        #[get("/favicon.ico")]
+        async fn favicon() -> impl Responder {
+            actix_files::NamedFile::open_async("./target/site//favicon.ico").await
+        }
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
@@ -28,6 +32,7 @@ cfg_if! {
 
                 App::new()
                     .service(css)
+                    .service(favicon)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), |cx| view! { cx, <App/> })
                     .service(Files::new("/", &site_root))

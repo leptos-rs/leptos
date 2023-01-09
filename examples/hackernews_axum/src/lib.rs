@@ -17,6 +17,7 @@ pub fn App(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <>
+            <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
             <Stylesheet id="leptos" href="/pkg/hackernews_axum.css"/>
             <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
