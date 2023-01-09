@@ -14,6 +14,7 @@ use typed_builder::TypedBuilder;
 pub struct ConfFile {
     pub leptos_options: LeptosOptions,
 }
+
 /// This struct serves as a convenient place to store details used for configuring Leptos.
 /// It's used in our actix and axum integrations to generate the
 /// correct path for WASM, JS, and Websockets, as well as other configuration tasks.
@@ -44,6 +45,28 @@ pub struct LeptosOptions {
     /// Defaults to `3001`
     #[builder(default = 3001)]
     pub reload_port: u32,
+}
+
+impl LeptosOptions {
+    fn try_from_env() -> Result<Self, LeptosConfigError> {
+        Ok(LeptosOptions {
+            output_name: std::env::var("OUTPUT_NAME")
+                .map_err(|e| LeptosConfigError::EnvVarError(format!("OUTPUT_NAME: {e}")))?,
+            site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
+            site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
+            env: Env::default(),
+            site_address: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?.parse()?,
+            reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?.parse()?,
+        })
+    }
+}
+
+fn env_w_default(key: &str, default: &str) -> Result<String, LeptosConfigError> {
+    match std::env::var(key) {
+        Ok(val) => Ok(val),
+        Err(VarError::NotPresent) => Ok(default.to_string()),
+        Err(e) => Err(LeptosConfigError::EnvVarError(format!("{key}: {e}"))),
+    }
 }
 
 /// An enum that can be used to define the environment Leptos is running in. Can be passed to [RenderOptions].
@@ -124,6 +147,7 @@ impl TryFrom<String> for Env {
         }
     }
 }
+
 /// Loads [LeptosOptions] from a Cargo.toml with layered overrides. If an env var is specified, like `LEPTOS_ENV`,
 /// it will override a setting in the file.
 pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosConfigError> {
@@ -144,20 +168,25 @@ pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosCon
     // so that serde error messages have right line number
     let newlines = text[..start].matches('\n').count();
     let input = "\n".repeat(newlines) + &text[start..];
-    let toml = input
-        .replace("[package.metadata.leptos]", "[leptos_options]")
-        .replace("[[workspace.metadata.leptos]]", "[leptos_options]")
-        .replace('-', "_");
-    let settings = Config::builder()
-        // Read the "default" configuration file
-        .add_source(File::from_str(&toml, FileFormat::Toml))
-        // Layer on the environment-specific values.
-        // Add in settings from environment variables (with a prefix of LEPTOS and '_' as separator)
-        // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
-        .add_source(config::Environment::with_prefix("LEPTOS").separator("_"))
-        .build()?;
+    if input.contains("[package.metadata.leptos]") {
+        let toml = input
+            .replace("[package.metadata.leptos]", "[leptos_options]")
+            .replace('-', "_");
+        let settings = Config::builder()
+            // Read the "default" configuration file
+            .add_source(File::from_str(&toml, FileFormat::Toml))
+            // Layer on the environment-specific values.
+            // Add in settings from environment variables (with a prefix of LEPTOS and '_' as separator)
+            // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
+            .add_source(config::Environment::with_prefix("LEPTOS").separator("_"))
+            .build()?;
 
-    settings
-        .try_deserialize()
-        .map_err(|e| LeptosConfigError::ConfigError(e.to_string()))
+        settings
+            .try_deserialize()
+            .map_err(|e| LeptosConfigError::ConfigError(e.to_string()))
+    } else {
+        Ok(ConfFile {
+            leptos_options: LeptosOptions::try_from_env()?,
+        })
+    }
 }
