@@ -11,8 +11,6 @@ if #[cfg(feature = "ssr")] {
     use crate::todo::*;
     use todo_app_sqlite_axum::*;
     use crate::file::file_handler;
-    use http::StatusCode;
-    use tower_http::services::ServeDir;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
 

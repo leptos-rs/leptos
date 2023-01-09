@@ -13,12 +13,12 @@ if #[cfg(feature = "ssr")] {
     use std::sync::Arc;
     use leptos::LeptosOptions;
 
-    pub async fn file_handler(Path(file_path): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    pub async fn file_handler(uri: Uri, Extension(options): Extension<Arc<LeptosOptions>>) -> Result<Response<BoxBody>, (StatusCode, String)> {
 
         let options = &*options;
         // URIs need the leading slash
-        let full_path = format!("/{file_path}");
-        let uri = Uri::from_str(&full_path).unwrap();
+        // let full_path = format!("/{file_path}");
+        // let uri = Uri::from_str(&full_path).unwrap();
         let root = options.site_root.clone();
         let res = get_static_file(uri.clone(), &root).await?;
 
