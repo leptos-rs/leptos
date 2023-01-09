@@ -35,7 +35,7 @@ if #[cfg(feature = "ssr")] {
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
-        .route("/*file_path", get(file_handler))
+        .fallback(file_handler)
         .layer(Extension(Arc::new(leptos_options)));
 
         // run our app with hyper
