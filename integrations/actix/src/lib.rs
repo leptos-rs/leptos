@@ -282,108 +282,121 @@ where
                 }
             };
 
-                // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-                // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
-                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
-                let output_name = &options.output_name;
-                let mut wasm_output_name = output_name.clone();
-                if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
-                    wasm_output_name.push_str("_bg");
-                }
+            let (head, tail) = html_parts(&options);
 
-                let site_ip = &options.site_address.ip().to_string();
-                let reload_port = options.reload_port;
-                let pkg_path = &options.site_pkg_dir;
-
-                let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
-                    true => format!(
-                        r#"
-                        <script crossorigin="">(function () {{
-                            var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                            ws.onmessage = (ev) => {{
-                                let msg = JSON.parse(ev.data);
-                                if (msg.all) window.location.reload();
-                                if (msg.css) {{
-                                    const link = document.querySelector("link#leptos");
-                                    if (link) {{
-                                        let href = link.getAttribute('href').split('?')[0];
-                                        let newHref = href + '?version=' + new Date().getMilliseconds();
-                                        link.setAttribute('href', newHref);
-                                    }} else {{
-                                        console.warn("Could not find link#leptos");
-                                    }}
-                                }};
-                            }};
-                            ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-                        }})()
-                        </script>
-                        "#
-                    ),
-                    false => "".to_string(),
-                };
-
-                let head = format!(
-                    r#"<!DOCTYPE html>
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                            {leptos_autoreload}
-                            "#
-                );
-                let tail = "</body></html>";
-
-            let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(
-                app,
-                move |cx| {
-                    let head = use_context::<MetaContext>(cx)
-                        .map(|meta| meta.dehydrate())
-                        .unwrap_or_default();
-                    format!("{head}</head><body>").into()
-                });
-
-            let mut stream = Box::pin(futures::stream::once(async move { head.clone() })
-                .chain(stream)
-                .chain(futures::stream::once(async move {
-                    runtime.dispose();
-                    tail.to_string()
-                }))
-                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
-
-            // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
-            let first_chunk = stream.next().await;
-            let second_chunk = stream.next().await;
-            let third_chunk = stream.next().await;
-
-            let res_options = res_options.0.read().await;
-
-            let (status, mut headers) = (res_options.status, res_options.headers.clone());
-            let status = status.unwrap_or_default();
-
-            let complete_stream =
-            futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
-                .chain(stream);
-            let mut res = HttpResponse::Ok().content_type("text/html").streaming(
-                complete_stream
-            );
-            // Add headers manipulated in the response
-            for (key, value) in headers.drain(){
-                if let Some(key) = key{
-                res.headers_mut().append(key, value);
-                }
-            };
-            // Set status to what is returned in the function
-            let res_status = res.status_mut();
-            *res_status = status;
-            // Return the response
-            res
-
+            stream_app(app, head, tail, res_options).await
         }
     })
 }
+
+async fn stream_app(app: impl FnOnce(leptos::Scope) -> View + 'static, 
+                    head: String, 
+                    tail: String, 
+                    res_options: ResponseOptions) -> HttpResponse<BoxBody> {
+    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(
+        app,
+        move |cx| {
+            let head = use_context::<MetaContext>(cx)
+                .map(|meta| meta.dehydrate())
+                .unwrap_or_default();
+            format!("{head}</head><body>").into()
+        });
+
+    let mut stream = Box::pin(futures::stream::once(async move { head.clone() })
+    .chain(stream)
+    .chain(futures::stream::once(async move {
+        runtime.dispose();
+        tail.to_string()
+    }))
+    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
+
+    // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+    let first_chunk = stream.next().await;
+    let second_chunk = stream.next().await;
+    let third_chunk = stream.next().await;
+
+    let res_options = res_options.0.read().await;
+
+    let (status, mut headers) = (res_options.status, res_options.headers.clone());
+    let status = status.unwrap_or_default();
+
+    let complete_stream =
+    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
+        .chain(stream);
+    let mut res = HttpResponse::Ok().content_type("text/html").streaming(
+        complete_stream
+    );
+    // Add headers manipulated in the response
+    for (key, value) in headers.drain(){
+        if let Some(key) = key{
+        res.headers_mut().append(key, value);
+        }
+    };
+    // Set status to what is returned in the function
+    let res_status = res.status_mut();
+    *res_status = status;
+    // Return the response
+    res
+}
+
+fn html_parts(options: &LeptosOptions) -> (String, String) {
+    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
+    // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
+    let output_name = &options.output_name;
+    let mut wasm_output_name = output_name.clone();
+    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+        wasm_output_name.push_str("_bg");
+    }
+
+    let site_ip = &options.site_address.ip().to_string();
+    let reload_port = options.reload_port;
+    let pkg_path = &options.site_pkg_dir;
+
+    let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
+        true => format!(
+            r#"
+            <script crossorigin="">(function () {{
+                var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+                ws.onmessage = (ev) => {{
+                    let msg = JSON.parse(ev.data);
+                    if (msg.all) window.location.reload();
+                    if (msg.css) {{
+                        const link = document.querySelector("link#leptos");
+                        if (link) {{
+                            let href = link.getAttribute('href').split('?')[0];
+                            let newHref = href + '?version=' + new Date().getMilliseconds();
+                            link.setAttribute('href', newHref);
+                        }} else {{
+                            console.warn("Could not find link#leptos");
+                        }}
+                    }};
+                }};
+                ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+            }})()
+            </script>
+            "#
+        ),
+        false => "".to_string(),
+    };
+
+    let head = format!(
+        r#"<!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                {leptos_autoreload}
+                "#
+    );
+    let tail = "</body></html>".to_string();
+
+    (head, tail)
+}
+
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
