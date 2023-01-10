@@ -39,7 +39,7 @@ pub fn create_slice<T, O, G, S>(
 where
     G: Fn(&T) -> O + Clone + Copy + 'static,
     S: Fn(&mut T, O) + Clone + Copy + 'static,
-    O: Eq + core::fmt::Debug,
+    O: Eq,
 {
     let getter = create_memo(cx, move |_| signal.with(getter));
     let setter = move |value| signal.update(|x| setter(x, value));
