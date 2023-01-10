@@ -320,14 +320,8 @@ where
             async move {
                 // Need to get the path and query string of the Request
                 let path = req.uri();
-                let query = path.query();
 
-                let full_path;
-                if let Some(query) = query {
-                    full_path = "http://leptos".to_string() + &path.to_string() + "?" + query
-                } else {
-                    full_path = "http://leptos".to_string() + &path.to_string()
-                }
+                let full_path = format!("http://leptos.dev{path}");
 
                 let pkg_path = &options.site_pkg_dir;
                 let output_name = &options.output_name;
