@@ -283,12 +283,12 @@ where
             };
 
                 // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-                // we add _bg to the wasm files if cargo-leptos doesn't set the env var OUTPUT_NAME
+                // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
                 // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
                 let output_name = &options.output_name;
                 let mut wasm_output_name = output_name.clone();
                 
-                if std::env::var("OUTPUT_NAME").is_err() {
+                if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
                     wasm_output_name.push_str("_bg");
                 }
                
@@ -411,11 +411,18 @@ where
     let wildcard_re = Regex::new(r"\*.*").unwrap();
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-    routes
+
+    let routes: Vec<String> = routes
         .iter()
         .map(|s| wildcard_re.replace_all(s, "{tail:.*}").to_string())
         .map(|s| capture_re.replace_all(&s, "{$1}").to_string())
-        .collect()
+        .collect();
+
+    if routes.is_empty() {
+        vec!["/".to_string()]
+    } else {
+        routes
+    }
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
