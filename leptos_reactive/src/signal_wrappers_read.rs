@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{store_value, Memo, ReadSignal, RwSignal, Scope, StoredValue, UntrackedGettableSignal};
 
 /// Helper trait for converting `Fn() -> T` closures into

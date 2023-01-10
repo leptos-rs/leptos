@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![forbid(unsafe_code)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 #![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
@@ -83,6 +82,7 @@ mod signal;
 mod signal_wrappers_read;
 mod signal_wrappers_write;
 mod spawn;
+mod spawn_microtask;
 mod stored_value;
 mod suspense;
 
@@ -99,6 +99,7 @@ pub use signal::*;
 pub use signal_wrappers_read::*;
 pub use signal_wrappers_write::*;
 pub use spawn::*;
+pub use spawn_microtask::*;
 pub use stored_value::*;
 pub use suspense::*;
 
