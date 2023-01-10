@@ -260,14 +260,7 @@ where
         let res_options = ResponseOptions::default();
         let res_options_default = res_options.clone();
         async move {
-            let path = req.path();
-
-            let query = req.query_string();
-            let path = if query.is_empty() {
-                "http://leptos".to_string() + path
-            } else {
-                "http://leptos".to_string() + path + "?" + query
-            };
+            let path = leptos_corrected_path(&req);
 
             let app = {
                 let app_fn = app_fn.clone();
@@ -287,6 +280,16 @@ where
             stream_app(app, head, tail, res_options).await
         }
     })
+}
+
+fn leptos_corrected_path(req: &HttpRequest) -> String {
+    let path = req.path();
+    let query = req.query_string();
+    if query.is_empty() {
+        path.to_string()
+    } else {
+        path.to_string() + "?" + query
+    }
 }
 
 async fn stream_app(app: impl FnOnce(leptos::Scope) -> View + 'static, 
