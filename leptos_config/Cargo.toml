@@ -4,7 +4,7 @@ version = "0.1.0-beta"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "Configuraiton for the Leptos web framework."
 
 [dependencies]
