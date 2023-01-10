@@ -326,9 +326,9 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
     let path = req.path();
     let query = req.query_string();
     if query.is_empty() {
-        path.to_string()
+        "http://leptos".to_string() + path
     } else {
-        path.to_string() + "?" + query
+        "http://leptos".to_string() + path + "?" + query
     }
 }
 
