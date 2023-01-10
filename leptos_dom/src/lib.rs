@@ -207,10 +207,10 @@ impl Element {
       };
 
       HtmlElement {
-          cx,
-          element,
-          #[cfg(debug_assertions)]
-          span: ::tracing::Span::current()
+        cx,
+        element,
+        #[cfg(debug_assertions)]
+        span: ::tracing::Span::current(),
       }
     }
 
