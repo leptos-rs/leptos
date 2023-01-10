@@ -51,7 +51,7 @@ impl LeptosOptions {
     fn try_from_env() -> Result<Self, LeptosConfigError> {
         Ok(LeptosOptions {
             output_name: std::env::var("LEPTOS_OUTPUT_NAME")
-                .map_err(|e| LeptosConfigError::EnvVarError(format!("OUTPUT_NAME: {e}")))?,
+                .map_err(|e| LeptosConfigError::EnvVarError(format!("LEPTOS_OUTPUT_NAME: {e}")))?,
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
             env: Env::default(),
