@@ -296,26 +296,28 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
     }
 }
 
-async fn stream_app(app: impl FnOnce(leptos::Scope) -> View + 'static, 
-                    head: String, 
-                    tail: String, 
-                    res_options: ResponseOptions) -> HttpResponse<BoxBody> {
-    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(
-        app,
-        move |cx| {
-            let head = use_context::<MetaContext>(cx)
-                .map(|meta| meta.dehydrate())
-                .unwrap_or_default();
-            format!("{head}</head><body>").into()
-        });
+async fn stream_app(
+    app: impl FnOnce(leptos::Scope) -> View + 'static,
+    head: String,
+    tail: String,
+    res_options: ResponseOptions,
+) -> HttpResponse<BoxBody> {
+    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(app, move |cx| {
+        let head = use_context::<MetaContext>(cx)
+            .map(|meta| meta.dehydrate())
+            .unwrap_or_default();
+        format!("{head}</head><body>").into()
+    });
 
-    let mut stream = Box::pin(futures::stream::once(async move { head.clone() })
-    .chain(stream)
-    .chain(futures::stream::once(async move {
-        runtime.dispose();
-        tail.to_string()
-    }))
-    .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
+    let mut stream = Box::pin(
+        futures::stream::once(async move { head.clone() })
+            .chain(stream)
+            .chain(futures::stream::once(async move {
+                runtime.dispose();
+                tail.to_string()
+            }))
+            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+    );
 
     // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
     let first_chunk = stream.next().await;
@@ -327,18 +329,21 @@ async fn stream_app(app: impl FnOnce(leptos::Scope) -> View + 'static,
     let (status, mut headers) = (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
 
-    let complete_stream =
-    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
-        .chain(stream);
-    let mut res = HttpResponse::Ok().content_type("text/html").streaming(
-        complete_stream
-    );
+    let complete_stream = futures::stream::iter([
+        first_chunk.unwrap(),
+        second_chunk.unwrap(),
+        third_chunk.unwrap(),
+    ])
+    .chain(stream);
+    let mut res = HttpResponse::Ok()
+        .content_type("text/html")
+        .streaming(complete_stream);
     // Add headers manipulated in the response
-    for (key, value) in headers.drain(){
-        if let Some(key) = key{
-        res.headers_mut().append(key, value);
+    for (key, value) in headers.drain() {
+        if let Some(key) = key {
+            res.headers_mut().append(key, value);
         }
-    };
+    }
     // Set status to what is returned in the function
     let res_status = res.status_mut();
     *res_status = status;
