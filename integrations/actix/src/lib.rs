@@ -258,19 +258,13 @@ where
         let options = options.clone();
         let app_fn = app_fn.clone();
         let res_options = ResponseOptions::default();
-        let res_options_default = res_options.clone();
-        async move {
-            let path = leptos_corrected_path(&req);
 
+        async move {
             let app = {
                 let app_fn = app_fn.clone();
+                let res_options = res_options.clone();
                 move |cx| {
-                    let integration = ServerIntegration { path: path.clone() };
-                    provide_context(cx, RouterIntegrationContext::new(integration));
-                    provide_context(cx, MetaContext::new());
-                    provide_context(cx, res_options_default.clone());
-                    provide_context(cx, req.clone());
-
+                    provide_contexts(cx, &req, res_options);
                     (app_fn)(cx).into_view(cx)
                 }
             };
@@ -280,6 +274,16 @@ where
             stream_app(app, head, tail, res_options).await
         }
     })
+}
+
+fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseOptions) {
+    let path = leptos_corrected_path(&req);
+
+    let integration = ServerIntegration { path };
+    provide_context(cx, RouterIntegrationContext::new(integration));
+    provide_context(cx, MetaContext::new());
+    provide_context(cx, res_options);
+    provide_context(cx, req.clone());
 }
 
 fn leptos_corrected_path(req: &HttpRequest) -> String {
