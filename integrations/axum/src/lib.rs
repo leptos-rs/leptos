@@ -517,7 +517,7 @@ where
 
     let routes = routes.0.read().await.to_owned();
     // Axum's Router defines Root routes as "/" not ""
-    routes
+    let routes: Vec<String> = routes
         .iter()
         .map(|s| {
             if s.is_empty() {
@@ -525,7 +525,13 @@ where
             }
             s.to_string()
         })
-        .collect()
+        .collect();
+
+    if routes.is_empty() {
+        return vec!["/".to_string()];
+    } else {
+        return routes;
+    }
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid

@@ -393,13 +393,19 @@ where
     let wildcard_re = Regex::new(r"\*.*").unwrap();
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-    routes.iter().map(|s| 
+    let routes: Vec<String> = routes.iter().map(|s| 
        wildcard_re.replace_all(s, "{tail:.*}").to_string()
     )
     .map(|s| {
         capture_re.replace_all(&s, "{$1}").to_string()
     })
-    .collect()
+    .collect();
+
+    if routes.is_empty() {
+        vec!["/".to_string()]
+    } else {
+        routes
+    }
 }
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
