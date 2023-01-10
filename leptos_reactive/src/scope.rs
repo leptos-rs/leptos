@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{
     runtime::{with_runtime, RuntimeId},
     EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,

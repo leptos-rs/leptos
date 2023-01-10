@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{
     hydration::SharedContext, serialization::Serializable, AnyEffect, AnyResource, Effect,
     EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::runtime::{with_runtime, RuntimeId};
 use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;

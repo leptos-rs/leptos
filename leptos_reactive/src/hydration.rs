@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{runtime::PinnedFuture, ResourceId};
 use cfg_if::cfg_if;
 use std::collections::{HashMap, HashSet};

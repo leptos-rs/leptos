@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use cfg_if::cfg_if;
 use std::rc::Rc;
 use thiserror::Error;

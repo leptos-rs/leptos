@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{ReadSignal, Scope, SignalError, UntrackedGettableSignal};
 use std::fmt::Debug;
 
