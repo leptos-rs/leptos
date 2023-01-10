@@ -9,10 +9,13 @@ use leptos::*;
 pub fn Outlet(cx: Scope) -> impl IntoView {
     let route = use_route(cx);
     let is_showing = Rc::new(Cell::new(None::<(usize, Scope)>));
-    let (outlet, set_outlet) = create_signal(cx, None);
+    let (outlet, set_outlet) = create_signal(cx, None::<View>);
     create_isomorphic_effect(cx, move |_| {
         match (route.child(), &is_showing.get()) {
-            (None, _) => {
+            (None, prev) => {
+                if let Some(prev_scope) = prev.map(|(_, scope)| scope) {
+                    prev_scope.dispose();
+                }
                 set_outlet.set(None);
             }
             (Some(child), Some((is_showing_val, _))) if child.id() == *is_showing_val => {
