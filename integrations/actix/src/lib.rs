@@ -1,12 +1,13 @@
 #![forbid(unsafe_code)]
 
 use actix_web::{
+    body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
     http::header,
     web::Bytes,
     *,
 };
-use futures::StreamExt;
+use futures::{Future, StreamExt};
 use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
@@ -276,6 +277,41 @@ where
     })
 }
 
+pub fn render_data_app_to_stream<Data, Fut, IV>(
+    options: LeptosOptions,
+    data_fn: impl Fn(&HttpRequest) -> Fut + Clone + 'static,
+    app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
+) -> Route
+where
+    Data: 'static,
+    Fut: Future<Output = Data>,
+    IV: IntoView + 'static,
+{
+    web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
+        let app_fn = app_fn.clone();
+        let data_fn = data_fn.clone();
+        let res_options = ResponseOptions::default();
+
+        async move {
+            let data = data_fn(&req).await;
+
+            let app = {
+                let app_fn = app_fn.clone();
+                let res_options = res_options.clone();
+                move |cx| {
+                    provide_contexts(cx, &req, res_options);
+                    (app_fn)(cx, data).into_view(cx)
+                }
+            };
+
+            let (head, tail) = html_parts(&options);
+
+            stream_app(app, head, tail, res_options).await
+        }
+    })
+}
+
 fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseOptions) {
     let path = leptos_corrected_path(&req);
 
@@ -409,7 +445,6 @@ fn html_parts(options: &LeptosOptions) -> (String, String) {
     (head, tail)
 }
 
-
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
@@ -460,7 +495,20 @@ pub trait LeptosRoutes {
     ) -> Self
     where
         IV: IntoView + 'static;
+
+    fn leptos_data_routes<Data, Fut, IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        data_fn: impl Fn(&HttpRequest) -> Fut + Clone + 'static,
+        app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        Data: 'static,
+        Fut: Future<Output = Data>,
+        IV: IntoView + 'static;
 }
+
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl<T> LeptosRoutes for actix_web::App<T>
@@ -479,6 +527,29 @@ where
         let mut router = self;
         for path in paths.iter() {
             router = router.route(path, render_app_to_stream(options.clone(), app_fn.clone()));
+        }
+        router
+    }
+
+    fn leptos_data_routes<Data, Fut, IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        data_fn: impl Fn(&HttpRequest) -> Fut + Clone + 'static,
+        app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        Data: 'static,
+        Fut: Future<Output = Data>,
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                render_data_app_to_stream(options.clone(), data_fn.clone(), app_fn.clone()),
+            );
         }
         router
     }
