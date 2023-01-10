@@ -1,4 +1,4 @@
-use leptos::{on_cleanup, Scope, Serializable};
+use leptos::{Scope, Serializable};
 use serde::{Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
@@ -29,7 +29,7 @@ where
 
     // abort in-flight requests if the Scope is disposed
     // i.e., if we've navigated away from this page
-    on_cleanup(cx, move || {
+    leptos::on_cleanup(cx, move || {
         if let Some(abort_controller) = abort_controller {
             abort_controller.abort()
         }

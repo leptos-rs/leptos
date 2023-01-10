@@ -12,7 +12,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher, RouteDefinition,
         RouteMatch,
     },
-    PossibleBranchContext, RouteContext, RouterContext,
+    RouteContext, RouterContext,
 };
 
 /// Contains route definitions and manages the actual routing process.
@@ -50,7 +50,8 @@ pub fn Routes(
         &mut branches,
     );
 
-    if let Some(context) = use_context::<PossibleBranchContext>(cx) {
+    #[cfg(feature = "ssr")]
+    if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
         *context.0.borrow_mut() = branches.clone();
     }
 
