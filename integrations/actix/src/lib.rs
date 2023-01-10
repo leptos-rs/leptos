@@ -287,11 +287,11 @@ where
                 // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
                 let output_name = &options.output_name;
                 let mut wasm_output_name = output_name.clone();
-                
+
                 if std::env::var("OUTPUT_NAME").is_err() {
                     wasm_output_name.push_str("_bg");
                 }
-               
+
                 let site_ip = &options.site_address.ip().to_string();
                 let reload_port = options.reload_port;
                 let pkg_path = &options.site_pkg_dir;
@@ -346,7 +346,7 @@ where
                     format!("{head}</head><body>").into()
                 });
 
-            let mut stream = Box::pin(futures::stream::once(async move { head.clone() }) 
+            let mut stream = Box::pin(futures::stream::once(async move { head.clone() })
                 .chain(stream)
                 .chain(futures::stream::once(async move {
                     runtime.dispose();
@@ -363,7 +363,7 @@ where
 
             let (status, mut headers) = (res_options.status, res_options.headers.clone());
             let status = status.unwrap_or_default();
-            
+
             let complete_stream =
             futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
                 .chain(stream);
