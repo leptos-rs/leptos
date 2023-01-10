@@ -279,7 +279,7 @@ where
 
 pub fn render_data_app_to_stream<Data, Fut, IV>(
     options: LeptosOptions,
-    data_fn: impl Fn(&HttpRequest) -> Fut + Clone + 'static,
+    data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
     app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
 ) -> Route
 where
@@ -294,7 +294,7 @@ where
         let res_options = ResponseOptions::default();
 
         async move {
-            let data = data_fn(&req).await;
+            let data = data_fn(req.clone()).await;
 
             let app = {
                 let app_fn = app_fn.clone();
@@ -500,7 +500,7 @@ pub trait LeptosRoutes {
         self,
         options: LeptosOptions,
         paths: Vec<String>,
-        data_fn: impl Fn(&HttpRequest) -> Fut + Clone + 'static,
+        data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
         app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -535,7 +535,7 @@ where
         self,
         options: LeptosOptions,
         paths: Vec<String>,
-        data_fn: impl Fn(&HttpRequest) -> Fut + Clone + 'static,
+        data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
         app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
     ) -> Self
     where
