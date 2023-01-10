@@ -416,7 +416,7 @@ where
         .iter()
         .map(|s| wildcard_re.replace_all(s, "{tail:.*}").to_string())
         .map(|s| capture_re.replace_all(&s, "{$1}").to_string())
-        .collect()
+        .collect();
 
     if routes.is_empty() {
         vec!["/".to_string()]
