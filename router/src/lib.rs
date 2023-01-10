@@ -186,6 +186,7 @@
 #![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 mod components;
+#[cfg(any(feature = "ssr", doc))]
 mod extract_routes;
 mod history;
 mod hooks;
@@ -193,6 +194,7 @@ mod hooks;
 pub mod matching;
 
 pub use components::*;
+#[cfg(any(feature = "ssr", doc))]
 pub use extract_routes::*;
 pub use history::*;
 pub use hooks::*;
