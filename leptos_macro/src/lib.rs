@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![forbid(unsafe_code)]
 
 #[macro_use]
 extern crate proc_macro_error;
@@ -184,7 +185,7 @@ mod server;
 /// let (count, set_count) = create_signal(cx, 2);
 /// // this allows you to use CSS frameworks that include complex class names
 /// view! { cx,
-///   <div 
+///   <div
 ///     class=("is-[this_-_really]-necessary-42", move || count() < 3)
 ///   >
 ///     "Now you see me, now you don’t."

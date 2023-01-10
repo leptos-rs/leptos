@@ -1,6 +1,7 @@
-use crate::{ResourceId, runtime::PinnedFuture};
-use std::collections::{HashMap, HashSet};
+#![forbid(unsafe_code)]
+use crate::{runtime::PinnedFuture, ResourceId};
 use cfg_if::cfg_if;
+use std::collections::{HashMap, HashSet};
 
 pub struct SharedContext {
     pub events: Vec<()>,
@@ -40,16 +41,16 @@ impl Default for SharedContext {
                     .map_err(|_| ())
                     .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
                     .unwrap_or_default();
-        
+
                 let resolved_resources = js_sys::Reflect::get(
                     &web_sys::window().unwrap(),
                     &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
                 )
                 .unwrap_or(wasm_bindgen::JsValue::NULL);
-        
+
                 let resolved_resources =
                     serde_wasm_bindgen::from_value(resolved_resources).unwrap_or_default();
-        
+
                 Self {
                     events: Default::default(),
                     pending_resources,

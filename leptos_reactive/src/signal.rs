@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{
     debug_warn,
     runtime::{with_runtime, RuntimeId},

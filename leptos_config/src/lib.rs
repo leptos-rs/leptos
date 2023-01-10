@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod errors;
 
 use crate::errors::LeptosConfigError;

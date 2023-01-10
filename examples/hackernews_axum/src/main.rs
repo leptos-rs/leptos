@@ -6,6 +6,7 @@ cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
         Router,
+        routing::get,
         extract::Extension,
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -25,6 +26,7 @@ if #[cfg(feature = "ssr")] {
 
         // build our application with a route
         let app = Router::new()
+        .route("/favicon.ico", get(file_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> } )
         .fallback(file_handler)
         .layer(Extension(Arc::new(leptos_options)));

@@ -1,4 +1,5 @@
 #![deny(missing_docs)]
+#![forbid(unsafe_code)]
 #![cfg_attr(not(feature = "stable"), feature(fn_traits))]
 #![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
 
@@ -207,10 +208,10 @@ impl Element {
       };
 
       HtmlElement {
-          cx,
-          element,
-          #[cfg(debug_assertions)]
-          span: ::tracing::Span::current()
+        cx,
+        element,
+        #[cfg(debug_assertions)]
+        span: ::tracing::Span::current(),
       }
     }
 

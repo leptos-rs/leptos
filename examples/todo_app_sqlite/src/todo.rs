@@ -95,6 +95,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
     provide_meta_context(cx);
     view! {
         cx,
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/todo_app_sqlite.css"/>
         <Router>
             <header>

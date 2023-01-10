@@ -50,6 +50,7 @@ pub(crate) struct RouterContextInner {
     pub location: Location,
     pub base: RouteContext,
     pub possible_routes: RefCell<Option<Vec<Branch>>>,
+    #[allow(unused)] // used in CSR/hydrate
     base_path: String,
     history: Box<dyn History>,
     cx: Scope,
@@ -214,7 +215,6 @@ impl RouterContextInner {
 
                     if resolved_to != this.reference.get() || options.state != (this.state).get() {
                         if cfg!(feature = "server") {
-                            // TODO server out
                             self.history.navigate(&LocationChange {
                                 value: resolved_to,
                                 replace: options.replace,
@@ -340,19 +340,29 @@ impl RouterContextInner {
             }
 
             let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
-            // TODO "state" is set as a prop, not an attribute
-            let state = a.get_attribute("state"); // TODO state
+            let state = get_property(a.unchecked_ref(), "state")
+                .ok()
+                .and_then(|value| {
+                    if value == wasm_bindgen::JsValue::UNDEFINED {
+                        None
+                    } else {
+                        Some(value)
+                    }
+                });
 
             ev.prevent_default();
 
+            let replace = get_property(a.unchecked_ref(), "replace")
+                .ok()
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
             if let Err(e) = self.navigate_from_route(
                 &to,
                 &NavigateOptions {
                     resolve: false,
-                    // TODO "replace" is set as a prop, not an attribute
-                    replace: a.has_attribute("replace"),
+                    replace,
                     scroll: !a.has_attribute("noscroll"),
-                    state: State(None), // TODO state
+                    state: State(state),
                 },
             ) {
                 log::error!("{e:#?}");

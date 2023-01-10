@@ -19,7 +19,7 @@ leptos_meta = { path = "../../meta", default-features = false }
 leptos_actix = { path = "../../integrations/actix", default-features = false, optional = true }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
-simple_logger = "2"
+simple_logger = "4.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 gloo-net = { version = "0.2", features = ["http"] }
@@ -56,7 +56,7 @@ site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
 style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
-# assets-dir = "static/assets"
+assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
 site-address = "127.0.0.1:3000"	
 # The port to use for automatic reload monitoring

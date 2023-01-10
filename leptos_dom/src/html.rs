@@ -90,11 +90,11 @@ where
         element: el,
       };
 
-      HtmlElement { 
-          cx, 
-          element,
-          #[cfg(debug_assertions)]
-          span: ::tracing::Span::current()
+      HtmlElement {
+        cx,
+        element,
+        #[cfg(debug_assertions)]
+        span: ::tracing::Span::current(),
       }
     }
 
@@ -282,7 +282,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
           cx,
           element,
           #[cfg(debug_assertions)]
-          span        
+          span
         } = self;
 
         HtmlElement {
@@ -589,17 +589,17 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
   ) -> Self {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-        cfg_if! {
-            if #[cfg(debug_assertions)] {
-                let onspan = ::tracing::span!(
-                    parent: &self.span,
-                    ::tracing::Level::TRACE,
-                    "on",
-                    event = %event.name()
-                );
-                let _onguard = onspan.enter();
-            }
-        }
+      cfg_if! {
+          if #[cfg(debug_assertions)] {
+              let onspan = ::tracing::span!(
+                  parent: &self.span,
+                  ::tracing::Level::TRACE,
+                  "on",
+                  event = %event.name()
+              );
+              let _onguard = onspan.enter();
+          }
+      }
       let event_name = event.name();
 
       if event.bubbles() {
@@ -632,6 +632,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       if !HydrationCtx::is_hydrating() {
+        // add a debug-only, run-time warning for the SVG <a> element
+        #[cfg(debug_assertions)]
+        warn_on_ambiguous_a(self.element.as_ref(), &child);
+
         mount_child(MountKind::Append(self.element.as_ref()), &child);
       }
 
@@ -911,6 +915,23 @@ macro_rules! generate_html_tags {
   (@void void) => {
     fn is_void(&self) -> bool {
       true
+    }
+  }
+}
+
+#[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
+fn warn_on_ambiguous_a(parent: &web_sys::Element, child: &View) {
+  if let View::Element(el) = &child {
+    if el.name == "a" {
+      if parent.namespace_uri() != el.element.namespace_uri() {
+        crate::warn!(
+          "Warning: you are appending an SVG <a/> to an HTML element, or an \
+           HTML <a/> to an SVG. Typically, this occurs when you create an \
+           <a/> with the `view` macro and append it to an SVG, but the \
+           framework assumed it was HTML when you created it. To specify that \
+           it is an SVG <a/>, use <svg::a/> in the view macro."
+        )
+      }
     }
   }
 }

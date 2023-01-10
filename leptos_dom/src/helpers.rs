@@ -15,6 +15,15 @@ pub fn set_property(
   };
 }
 
+/// Gets the value of a property set on a DOM element.
+pub fn get_property(
+  el: &web_sys::Element,
+  prop_name: &str,
+) -> Result<JsValue, JsValue> {
+  let key = JsValue::from_str(prop_name);
+  js_sys::Reflect::get(el, &key)
+}
+
 /// Returns the current [`window.location`](https://developer.mozilla.org/en-US/docs/Web/API/Window/location).
 pub fn location() -> web_sys::Location {
   window().location()

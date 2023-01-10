@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{create_rw_signal, RwSignal, Scope, UntrackedGettableSignal, UntrackedSettableSignal};
 
 /// A **non-reactive** wrapper for any value, which can be created with [store_value].

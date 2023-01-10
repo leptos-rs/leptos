@@ -12,7 +12,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher, RouteDefinition,
         RouteMatch,
     },
-    PossibleBranchContext, RouteContext, RouterContext,
+    RouteContext, RouterContext,
 };
 
 /// Contains route definitions and manages the actual routing process.
@@ -50,7 +50,8 @@ pub fn Routes(
         &mut branches,
     );
 
-    if let Some(context) = use_context::<PossibleBranchContext>(cx) {
+    #[cfg(feature = "ssr")]
+    if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
         *context.0.borrow_mut() = branches.clone();
     }
 
@@ -143,10 +144,9 @@ pub fn Routes(
                             }
                         });
 
-                        if disposers.borrow().len() > i + 1 {
+                        if disposers.borrow().len() > i {
                             let mut disposers = disposers.borrow_mut();
-                            let old_route_disposer =
-                                std::mem::replace(&mut disposers[i + 1], disposer);
+                            let old_route_disposer = std::mem::replace(&mut disposers[i], disposer);
                             old_route_disposer.dispose();
                         } else {
                             disposers.borrow_mut().push(disposer);

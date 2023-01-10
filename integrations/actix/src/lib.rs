@@ -1,12 +1,19 @@
-use actix_web::{http::header, web::Bytes, dev::{ServiceFactory, ServiceRequest}, *};
-use futures::StreamExt; 
+#![forbid(unsafe_code)]
+
+use actix_web::{
+    dev::{ServiceFactory, ServiceRequest},
+    http::header,
+    web::Bytes,
+    *,
+};
+use futures::StreamExt;
 use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use regex::Regex;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use regex::Regex;
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -16,13 +23,13 @@ pub struct ResponseParts {
     pub status: Option<StatusCode>,
 }
 
-impl ResponseParts{
+impl ResponseParts {
     /// Insert a header, overwriting any previous value with the same key
-    pub fn insert_header(&mut self, key: header::HeaderName, value: header::HeaderValue){
+    pub fn insert_header(&mut self, key: header::HeaderName, value: header::HeaderValue) {
         self.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact
-    pub fn append_header(&mut self, key: header::HeaderName, value: header::HeaderValue){
+    pub fn append_header(&mut self, key: header::HeaderName, value: header::HeaderValue) {
         self.headers.append(key, value);
     }
 }
@@ -40,21 +47,21 @@ impl ResponseOptions {
         *writable = parts
     }
     /// Set the status of the returned Response
-    pub async fn set_status(&self, status: StatusCode){
+    pub async fn set_status(&self, status: StatusCode) {
         let mut writeable = self.0.write().await;
-        let res_parts = &mut*writeable;
+        let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key
-    pub async fn insert_header(&self, key: header::HeaderName, value: header::HeaderValue){
+    pub async fn insert_header(&self, key: header::HeaderName, value: header::HeaderValue) {
         let mut writeable = self.0.write().await;
-        let res_parts = &mut*writeable;
+        let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact
-    pub async fn append_header(&self, key: header::HeaderName, value: header::HeaderValue){
+    pub async fn append_header(&self, key: header::HeaderName, value: header::HeaderValue) {
         let mut writeable = self.0.write().await;
-        let res_parts = &mut*writeable;
+        let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
 }
@@ -62,10 +69,15 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
-pub async fn redirect(cx: leptos::Scope, path: &str){
+pub async fn redirect(cx: leptos::Scope, path: &str) {
     let response_options = use_context::<ResponseOptions>(cx).unwrap();
     response_options.set_status(StatusCode::FOUND).await;
-    response_options.insert_header(header::LOCATION, header::HeaderValue::from_str(path).expect("Failed to create HeaderValue")).await;
+    response_options
+        .insert_header(
+            header::LOCATION,
+            header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
+        )
+        .await;
 }
 
 /// An Actix [Route](actix_web::Route) that listens for a `POST` request with
@@ -132,7 +144,7 @@ pub fn handle_server_fns() -> Route {
 
                             let mut res: HttpResponseBuilder;
                             let mut res_parts = res_options.0.write().await;
-                         
+
                             if accept_header == Some("application/json")
                                 || accept_header == Some("application/x-www-form-urlencoded")
                                 || accept_header == Some("application/cbor")
@@ -184,10 +196,12 @@ pub fn handle_server_fns() -> Route {
                         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
                     }
                 } else {
-                    HttpResponse::BadRequest()
-                        .body(format!("Could not find a server function at the route {:?}. \
+                    HttpResponse::BadRequest().body(format!(
+                        "Could not find a server function at the route {:?}. \
                         \n\nIt's likely that you need to call ServerFn::register() on the \
-                        server function type, somewhere in your `main` function.", req.path()))
+                        server function type, somewhere in your `main` function.",
+                        req.path()
+                    ))
                 }
             }
         },
@@ -237,7 +251,8 @@ pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
 ) -> Route
-where IV: IntoView
+where
+    IV: IntoView,
 {
     web::get().to(move |req: HttpRequest| {
         let options = options.clone();
@@ -379,27 +394,29 @@ where
     IV: IntoView + 'static,
 {
     let mut routes = leptos_router::generate_route_list_inner(app_fn);
-    
+
     // Empty strings screw with Actix pathing, they need to be "/"
-    routes = routes.iter().map(|s| {
-        if s.is_empty() {
-           return "/".to_string()
-        }
-        s.to_string()
-    }).collect();
-    
+    routes = routes
+        .iter()
+        .map(|s| {
+            if s.is_empty() {
+                return "/".to_string();
+            }
+            s.to_string()
+        })
+        .collect();
+
     // Actix's Router doesn't follow Leptos's
     // Match `*` or `*someword` to replace with replace it with "/{tail.*}
     let wildcard_re = Regex::new(r"\*.*").unwrap();
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-    let routes: Vec<String> = routes.iter().map(|s| 
-       wildcard_re.replace_all(s, "{tail:.*}").to_string()
-    )
-    .map(|s| {
-        capture_re.replace_all(&s, "{$1}").to_string()
-    })
-    .collect();
+
+    let routes: Vec<String> = routes
+        .iter()
+        .map(|s| wildcard_re.replace_all(s, "{tail:.*}").to_string())
+        .map(|s| capture_re.replace_all(&s, "{$1}").to_string())
+        .collect()
 
     if routes.is_empty() {
         vec!["/".to_string()]
@@ -422,8 +439,10 @@ pub trait LeptosRoutes {
 }
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
-impl <T>LeptosRoutes for actix_web::App<T> where
-    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>{
+impl<T> LeptosRoutes for actix_web::App<T>
+where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+{
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -435,10 +454,7 @@ impl <T>LeptosRoutes for actix_web::App<T> where
     {
         let mut router = self;
         for path in paths.iter() {
-            router = router.route(
-                path,
-                render_app_to_stream(options.clone(), app_fn.clone()),
-            );
+            router = router.route(path, render_app_to_stream(options.clone(), app_fn.clone()));
         }
         router
     }

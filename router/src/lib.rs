@@ -1,7 +1,9 @@
+#![forbid(unsafe_code)]
+
 //! # Leptos Router
 //!
 //! Leptos Router is a router and state management tool for web applications
-//! written in Rust using the [Leptos](https://github.com/gbj/leptos) web framework.
+//! written in Rust using the [Leptos](https://github.com/leptos-rs/leptos) web framework.
 //! It is ”isomorphic,” i.e., it can be used for client-side applications/single-page
 //! apps (SPAs), server-side rendering/multi-page apps (MPAs), or to synchronize
 //! state between the two.
@@ -184,6 +186,7 @@
 #![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
 mod components;
+#[cfg(any(feature = "ssr", doc))]
 mod extract_routes;
 mod history;
 mod hooks;
@@ -191,6 +194,7 @@ mod hooks;
 pub mod matching;
 
 pub use components::*;
+#[cfg(any(feature = "ssr", doc))]
 pub use extract_routes::*;
 pub use history::*;
 pub use hooks::*;

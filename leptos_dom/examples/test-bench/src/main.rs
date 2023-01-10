@@ -43,7 +43,7 @@ fn view_fn(cx: Scope) -> impl IntoView {
   let (is_a, set_is_a) = create_signal(cx, true);
 
   let handle_toggle = move |_| {
-      trace!("toggling");
+    trace!("toggling");
     if is_a() {
       set_b(a());
 
@@ -55,11 +55,14 @@ fn view_fn(cx: Scope) -> impl IntoView {
     }
   };
 
+  let a_tag = view! { cx, <svg::a/> };
+
   view! { cx,
     <>
       <div>
         <button on:click=handle_toggle>"Toggle"</button>
       </div>
+      <svg>{a_tag}</svg>
       <Example/>
       <A child=Signal::from(a) />
       <A child=Signal::from(b) />
@@ -74,23 +77,23 @@ fn A(cx: Scope, child: Signal<View>) -> impl IntoView {
 
 #[component]
 fn Example(cx: Scope) -> impl IntoView {
-    trace!("rendering <Example/>");
-    
-    let (value, set_value) = create_signal(cx, 10);
+  trace!("rendering <Example/>");
 
-    let memo = create_memo(cx, move |_| value() * 2);
-    let derived = Signal::derive(cx, move || {
-        value() * 3
-    });
+  let (value, set_value) = create_signal(cx, 10);
 
-    create_effect(cx, move |_| {
-        trace!("logging value of derived..., {}", derived.get());
-    });
+  let memo = create_memo(cx, move |_| value() * 2);
+  let derived = Signal::derive(cx, move || value() * 3);
 
+  create_effect(cx, move |_| {
+    trace!("logging value of derived..., {}", derived.get());
+  });
 
-    set_timeout(move || { set_value.update(|v| *v += 1)}, std::time::Duration::from_millis(50));
+  set_timeout(
+    move || set_value.update(|v| *v += 1),
+    std::time::Duration::from_millis(50),
+  );
 
-    view! { cx,
+  view! { cx,
     <h1>"Example"</h1>
     <button on:click=move |_| set_value.update(|value| *value += 1)>
       "Click me"
