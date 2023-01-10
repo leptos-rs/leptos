@@ -48,12 +48,12 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                     {move || if page() > 1 {
                         view! {
                             cx,
-                            <html::a class="page-link"
+                            <a class="page-link"
                                 href=move || format!("/{}?page={}", story_type(), page() - 1)
                                 attr:aria_label="Previous Page"
                             >
                                 "< prev"
-                            </html::a>
+                            </a>
                         }.into_any()
                     } else {
                         view! {

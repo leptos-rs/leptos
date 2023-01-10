@@ -409,14 +409,12 @@ fn set_class_attribute_ssr(
         .filter_map(|a| {
             if let Node::Attribute(a) = a {
                 if a.key.to_string() == "class" {
-                    if a.value.as_ref().and_then(value_to_string).is_some() {
+                    if a.value.as_ref().and_then(value_to_string).is_some()
+                        || fancy_class_name(&a.key.to_string(), cx, a).is_some()
+                    {
                         None
                     } else {
-                        if fancy_class_name(&a.key.to_string(), cx, a).is_some() {
-                            None
-                        } else {
-                            Some((a.key.span(), &a.value))
-                        }
+                        Some((a.key.span(), &a.value))
                     }
                 } else {
                     None
@@ -569,8 +567,9 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -
             let name = &node.name;
             match parent_type {
                 TagType::Unknown => {
-                    proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
-                    but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::");
+                    // We decided this warning was too aggressive, but I'll leave it here in case we want it later
+                    /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
+                    but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
                         leptos::leptos_dom::#name(#cx)
                     }
