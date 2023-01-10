@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![forbid(unsafe_code)]
 
 #[macro_use]
 extern crate proc_macro_error;

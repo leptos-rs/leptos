@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use actix_web::{
     dev::{ServiceFactory, ServiceRequest},
     http::header,
