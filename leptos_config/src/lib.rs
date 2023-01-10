@@ -151,24 +151,18 @@ impl TryFrom<String> for Env {
 /// Loads [LeptosOptions] from a Cargo.toml with layered overrides. If an env var is specified, like `LEPTOS_ENV`,
 /// it will override a setting in the file.
 pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosConfigError> {
-    // Allow Cargo.toml path to be specified in case of workspace wonkiness
-    let text = match path {
-        Some(p) => fs::read_to_string(p).map_err(|_| LeptosConfigError::ConfigNotFound)?,
-        None => fs::read_to_string("Cargo.toml").map_err(|_| LeptosConfigError::ConfigNotFound)?,
-    };
+    if let Some(path) = path {
+        let text = fs::read_to_string(path).map_err(|_| LeptosConfigError::ConfigNotFound)?;
 
-    let re: Regex =
-        Regex::new(r#"(?m)^\[package.metadata.leptos\]|(?m)^\[\[workspace.metadata.leptos\]\]"#)
-            .unwrap();
-    let start = match re.find(&text) {
-        Some(found) => found.start(),
-        None => return Err(LeptosConfigError::ConfigSectionNotFound),
-    };
+        let re: Regex = Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
+        let start = match re.find(&text) {
+            Some(found) => found.start(),
+            None => return Err(LeptosConfigError::ConfigSectionNotFound),
+        };
 
-    // so that serde error messages have right line number
-    let newlines = text[..start].matches('\n').count();
-    let input = "\n".repeat(newlines) + &text[start..];
-    if input.contains("[package.metadata.leptos]") {
+        // so that serde error messages have right line number
+        let newlines = text[..start].matches('\n').count();
+        let input = "\n".repeat(newlines) + &text[start..];
         let toml = input
             .replace("[package.metadata.leptos]", "[leptos_options]")
             .replace('-', "_");
