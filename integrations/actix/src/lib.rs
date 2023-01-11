@@ -284,7 +284,7 @@ pub fn render_data_app_to_stream<Data, Fut, IV>(
 ) -> Route
 where
     Data: 'static,
-    Fut: Future<Output = Data>,
+    Fut: Future<Output = Result<Data, actix_web::Error>>,
     IV: IntoView + 'static,
 {
     web::get().to(move |req: HttpRequest| {
@@ -294,7 +294,10 @@ where
         let res_options = ResponseOptions::default();
 
         async move {
-            let data = data_fn(req.clone()).await;
+            let data = match data_fn(req.clone()).await {
+                Err(e) => return HttpResponse::from_error(e),
+                Ok(d) => d,
+            };
 
             let app = {
                 let app_fn = app_fn.clone();
@@ -505,7 +508,7 @@ pub trait LeptosRoutes {
     ) -> Self
     where
         Data: 'static,
-        Fut: Future<Output = Data>,
+        Fut: Future<Output = Result<Data, actix_web::Error>>,
         IV: IntoView + 'static;
 }
 
@@ -540,7 +543,7 @@ where
     ) -> Self
     where
         Data: 'static,
-        Fut: Future<Output = Data>,
+        Fut: Future<Output = Result<Data, actix_web::Error>>,
         IV: IntoView + 'static,
     {
         let mut router = self;
