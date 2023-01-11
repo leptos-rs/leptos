@@ -87,7 +87,15 @@ impl RouterContext {
                 let history = use_context::<RouterIntegrationContext>(cx)
                     .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
             } else {
-                let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.");
+                let history = use_context::<RouterIntegrationContext>(cx).unwrap_or_else(|| {
+                    let msg = "No router integration found.\n\nIf you are using this in the browser, \
+                        you should enable `feature = [\"csr\"]` or `feature = [\"hydrate\"] in your \
+                        `leptos_router` import.\n\nIf you are using this on the server without a \
+                        Leptos server integration, you must call provide_context::<RouterIntegrationContext>(cx, ...) \
+                        somewhere above the <Router/>.";
+                    leptos::debug_warn!("{}", msg);
+                    panic!("{}", msg);
+                });
             }
         };
 
