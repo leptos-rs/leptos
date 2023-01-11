@@ -1,12 +1,13 @@
 #![forbid(unsafe_code)]
 
 use actix_web::{
+    body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
     http::header,
     web::Bytes,
     *,
 };
-use futures::StreamExt;
+use futures::{Future, StreamExt};
 use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
@@ -258,131 +259,238 @@ where
         let options = options.clone();
         let app_fn = app_fn.clone();
         let res_options = ResponseOptions::default();
-        let res_options_default = res_options.clone();
+
         async move {
-            let path = req.path();
-
-            let query = req.query_string();
-            let path = if query.is_empty() {
-                "http://leptos".to_string() + path
-            } else {
-                "http://leptos".to_string() + path + "?" + query
-            };
-
             let app = {
                 let app_fn = app_fn.clone();
+                let res_options = res_options.clone();
                 move |cx| {
-                    let integration = ServerIntegration { path: path.clone() };
-                    provide_context(cx, RouterIntegrationContext::new(integration));
-                    provide_context(cx, MetaContext::new());
-                    provide_context(cx, res_options_default.clone());
-                    provide_context(cx, req.clone());
-
+                    provide_contexts(cx, &req, res_options);
                     (app_fn)(cx).into_view(cx)
                 }
             };
 
-                // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-                // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
-                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
-                let output_name = &options.output_name;
-                let mut wasm_output_name = output_name.clone();
-                if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
-                    wasm_output_name.push_str("_bg");
-                }
+            let (head, tail) = html_parts(&options);
 
-                let site_ip = &options.site_address.ip().to_string();
-                let reload_port = options.reload_port;
-                let pkg_path = &options.site_pkg_dir;
-
-                let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
-                    true => format!(
-                        r#"
-                        <script crossorigin="">(function () {{
-                            var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                            ws.onmessage = (ev) => {{
-                                let msg = JSON.parse(ev.data);
-                                if (msg.all) window.location.reload();
-                                if (msg.css) {{
-                                    const link = document.querySelector("link#leptos");
-                                    if (link) {{
-                                        let href = link.getAttribute('href').split('?')[0];
-                                        let newHref = href + '?version=' + new Date().getMilliseconds();
-                                        link.setAttribute('href', newHref);
-                                    }} else {{
-                                        console.warn("Could not find link#leptos");
-                                    }}
-                                }};
-                            }};
-                            ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-                        }})()
-                        </script>
-                        "#
-                    ),
-                    false => "".to_string(),
-                };
-
-                let head = format!(
-                    r#"<!DOCTYPE html>
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                            {leptos_autoreload}
-                            "#
-                );
-                let tail = "</body></html>";
-
-            let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(
-                app,
-                move |cx| {
-                    let head = use_context::<MetaContext>(cx)
-                        .map(|meta| meta.dehydrate())
-                        .unwrap_or_default();
-                    format!("{head}</head><body>").into()
-                });
-
-            let mut stream = Box::pin(futures::stream::once(async move { head.clone() })
-                .chain(stream)
-                .chain(futures::stream::once(async move {
-                    runtime.dispose();
-                    tail.to_string()
-                }))
-                .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>));
-
-            // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
-            let first_chunk = stream.next().await;
-            let second_chunk = stream.next().await;
-            let third_chunk = stream.next().await;
-
-            let res_options = res_options.0.read().await;
-
-            let (status, mut headers) = (res_options.status, res_options.headers.clone());
-            let status = status.unwrap_or_default();
-
-            let complete_stream =
-            futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap(), third_chunk.unwrap()])
-                .chain(stream);
-            let mut res = HttpResponse::Ok().content_type("text/html").streaming(
-                complete_stream
-            );
-            // Add headers manipulated in the response
-            for (key, value) in headers.drain(){
-                if let Some(key) = key{
-                res.headers_mut().append(key, value);
-                }
-            };
-            // Set status to what is returned in the function
-            let res_status = res.status_mut();
-            *res_status = status;
-            // Return the response
-            res
-
+            stream_app(app, head, tail, res_options).await
         }
     })
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
+/// rendering it, and includes any meta tags injected using [leptos_meta].
+///
+/// The HTML stream is rendered using [render_to_stream], and includes everything described in
+/// the documentation for that function.
+///
+/// This can then be set up at an appropriate route in your application:
+/// ```
+/// use actix_web::{HttpServer, App};
+/// use leptos::*;
+/// use std::{env,net::SocketAddr};
+/// use leptos_actix::DataResponse;
+///
+/// #[component]
+/// fn MyApp(cx: Scope, data: &'static str) -> impl IntoView {
+///   view! { cx, <main>"Hello, world!"</main> }
+/// }
+///
+/// # if false { // don't actually try to run a server in a doctest...
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let addr = conf.leptos_options.site_address.clone();
+///     HttpServer::new(move || {
+///         let leptos_options = &conf.leptos_options;
+///     
+///         App::new()
+///             // {tail:.*} passes the remainder of the URL as the route
+///             // the actual routing will be handled by `leptos_router`
+///             .route("/{tail:.*}", leptos_actix::render_preloaded_data_app(
+///                 leptos_options.to_owned(),
+///                 |req| async move { Ok(DataResponse::Data("async func that can preload data")) },
+///                 |cx, data| view! { cx, <MyApp data/> })
+///             )
+///     })
+///     .bind(&addr)?
+///     .run()
+///     .await
+/// }
+/// # }
+/// ```
+pub fn render_preloaded_data_app<Data, Fut, IV>(
+    options: LeptosOptions,
+    data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
+    app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
+) -> Route
+where
+    Data: 'static,
+    Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
+    IV: IntoView + 'static,
+{
+    web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
+        let app_fn = app_fn.clone();
+        let data_fn = data_fn.clone();
+        let res_options = ResponseOptions::default();
+
+        async move {
+            let data = match data_fn(req.clone()).await {
+                Err(e) => return HttpResponse::from_error(e),
+                Ok(DataResponse::Response(r)) => return r.into(),
+                Ok(DataResponse::Data(d)) => d,
+            };
+
+            let app = {
+                let app_fn = app_fn.clone();
+                let res_options = res_options.clone();
+                move |cx| {
+                    provide_contexts(cx, &req, res_options);
+                    (app_fn)(cx, data).into_view(cx)
+                }
+            };
+
+            let (head, tail) = html_parts(&options);
+
+            stream_app(app, head, tail, res_options).await
+        }
+    })
+}
+
+fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseOptions) {
+    let path = leptos_corrected_path(&req);
+
+    let integration = ServerIntegration { path };
+    provide_context(cx, RouterIntegrationContext::new(integration));
+    provide_context(cx, MetaContext::new());
+    provide_context(cx, res_options);
+    provide_context(cx, req.clone());
+}
+
+fn leptos_corrected_path(req: &HttpRequest) -> String {
+    let path = req.path();
+    let query = req.query_string();
+    if query.is_empty() {
+        "http://leptos".to_string() + path
+    } else {
+        "http://leptos".to_string() + path + "?" + query
+    }
+}
+
+async fn stream_app(
+    app: impl FnOnce(leptos::Scope) -> View + 'static,
+    head: String,
+    tail: String,
+    res_options: ResponseOptions,
+) -> HttpResponse<BoxBody> {
+    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(app, move |cx| {
+        let head = use_context::<MetaContext>(cx)
+            .map(|meta| meta.dehydrate())
+            .unwrap_or_default();
+        format!("{head}</head><body>").into()
+    });
+
+    let mut stream = Box::pin(
+        futures::stream::once(async move { head.clone() })
+            .chain(stream)
+            .chain(futures::stream::once(async move {
+                runtime.dispose();
+                tail.to_string()
+            }))
+            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+    );
+
+    // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+    let first_chunk = stream.next().await;
+    let second_chunk = stream.next().await;
+    let third_chunk = stream.next().await;
+
+    let res_options = res_options.0.read().await;
+
+    let (status, mut headers) = (res_options.status, res_options.headers.clone());
+    let status = status.unwrap_or_default();
+
+    let complete_stream = futures::stream::iter([
+        first_chunk.unwrap(),
+        second_chunk.unwrap(),
+        third_chunk.unwrap(),
+    ])
+    .chain(stream);
+    let mut res = HttpResponse::Ok()
+        .content_type("text/html")
+        .streaming(complete_stream);
+    // Add headers manipulated in the response
+    for (key, value) in headers.drain() {
+        if let Some(key) = key {
+            res.headers_mut().append(key, value);
+        }
+    }
+    // Set status to what is returned in the function
+    let res_status = res.status_mut();
+    *res_status = status;
+    // Return the response
+    res
+}
+
+fn html_parts(options: &LeptosOptions) -> (String, String) {
+    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
+    // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
+    let output_name = &options.output_name;
+    let mut wasm_output_name = output_name.clone();
+    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+        wasm_output_name.push_str("_bg");
+    }
+
+    let site_ip = &options.site_address.ip().to_string();
+    let reload_port = options.reload_port;
+    let pkg_path = &options.site_pkg_dir;
+
+    let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
+        true => format!(
+            r#"
+            <script crossorigin="">(function () {{
+                var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+                ws.onmessage = (ev) => {{
+                    let msg = JSON.parse(ev.data);
+                    if (msg.all) window.location.reload();
+                    if (msg.css) {{
+                        const link = document.querySelector("link#leptos");
+                        if (link) {{
+                            let href = link.getAttribute('href').split('?')[0];
+                            let newHref = href + '?version=' + new Date().getMilliseconds();
+                            link.setAttribute('href', newHref);
+                        }} else {{
+                            console.warn("Could not find link#leptos");
+                        }}
+                    }};
+                }};
+                ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+            }})()
+            </script>
+            "#
+        ),
+        false => "".to_string(),
+    };
+
+    let head = format!(
+        r#"<!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                {leptos_autoreload}
+                "#
+    );
+    let tail = "</body></html>".to_string();
+
+    (head, tail)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
@@ -424,6 +532,11 @@ where
     }
 }
 
+pub enum DataResponse<T> {
+    Data(T),
+    Response(actix_web::dev::Response<BoxBody>),
+}
+
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
@@ -435,7 +548,20 @@ pub trait LeptosRoutes {
     ) -> Self
     where
         IV: IntoView + 'static;
+
+    fn leptos_preloaded_data_routes<Data, Fut, IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
+        app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        Data: 'static,
+        Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
+        IV: IntoView + 'static;
 }
+
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl<T> LeptosRoutes for actix_web::App<T>
@@ -454,6 +580,29 @@ where
         let mut router = self;
         for path in paths.iter() {
             router = router.route(path, render_app_to_stream(options.clone(), app_fn.clone()));
+        }
+        router
+    }
+
+    fn leptos_preloaded_data_routes<Data, Fut, IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
+        app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        Data: 'static,
+        Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                render_preloaded_data_app(options.clone(), data_fn.clone(), app_fn.clone()),
+            );
         }
         router
     }
