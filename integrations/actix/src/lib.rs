@@ -291,9 +291,10 @@ where
 /// use actix_web::{HttpServer, App};
 /// use leptos::*;
 /// use std::{env,net::SocketAddr};
+/// use leptos_actix::DataResponse;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope, data: String) -> impl IntoView {
+/// fn MyApp(cx: Scope, data: &'static str) -> impl IntoView {
 ///   view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
@@ -310,7 +311,7 @@ where
 ///             // the actual routing will be handled by `leptos_router`
 ///             .route("/{tail:.*}", leptos_actix::render_preloaded_data_app(
 ///                 leptos_options.to_owned(),
-///                 |req| async move { Ok("async func that can preload data".to_owned()) },
+///                 |req| async move { Ok(DataResponse::Data("async func that can preload data")) },
 ///                 |cx, data| view! { cx, <MyApp data/> })
 ///             )
 ///     })
@@ -327,7 +328,7 @@ pub fn render_preloaded_data_app<Data, Fut, IV>(
 ) -> Route
 where
     Data: 'static,
-    Fut: Future<Output = Result<Data, actix_web::Error>>,
+    Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
     IV: IntoView + 'static,
 {
     web::get().to(move |req: HttpRequest| {
@@ -339,7 +340,8 @@ where
         async move {
             let data = match data_fn(req.clone()).await {
                 Err(e) => return HttpResponse::from_error(e),
-                Ok(d) => d,
+                Ok(DataResponse::Response(r)) => return r.into(),
+                Ok(DataResponse::Data(d)) => d,
             };
 
             let app = {
@@ -530,6 +532,11 @@ where
     }
 }
 
+pub enum DataResponse<T> {
+    Data(T),
+    Response(actix_web::dev::Response<BoxBody>),
+}
+
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
@@ -551,7 +558,7 @@ pub trait LeptosRoutes {
     ) -> Self
     where
         Data: 'static,
-        Fut: Future<Output = Result<Data, actix_web::Error>>,
+        Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
         IV: IntoView + 'static;
 }
 
@@ -586,7 +593,7 @@ where
     ) -> Self
     where
         Data: 'static,
-        Fut: Future<Output = Result<Data, actix_web::Error>>,
+        Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
         IV: IntoView + 'static,
     {
         let mut router = self;
