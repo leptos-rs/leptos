@@ -1,6 +1,6 @@
 [package]
 name = "leptos_dom"
-version.workspace = true
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -17,7 +17,7 @@ html-escape = "0.2"
 indexmap = "1.9"
 itertools = "0.10"
 js-sys = "0.3"
-leptos_reactive.workspace = true
+leptos_reactive = { workspace = true }
 once_cell = "1"
 pad-adapter = "0.1"
 paste = "1"

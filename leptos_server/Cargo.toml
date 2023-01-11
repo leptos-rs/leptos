@@ -1,6 +1,6 @@
 [package]
 name = "leptos_server"
-version.workspace = true
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -8,8 +8,8 @@ repository = "https://github.com/gbj/leptos"
 description = "RPC for the Leptos web framework."
 
 [dependencies]
-leptos_dom.workspace = true
-leptos_reactive.workspace = true
+leptos_dom = { workspace = true }
+leptos_reactive = { workspace = true }
 form_urlencoded = "1"
 gloo-net = "0.2"
 lazy_static = "1"
@@ -26,7 +26,7 @@ proc-macro2 = "1.0.47"
 ciborium = "0.2.0"
 
 [dev-dependencies]
-leptos.workspace = true
+leptos = { workspace = true }
 
 [features]
 csr = [
