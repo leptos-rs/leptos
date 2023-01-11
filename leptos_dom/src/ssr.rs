@@ -382,24 +382,32 @@ impl View {
         } else {
           let tag_name = el.name;
 
+          let mut inner_html = None;
+
           let attrs = el
             .attrs
             .into_iter()
-            .map(|(name, value)| -> Cow<'static, str> {
+            .filter_map(|(name, value)| -> Option<Cow<'static, str>> {
               if value.is_empty() {
-                format!(" {name}").into()
-              } else {
-                format!(
+                Some(format!(" {name}").into())
+              } else if name == "inner_html" {
+                inner_html = Some(value);
+                None
+              }
+              else {
+                Some(format!(
                   " {name}=\"{}\"",
                   html_escape::encode_double_quoted_attribute(&value)
                 )
-                .into()
+                .into())
               }
             })
             .join("");
 
           if el.is_void {
             format!("<{tag_name}{attrs}/>").into()
+          } else if let Some(inner_html) = inner_html {
+            format!("<{tag_name}{attrs}>{inner_html}</{tag_name}>").into()
           } else {
             let children = el
               .children
