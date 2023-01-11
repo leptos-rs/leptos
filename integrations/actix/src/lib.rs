@@ -277,7 +277,50 @@ where
     })
 }
 
-pub fn render_data_app_to_stream<Data, Fut, IV>(
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
+/// rendering it, and includes any meta tags injected using [leptos_meta].
+///
+/// The HTML stream is rendered using [render_to_stream], and includes everything described in
+/// the documentation for that function.
+///
+/// This can then be set up at an appropriate route in your application:
+/// ```
+/// use actix_web::{HttpServer, App};
+/// use leptos::*;
+/// use std::{env,net::SocketAddr};
+///
+/// #[component]
+/// fn MyApp(cx: Scope, data: String) -> impl IntoView {
+///   view! { cx, <main>"Hello, world!"</main> }
+/// }
+///
+/// # if false { // don't actually try to run a server in a doctest...
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let addr = conf.leptos_options.site_address.clone();
+///     HttpServer::new(move || {
+///         let leptos_options = &conf.leptos_options;
+///     
+///         App::new()
+///             // {tail:.*} passes the remainder of the URL as the route
+///             // the actual routing will be handled by `leptos_router`
+///             .route("/{tail:.*}", leptos_actix::render_preloaded_data_app(
+///                 leptos_options.to_owned(),
+///                 |req| async move { Ok("async func that can preload data".to_owned()) },
+///                 |cx, data| view! { cx, <MyApp data/> })
+///             )
+///     })
+///     .bind(&addr)?
+///     .run()
+///     .await
+/// }
+/// # }
+/// ```
+pub fn render_preloaded_data_app<Data, Fut, IV>(
     options: LeptosOptions,
     data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
     app_fn: impl Fn(leptos::Scope, Data) -> IV + Clone + Send + 'static,
@@ -499,7 +542,7 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 
-    fn leptos_data_routes<Data, Fut, IV>(
+    fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
         options: LeptosOptions,
         paths: Vec<String>,
@@ -534,7 +577,7 @@ where
         router
     }
 
-    fn leptos_data_routes<Data, Fut, IV>(
+    fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
         options: LeptosOptions,
         paths: Vec<String>,
@@ -551,7 +594,7 @@ where
         for path in paths.iter() {
             router = router.route(
                 path,
-                render_data_app_to_stream(options.clone(), data_fn.clone(), app_fn.clone()),
+                render_preloaded_data_app(options.clone(), data_fn.clone(), app_fn.clone()),
             );
         }
         router
