@@ -16,11 +16,11 @@ use std::hash::Hash;
 ///   id: usize,
 ///   count: RwSignal<i32>
 /// }
-/// 
+///
 /// #[component]
 /// fn Counters(cx: Scope) -> impl IntoView {
 ///   let (counters, set_counters) = create_signal::<Vec<Counter>>(cx, vec![]);
-/// 
+///
 ///   view! {
 ///     cx,
 ///     <div>
