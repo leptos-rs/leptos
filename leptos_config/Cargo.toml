@@ -1,6 +1,6 @@
 [package]
 name = "leptos_config"
-version = "0.1.0-beta"
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -14,4 +14,3 @@ regex = "1.7.0"
 serde = { version = "1.0.151", features = ["derive"] }
 thiserror = "1.0.38"
 typed-builder = "0.11.0"
-

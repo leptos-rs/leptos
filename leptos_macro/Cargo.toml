@@ -24,13 +24,13 @@ syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
 leptos_dom = { workspace = true }
 leptos_reactive = { workspace = true }
-leptos_server = {workspace = true }
+leptos_server = { workspace = true }
 lazy_static = "1.4"
 
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.10"
-leptos = { workspace = true }
+leptos = { path = "../leptos" }
 
 [features]
 default = ["ssr"]
