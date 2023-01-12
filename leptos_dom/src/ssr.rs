@@ -393,13 +393,14 @@ impl View {
               } else if name == "inner_html" {
                 inner_html = Some(value);
                 None
-              }
-              else {
-                Some(format!(
-                  " {name}=\"{}\"",
-                  html_escape::encode_double_quoted_attribute(&value)
+              } else {
+                Some(
+                  format!(
+                    " {name}=\"{}\"",
+                    html_escape::encode_double_quoted_attribute(&value)
+                  )
+                  .into(),
                 )
-                .into())
               }
             })
             .join("");
