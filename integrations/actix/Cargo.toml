@@ -1,6 +1,6 @@
 [package]
 name = "leptos_actix"
-version.workspace = true
+version = {workspace = true}
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
