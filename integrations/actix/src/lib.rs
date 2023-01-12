@@ -361,7 +361,7 @@ where
 }
 
 fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseOptions) {
-    let path = leptos_corrected_path(&req);
+    let path = leptos_corrected_path(req);
 
     let integration = ServerIntegration { path };
     provide_context(cx, RouterIntegrationContext::new(integration));

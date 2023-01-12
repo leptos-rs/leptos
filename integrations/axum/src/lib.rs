@@ -524,9 +524,9 @@ where
         .collect();
 
     if routes.is_empty() {
-        return vec!["/".to_string()];
+        vec!["/".to_string()]
     } else {
-        return routes;
+        routes
     }
 }
 
