@@ -4,7 +4,7 @@
 //! # Leptos Meta
 //!
 //! Leptos Meta allows you to modify content in a document’s `<head>` from within components
-//! using the [Leptos](https://github.com/gbj/leptos) web framework.
+//! using the [Leptos](https://github.com/leptos-rs/leptos) web framework.
 //!
 //! Document metadata is updated automatically when running in the browser. For server-side
 //! rendering, after the component tree is rendered to HTML, [MetaContext::dehydrate] can generate

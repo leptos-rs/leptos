@@ -1,6 +1,6 @@
 # Introduction
 
-This book is intended as an introduction to the [Leptos](https://github.com/gbj/leptos) Web framework. Together, we’ll build a simple todo app—first as a client-side app, then as a full-stack app.
+This book is intended as an introduction to the [Leptos](https://github.com/leptos-rs/leptos) Web framework. Together, we’ll build a simple todo app—first as a client-side app, then as a full-stack app.
 
 The guide doesn’t assume you know anything about fine-grained reactivity or the details of modern Web frameworks. It does assume you are familiar with the Rust programming language, HTML, CSS, and the DOM and other Web APIs.
 
