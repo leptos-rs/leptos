@@ -49,7 +49,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             #[cfg(not(target_os = "windows"))]
             let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace('/', "-");
             #[cfg(target_os = "windows")]
-            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
+            let url = format!("{}\\{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
         } else {
             let url = fn_name_as_str;
         }
