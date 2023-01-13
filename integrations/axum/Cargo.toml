@@ -1,10 +1,10 @@
 [package]
 name = "leptos_axum"
-version = {workspace = true}
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
 
 [dependencies]

@@ -1,6 +1,6 @@
 # Leptos Starter Template
 
-This is a template demonstrating how to integrate [TailwindCSS](https://tailwindcss.com/) with the [Leptos](https://github.com/gbj/leptos) web framework and the [cargo-leptos](https://github.com/akesson/cargo-leptos) tool.
+This is a template demonstrating how to integrate [TailwindCSS](https://tailwindcss.com/) with the [Leptos](https://github.com/leptos-rs/leptos) web framework and the [cargo-leptos](https://github.com/akesson/cargo-leptos) tool.
 
 If you don't have `cargo-leptos` installed you can install it with
 
@@ -52,12 +52,10 @@ If you're using VS Code, add the following to your `settings.json`
   "css.validate": false,
 ```
 
-
 Install [Tailwind CSS Intellisense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss).
 
     Install "VS Browser" extension, a browser at the right window.
     Allow vscode Ports forward: 3000, 3001.
-
 
 ## Notes about Tooling
 
@@ -91,15 +89,16 @@ Then run the server with `cargo run` to serve the server side rendered HTML and 
 cargo run --no-default-features --features=ssr
 ```
 
-> Note that if your hydration code changes, you will have to rerun the wasm-pack command above before running 
+> Note that if your hydration code changes, you will have to rerun the wasm-pack command above before running
 > `cargo run`
 
 ### Client Side Rendering
 
 You'll need to install trunk to client side render this bundle.
+
 1. `cargo install trunk`
-Then the site can be served with `trunk serve --open`
+   Then the site can be served with `trunk serve --open`
 
 ## Attribution
 
-Many thanks to GreatGreg for putting together this guide. You can find the original, with added details, [here](https://github.com/gbj/leptos/discussions/125).
+Many thanks to GreatGreg for putting together this guide. You can find the original, with added details, [here](https://github.com/leptos-rs/leptos/discussions/125).

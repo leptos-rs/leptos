@@ -17,7 +17,7 @@ use crate::{use_head, TextProp};
 ///     <main>
 ///       <Meta charset="utf-8"/>
 ///       <Meta name="description" content="A Leptos fan site."/>
-///       <Meta http_equiv="refresh" content="3;url=https://github.com/gbj/leptos"/>
+///       <Meta http_equiv="refresh" content="3;url=https://github.com/leptos-rs/leptos"/>
 ///     </main>
 ///   }
 /// }

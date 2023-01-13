@@ -61,9 +61,9 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 
 Here are some resources for learning more about Leptos:
 
-- [Examples](https://github.com/gbj/leptos/tree/main/examples)
+- [Examples](https://github.com/leptos-rs/leptos/tree/main/examples)
 - [API Documentation](https://docs.rs/leptos/latest/leptos/)
-- [Common Bugs](https://github.com/gbj/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
+- [Common Bugs](https://github.com/leptos-rs/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
 - Leptos Guide (in progress)
 
 ## `nightly` Note
@@ -83,7 +83,7 @@ If you’re on `stable`, note the following:
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
-   [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
+   [`counters-stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters-stable/src/main.rs)
    for examples of the correct API.
 
 ## `cargo-leptos`
@@ -108,7 +108,7 @@ Sure! Obviously the `view` macro is for generating DOM nodes but you can use the
 - Use event listeners to update signals
 - Create effects to update the UI
 
-I've put together a [very simple GTK example](https://github.com/gbj/leptos/blob/main/examples/gtk/src/main.rs) so you can see what I mean.
+I've put together a [very simple GTK example](https://github.com/leptos-rs/leptos/blob/main/examples/gtk/src/main.rs) so you can see what I mean.
 
 ### How is this different from Yew/Dioxus?
 

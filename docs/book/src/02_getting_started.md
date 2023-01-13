@@ -1,8 +1,8 @@
 # Getting Started
 
-> The code for this chapter can be found [here](https://github.com/gbj/leptos/tree/main/docs/book/project/ch02_getting_started).
+> The code for this chapter can be found [here](https://github.com/leptos-rs/leptos/tree/main/docs/book/project/ch02_getting_started).
 
-The easiest way to get started using Leptos is to use [Trunk](https://trunkrs.dev/), as many of our [examples](https://github.com/gbj/leptos/tree/main/examples) do. (Trunk is a simple build tool that includes a dev server.)
+The easiest way to get started using Leptos is to use [Trunk](https://trunkrs.dev/), as many of our [examples](https://github.com/leptos-rs/leptos/tree/main/examples) do. (Trunk is a simple build tool that includes a dev server.)
 
 If you don’t already have it installed, you can install Trunk by running
 

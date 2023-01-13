@@ -1,6 +1,6 @@
 # Templating: Building User Interfaces
 
-> The code for this chapter can be found [here](https://github.com/gbj/leptos/tree/main/docs/book/project/ch03_building_ui).
+> The code for this chapter can be found [here](https://github.com/leptos-rs/leptos/tree/main/docs/book/project/ch03_building_ui).
 
 ## RSX and the `view!` macro
 
