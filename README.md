@@ -83,7 +83,7 @@ If you’re on `stable`, note the following:
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
-   [`counters-stable` example](https://github.com/gbj/leptos/blob/main/examples/counters-stable/src/main.rs)
+   [`counters_stable` example](https://github.com/gbj/leptos/blob/main/examples/counters_stable/src/main.rs)
    for examples of the correct API.
 
 ## `cargo-leptos`
