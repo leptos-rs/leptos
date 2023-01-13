@@ -82,13 +82,13 @@ If you’re on `stable`, note the following:
 
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
-   you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
-   [`counters-stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters-stable/src/main.rs)
+   you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the 
+   [`counters_stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters_stable/src/main.rs)
    for examples of the correct API.
 
 ## `cargo-leptos`
 
-[`cargo-leptos`](https://github.com/akesson/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our [starter template](https://github.com/leptos-rs/start).
+[`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our [starter template](https://github.com/leptos-rs/start).
 
 ```bash
 cargo install cargo-leptos
