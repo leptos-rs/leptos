@@ -165,6 +165,66 @@ pub struct Custom {
   id: HydrationKey,
 }
 
+impl Custom {
+  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    let name = name.into();
+    let id = HydrationCtx::id();
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    let element = if HydrationCtx::is_hydrating() {
+      if let Some(el) = crate::document().get_element_by_id(&format!("_{id}")) {
+        #[cfg(debug_assertions)]
+        assert_eq!(
+          el.node_name().to_ascii_uppercase(),
+          name.to_ascii_uppercase(),
+          "SSR and CSR elements have the same `TopoId` but different node \
+           kinds. This is either a discrepancy between SSR and CSR rendering
+                    logic, which is considered a bug, or it can also be a \
+           leptos hydration issue."
+        );
+
+        el.remove_attribute("id").unwrap();
+
+        el.unchecked_into()
+      } else if let Ok(Some(el)) =
+        crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
+      {
+        #[cfg(debug_assertions)]
+        assert_eq!(
+          el.node_name().to_ascii_uppercase(),
+          name.to_ascii_uppercase(),
+          "SSR and CSR elements have the same `TopoId` but different node \
+           kinds. This is either a discrepancy between SSR and CSR rendering
+                    logic, which is considered a bug, or it can also be a \
+           leptos hydration issue."
+        );
+
+        el.remove_attribute("leptos-hk").unwrap();
+
+        el.unchecked_into()
+      } else {
+        gloo::console::warn!(
+          "element with id",
+          format!("_{id}"),
+          "not found, ignoring it for hydration"
+        );
+
+        crate::document().create_element(&name).unwrap()
+      }
+    } else {
+      crate::document().create_element(&name).unwrap()
+    };
+
+    Self {
+      name,
+      #[cfg(all(target_arch = "wasm32", feature = "web"))]
+      element: element.unchecked_into(),
+      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+      id,
+    }
+  }
+}
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl std::ops::Deref for Custom {
   type Target = web_sys::HtmlElement;

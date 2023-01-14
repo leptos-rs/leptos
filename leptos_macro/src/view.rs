@@ -554,7 +554,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -
         let tag = node.name.to_string();
         let name = if is_custom_element(&tag) {
             let name = node.name.to_string();
-            quote! { leptos::leptos_dom::custom(#cx, #name) }
+            quote! { leptos::leptos_dom::custom(#cx, leptos::leptos_dom::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             let name = &node.name;
             parent_type = TagType::Svg;
