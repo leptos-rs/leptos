@@ -1,7 +1,7 @@
 use cfg_if::cfg_if;
-use leptos_dom::{Component, DynChild, Fragment, IntoView};
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-use leptos_dom::{HydrationCtx, HydrationKey};
+use leptos_dom::HydrationCtx;
+use leptos_dom::{DynChild, Fragment, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use std::rc::Rc;
@@ -73,7 +73,7 @@ where
 
     let orig_child = Rc::new(children);
 
-    Component::new("Suspense", move |cx| {
+    leptos_dom::custom(cx, leptos_dom::Custom::new("leptos-suspense")).child({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         let current_id = HydrationCtx::peek();
 
@@ -104,13 +104,9 @@ where
                                 &current_id.to_string(),
                                 {
                                     let current_id = current_id.clone();
-                                    let fragment_id = HydrationKey {
-                                        previous: current_id.previous,
-                                        offset: current_id.offset + 1
-                                    };
                                     move || {
-                                        HydrationCtx::continue_from(fragment_id);
-                                        orig_child(cx)
+                                        HydrationCtx::continue_from(current_id.clone());
+                                        DynChild::new(move || orig_child(cx))
                                             .into_view(cx)
                                             .render_to_string(cx)
                                             .to_string()
