@@ -1,21 +1,20 @@
 use crate::{create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter};
 
-/// derives a reactive slice from an [RwSignal](crate::RwSignal)
+/// Derives a reactive slice of an [RwSignal](crate::RwSignal).
 ///
-/// Slices have the same guarantees as [Memos](crate::Memo),
+/// Slices have the same guarantees as [Memos](crate::Memo):
 /// they only emit their value when it has actually been changed.
 ///
-/// slices need a getter and a setter, and you must make sure that
+/// Slices need a getter and a setter, and you must make sure that
 /// the setter and getter only touch their respective field and nothing else.
 /// They optimally should not have any side effects.
 ///
-/// you can use slices whenever you want to react to only parts
-/// of a bigger signal, the prime example would be state management
-/// where you want all state variables grouped up but also need
+/// You can use slices whenever you want to react to only parts
+/// of a bigger signal. The prime example would be state management,
+/// where you want all state variables grouped together, but also need
 /// fine-grained signals for each or some of these variables.
 /// In the example below, setting an auth token will only trigger
 /// the token signal, but none of the other derived signals.
-///
 /// ```
 /// # use leptos_reactive::*;
 /// # let (cx, disposer) = raw_scope_and_disposer(create_runtime());
@@ -49,13 +48,14 @@ use crate::{create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter
 /// );
 /// let count_token_updates = create_rw_signal(cx, 0);
 /// count_token_updates.with(|counter| assert_eq!(counter, &0));
-/// create_effect(cx, move |_| {
-///     token.with(|_| {});
+/// create_isomorphic_effect(cx, move |_| {
+///     _ = token.with(|_| {});
 ///     count_token_updates.update(|counter| *counter += 1)
 /// });
 /// count_token_updates.with(|counter| assert_eq!(counter, &1));
 /// set_token.set("this is not a token!".into());
 /// // token was updated with the new token
+/// token.with(|token| assert_eq!(token, "this is not a token!"));
 /// count_token_updates.with(|counter| assert_eq!(counter, &2));
 /// set_dark_mode.set(true);
 /// // since token didn't change, there was also no update emitted
