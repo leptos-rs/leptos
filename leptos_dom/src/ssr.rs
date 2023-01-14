@@ -399,6 +399,7 @@ impl View {
   }
 }
 
+#[cfg(debug_assertions)]
 fn to_kebab_case(name: &str) -> String {
   if name.is_empty() {
     return String::new();
