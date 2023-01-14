@@ -1,5 +1,3 @@
-**NOTE: We're in the middle of merging changes and making fixes to support our upcoming `0.1.0` release. Some of the examples may be in a broken state. You can continue using the `0.0` releases with no issues.**
-
 <picture>
     <source srcset="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_pref_dark_RGB.svg" media="(prefers-color-scheme: dark)">
     <img src="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_RGB.svg" alt="Leptos Logo">
@@ -126,7 +124,6 @@ There are some practical differences that make a significant difference:
 
 - **Maturity:** Sycamore is obviously a much more mature and stable library with a larger ecosystem.
 - **Templating:** Leptos uses a JSX-like template format (built on [syn-rsx](https://github.com/stoically/syn-rsx)) for its `view` macro. Sycamore offers the choice of its own templating DSL or a builder syntax.
-- **Template node cloning:** Leptos's `view` macro compiles to a static HTML string and a set of instructions of how to assign its reactive values. This means that at runtime, Leptos can clone a `<template>` node rather than calling `document.createElement()` to create DOM nodes. This is a _significantly_ faster way of rendering components.
 - **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
