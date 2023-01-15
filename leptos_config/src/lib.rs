@@ -152,7 +152,10 @@ impl TryFrom<String> for Env {
 }
 
 /// Loads [LeptosOptions] from a Cargo.toml with layered overrides. If an env var is specified, like `LEPTOS_ENV`,
-/// it will override a setting in the file.
+/// it will override a setting in the file. It takes in an optional path to a Cargo.toml file. If None is provided,
+/// you'll need to set the options as environment variables or rely on the defaults. This is the preferred
+/// approach for cargo-leptos. If Some("./Cargo.toml") is provided, Leptos will read in the settings itself. This
+/// option currently does not allow dashes in file or foldernames, as all dashes become underscores
 pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosConfigError> {
     if let Some(path) = path {
         let text = fs::read_to_string(path).map_err(|_| LeptosConfigError::ConfigNotFound)?;

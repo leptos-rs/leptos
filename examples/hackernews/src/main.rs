@@ -21,7 +21,9 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-            let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+            // Setting this to None means we'll be using cargo-leptos and its env vars.
+            let conf = get_configuration(None).await.unwrap();
+
             let addr = conf.leptos_options.site_address.clone();
             // Generate the list of routes in your Leptos App
             let routes = generate_route_list(|cx| view! { cx, <App/> });

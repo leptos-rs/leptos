@@ -26,7 +26,8 @@ if #[cfg(feature = "ssr")] {
 
         crate::todo::register_server_functions();
 
-        let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+        // Setting this to None means we'll be using cargo-leptos and its env vars
+        let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_address.clone();
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;

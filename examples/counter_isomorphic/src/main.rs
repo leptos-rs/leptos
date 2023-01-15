@@ -33,7 +33,9 @@ cfg_if! {
 
             crate::counters::register_server_functions();
 
-            let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+            // Setting this to None means we'll be using cargo-leptos and its env vars.
+            let conf = get_configuration(None).await.unwrap();
+
             let addr = conf.leptos_options.site_address.clone();
             let routes = generate_route_list(|cx| view! { cx, <Counters/> });
 
