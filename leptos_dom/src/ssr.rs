@@ -16,7 +16,7 @@ use std::borrow::Cow;
 ///   <p>"Hello, world!"</p>
 /// });
 /// // static HTML includes some hydration info
-/// assert_eq!(html, "<style>[leptos]{display:none;}</style><p id=\"_0-1\">Hello, world!</p>");
+/// assert_eq!(html, "<p id=\"_0-1\">Hello, world!</p>");
 /// # }}
 /// ```
 pub fn render_to_string<F, N>(f: F) -> String
@@ -33,13 +33,7 @@ where
 
   runtime.dispose();
 
-  #[cfg(debug_assertions)]
-  {
-    format!("<style>[leptos]{{display:none;}}</style>{html}")
-  }
-
-  #[cfg(not(debug_assertions))]
-  format!("<style>l-m{{display:none;}}</style>{html}")
+  html.into()
 }
 
 /// Renders a function to a stream of HTML strings.
@@ -121,16 +115,6 @@ pub fn render_to_stream_with_prefix_undisposed(
       let resources = cx.pending_resources();
       let pending_resources = serde_json::to_string(&resources).unwrap();
       let prefix = prefix(cx);
-
-      let shell = {
-        #[cfg(debug_assertions)]
-        {
-          format!("<style>[leptos]{{display:none;}}</style>{shell}")
-        }
-
-        #[cfg(not(debug_assertions))]
-        format!("<style>l-m{{display:none;}}</style>{shell}")
-      };
 
       (
         shell,
@@ -218,7 +202,7 @@ impl View {
         };
         cfg_if! {
           if #[cfg(debug_assertions)] {
-            format!(r#"<leptos-{name}-start leptos id="{}"></leptos-{name}-start>{}<leptos-{name}-end leptos id="{}"></leptos-{name}-end>"#,
+            format!(r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
               HydrationCtx::to_string(&node.id, false),
               content(),
               HydrationCtx::to_string(&node.id, true),
@@ -226,7 +210,7 @@ impl View {
             ).into()
           } else {
             format!(
-              r#"{}<l-m id="{}"></l-m>"#,
+              r#"{}<!--hk={}-->"#,
               content(),
               HydrationCtx::to_string(&node.id, true)
             ).into()
@@ -243,14 +227,14 @@ impl View {
               #[cfg(debug_assertions)]
               {
                 format!(
-                  "<leptos-unit leptos id={}></leptos-unit>",
+                  "<!--hk={}|leptos-unit-->",
                   HydrationCtx::to_string(&u.id, true)
                 )
                 .into()
               }
 
               #[cfg(not(debug_assertions))]
-              format!("<l-m id={}></l-m>", HydrationCtx::to_string(&u.id, true))
+              format!("<!--hk={}-->", HydrationCtx::to_string(&u.id, true))
                 .into()
             }) as Box<dyn FnOnce() -> Cow<'static, str>>,
           ),
@@ -286,7 +270,6 @@ impl View {
           }
           CoreComponent::Each(node) => {
             let children = node.children.take();
-
             (
               node.id,
               "each",
@@ -303,10 +286,8 @@ impl View {
                     #[cfg(debug_assertions)]
                     {
                       format!(
-                        "<leptos-each-item-start leptos \
-                         id=\"{}\"></\
-                         leptos-each-item-start>{}<leptos-each-item-end \
-                         leptos id=\"{}\"></leptos-each-item-end>",
+                        "<!--hk={}|leptos-each-item-start-->{}\
+                         <!--hk={}|leptos-each-item-end-->",
                         HydrationCtx::to_string(&id, false),
                         content(),
                         HydrationCtx::to_string(&id, true),
@@ -315,7 +296,7 @@ impl View {
 
                     #[cfg(not(debug_assertions))]
                     format!(
-                      "{}<l-m id=\"{}\"></l-m>",
+                      "{}<!--hk={}-->",
                       content(),
                       HydrationCtx::to_string(&id, true)
                     )
@@ -331,7 +312,7 @@ impl View {
           cfg_if! {
             if #[cfg(debug_assertions)] {
               format!(
-                r#"<leptos-{name}-start leptos id="{}"></leptos-{name}-start>{}<leptos-{name}-end leptos id="{}"></leptos-{name}-end>"#,
+                r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
                 HydrationCtx::to_string(&id, false),
                 content(),
                 HydrationCtx::to_string(&id, true),
@@ -340,7 +321,7 @@ impl View {
               let _ = name;
 
               format!(
-                r#"{}<l-m id="{}"></l-m>"#,
+                r#"{}<!--hk={}-->"#,
                 content(),
                 HydrationCtx::to_string(&id, true)
               ).into()
