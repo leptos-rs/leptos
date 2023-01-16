@@ -286,8 +286,8 @@ impl View {
                     #[cfg(debug_assertions)]
                     {
                       format!(
-                        "<!--hk={}|leptos-each-item-start-->{}\
-                         <!--hk={}|leptos-each-item-end-->",
+                        "<!--hk={}|leptos-each-item-start-->{}<!\
+                         --hk={}|leptos-each-item-end-->",
                         HydrationCtx::to_string(&id, false),
                         content(),
                         HydrationCtx::to_string(&id, true),
