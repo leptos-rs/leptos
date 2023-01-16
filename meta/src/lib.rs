@@ -208,10 +208,10 @@ impl MetaContext {
     ///   // `app` contains only the body content w/ hydration stuff, not the meta tags
     ///   assert_eq!(
     ///      app.into_view(cx).render_to_string(cx),
-    ///      "<main id=\"_0-1\"><leptos-unit leptos id=_0-2c></leptos-unit><leptos-unit leptos id=_0-4c></leptos-unit><p id=\"_0-5\">Some text</p></main>"
+    ///      "<main id=\"_0-1\"><!--hk=_0-2c|leptos-unit--><!--hk=_0-4c|leptos-unit--><p id=\"_0-5\">Some text</p></main>"
     ///   );
     ///   // `MetaContext::dehydrate()` gives you HTML that should be in the `<head>`
-    ///   assert_eq!(use_head(cx).dehydrate(), r#"<title>my title</title><link id="leptos-link-1" href="/style.css" rel="stylesheet" leptos-hk="_0-3"/>"#)
+    ///   assert_eq!(use_head(cx).dehydrate(), "<title>my title</title><link id=\"leptos-link-1\" href=\"/style.css\" rel=\"stylesheet\" leptos-hk=\"_0-3\"/>")
     /// });
     /// # }
     /// ```
