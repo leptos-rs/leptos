@@ -26,7 +26,9 @@ cfg_if! {
 
             crate::todo::register_server_functions();
 
-            let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+            // Setting this to None means we'll be using cargo-leptos and its env vars.
+            let conf = get_configuration(None).await.unwrap();
+
             let addr = conf.leptos_options.site_address.clone();
 
             // Generate the list of routes in your Leptos App
