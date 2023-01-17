@@ -64,14 +64,14 @@ pub use title::*;
 ///
 /// This should generally by provided somewhere in the root of your application using
 /// [provide_meta_context].
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct MetaContext {
     pub(crate) title: TitleContext,
     pub(crate) tags: MetaTagsContext,
 }
 
 /// Manages all of the element created by components.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub(crate) struct MetaTagsContext {
     next_id: Rc<Cell<MetaTagId>>,
     #[allow(clippy::type_complexity)]
