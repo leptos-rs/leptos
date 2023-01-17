@@ -107,7 +107,7 @@ impl Scope {
     /// has navigated away from the route.)
     pub fn run_child_scope<T>(self, f: impl FnOnce(Scope) -> T) -> (T, ScopeDisposer) {
         let (res, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
                 .entry(self.id)
@@ -150,6 +150,7 @@ impl Scope {
             runtime.observer.set(prev_observer);
             untracked_result
         })
+        .expect("tried to run untracked function in a runtime that has been disposed")
     }
 }
 
@@ -163,7 +164,7 @@ impl Scope {
     /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
     pub fn dispose(self) {
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             // dispose of all child scopes
             let children = {
                 let mut children = runtime.scope_children.borrow_mut();
@@ -225,7 +226,7 @@ impl Scope {
     }
 
     pub(crate) fn with_scope_property(&self, f: impl FnOnce(&mut Vec<ScopeProperty>)) {
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
             let scope = scopes
                 .get(self.id)
@@ -240,7 +241,7 @@ impl Scope {
 /// It runs after child scopes have been disposed, but before signals, effects, and resources
 /// are invalidated.
 pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
-    with_runtime(cx.runtime, |runtime| {
+    _ = with_runtime(cx.runtime, |runtime| {
         let mut cleanups = runtime.scope_cleanups.borrow_mut();
         let cleanups = cleanups
             .entry(cx.id)
@@ -286,18 +287,18 @@ impl ScopeDisposer {
 impl Scope {
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn all_resources(&self) -> Vec<ResourceId> {
-        with_runtime(self.runtime, |runtime| runtime.all_resources())
+        with_runtime(self.runtime, |runtime| runtime.all_resources()).unwrap_or_default()
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are
     /// pending from the server.
     pub fn pending_resources(&self) -> Vec<ResourceId> {
-        with_runtime(self.runtime, |runtime| runtime.pending_resources())
+        with_runtime(self.runtime, |runtime| runtime.pending_resources()).unwrap_or_default()
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn serialization_resolvers(&self) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers())
+        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers()).unwrap_or_default()
     }
 
     /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,
@@ -312,7 +313,7 @@ impl Scope {
         use crate::create_isomorphic_effect;
         use futures::StreamExt;
 
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let (tx, mut rx) = futures::channel::mpsc::unbounded();
 
@@ -344,6 +345,7 @@ impl Scope {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
         })
+        .unwrap_or_default()
     }
 }
 
