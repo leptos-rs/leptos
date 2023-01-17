@@ -12,6 +12,11 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
     view! { cx,
         <Router>
             <nav>
+                // ordinary <a> elements can be used for client-side navigation
+                // using <A> has two effects:
+                // 1) ensuring that relative routing works properly for nested routes
+                // 2) setting the `aria-current` attribute on the current link,
+                //    for a11y and styling purposes
                 <A exact=true href="/">"Contacts"</A>
                 <A href="about">"About"</A>
                 <A href="settings">"Settings"</A>
@@ -105,12 +110,15 @@ pub fn Contact(cx: Scope) -> impl IntoView {
         // Some(None) => has loaded and found no contact
         Some(None) => Some(view! { cx, <p>"No contact with this ID was found."</p> }.into_any()),
         // Some(Some) => has loaded and found a contact
-        Some(Some(contact)) => Some(view! { cx,
-            <section class="card">
-                <h1>{contact.first_name} " " {contact.last_name}</h1>
-                <p>{contact.address_1}<br/>{contact.address_2}</p>
-            </section>
-        }.into_any()),
+        Some(Some(contact)) => Some(
+            view! { cx,
+                <section class="card">
+                    <h1>{contact.first_name} " " {contact.last_name}</h1>
+                    <p>{contact.address_1}<br/>{contact.address_2}</p>
+                </section>
+            }
+            .into_any(),
+        ),
     };
 
     view! { cx,
@@ -125,9 +133,18 @@ pub fn Contact(cx: Scope) -> impl IntoView {
 #[component]
 pub fn About(cx: Scope) -> impl IntoView {
     log::debug!("rendering <About/>");
+    // use_navigate allows you to navigate programmatically by calling a function
+    let navigate = use_navigate(cx);
 
     view! { cx,
         <>
+            // note: this is just an illustration of how to use `use_navigate`
+            // <button on:click> to navigate is an *anti-pattern*
+            // you should ordinarily use a link instead,
+            // both semantically and so your link will work before WASM loads
+            <button on:click=move |_| { _ = navigate("/", Default::default()); }>
+                "Home"
+            </button>
             <h1>"About"</h1>
             <p>"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."</p>
         </>
