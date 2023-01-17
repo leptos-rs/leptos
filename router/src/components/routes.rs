@@ -12,7 +12,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher, RouteDefinition,
         RouteMatch,
     },
-    RouteContext, RouterContext,
+    RouteContext, RouterContext, RouterStatusContext,
 };
 
 /// Contains route definitions and manages the actual routing process.
@@ -190,12 +190,24 @@ pub fn Routes(
     });
 
     // show the root route
+    let router_status = use_context::<RouterStatusContext>(cx);
     let root = create_memo(cx, move |prev| {
         provide_context(cx, route_states);
+        let router_status = router_status.clone();
         route_states.with(|state| {
             if state.routes.borrow().is_empty() {
+                if let Some(status) = router_status {
+                    if let Ok(mut lock) = status.status.write() {
+                        *lock = Some(404);
+                    }
+                }
                 Some(base_route.outlet().into_view(cx))
             } else {
+                if let Some(status) = router_status {
+                    if let Ok(mut lock) = status.status.write() {
+                        *lock = None;
+                    }
+                }
                 let root = state.routes.borrow();
                 let root = root.get(0);
                 if let Some(route) = root {

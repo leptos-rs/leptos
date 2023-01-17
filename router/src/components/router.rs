@@ -1,5 +1,9 @@
 use cfg_if::cfg_if;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, RwLock},
+};
 
 use leptos::*;
 use thiserror::Error;
@@ -59,6 +63,14 @@ pub(crate) struct RouterContextInner {
     referrers: Rc<RefCell<Vec<LocationChange>>>,
     state: ReadSignal<State>,
     set_state: WriteSignal<State>,
+}
+
+/// Context type that indicates the status of the last request
+/// (i.e., whether it was not found, or had an error.)
+#[derive(Debug, Clone, Default)]
+pub struct RouterStatusContext {
+    pub status: Arc<RwLock<Option<u16>>>,
+    pub message: Arc<RwLock<Option<String>>>,
 }
 
 impl std::fmt::Debug for RouterContextInner {

@@ -318,6 +318,8 @@ where
             let default_res_options = ResponseOptions::default();
             let res_options2 = default_res_options.clone();
             let res_options3 = default_res_options.clone();
+            let router_status = RouterStatusContext::default();
+            let router_status2 = router_status.clone();
 
             async move {
                 // Need to get the path and query string of the Request
@@ -403,6 +405,7 @@ where
                                                         cx,
                                                         RouterIntegrationContext::new(integration),
                                                     );
+                                                    provide_context(cx, router_status2);
                                                     provide_context(cx, MetaContext::new());
                                                     provide_context(cx, req_parts);
                                                     provide_context(cx, default_res_options);
@@ -471,9 +474,16 @@ where
                     Box::pin(complete_stream) as PinnedHtmlStream
                 ));
 
-                if let Some(status) = res_options.status {
-                    *res.status_mut() = status
-                }
+                let status = res_options.status.unwrap_or_else(|| {
+                    router_status
+                        .status
+                        .read()
+                        .ok()
+                        .and_then(|s| s.map(|s| StatusCode::from_u16(s).ok()))
+                        .flatten()
+                        .unwrap_or_default()
+                });
+                *res.status_mut() = status;
                 let mut res_headers = res_options.headers.clone();
                 res.headers_mut().extend(res_headers.drain());
 

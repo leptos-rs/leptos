@@ -259,20 +259,22 @@ where
         let options = options.clone();
         let app_fn = app_fn.clone();
         let res_options = ResponseOptions::default();
+        let status = RouterStatusContext::default();
 
         async move {
             let app = {
                 let app_fn = app_fn.clone();
                 let res_options = res_options.clone();
+                let status = status.clone();
                 move |cx| {
-                    provide_contexts(cx, &req, res_options);
+                    provide_contexts(cx, &req, res_options, status);
                     (app_fn)(cx).into_view(cx)
                 }
             };
 
             let (head, tail) = html_parts(&options);
 
-            stream_app(app, head, tail, res_options).await
+            stream_app(app, head, tail, res_options, status).await
         }
     })
 }
@@ -336,6 +338,7 @@ where
         let app_fn = app_fn.clone();
         let data_fn = data_fn.clone();
         let res_options = ResponseOptions::default();
+        let status = RouterStatusContext::default();
 
         async move {
             let data = match data_fn(req.clone()).await {
@@ -347,24 +350,31 @@ where
             let app = {
                 let app_fn = app_fn.clone();
                 let res_options = res_options.clone();
+                let status = status.clone();
                 move |cx| {
-                    provide_contexts(cx, &req, res_options);
+                    provide_contexts(cx, &req, res_options, status);
                     (app_fn)(cx, data).into_view(cx)
                 }
             };
 
             let (head, tail) = html_parts(&options);
 
-            stream_app(app, head, tail, res_options).await
+            stream_app(app, head, tail, res_options, status).await
         }
     })
 }
 
-fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseOptions) {
+fn provide_contexts(
+    cx: leptos::Scope,
+    req: &HttpRequest,
+    res_options: ResponseOptions,
+    status: RouterStatusContext,
+) {
     let path = leptos_corrected_path(req);
 
     let integration = ServerIntegration { path };
     provide_context(cx, RouterIntegrationContext::new(integration));
+    provide_context(cx, status);
     provide_context(cx, MetaContext::new());
     provide_context(cx, res_options);
     provide_context(cx, req.clone());
@@ -385,6 +395,7 @@ async fn stream_app(
     head: String,
     tail: String,
     res_options: ResponseOptions,
+    router_status: RouterStatusContext,
 ) -> HttpResponse<BoxBody> {
     let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(app, move |cx| {
         let head = use_context::<MetaContext>(cx)
@@ -411,7 +422,15 @@ async fn stream_app(
     let res_options = res_options.0.read().await;
 
     let (status, mut headers) = (res_options.status, res_options.headers.clone());
-    let status = status.unwrap_or_default();
+    let status = status.unwrap_or_else(|| {
+        router_status
+            .status
+            .read()
+            .ok()
+            .and_then(|s| s.map(|s| StatusCode::from_u16(s).ok()))
+            .flatten()
+            .unwrap_or_default()
+    });
 
     let complete_stream = futures::stream::iter([
         first_chunk.unwrap(),
