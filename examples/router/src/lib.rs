@@ -110,12 +110,15 @@ pub fn Contact(cx: Scope) -> impl IntoView {
         // Some(None) => has loaded and found no contact
         Some(None) => Some(view! { cx, <p>"No contact with this ID was found."</p> }.into_any()),
         // Some(Some) => has loaded and found a contact
-        Some(Some(contact)) => Some(view! { cx,
-            <section class="card">
-                <h1>{contact.first_name} " " {contact.last_name}</h1>
-                <p>{contact.address_1}<br/>{contact.address_2}</p>
-            </section>
-        }.into_any()),
+        Some(Some(contact)) => Some(
+            view! { cx,
+                <section class="card">
+                    <h1>{contact.first_name} " " {contact.last_name}</h1>
+                    <p>{contact.address_1}<br/>{contact.address_2}</p>
+                </section>
+            }
+            .into_any(),
+        ),
     };
 
     view! { cx,
