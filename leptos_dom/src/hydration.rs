@@ -37,7 +37,8 @@ cfg_if! {
           || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-0o").is_some());
 
         #[cfg(not(debug_assertions))]
-        return crate::document().get_element_by_id("_0-0-0").is_some();
+        return crate::document().get_element_by_id("_0-0-0").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-0").is_some());
       }));
     }
 
