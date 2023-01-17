@@ -29,7 +29,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
         <div>
             <button on:click=clear>"Clear"</button>
             <button on:click=decrement>"-1"</button>
-            <span>"Value: " {move || value().to_string()} "!"</span>
+            <span>"Value: " {value} "!"</span>
             <button on:click=increment>"+1"</button>
         </div>
     }
