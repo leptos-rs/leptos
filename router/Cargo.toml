@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
+README = "../README.md"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Router for the Leptos web framework."
 
