@@ -138,7 +138,7 @@ impl RouteContext {
         self.inner.params
     }
 
-    pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn() -> View>) -> Self {
+    pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn(Scope) -> View>) -> Self {
         Self {
             inner: Rc::new(RouteContextInner {
                 cx,
@@ -148,7 +148,7 @@ impl RouteContext {
                 path: path.to_string(),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
-                outlet: Box::new(move || fallback.map(|f| f().into_view(cx))),
+                outlet: Box::new(move || fallback.as_ref().map(move |f| f(cx))),
             }),
         }
     }
