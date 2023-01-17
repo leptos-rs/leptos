@@ -71,11 +71,17 @@ pub struct MetaContext {
 }
 
 /// Manages all of the element created by components.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default)]
 pub(crate) struct MetaTagsContext {
     next_id: Rc<Cell<MetaTagId>>,
     #[allow(clippy::type_complexity)]
     els: Rc<RefCell<HashMap<String, (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>)>>>,
+}
+
+impl std::fmt::Debug for MetaTagsContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetaTagsContext").finish()
+    }
 }
 
 impl MetaTagsContext {
