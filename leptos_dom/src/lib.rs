@@ -548,7 +548,7 @@ impl View {
   pub fn on<E: ev::EventDescriptor + 'static>(
     self,
     event: E,
-    mut event_handler: impl FnMut(E::EventType) + 'static,
+    #[allow(unused_mut)] mut event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
