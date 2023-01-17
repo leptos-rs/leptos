@@ -323,7 +323,7 @@ where
                 // Need to get the path and query string of the Request
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
                 // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-                let path = req.uri().path();
+                let path = req.uri().path_and_query();
 
                 let full_path = format!("http://leptos.dev{path}");
 
