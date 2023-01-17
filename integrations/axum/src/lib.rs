@@ -323,7 +323,12 @@ where
                 // Need to get the path and query string of the Request
                 let path = req.uri();
 
-                let full_path = format!("http://leptos.dev{path}");
+                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
+                // if http, it returns a relative path
+                let full_path = match path.to_string().starts_with("https") {
+                    true => path.to_string(),
+                    false => format!("http://leptos.dev{path}"),
+                };
 
                 let pkg_path = &options.site_pkg_dir;
                 let output_name = &options.output_name;
