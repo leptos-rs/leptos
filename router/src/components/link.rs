@@ -42,7 +42,7 @@ where
 ///    For example, if you have a route like `/post/:id`, `<A href="1">` will generate the correct relative
 ///    route, but `<a href="1">` likely will not (depending on where it appears in your view.)
 /// 2) Sets the `aria-current` attribute if this link is the active link (i.e., it’s a link to the page you’re on).
-///    This is helpful for accessibility and for styling. For example, maybe you want to set the link a 
+///    This is helpful for accessibility and for styling. For example, maybe you want to set the link a
 ///    different color if it’s a link to the page you’re currently on.
 #[component]
 pub fn A<H>(
