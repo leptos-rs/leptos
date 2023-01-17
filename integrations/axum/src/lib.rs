@@ -321,14 +321,11 @@ where
 
             async move {
                 // Need to get the path and query string of the Request
-                let path = req.uri();
-
                 // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                // if http, it returns a relative path
-                let full_path = match path.to_string().starts_with("https") {
-                    true => path.to_string(),
-                    false => format!("http://leptos.dev{path}"),
-                };
+                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
+                let path = req.uri().path();
+
+                let full_path = format!("http://leptos.dev{path}");
 
                 let pkg_path = &options.site_pkg_dir;
                 let output_name = &options.output_name;
