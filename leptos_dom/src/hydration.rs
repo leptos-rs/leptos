@@ -1,21 +1,51 @@
+use cfg_if::cfg_if;
 use std::{cell::RefCell, fmt::Display};
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use once_cell::unsync::Lazy as LazyCell;
+cfg_if! {
+  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+    use once_cell::unsync::Lazy as LazyCell;
+    use std::collections::HashMap;
+    use wasm_bindgen::JsCast;
 
-// We can tell if we start in hydration mode by checking to see if the
-// id "_0-0-0" is present in the DOM. If it is, we know we are hydrating from
-// the server, if not, we are starting off in CSR
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-thread_local! {
-  static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
-    #[cfg(debug_assertions)]
-    return crate::document().get_element_by_id("_0-0-0").is_some()
-      || crate::document().get_element_by_id("_0-0-0o").is_some();
+    // We can tell if we start in hydration mode by checking to see if the
+    // id "_0-0-0" is present in the DOM. If it is, we know we are hydrating from
+    // the server, if not, we are starting off in CSR
+    thread_local! {
+      static HYDRATION_COMMENTS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
+        let document = crate::document();
+        let body = document.body().unwrap();
+        let walker = document
+          .create_tree_walker_with_what_to_show(&body, 128)
+          .unwrap();
+        let mut map = HashMap::new();
+        while let Ok(Some(node)) = walker.next_node() {
+          if let Some(content) = node.text_content() {
+            if let Some(hk) = content.strip_prefix("hk=") {
+              if let Some(hk) = hk.split("|").next() {
+                map.insert(hk.into(), node.unchecked_into());
+              }
+            }
+          }
+        }
+        map
+      });
 
-    #[cfg(not(debug_assertions))]
-    return crate::document().get_element_by_id("_0-0-0").is_some();
-  }));
+      static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
+        #[cfg(debug_assertions)]
+        return crate::document().get_element_by_id("_0-0-0").is_some()
+          || crate::document().get_element_by_id("_0-0-0o").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-0o").is_some());
+
+        #[cfg(not(debug_assertions))]
+        return crate::document().get_element_by_id("_0-0-0").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-0").is_some());
+      }));
+    }
+
+    pub(crate) fn get_marker(id: &str) -> Option<web_sys::Comment> {
+      HYDRATION_COMMENTS.with(|comments| comments.get(id).cloned())
+    }
+  }
 }
 
 /// A stable identifer within the server-rendering or hydration process.

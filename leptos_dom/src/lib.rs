@@ -303,7 +303,7 @@ impl Comment {
       if HydrationCtx::is_hydrating() {
         let id = HydrationCtx::to_string(id, closing);
 
-        if let Some(marker) = document().get_element_by_id(&id) {
+        if let Some(marker) = hydration::get_marker(&id) {
           marker.before_with_node_1(&node).unwrap();
 
           marker.remove();
@@ -548,7 +548,7 @@ impl View {
   pub fn on<E: ev::EventDescriptor + 'static>(
     self,
     event: E,
-    mut event_handler: impl FnMut(E::EventType) + 'static,
+    #[allow(unused_mut)] mut event_handler: impl FnMut(E::EventType) + 'static,
   ) -> Self {
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
