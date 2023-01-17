@@ -28,7 +28,7 @@ pub fn Router(
     base: Option<&'static str>,
     /// A fallback that should be shown if no route is matched.
     #[prop(optional)]
-    fallback: Option<fn() -> View>,
+    fallback: Option<fn(Scope) -> View>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
@@ -80,7 +80,7 @@ impl RouterContext {
     pub(crate) fn new(
         cx: Scope,
         base: Option<&'static str>,
-        fallback: Option<fn() -> View>,
+        fallback: Option<fn(Scope) -> View>,
     ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {

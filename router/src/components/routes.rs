@@ -28,6 +28,7 @@ pub fn Routes(
         log::warn!("<Routes/> component should be nested within a <Router/>.");
         panic!()
     });
+    let base_route = router.base();
 
     let mut branches = Vec::new();
     let id_before = HydrationCtx::peek();
@@ -192,16 +193,20 @@ pub fn Routes(
     let root = create_memo(cx, move |prev| {
         provide_context(cx, route_states);
         route_states.with(|state| {
-            let root = state.routes.borrow();
-            let root = root.get(0);
-            if let Some(route) = root {
-                provide_context(cx, route.clone());
-            }
-
-            if prev.is_none() || !root_equal.get() {
-                root.as_ref().map(|route| route.outlet().into_view(cx))
+            if state.routes.borrow().is_empty() {
+                Some(base_route.outlet().into_view(cx))
             } else {
-                prev.cloned().unwrap()
+                let root = state.routes.borrow();
+                let root = root.get(0);
+                if let Some(route) = root {
+                    provide_context(cx, route.clone());
+                }
+
+                if prev.is_none() || !root_equal.get() {
+                    root.as_ref().map(|route| route.outlet().into_view(cx))
+                } else {
+                    prev.cloned().unwrap()
+                }
             }
         })
     });
