@@ -49,7 +49,7 @@ cfg_if! {
 }
 
 /// A stable identifer within the server-rendering or hydration process.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
   /// The key of the previous component.
   pub previous: String,
