@@ -5,22 +5,26 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         body::{boxed, Body, BoxBody},
         extract::Extension,
+        response::IntoResponse,
         http::{Request, Response, StatusCode, Uri},
     };
+    use axum::response::Response as AxumResponse;
     use tower::ServiceExt;
     use tower_http::services::ServeDir;
     use std::sync::Arc;
-    use leptos::LeptosOptions;
+    use leptos::{LeptosOptions, view};
+    use crate::todo::{ErrorBoundary, ErrorBoundaryProps};
 
-    pub async fn file_handler(uri: Uri, Extension(options): Extension<Arc<LeptosOptions>>) -> Result<Response<BoxBody>, (StatusCode, String)> {
-
+    pub async fn file_and_error_handler(uri: Uri, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> AxumResponse {
         let options = &*options;
         let root = options.site_root.clone();
-        let res = get_static_file(uri.clone(), &root).await?;
+        let res = get_static_file(uri.clone(), &root).await.unwrap();
 
-        match res.status() {
-            StatusCode::OK => Ok(res),
-            _ => Err((res.status(), "File Not Found".to_string()))
+        if res.status() == StatusCode::OK {
+           res.into_response()
+        } else{
+            let handler = leptos_axum::render_app_to_stream(options.to_owned(), |cx| view! { cx, <ErrorBoundary/> });
+            handler(req).await.into_response()
         }
     }
 
@@ -37,5 +41,7 @@ if #[cfg(feature = "ssr")] {
             )),
         }
     }
+
+
 }
 }

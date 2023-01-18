@@ -10,7 +10,7 @@ if #[cfg(feature = "ssr")] {
     };
     use crate::todo::*;
     use todo_app_sqlite_axum::*;
-    use crate::file::file_handler;
+    use crate::file::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
 
@@ -36,7 +36,7 @@ if #[cfg(feature = "ssr")] {
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
-        .fallback(file_handler)
+        .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));
 
         // run our app with hyper

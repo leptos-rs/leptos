@@ -138,7 +138,8 @@ pub use leptos_server::*;
 
 pub use tracing;
 pub use typed_builder;
-
+mod error_boundary;
+pub use error_boundary::*;
 mod for_loop;
 pub use for_loop::*;
 mod suspense;
