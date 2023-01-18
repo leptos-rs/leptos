@@ -34,19 +34,19 @@ cfg_if! {
 
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
-pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> T {
+pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
     // in the browser, everything should exist under one runtime
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             _ = id;
-            RUNTIME.with(|runtime| f(runtime))
+            Ok(RUNTIME.with(|runtime| f(runtime)))
         } else {
             RUNTIMES.with(|runtimes| {
                 let runtimes = runtimes.borrow();
-                let runtime = runtimes
-                    .get(id)
-                    .expect("Tried to access a Runtime that no longer exists.");
-                f(runtime)
+                match runtimes.get(id) {
+                    None => Err(()),
+                    Some(runtime) => Ok(f(runtime))
+                }
             })
         }
     }
@@ -88,6 +88,7 @@ impl RuntimeId {
             let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
             (scope, disposer)
         })
+        .expect("tried to create raw scope in a runtime that has already been disposed")
     }
 
     pub(crate) fn run_scope_undisposed<T>(
@@ -105,6 +106,7 @@ impl RuntimeId {
             let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
             (val, id, disposer)
         })
+        .expect("tried to run scope in a runtime that has been disposed")
     }
 
     pub(crate) fn run_scope<T>(self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
@@ -123,7 +125,8 @@ impl RuntimeId {
                 .signals
                 .borrow_mut()
                 .insert(Rc::new(RefCell::new(value)))
-        });
+        })
+        .expect("tried to create a signal in a runtime that has been disposed");
         (
             ReadSignal {
                 runtime: self,
@@ -151,7 +154,8 @@ impl RuntimeId {
                 .signals
                 .borrow_mut()
                 .insert(Rc::new(RefCell::new(value)))
-        });
+        })
+        .expect("tried to create a signal in a runtime that has been disposed");
         RwSignal {
             runtime: self,
             id,
@@ -180,6 +184,7 @@ impl RuntimeId {
             id.run::<T>(self);
             id
         })
+        .expect("tried to create an effect in a runtime that has been disposed")
     }
 
     #[track_caller]

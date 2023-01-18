@@ -131,7 +131,8 @@ where
 
     let id = with_runtime(cx.runtime, |runtime| {
         runtime.create_serializable_resource(Rc::clone(&r))
-    });
+    })
+    .expect("tried to create a Resource in a Runtime that has been disposed.");
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
@@ -250,7 +251,8 @@ where
 
     let id = with_runtime(cx.runtime, |runtime| {
         runtime.create_unserializable_resource(Rc::clone(&r))
-    });
+    })
+    .expect("tried to create a Resource in a runtime that has been disposed.");
 
     create_effect(cx, {
         let r = Rc::clone(&r);
@@ -288,7 +290,7 @@ where
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-    with_runtime(cx.runtime, |runtime| {
+    _ = with_runtime(cx.runtime, |runtime| {
         let mut context = runtime.shared_context.borrow_mut();
         if let Some(data) = context.resolved_resources.remove(&id) {
             // The server already sent us the serialized resource value, so
@@ -363,6 +365,8 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.read())
         })
+        .ok()
+        .flatten()
     }
 
     /// Applies a function to the current value of the resource, and subscribes
@@ -376,6 +380,8 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
         })
+        .ok()
+        .flatten()
     }
 
     /// Returns a signal that indicates whether the resource is currently loading.
@@ -383,11 +389,12 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
         })
+        .expect("tried to call Resource::loading() in a runtime that has already been disposed.")
     }
 
     /// Re-runs the async function with the current source data.
     pub fn refetch(&self) {
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
         });
     }
@@ -404,6 +411,7 @@ where
                 resource.to_serialization_resolver(self.id)
             })
         })
+        .expect("tried to serialize a Resource in a runtime that has already been disposed")
         .await
     }
 }
