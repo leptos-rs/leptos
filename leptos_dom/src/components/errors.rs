@@ -1,4 +1,4 @@
-use leptos_reactive::{use_context, RwSignal};
+use leptos_reactive::{on_cleanup, use_context, RwSignal};
 
 use crate::{HydrationCtx, HydrationKey, IntoView, Transparent};
 use std::{collections::HashMap, error::Error, rc::Rc};
@@ -10,7 +10,7 @@ pub struct Errors(pub HashMap<HydrationKey, Rc<dyn Error>>);
 impl<T, E> IntoView for Result<T, E>
 where
   T: IntoView + 'static,
-  E: std::error::Error + 'static,
+  E: std::error::Error + Send + Sync + 'static,
 {
   fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
     let errors = match use_context::<RwSignal<Errors>>(cx) {
@@ -28,15 +28,36 @@ where
     match self {
       Ok(stuff) => Transparent::new(stuff).into_view(cx),
       Err(error) => {
-        errors.update(|errors: &mut Errors| {
-          errors.insert(HydrationCtx::id(), error)
-        });
+        match use_context::<RwSignal<Errors>>(cx) {
+          Some(errors) => {
+            let id = HydrationCtx::id();
+            errors.update({
+              let id = id.clone();
+              move |errors: &mut Errors| errors.insert(id, error)
+            });
+
+            // remove the error from the list if this drops,
+            // i.e., if it's in a DynChild that switches from Err to Ok
+            // will this actually work?
+            on_cleanup(cx, move || {
+              errors.update(|errors: &mut Errors| {
+                errors.remove::<E>(&id);
+              });
+            });
+          }
+          None => {
+            #[cfg(debug_assertions)]
+            warn!(
+              "No ErrorBoundary components found! Returning errors will not \
+               be handled and will silently disappear"
+            );
+          }
+        }
         Transparent::new(()).into_view(cx)
       }
     }
   }
 }
-
 impl Errors {
   /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
   pub fn insert<E>(&mut self, key: HydrationKey, error: E)
@@ -44,5 +65,12 @@ impl Errors {
     E: Error + 'static,
   {
     self.0.insert(key, Rc::new(error));
+  }
+  /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
+  pub fn remove<E>(&mut self, key: &HydrationKey)
+  where
+    E: Error + 'static,
+  {
+    self.0.remove(key);
   }
 }
