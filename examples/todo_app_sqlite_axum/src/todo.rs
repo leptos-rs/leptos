@@ -160,7 +160,10 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
+            <ErrorBoundary fallback=|cx| view! { cx, "Nested Error" }.into_view(cx)>
             <ErrorComponent/>
+            </ErrorBoundary>
+
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
                 {move || {
                     let existing_todos = {
