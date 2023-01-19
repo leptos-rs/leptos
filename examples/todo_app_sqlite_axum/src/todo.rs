@@ -3,7 +3,7 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
-use crate::error::TodoAppError;
+use crate::{error::TodoAppError, error_template::error_template};
 
 cfg_if! {
     if #[cfg(feature = "ssr")] {
@@ -124,7 +124,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                 <h1>"My Tasks"</h1>
             </header>
             <main>
-            <ErrorBoundary fallback=|cx| view! { cx, "We have ryzen, Intel" }.into_view(cx)>
+            <ErrorBoundary fallback=error_template>
                 <Routes>
                     <Route path="" view=|cx| view! {
                         cx,
@@ -160,10 +160,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <ErrorBoundary fallback=|cx| view! { cx, "Nested Error" }.into_view(cx)>
             <ErrorComponent/>
-            </ErrorBoundary>
-
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
                 {move || {
                     let existing_todos = {
