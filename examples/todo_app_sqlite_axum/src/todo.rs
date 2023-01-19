@@ -106,13 +106,11 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 }
 
 #[component]
-pub fn ErrorBoundary(cx: Scope) -> impl IntoView {
+pub fn ErrorComponent(cx: Scope) -> impl IntoView {
     provide_meta_context(cx);
     view! {
         cx,
-        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
-        <h1>"ERROR"</h1>
+        Err(TodoAppError::AnError)
     }
 }
 
