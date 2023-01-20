@@ -262,7 +262,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
     // this will be filled by _ref=input below
-    let todo_input = NodeRef::new(cx);
+    let todo_input = NodeRef::<HtmlElement<Input>>::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -293,7 +293,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
                 />
                 <label on:dblclick=move |_| {
                     set_editing(true);
-            
+
                     if let Some(input) = todo_input.get() {
                         _ = input.focus();
                     }
