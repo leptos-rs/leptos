@@ -96,7 +96,10 @@ pub fn Routes(
                         if next_match.route.key == prev_match.route.key
                             && next_match.route.id == prev_match.route.id =>
                     {
-                        let prev_one = { prev.borrow()[i].clone() };
+                        let mut prev_one = { prev.borrow()[i].clone() };
+                        if next_match.path_match.path != prev_one.path() {
+                            prev_one.set_path(next_match.path_match.path.clone());
+                        }
                         if i >= next.borrow().len() {
                             next.borrow_mut().push(prev_one);
                         } else {

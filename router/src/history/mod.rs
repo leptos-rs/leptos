@@ -55,10 +55,6 @@ impl History for BrowserIntegration {
         let (location, set_location) = create_signal(cx, Self::current());
 
         leptos_dom::window_event_listener("popstate", move |_| {
-            log::debug!(
-                "[BrowserIntegration::location] popstate fired {:#?}",
-                Self::current()
-            );
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
                 let change = Self::current();

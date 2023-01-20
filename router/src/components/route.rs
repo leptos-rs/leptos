@@ -1,4 +1,7 @@
-use std::{borrow::Cow, cell::Cell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use leptos::*;
 
@@ -98,7 +101,7 @@ impl RouteContext {
                 id,
                 base_path: base.to_string(),
                 child: Box::new(child),
-                path,
+                path: RefCell::new(path),
                 original_path: route.original_path.to_string(),
                 params,
                 outlet: Box::new(move || Some(element(cx))),
@@ -120,8 +123,12 @@ impl RouteContext {
     ///
     /// e.g., this will return `/article/0` rather than `/article/:id`.
     /// For the opposite behavior, see [RouteContext::original_path].
-    pub fn path(&self) -> &str {
-        &self.inner.path
+    pub fn path(&self) -> String {
+        self.inner.path.borrow().to_string()
+    }
+
+    pub(crate) fn set_path(&mut self, path: String) {
+        *self.inner.path.borrow_mut() = path;
     }
 
     /// Returns the original URL path of the current route,
@@ -145,7 +152,7 @@ impl RouteContext {
                 id: 0,
                 base_path: path.to_string(),
                 child: Box::new(|| None),
-                path: path.to_string(),
+                path: RefCell::new(path.to_string()),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
                 outlet: Box::new(move || fallback.as_ref().map(move |f| f(cx))),
@@ -154,8 +161,8 @@ impl RouteContext {
     }
 
     /// Resolves a relative route, relative to the current route's path.
-    pub fn resolve_path<'a>(&'a self, to: &'a str) -> Option<Cow<'a, str>> {
-        resolve_path(&self.inner.base_path, to, Some(&self.inner.path))
+    pub fn resolve_path(&self, to: &str) -> Option<String> {
+        resolve_path(&self.inner.base_path, to, Some(&self.inner.path.borrow())).map(String::from)
     }
 
     /// The nested child route, if any.
@@ -174,7 +181,7 @@ pub(crate) struct RouteContextInner {
     base_path: String,
     pub(crate) id: usize,
     pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
-    pub(crate) path: String,
+    pub(crate) path: RefCell<String>,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
     pub(crate) outlet: Box<dyn Fn() -> Option<View>>,
