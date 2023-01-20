@@ -415,3 +415,8 @@ fn to_kebab_case(name: &str) -> String {
 
   new_name
 }
+
+#[doc(hidden)]
+pub fn escape_attr<T>(value: &T) -> Cow<'_, str> where T: AsRef<str>{
+    html_escape::encode_double_quoted_attribute(value)
+}

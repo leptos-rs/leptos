@@ -181,6 +181,7 @@ fn root_node_to_tokens_ssr(cx: &Ident, node: &Node) -> TokenStream {
         Node::Block(node) => {
             let value = node.value.as_ref();
             quote! {
+                #[allow(unused_braces)]
                 #value
             }
         }
@@ -205,32 +206,43 @@ fn fragment_to_tokens_ssr(cx: &Ident, _span: Span, nodes: &[Node]) -> TokenStrea
 }
 
 fn root_element_to_tokens_ssr(cx: &Ident, node: &NodeElement) -> TokenStream {
-    let mut template = String::new();
-    let mut holes = Vec::<TokenStream>::new();
-    let mut exprs_for_compiler = Vec::<TokenStream>::new();
-
-    element_to_tokens_ssr(cx, node, &mut template, &mut holes, &mut exprs_for_compiler);
-
-    let template = if holes.is_empty() {
-        quote! {
-          #template
-        }
+    if is_component_node(&node) {
+        component_to_tokens(cx, node)
     } else {
-        quote! {
-          format!(
-            #template,
-            #(#holes)*
-          )
-        }
-    };
+        let mut template = String::new();
+        let mut holes = Vec::<TokenStream>::new();
+        let mut exprs_for_compiler = Vec::<TokenStream>::new();
 
-    let tag_name = node.name.to_string();
-    let typed_element_name = Ident::new(&camel_case_tag_name(&tag_name), node.name.span());
-    quote! {
-      {
-        #(#exprs_for_compiler)*
-        ::leptos::HtmlElement::from_html(cx, leptos::#typed_element_name::default(), #template)
-      }
+        element_to_tokens_ssr(
+            cx,
+            node,
+            &mut template,
+            &mut holes,
+            &mut exprs_for_compiler,
+            true,
+        );
+
+        let template = if holes.is_empty() {
+            quote! {
+            #template
+            }
+        } else {
+            quote! {
+            format!(
+                #template,
+                #(#holes)*
+            )
+            }
+        };
+
+        let tag_name = node.name.to_string();
+        let typed_element_name = Ident::new(&camel_case_tag_name(&tag_name), node.name.span());
+        quote! {
+        {
+            #(#exprs_for_compiler)*
+            ::leptos::HtmlElement::from_html(cx, leptos::#typed_element_name::default(), #template)
+        }
+        }
     }
 }
 
@@ -240,6 +252,7 @@ fn element_to_tokens_ssr(
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
+    is_root: bool,
 ) {
     if is_component_node(node) {
         template.push_str("{}");
@@ -257,6 +270,26 @@ fn element_to_tokens_ssr(
             }
         }
 
+        // insert hydration ID
+        let hydration_id = if is_root {
+            quote! { leptos::HydrationCtx::peek(), }
+        } else {
+            quote! { leptos::HydrationCtx::id(), }
+        };
+        match node
+            .attributes
+            .iter()
+            .find(|node| matches!(node, Node::Attribute(attr) if attr.key.to_string() == "id"))
+        {
+            Some(_) => {
+                template.push_str(&format!(" leptos-hk=\"_{{}}\""));
+            }
+            None => {
+                template.push_str(&format!(" id=\"_{{}}\""));
+            }
+        }
+        holes.push(hydration_id);
+
         set_class_attribute_ssr(cx, node, template, holes);
 
         if is_self_closing(node) {
@@ -266,7 +299,7 @@ fn element_to_tokens_ssr(
             for child in &node.children {
                 match child {
                     Node::Element(child) => {
-                        element_to_tokens_ssr(cx, child, template, holes, exprs_for_compiler)
+                        element_to_tokens_ssr(cx, child, template, holes, exprs_for_compiler, false)
                     }
                     Node::Text(text) => {
                         if let Some(value) = value_to_string(&text.value) {
@@ -345,13 +378,12 @@ fn attribute_to_tokens_ssr(
             .parse::<TokenStream>()
             .expect("couldn't parse event name");
 
+        let event_type = if is_force_undelegated {
+            quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+        } else {
+            quote! { ::leptos::ev::#event_type }
+        };
         exprs_for_compiler.push(quote! {
-            let event_type = if is_force_undelegated {
-                quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
-            } else {
-                quote! { ::leptos::ev::#event_type }
-            };
-
             leptos::ssr_event_listener(#event_type, #handler);
         })
     } else if name.strip_prefix("prop:").is_some() || name.strip_prefix("class:").is_some() {
@@ -366,15 +398,16 @@ fn attribute_to_tokens_ssr(
 
             if let Some(value) = node.value.as_ref() {
                 if let Some(value) = value_to_string(value) {
+                    template.push_str("=\"");
                     template.push_str(&value);
+                    template.push('"');
                 } else {
-                    template.push_str("{}");
+                    template.push_str("=\"{}\"");
                     let value = value.as_ref();
                     holes.push(quote! {
-                      leptos::escape_attr(&{#value}.into_attribute(#cx).as_value_string(#name)),
+                      leptos::escape_attr(&{#value}.into_attribute(#cx).as_nameless_value_string()),
                     })
                 }
-                template.push('"');
             }
         }
     }
