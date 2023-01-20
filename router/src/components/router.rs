@@ -210,7 +210,7 @@ impl RouterContextInner {
             let resolved_to = if options.resolve {
                 this.base.resolve_path(to)
             } else {
-                resolve_path("", to, None)
+                resolve_path("", to, None).map(String::from)
             };
 
             match resolved_to {

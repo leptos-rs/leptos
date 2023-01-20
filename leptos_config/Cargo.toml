@@ -6,6 +6,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Configuraiton for the Leptos web framework."
+readme = "../README.md"
 
 [dependencies]
 config = "0.13.3"
@@ -13,4 +14,4 @@ fs = "0.0.5"
 regex = "1.7.0"
 serde = { version = "1.0.151", features = ["derive"] }
 thiserror = "1.0.38"
-typed-builder = "0.11.0"
+typed-builder = "0.11"

@@ -104,8 +104,9 @@ impl HydrationCtx {
     })
   }
 
+  #[doc(hidden)]
   #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) fn reset_id() {
+  pub fn reset_id() {
     ID.with(|id| *id.borrow_mut() = Default::default());
   }
 

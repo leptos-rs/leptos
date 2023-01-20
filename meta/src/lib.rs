@@ -64,7 +64,7 @@ pub use title::*;
 ///
 /// This should generally by provided somewhere in the root of your application using
 /// [provide_meta_context].
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct MetaContext {
     pub(crate) title: TitleContext,
     pub(crate) tags: MetaTagsContext,
@@ -76,6 +76,12 @@ pub(crate) struct MetaTagsContext {
     next_id: Rc<Cell<MetaTagId>>,
     #[allow(clippy::type_complexity)]
     els: Rc<RefCell<HashMap<String, (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>)>>>,
+}
+
+impl std::fmt::Debug for MetaTagsContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetaTagsContext").finish()
+    }
 }
 
 impl MetaTagsContext {

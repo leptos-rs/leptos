@@ -14,7 +14,9 @@ fn leptos_todomvc_ssr(b: &mut Bencher) {
             let rendered = view! {
                 cx,
                 <TodoMVC todos=Todos::new(cx)/>
-            }.into_view(cx).render_to_string(cx);
+            }
+            .into_view(cx)
+            .render_to_string(cx);
 
             assert!(rendered.len() > 1);
         });
@@ -55,7 +57,7 @@ fn yew_todomvc_ssr(b: &mut Bencher) {
         });
     });
 }
-
+/*
 #[bench]
 fn leptos_todomvc_ssr_with_1000(b: &mut Bencher) {
     b.iter(|| {
@@ -107,3 +109,4 @@ fn yew_todomvc_ssr_with_1000(b: &mut Bencher) {
         });
     });
 }
+ */

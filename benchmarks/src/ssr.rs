@@ -2,9 +2,9 @@ use test::Bencher;
 
 #[bench]
 fn leptos_ssr_bench(b: &mut Bencher) {
-	b.iter(|| {
+    b.iter(|| {
 		use leptos::*;
-
+		HydrationCtx::reset_id();
 		_ = create_scope(create_runtime(), |cx| {
 			#[component]
 			fn Counter(cx: Scope, initial: i32) -> impl IntoView {
@@ -32,18 +32,17 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 
 			assert_eq!(
 				rendered,
-				"<main><h1>Welcome to our benchmark page.</h1><p>Here's some introductory text.</p><div><button>-1</button><span>Value: <!>1<template id=\"_3\"></template>!</span><button>+1</button></div><template id=\"_1\"></template><div><button>-1</button><span>Value: <!>2<template id=\"_2\"></template>!</span><button>+1</button></div><template id=\"_0\"></template><div><button>-1</button><span>Value: <!>3<template id=\"_2\"></template>!</span><button>+1</button></div><template id=\"_0\"></template></main>"
-			);
+				"<main id=\"_0-1\"><h1 id=\"_0-2\">Welcome to our benchmark page.</h1><p id=\"_0-3\">Here's some introductory text.</p><div id=\"_0-3-1\"><button id=\"_0-3-2\">-1</button><span id=\"_0-3-3\">Value: <!>1<!--hk=_0-3-4-->!</span><button id=\"_0-3-5\">+1</button></div><!--hk=_0-3-0--><div id=\"_0-3-5-1\"><button id=\"_0-3-5-2\">-1</button><span id=\"_0-3-5-3\">Value: <!>2<!--hk=_0-3-5-4-->!</span><button id=\"_0-3-5-5\">+1</button></div><!--hk=_0-3-5-0--><div id=\"_0-3-5-5-1\"><button id=\"_0-3-5-5-2\">-1</button><span id=\"_0-3-5-5-3\">Value: <!>3<!--hk=_0-3-5-5-4-->!</span><button id=\"_0-3-5-5-5\">+1</button></div><!--hk=_0-3-5-5-0--></main>"			);
 		});
 	});
 }
-/* 
+
 #[bench]
 fn tera_ssr_bench(b: &mut Bencher) {
-	use tera::*;
-	use serde::{Serialize, Deserialize};
+    use serde::{Deserialize, Serialize};
+    use tera::*;
 
-	static TEMPLATE: &str = r#"<main>
+    static TEMPLATE: &str = r#"<main>
 	<h1>Welcome to our benchmark page.</h1>
 	<p>Here's some introductory text.</p>
 	{% for counter in counters %}
@@ -55,37 +54,40 @@ fn tera_ssr_bench(b: &mut Bencher) {
 	{% endfor %}
 	</main>"#;
 
-	lazy_static::lazy_static! { 
-		static ref TERA: Tera = {
-			let mut tera = Tera::default();
-			tera.add_raw_templates(vec![("template.html", TEMPLATE)]).unwrap();
-			tera
-		};
-	}
+    lazy_static::lazy_static! {
+        static ref TERA: Tera = {
+            let mut tera = Tera::default();
+            tera.add_raw_templates(vec![("template.html", TEMPLATE)]).unwrap();
+            tera
+        };
+    }
 
-	#[derive(Serialize, Deserialize)]
-	struct Counter {
-		value: i32
-	}
+    #[derive(Serialize, Deserialize)]
+    struct Counter {
+        value: i32,
+    }
 
-	b.iter(|| {
-		let mut ctx = Context::new();
-		ctx.insert("counters", &vec![
-			Counter { value: 0 },
-			Counter { value: 1},
-			Counter { value: 2 }
-		]);
+    b.iter(|| {
+        let mut ctx = Context::new();
+        ctx.insert(
+            "counters",
+            &vec![
+                Counter { value: 0 },
+                Counter { value: 1 },
+                Counter { value: 2 },
+            ],
+        );
 
-		let _ = TERA.render("template.html", &ctx).unwrap();
-	});
+        let _ = TERA.render("template.html", &ctx).unwrap();
+    });
 }
 
 #[bench]
 fn sycamore_ssr_bench(b: &mut Bencher) {
-	use sycamore::*;
-	use sycamore::prelude::*;
+    use sycamore::prelude::*;
+    use sycamore::*;
 
-	b.iter(|| {
+    b.iter(|| {
 		_ = create_scope(|cx| {
 			#[derive(Prop)]
 			struct CounterProps {
@@ -139,10 +141,10 @@ fn sycamore_ssr_bench(b: &mut Bencher) {
 
 #[bench]
 fn yew_ssr_bench(b: &mut Bencher) {
-	use yew::prelude::*;
-	use yew::ServerRenderer;
+    use yew::prelude::*;
+    use yew::ServerRenderer;
 
-	b.iter(|| {
+    b.iter(|| {
 		#[derive(Properties, PartialEq, Eq, Debug)]
 		struct CounterProps {
 			initial: i32
@@ -194,4 +196,3 @@ fn yew_ssr_bench(b: &mut Bencher) {
 		});
 	});
 }
- */

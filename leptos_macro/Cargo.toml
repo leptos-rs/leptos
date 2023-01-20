@@ -6,6 +6,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "view macro for the Leptos web framework."
+readme = "../README.md"
 
 [lib]
 proc-macro = true
@@ -29,7 +30,7 @@ lazy_static = "1.4"
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = "0.10"
+typed-builder = "0.11"
 leptos = { path = "../leptos" }
 
 [features]

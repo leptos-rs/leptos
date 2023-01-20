@@ -246,7 +246,7 @@ where
 
     #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
-        with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
+        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
     }
 
     /// Clones and returns the current value of the signal, and subscribes
@@ -286,7 +286,11 @@ where
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
     pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
+            Ok(Ok(v)) => Ok(v),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(SignalError::RuntimeDisposed),
+        }
     }
 
     /// Generates a [Stream] that emits the new value of the signal whenever it changes.
@@ -1154,6 +1158,8 @@ slotmap::new_key_type! {
 
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
+    #[error("tried to access a signal in a runtime that had been disposed")]
+    RuntimeDisposed,
     #[error("tried to access a signal that had been disposed")]
     Disposed,
     #[error("error casting signal to type {0}")]
@@ -1235,6 +1241,7 @@ impl SignalId {
         with_runtime(runtime, |runtime| {
             self.try_with_no_subscription(runtime, f).unwrap()
         })
+        .expect("tried to access a signal in a runtime that has been disposed")
     }
 
     pub(crate) fn with<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&T) -> U) -> U
@@ -1242,6 +1249,7 @@ impl SignalId {
         T: 'static,
     {
         with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
+            .expect("tried to access a signal in a runtime that has been disposed")
     }
 
     fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
@@ -1272,6 +1280,7 @@ impl SignalId {
                 None
             }
         })
+        .unwrap_or_default()
     }
 
     pub(crate) fn update<T, U>(
@@ -1307,6 +1316,7 @@ impl SignalId {
             };
             updated
         })
+        .unwrap_or_default()
     }
 
     pub(crate) fn update_with_no_effect<T, U>(

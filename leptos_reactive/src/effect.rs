@@ -180,7 +180,7 @@ where
         )
     )]
     fn run(&self, id: EffectId, runtime: RuntimeId) {
-        with_runtime(runtime, |runtime| {
+        _ = with_runtime(runtime, |runtime| {
             // clear previous dependencies
             id.cleanup(runtime);
 
@@ -201,7 +201,7 @@ where
 
 impl EffectId {
     pub(crate) fn run<T>(&self, runtime_id: RuntimeId) {
-        with_runtime(runtime_id, |runtime| {
+        _ = with_runtime(runtime_id, |runtime| {
             let effect = {
                 let effects = runtime.effects.borrow();
                 effects.get(*self).cloned()
