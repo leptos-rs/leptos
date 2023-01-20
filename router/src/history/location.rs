@@ -19,7 +19,7 @@ pub fn create_location(cx: Scope, path: ReadSignal<String>, state: ReadSignal<St
     let pathname = create_memo(cx, move |_| url.with(|url| url.pathname.clone()));
     let search = create_memo(cx, move |_| url.with(|url| url.search.clone()));
     let hash = create_memo(cx, move |_| url.with(|url| url.hash.clone()));
-    let query = create_memo(cx, move |_| url.with(|url| url.search_params()));
+    let query = create_memo(cx, move |_| url.with(|url| url.search_params.clone()));
 
     Location {
         pathname,

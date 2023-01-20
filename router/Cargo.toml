@@ -56,7 +56,7 @@ features = [
 [features]
 default = []
 csr = ["leptos/csr"]
-hydrate = ["leptos/hydrate"]
+hydrate = ["leptos/hydrate", "dep:url"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
 stable = ["leptos/stable"]
 
