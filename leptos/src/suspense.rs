@@ -1,5 +1,4 @@
 use cfg_if::cfg_if;
-#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 use leptos_dom::HydrationCtx;
 use leptos_dom::{DynChild, Fragment, IntoView};
 use leptos_macro::component;
@@ -73,11 +72,12 @@ where
 
     let orig_child = Rc::new(children);
 
-    leptos_dom::custom(cx, leptos_dom::Custom::new("leptos-suspense")).child({
-        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-        let current_id = HydrationCtx::peek();
+    let current_id = HydrationCtx::peek();
 
-        DynChild::new(move || {
+    let child = DynChild::new({
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        let current_id = current_id.clone();
+        move || {
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                     if context.ready() {
@@ -124,6 +124,13 @@ where
                     initial
                 }
             }
-        })
+        }
     })
+    .into_view(cx);
+    let core_component = match child {
+        leptos_dom::View::CoreComponent(repr) => repr,
+        _ => unreachable!(),
+    };
+
+    leptos_dom::View::Suspense(current_id.clone(), core_component)
 }

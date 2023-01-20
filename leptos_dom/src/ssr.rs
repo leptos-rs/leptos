@@ -139,10 +139,23 @@ pub fn render_to_stream_with_prefix_undisposed(
       r#"
               <template id="{fragment_id}f">{html}</template>
               <script>
-                  var placeholder = document.getElementById("_{fragment_id}");
+                  var id = "{fragment_id}";
+                  var open;
+                  var close;
+                  var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+                  while(walker.nextNode()) {{
+                       if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
+                         open = walker.currentNode;
+                       }} else if(walker.currentNode.textContent == `suspense-close-${{id}}`) {{
+                         close = walker.currentNode;
+                       }}
+                    }}
+                  var range = new Range();
+                  range.setStartAfter(open);
+                  range.setEndBefore(close);
+                  range.deleteContents();
                   var tpl = document.getElementById("{fragment_id}f");
-                  placeholder.textContent = "";
-                  placeholder.append(tpl.content.cloneNode(true));
+                  close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
               </script>
               "#
     )
@@ -217,6 +230,11 @@ impl View {
           }
         }
       }
+      View::Suspense(id, node) => format!(
+        "<!--suspense-open-{id}-->{}<!--suspense-close-{id}-->",
+        View::CoreComponent(node).render_to_string_helper()
+      )
+      .into(),
       View::CoreComponent(node) => {
         let (id, name, wrap, content) = match node {
           CoreComponent::Unit(u) => (
