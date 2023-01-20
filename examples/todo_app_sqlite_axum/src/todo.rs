@@ -3,7 +3,8 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
-use crate::{error::TodoAppError, error_template::error_template};
+use crate:: error_template::error_template;
+use crate::error::TodoAppError;
 
 cfg_if! {
     if #[cfg(feature = "ssr")] {
@@ -107,11 +108,9 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 }
 
 #[component]
-pub fn ErrorComponent(cx: Scope) -> impl IntoView {
-    // provide_meta_context(cx);
+pub fn Error(cx: Scope) -> impl IntoView{
     Err::<String, TodoAppError>(TodoAppError::AnError)
 }
-
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
     provide_meta_context(cx);
@@ -124,14 +123,14 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                 <h1>"My Tasks"</h1>
             </header>
             <main>
-            <ErrorBoundary fallback=error_template>
                 <Routes>
                     <Route path="" view=|cx| view! {
                         cx,
-                        <Todos/>
+                        <ErrorBoundary fallback=error_template>
+                            <Todos/>
+                        </ErrorBoundary>
                     }/>
                 </Routes>
-                </ErrorBoundary>
             </main>
         </Router>
     }
@@ -160,7 +159,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <ErrorComponent/>
+            <Error/>
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
                 {move || {
                     let existing_todos = {

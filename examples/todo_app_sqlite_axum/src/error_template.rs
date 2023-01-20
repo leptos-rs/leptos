@@ -1,9 +1,12 @@
 use leptos::Errors;
-use leptos::{view, For, ForProps, HydrationKey, IntoView, RwSignal, Scope, View};
-use std::error::Error;
+use leptos::{view, For, ForProps, IntoView, RwSignal, Scope, View};
 
-pub fn error_template(cx: Scope, errors: RwSignal<Errors>) -> View {
-    println!("Errors: {:#?}", errors());
+// A basic function to display errors served by the error boundaries. Feel free to do more complicated things
+// here than just displaying them
+pub fn error_template(cx: Scope, errors: Option<RwSignal<Errors>>) -> View {
+    let Some(errors) = errors else {
+        panic!("No Errors found and we expected errors!");
+    };
     view! {cx,
     <h1>"Errors"</h1>
     <For
@@ -13,13 +16,10 @@ pub fn error_template(cx: Scope, errors: RwSignal<Errors>) -> View {
         key=|error| error.0.clone()
         // renders each item to a view
         view= move |error| {
-            println!("SOURCE: {:#?}", error.1.source());
-            // let source: String = error.1.source().unwrap().to_string();
-            let error_string = error.1.to_string();
+        let error_string = error.1.to_string();
           view! {
             cx,
             <p>"Error: " {error_string}</p>
-            // <p>"Location: " {source}</p>
           }
         }
       />

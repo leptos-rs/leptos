@@ -10,7 +10,7 @@ if #[cfg(feature = "ssr")] {
     };
     use crate::todo::*;
     use todo_app_sqlite_axum::*;
-    use crate::file::file_and_error_handler;
+    use crate::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
 

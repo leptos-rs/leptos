@@ -11,7 +11,7 @@ if #[cfg(feature = "ssr")] {
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
-    use hackernews_axum::file::file_handler;
+    use hackernews_axum::fallback::file_and_error_handler;
 
     #[tokio::main]
     async fn main() {

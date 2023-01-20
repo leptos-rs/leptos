@@ -11,7 +11,7 @@ pub fn ErrorBoundary<F>(
     fallback: F,
 ) -> impl IntoView
 where
-    F: Fn(Scope, RwSignal<Errors>) -> View + 'static,
+    F: Fn(Scope, Option<RwSignal<Errors>>) -> View + 'static,
 {
     let errors: RwSignal<Errors> = create_rw_signal(cx, Errors::default());
 
@@ -22,6 +22,6 @@ where
 
     move || match errors.get().0.is_empty() {
         true => children.clone(),
-        false => fallback(cx, errors).into(),
+        false => fallback(cx, Some(errors)).into(),
     }
 }

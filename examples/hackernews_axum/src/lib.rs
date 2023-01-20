@@ -3,7 +3,7 @@ use leptos::{component, view, IntoView, Scope};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
-pub mod file;
+pub mod fallback;
 pub mod handlers;
 mod routes;
 use routes::nav::*;
