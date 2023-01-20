@@ -1,6 +1,6 @@
-use leptos_reactive::{on_cleanup, use_context, RwSignal};
+use leptos_reactive::{on_cleanup, queue_microtask, use_context, RwSignal};
 
-use crate::{HydrationCtx, HydrationKey, IntoView, Transparent};
+use crate::{HydrationCtx, HydrationKey, IntoView};
 use std::{collections::HashMap, error::Error, rc::Rc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
@@ -13,20 +13,8 @@ where
   E: std::error::Error + Send + Sync + 'static,
 {
   fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
-    let errors = match use_context::<RwSignal<Errors>>(cx) {
-      Some(e) => e,
-      None => {
-        #[cfg(debug_assertions)]
-        warn!(
-          "No ErrorBoundary components found! Returning errors will not be \
-           handled and will silently disappear"
-        );
-        return Transparent::new(()).into_view(cx);
-      }
-    };
-
     match self {
-      Ok(stuff) => Transparent::new(stuff).into_view(cx),
+      Ok(stuff) => stuff.into_view(cx),
       Err(error) => {
         match use_context::<RwSignal<Errors>>(cx) {
           Some(errors) => {
@@ -40,8 +28,10 @@ where
             // i.e., if it's in a DynChild that switches from Err to Ok
             // will this actually work?
             on_cleanup(cx, move || {
-              errors.update(|errors: &mut Errors| {
-                errors.remove::<E>(&id);
+              queue_microtask(move || {
+                errors.update(|errors: &mut Errors| {
+                  errors.remove::<E>(&id);
+                });
               });
             });
           }
@@ -53,7 +43,7 @@ where
             );
           }
         }
-        Transparent::new(()).into_view(cx)
+        ().into_view(cx)
       }
     }
   }
