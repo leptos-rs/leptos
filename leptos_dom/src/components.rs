@@ -35,7 +35,6 @@ pub enum CoreComponent {
   Each(EachRepr),
 }
 
-
 impl fmt::Debug for CoreComponent {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
