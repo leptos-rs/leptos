@@ -377,6 +377,8 @@ pub enum View {
   /// Wraps arbitrary data that's not part of the view but is
   /// passed via the view tree.
   Transparent(Transparent),
+  /// Marks the contents of Suspense component, which can be replaced in streaming SSR.
+  Suspense(HydrationKey, CoreComponent),
 }
 
 impl fmt::Debug for View {
@@ -388,6 +390,9 @@ impl fmt::Debug for View {
       Self::CoreComponent(c) => c.fmt(f),
       Self::Transparent(arg0) => {
         f.debug_tuple("Transparent").field(arg0).finish()
+      }
+      Self::Suspense(id, c) => {
+        f.debug_tuple("Suspense").field(id).field(c).finish()
       }
     }
   }
@@ -431,7 +436,7 @@ impl Mountable for View {
         element.element.unchecked_ref::<web_sys::Node>().clone()
       }
       Self::Text(t) => t.node.clone(),
-      Self::CoreComponent(c) => match c {
+      Self::CoreComponent(c) | Self::Suspense(_, c) => match c {
         CoreComponent::Unit(u) => u.get_mountable_node(),
         CoreComponent::DynChild(dc) => dc.get_mountable_node(),
         CoreComponent::Each(e) => e.get_mountable_node(),
@@ -445,7 +450,7 @@ impl Mountable for View {
     match self {
       Self::Text(t) => t.node.clone(),
       Self::Element(el) => el.element.clone().unchecked_into(),
-      Self::CoreComponent(c) => match c {
+      Self::CoreComponent(c) | Self::Suspense(_, c) => match c {
         CoreComponent::DynChild(dc) => dc.get_opening_node(),
         CoreComponent::Each(e) => e.get_opening_node(),
         CoreComponent::Unit(u) => u.get_opening_node(),
@@ -461,7 +466,7 @@ impl Mountable for View {
     match self {
       Self::Text(t) => t.node.clone(),
       Self::Element(el) => el.element.clone().unchecked_into(),
-      Self::CoreComponent(c) => match c {
+      Self::CoreComponent(c) | Self::Suspense(_, c) => match c {
         CoreComponent::DynChild(dc) => dc.get_closing_node(),
         CoreComponent::Each(e) => e.get_closing_node(),
         CoreComponent::Unit(u) => u.get_closing_node(),
@@ -487,6 +492,7 @@ impl View {
         CoreComponent::Unit(..) => "Unit",
       },
       Self::Transparent(..) => "Transparent",
+      Self::Suspense(..) => "Suspense",
     }
   }
 
