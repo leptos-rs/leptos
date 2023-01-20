@@ -17,6 +17,9 @@ cargo install --locked cargo-leptos
 ```bash
 cargo leptos watch
 ```
+
+Open browser on [http://localhost:3000/](http://localhost:3000/)
+
 3. When ready to deploy, run
 ```bash
 cargo leptos build --release

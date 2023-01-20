@@ -95,6 +95,8 @@ cd [your project name]
 cargo leptos watch
 ```
 
+Open browser on [http://localhost:3000/](http://localhost:3000/)
+
 ## FAQs
 
 ### Can I use this for native GUI?

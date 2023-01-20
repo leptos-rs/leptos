@@ -16,6 +16,8 @@ and
 
 in this directory.
 
+Open browser on [http://localhost:3000/](http://localhost:3000/)
+
 You can begin editing your app at `src/app.rs`.
 
 ## Installing Tailwind
