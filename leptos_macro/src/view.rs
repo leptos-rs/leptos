@@ -309,10 +309,10 @@ fn element_to_tokens_ssr(
             .find(|node| matches!(node, Node::Attribute(attr) if attr.key.to_string() == "id"))
         {
             Some(_) => {
-                template.push_str(" leptos-hk=\"_{{}}\"");
+                template.push_str(" leptos-hk=\"_{}\"");
             }
             None => {
-                template.push_str(" id=\"_{{}}\"");
+                template.push_str(" id=\"_{}\"");
             }
         }
         holes.push(hydration_id);
