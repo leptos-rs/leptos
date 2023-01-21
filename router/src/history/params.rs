@@ -61,7 +61,7 @@ impl Default for ParamsMap {
 /// ```
 /// # use leptos_router::params_map;
 /// let map = params_map! {
-///     "id".to_string() => "1".to_string()
+///     "id" => "1"
 /// };
 /// assert_eq!(map.get("id"), Some(&"1".to_string()));
 /// assert_eq!(map.get("missing"), None)
