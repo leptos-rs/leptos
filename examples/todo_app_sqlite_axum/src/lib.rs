@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
 use leptos::*;
-pub mod error;
 pub mod error_template;
 pub mod fallback;
 pub mod todo;
