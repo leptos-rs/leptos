@@ -36,7 +36,7 @@ cfg_if! {
                 Some(PathMatch {
                     path: "/foo/abc-123".into(),
                     params: params_map!(
-                        "id".into() => "abc-123".into()
+                        "id" => "abc-123"
                     )
                 })
             );
@@ -72,7 +72,7 @@ cfg_if! {
                 Some(PathMatch {
                     path: "/foo/bar".into(),
                     params: params_map!(
-                        "something".into() => "baz/qux".into()
+                        "something" => "baz/qux"
                     )
                 })
             );
@@ -87,7 +87,7 @@ cfg_if! {
                 Some(PathMatch {
                     path: "/foo/bar".into(),
                     params: params_map!(
-                        "something".into() => "".into()
+                        "something" => ""
                     )
                 })
             );

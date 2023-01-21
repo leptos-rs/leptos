@@ -78,7 +78,7 @@ macro_rules! params_map {
         let start_capacity = common_macros::const_expr_count!($($key);*);
         #[allow(unused_mut)]
         let mut map = linear_map::LinearMap::with_capacity(start_capacity);
-        $( map.insert($key, $val); )*
+        $( map.insert($key.to_string(), $val.to_string()); )*
         $crate::ParamsMap(map)
     });
 }
