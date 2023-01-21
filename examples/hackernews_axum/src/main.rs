@@ -26,9 +26,9 @@ if #[cfg(feature = "ssr")] {
 
         // build our application with a route
         let app = Router::new()
-        .route("/favicon.ico", get(file_handler))
+        .route("/favicon.ico", get(file_and_error_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> } )
-        .fallback(file_handler)
+        .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));
 
         // run our app with hyper
