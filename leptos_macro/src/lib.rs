@@ -4,7 +4,8 @@
 #[macro_use]
 extern crate proc_macro_error;
 
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::TokenStream;
+use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
 use syn::{parse_macro_input, DeriveInput};
@@ -196,7 +197,7 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a
+/// 8. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
 ///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos::*;
@@ -206,6 +207,24 @@ mod server;
 /// let my_input = NodeRef::new(cx);
 /// view! { cx, <input type="text" _ref=my_input/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
+/// # ;
+/// # }
+/// # });
+/// ```
+///
+/// 9. You can add the same class to every element in the view by passing in a special
+///    `class = {/* ... */}` argument after `cx, `. This is useful for injecting a class
+///    providing by a scoped styling library.
+/// ```rust
+/// # use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let class = "mycustomclass";
+/// view! { cx, class = class,
+///   <div> // will have class="mycustomclass"
+///     <p>"Some text"</p> // will also have class "mycustomclass"
+///   </div>
+/// }
 /// # ;
 /// # }
 /// # });
@@ -243,15 +262,45 @@ mod server;
 #[proc_macro_error::proc_macro_error]
 #[proc_macro]
 pub fn view(tokens: TokenStream) -> TokenStream {
+    let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
     let (cx, comma) = (tokens.next(), tokens.next());
     match (cx, comma) {
         (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct))) if punct.as_char() == ',' => {
-            match parse(tokens.collect()) {
+            let first = tokens.next();
+            let second = tokens.next();
+            let third = tokens.next();
+            let fourth = tokens.next();
+            let global_class = match (&first, &second, &third, &fourth) {
+                (
+                    Some(TokenTree::Ident(first)),
+                    Some(TokenTree::Punct(eq)),
+                    Some(val),
+                    Some(TokenTree::Punct(comma)),
+                ) if *first == "class"
+                    && eq.to_string() == '='.to_string()
+                    && comma.to_string() == ','.to_string() =>
+                {
+                    Some(val.clone())
+                }
+                _ => None,
+            };
+            let tokens = if global_class.is_some() {
+                tokens.collect::<proc_macro2::TokenStream>()
+            } else {
+                [first, second, third, fourth]
+                    .into_iter()
+                    .flatten()
+                    .chain(tokens)
+                    .collect()
+            };
+
+            match parse(tokens.into()) {
                 Ok(nodes) => render_view(
-                    &proc_macro2::Ident::new(&cx.to_string(), cx.span().into()),
+                    &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
                     &nodes,
                     Mode::default(),
+                    global_class.as_ref(),
                 ),
                 Err(error) => error.to_compile_error(),
             }

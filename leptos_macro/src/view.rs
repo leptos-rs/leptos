@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
 use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
@@ -142,7 +142,12 @@ const TYPED_EVENTS: [&str; 126] = [
     "visibilitychange",
 ];
 
-pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
+pub(crate) fn render_view(
+    cx: &Ident,
+    nodes: &[Node],
+    mode: Mode,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     if mode == Mode::Ssr {
         if nodes.is_empty() {
             let span = Span::call_site();
@@ -150,9 +155,9 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
                 span => leptos::Unit
             }
         } else if nodes.len() == 1 {
-            root_node_to_tokens_ssr(cx, &nodes[0])
+            root_node_to_tokens_ssr(cx, &nodes[0], global_class)
         } else {
-            fragment_to_tokens_ssr(cx, Span::call_site(), nodes)
+            fragment_to_tokens_ssr(cx, Span::call_site(), nodes, global_class)
         }
     } else if nodes.is_empty() {
         let span = Span::call_site();
@@ -160,16 +165,27 @@ pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream
             span => leptos::Unit
         }
     } else if nodes.len() == 1 {
-        node_to_tokens(cx, &nodes[0], TagType::Unknown)
+        node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class)
     } else {
-        fragment_to_tokens(cx, Span::call_site(), nodes, false, TagType::Unknown)
+        fragment_to_tokens(
+            cx,
+            Span::call_site(),
+            nodes,
+            false,
+            TagType::Unknown,
+            global_class,
+        )
     }
 }
 
-fn root_node_to_tokens_ssr(cx: &Ident, node: &Node) -> TokenStream {
+fn root_node_to_tokens_ssr(
+    cx: &Ident,
+    node: &Node,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     match node {
         Node::Fragment(fragment) => {
-            fragment_to_tokens_ssr(cx, Span::call_site(), &fragment.children)
+            fragment_to_tokens_ssr(cx, Span::call_site(), &fragment.children, global_class)
         }
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
         Node::Text(node) => {
@@ -185,13 +201,18 @@ fn root_node_to_tokens_ssr(cx: &Ident, node: &Node) -> TokenStream {
                 #value
             }
         }
-        Node::Element(node) => root_element_to_tokens_ssr(cx, node),
+        Node::Element(node) => root_element_to_tokens_ssr(cx, node, global_class),
     }
 }
 
-fn fragment_to_tokens_ssr(cx: &Ident, _span: Span, nodes: &[Node]) -> TokenStream {
+fn fragment_to_tokens_ssr(
+    cx: &Ident,
+    _span: Span,
+    nodes: &[Node],
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
-        let node = root_node_to_tokens_ssr(cx, node);
+        let node = root_node_to_tokens_ssr(cx, node, global_class);
         quote! {
             #node.into_view(#cx)
         }
@@ -205,9 +226,13 @@ fn fragment_to_tokens_ssr(cx: &Ident, _span: Span, nodes: &[Node]) -> TokenStrea
     }
 }
 
-fn root_element_to_tokens_ssr(cx: &Ident, node: &NodeElement) -> TokenStream {
-    if is_component_node(&node) {
-        component_to_tokens(cx, node)
+fn root_element_to_tokens_ssr(
+    cx: &Ident,
+    node: &NodeElement,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    if is_component_node(node) {
+        component_to_tokens(cx, node, global_class)
     } else {
         let mut template = String::new();
         let mut holes = Vec::<TokenStream>::new();
@@ -220,6 +245,7 @@ fn root_element_to_tokens_ssr(cx: &Ident, node: &NodeElement) -> TokenStream {
             &mut holes,
             &mut exprs_for_compiler,
             true,
+            global_class,
         );
 
         let template = if holes.is_empty() {
@@ -253,10 +279,11 @@ fn element_to_tokens_ssr(
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
     is_root: bool,
+    global_class: Option<&TokenTree>,
 ) {
     if is_component_node(node) {
         template.push_str("{}");
-        let component = component_to_tokens(cx, node);
+        let component = component_to_tokens(cx, node, global_class);
         holes.push(quote! {
           {#component}.into_view(cx).render_to_string(cx),
         })
@@ -282,15 +309,15 @@ fn element_to_tokens_ssr(
             .find(|node| matches!(node, Node::Attribute(attr) if attr.key.to_string() == "id"))
         {
             Some(_) => {
-                template.push_str(&format!(" leptos-hk=\"_{{}}\""));
+                template.push_str(" leptos-hk=\"_{}\"");
             }
             None => {
-                template.push_str(&format!(" id=\"_{{}}\""));
+                template.push_str(" id=\"_{}\"");
             }
         }
         holes.push(hydration_id);
 
-        set_class_attribute_ssr(cx, node, template, holes);
+        set_class_attribute_ssr(cx, node, template, holes, global_class);
 
         if is_self_closing(node) {
             template.push_str("/>");
@@ -298,9 +325,15 @@ fn element_to_tokens_ssr(
             template.push('>');
             for child in &node.children {
                 match child {
-                    Node::Element(child) => {
-                        element_to_tokens_ssr(cx, child, template, holes, exprs_for_compiler, false)
-                    }
+                    Node::Element(child) => element_to_tokens_ssr(
+                        cx,
+                        child,
+                        template,
+                        holes,
+                        exprs_for_compiler,
+                        false,
+                        global_class,
+                    ),
                     Node::Text(text) => {
                         if let Some(value) = value_to_string(&text.value) {
                             template.push_str(&value);
@@ -418,7 +451,17 @@ fn set_class_attribute_ssr(
     node: &NodeElement,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
+    global_class: Option<&TokenTree>,
 ) {
+    let static_global_class = match global_class {
+        Some(TokenTree::Literal(lit)) => lit.to_string(),
+        _ => String::new(),
+    };
+    let dyn_global_class = match global_class {
+        None => None,
+        Some(TokenTree::Literal(_)) => None,
+        Some(val) => Some(val),
+    };
     let static_class_attr = node
         .attributes
         .iter()
@@ -433,6 +476,8 @@ fn set_class_attribute_ssr(
                 None
             }
         })
+        .chain(std::iter::once(static_global_class))
+        .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
 
@@ -496,7 +541,11 @@ fn set_class_attribute_ssr(
         })
         .collect::<Vec<_>>();
 
-    if !static_class_attr.is_empty() || !dyn_class_attr.is_empty() || !class_attrs.is_empty() {
+    if !static_class_attr.is_empty()
+        || !dyn_class_attr.is_empty()
+        || !class_attrs.is_empty()
+        || dyn_global_class.is_some()
+    {
         template.push_str(" class=\"");
 
         template.push_str(&static_class_attr);
@@ -518,6 +567,11 @@ fn set_class_attribute_ssr(
             });
         }
 
+        if let Some(dyn_global_class) = dyn_global_class {
+            template.push_str(" {}");
+            holes.push(quote! { #dyn_global_class, });
+        }
+
         template.push('"');
     }
 }
@@ -528,9 +582,10 @@ fn fragment_to_tokens(
     nodes: &[Node],
     lazy: bool,
     parent_type: TagType,
+    global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
-        let node = node_to_tokens(cx, node, parent_type);
+        let node = node_to_tokens(cx, node, parent_type, global_class);
 
         quote! {
             #node.into_view(#cx)
@@ -555,7 +610,12 @@ fn fragment_to_tokens(
     }
 }
 
-fn node_to_tokens(cx: &Ident, node: &Node, parent_type: TagType) -> TokenStream {
+fn node_to_tokens(
+    cx: &Ident,
+    node: &Node,
+    parent_type: TagType,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
             cx,
@@ -563,6 +623,7 @@ fn node_to_tokens(cx: &Ident, node: &Node, parent_type: TagType) -> TokenStream 
             &fragment.children,
             false,
             parent_type,
+            global_class,
         ),
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
@@ -576,13 +637,18 @@ fn node_to_tokens(cx: &Ident, node: &Node, parent_type: TagType) -> TokenStream 
             quote! { #value }
         }
         Node::Attribute(node) => attribute_to_tokens(cx, node),
-        Node::Element(node) => element_to_tokens(cx, node, parent_type),
+        Node::Element(node) => element_to_tokens(cx, node, parent_type, global_class),
     }
 }
 
-fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -> TokenStream {
+fn element_to_tokens(
+    cx: &Ident,
+    node: &NodeElement,
+    mut parent_type: TagType,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     if is_component_node(node) {
-        component_to_tokens(cx, node)
+        component_to_tokens(cx, node, global_class)
     } else {
         let tag = node.name.to_string();
         let name = if is_custom_element(&tag) {
@@ -623,6 +689,14 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -
                 None
             }
         });
+        let global_class_expr = match global_class {
+            None => quote! {},
+            Some(class) => {
+                quote! {
+                    .class(#class, true)
+                }
+            }
+        };
         let children = node.children.iter().map(|node| {
             let child = match node {
                 Node::Fragment(fragment) => fragment_to_tokens(
@@ -631,6 +705,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -
                     &fragment.children,
                     false,
                     parent_type,
+                    global_class,
                 ),
                 Node::Text(node) => {
                     let value = node.value.as_ref();
@@ -644,7 +719,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -
                         #[allow(unused_braces)] #value
                     }
                 }
-                Node::Element(node) => element_to_tokens(cx, node, parent_type),
+                Node::Element(node) => element_to_tokens(cx, node, parent_type, global_class),
                 Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
             };
             quote! {
@@ -654,6 +729,7 @@ fn element_to_tokens(cx: &Ident, node: &NodeElement, mut parent_type: TagType) -
         quote! {
             #name
                 #(#attrs)*
+                #global_class_expr
                 #(#children)*
         }
     }
@@ -830,7 +906,11 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
     }
 }
 
-fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
+fn component_to_tokens(
+    cx: &Ident,
+    node: &NodeElement,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     let name = &node.name;
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
@@ -881,7 +961,14 @@ fn component_to_tokens(cx: &Ident, node: &NodeElement) -> TokenStream {
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        let children = fragment_to_tokens(cx, span, &node.children, true, TagType::Unknown);
+        let children = fragment_to_tokens(
+            cx,
+            span,
+            &node.children,
+            true,
+            TagType::Unknown,
+            global_class,
+        );
 
         let clonables = items_to_clone
             .iter()
