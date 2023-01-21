@@ -73,3 +73,25 @@ fn test_classes() {
         );
     });
 }
+
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[test]
+fn ssr_with_styles() {
+    use leptos::*;
+
+    _ = create_scope(create_runtime(), |cx| {
+        let (value, set_value) = create_signal(cx, 0);
+        let styles = "myclass";
+        let rendered = view! {
+            cx, class = styles,
+            <div>
+                <button class="btn" on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+            </div>
+        };
+
+        assert_eq!(
+            rendered.into_view(cx).render_to_string(cx),
+            "<div id=\"_0-1\" class=\" myclass\"><button id=\"_0-2\" class=\"btn myclass\">-1</button></div>"
+        );
+    });
+}
