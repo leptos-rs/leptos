@@ -1,5 +1,6 @@
 mod dyn_child;
 mod each;
+mod errors;
 mod fragment;
 mod unit;
 
@@ -11,6 +12,7 @@ use crate::{
 use crate::{mount_child, prepare_to_move, MountKind, Mountable};
 pub use dyn_child::*;
 pub use each::*;
+pub use errors::*;
 pub use fragment::*;
 use leptos_reactive::Scope;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

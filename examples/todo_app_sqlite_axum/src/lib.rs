@@ -1,6 +1,7 @@
 use cfg_if::cfg_if;
 use leptos::*;
-pub mod file;
+pub mod error_template;
+pub mod fallback;
 pub mod todo;
 
 // Needs to be in lib.rs AFAIK because wasm-bindgen needs us to be compiling a lib. I may be wrong.
