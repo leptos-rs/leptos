@@ -1,6 +1,6 @@
 use crate::{HydrationCtx, HydrationKey, IntoView};
 use cfg_if::cfg_if;
-use leptos_reactive::{on_cleanup, queue_microtask, use_context, RwSignal};
+use leptos_reactive::{use_context, RwSignal};
 use std::{collections::HashMap, error::Error, rc::Rc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
@@ -28,16 +28,17 @@ where
             // i.e., if it's in a DynChild that switches from Err to Ok
             // Only can run on the client, will panic on the server
             cfg_if! {
-                  if #[cfg(feature = "hydrate")] {
-                on_cleanup(cx, move || {
-                  queue_microtask(move || {
-                    errors.update(|errors: &mut Errors| {
-                      errors.remove::<E>(&id);
-                    });
-                  });
+                  if #[cfg(any(feature = "hydrate", feature="csr"))] {
+            use leptos_reactive::{on_cleanup, queue_microtask};
+            on_cleanup(cx, move || {
+              queue_microtask(move || {
+                errors.update(|errors: &mut Errors| {
+                errors.remove::<E>(&id);
                 });
+              });
+            });
+                }
               }
-            }
           }
           None => {
             #[cfg(debug_assertions)]

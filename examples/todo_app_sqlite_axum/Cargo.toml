@@ -33,7 +33,6 @@ sqlx = { version = "0.6.2", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
 ], optional = true }
-thiserror = "1.0.38"
 
 [features]
 default = ["csr"]
