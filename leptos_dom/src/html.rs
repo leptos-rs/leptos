@@ -993,7 +993,7 @@ fn warn_on_ambiguous_a(parent: &web_sys::Element, child: &View) {
            an HTML element to an SVG. Typically, this occurs when you create \
            an <a/> or <script/> with the `view` macro and append it to an \
            SVG, but the framework assumed it was HTML when you created it. To \
-           specify that it is an SVG element, use <svg::{tag name}/> in the \
+           specify that it is an SVG element, use <svg::{{tag name}}/> in the \
            view macro."
         )
       }
