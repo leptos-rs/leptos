@@ -196,7 +196,7 @@ mod server;
 /// # });
 /// ```
 ///
-/// 8. You can use the `_ref` attribute to store a reference to its DOM element in a
+/// 8. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
 ///    [NodeRef](leptos_reactive::NodeRef) to use later.
 /// ```rust
 /// # use leptos::*;
