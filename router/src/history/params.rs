@@ -61,7 +61,7 @@ impl Default for ParamsMap {
 /// ```
 /// # use leptos_router::params_map;
 /// let map = params_map! {
-///     "id".to_string() => "1".to_string()
+///     "id" => "1"
 /// };
 /// assert_eq!(map.get("id"), Some(&"1".to_string()));
 /// assert_eq!(map.get("missing"), None)
@@ -78,7 +78,7 @@ macro_rules! params_map {
         let start_capacity = common_macros::const_expr_count!($($key);*);
         #[allow(unused_mut)]
         let mut map = linear_map::LinearMap::with_capacity(start_capacity);
-        $( map.insert($key, $val); )*
+        $( map.insert($key.to_string(), $val.to_string()); )*
         $crate::ParamsMap(map)
     });
 }
