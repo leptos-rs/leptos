@@ -982,14 +982,19 @@ macro_rules! generate_html_tags {
 #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
 fn warn_on_ambiguous_a(parent: &web_sys::Element, child: &View) {
   if let View::Element(el) = &child {
-    if el.name == "a" {
+    if el.name == "a"
+      || el.name == "script"
+      || el.name == "style"
+      || el.name == "title"
+    {
       if parent.namespace_uri() != el.element.namespace_uri() {
         crate::warn!(
-          "Warning: you are appending an SVG <a/> to an HTML element, or an \
-           HTML <a/> to an SVG. Typically, this occurs when you create an \
-           <a/> with the `view` macro and append it to an SVG, but the \
-           framework assumed it was HTML when you created it. To specify that \
-           it is an SVG <a/>, use <svg::a/> in the view macro."
+          "Warning: you are appending an SVG element to an HTML element, or \
+           an HTML element to an SVG. Typically, this occurs when you create \
+           an <a/> or <script/> with the `view` macro and append it to an \
+           SVG, but the framework assumed it was HTML when you created it. To \
+           specify that it is an SVG element, use <svg::{tag name}/> in the \
+           view macro."
         )
       }
     }

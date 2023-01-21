@@ -1033,16 +1033,13 @@ fn is_svg_element(tag: &str) -> bool {
             | "polyline"
             | "radialGradient"
             | "rect"
-            | "script"
             | "set"
             | "stop"
-            | "style"
             | "svg"
             | "switch"
             | "symbol"
             | "text"
             | "textPath"
-            | "title"
             | "tspan"
             | "use"
             | "use_"
@@ -1088,7 +1085,7 @@ fn is_math_ml_element(tag: &str) -> bool {
 }
 
 fn is_ambiguous_element(tag: &str) -> bool {
-    matches!(tag, "a")
+    tag == "a" || tag == "script"
 }
 
 fn parse_event(event_name: &str) -> (&str, bool) {
