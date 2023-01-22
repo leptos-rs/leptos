@@ -1,4 +1,7 @@
-use convert_case::{Case::{Snake, Pascal}, Casing};
+use convert_case::{
+    Case::{Pascal, Snake},
+    Casing,
+};
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
