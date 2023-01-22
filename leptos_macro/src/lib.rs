@@ -373,16 +373,18 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///    to do relatively expensive work within the component function, as it will only happen once,
 ///    not on every state change.
 ///
-/// 2. The component name should be `CamelCase` instead of `snake_case`. This is how the renderer
-///    recognizes that a particular tag is a component, not an HTML element.
+/// 2. If a `snake_case` name is used, then the generated component's name will still be in
+///    `CamelCase`. This is how the renderer recognizes that a particular tag is a component, not
+///    an HTML element. It's important to be aware of this when using or importing the component.
 ///
 /// ```
 /// # use leptos::*;
-/// // ❌ not snake_case
-/// #[component]
-/// fn my_component(cx: Scope) -> impl IntoView { todo!() }
 ///
-/// // ✅ CamelCase
+/// // snake_case: Generated component will be called MySnakeCaseComponent
+/// #[component]
+/// fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
+///
+/// // CamelCase: Generated component will be called MyComponent
 /// #[component]
 /// fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
 /// ```
@@ -401,6 +403,18 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 ///   #[component]
 ///   pub fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
+/// }
+/// ```
+/// ```
+/// # use leptos::*;
+///
+/// use snake_case_component::{MySnakeCaseComponent, MySnakeCaseComponentProps};
+///
+/// mod snake_case_component {
+///   use leptos::*;
+///
+///   #[component]
+///   pub fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
 /// }
 /// ```
 ///
