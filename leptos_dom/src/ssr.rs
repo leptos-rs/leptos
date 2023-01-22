@@ -97,6 +97,29 @@ pub fn render_to_stream_with_prefix_undisposed(
   view: impl FnOnce(Scope) -> View + 'static,
   prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
+  render_to_stream_with_prefix_undisposed_with_context(view, prefix, |_cx| {})
+}
+
+/// Renders a function to a stream of HTML strings and returns the [Scope] and [Runtime] that were created, so
+/// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
+/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+///
+/// This renders:
+/// 1) the prefix
+/// 2) the application shell
+///   a) HTML for everything that is not under a `<Suspense/>`,
+///   b) the `fallback` for any `<Suspense/>` component that is not already resolved, and
+///   c) JavaScript necessary to receive streaming [Resource](leptos_reactive::Resource) data.
+/// 3) streaming [Resource](leptos_reactive::Resource) data. Resources begin loading on the
+///    server and are sent down to the browser to resolve. On the browser, if the app sees that
+///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
+/// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
+///    read under that `<Suspense/>` resolve.
+pub fn render_to_stream_with_prefix_undisposed_with_context(
+  view: impl FnOnce(Scope) -> View + 'static,
+  prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+  additional_context: impl FnOnce(Scope) + 'static,
+) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
   HydrationCtx::reset_id();
 
   // create the runtime
@@ -115,6 +138,8 @@ pub fn render_to_stream_with_prefix_undisposed(
       let resources = cx.pending_resources();
       let pending_resources = serde_json::to_string(&resources).unwrap();
       let prefix = prefix(cx);
+      // Add additional context items
+      additional_context(cx);
 
       (
         shell,

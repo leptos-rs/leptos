@@ -18,6 +18,7 @@ leptos = { path = "../../../leptos/leptos", default-features = false, features =
 leptos_axum = { path = "../../../leptos/integrations/axum", default-features = false, optional = true }
 leptos_meta = { path = "../../../leptos/meta", default-features = false }
 leptos_router = { path = "../../../leptos/router", default-features = false }
+leptos_reactive = { path = "../../../leptos/leptos_reactive", default-features = false }
 log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1.0.148", features = ["derive"] }
