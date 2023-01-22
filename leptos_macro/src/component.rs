@@ -1,3 +1,4 @@
+use convert_case::{Case::{Snake, Pascal}, Casing};
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
@@ -75,7 +76,7 @@ impl Parse for Model {
             is_transparent: false,
             docs,
             vis: item.vis.clone(),
-            name: item.sig.ident.clone(),
+            name: convert_from_snake_case(&item.sig.ident),
             scope_name,
             props,
             ret: item.sig.output.clone(),
@@ -94,6 +95,15 @@ fn drain_filter<T>(vec: &mut Vec<T>, mut some_predicate: impl FnMut(&mut T) -> b
         } else {
             i += 1;
         }
+    }
+}
+
+fn convert_from_snake_case(name: &Ident) -> Ident {
+    let name_str = name.to_string();
+    if !name_str.is_case(Snake) {
+        name.clone()
+    } else {
+        Ident::new(&*name_str.to_case(Pascal), name.span().clone())
     }
 }
 
