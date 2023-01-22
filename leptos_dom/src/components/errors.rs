@@ -20,7 +20,7 @@ where
           Some(errors) => {
             let id = HydrationCtx::id();
             errors.update({
-              let id = id.clone();
+              let id = id;
               move |errors: &mut Errors| errors.insert(id, error)
             });
 

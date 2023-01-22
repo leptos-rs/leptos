@@ -132,5 +132,5 @@ where
         _ => unreachable!(),
     };
 
-    leptos_dom::View::Suspense(current_id.clone(), core_component)
+    leptos_dom::View::Suspense(current_id, core_component)
 }
