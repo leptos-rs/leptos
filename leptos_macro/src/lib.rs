@@ -373,20 +373,21 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///    to do relatively expensive work within the component function, as it will only happen once,
 ///    not on every state change.
 ///
-/// 2. If a `snake_case` name is used, then the generated component's name will still be in
-///    `CamelCase`. This is how the renderer recognizes that a particular tag is a component, not
-///    an HTML element. It's important to be aware of this when using or importing the component.
+/// 2. Component names are usually in `PascalCase`. If you use a `snake_case` name,
+///    then the generated component's name will still be in `PascalCase`. This is how the framework
+///    recognizes that a particular tag is a component, not an HTML element. It's important to be aware
+///    of this when using or importing the component.
 ///
 /// ```
 /// # use leptos::*;
 ///
+/// // PascalCase: Generated component will be called MyComponent
+/// #[component]
+/// fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
+///
 /// // snake_case: Generated component will be called MySnakeCaseComponent
 /// #[component]
 /// fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
-///
-/// // CamelCase: Generated component will be called MyComponent
-/// #[component]
-/// fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
 /// ```
 ///
 /// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
