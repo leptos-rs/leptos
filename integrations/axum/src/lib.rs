@@ -622,8 +622,8 @@ where
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure. An example is below
-/// ```no_run
-/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
+/// ```ignore
+/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> Response{
 ///     let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
 ///     move |cx| {
 ///         provide_context(cx, id.clone());
