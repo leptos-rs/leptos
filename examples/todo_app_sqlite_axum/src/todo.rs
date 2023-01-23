@@ -107,6 +107,7 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
+	let id = use_context::<String>(cx);
     provide_meta_context(cx);
     view! {
         cx,
@@ -122,7 +123,6 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                         cx,
                             <Todos/>
                     }/>
-
                 </Routes>
             </main>
         </Router>

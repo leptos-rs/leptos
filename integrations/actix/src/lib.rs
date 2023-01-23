@@ -115,9 +115,28 @@ pub async fn redirect(cx: leptos::Scope, path: &str) {
 /// # }
 /// ```
 pub fn handle_server_fns() -> Route {
+    handle_server_fns_with_context(|_cx| {})
+}
+
+/// An Actix [Route](actix_web::Route) that listens for a `POST` request with
+/// Leptos server function arguments in the body, runs the server function if found,
+/// and returns the resulting [HttpResponse].
+///
+/// This provides the [HttpRequest] to the server [Scope](leptos::Scope).
+///
+/// This can then be set up at an appropriate route in your application:
+///
+/// This version allows you to pass in a closure that adds additional route data to the
+/// context, allowing you to pass in info about the route or user from Actix, or other info
+pub fn handle_server_fns_with_context(
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+) -> Route {
     web::post().to(
-        |req: HttpRequest, params: web::Path<String>, body: web::Bytes| async move {
-            {
+        move |req: HttpRequest, params: web::Path<String>, body: web::Bytes| {
+            let additional_context = additional_context.clone();
+            async move {
+                let additional_context = additional_context.clone();
+
                 let path = params.into_inner();
                 let accept_header = req
                     .headers()
@@ -129,6 +148,9 @@ pub fn handle_server_fns() -> Route {
 
                     let runtime = create_runtime();
                     let (cx, disposer) = raw_scope_and_disposer(runtime);
+
+                    // Add additional info to the context of the server function
+                    additional_context(cx);
                     let res_options = ResponseOptions::default();
 
                     // provide HttpRequest as context in server scope
@@ -255,9 +277,26 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
+    render_app_to_stream_with_context(options, |_cx| {}, app_fn)
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// This function allows you to provide additional information to Leptos for your route.
+/// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
+pub fn render_app_to_stream_with_context<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where
+    IV: IntoView,
+{
     web::get().to(move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
+        let additional_context = additional_context.clone();
         let res_options = ResponseOptions::default();
 
         async move {
@@ -272,7 +311,7 @@ where
 
             let (head, tail) = html_parts(&options);
 
-            stream_app(app, head, tail, res_options).await
+            stream_app(app, head, tail, res_options, additional_context).await
         }
     })
 }
@@ -355,7 +394,7 @@ where
 
             let (head, tail) = html_parts(&options);
 
-            stream_app(app, head, tail, res_options).await
+            stream_app(app, head, tail, res_options, |_cx| {}).await
         }
     })
 }
@@ -385,13 +424,18 @@ async fn stream_app(
     head: String,
     tail: String,
     res_options: ResponseOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> HttpResponse<BoxBody> {
-    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed(app, move |cx| {
-        let head = use_context::<MetaContext>(cx)
-            .map(|meta| meta.dehydrate())
-            .unwrap_or_default();
-        format!("{head}</head><body>").into()
-    });
+    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed_with_context(
+        app,
+        move |cx| {
+            let head = use_context::<MetaContext>(cx)
+                .map(|meta| meta.dehydrate())
+                .unwrap_or_default();
+            format!("{head}</head><body>").into()
+        },
+        additional_context,
+    );
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })

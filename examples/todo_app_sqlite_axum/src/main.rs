@@ -4,15 +4,31 @@ use leptos::*;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use axum::{
-        routing::post,
-        extract::Extension,
+        routing::{post, get},
+        extract::{Extension, Path},
+        http::Request,
+        body::StreamBody,
+        response::{IntoResponse, Response},
         Router,
     };
+    use axum::body::Body as AxumBody;
     use crate::todo::*;
     use todo_app_sqlite_axum::*;
     use crate::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
+    use leptos_reactive::run_scope;
+
+    //Define a handler to test extractor with state
+    async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
+            let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+            move |cx| {
+                provide_context(cx, id.clone());
+            },
+            |cx| view! { cx, <TodoApp/> }
+        );
+            handler(req).await.into_response()
+    }
 
     #[tokio::main]
     async fn main() {
@@ -35,6 +51,7 @@ if #[cfg(feature = "ssr")] {
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
+        .route("/special/:id", get(custom_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
         .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));
