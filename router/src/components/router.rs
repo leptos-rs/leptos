@@ -216,7 +216,6 @@ impl RouterContextInner {
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
                 Some(resolved_to) => {
-                    let resolved_to = resolved_to;
                     if self.referrers.borrow().len() > 32 {
                         return Err(NavigationError::MaxRedirects);
                     }
