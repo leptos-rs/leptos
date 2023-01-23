@@ -131,6 +131,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     _,
   ) = run_scope_undisposed(runtime, {
     move |cx| {
+      // Add additional context items
+      additional_context(cx);
       // the actual app body/template code
       // this does NOT contain any of the data being loaded asynchronously in resources
       let shell = view(cx).render_to_string(cx);
@@ -138,8 +140,6 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
       let resources = cx.pending_resources();
       let pending_resources = serde_json::to_string(&resources).unwrap();
       let prefix = prefix(cx);
-      // Add additional context items
-      additional_context(cx);
 
       (
         shell,

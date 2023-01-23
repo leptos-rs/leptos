@@ -21,9 +21,10 @@ if #[cfg(feature = "ssr")] {
 
     //Define a handler to test extractor with state
     async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
-            println!("Matching CUSTOM");
             let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
-            move |cx| { provide_context(cx, id.clone()); },
+            move |cx| {
+                provide_context(cx, id.clone());
+            },
             |cx| view! { cx, <TodoApp/> }
         );
             handler(req).await.into_response()
@@ -50,7 +51,7 @@ if #[cfg(feature = "ssr")] {
         // build our application with a route
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .route("/:id", get(custom_handler))
+        .route("/special/:id", get(custom_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
         .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));

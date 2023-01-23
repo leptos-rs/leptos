@@ -253,6 +253,137 @@ pub async fn handle_server_fns(
     rx.await.unwrap()
 }
 
+/// An Axum handlers to listens for a request with Leptos server function arguments in the body,
+/// run the server function if found, and return the resulting [Response].
+///
+/// This provides an `Arc<[Request<Body>](axum::http::Request)>` [Scope](leptos::Scope).
+///
+/// This can then be set up at an appropriate route in your application:
+///
+/// This version allows you to pass in a closure to capture additional data from the layers above leptos
+/// and store it in context. To use it, you'll need to define your own route, and a handler function
+/// that takes in the data you'd like. See the `render_app_to_stream_with_context()` docs for an example
+/// of one that should work much like this one
+pub async fn handle_server_fns_with_context(
+    Path(fn_name): Path<String>,
+    headers: HeaderMap,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    req: Request<Body>,
+) -> impl IntoResponse {
+    // Axum Path extractor doesn't remove the first slash from the path, while Actix does
+    let fn_name: String = match fn_name.strip_prefix('/') {
+        Some(path) => path.to_string(),
+        None => fn_name,
+    };
+
+    let (tx, rx) = futures::channel::oneshot::channel();
+    spawn_blocking({
+        move || {
+            tokio::runtime::Runtime::new()
+                .expect("couldn't spawn runtime")
+                .block_on({
+                    async move {
+                        let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
+                            let runtime = create_runtime();
+                            let (cx, disposer) = raw_scope_and_disposer(runtime);
+
+                            additional_context(cx);
+
+                            let req_parts = generate_request_parts(req).await;
+                            // Add this so we can get details about the Request
+                            provide_context(cx, req_parts.clone());
+                            // Add this so that we can set headers and status of the response
+                            provide_context(cx, ResponseOptions::default());
+
+                            match server_fn(cx, &req_parts.body).await {
+                                Ok(serialized) => {
+                                    // If ResponseOptions are set, add the headers and status to the request
+                                    let res_options = use_context::<ResponseOptions>(cx);
+
+                                    // clean up the scope, which we only needed to run the server fn
+                                    disposer.dispose();
+                                    runtime.dispose();
+
+                                    // if this is Accept: application/json then send a serialized JSON response
+                                    let accept_header =
+                                        headers.get("Accept").and_then(|value| value.to_str().ok());
+                                    let mut res = Response::builder();
+
+                                    // Add headers from ResponseParts if they exist. These should be added as long
+                                    // as the server function returns an OK response
+                                    let res_options_outer = res_options.unwrap().0;
+                                    let res_options_inner = res_options_outer.read().await;
+                                    let (status, mut res_headers) = (
+                                        res_options_inner.status,
+                                        res_options_inner.headers.clone(),
+                                    );
+
+                                    if let Some(header_ref) = res.headers_mut() {
+                                           header_ref.extend(res_headers.drain());
+                                    };
+
+                                    if accept_header == Some("application/json")
+                                        || accept_header
+                                            == Some("application/x-www-form-urlencoded")
+                                        || accept_header == Some("application/cbor")
+                                    {
+                                        res = res.status(StatusCode::OK);
+                                    }
+                                    // otherwise, it's probably a <form> submit or something: redirect back to the referrer
+                                    else {
+                                        let referer = headers
+                                            .get("Referer")
+                                            .and_then(|value| value.to_str().ok())
+                                            .unwrap_or("/");
+
+                                        res = res
+                                            .status(StatusCode::SEE_OTHER)
+                                            .header("Location", referer);
+                                    }
+                                    // Override StatusCode if it was set in a Resource or Element
+                                    res = match status {
+                                        Some(status) => res.status(status),
+                                        None => res,
+                                    };
+                                    match serialized {
+                                        Payload::Binary(data) => res
+                                            .header("Content-Type", "application/cbor")
+                                            .body(Full::from(data)),
+                                        Payload::Url(data) => res
+                                            .header(
+                                                "Content-Type",
+                                                "application/x-www-form-urlencoded",
+                                            )
+                                            .body(Full::from(data)),
+                                        Payload::Json(data) => res
+                                            .header("Content-Type", "application/json")
+                                            .body(Full::from(data)),
+                                    }
+                                }
+                                Err(e) => Response::builder()
+                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                    .body(Full::from(e.to_string())),
+                            }
+                        } else {
+                            Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Full::from(
+                                    format!("Could not find a server function at the route {fn_name}. \
+                                    \n\nIt's likely that you need to call ServerFn::register() on the \
+                                    server function type, somewhere in your `main` function." )
+                                ))
+                        }
+                        .expect("could not build Response");
+
+                        _ = tx.send(res);
+                    }
+                })
+        }
+    });
+
+    rx.await.unwrap()
+}
+
 pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -484,6 +615,25 @@ where
         })
     }
 }
+
+/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
+/// the data to leptos in a closure. An example is below
+/// ```rust
+/// async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
+///     let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+///     move |cx| {
+///         provide_context(cx, id.clone());
+///     },
+///     |cx| view! { cx, <TodoApp/> }
+/// );
+///     handler(req).await.into_response()
+/// }
+/// ```
+/// Otherwise, this function is identical to the `render_app_with_stream() function, which has more info about how this works.`
 
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
