@@ -106,7 +106,7 @@ fn convert_from_snake_case(name: &Ident) -> Ident {
     if !name_str.is_case(Snake) {
         name.clone()
     } else {
-        Ident::new(&*name_str.to_case(Pascal), name.span().clone())
+        Ident::new(&name_str.to_case(Pascal), name.span())
     }
 }
 
