@@ -19,10 +19,7 @@ where
         match use_context::<RwSignal<Errors>>(cx) {
           Some(errors) => {
             let id = HydrationCtx::id();
-            errors.update({
-              let id = id.clone();
-              move |errors: &mut Errors| errors.insert(id, error)
-            });
+            errors.update(move |errors: &mut Errors| errors.insert(id, error));
 
             // remove the error from the list if this drops,
             // i.e., if it's in a DynChild that switches from Err to Ok

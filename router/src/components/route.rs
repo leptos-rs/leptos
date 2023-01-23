@@ -99,7 +99,7 @@ impl RouteContext {
             inner: Rc::new(RouteContextInner {
                 cx,
                 id,
-                base_path: base.to_string(),
+                base_path: base,
                 child: Box::new(child),
                 path: RefCell::new(path),
                 original_path: route.original_path.to_string(),
