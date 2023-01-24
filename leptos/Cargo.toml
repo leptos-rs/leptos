@@ -17,36 +17,17 @@ leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 tracing = "0.1"
 typed-builder = "0.11"
+once_cell = "1.17.0"
 
 [dev-dependencies]
 leptos = { path = ".", default-features = false }
 
 [features]
 default = ["csr", "serde"]
-csr = [
-  "leptos_dom/web",
-  "leptos_macro/csr",
-  "leptos_reactive/csr",
-  "leptos_server/csr",
-]
-hydrate = [
-  "leptos_dom/web",
-  "leptos_macro/hydrate",
-  "leptos_reactive/hydrate",
-  "leptos_server/hydrate",
-]
-ssr = [
-  "leptos_dom/ssr",
-  "leptos_macro/ssr",
-  "leptos_reactive/ssr",
-  "leptos_server/ssr",
-]
-stable = [
-  "leptos_dom/stable",
-  "leptos_macro/stable",
-  "leptos_reactive/stable",
-  "leptos_server/stable",
-]
+csr = ["leptos_dom/web", "leptos_macro/csr", "leptos_reactive/csr", "leptos_server/csr"]
+hydrate = ["leptos_dom/web", "leptos_macro/hydrate", "leptos_reactive/hydrate", "leptos_server/hydrate"]
+ssr = ["leptos_dom/ssr", "leptos_macro/ssr", "leptos_reactive/ssr", "leptos_server/ssr"]
+stable = ["leptos_dom/stable", "leptos_macro/stable", "leptos_reactive/stable", "leptos_server/stable"]
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
