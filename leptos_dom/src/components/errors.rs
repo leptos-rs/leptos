@@ -1,11 +1,11 @@
 use crate::{HydrationCtx, HydrationKey, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{use_context, RwSignal};
-use std::{collections::HashMap, error::Error, rc::Rc};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
-pub struct Errors(pub HashMap<HydrationKey, Rc<dyn Error>>);
+pub struct Errors(pub HashMap<HydrationKey, Arc<dyn Error>>);
 
 impl<T, E> IntoView for Result<T, E>
 where
@@ -56,7 +56,7 @@ impl Errors {
   where
     E: Error + 'static,
   {
-    self.0.insert(key, Rc::new(error));
+    self.0.insert(key, Arc::new(error));
   }
   /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
   pub fn remove<E>(&mut self, key: &HydrationKey)
