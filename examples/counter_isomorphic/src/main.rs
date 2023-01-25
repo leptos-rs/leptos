@@ -34,6 +34,7 @@ cfg_if! {
             crate::counters::register_server_functions();
 
             // Setting this to None means we'll be using cargo-leptos and its env vars.
+            // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
             let conf = get_configuration(None).await.unwrap();
 
             let addr = conf.leptos_options.site_address.clone();
@@ -56,14 +57,11 @@ cfg_if! {
         }
         }
 
-    // client-only stuff for Trunk
+    // client-only main for Trunk
     else {
-        use counter_isomorphic::counters::*;
-
         pub fn main() {
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
-            mount_to_body(|cx| view! { cx, <Counter/> });
+            // isomorphic counters cannot work in a Client-Side-Rendered only
+            // app as a server is required to maintain state
         }
     }
 }
