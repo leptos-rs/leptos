@@ -22,7 +22,7 @@ pub fn unescape(s: &str) -> String {
 
 #[cfg(feature = "ssr")]
 pub fn escape(s: &str) -> String {
-    urlencoding::encode(s).into()
+    percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC).to_string()
 }
 
 #[cfg(not(feature = "ssr"))]
