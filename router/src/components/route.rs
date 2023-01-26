@@ -79,7 +79,7 @@ impl RouteContext {
     pub(crate) fn new(
         cx: Scope,
         router: &RouterContext,
-        child: impl Fn() -> Option<RouteContext> + 'static,
+        child: impl Fn(Scope) -> Option<RouteContext> + 'static,
         matcher: impl Fn() -> Option<RouteMatch> + 'static,
     ) -> Option<Self> {
         let base = router.base();
@@ -151,7 +151,7 @@ impl RouteContext {
                 cx,
                 id: 0,
                 base_path: path.to_string(),
-                child: Box::new(|| None),
+                child: Box::new(|_| None),
                 path: RefCell::new(path.to_string()),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
@@ -166,8 +166,8 @@ impl RouteContext {
     }
 
     /// The nested child route, if any.
-    pub fn child(&self) -> Option<RouteContext> {
-        (self.inner.child)()
+    pub fn child(&self, cx: Scope) -> Option<RouteContext> {
+        (self.inner.child)(cx)
     }
 
     /// The view associated with the current route.
@@ -180,7 +180,7 @@ pub(crate) struct RouteContextInner {
     cx: Scope,
     base_path: String,
     pub(crate) id: usize,
-    pub(crate) child: Box<dyn Fn() -> Option<RouteContext>>,
+    pub(crate) child: Box<dyn Fn(Scope) -> Option<RouteContext>>,
     pub(crate) path: RefCell<String>,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
@@ -202,7 +202,6 @@ impl std::fmt::Debug for RouteContextInner {
         f.debug_struct("RouteContextInner")
             .field("path", &self.path)
             .field("ParamsMap", &self.params)
-            .field("child", &(self.child)())
             .finish()
     }
 }

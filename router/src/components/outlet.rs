@@ -11,7 +11,7 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
     let is_showing = Rc::new(Cell::new(None::<(usize, Scope)>));
     let (outlet, set_outlet) = create_signal(cx, None::<View>);
     create_isomorphic_effect(cx, move |_| {
-        match (route.child(), &is_showing.get()) {
+        match (route.child(cx), &is_showing.get()) {
             (None, prev) => {
                 if let Some(prev_scope) = prev.map(|(_, scope)| scope) {
                     prev_scope.dispose();

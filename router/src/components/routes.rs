@@ -24,10 +24,8 @@ pub fn Routes(
     #[prop(optional)] base: Option<String>,
     children: Box<dyn FnOnce(Scope) -> Fragment>,
 ) -> impl IntoView {
-    let router = use_context::<RouterContext>(cx).unwrap_or_else(|| {
-        log::warn!("<Routes/> component should be nested within a <Router/>.");
-        panic!()
-    });
+    let router = use_context::<RouterContext>(cx)
+        .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
 
     let mut branches = Vec::new();
@@ -86,6 +84,8 @@ pub fn Routes(
                 .map(|prev_matches| next_matches.len() == prev_matches.len())
                 .unwrap_or(false);
 
+            let prev_cx = Rc::new(Cell::new(cx));
+
             for i in 0..next_matches.len() {
                 let next = next.clone();
                 let prev_match = prev_matches.and_then(|p| p.get(i));
@@ -112,17 +112,19 @@ pub fn Routes(
                             root_equal.set(false);
                         }
 
-                        let disposer = cx.child_scope({
+                        let disposer = prev_cx.get().child_scope({
                             let next = next.clone();
                             let router = Rc::clone(&router.inner);
+                            let prev_cx = Rc::clone(&prev_cx);
                             move |cx| {
+                                prev_cx.set(cx);
                                 let next = next.clone();
                                 let next_ctx = RouteContext::new(
                                     cx,
                                     &RouterContext { inner: router },
                                     {
                                         let next = next.clone();
-                                        move || {
+                                        move |cx| {
                                             if let Some(route_states) =
                                                 use_context::<Memo<RouterState>>(cx)
                                             {
