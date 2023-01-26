@@ -686,13 +686,8 @@ where
     let routes = routes.0.read().await.to_owned();
     // Axum's Router defines Root routes as "/" not ""
     let routes: Vec<String> = routes
-        .iter()
-        .map(|s| {
-            if s.is_empty() {
-                return "/".to_string();
-            }
-            s.to_string()
-        })
+        .into_iter()
+        .map(|s| if s.is_empty() { "/".to_string() } else { s })
         .collect();
 
     if routes.is_empty() {
