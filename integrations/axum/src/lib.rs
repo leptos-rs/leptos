@@ -141,116 +141,7 @@ pub async fn handle_server_fns(
     headers: HeaderMap,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    // Axum Path extractor doesn't remove the first slash from the path, while Actix does
-    let fn_name: String = match fn_name.strip_prefix('/') {
-        Some(path) => path.to_string(),
-        None => fn_name,
-    };
-
-    let (tx, rx) = futures::channel::oneshot::channel();
-    spawn_blocking({
-        move || {
-            tokio::runtime::Runtime::new()
-                .expect("couldn't spawn runtime")
-                .block_on({
-                    async move {
-                        let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
-                            let runtime = create_runtime();
-                            let (cx, disposer) = raw_scope_and_disposer(runtime);
-
-                            let req_parts = generate_request_parts(req).await;
-                            // Add this so we can get details about the Request
-                            provide_context(cx, req_parts.clone());
-                            // Add this so that we can set headers and status of the response
-                            provide_context(cx, ResponseOptions::default());
-
-                            match server_fn(cx, &req_parts.body).await {
-                                Ok(serialized) => {
-                                    // If ResponseParts are set, add the headers and extension to the request
-                                    let res_options = use_context::<ResponseOptions>(cx);
-
-                                    // clean up the scope, which we only needed to run the server fn
-                                    disposer.dispose();
-                                    runtime.dispose();
-
-                                    // if this is Accept: application/json then send a serialized JSON response
-                                    let accept_header =
-                                        headers.get("Accept").and_then(|value| value.to_str().ok());
-                                    let mut res = Response::builder();
-
-                                    // Add headers from ResponseParts if they exist. These should be added as long
-                                    // as the server function returns an OK response
-                                    let res_options_outer = res_options.unwrap().0;
-                                    let res_options_inner = res_options_outer.read().await;
-                                    let (status, mut res_headers) = (
-                                        res_options_inner.status,
-                                        res_options_inner.headers.clone(),
-                                    );
-
-                                    if let Some(header_ref) = res.headers_mut() {
-                                           header_ref.extend(res_headers.drain());
-                                    };
-
-                                    if accept_header == Some("application/json")
-                                        || accept_header
-                                            == Some("application/x-www-form-urlencoded")
-                                        || accept_header == Some("application/cbor")
-                                    {
-                                        res = res.status(StatusCode::OK);
-                                    }
-                                    // otherwise, it's probably a <form> submit or something: redirect back to the referrer
-                                    else {
-                                        let referer = headers
-                                            .get("Referer")
-                                            .and_then(|value| value.to_str().ok())
-                                            .unwrap_or("/");
-
-                                        res = res
-                                            .status(StatusCode::SEE_OTHER)
-                                            .header("Location", referer);
-                                    }
-                                    // Override StatusCode if it was set in a Resource or Element
-                                    res = match status {
-                                        Some(status) => res.status(status),
-                                        None => res,
-                                    };
-                                    match serialized {
-                                        Payload::Binary(data) => res
-                                            .header("Content-Type", "application/cbor")
-                                            .body(Full::from(data)),
-                                        Payload::Url(data) => res
-                                            .header(
-                                                "Content-Type",
-                                                "application/x-www-form-urlencoded",
-                                            )
-                                            .body(Full::from(data)),
-                                        Payload::Json(data) => res
-                                            .header("Content-Type", "application/json")
-                                            .body(Full::from(data)),
-                                    }
-                                }
-                                Err(e) => Response::builder()
-                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                    .body(Full::from(e.to_string())),
-                            }
-                        } else {
-                            Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Full::from(
-                                    format!("Could not find a server function at the route {fn_name}. \
-                                    \n\nIt's likely that you need to call ServerFn::register() on the \
-                                    server function type, somewhere in your `main` function." )
-                                ))
-                        }
-                        .expect("could not build Response");
-
-                        _ = tx.send(res);
-                    }
-                })
-        }
-    });
-
-    rx.await.unwrap()
+    handle_server_fns_inner(fn_name, headers, |_| {}, req).await
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
@@ -270,11 +161,20 @@ pub async fn handle_server_fns_with_context(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
+    handle_server_fns_inner(fn_name, headers, additional_context, req).await
+}
+
+async fn handle_server_fns_inner(
+    fn_name: String,
+    headers: HeaderMap,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    req: Request<Body>,
+) -> impl IntoResponse {
     // Axum Path extractor doesn't remove the first slash from the path, while Actix does
-    let fn_name: String = match fn_name.strip_prefix('/') {
-        Some(path) => path.to_string(),
-        None => fn_name,
-    };
+    let fn_name = fn_name
+        .strip_prefix('/')
+        .map(|fn_name| fn_name.to_string())
+        .unwrap_or(fn_name);
 
     let (tx, rx) = futures::channel::oneshot::channel();
     spawn_blocking({
