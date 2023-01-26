@@ -234,6 +234,19 @@ impl Scope {
             f(&mut scope.borrow_mut());
         })
     }
+
+    /// Returns the the parent Scope, if any.
+    pub fn parent(&self) -> Option<Scope> {
+        with_runtime(self.runtime, |runtime| {
+            runtime.scope_parents.borrow().get(self.id).copied()
+        })
+        .ok()
+        .flatten()
+        .map(|id| Scope {
+            runtime: self.runtime,
+            id,
+        })
+    }
 }
 
 /// Creates a cleanup function, which will be run when a [Scope] is disposed.
