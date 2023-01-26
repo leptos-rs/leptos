@@ -1,7 +1,0 @@
-[package]
-name = "ch03_building_ui"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-leptos = { path = "../../../../leptos" }

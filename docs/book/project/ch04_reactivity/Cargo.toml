@@ -1,7 +1,0 @@
-[package]
-name = "ch04_reactivity"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-leptos = { path = "../../../../leptos" }
