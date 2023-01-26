@@ -32,11 +32,6 @@ members = [
   "examples/todo-app-sqlite-axum",
   "examples/todo-app-cbor",
   "examples/view-tests",
-
-  # book
-  "docs/book/project/ch02_getting_started",
-  "docs/book/project/ch03_building_ui",
-  "docs/book/project/ch04_reactivity",
 ]
 exclude = ["benchmarks"]
 
