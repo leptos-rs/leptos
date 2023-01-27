@@ -21,7 +21,7 @@ cfg_if! {
         while let Ok(Some(node)) = walker.next_node() {
           if let Some(content) = node.text_content() {
             if let Some(hk) = content.strip_prefix("hk=") {
-              if let Some(hk) = hk.split("|").next() {
+              if let Some(hk) = hk.split('|').next() {
                 map.insert(hk.into(), node.unchecked_into());
               }
             }
