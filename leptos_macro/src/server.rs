@@ -43,7 +43,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let block = body.block;
 
     cfg_if! {
-        if #[cfg(not(feature = "stable"))] {
+        if #[cfg(all(not(feature = "stable"), debug_assertions))] {
             use proc_macro::Span;
             let span = Span::call_site();
             #[cfg(not(target_os = "windows"))]

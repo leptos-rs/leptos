@@ -326,9 +326,19 @@ where
         let mut write = REGISTERED_SERVER_FUNCTIONS
             .write()
             .map_err(|e| ServerFnError::Registration(e.to_string()))?;
-        write.insert(Self::url(), run_server_fn);
+        let prev = write.insert(Self::url(), run_server_fn);
 
-        Ok(())
+        // if there was already a server function with this key,
+        // return Err
+        match prev {
+            Some(_) => Err(ServerFnError::Registration(format!(
+                "There was already a server function registered at {:?}. \
+                This can happen if you use the same server function name in two different modules
+                on `stable` or in `release` mode.",
+                Self::url()
+            ))),
+            None => Ok(()),
+        }
     }
 }
 
