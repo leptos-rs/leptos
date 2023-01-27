@@ -4,7 +4,9 @@ fn main() {
     mount_to_body(|cx| {
         let name = "gbj";
         let userid = 0;
-        let _input_element: Element;
+
+        // This will be filled by _ref=input below.
+        let input_element = NodeRef::<HtmlElement<Input>>::new(cx);
 
         view! {
             cx,
@@ -17,7 +19,7 @@ fn main() {
                     prop:value="todo"   // `prop:` lets you set a property on a DOM node
                     value="initial"     // side note: the DOM `value` attribute only sets *initial* value
                                         // this is very important when working with forms!
-                    _ref=_input_element // `_ref` stores tis element in a variable
+                    _ref=input_element // `_ref` stores tis element in a variable
                 />
                 <ul data-user=userid>   // attributes can take expressions as values
                     <li class="todo my-todo" // here we set the `class` attribute
