@@ -493,22 +493,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-      let el = self.element.as_ref();
-      let value = attr.into_attribute(self.cx);
-      match value {
-        Attribute::Fn(cx, f) => {
-          let el = el.clone();
-          create_render_effect(cx, move |old| {
-            let new = f();
-            if old.as_ref() != Some(&new) {
-              attribute_expression(&el, &name, new.clone());
-            }
-            new
-          });
-        }
-        _ => attribute_expression(el, &name, value),
-      };
-      self
+        crate::macro_helpers::attribute_helper(
+            &self.element.as_ref(),
+            name,
+            attr.into_attribute(self.cx)
+        );
+        self
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -552,20 +542,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       let el = self.element.as_ref();
-      let class_list = el.class_list();
       let value = class.into_class(self.cx);
-      match value {
-        Class::Fn(cx, f) => {
-          create_render_effect(cx, move |old| {
-            let new = f();
-            if old.as_ref() != Some(&new) && (old.is_some() || new) {
-              class_expression(&class_list, &name, new)
-            }
-            new
-          });
-        }
-        Class::Value(value) => class_expression(&class_list, &name, value),
-      };
+      crate::macro_helpers::class_helper(
+        &el,
+        name.into(),
+        value
+      );
 
       self
     }
@@ -607,25 +589,11 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
       let name = name.into();
       let value = value.into_property(self.cx);
       let el = self.element.as_ref();
-      match value {
-        Property::Fn(cx, f) => {
-          let el = el.clone();
-          create_render_effect(cx, move |old| {
-            let new = f();
-            let prop_name = wasm_bindgen::intern(&name);
-            if old.as_ref() != Some(&new)
-              && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED)
-            {
-              property_expression(&el, prop_name, new.clone())
-            }
-            new
-          });
-        }
-        Property::Value(value) => {
-          let prop_name = wasm_bindgen::intern(&name);
-          property_expression(el, prop_name, value)
-        }
-      };
+      crate::macro_helpers::property_helper(
+          el,
+          name,
+          value
+      );
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
