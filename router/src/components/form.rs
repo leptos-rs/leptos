@@ -155,7 +155,10 @@ where
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
         let data = action_input_from_form_data(form_data);
         match data {
-            Ok(data) => input.set(Some(data)),
+            Ok(data) => {
+                input.set(Some(data));
+                action.set_pending(true);
+            }
             Err(e) => log::error!("{e}"),
         }
     });
@@ -167,11 +170,6 @@ where
                 JsFuture::from(resp.text().expect("couldn't get .text() from Response")).await;
             match body {
                 Ok(json) => {
-                    log::debug!(
-                        "body is {:?}\nO is {:?}",
-                        json.as_string().unwrap(),
-                        std::any::type_name::<O>()
-                    );
                     match O::from_json(
                         &json.as_string().expect("couldn't get String from JsString"),
                     ) {
@@ -182,7 +180,9 @@ where
                     }
                 }
                 Err(e) => log::error!("{e:?}"),
-            }
+            };
+            input.set(None);
+            action.set_pending(false);
         });
     });
 
