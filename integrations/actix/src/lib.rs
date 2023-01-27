@@ -1,5 +1,11 @@
 #![forbid(unsafe_code)]
 
+//! Provides functions to easily integrate Leptos with Actix.
+//!
+//! For more details on how to use the integrations, see the
+//! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
+//! directory in the Leptos repository.
+
 use actix_web::{
     body::BoxBody,
     dev::{ServiceFactory, ServiceRequest},
@@ -68,8 +74,8 @@ impl ResponseOptions {
 }
 
 /// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
-/// it sets a StatusCode of 302 and a LOCATION header with the provided value.
-/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
+/// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
+/// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
 pub async fn redirect(cx: leptos::Scope, path: &str) {
     let response_options = use_context::<ResponseOptions>(cx).unwrap();
     response_options.set_status(StatusCode::FOUND).await;
@@ -114,6 +120,11 @@ pub async fn redirect(cx: leptos::Scope, path: &str) {
 /// }
 /// # }
 /// ```
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
 pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|_cx| {})
 }
@@ -127,7 +138,12 @@ pub fn handle_server_fns() -> Route {
 /// This can then be set up at an appropriate route in your application:
 ///
 /// This version allows you to pass in a closure that adds additional route data to the
-/// context, allowing you to pass in info about the route or user from Actix, or other info
+/// context, allowing you to pass in info about the route or user from Actix, or other info.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> Route {
@@ -270,6 +286,13 @@ pub fn handle_server_fns_with_context(
 /// }
 /// # }
 /// ```
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
@@ -285,6 +308,13 @@ where
 ///
 /// This function allows you to provide additional information to Leptos for your route.
 /// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -360,6 +390,13 @@ where
 /// }
 /// # }
 /// ```
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_preloaded_data_app<Data, Fut, IV>(
     options: LeptosOptions,
     data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,

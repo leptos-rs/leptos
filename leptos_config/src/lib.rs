@@ -72,8 +72,8 @@ fn env_w_default(key: &str, default: &str) -> Result<String, LeptosConfigError> 
     }
 }
 
-/// An enum that can be used to define the environment Leptos is running in. Can be passed to [RenderOptions].
-/// Setting this to the `PROD` variant will not include the websockets code for `cargo-leptos` watch mode.
+/// An enum that can be used to define the environment Leptos is running in.
+/// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub enum Env {

@@ -8,9 +8,8 @@
 //!   or mutating data via async requests to the server
 //! - multi-page apps (MPAs) rendered on the server, managing navigation, data, and mutations via
 //!   web-standard `<a>` and `<form>` tags
-//! - progressively-enhanced multi-page apps ([PEMPAs](https://www.epicweb.dev/the-webs-next-transition)?)
-//!   that are rendered on the server and then hydrated on the client, enhancing your `<a>` and `<form>`
-//!   navigations and mutations seamlessly when WASM is available.
+//! - progressively-enhanced single-page apps that are rendered on the server and then hydrated on the client,
+//!   enhancing your `<a>` and `<form>` navigations and mutations seamlessly when WASM is available.
 //!
 //! And you can do all three of these **using the same Leptos code.**
 //!
@@ -24,12 +23,17 @@
 //!
 //! # Learning by Example
 //!
-//! These docs are a work in progress. If you want to see what Leptos is capable of, check out
+//! If you want to see what Leptos is capable of, check out
 //! the [examples](https://github.com/leptos-rs/leptos/tree/main/examples):
 //! - [`counter`](https://github.com/leptos-rs/leptos/tree/main/examples/counter) is the classic
 //!   counter example, showing the basics of client-side rendering and reactive DOM updates
+//! - [`counter_without_macros`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_without_macros)
+//!   adapts the counter example to use the builder pattern for the UI and avoids other macros, instead showing
+//!   the code that Leptos generates.
 //! - [`counters`](https://github.com/leptos-rs/leptos/tree/main/examples/counters) introduces parent-child
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
+//! - [`counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable) adapts the `counters` example
+//!   to show how to use Leptos with `stable` Rust.
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`todomvc`](https://github.com/leptos-rs/leptos/tree/main/examples/todomvc) implements the classic to-do
@@ -42,15 +46,23 @@
 //!   HTTP request within your reactive code.
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
+//! - [`counter_isomorphic`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic) shows
+//!   different methods of interaction with a stateful server, including server functions, server actions, forms,
+//!   and server-sent events (SSE).
 //! - [`todomvc`](https://github.com/leptos-rs/leptos/tree/main/examples/todomvc) shows the basics of building an
 //!   isomorphic web app. Both the server and the client import the same app code from the `todomvc` example.
 //!   The server renders the app directly to an HTML string, and the client hydrates that HTML to make it interactive.
-//! - [`hackernews`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews) pulls everything together.
-//!   It integrates calls to a real external REST API, routing, server-side rendering and hydration to create
-//!   a fully-functional PEMPA that works as intended even before WASM has loaded and begun to run.
+//! - [`hackernews`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews)
+//!   and [`hackernews_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews_axum)
+//!   integrate calls to a real external REST API, routing, server-side rendering and hydration to create
+//!   a fully-functional that works as intended even before WASM has loaded and begun to run.
+//! - [`todo_app_sqlite`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite) and
+//!   [`todo_app_sqlite_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_axum)
+//!   show how to build a full-stack app using server functions and database connections.
+//! - [`tailwind`](https://github.com/leptos-rs/leptos/tree/main/examples/tailwind) shows how to integrate
+//!   TailwindCSS with `cargo-leptos`.
 //!
-//! (The SPA examples can be run using `trunk serve`. For information about Trunk,
-//! [see here]((https://trunkrs.dev/)).)
+//! Details on how to run each example can be found in its README.
 //!
 //! # Quick Links
 //!
