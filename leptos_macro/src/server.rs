@@ -71,6 +71,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
         if let Pat::Ident(id) = &*arg.pat {
             quote! {
+                #[allow(unused)]
                 let #id = cx;
             }
         } else {
@@ -90,7 +91,15 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
             FnArg::Typed(t) => t,
         };
-        quote! { #typed_arg }
+        let is_cx = fn_arg_is_cx(f);
+        if is_cx {
+            quote! {
+                #[allow(unused)]
+                #typed_arg
+            }
+        } else {
+            quote! { #typed_arg }
+        }
     });
     let fn_args_2 = fn_args.clone();
 
