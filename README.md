@@ -80,7 +80,7 @@ If you’re on `stable`, note the following:
 
 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0-alpha", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
-   you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the 
+   you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
    [`counters_stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters_stable/src/main.rs)
    for examples of the correct API.
 
@@ -98,6 +98,24 @@ cargo leptos watch
 Open browser on [http://localhost:3000/](http://localhost:3000/)
 
 ## FAQs
+
+### Is it production ready?
+
+People usually mean one of three things by this question.
+
+1. **Are the APIs stable?** i.e., will I have to rewrite my whole app from Leptos 0.1 to 0.2 to 0.3 to 0.4, or can I write it now and benefit from new features and updates as new versions come?
+
+With 0.1 the APIs are basically settled. We’re adding new features, but we’re very happy with where the type system and patterns have landed. I would not expect major breaking changes to your code to adapt to, for example, a 0.2.0 release.
+
+2. **Are there bugs?**
+
+Yes, I’m sure there are. You can see from the state of our issue tracker over time that there aren’t that _many_ bugs and they’re usually resolved pretty quickly. But for sure, there may be moments where you encounter something that requires a fix at the framework level, which may not be immediately resolved.
+
+3. **Am I a consumer or a contributor?**
+
+This may be the big one: “production ready” implies a certain orientation to a library: that you can basically use it, without any special knowledge of its internals or ability to contribute. Everyone has this at some level in their stack: for example I (@gbj) don’t have the capacity or knowledge to contribute to something like `wasm-bindgen` at this point: I simply rely on it to work.
+
+There are several people in this community using Leptos right now for internal apps at work, who have also become significant contributors. I think this is the right level of production use for now. There may be missing features that you need, and you may end up building them! But for internal apps, if you’re willing to build and contribute missing pieces along the way, the framework is definitely usable right now.
 
 ### Can I use this for native GUI?
 
