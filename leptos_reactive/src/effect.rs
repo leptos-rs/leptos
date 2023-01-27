@@ -23,7 +23,6 @@ use std::fmt::Debug;
 /// the server, use [create_isomorphic_effect].
 /// ```
 /// # use leptos_reactive::*;
-/// # use log::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (a, set_a) = create_signal(cx, 0);
 /// let (b, set_b) = create_signal(cx, 0);
@@ -31,7 +30,7 @@ use std::fmt::Debug;
 /// // ✅ use effects to interact between reactive state and the outside world
 /// create_effect(cx, move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
-///   log::debug!("Value: {}", a());
+///   println!("Value: {}", a());
 /// });
 ///
 /// set_a(1);
@@ -80,7 +79,6 @@ where
 /// the server as well as the client.
 /// ```
 /// # use leptos_reactive::*;
-/// # use log::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (a, set_a) = create_signal(cx, 0);
 /// let (b, set_b) = create_signal(cx, 0);
@@ -88,7 +86,7 @@ where
 /// // ✅ use effects to interact between reactive state and the outside world
 /// create_isomorphic_effect(cx, move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
-///   log::debug!("Value: {}", a());
+///   println!("Value: {}", a());
 /// });
 ///
 /// set_a(1);

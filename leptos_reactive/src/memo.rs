@@ -33,7 +33,7 @@ use std::fmt::Debug;
 /// let expensive = move || really_expensive_computation(value()); // lazy: doesn't run until called
 /// create_effect(cx, move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
-///   log::debug!("expensive = {}", expensive());
+///   println!("expensive = {}", expensive());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ❌ run #2: this calls `really_expensive_computation` a second time!
@@ -46,7 +46,7 @@ use std::fmt::Debug;
 /// let memoized = create_memo(cx, move |_| really_expensive_computation(value()));
 /// create_effect(cx, move |_| {
 ///  // 🆗 reads the current value of the memo
-///   log::debug!("memoized = {}", memoized());
+///   println!("memoized = {}", memoized());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ✅ reads the current value **without re-running the calculation**
@@ -103,7 +103,7 @@ where
 /// let expensive = move || really_expensive_computation(value()); // lazy: doesn't run until called
 /// create_effect(cx, move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
-///   log::debug!("expensive = {}", expensive());
+///   println!("expensive = {}", expensive());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ❌ run #2: this calls `really_expensive_computation` a second time!
@@ -116,7 +116,7 @@ where
 /// let memoized = create_memo(cx, move |_| really_expensive_computation(value()));
 /// create_effect(cx, move |_| {
 ///  // 🆗 reads the current value of the memo
-///   log::debug!("memoized = {}", memoized());
+///   println!("memoized = {}", memoized());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ✅ reads the current value **without re-running the calculation**

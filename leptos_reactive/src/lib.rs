@@ -146,7 +146,7 @@ macro_rules! debug_warn {
         {
             #[cfg(debug_assertions)]
             {
-                log::warn!($($x)*)
+                tracing::warn!($($x)*)
             }
             #[cfg(not(debug_assertions))]
             { }
