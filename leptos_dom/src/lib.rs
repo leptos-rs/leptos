@@ -308,10 +308,8 @@ impl Comment {
 
           marker.remove();
         } else {
-          gloo::console::warn!(
-            "component with id",
-            id,
-            "not found, ignoring it for hydration"
+          crate::warn!(
+            "component with id {id} not found, ignoring it for hydration"
           );
         }
       }

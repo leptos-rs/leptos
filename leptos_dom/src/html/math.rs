@@ -95,10 +95,8 @@ macro_rules! generate_math_tags {
 
                 el.unchecked_into()
               } else {
-                gloo::console::warn!(
-                  "element with id",
-                  format!("_{id}"),
-                  "not found, ignoring it for hydration"
+                crate::warn!(
+                  "element with id {id} not found, ignoring it for hydration"
                 );
 
                 [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]
