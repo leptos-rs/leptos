@@ -28,12 +28,12 @@ use wasm_bindgen::JsCast;
 #[derive(educe::Educe)]
 #[educe(Default, Clone, PartialEq, Eq)]
 pub enum CoreComponent {
-  /// The [`Unit`] component.
+  /// The [Unit] component.
   #[educe(Default)]
   Unit(UnitRepr),
-  /// The [`DynChild`] component.
+  /// The [DynChild] component.
   DynChild(DynChildRepr),
-  /// The [`EachKey`] component.
+  /// The [Each] component.
   Each(EachRepr),
 }
 

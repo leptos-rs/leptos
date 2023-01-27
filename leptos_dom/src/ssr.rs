@@ -78,7 +78,7 @@ pub fn render_to_stream_with_prefix(
   stream
 }
 
-/// Renders a function to a stream of HTML strings and returns the [Scope] and [Runtime] that were created, so
+/// Renders a function to a stream of HTML strings and returns the [Scope] and [RuntimeId] that were created, so
 /// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
 /// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
 ///
@@ -100,7 +100,7 @@ pub fn render_to_stream_with_prefix_undisposed(
   render_to_stream_with_prefix_undisposed_with_context(view, prefix, |_cx| {})
 }
 
-/// Renders a function to a stream of HTML strings and returns the [Scope] and [Runtime] that were created, so
+/// Renders a function to a stream of HTML strings and returns the [Scope] and [RuntimeId] that were created, so
 /// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
 /// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
 ///

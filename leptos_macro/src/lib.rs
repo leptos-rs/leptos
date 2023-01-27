@@ -198,7 +198,7 @@ mod server;
 /// ```
 ///
 /// 8. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
-///    [NodeRef](leptos_reactive::NodeRef) to use later.
+///    [NodeRef](leptos_dom::NodeRef) to use later.
 /// ```rust
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
@@ -315,10 +315,10 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
 ///
 /// The `#[component]` macro allows you to annotate plain Rust functions as components
-/// and use them within your Leptos [view](mod@view) as if they were custom HTML elements. The
+/// and use them within your Leptos [view](crate::view!) as if they were custom HTML elements. The
 /// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
 /// When you use the component somewhere else, the names of its arguments are the names
-/// of the properties you use in the [view](mod@view) macro.
+/// of the properties you use in the [view](crate::view!) macro.
 ///
 /// Every component function should have the return type `-> impl IntoView`.
 ///
@@ -554,11 +554,11 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   (e.g., `"/api"`). Defaults to `"/"`.
 /// 3. *Optional*: either `"Cbor"` (specifying that it should use the binary `cbor` format for
 ///   serialization) or `"Url"` (specifying that it should be use a URL-encoded form-data string).
-///   Defaults to `"Url"`. If you want to use this server function to power an
-///   [ActionForm](leptos_router::ActionForm) the encoding must be `"Url"`.
+///   Defaults to `"Url"`. If you want to use this server function to power a `<form>` that will
+///   work without WebAssembly, the encoding must be `"Url"`.
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
-/// and deserializable with `serde`. Optionally, its first argument can be a Leptos [Scope](leptos::Scope),
+/// and deserializable with `serde`. Optionally, its first argument can be a Leptos [Scope](leptos_reactive::Scope),
 /// which will be injected *on the server side.* This can be used to inject the raw HTTP request or other
 /// server-side context into the server function.
 ///
