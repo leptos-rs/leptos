@@ -12,7 +12,6 @@ cfg-if = "1"
 drain_filter_polyfill = "0.1"
 educe = "0.4"
 futures = "0.3"
-gloo = { version = "0.8", features = ["futures"] }
 html-escape = "0.2"
 indexmap = "1.9"
 itertools = "0.10"
@@ -34,6 +33,7 @@ leptos = { path = "../leptos" }
 [dependencies.web-sys]
 version = "0.3"
 features = [
+  "console",
   "Comment",
   "DomTokenList",
   "Range",

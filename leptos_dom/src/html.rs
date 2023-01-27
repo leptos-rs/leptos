@@ -203,10 +203,8 @@ impl Custom {
 
         el.unchecked_into()
       } else {
-        gloo::console::warn!(
-          "element with id",
-          format!("_{id}"),
-          "not found, ignoring it for hydration"
+        crate::warn!(
+          "element with id {id} not found, ignoring it for hydration"
         );
 
         crate::document().create_element(&name).unwrap()
@@ -884,10 +882,8 @@ macro_rules! generate_html_tags {
 
                 el.unchecked_into()
               } else {
-                gloo::console::warn!(
-                  "element with id",
-                  format!("_{id}"),
-                  "not found, ignoring it for hydration"
+                crate::warn!(
+                  "element with id {id} not found, ignoring it for hydration"
                 );
 
                 [<$tag:upper>]
