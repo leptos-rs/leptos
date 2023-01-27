@@ -155,7 +155,10 @@ where
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
         let data = action_input_from_form_data(form_data);
         match data {
-            Ok(data) => input.set(Some(data)),
+            Ok(data) => {
+                input.set(Some(data));
+                action.set_pending(true);
+            }
             Err(e) => log::error!("{e}"),
         }
     });
@@ -179,6 +182,7 @@ where
                 Err(e) => log::error!("{e:?}"),
             };
             input.set(None);
+            action.set_pending(false);
         });
     });
 
