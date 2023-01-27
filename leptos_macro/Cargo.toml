@@ -20,7 +20,6 @@ prettyplease = "0.1"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
-serde = "1"
 syn = { version = "1", features = ["full"] }
 syn-rsx = "0.9"
 uuid = { version = "1", features = ["v4"] }
@@ -33,6 +32,7 @@ convert_case = "0.6.0"
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.11"
+leptos = { path = "../leptos" }
 
 [features]
 default = ["ssr"]
