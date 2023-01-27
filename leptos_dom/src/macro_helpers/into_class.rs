@@ -71,25 +71,25 @@ use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn class_helper(
-    el: &web_sys::Element,
-    name: Cow<'static, str>,
-    value: Class
+  el: &web_sys::Element,
+  name: Cow<'static, str>,
+  value: Class,
 ) {
-    use leptos_reactive::create_render_effect;
+  use leptos_reactive::create_render_effect;
 
-      let class_list = el.class_list();
-      match value {
-        Class::Fn(cx, f) => {
-          create_render_effect(cx, move |old| {
-            let new = f();
-            if old.as_ref() != Some(&new) && (old.is_some() || new) {
-              class_expression(&class_list, &name, new)
-            }
-            new
-          });
+  let class_list = el.class_list();
+  match value {
+    Class::Fn(cx, f) => {
+      create_render_effect(cx, move |old| {
+        let new = f();
+        if old.as_ref() != Some(&new) && (old.is_some() || new) {
+          class_expression(&class_list, &name, new)
         }
-        Class::Value(value) => class_expression(&class_list, &name, value),
-      };
+        new
+      });
+    }
+    Class::Value(value) => class_expression(&class_list, &name, value),
+  };
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

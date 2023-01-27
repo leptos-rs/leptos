@@ -171,22 +171,25 @@ attr_type!(char);
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::borrow::Cow;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub(crate) fn attribute_helper(el: &web_sys::Element, name: Cow<'static, str>, value: Attribute) {
-
-    use leptos_reactive::create_render_effect;
-      match value {
-        Attribute::Fn(cx, f) => {
-          let el = el.clone();
-          create_render_effect(cx, move |old| {
-            let new = f();
-            if old.as_ref() != Some(&new) {
-              attribute_expression(&el, &name, new.clone());
-            }
-            new
-          });
+pub(crate) fn attribute_helper(
+  el: &web_sys::Element,
+  name: Cow<'static, str>,
+  value: Attribute,
+) {
+  use leptos_reactive::create_render_effect;
+  match value {
+    Attribute::Fn(cx, f) => {
+      let el = el.clone();
+      create_render_effect(cx, move |old| {
+        let new = f();
+        if old.as_ref() != Some(&new) {
+          attribute_expression(&el, &name, new.clone());
         }
-        _ => attribute_expression(el, &name, value),
-      };
+        new
+      });
+    }
+    _ => attribute_expression(el, &name, value),
+  };
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

@@ -81,31 +81,31 @@ use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn property_helper(
-    el: &web_sys::Element,
-    name: Cow<'static, str>,
-    value: Property
+  el: &web_sys::Element,
+  name: Cow<'static, str>,
+  value: Property,
 ) {
-    use leptos_reactive::create_render_effect;
+  use leptos_reactive::create_render_effect;
 
-      match value {
-        Property::Fn(cx, f) => {
-          let el = el.clone();
-          create_render_effect(cx, move |old| {
-            let new = f();
-            let prop_name = wasm_bindgen::intern(&name);
-            if old.as_ref() != Some(&new)
-              && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED)
-            {
-              property_expression(&el, prop_name, new.clone())
-            }
-            new
-          });
+  match value {
+    Property::Fn(cx, f) => {
+      let el = el.clone();
+      create_render_effect(cx, move |old| {
+        let new = f();
+        let prop_name = wasm_bindgen::intern(&name);
+        if old.as_ref() != Some(&new)
+          && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED)
+        {
+          property_expression(&el, prop_name, new.clone())
         }
-        Property::Value(value) => {
-          let prop_name = wasm_bindgen::intern(&name);
-          property_expression(el, prop_name, value)
-        }
-      };
+        new
+      });
+    }
+    Property::Value(value) => {
+      let prop_name = wasm_bindgen::intern(&name);
+      property_expression(el, prop_name, value)
+    }
+  };
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
