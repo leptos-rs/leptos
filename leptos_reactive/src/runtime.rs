@@ -6,11 +6,12 @@ use crate::{
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
+use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
-    cell::Cell,
+    cell::RefCell,
     collections::{HashMap, HashSet},
     fmt::Debug,
     future::Future,
@@ -23,12 +24,12 @@ pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 cfg_if! {
     if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-        thread_local! {
-            pub(crate) static RUNTIME: Runtime = Runtime::new();
+        lazy_static! {
+            pub(crate) static ref RUNTIME: Runtime = Runtime::new();
         }
     } else {
-        thread_local! {
-            pub(crate) static RUNTIMES: RwLock<SlotMap<RuntimeId, Runtime>> = Default::default();
+        lazy_static! {
+            pub(crate) static ref RUNTIMES: RwLock<SlotMap<RuntimeId, Runtime>> = Default::default();
         }
     }
 }
@@ -40,15 +41,13 @@ pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> R
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             _ = id;
-            Ok(RUNTIME.with(|runtime| f(runtime)))
+            Ok(f(&RUNTIME))
         } else {
-            RUNTIMES.with(|runtimes| {
-                let runtimes = runtimes.read();
-                match runtimes.get(id) {
-                    None => Err(()),
-                    Some(runtime) => Ok(f(runtime))
-                }
-            })
+            let runtimes = RUNTIMES.read();
+            match runtimes.get(id) {
+                None => Err(()),
+                Some(runtime) => Ok(f(runtime))
+            }
         }
     }
 }
@@ -215,7 +214,6 @@ impl RuntimeId {
 #[derive(Default)]
 pub(crate) struct Runtime {
     pub shared_context: RwLock<SharedContext>,
-    pub observer: Cell<Option<EffectId>>,
     pub scopes: RwLock<SlotMap<ScopeId, RwLock<Vec<ScopeProperty>>>>,
     pub scope_parents: RwLock<SparseSecondaryMap<ScopeId, ScopeId>>,
     pub scope_children: RwLock<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
@@ -230,11 +228,42 @@ pub(crate) struct Runtime {
     pub resources: RwLock<SlotMap<ResourceId, AnyResource>>,
 }
 
+// track current observer thread-locally
+// because effects run synchronously, the current observer
+// *in this thread* will not change during the execution of an effect.
+// but if we track this across threads, it's possible for overlapping
+// executions to cause the stack to be out of order
+// so we store at most one current observer per runtime, per thread
+thread_local! {
+    static OBSERVER: RefCell<HashMap<RuntimeId, EffectId>> = Default::default();
+}
+
+pub(crate) struct LocalObserver {}
+
+impl LocalObserver {
+    pub fn take(runtime: RuntimeId) -> Option<EffectId> {
+        OBSERVER.with(|observer| observer.borrow_mut().remove(&runtime))
+    }
+
+    pub fn get(runtime: RuntimeId) -> Option<EffectId> {
+        OBSERVER.with(|observer| observer.borrow().get(&runtime).copied())
+    }
+
+    pub fn set(runtime: RuntimeId, effect: Option<EffectId>) {
+        OBSERVER.with(|observer| {
+            if let Some(value) = effect {
+                observer.borrow_mut().insert(runtime, value)
+            } else {
+                observer.borrow_mut().remove(&runtime)
+            }
+        });
+    }
+}
+
 impl Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Runtime")
             .field("shared_context", &self.shared_context)
-            .field("observer", &self.observer)
             .field("scopes", &self.scopes)
             .field("scope_parents", &self.scope_parents)
             .field("scope_children", &self.scope_children)

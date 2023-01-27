@@ -682,8 +682,8 @@ where
 }
 
 pub(crate) enum AnyResource {
-    Unserializable(Arc<dyn UnserializableResource>),
-    Serializable(Arc<dyn SerializableResource>),
+    Unserializable(Arc<dyn UnserializableResource + Send + Sync>),
+    Serializable(Arc<dyn SerializableResource + Send + Sync>),
 }
 
 pub(crate) trait SerializableResource {

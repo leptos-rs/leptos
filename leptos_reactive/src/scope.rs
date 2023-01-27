@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    runtime::{with_runtime, RuntimeId},
+    runtime::{with_runtime, LocalObserver, RuntimeId},
     EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
@@ -145,9 +145,9 @@ impl Scope {
     /// ```
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
-            let prev_observer = runtime.observer.take();
+            let prev_observer = LocalObserver::take(self.runtime);
             let untracked_result = f();
-            runtime.observer.set(prev_observer);
+            LocalObserver::set(self.runtime, prev_observer);
             untracked_result
         })
         .expect("tried to run untracked function in a runtime that has been disposed")

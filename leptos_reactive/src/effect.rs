@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::runtime::{with_runtime, RuntimeId};
+use crate::runtime::{with_runtime, LocalObserver, RuntimeId};
 use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
 use parking_lot::RwLock;
@@ -177,14 +177,14 @@ where
             )
         )
     )]
-    fn run(&self, id: EffectId, runtime: RuntimeId) {
-        _ = with_runtime(runtime, |runtime| {
+    fn run(&self, id: EffectId, runtime_id: RuntimeId) {
+        _ = with_runtime(runtime_id, |runtime| {
             // clear previous dependencies
             id.cleanup(runtime);
 
             // set this as the current observer
-            let prev_observer = runtime.observer.take();
-            runtime.observer.set(Some(id));
+            let prev_observer = LocalObserver::take(runtime_id);
+            LocalObserver::set(runtime_id, Some(id));
 
             // run the effect
             let value = std::mem::take(&mut *self.value.write());
@@ -192,7 +192,7 @@ where
             *self.value.write() = Some(new_value);
 
             // restore the previous observer
-            runtime.observer.set(prev_observer);
+            LocalObserver::set(runtime_id, prev_observer);
         })
     }
 }

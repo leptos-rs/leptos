@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
     debug_warn,
-    runtime::{with_runtime, RuntimeId},
+    runtime::{with_runtime, LocalObserver, RuntimeId},
     Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
 };
 use cfg_if::cfg_if;
@@ -246,7 +246,9 @@ where
 
     #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
-        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
+        _ = with_runtime(self.runtime, |runtime| {
+            self.id.subscribe(self.runtime, runtime)
+        })
     }
 
     /// Clones and returns the current value of the signal, and subscribes
@@ -286,7 +288,9 @@ where
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
     pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(self.runtime, runtime, f)
+        }) {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
@@ -1169,9 +1173,9 @@ pub(crate) enum SignalError {
 }
 
 impl SignalId {
-    pub(crate) fn subscribe(&self, runtime: &Runtime) {
+    pub(crate) fn subscribe(&self, runtime_id: RuntimeId, runtime: &Runtime) {
         // add subscriber
-        if let Some(observer) = runtime.observer.get() {
+        if let Some(observer) = LocalObserver::get(runtime_id) {
             // add this observer to the signal's dependencies (to allow notification)
             let mut subs = runtime.signal_subscribers.write();
             if let Some(subs) = subs.entry(*self) {
@@ -1222,13 +1226,14 @@ impl SignalId {
 
     pub(crate) fn try_with<T, U>(
         &self,
+        runtime_id: RuntimeId,
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
     ) -> Result<U, SignalError>
     where
         T: 'static,
     {
-        self.subscribe(runtime);
+        self.subscribe(runtime_id, runtime);
 
         self.try_with_no_subscription(runtime, f)
     }
@@ -1247,12 +1252,14 @@ impl SignalId {
         .expect("tried to access a signal in a runtime that has been disposed")
     }
 
-    pub(crate) fn with<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&T) -> U) -> U
+    pub(crate) fn with<T, U>(&self, runtime_id: RuntimeId, f: impl FnOnce(&T) -> U) -> U
     where
         T: 'static,
     {
-        with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
-            .expect("tried to access a signal in a runtime that has been disposed")
+        with_runtime(runtime_id, |runtime| {
+            self.try_with(runtime_id, runtime, f).unwrap()
+        })
+        .expect("tried to access a signal in a runtime that has been disposed")
     }
 
     fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
