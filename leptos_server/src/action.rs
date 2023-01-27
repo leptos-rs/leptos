@@ -96,6 +96,11 @@ where
         self.0.with(|a| a.pending.read_only())
     }
 
+    /// Updates whether the action is currently pending.
+    pub fn set_pending(&self, pending: bool) {
+        self.0.with(|a| a.pending.set(pending))
+    }
+
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<String> {
