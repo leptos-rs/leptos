@@ -846,61 +846,18 @@ macro_rules! generate_html_tags {
             let id = HydrationCtx::id();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let element = if HydrationCtx::is_hydrating() {
-              if let Some(el) = crate::document().get_element_by_id(
-                &format!("_{id}")
-              ) {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                  el.node_name().to_ascii_uppercase(),
-                  stringify!([<$tag:upper>]),
-                  "SSR and CSR elements have the same `TopoId` \
-                    but different node kinds. This is either a \
-                    discrepancy between SSR and CSR rendering
-                    logic, which is considered a bug, or it \
-                    can also be a leptos hydration issue."
-                );
-
-                el.remove_attribute("id").unwrap();
-
-                el.unchecked_into()
-              } else if let Ok(Some(el)) = crate::document().query_selector(
-                &format!("[leptos-hk=_{id}]")
-              ) {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                  el.node_name().to_ascii_uppercase(),
-                  stringify!([<$tag:upper>]),
-                  "SSR and CSR elements have the same `TopoId` \
-                    but different node kinds. This is either a \
-                    discrepancy between SSR and CSR rendering
-                    logic, which is considered a bug, or it \
-                    can also be a leptos hydration issue."
-                );
-
-                el.remove_attribute("leptos-hk").unwrap();
-
-                el.unchecked_into()
-              } else {
-                crate::warn!(
-                  "element with id {id} not found, ignoring it for hydration"
-                );
-
+            let element = create_leptos_element(
+              &stringify!([<$tag:upper>]),
+              id,
+              || {
                 [<$tag:upper>]
-                  .with(|el|
-                    el.clone_node()
-                      .unwrap()
-                      .unchecked_into()
-                  )
-              }
-            } else {
-              [<$tag:upper>]
                 .with(|el|
                   el.clone_node()
                     .unwrap()
                     .unchecked_into()
                 )
-            };
+              }
+            );
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -972,6 +929,53 @@ macro_rules! generate_html_tags {
     fn is_void(&self) -> bool {
       true
     }
+  }
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+fn create_leptos_element(
+  tag: &str,
+  id: crate::HydrationKey,
+  clone_element: fn() -> web_sys::HtmlElement,
+) -> web_sys::HtmlElement {
+  if HydrationCtx::is_hydrating() {
+    if let Some(el) = crate::document().get_element_by_id(&format!("_{id}")) {
+      #[cfg(debug_assertions)]
+      assert_eq!(
+        el.node_name().to_ascii_uppercase(),
+        &tag,
+        "SSR and CSR elements have the same `TopoId` but different node \
+         kinds. This is either a discrepancy between SSR and CSR rendering
+            logic, which is considered a bug, or it can also be a leptos \
+         hydration issue."
+      );
+
+      el.remove_attribute("id").unwrap();
+
+      el.unchecked_into()
+    } else if let Ok(Some(el)) =
+      crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
+    {
+      #[cfg(debug_assertions)]
+      assert_eq!(
+        el.node_name().to_ascii_uppercase(),
+        stringify!([<$tag:upper>]),
+        "SSR and CSR elements have the same `TopoId` but different node \
+         kinds. This is either a discrepancy between SSR and CSR rendering
+            logic, which is considered a bug, or it can also be a leptos \
+         hydration issue."
+      );
+
+      el.remove_attribute("leptos-hk").unwrap();
+
+      el.unchecked_into()
+    } else {
+      crate::warn!("element with id {id} not found, ignoring it for hydration");
+
+      clone_element()
+    }
+  } else {
+    clone_element()
   }
 }
 
