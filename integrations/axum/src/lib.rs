@@ -1,5 +1,11 @@
 #![forbid(unsafe_code)]
 
+//! Provides functions to easily integrate Leptos with Axum.
+//!
+//! For more details on how to use the integrations, see the
+//! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
+//! directory in the Leptos repository.
+
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
     extract::Path,
@@ -91,6 +97,8 @@ pub async fn redirect(cx: leptos::Scope, path: &str) {
         .await;
 }
 
+/// Decomposes an HTTP request into its parts, allowing you to read its headers
+/// and other data without consuming the body.
 pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
@@ -106,8 +114,6 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
-///
-/// This provides an `Arc<[Request<Body>](axum::http::Request)>` [Scope](leptos::Scope).
 ///
 /// This can then be set up at an appropriate route in your application:
 ///
@@ -136,6 +142,11 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 /// ```
 /// Leptos provides a generic implementation of `handle_server_fns`. If access to more specific parts of the Request is desired,
 /// you can specify your own server fn handler based on this one and give it it's own route in the server macro.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -147,14 +158,17 @@ pub async fn handle_server_fns(
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
-/// This provides an `Arc<[Request<Body>](axum::http::Request)>` [Scope](leptos::Scope).
-///
 /// This can then be set up at an appropriate route in your application:
 ///
 /// This version allows you to pass in a closure to capture additional data from the layers above leptos
 /// and store it in context. To use it, you'll need to define your own route, and a handler function
-/// that takes in the data you'd like. See the `render_app_to_stream_with_context()` docs for an example
-/// of one that should work much like this one
+/// that takes in the data you'd like. See the [render_app_to_stream_with_context] docs for an example
+/// of one that should work much like this one.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
 pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -330,6 +344,12 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 /// # }
 /// ```
 ///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -362,8 +382,14 @@ where
 ///     handler(req).await.into_response()
 /// }
 /// ```
-/// Otherwise, this function is identical to the `render_app_with_stream() function, which has more info about how this works.`
-
+/// Otherwise, this function is identical to [render_app_to_stream].
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,

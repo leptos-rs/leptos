@@ -293,7 +293,8 @@ where
         }
     }
 
-    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    /// Generates a [Stream](futures::stream::Stream) that emits the new value of the signal
+    /// whenever it changes.
     pub fn to_stream(&self) -> impl Stream<Item = T>
     where
         T: Clone,
@@ -1096,7 +1097,8 @@ where
         )
     }
 
-    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    /// Generates a [Stream](futures::stream::Stream) that emits the new value of the signal
+    /// whenever it changes.
     #[cfg_attr(
         debug_assertions,
         instrument(

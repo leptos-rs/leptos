@@ -350,7 +350,7 @@ impl Scope {
         })
     }
 
-    /// The set of all HTML fragments current pending, by their keys (see [Self::current_fragment_key]).
+    /// The set of all HTML fragments currently pending.
     /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
     /// `<Suspense/>` HTML when all resources are resolved.
     pub fn pending_fragments(&self) -> HashMap<String, (String, PinnedFuture<String>)> {

@@ -31,7 +31,7 @@ pub use hydration::{HydrationCtx, HydrationKey};
 pub use js_sys;
 use leptos_reactive::Scope;
 pub use logging::*;
-pub use macro_helpers::{IntoAttribute, IntoClass, IntoProperty};
+pub use macro_helpers::*;
 pub use node_ref::*;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::Lazy as LazyCell;
