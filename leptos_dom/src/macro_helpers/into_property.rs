@@ -77,7 +77,7 @@ prop_type!(f64);
 prop_type!(bool);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn property_expression(
+pub(crate) fn property_expression(
   el: &web_sys::Element,
   prop_name: &str,
   value: JsValue,

@@ -169,7 +169,7 @@ attr_type!(f64);
 attr_type!(char);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn attribute_expression(
+pub(crate) fn attribute_expression(
   el: &web_sys::Element,
   attr_name: &str,
   value: Attribute,
