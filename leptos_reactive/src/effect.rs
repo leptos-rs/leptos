@@ -2,7 +2,7 @@
 use crate::runtime::{with_runtime, RuntimeId};
 use crate::{debug_warn, Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
-use std::cell::RefCell;
+use parking_lot::RwLock;
 use std::fmt::Debug;
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
@@ -150,7 +150,7 @@ where
     F: Fn(Option<T>) -> T,
 {
     pub(crate) f: F,
-    pub(crate) value: RefCell<Option<T>>,
+    pub(crate) value: RwLock<Option<T>>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
@@ -187,9 +187,9 @@ where
             runtime.observer.set(Some(id));
 
             // run the effect
-            let value = self.value.take();
+            let value = std::mem::take(&mut *self.value.write());
             let new_value = (self.f)(value);
-            *self.value.borrow_mut() = Some(new_value);
+            *self.value.write() = Some(new_value);
 
             // restore the previous observer
             runtime.observer.set(prev_observer);
@@ -201,7 +201,7 @@ impl EffectId {
     pub(crate) fn run<T>(&self, runtime_id: RuntimeId) {
         _ = with_runtime(runtime_id, |runtime| {
             let effect = {
-                let effects = runtime.effects.borrow();
+                let effects = runtime.effects.read();
                 effects.get(*self).cloned()
             };
             if let Some(effect) = effect {
@@ -224,12 +224,12 @@ impl EffectId {
         )
     )]
     pub(crate) fn cleanup(&self, runtime: &Runtime) {
-        let sources = runtime.effect_sources.borrow();
+        let sources = runtime.effect_sources.read();
         if let Some(sources) = sources.get(*self) {
-            let subs = runtime.signal_subscribers.borrow();
-            for source in sources.borrow().iter() {
+            let subs = runtime.signal_subscribers.read();
+            for source in sources.read().iter() {
                 if let Some(source) = subs.get(*source) {
-                    source.borrow_mut().remove(self);
+                    source.write().remove(self);
                 }
             }
         }

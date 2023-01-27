@@ -1173,16 +1173,16 @@ impl SignalId {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
             // add this observer to the signal's dependencies (to allow notification)
-            let mut subs = runtime.signal_subscribers.borrow_mut();
+            let mut subs = runtime.signal_subscribers.write();
             if let Some(subs) = subs.entry(*self) {
-                subs.or_default().borrow_mut().insert(observer);
+                subs.or_default().write().insert(observer);
             }
 
             // add this signal to the effect's sources (to allow cleanup)
-            let mut effect_sources = runtime.effect_sources.borrow_mut();
+            let mut effect_sources = runtime.effect_sources.write();
             if let Some(effect_sources) = effect_sources.entry(observer) {
                 let sources = effect_sources.or_default();
-                sources.borrow_mut().insert(*self);
+                sources.write().insert(*self);
             }
         }
     }
@@ -1197,7 +1197,7 @@ impl SignalId {
     {
         // get the value
         let value = {
-            let signals = runtime.signals.borrow();
+            let signals = runtime.signals.read();
             match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
                 Ok(s) => Ok(s),
                 Err(e) => {
@@ -1206,12 +1206,13 @@ impl SignalId {
                 }
             }
         }?;
-        let value = value.try_borrow().unwrap_or_else(|e| {
-            debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It seems you're trying to read the value of a signal within an effect caused by updating the signal.",
+        let value = value.try_read().unwrap_or_else(|| {
+            panic!(
+                "Signal::try_with_no_subscription failed on Signal<{}>. \
+                It seems you're trying to read the value of a signal within an effect \
+                caused by updating the signal.",
                 std::any::type_name::<T>()
             );
-            panic!("{e}");
         });
         let value = value
             .downcast_ref::<T>()
@@ -1260,11 +1261,11 @@ impl SignalId {
     {
         with_runtime(runtime, |runtime| {
             let value = {
-                let signals = runtime.signals.borrow();
+                let signals = runtime.signals.read();
                 signals.get(*self).cloned()
             };
             if let Some(value) = value {
-                let mut value = value.borrow_mut();
+                let mut value = value.write();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))
                 } else {
@@ -1300,14 +1301,14 @@ impl SignalId {
             // notify subscribers
             if updated.is_some() {
                 let subs = {
-                    let subs = runtime.signal_subscribers.borrow();
+                    let subs = runtime.signal_subscribers.read();
                     let subs = subs.get(*self);
-                    subs.map(|subs| subs.borrow().clone())
+                    subs.map(|subs| subs.read().clone())
                 };
                 if let Some(subs) = subs {
                     for sub in subs {
                         let effect = {
-                            let effects = runtime.effects.borrow();
+                            let effects = runtime.effects.read();
                             effects.get(sub).cloned()
                         };
                         if let Some(effect) = effect {

@@ -6,16 +6,17 @@ use crate::{
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
+use parking_lot::RwLock;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
-    cell::{Cell, RefCell},
+    cell::Cell,
     collections::{HashMap, HashSet},
     fmt::Debug,
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    rc::Rc,
+    sync::Arc,
 };
 
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -27,7 +28,7 @@ cfg_if! {
         }
     } else {
         thread_local! {
-            pub(crate) static RUNTIMES: RefCell<SlotMap<RuntimeId, Runtime>> = Default::default();
+            pub(crate) static RUNTIMES: RwLock<SlotMap<RuntimeId, Runtime>> = Default::default();
         }
     }
 }
@@ -42,7 +43,7 @@ pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> R
             Ok(RUNTIME.with(|runtime| f(runtime)))
         } else {
             RUNTIMES.with(|runtimes| {
-                let runtimes = runtimes.borrow();
+                let runtimes = runtimes.read();
                 match runtimes.get(id) {
                     None => Err(()),
                     Some(runtime) => Ok(f(runtime))
@@ -60,7 +61,7 @@ pub fn create_runtime() -> RuntimeId {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             Default::default()
         } else {
-            RUNTIMES.with(|runtimes| runtimes.borrow_mut().insert(Runtime::new()))
+            RUNTIMES.with(|runtimes| runtimes.write().insert(Runtime::new()))
         }
     }
 }
@@ -75,7 +76,7 @@ impl RuntimeId {
     pub fn dispose(self) {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-                let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self));
+                let runtime = RUNTIMES.with(move |runtimes| runtimes.write().remove(self));
                 drop(runtime);
             }
         }
@@ -83,7 +84,7 @@ impl RuntimeId {
 
     pub(crate) fn raw_scope_and_disposer(self) -> (Scope, ScopeDisposer) {
         with_runtime(self, |runtime| {
-            let id = { runtime.scopes.borrow_mut().insert(Default::default()) };
+            let id = { runtime.scopes.write().insert(Default::default()) };
             let scope = Scope { runtime: self, id };
             let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
             (scope, disposer)
@@ -97,9 +98,9 @@ impl RuntimeId {
         parent: Option<Scope>,
     ) -> (T, ScopeId, ScopeDisposer) {
         with_runtime(self, |runtime| {
-            let id = { runtime.scopes.borrow_mut().insert(Default::default()) };
+            let id = { runtime.scopes.write().insert(Default::default()) };
             if let Some(parent) = parent {
-                runtime.scope_parents.borrow_mut().insert(id, parent.id);
+                runtime.scope_parents.write().insert(id, parent.id);
             }
             let scope = Scope { runtime: self, id };
             let val = f(scope);
@@ -121,10 +122,7 @@ impl RuntimeId {
         T: Any + 'static,
     {
         let id = with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
+            runtime.signals.write().insert(Arc::new(RwLock::new(value)))
         })
         .expect("tried to create a signal in a runtime that has been disposed");
         (
@@ -150,10 +148,7 @@ impl RuntimeId {
         T: Any + 'static,
     {
         let id = with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
+            runtime.signals.write().insert(Arc::new(RwLock::new(value)))
         })
         .expect("tried to create a signal in a runtime that has been disposed");
         RwSignal {
@@ -176,11 +171,11 @@ impl RuntimeId {
         with_runtime(self, |runtime| {
             let effect = Effect {
                 f,
-                value: RefCell::new(None),
+                value: RwLock::new(None),
                 #[cfg(debug_assertions)]
                 defined_at,
             };
-            let id = { runtime.effects.borrow_mut().insert(Rc::new(effect)) };
+            let id = { runtime.effects.write().insert(Arc::new(effect)) };
             id.run::<T>(self);
             id
         })
@@ -219,20 +214,20 @@ impl RuntimeId {
 
 #[derive(Default)]
 pub(crate) struct Runtime {
-    pub shared_context: RefCell<SharedContext>,
+    pub shared_context: RwLock<SharedContext>,
     pub observer: Cell<Option<EffectId>>,
-    pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
-    pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
-    pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
+    pub scopes: RwLock<SlotMap<ScopeId, RwLock<Vec<ScopeProperty>>>>,
+    pub scope_parents: RwLock<SparseSecondaryMap<ScopeId, ScopeId>>,
+    pub scope_children: RwLock<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
     #[allow(clippy::type_complexity)]
-    pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
+    pub scope_contexts: RwLock<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
     #[allow(clippy::type_complexity)]
-    pub scope_cleanups: RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
-    pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
-    pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
-    pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
-    pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
-    pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
+    pub scope_cleanups: RwLock<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
+    pub signals: RwLock<SlotMap<SignalId, Arc<RwLock<dyn Any>>>>,
+    pub signal_subscribers: RwLock<SecondaryMap<SignalId, RwLock<HashSet<EffectId>>>>,
+    pub effects: RwLock<SlotMap<EffectId, Arc<dyn AnyEffect>>>,
+    pub effect_sources: RwLock<SecondaryMap<EffectId, RwLock<HashSet<SignalId>>>>,
+    pub resources: RwLock<SlotMap<ResourceId, AnyResource>>,
 }
 
 impl Debug for Runtime {
@@ -245,7 +240,7 @@ impl Debug for Runtime {
             .field("scope_children", &self.scope_children)
             .field("signals", &self.signals)
             .field("signal_subscribers", &self.signal_subscribers)
-            .field("effects", &self.effects.borrow().len())
+            .field("effects", &self.effects.read().len())
             .field("effect_sources", &self.effect_sources)
             .finish()
     }
@@ -258,27 +253,27 @@ impl Runtime {
 
     pub(crate) fn create_unserializable_resource<S, T>(
         &self,
-        state: Rc<ResourceState<S, T>>,
+        state: Arc<ResourceState<S, T>>,
     ) -> ResourceId
     where
         S: Clone + 'static,
         T: 'static,
     {
         self.resources
-            .borrow_mut()
+            .write()
             .insert(AnyResource::Unserializable(state))
     }
 
     pub(crate) fn create_serializable_resource<S, T>(
         &self,
-        state: Rc<ResourceState<S, T>>,
+        state: Arc<ResourceState<S, T>>,
     ) -> ResourceId
     where
         S: Clone + 'static,
         T: Serializable + 'static,
     {
         self.resources
-            .borrow_mut()
+            .write()
             .insert(AnyResource::Serializable(state))
     }
 
@@ -291,7 +286,7 @@ impl Runtime {
         S: 'static,
         T: 'static,
     {
-        let resources = self.resources.borrow();
+        let resources = self.resources.read();
         let res = resources.get(id);
         if let Some(res) = res {
             let res_state = match res {
@@ -317,7 +312,7 @@ impl Runtime {
     /// Returns IDs for all [Resource]s found on any scope.
     pub(crate) fn all_resources(&self) -> Vec<ResourceId> {
         self.resources
-            .borrow()
+            .read()
             .iter()
             .map(|(resource_id, _)| resource_id)
             .collect()
@@ -326,7 +321,7 @@ impl Runtime {
     /// Returns IDs for all [Resource]s found on any scope, pending from the server.
     pub(crate) fn pending_resources(&self) -> Vec<ResourceId> {
         self.resources
-            .borrow()
+            .read()
             .iter()
             .filter_map(|(resource_id, res)| {
                 if matches!(res, AnyResource::Serializable(_)) {
@@ -342,7 +337,7 @@ impl Runtime {
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
         let f = FuturesUnordered::new();
-        for (id, resource) in self.resources.borrow().iter() {
+        for (id, resource) in self.resources.read().iter() {
             if let AnyResource::Serializable(resource) = resource {
                 f.push(resource.to_serialization_resolver(id));
             }
