@@ -574,6 +574,12 @@ impl<T> From<Memo<T>> for MaybeSignal<T> {
     }
 }
 
+impl<T> From<Signal<T>> for MaybeSignal<T> {
+    fn from(value: Signal<T>) -> Self {
+        Self::Dynamic(value)
+    }
+}
+
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for MaybeSignal<T>
 where
