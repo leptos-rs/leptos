@@ -67,7 +67,7 @@ impl<T: IntoClass> IntoClass for (Scope, T) {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn class_expression(
+pub(crate) fn class_expression(
   class_list: &web_sys::DomTokenList,
   class_name: &str,
   value: bool,
