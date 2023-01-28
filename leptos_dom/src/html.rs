@@ -6,12 +6,8 @@ use cfg_if::cfg_if;
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::events::*;
-    use crate::macro_helpers::Property;
-    use crate::macro_helpers::{
-      attribute_expression, class_expression, property_expression,
-    };
+    use crate::macro_helpers::*;
     use crate::{mount_child, MountKind};
-    use leptos_reactive::create_render_effect;
     use once_cell::unsync::Lazy as LazyCell;
     use wasm_bindgen::JsCast;
 
@@ -46,7 +42,7 @@ cfg_if! {
 use crate::{
   ev::EventDescriptor,
   hydration::HydrationCtx,
-  macro_helpers::{Attribute, Class, IntoAttribute, IntoClass, IntoProperty},
+  macro_helpers::{IntoAttribute, IntoClass, IntoProperty},
   Element, Fragment, IntoView, NodeRef, Text, View,
 };
 use leptos_reactive::Scope;
@@ -493,26 +489,18 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
-      let el = self.element.as_ref();
-      let value = attr.into_attribute(self.cx);
-      match value {
-        Attribute::Fn(cx, f) => {
-          let el = el.clone();
-          create_render_effect(cx, move |old| {
-            let new = f();
-            if old.as_ref() != Some(&new) {
-              attribute_expression(&el, &name, new.clone());
-            }
-            new
-          });
-        }
-        _ => attribute_expression(el, &name, value),
-      };
+      attribute_helper(
+        self.element.as_ref(),
+        name,
+        attr.into_attribute(self.cx),
+      );
       self
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     {
+      use crate::macro_helpers::Attribute;
+
       let mut this = self;
 
       let mut attr = attr.into_attribute(this.cx);
@@ -552,26 +540,16 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     {
       let el = self.element.as_ref();
-      let class_list = el.class_list();
       let value = class.into_class(self.cx);
-      match value {
-        Class::Fn(cx, f) => {
-          create_render_effect(cx, move |old| {
-            let new = f();
-            if old.as_ref() != Some(&new) && (old.is_some() || new) {
-              class_expression(&class_list, &name, new)
-            }
-            new
-          });
-        }
-        Class::Value(value) => class_expression(&class_list, &name, value),
-      };
+      class_helper(el, name, value);
 
       self
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     {
+      use crate::macro_helpers::Class;
+
       let mut this = self;
 
       let class = class.into_class(this.cx);
@@ -607,25 +585,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
       let name = name.into();
       let value = value.into_property(self.cx);
       let el = self.element.as_ref();
-      match value {
-        Property::Fn(cx, f) => {
-          let el = el.clone();
-          create_render_effect(cx, move |old| {
-            let new = f();
-            let prop_name = wasm_bindgen::intern(&name);
-            if old.as_ref() != Some(&new)
-              && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED)
-            {
-              property_expression(&el, prop_name, new.clone())
-            }
-            new
-          });
-        }
-        Property::Value(value) => {
-          let prop_name = wasm_bindgen::intern(&name);
-          property_expression(el, prop_name, value)
-        }
-      };
+      property_helper(el, name, value);
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -846,61 +806,18 @@ macro_rules! generate_html_tags {
             let id = HydrationCtx::id();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            let element = if HydrationCtx::is_hydrating() {
-              if let Some(el) = crate::document().get_element_by_id(
-                &format!("_{id}")
-              ) {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                  el.node_name().to_ascii_uppercase(),
-                  stringify!([<$tag:upper>]),
-                  "SSR and CSR elements have the same `TopoId` \
-                    but different node kinds. This is either a \
-                    discrepancy between SSR and CSR rendering
-                    logic, which is considered a bug, or it \
-                    can also be a leptos hydration issue."
-                );
-
-                el.remove_attribute("id").unwrap();
-
-                el.unchecked_into()
-              } else if let Ok(Some(el)) = crate::document().query_selector(
-                &format!("[leptos-hk=_{id}]")
-              ) {
-                #[cfg(debug_assertions)]
-                assert_eq!(
-                  el.node_name().to_ascii_uppercase(),
-                  stringify!([<$tag:upper>]),
-                  "SSR and CSR elements have the same `TopoId` \
-                    but different node kinds. This is either a \
-                    discrepancy between SSR and CSR rendering
-                    logic, which is considered a bug, or it \
-                    can also be a leptos hydration issue."
-                );
-
-                el.remove_attribute("leptos-hk").unwrap();
-
-                el.unchecked_into()
-              } else {
-                crate::warn!(
-                  "element with id {id} not found, ignoring it for hydration"
-                );
-
+            let element = create_leptos_element(
+              &stringify!([<$tag:upper>]),
+              id,
+              || {
                 [<$tag:upper>]
-                  .with(|el|
-                    el.clone_node()
-                      .unwrap()
-                      .unchecked_into()
-                  )
-              }
-            } else {
-              [<$tag:upper>]
                 .with(|el|
                   el.clone_node()
                     .unwrap()
                     .unchecked_into()
                 )
-            };
+              }
+            );
 
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -975,24 +892,70 @@ macro_rules! generate_html_tags {
   }
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+fn create_leptos_element(
+  tag: &str,
+  id: crate::HydrationKey,
+  clone_element: fn() -> web_sys::HtmlElement,
+) -> web_sys::HtmlElement {
+  if HydrationCtx::is_hydrating() {
+    if let Some(el) = crate::document().get_element_by_id(&format!("_{id}")) {
+      #[cfg(debug_assertions)]
+      assert_eq!(
+        &el.node_name().to_ascii_uppercase(),
+        tag,
+        "SSR and CSR elements have the same `TopoId` but different node \
+         kinds. This is either a discrepancy between SSR and CSR rendering
+            logic, which is considered a bug, or it can also be a leptos \
+         hydration issue."
+      );
+
+      el.remove_attribute("id").unwrap();
+
+      el.unchecked_into()
+    } else if let Ok(Some(el)) =
+      crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
+    {
+      #[cfg(debug_assertions)]
+      assert_eq!(
+        el.node_name().to_ascii_uppercase(),
+        stringify!([<$tag:upper>]),
+        "SSR and CSR elements have the same `TopoId` but different node \
+         kinds. This is either a discrepancy between SSR and CSR rendering
+            logic, which is considered a bug, or it can also be a leptos \
+         hydration issue."
+      );
+
+      el.remove_attribute("leptos-hk").unwrap();
+
+      el.unchecked_into()
+    } else {
+      crate::warn!("element with id {id} not found, ignoring it for hydration");
+
+      clone_element()
+    }
+  } else {
+    clone_element()
+  }
+}
+
 #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
 fn warn_on_ambiguous_a(parent: &web_sys::Element, child: &View) {
   if let View::Element(el) = &child {
-    if el.name == "a"
+    if (el.name == "a"
       || el.name == "script"
       || el.name == "style"
-      || el.name == "title"
+      || el.name == "title")
+      && parent.namespace_uri() != el.element.namespace_uri()
     {
-      if parent.namespace_uri() != el.element.namespace_uri() {
-        crate::warn!(
-          "Warning: you are appending an SVG element to an HTML element, or \
-           an HTML element to an SVG. Typically, this occurs when you create \
-           an <a/> or <script/> with the `view` macro and append it to an \
-           SVG, but the framework assumed it was HTML when you created it. To \
-           specify that it is an SVG element, use <svg::{{tag name}}/> in the \
-           view macro."
-        )
-      }
+      crate::warn!(
+        "Warning: you are appending an SVG element to an HTML element, or an \
+         HTML element to an SVG. Typically, this occurs when you create an \
+         <a/> or <script/> with the `view` macro and append it to an SVG, but \
+         the framework assumed it was HTML when you created it. To specify \
+         that it is an SVG element, use <svg::{{tag name}}/> in the view \
+         macro."
+      )
     }
   }
 }
