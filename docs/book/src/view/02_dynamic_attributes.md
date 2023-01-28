@@ -54,8 +54,7 @@ to our view:
     max="50"
     // signals are functions, so this <=> `move || count.get()`
     value=count
->
-</progress>
+/>
 ```
 
 Now every time we set the count, not only will the `class` of the `<button>` be 
@@ -73,8 +72,7 @@ suppose we want it to move twice as fast:
 <progress
     max="50"
     value=move || count() * 2
->
-</progress>
+/>
 ```
 
 But imagine we want to reuse that calculation in more than one place. You can do this
@@ -87,8 +85,7 @@ let double_count = move || count() * 2;
     max="50"
     // we use it once here
     value=double_count
->
-</progress>
+/>
 <p>
     "Double Count: " 
     // and again here
