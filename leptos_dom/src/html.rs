@@ -919,7 +919,7 @@ fn create_leptos_element(
       #[cfg(debug_assertions)]
       assert_eq!(
         el.node_name().to_ascii_uppercase(),
-        stringify!([<$tag:upper>]),
+        tag,
         "SSR and CSR elements have the same `TopoId` but different node \
          kinds. This is either a discrepancy between SSR and CSR rendering
             logic, which is considered a bug, or it can also be a leptos \
