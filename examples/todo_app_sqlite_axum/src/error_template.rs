@@ -1,12 +1,26 @@
+use http::status::StatusCode;
 use leptos::Errors;
-use leptos::{view, For, ForProps, IntoView, RwSignal, Scope, View};
+use leptos::{component, create_rw_signal, view, For, ForProps, IntoView, RwSignal, Scope};
 
 // A basic function to display errors served by the error boundaries. Feel free to do more complicated things
 // here than just displaying them
-pub fn error_template(cx: Scope, errors: Option<RwSignal<Errors>>) -> View {
-    let Some(errors) = errors else {
-        panic!("No Errors found and we expected errors!");
+#[component]
+pub fn ErrorTemplate(
+    cx: Scope,
+    #[prop(optional)] outside_errors: Option<Errors>,
+    #[prop(optional)] errors: Option<RwSignal<Errors>>,
+) -> impl IntoView {
+    let errors = match outside_errors {
+        Some(e) => {
+            let errors = create_rw_signal(cx, e);
+            errors
+        }
+        None => match errors {
+            Some(e) => e,
+            None => panic!("No Errors found and we expected errors!"),
+        },
     };
+
     view! {cx,
     <h1>"Errors"</h1>
     <For
@@ -17,12 +31,13 @@ pub fn error_template(cx: Scope, errors: Option<RwSignal<Errors>>) -> View {
         // renders each item to a view
         view= move |error| {
         let error_string = error.1.to_string();
+        let error_code= error.1.code().unwrap();
           view! {
             cx,
+            <h2>{error_code.to_string()}</h2>
             <p>"Error: " {error_string}</p>
           }
         }
       />
     }
-    .into_view(cx)
 }

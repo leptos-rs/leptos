@@ -3,6 +3,7 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
+use crate::{error_template::{ErrorTemplate, ErrorTemplateProps}, errors::TodoAppError};
 
 cfg_if! {
     if #[cfg(feature = "ssr")] {
@@ -121,7 +122,10 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                 <Routes>
                     <Route path="" view=|cx| view! {
                         cx,
+                        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
+
                             <Todos/>
+                            </ErrorBoundary>
                     }/>
                 </Routes>
             </main>
@@ -145,6 +149,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <div>
+            <ReturnsError/>
             <MultiActionForm action=add_todo>
                 <label>
                     "Add a Todo"
@@ -214,4 +219,9 @@ pub fn Todos(cx: Scope) -> impl IntoView {
             </Transition>
         </div>
     }
+}
+
+#[component]
+pub fn ReturnsError(cx: Scope) -> impl IntoView{
+    Err::<String, TodoAppError>(TodoAppError::NotFound)
 }

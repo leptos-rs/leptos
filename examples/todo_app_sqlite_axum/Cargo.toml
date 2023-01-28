@@ -34,6 +34,9 @@ sqlx = { version = "0.6.2", features = [
 	"runtime-tokio-rustls",
 	"sqlite",
 ], optional = true }
+miette = "5.5.0"
+thiserror = "1.0.38"
+tracing = "0.1.37"
 
 [features]
 default = ["csr"]
