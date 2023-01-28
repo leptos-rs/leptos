@@ -35,7 +35,9 @@ version = "0.3"
 features = [
   "console",
   "Comment",
+  "Document",
   "DomTokenList",
+  "Location",
   "Range",
   "Text",
   "HtmlCollection",
@@ -49,6 +51,7 @@ features = [
   "DeviceMotionEvent",
   "DeviceOrientationEvent",
   "DragEvent",
+  "ErrorEvent",
   "FocusEvent",
   "GamepadEvent",
   "HashChangeEvent",
