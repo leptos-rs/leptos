@@ -24,17 +24,17 @@ members = [
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.1.2"
+version = "0.1.3"
 
 [workspace.dependencies]
-leptos = { path = "./leptos", default-features = false, version = "0.1.2" }
-leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.1.2" }
-leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.1.2" }
-leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.1.2" }
-leptos_server = { path = "./leptos_server", default-features = false, version = "0.1.2" }
-leptos_config = { path = "./leptos_config", default-features = false, version = "0.1.2" }
-leptos_router = { path = "./router", version = "0.1.2" }
-leptos_meta = { path = "./meta", default-feature = false, version = "0.1.2" }
+leptos = { path = "./leptos", default-features = false, version = "0.1.3" }
+leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.1.3" }
+leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.1.3" }
+leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.1.3" }
+leptos_server = { path = "./leptos_server", default-features = false, version = "0.1.3" }
+leptos_config = { path = "./leptos_config", default-features = false, version = "0.1.3" }
+leptos_router = { path = "./router", version = "0.1.3" }
+leptos_meta = { path = "./meta", default-feature = false, version = "0.1.3" }
 
 [profile.release]
 codegen-units = 1
