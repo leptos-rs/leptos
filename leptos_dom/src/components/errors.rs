@@ -19,23 +19,28 @@ where
         match use_context::<RwSignal<Errors>>(cx) {
           Some(errors) => {
             let id = HydrationCtx::id();
-            errors.update(move |errors: &mut Errors| errors.insert(id, error));
+            errors.update({
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              let id = id.clone();
+              move |errors: &mut Errors| errors.insert(id, error)
+            });
 
             // remove the error from the list if this drops,
             // i.e., if it's in a DynChild that switches from Err to Ok
             // Only can run on the client, will panic on the server
             cfg_if! {
-                  if #[cfg(any(feature = "hydrate", feature="csr"))] {
-            use leptos_reactive::{on_cleanup, queue_microtask};
-            on_cleanup(cx, move || {
-              queue_microtask(move || {
-                errors.update(|errors: &mut Errors| {
-                errors.remove::<E>(&id);
+              if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                use leptos_reactive::{on_cleanup, queue_microtask};
+                on_cleanup(cx, move || {
+                  queue_microtask(move || {
+                    errors.update(|errors: &mut Errors| {
+                      crate::log!("removing error at {id}");
+                      errors.remove::<E>(&id);
+                    });
+                  });
                 });
-              });
-            });
-                }
               }
+            }
           }
           None => {
             #[cfg(debug_assertions)]
