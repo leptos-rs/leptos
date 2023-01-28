@@ -11,7 +11,6 @@ use leptos_reactive::{create_rw_signal, provide_context, RwSignal, Scope};
 /// # use leptos_reactive::*;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
-/// # if false {
 /// # run_scope(create_runtime(), |cx| {
 /// let (value, set_value) = create_signal(cx, Ok(0));
 /// let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
