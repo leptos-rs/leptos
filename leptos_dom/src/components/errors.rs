@@ -1,17 +1,16 @@
 use crate::{HydrationCtx, HydrationKey, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{use_context, RwSignal};
-use miette::Diagnostic;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
-pub struct Errors(pub HashMap<HydrationKey, Arc<dyn Diagnostic + Send + Sync>>);
+pub struct Errors(pub HashMap<HydrationKey, Arc<dyn Error + Send + Sync>>);
 
 impl<T, E> IntoView for Result<T, E>
 where
   T: IntoView + 'static,
-  E: Diagnostic + Send + Sync + 'static,
+  E: Error + Send + Sync + 'static,
 {
   fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
     match self {
@@ -60,21 +59,21 @@ impl Errors {
   /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
   pub fn insert<E>(&mut self, key: HydrationKey, error: E)
   where
-    E: Diagnostic + Send + Sync + 'static,
+    E: Error + Send + Sync + 'static,
   {
     self.0.insert(key, Arc::new(error));
   }
   /// Add an error with the default key for errors outside the reactive system
   pub fn insert_with_default_key<E>(&mut self, error: E)
   where
-    E: Diagnostic + Send + Sync + 'static,
+    E: Error + Send + Sync + 'static,
   {
     self.0.insert(HydrationKey::default(), Arc::new(error));
   }
   /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
   pub fn remove<E>(&mut self, key: &HydrationKey)
   where
-    E: Diagnostic + Send + Sync + 'static,
+    E: Error + Send + Sync + 'static,
   {
     self.0.remove(key);
   }
