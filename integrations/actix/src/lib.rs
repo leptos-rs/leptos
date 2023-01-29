@@ -466,10 +466,16 @@ async fn stream_app(
     let (stream, runtime, _) = render_to_stream_with_prefix_undisposed_with_context(
         app,
         move |cx| {
-            let head = use_context::<MetaContext>(cx)
+            let meta = use_context::<MetaContext>(cx);
+            let head = meta
+                .as_ref()
                 .map(|meta| meta.dehydrate())
                 .unwrap_or_default();
-            format!("{head}</head><body>").into()
+            let body_meta = meta
+                .as_ref()
+                .and_then(|meta| meta.body.as_string())
+                .unwrap_or_default();
+            format!("{head}</head><body{body_meta}>").into()
         },
         additional_context,
     );
