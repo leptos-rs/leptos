@@ -49,9 +49,9 @@ impl Attribute {
 
   /// Converts the attribute to its HTML value at that moment, not including
   /// the attribute name, so it can be rendered on the server.
-  pub fn as_nameless_value_string(&self) -> String {
+  pub fn as_nameless_value_string(&self) -> Option<String> {
     match self {
-      Attribute::String(value) => value.to_string(),
+      Attribute::String(value) => Some(value.to_string()),
       Attribute::Fn(_, f) => {
         let mut value = f();
         while let Attribute::Fn(_, f) = value {
@@ -59,11 +59,16 @@ impl Attribute {
         }
         value.as_nameless_value_string()
       }
-      Attribute::Option(_, value) => value
-        .as_ref()
-        .map(|value| value.to_string())
-        .unwrap_or_default(),
-      Attribute::Bool(_) => String::new(),
+      Attribute::Option(_, value) => {
+        value.as_ref().map(|value| value.to_string())
+      }
+      Attribute::Bool(include) => {
+        if *include {
+          Some("".to_string())
+        } else {
+          None
+        }
+      }
     }
   }
 }
