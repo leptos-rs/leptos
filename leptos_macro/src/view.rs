@@ -435,13 +435,10 @@ fn attribute_to_tokens_ssr(
                     template.push_str(&value);
                     template.push('"');
                 } else {
-                    template.push_str("{}");
+                    template.push_str("=\"{}\"");
                     let value = value.as_ref();
                     holes.push(quote! {
-                        &{#value}.into_attribute(#cx)
-                            .as_nameless_value_string()
-                            .map(|a| format!("{}=\"{}\"", #name, a))
-                            .unwrap_or_default(),
+                      leptos::escape_attr(&{#value}.into_attribute(#cx).as_nameless_value_string()),
                     })
                 }
             }
@@ -558,9 +555,7 @@ fn set_class_attribute_ssr(
                 template.push_str(" {}");
                 let value = value.as_ref();
                 holes.push(quote! {
-                  match &(cx, #value).into_attribute(#cx).as_nameless_value_string()
-                    .map(|a| leptos::escape_attr(&a).to_string())
-                    .unwrap_or_default(),
+                  leptos::escape_attr(&(cx, #value).into_attribute(#cx).as_nameless_value_string()),
                 });
             }
         }
