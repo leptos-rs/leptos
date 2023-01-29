@@ -78,8 +78,10 @@ pub use title::*;
 /// [provide_meta_context].
 #[derive(Clone, Default, Debug)]
 pub struct MetaContext {
-    pub(crate) title: TitleContext,
-    //pub(crate) html: HtmlContext,
+    /// Metadata associated with the `<html>` element
+    pub html: HtmlContext,
+    /// Metadata associated with the `<title>` element.
+    pub title: TitleContext,
     /// Metadata associated with the `<body>` element
     pub body: BodyContext,
     /// Other metadata tags.
