@@ -420,61 +420,6 @@ where
 
                 let full_path = format!("http://leptos.dev{path}");
 
-                let pkg_path = &options.site_pkg_dir;
-                let output_name = &options.output_name;
-
-                // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-                // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
-                // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
-                let mut wasm_output_name = output_name.clone();
-                if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
-                    wasm_output_name.push_str("_bg");
-                }
-
-                let site_ip = &options.site_address.ip().to_string();
-                let reload_port = options.reload_port;
-
-                let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
-                    true => format!(
-                        r#"
-                        <script crossorigin="">(function () {{
-                            var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                            ws.onmessage = (ev) => {{
-                                let msg = JSON.parse(ev.data);
-                                if (msg.all) window.location.reload();
-                                if (msg.css) {{
-                                    const link = document.querySelector("link#leptos");
-                                    if (link) {{
-                                        let href = link.getAttribute('href').split('?')[0];
-                                        let newHref = href + '?version=' + new Date().getMilliseconds();
-                                        link.setAttribute('href', newHref);
-                                    }} else {{
-                                        console.warn("Could not find link#leptos");
-                                    }}
-                                }};
-                            }};
-                            ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-                        }})()
-                        </script>
-                        "#
-                    ),
-                    false => "".to_string(),
-                };
-
-                let head = format!(
-                    r#"<!DOCTYPE html>
-                    <html lang="en">
-                        <head>
-                            <meta charset="utf-8"/>
-                            <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                            <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                            <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                            <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                            {leptos_autoreload}
-                            "#
-                );
-                let tail = "</body></html>";
-
                 let (mut tx, rx) = futures::channel::mpsc::channel(8);
 
                 spawn_blocking({
@@ -518,13 +463,18 @@ where
                                                     },
                                                     add_context,
                                                 );
+                                            
+                                            let cx = Scope { runtime, id: scope };
+                                            let (head, tail) = html_parts(&options, use_context::<MetaContext>(cx).as_ref());
+
+                                            _ = tx.send(head).await;
                                             let mut shell = Box::pin(bundle);
                                             while let Some(fragment) = shell.next().await {
                                                 _ = tx.send(fragment).await;
                                             }
+                                            _ = tx.send(tail.to_string()).await;
 
                                             // Extract the value of ResponseOptions from here
-                                            let cx = Scope { runtime, id: scope };
                                             let res_options =
                                                 use_context::<ResponseOptions>(cx).unwrap();
 
@@ -543,12 +493,7 @@ where
                     }
                 });
 
-                let mut stream = Box::pin(
-                    futures::stream::once(async move { head.clone() })
-                        .chain(rx)
-                        .chain(futures::stream::once(async { tail.to_string() }))
-                        .map(|html| Ok(Bytes::from(html))),
-                );
+                let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
                 // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
                 let first_chunk = stream.next().await;
@@ -579,6 +524,65 @@ where
             }
         })
     }
+}
+
+fn html_parts(options: &LeptosOptions, meta: Option<&MetaContext>) -> (String, &'static str) {
+    let pkg_path = &options.site_pkg_dir;
+    let output_name = &options.output_name;
+
+    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
+    // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
+    let mut wasm_output_name = output_name.clone();
+    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+        wasm_output_name.push_str("_bg");
+    }
+
+    let site_ip = &options.site_address.ip().to_string();
+    let reload_port = options.reload_port;
+
+    let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
+        true => format!(
+            r#"
+                <script crossorigin="">(function () {{
+                    var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+                    ws.onmessage = (ev) => {{
+                        let msg = JSON.parse(ev.data);
+                        if (msg.all) window.location.reload();
+                        if (msg.css) {{
+                            const link = document.querySelector("link#leptos");
+                            if (link) {{
+                                let href = link.getAttribute('href').split('?')[0];
+                                let newHref = href + '?version=' + new Date().getMilliseconds();
+                                link.setAttribute('href', newHref);
+                            }} else {{
+                                console.warn("Could not find link#leptos");
+                            }}
+                        }};
+                    }};
+                    ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+                }})()
+                </script>
+                "#
+        ),
+        false => "".to_string(),
+    };
+
+    let html_metadata = meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
+    let head = format!(
+        r#"<!DOCTYPE html>
+            <html{html_metadata}>
+                <head>
+                    <meta charset="utf-8"/>
+                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                    <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                    {leptos_autoreload}
+                    "#
+    );
+    let tail = "</body></html>";
+    (head, tail)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
