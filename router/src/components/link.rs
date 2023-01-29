@@ -65,7 +65,7 @@ pub fn A<H>(
     #[prop(optional, into)]
     class: Option<MaybeSignal<String>>,
     /// The nodes or elements to be shown inside the link.
-    children: Box<dyn FnOnce(Scope) -> Fragment>,
+    children: Children,
 ) -> impl IntoView
 where
     H: ToHref + 'static,

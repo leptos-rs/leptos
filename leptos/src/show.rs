@@ -1,5 +1,6 @@
+use crate::Children;
 use leptos::component;
-use leptos_dom::{Fragment, IntoView};
+use leptos_dom::IntoView;
 use leptos_reactive::Scope;
 use once_cell::sync::Lazy;
 
@@ -29,7 +30,7 @@ pub fn Show<F, W, IV>(
     /// The scope the component is running in
     cx: Scope,
     /// The components Show wraps
-    children: Box<dyn FnOnce(Scope) -> Fragment>,
+    children: Children,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false
