@@ -463,7 +463,7 @@ where
                                                     },
                                                     add_context,
                                                 );
-                                            
+
                                             let cx = Scope { runtime, id: scope };
                                             let (head, tail) = html_parts(&options, use_context::<MetaContext>(cx).as_ref());
 
