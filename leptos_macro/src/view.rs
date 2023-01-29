@@ -558,7 +558,7 @@ fn set_class_attribute_ssr(
                 template.push_str(" {}");
                 let value = value.as_ref();
                 holes.push(quote! {
-                  match &(cx, #value).into_attribute(#cx).as_nameless_value_string()
+                  &(cx, #value).into_attribute(#cx).as_nameless_value_string()
                     .map(|a| leptos::escape_attr(&a).to_string())
                     .unwrap_or_default(),
                 });
