@@ -22,7 +22,7 @@ use crate::{
 pub fn Routes(
     cx: Scope,
     #[prop(optional)] base: Option<String>,
-    children: Box<dyn FnOnce(Scope) -> Fragment>,
+    children: Children,
 ) -> impl IntoView {
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");

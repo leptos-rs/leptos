@@ -1,4 +1,5 @@
-use leptos_dom::{Errors, Fragment, IntoView};
+use crate::Children;
+use leptos_dom::{Errors, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{create_rw_signal, provide_context, RwSignal, Scope};
 
@@ -29,7 +30,7 @@ use leptos_reactive::{create_rw_signal, provide_context, RwSignal, Scope};
 pub fn ErrorBoundary<F, IV>(
     cx: Scope,
     /// The components inside the tag which will get rendered
-    children: Box<dyn FnOnce(Scope) -> Fragment>,
+    children: Children,
     /// A fallback that will be shown if an error occurs.
     fallback: F,
 ) -> impl IntoView
