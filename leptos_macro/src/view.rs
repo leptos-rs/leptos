@@ -440,7 +440,7 @@ fn attribute_to_tokens_ssr(
                     holes.push(quote! {
                         &{#value}.into_attribute(#cx)
                             .as_nameless_value_string()
-                            .map(|a| format!("{}=\"{}\"", #name, a))
+                            .map(|a| format!("{}=\"{}\"", #name, leptos::escape_attr(&a)))
                             .unwrap_or_default(),
                     })
                 }
