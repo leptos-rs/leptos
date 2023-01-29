@@ -36,10 +36,15 @@ impl std::fmt::Debug for BodyContext {
 /// fn MyApp(cx: Scope) -> impl IntoView {
 ///   provide_meta_context(cx);
 ///   let (prefers_dark, set_prefers_dark) = create_signal(cx, false);
+///   let body_class = move || if prefers_dark() {
+///     "dark".to_string()
+///   } else {
+///     "light".to_string()
+///   };
 ///
 ///   view! { cx,
 ///     <main>
-///       <Body class=move || if prefers_dark() { "dark" } else { "light" }/>
+///       <Body class=body_class/>
 ///     </main>
 ///   }
 /// }
