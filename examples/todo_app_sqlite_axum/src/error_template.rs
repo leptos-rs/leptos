@@ -1,13 +1,16 @@
 use crate::errors::TodoAppError;
 use http::status::StatusCode;
 use leptos::Errors;
-use leptos::{component, create_rw_signal, view, For, ForProps, IntoView, RwSignal, Scope};
+use leptos::{
+    component, create_rw_signal, use_context, view, For, ForProps, IntoView, RwSignal, Scope,
+};
+use leptos_axum::ResponseOptions;
 use miette::Diagnostic;
 
 // A basic function to display errors served by the error boundaries. Feel free to do more complicated things
 // here than just displaying them
 #[component]
-pub fn ErrorTemplate(
+pub async fn ErrorTemplate(
     cx: Scope,
     #[prop(optional)] outside_errors: Option<Errors>,
     #[prop(optional)] errors: Option<RwSignal<Errors>>,
@@ -22,6 +25,9 @@ pub fn ErrorTemplate(
             None => panic!("No Errors found and we expected errors!"),
         },
     };
+
+    let response = use_context::<ResponseOptions>(cx).unwrap();
+    response.set_status(StatusCode::from_u16(error_code.to_string().parse()).unwrap()).await;
 
     view! {cx,
     <h1>"Errors"</h1>
