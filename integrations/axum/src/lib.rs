@@ -19,8 +19,9 @@ use hyper::body;
 use leptos::*;
 use leptos_meta::MetaContext;
 use leptos_router::*;
+use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc};
-use tokio::{sync::RwLock, task::spawn_blocking, task::LocalSet};
+use tokio::{task::spawn_blocking, task::LocalSet};
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
@@ -59,25 +60,25 @@ pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
     /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
-    pub async fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write().await;
+    pub fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write();
         *writable = parts
     }
     /// Set the status of the returned Response
-    pub async fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write().await;
+    pub fn set_status(&self, status: StatusCode) {
+        let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key
-    pub async fn insert_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write().await;
+    pub fn insert_header(&self, key: HeaderName, value: HeaderValue) {
+        let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact
-    pub async fn append_header(&self, key: HeaderName, value: HeaderValue) {
-        let mut writeable = self.0.write().await;
+    pub fn append_header(&self, key: HeaderName, value: HeaderValue) {
+        let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
@@ -86,15 +87,13 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
-pub async fn redirect(cx: leptos::Scope, path: &str) {
+pub fn redirect(cx: leptos::Scope, path: &str) {
     let response_options = use_context::<ResponseOptions>(cx).unwrap();
-    response_options.set_status(StatusCode::FOUND).await;
-    response_options
-        .insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
-        )
-        .await;
+    response_options.set_status(StatusCode::FOUND);
+    response_options.insert_header(
+        header::LOCATION,
+        header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
+    );
 }
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
@@ -226,7 +225,7 @@ async fn handle_server_fns_inner(
                                     // Add headers from ResponseParts if they exist. These should be added as long
                                     // as the server function returns an OK response
                                     let res_options_outer = res_options.unwrap().0;
-                                    let res_options_inner = res_options_outer.read().await;
+                                    let res_options_inner = res_options_outer.read();
                                     let (status, mut res_headers) = (
                                         res_options_inner.status,
                                         res_options_inner.headers.clone(),
@@ -478,9 +477,9 @@ where
                                             let res_options =
                                                 use_context::<ResponseOptions>(cx).unwrap();
 
-                                            let new_res_parts = res_options.0.read().await.clone();
+                                            let new_res_parts = res_options.0.read().clone();
 
-                                            let mut writable = res_options2.0.write().await;
+                                            let mut writable = res_options2.0.write();
                                             *writable = new_res_parts;
 
                                             runtime.dispose();
@@ -501,7 +500,7 @@ where
                 let third_chunk = stream.next().await;
 
                 // Extract the resources now that they've been rendered
-                let res_options = res_options3.0.read().await;
+                let res_options = res_options3.0.read();
 
                 let complete_stream = futures::stream::iter([
                     first_chunk.unwrap(),
@@ -605,7 +604,7 @@ where
         .run_until(async move {
             tokio::task::spawn_local(async move {
                 let routes = leptos_router::generate_route_list_inner(app_fn);
-                let mut writable = routes_inner.0.write().await;
+                let mut writable = routes_inner.0.write();
                 *writable = routes;
             })
             .await
@@ -613,7 +612,7 @@ where
         })
         .await;
 
-    let routes = routes.0.read().await.to_owned();
+    let routes = routes.0.read().to_owned();
     // Axum's Router defines Root routes as "/" not ""
     let routes: Vec<String> = routes
         .into_iter()

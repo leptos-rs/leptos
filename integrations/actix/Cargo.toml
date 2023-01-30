@@ -13,5 +13,5 @@ futures = "0.3"
 leptos = { workspace = true, features = ["ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
+parking_lot = "0.12.1"
 regex = "1.7.0"
-tokio = "1.24.1"
