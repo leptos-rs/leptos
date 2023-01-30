@@ -55,7 +55,7 @@ where
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_context(cx, MetaContext::new());
+///   provide_meta_context(cx);
 ///   let formatter = |text| format!("{text} — Leptos Online");
 ///
 ///   view! { cx,

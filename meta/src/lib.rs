@@ -55,12 +55,16 @@ use std::{
 
 use leptos::{leptos_dom::debug_warn, *};
 
+mod body;
+mod html;
 mod link;
 mod meta_tags;
 mod script;
 mod style;
 mod stylesheet;
 mod title;
+pub use body::*;
+pub use html::*;
 pub use link::*;
 pub use meta_tags::*;
 pub use script::*;
@@ -74,13 +78,19 @@ pub use title::*;
 /// [provide_meta_context].
 #[derive(Clone, Default, Debug)]
 pub struct MetaContext {
-    pub(crate) title: TitleContext,
-    pub(crate) tags: MetaTagsContext,
+    /// Metadata associated with the `<html>` element
+    pub html: HtmlContext,
+    /// Metadata associated with the `<title>` element.
+    pub title: TitleContext,
+    /// Metadata associated with the `<body>` element
+    pub body: BodyContext,
+    /// Other metadata tags.
+    pub tags: MetaTagsContext,
 }
 
 /// Manages all of the element created by components.
 #[derive(Clone, Default)]
-pub(crate) struct MetaTagsContext {
+pub struct MetaTagsContext {
     next_id: Rc<Cell<MetaTagId>>,
     #[allow(clippy::type_complexity)]
     els: Rc<RefCell<HashMap<String, (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>)>>>,
@@ -93,7 +103,8 @@ impl std::fmt::Debug for MetaTagsContext {
 }
 
 impl MetaTagsContext {
-    #[cfg(feature = "ssr")]
+    /// Converts metadata tags into an HTML string.
+    #[cfg(any(feature = "ssr", docs))]
     pub fn as_string(&self) -> String {
         self.els
             .borrow()
@@ -102,6 +113,7 @@ impl MetaTagsContext {
             .collect()
     }
 
+    #[doc(hidden)]
     pub fn register(&self, cx: Scope, id: String, builder_el: HtmlElement<AnyElement>) {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -209,7 +221,7 @@ impl MetaContext {
     ///
     /// # #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
     /// run_scope(create_runtime(), |cx| {
-    ///   provide_context(cx, MetaContext::new());
+    ///   provide_meta_context(cx);
     ///
     ///   let app = view! { cx,
     ///     <main>
