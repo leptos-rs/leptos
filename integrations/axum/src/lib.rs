@@ -637,6 +637,21 @@ pub trait LeptosRoutes {
     ) -> Self
     where
         IV: IntoView + 'static;
+
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+
+    fn leptos_routes_with_handler<H, T>(self, paths: Vec<String>, handler: H) -> Self
+    where
+        H: axum::handler::Handler<T, (), axum::body::Body>,
+        T: 'static;
 }
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
@@ -656,6 +671,42 @@ impl LeptosRoutes for axum::Router {
                 path,
                 get(render_app_to_stream(options.clone(), app_fn.clone())),
             );
+        }
+        router
+    }
+
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                get(render_app_to_stream_with_context(
+                    options.clone(),
+                    additional_context.clone(),
+                    app_fn.clone(),
+                )),
+            );
+        }
+        router
+    }
+
+    fn leptos_routes_with_handler<H, T>(self, paths: Vec<String>, handler: H) -> Self
+    where
+        H: axum::handler::Handler<T, (), axum::body::Body>,
+        T: 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(path, get(handler.clone()));
         }
         router
     }
