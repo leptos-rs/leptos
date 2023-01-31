@@ -646,6 +646,16 @@ pub trait LeptosRoutes {
         Data: 'static,
         Fut: Future<Output = Result<DataResponse<Data>, actix_web::Error>>,
         IV: IntoView + 'static;
+
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
 }
 
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
@@ -688,6 +698,30 @@ where
             router = router.route(
                 path,
                 render_preloaded_data_app(options.clone(), data_fn.clone(), app_fn.clone()),
+            );
+        }
+        router
+    }
+
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                render_app_to_stream_with_context(
+                    options.clone(),
+                    additional_context.clone(),
+                    app_fn.clone(),
+                ),
             );
         }
         router
