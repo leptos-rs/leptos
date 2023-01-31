@@ -435,10 +435,13 @@ fn attribute_to_tokens_ssr(
                     template.push_str(&value);
                     template.push('"');
                 } else {
-                    template.push_str("=\"{}\"");
+                    template.push_str("{}");
                     let value = value.as_ref();
                     holes.push(quote! {
-                      leptos::escape_attr(&{#value}.into_attribute(#cx).as_nameless_value_string()),
+                        &{#value}.into_attribute(#cx)
+                            .as_nameless_value_string()
+                            .map(|a| format!("{}=\"{}\"", #name, leptos::escape_attr(&a)))
+                            .unwrap_or_default(),
                     })
                 }
             }
@@ -555,7 +558,9 @@ fn set_class_attribute_ssr(
                 template.push_str(" {}");
                 let value = value.as_ref();
                 holes.push(quote! {
-                  leptos::escape_attr(&(cx, #value).into_attribute(#cx).as_nameless_value_string()),
+                  &(cx, #value).into_attribute(#cx).as_nameless_value_string()
+                    .map(|a| leptos::escape_attr(&a).to_string())
+                    .unwrap_or_default(),
                 });
             }
         }
@@ -1058,11 +1063,17 @@ fn is_self_closing(node: &NodeElement) -> bool {
 fn camel_case_tag_name(tag_name: &str) -> String {
     let mut chars = tag_name.chars();
     let first = chars.next();
+    let underscore = if tag_name == "option" || tag_name == "use" {
+        "_"
+    } else {
+        ""
+    };
     first
         .map(|f| f.to_ascii_uppercase())
         .into_iter()
         .chain(chars)
-        .collect()
+        .collect::<String>()
+        + underscore
 }
 
 fn is_svg_element(tag: &str) -> bool {

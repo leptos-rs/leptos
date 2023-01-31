@@ -29,7 +29,7 @@ pub fn Route<E, F, P>(
     view: F,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
-    children: Option<Box<dyn FnOnce(Scope) -> Fragment>>,
+    children: Option<Children>,
 ) -> impl IntoView
 where
     E: IntoView,

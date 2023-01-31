@@ -129,3 +129,22 @@ fn ssr_with_styles() {
         );
     });
 }
+
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[test]
+fn ssr_option() {
+    use leptos::*;
+
+    _ = create_scope(create_runtime(), |cx| {
+        let (value, set_value) = create_signal(cx, 0);
+        let rendered = view! {
+            cx,
+            <option/>
+        };
+
+        assert_eq!(
+            rendered.into_view(cx).render_to_string(cx),
+            "<option id=\"_0-1\"></option>"
+        );
+    });
+}

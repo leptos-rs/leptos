@@ -337,9 +337,7 @@ where
                 }
             };
 
-            let (head, tail) = html_parts(&options);
-
-            stream_app(app, head, tail, res_options, additional_context).await
+            stream_app(&options, app, res_options, additional_context).await
         }
     })
 }
@@ -427,9 +425,7 @@ where
                 }
             };
 
-            let (head, tail) = html_parts(&options);
-
-            stream_app(app, head, tail, res_options, |_cx| {}).await
+            stream_app(&options, app, res_options, |_cx| {}).await
         }
     })
 }
@@ -455,22 +451,30 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
 }
 
 async fn stream_app(
+    options: &LeptosOptions,
     app: impl FnOnce(leptos::Scope) -> View + 'static,
-    head: String,
-    tail: String,
     res_options: ResponseOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> HttpResponse<BoxBody> {
-    let (stream, runtime, _) = render_to_stream_with_prefix_undisposed_with_context(
+    let (stream, runtime, scope) = render_to_stream_with_prefix_undisposed_with_context(
         app,
         move |cx| {
-            let head = use_context::<MetaContext>(cx)
+            let meta = use_context::<MetaContext>(cx);
+            let head = meta
+                .as_ref()
                 .map(|meta| meta.dehydrate())
                 .unwrap_or_default();
-            format!("{head}</head><body>").into()
+            let body_meta = meta
+                .as_ref()
+                .and_then(|meta| meta.body.as_string())
+                .unwrap_or_default();
+            format!("{head}</head><body{body_meta}>").into()
         },
         additional_context,
     );
+
+    let cx = leptos::Scope { runtime, id: scope };
+    let (head, tail) = html_parts(options, use_context::<MetaContext>(cx).as_ref());
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })
@@ -514,7 +518,7 @@ async fn stream_app(
     res
 }
 
-fn html_parts(options: &LeptosOptions) -> (String, String) {
+fn html_parts(options: &LeptosOptions, meta_context: Option<&MetaContext>) -> (String, String) {
     // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
     // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
@@ -555,9 +559,12 @@ fn html_parts(options: &LeptosOptions) -> (String, String) {
         false => "".to_string(),
     };
 
+    let html_metadata = meta_context
+        .and_then(|mc| mc.html.as_string())
+        .unwrap_or_default();
     let head = format!(
         r#"<!DOCTYPE html>
-        <html lang="en">
+        <html{html_metadata}>
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
