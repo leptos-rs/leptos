@@ -31,7 +31,7 @@ convert_case = "0.6.0"
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = "0.11"
+typed-builder = "0.12"
 leptos = { path = "../leptos" }
 
 [features]
