@@ -10,7 +10,7 @@ pub struct BodyContext {
 }
 
 impl BodyContext {
-    /// Converts the <body> metadata into an HTML string.
+    /// Converts the `<body>` metadata into an HTML string.
     pub fn as_string(&self) -> Option<String> {
         self.class
             .borrow()

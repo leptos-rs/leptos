@@ -11,7 +11,7 @@ pub struct HtmlContext {
 }
 
 impl HtmlContext {
-    /// Converts the <html> metadata into an HTML string.
+    /// Converts the `<html>` metadata into an HTML string.
     pub fn as_string(&self) -> Option<String> {
         match (self.lang.borrow().as_ref(), self.dir.borrow().as_ref()) {
             (None, None) => None,
