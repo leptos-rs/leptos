@@ -427,10 +427,10 @@ fn attribute_to_tokens_ssr(
 
         if name != "class" {
             template.push(' ');
-            template.push_str(&name);
 
             if let Some(value) = node.value.as_ref() {
                 if let Some(value) = value_to_string(value) {
+                    template.push_str(&name);
                     template.push_str("=\"");
                     template.push_str(&value);
                     template.push('"');
