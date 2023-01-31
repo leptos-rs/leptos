@@ -18,9 +18,9 @@ use http::StatusCode;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use parking_lot::RwLock;
 use regex::Regex;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -49,25 +49,25 @@ pub struct ResponseOptions(pub Arc<RwLock<ResponseParts>>);
 
 impl ResponseOptions {
     /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
-    pub async fn overwrite(&self, parts: ResponseParts) {
-        let mut writable = self.0.write().await;
+    pub fn overwrite(&self, parts: ResponseParts) {
+        let mut writable = self.0.write();
         *writable = parts
     }
     /// Set the status of the returned Response
-    pub async fn set_status(&self, status: StatusCode) {
-        let mut writeable = self.0.write().await;
+    pub fn set_status(&self, status: StatusCode) {
+        let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key
-    pub async fn insert_header(&self, key: header::HeaderName, value: header::HeaderValue) {
-        let mut writeable = self.0.write().await;
+    pub fn insert_header(&self, key: header::HeaderName, value: header::HeaderValue) {
+        let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact
-    pub async fn append_header(&self, key: header::HeaderName, value: header::HeaderValue) {
-        let mut writeable = self.0.write().await;
+    pub fn append_header(&self, key: header::HeaderName, value: header::HeaderValue) {
+        let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
     }
@@ -76,15 +76,13 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
 /// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
-pub async fn redirect(cx: leptos::Scope, path: &str) {
+pub fn redirect(cx: leptos::Scope, path: &str) {
     let response_options = use_context::<ResponseOptions>(cx).unwrap();
-    response_options.set_status(StatusCode::FOUND).await;
-    response_options
-        .insert_header(
-            header::LOCATION,
-            header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
-        )
-        .await;
+    response_options.set_status(StatusCode::FOUND);
+    response_options.insert_header(
+        header::LOCATION,
+        header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
+    );
 }
 
 /// An Actix [Route](actix_web::Route) that listens for a `POST` request with
@@ -182,7 +180,7 @@ pub fn handle_server_fns_with_context(
                             runtime.dispose();
 
                             let mut res: HttpResponseBuilder;
-                            let mut res_parts = res_options.0.write().await;
+                            let mut res_parts = res_options.0.write();
 
                             if accept_header == Some("application/json")
                                 || accept_header == Some("application/x-www-form-urlencoded")
@@ -493,7 +491,7 @@ async fn stream_app(
     let second_chunk = stream.next().await;
     let third_chunk = stream.next().await;
 
-    let res_options = res_options.0.read().await;
+    let res_options = res_options.0.read();
 
     let (status, mut headers) = (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
