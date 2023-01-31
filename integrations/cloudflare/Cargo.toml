@@ -1,0 +1,30 @@
+[package]
+name = "leptos-worker"
+version = "0.0.0"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+cfg-if = "0.1.2"
+worker = "0.0.11"
+serde_json = "1.0.67"
+leptos = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/leptos", default-features = false, features = ["ssr"] }
+leptos_router = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/router", default-features = false, features = ["ssr"] }
+leptos_meta = { path = "/Users/gjohnston/Documents/Projects/leptos-main/leptos/meta", default-features = false, features = ["ssr"]}
+tracing = "0.1"
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1.1", optional = true }
+parking_lot = "0.12.1"
+futures = "0.3.26"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
