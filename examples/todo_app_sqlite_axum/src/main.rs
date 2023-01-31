@@ -7,7 +7,6 @@ if #[cfg(feature = "ssr")] {
         routing::{post, get},
         extract::{Extension, Path},
         http::Request,
-        body::StreamBody,
         response::{IntoResponse, Response},
         Router,
     };
@@ -17,7 +16,6 @@ if #[cfg(feature = "ssr")] {
     use crate::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
-    use leptos_reactive::run_scope;
 
     //Define a handler to test extractor with state
     async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{

@@ -3,8 +3,7 @@
 This example creates a basic todo app with an Axum backend that uses Leptos' server functions to call sqlx from the client and seamlessly run it on the server.
 
 ## Client Side Rendering
-To run it as a Client Side App, you can issue  `trunk serve --open` in the root. This will build the entire
-app into one CSR bundle. Make sure you have trunk installed with `cargo install trunk`.
+This example cannot be built as a trunk standalone CSR-only app. Only the server may directly connect to the database.
 
 ## Server Side Rendering with cargo-leptos
 cargo-leptos is now the easiest and most featureful way to build server side rendered apps with hydration. It provides automatic recompilation of client and server code, wasm optimisation, CSS minification, and more! Check out more about it [here](https://github.com/akesson/cargo-leptos)
