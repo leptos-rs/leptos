@@ -1063,11 +1063,17 @@ fn is_self_closing(node: &NodeElement) -> bool {
 fn camel_case_tag_name(tag_name: &str) -> String {
     let mut chars = tag_name.chars();
     let first = chars.next();
+    let underscore = if tag_name == "option" || tag_name == "use" {
+        "_"
+    } else {
+        ""
+    };
     first
         .map(|f| f.to_ascii_uppercase())
         .into_iter()
         .chain(chars)
-        .collect()
+        .collect::<String>()
+        + underscore
 }
 
 fn is_svg_element(tag: &str) -> bool {
