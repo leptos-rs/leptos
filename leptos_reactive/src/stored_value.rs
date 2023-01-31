@@ -89,6 +89,30 @@ where
         self.0.update_untracked(f);
     }
 
+    /// Applies a function to the current value to mutate it in place.
+    /// Forwards the return value of the closure if the closure was called.
+    /// ```
+    /// use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    ///     pub struct MyUncloneableData {
+    ///         pub value: String
+    ///     }
+    ///
+    ///     let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    ///     let updated = data.update_returning(|data| {
+    ///         data.value = "b".into();
+    ///         data.value.clone()
+    ///     });
+    ///
+    ///     assert_eq!(data.with(|data| data.value.clone()), "b");
+    ///     assert_eq!(updated, Some(String::from("b")));
+    /// });
+    /// ```
+    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.0.update_returning_untracked(f)
+    }
+
     /// Sets the stored value.
     /// ```
     /// # use leptos_reactive::*;
