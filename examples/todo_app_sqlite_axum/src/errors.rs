@@ -1,7 +1,7 @@
 use miette::Diagnostic;
 use thiserror::Error;
 
-#[derive(Debug, Diagnostic, Error)]
+#[derive(Debug, Clone, Diagnostic, Error)]
 pub enum TodoAppError {
     #[error("Not Found")]
     #[diagnostic(code("404"))]

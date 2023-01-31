@@ -42,7 +42,7 @@ tracing = "0.1.37"
 default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "dep:sqlx", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "leptos_axum"]
+ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "dep:sqlx", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum"]
 
 [package.metadata.cargo-all-features]
 denylist = [
