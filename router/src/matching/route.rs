@@ -3,11 +3,18 @@ use std::rc::Rc;
 use leptos::leptos_dom::View;
 use leptos::*;
 
+/// Defines a single route in a nested route tree. This is the return
+/// type of the [`<Route/>`](crate::Route) component, but can also be
+/// used to build your own configuration-based or filesystem-based routing.
 #[derive(Clone)]
 pub struct RouteDefinition {
+    /// A unique ID for each route.
     pub id: usize,
+    /// The path. This can include params like `:id` or wildcards like `*all`.
     pub path: String,
+    /// Other route definitions nested within this one.
     pub children: Vec<RouteDefinition>,
+    /// The view that should be displayed when this route is matched.
     pub view: Rc<dyn Fn(Scope) -> View>,
 }
 
