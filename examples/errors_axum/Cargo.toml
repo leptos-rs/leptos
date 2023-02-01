@@ -1,5 +1,5 @@
 [package]
-name = "todo_app_sqlite_axum"
+name = "errors_axum"
 version = "0.1.0"
 edition = "2021"
 
@@ -30,10 +30,6 @@ tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.3.4", features = ["fs"], optional = true }
 tokio = { version = "1.22.0", features = ["full"], optional = true }
 http = { version = "0.2.8" }
-sqlx = { version = "0.6.2", features = [
-	"runtime-tokio-rustls",
-	"sqlite",
-], optional = true }
 thiserror = "1.0.38"
 tracing = "0.1.37"
 
@@ -41,7 +37,7 @@ tracing = "0.1.37"
 default = ["csr"]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "dep:sqlx", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum"]
+ssr = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum"]
 
 [package.metadata.cargo-all-features]
 denylist = [
@@ -49,14 +45,13 @@ denylist = [
 	"tower",
 	"tower-http",
 	"tokio",
-	"sqlx",
 	"leptos_axum",
 ]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
-output-name = "todo_app_sqlite_axum"	
+output-name = "errors_axum"	
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
