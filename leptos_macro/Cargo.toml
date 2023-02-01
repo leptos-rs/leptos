@@ -14,6 +14,7 @@ proc-macro = true
 [dependencies]
 cfg-if = "1"
 doc-comment = "0.3"
+html-escape = "0.2"
 itertools = "0.10"
 pad-adapter = "0.1"
 prettyplease = "0.1"
