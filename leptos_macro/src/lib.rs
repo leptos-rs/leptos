@@ -229,9 +229,9 @@ mod server;
 /// # }
 /// # });
 /// ```
-/// 
+///
 /// 10. You can set any HTML element’s `innerHTML` with the `inner_html` attribute on an
-///     element. Be careful: this HTML will not be escaped, so you should ensure that it 
+///     element. Be careful: this HTML will not be escaped, so you should ensure that it
 ///     only contains trusted input.
 /// ```rust
 /// # use leptos::*;
