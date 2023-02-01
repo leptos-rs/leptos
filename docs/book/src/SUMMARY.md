@@ -7,4 +7,4 @@
     - [Dynamic Attributes](./view/02_dynamic_attributes.md)
     - [Components and Props](./view/03_components.md)
     - [Iteration](./view/04_iteration.md)
-    - [Forms and Inputs)(./view/05_forms.md)
+    - [Forms and Inputs](./view/05_forms.md)
