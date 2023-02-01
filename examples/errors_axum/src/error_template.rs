@@ -1,4 +1,4 @@
-use crate::errors::TodoAppError;
+use crate::errors::AppError;
 use cfg_if::cfg_if;
 use leptos::Errors;
 use leptos::{
@@ -30,9 +30,9 @@ pub fn ErrorTemplate(
     let errors = errors.get().0;
 
     // Downcast lets us take a type that implements `std::error::Error`
-    let errors: Vec<TodoAppError> = errors
+    let errors: Vec<AppError> = errors
         .into_iter()
-        .map(|(_k, v)| v.downcast_ref::<TodoAppError>().cloned())
+        .map(|(_k, v)| v.downcast_ref::<AppError>().cloned())
         .flatten()
         .collect();
     println!("Errors: {errors:#?}");
@@ -49,7 +49,7 @@ pub fn ErrorTemplate(
     }
 
     view! {cx,
-      <h1>"Errors"</h1>
+      <h1>{if errors.len() > 1 {"Errors"} else {"Error"}}</h1>
       <For
         // a function that returns the items we're iterating over; a signal is fine
         each= move || {errors.clone().into_iter().enumerate()}

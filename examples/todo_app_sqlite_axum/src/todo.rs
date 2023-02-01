@@ -1,3 +1,4 @@
+use crate::error_template::{ErrorTemplate, ErrorTemplateProps};
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
@@ -40,9 +41,9 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
     // http::Request doesn't implement Clone, so more work will be needed to do use_context() on this
     let req_parts = use_context::<leptos_axum::RequestParts>(cx);
-    
-    if let Some(req_parts) = req_parts{
-    println!("Uri = {:?}", req_parts.uri);
+
+    if let Some(req_parts) = req_parts {
+        println!("Uri = {:?}", req_parts.uri);
     }
 
     use futures::TryStreamExt;
@@ -107,7 +108,7 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
-	let id = use_context::<String>(cx);
+    //let id = use_context::<String>(cx);
     provide_meta_context(cx);
     view! {
         cx,
@@ -121,8 +122,10 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                 <Routes>
                     <Route path="" view=|cx| view! {
                         cx,
+                        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
                             <Todos/>
-                    }/>
+                        </ErrorBoundary>
+                    }/> //Route
                 </Routes>
             </main>
         </Router>
