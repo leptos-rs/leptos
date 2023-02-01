@@ -171,7 +171,7 @@ pub(crate) fn render_view(
             cx,
             Span::call_site(),
             nodes,
-            false,
+            true,
             TagType::Unknown,
             global_class,
         )
@@ -219,7 +219,7 @@ fn fragment_to_tokens_ssr(
     });
     quote! {
         {
-            leptos::Fragment::new(vec![
+            leptos::Fragment::lazy(|| vec![
                 #(#nodes),*
             ])
         }
@@ -626,7 +626,7 @@ fn node_to_tokens(
             cx,
             Span::call_site(),
             &fragment.children,
-            false,
+            true,
             parent_type,
             global_class,
         ),
@@ -708,7 +708,7 @@ fn element_to_tokens(
                     cx,
                     Span::call_site(),
                     &fragment.children,
-                    false,
+                    true,
                     parent_type,
                     global_class,
                 ),
