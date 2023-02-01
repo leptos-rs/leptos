@@ -167,7 +167,7 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             quote! {
-                #body_name(cx, #prop_names)
+                #body_name(#cx, #prop_names)
             }
         } else {
             quote! {
