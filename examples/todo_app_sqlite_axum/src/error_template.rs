@@ -1,9 +1,8 @@
 use crate::errors::TodoAppError;
 use cfg_if::cfg_if;
 use leptos::Errors;
-use leptos::{
-    component, create_rw_signal, use_context, view, For, ForProps, IntoView, RwSignal, Scope,
-};
+use leptos::*;
+
 #[cfg(feature = "ssr")]
 use leptos_axum::ResponseOptions;
 
@@ -16,10 +15,7 @@ pub fn ErrorTemplate(
     #[prop(optional)] errors: Option<RwSignal<Errors>>,
 ) -> impl IntoView {
     let errors = match outside_errors {
-        Some(e) => {
-            let errors = create_rw_signal(cx, e);
-            errors
-        }
+        Some(e) => create_rw_signal(cx, e),
         None => match errors {
             Some(e) => e,
             None => panic!("No Errors found and we expected errors!"),
@@ -32,8 +28,7 @@ pub fn ErrorTemplate(
     // Downcast lets us take a type that implements `std::error::Error`
     let errors: Vec<TodoAppError> = errors
         .into_iter()
-        .map(|(_k, v)| v.downcast_ref::<TodoAppError>().cloned())
-        .flatten()
+        .filter_map(|(_k, v)| v.downcast_ref::<TodoAppError>().cloned())
         .collect();
     println!("Errors: {errors:#?}");
 
@@ -54,7 +49,7 @@ pub fn ErrorTemplate(
         // a function that returns the items we're iterating over; a signal is fine
         each= move || {errors.clone().into_iter().enumerate()}
         // a unique key for each item as a reference
-        key=|(index, _error)| index.clone()
+        key=|(index, _error)| *index
         // renders each item to a view
         view= move |error| {
         let error_string = error.1.to_string();
