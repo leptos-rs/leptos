@@ -1,3 +1,17 @@
+// Reader's guide...
+// Look at these functions:
+// - main
+// - leptos_routes
+// - render_app_to_string
+// - <App/>
+//
+// TODO
+// - What's the best way to serve static client-side JS/Wasm/CSS?
+// - Does `leptos_routes` run on every single request? Simple log to check.
+//   The issue here is that it renders the app to extract the routes.
+//   This is O(n + 1) for N requests to the server, but this is expensive 
+//   if this routing process is re-created every time.
+
 use std::{sync::Arc, future::Future};
 
 use futures::StreamExt;
@@ -21,10 +35,16 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
     log_request(&req);
     utils::set_panic_hook();
     
+    // Use Cloudflare Worker router to serve all requests
     let router = Router::new();
     router
+        // leptos_routes mounts all possible routes from your Leptos app
+        // as Cloudflare router routes
         .leptos_routes(
             generate_route_list(|cx| view! { cx, <App/> }),
+            // this function takes the HTTP Request and router context (unused)
+            // `render_app_to_string` provides `Request` via context, so we can access
+            // the HTTP request during server rendering
             |req, _| render_app_to_string("/pkg", "leptos_worker", req, |cx| view! { cx, <App/> })
         )
         .run(req, env)
@@ -111,6 +131,8 @@ where
     }
 }
 
+// This is having one of those annoying type/trait issues, which I'll figure out later
+/*
 async fn stream_app(
     pkg_url: &str,
     crate_name: &str,
@@ -138,7 +160,8 @@ async fn stream_app(
     let cx = leptos::Scope { runtime, id: scope };
     let meta = use_context::<MetaContext>(cx);
 
-        let html_meta = meta.as_ref().and_then(|mc| mc.html.as_string()).unwrap_or_default();
+    // see comment above re `leptos_meta`
+    let html_meta = meta.as_ref().and_then(|mc| mc.html.as_string()).unwrap_or_default();
     let head = format!(r#"
                 <!DOCTYPE html>
                 <html{html_meta}>
@@ -219,7 +242,7 @@ where IV: IntoView
     });
     runtime.dispose();
     Response::from_html(html)
-}
+}*/
 
 pub fn render_app_to_string<IV>(
     pkg_url: &str,
@@ -229,16 +252,38 @@ pub fn render_app_to_string<IV>(
 )-> Result<Response>
 where IV: IntoView
 {
+    // this stuff is so we know where to load client-side JS/Wasm from
     let pkg_url = pkg_url.to_owned();
     let crate_name = crate_name.to_owned();
     let runtime = create_runtime();
+
+    // build the app shell
     let (html, _, _) = run_scope_undisposed(runtime, move |cx| {
-        let integration = RouterIntegrationContext::new(ServerIntegration { path: format!("https://leptos.dev{}", req.path()) });
+        let integration = RouterIntegrationContext::new(ServerIntegration {
+            // add https://leptos.dev so URL crate doesn't fuss
+            path: format!("https://leptos.dev{}", req.path())
+        });
+        // this is how the router knows where we are when server rendering
         provide_context(cx, integration);
+
+        // leptos_meta lets you 
+        // 1. add attributes to the root <html> tag
+        // 2. add attributes to <body>
+        // 3. inject <link>, <style>, <meta>, and <script> tags 
+        //    into the <head>
+        // (all from within components that would otherwise be in the <body>) 
+        //
+        // So we provide `MetaContext`, the app can use it, then 
+        // (below) we extract some data from it to inject into HTML before serving
         provide_context(cx, MetaContext::new());
+
+        // provide an Arc<Request> to be able to access headers, etc. during SSR
         provide_context(cx, Arc::new(req.clone()));
+
+        // render the shell
         let html = app_fn(cx).into_view(cx).render_to_string(cx);
 
+        // now inject `leptos_meta` stuff
         let meta = use_context::<MetaContext>(cx);
         let html_meta = meta.as_ref().and_then(|mc| mc.html.as_string()).unwrap_or_default();
         let body_meta = meta.as_ref().and_then(|mc| mc.body.as_string()).unwrap_or_default();
