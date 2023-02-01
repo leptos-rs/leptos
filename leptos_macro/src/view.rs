@@ -336,7 +336,7 @@ fn element_to_tokens_ssr(
                     ),
                     Node::Text(text) => {
                         if let Some(value) = value_to_string(&text.value) {
-                            template.push_str(&value);
+                            template.push_str(&html_escape::encode_safe(&value));
                         } else {
                             template.push_str("{}");
                             let value = text.value.as_ref();

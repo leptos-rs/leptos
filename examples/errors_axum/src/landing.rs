@@ -64,7 +64,7 @@ pub fn ExampleErrors(cx: Scope) -> impl IntoView {
                 <a href="/404">"This Page Does not Exist"</a>
             </p>
             <p>
-                "The following &ltdiv&gt will always contain an error and cause the page to produce status 500. Check browser dev tools. "
+                "The following <div> will always contain an error and cause the page to produce status 500. Check browser dev tools. "
             </p>
             <div>
             <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
