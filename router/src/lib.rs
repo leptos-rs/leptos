@@ -202,6 +202,7 @@ mod history;
 mod hooks;
 #[doc(hidden)]
 pub mod matching;
+pub use matching::RouteDefinition;
 
 pub use components::*;
 #[cfg(any(feature = "ssr", doc))]
