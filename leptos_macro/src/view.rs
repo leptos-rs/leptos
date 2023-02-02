@@ -262,11 +262,22 @@ fn root_element_to_tokens_ssr(
         };
 
         let tag_name = node.name.to_string();
-        let typed_element_name = Ident::new(&camel_case_tag_name(&tag_name), node.name.span());
+        let typed_element_name = {
+            let camel_cased =
+                camel_case_tag_name(&tag_name.replace("svg::", "").replace("math::", ""));
+            Ident::new(&camel_cased, node.name.span())
+        };
+        let typed_element_name = if is_svg_element(&tag_name) {
+            quote! { svg::#typed_element_name }
+        } else if is_math_ml_element(&tag_name) {
+            quote! { math::#typed_element_name }
+        } else {
+            quote! { #typed_element_name }
+        };
         quote! {
         {
             #(#exprs_for_compiler)*
-            ::leptos::HtmlElement::from_html(cx, leptos::#typed_element_name::default(), #template)
+            ::leptos::HtmlElement::from_html(cx, leptos::leptos_dom::#typed_element_name::default(), #template)
         }
         }
     }
@@ -288,8 +299,13 @@ fn element_to_tokens_ssr(
           {#component}.into_view(cx).render_to_string(cx),
         })
     } else {
+        let tag_name = node
+            .name
+            .to_string()
+            .replace("svg::", "")
+            .replace("math::", "");
         template.push('<');
-        template.push_str(&node.name.to_string());
+        template.push_str(&tag_name);
 
         for attr in &node.attributes {
             if let Node::Attribute(attr) = attr {
