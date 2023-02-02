@@ -1,7 +1,6 @@
 use cfg_if::cfg_if;
 
-cfg_if! {
-if #[cfg(feature = "ssr")] {
+cfg_if! { if #[cfg(feature = "ssr")] {
     use axum::{
         body::{boxed, Body, BoxBody},
         extract::Extension,
@@ -43,7 +42,4 @@ if #[cfg(feature = "ssr")] {
             )),
         }
     }
-
-
-}
-}
+}}

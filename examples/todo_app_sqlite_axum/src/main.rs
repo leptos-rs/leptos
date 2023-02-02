@@ -43,7 +43,7 @@ if #[cfg(feature = "ssr")] {
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
-        let addr = leptos_options.site_address.clone();
+        let addr = leptos_options.site_address;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
 
         // build our application with a route
@@ -56,7 +56,7 @@ if #[cfg(feature = "ssr")] {
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
-        log!("listening on {}", &addr);
+        log!("listening on http://{}", &addr);
         axum::Server::bind(&addr)
             .serve(app.into_make_service())
             .await
@@ -66,15 +66,9 @@ if #[cfg(feature = "ssr")] {
 
     // client-only stuff for Trunk
     else {
-        use todo_app_sqlite_axum::todo::*;
-
         pub fn main() {
-            console_error_panic_hook::set_once();
-            _ = console_log::init_with_level(log::Level::Debug);
-            console_error_panic_hook::set_once();
-            mount_to_body(|cx| {
-                view! { cx, <TodoApp/> }
-            });
+            // This example cannot be built as a trunk standalone CSR-only app.
+            // Only the server may directly connect to the database.
         }
     }
 }
