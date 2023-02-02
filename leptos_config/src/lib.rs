@@ -87,50 +87,35 @@ impl Default for Env {
     }
 }
 
+fn from_str(input: &str) -> Result<Env, String> {
+    let sanitized = input.to_lowercase();
+    match sanitized.as_ref() {
+        "dev" | "development" => Ok(Env::DEV),
+        "prod" | "production" => Ok(Env::PROD),
+        _ => Err(format!(
+            "{} is not a supported environment. Use either `dev` or `production`.",
+            input
+        )),
+    }
+}
+
 impl FromStr for Env {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let sanitized = input.to_lowercase();
-        match sanitized.as_ref() {
-            "dev" => Ok(Self::DEV),
-            "development" => Ok(Self::DEV),
-            "prod" => Ok(Self::PROD),
-            "production" => Ok(Self::PROD),
-            _ => Ok(Self::DEV),
-        }
+        from_str(input).or_else(|_| Ok(Self::default()))
     }
 }
 
 impl From<&str> for Env {
     fn from(str: &str) -> Self {
-        let sanitized = str.to_lowercase();
-        match sanitized.as_str() {
-            "dev" => Self::DEV,
-            "development" => Self::DEV,
-            "prod" => Self::PROD,
-            "production" => Self::PROD,
-            _ => {
-                panic!("Env var is not recognized. Maybe try `dev` or `prod`")
-            }
-        }
+        from_str(str).unwrap_or_else(|err| panic!("{}", err))
     }
 }
 impl From<&Result<String, VarError>> for Env {
     fn from(input: &Result<String, VarError>) -> Self {
         match input {
-            Ok(str) => {
-                let sanitized = str.to_lowercase();
-                match sanitized.as_ref() {
-                    "dev" => Self::DEV,
-                    "development" => Self::DEV,
-                    "prod" => Self::PROD,
-                    "production" => Self::PROD,
-                    _ => {
-                        panic!("Env var is not recognized. Maybe try `dev` or `prod`")
-                    }
-                }
-            }
-            Err(_) => Self::DEV,
+            Ok(str) => from_str(str).unwrap_or_else(|err| panic!("{}", err)),
+            Err(_) => Self::default(),
         }
     }
 }
@@ -139,15 +124,7 @@ impl TryFrom<String> for Env {
     type Error = String;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        match s.to_lowercase().as_str() {
-            "dev" => Ok(Self::DEV),
-            "development" => Ok(Self::DEV),
-            "prod" => Ok(Self::PROD),
-            "production" => Ok(Self::PROD),
-            other => Err(format!(
-                "{other} is not a supported environment. Use either `dev` or `production`."
-            )),
-        }
+        from_str(s.as_str())
     }
 }
 
