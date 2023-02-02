@@ -1,14 +1,13 @@
 use crate::errors::AppError;
 use cfg_if::cfg_if;
 use leptos::Errors;
-use leptos::{
-    component, create_rw_signal, use_context, view, For, ForProps, IntoView, RwSignal, Scope,
-};
+use leptos::*;
+
 #[cfg(feature = "ssr")]
 use leptos_axum::ResponseOptions;
 
-// A basic function to display errors served by the error boundaries. Feel free to do more complicated things
-// here than just displaying them
+// A basic function to display errors served by the error boundaries.
+// Feel free to do more complicated things here than just displaying them.
 #[component]
 pub fn ErrorTemplate(
     cx: Scope,
@@ -35,32 +34,29 @@ pub fn ErrorTemplate(
 
     // Only the response code for the first error is actually sent from the server
     // this may be customized by the specific application
-    cfg_if! {
-      if #[cfg(feature="ssr")]{
+    cfg_if! { if #[cfg(feature="ssr")] {
         let response = use_context::<ResponseOptions>(cx);
-        if let Some(response) = response{
-          response.set_status(errors[0].status_code());
+        if let Some(response) = response {
+            response.set_status(errors[0].status_code());
         }
-      }
-    }
+    }}
 
-    view! {cx,
-      <h1>{if errors.len() > 1 {"Errors"} else {"Error"}}</h1>
-      <For
-        // a function that returns the items we're iterating over; a signal is fine
-        each= move || {errors.clone().into_iter().enumerate()}
-        // a unique key for each item as a reference
-        key=|(index, _error)| *index
-        // renders each item to a view
-        view= move |error| {
-        let error_string = error.1.to_string();
-        let error_code= error.1.status_code();
-          view! {
-            cx,
-            <h2>{error_code.to_string()}</h2>
-            <p>"Error: " {error_string}</p>
-          }
-        }
-      />
+    view! { cx,
+        <h1>{if errors.len() > 1 {"Errors"} else {"Error"}}</h1>
+        <For
+            // a function that returns the items we're iterating over; a signal is fine
+            each= move || {errors.clone().into_iter().enumerate()}
+            // a unique key for each item as a reference
+            key=|(index, _error)| *index
+            // renders each item to a view
+            view= move |error| {
+                let error_string = error.1.to_string();
+                let error_code= error.1.status_code();
+                view! { cx,
+                    <h2>{error_code.to_string()}</h2>
+                    <p>"Error: " {error_string}</p>
+                }
+            }
+        />
     }
 }
