@@ -13,12 +13,10 @@ leptos = { workspace = true }
 cfg-if = "1"
 common_macros = "0.1"
 gloo-net = "0.2"
-itertools = "0.10"
 lazy_static = "1"
 linear-map = "1"
 log = "0.4"
 regex = { version = "1", optional = true }
-bincode = "1"
 url = { version = "2", optional = true }
 percent-encoding = "2"
 thiserror = "1"
@@ -31,26 +29,26 @@ wasm-bindgen-futures = { version = "0.4" }
 [dependencies.web-sys]
 version = "0.3"
 features = [
-	# History/Routing
-	"History",
-	"HtmlAnchorElement",
-	"MouseEvent",
-	"Url",
-	# Form
-	"FormData",
-	"HtmlButtonElement",
-	"HtmlFormElement",
-	"HtmlInputElement",
-	"SubmitEvent",
-	"Url",
-	"UrlSearchParams",
-	# Fetching in Hydrate Mode
-	"Headers",
-	"Request",
-	"RequestInit",
-	"RequestMode",
-	"Response",
-	"Window",
+  # History/Routing
+  "History",
+  "HtmlAnchorElement",
+  "MouseEvent",
+  "Url",
+  # Form
+  "FormData",
+  "HtmlButtonElement",
+  "HtmlFormElement",
+  "HtmlInputElement",
+  "SubmitEvent",
+  "Url",
+  "UrlSearchParams",
+  # Fetching in Hydrate Mode
+  "Headers",
+  "Request",
+  "RequestInit",
+  "RequestMode",
+  "Response",
+  "Window",
 ]
 
 [features]
