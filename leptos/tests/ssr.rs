@@ -4,7 +4,7 @@ fn simple_ssr_test() {
     use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, _set_value) = create_signal(cx, 0);
         let rendered = view! {
             cx,
             <div>
@@ -28,7 +28,7 @@ fn ssr_test_with_components() {
 
     #[component]
     fn Counter(cx: Scope, initial_value: i32) -> impl IntoView {
-        let (value, set_value) = create_signal(cx, initial_value);
+        let (value, _set_value) = create_signal(cx, initial_value);
         view! {
             cx,
             <div>
@@ -62,7 +62,7 @@ fn ssr_test_with_snake_case_components() {
 
     #[component]
     fn snake_case_counter(cx: Scope, initial_value: i32) -> impl IntoView {
-        let (value, set_value) = create_signal(cx, initial_value);
+        let (value, _set_value) = create_signal(cx, initial_value);
         view! {
             cx,
             <div>
@@ -114,7 +114,7 @@ fn ssr_with_styles() {
     use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, _set_value) = create_signal(cx, 0);
         let styles = "myclass";
         let rendered = view! {
             cx, class = styles,
@@ -136,7 +136,7 @@ fn ssr_option() {
     use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, _set_value) = create_signal(cx, 0);
         let rendered = view! {
             cx,
             <option/>
