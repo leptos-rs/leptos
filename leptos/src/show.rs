@@ -1,8 +1,6 @@
-use crate::Children;
 use leptos::component;
-use leptos_dom::IntoView;
-use leptos_reactive::Scope;
-use once_cell::sync::Lazy;
+use leptos_dom::{Fragment, IntoView};
+use leptos_reactive::{create_memo, Scope};
 
 /// A component that will show its children when the `when` condition is `true`,
 /// and show the fallback when it is `false`, without rerendering every time
@@ -30,7 +28,7 @@ pub fn Show<F, W, IV>(
     /// The scope the component is running in
     cx: Scope,
     /// The components Show wraps
-    children: Children,
+    children: Box<dyn Fn(Scope) -> Fragment>,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false
@@ -41,12 +39,10 @@ where
     F: Fn(Scope) -> IV + 'static,
     IV: IntoView,
 {
-    // now you don't render until `when` is actually true
-    let children = Lazy::new(move || children(cx).into_view(cx));
-    let fallback = Lazy::new(move || fallback(cx).into_view(cx));
+    let memoized_when = create_memo(cx, move |_| when());
 
-    move || match when() {
-        true => children.clone(),
-        false => fallback.clone(),
+    move || match memoized_when.get() {
+        true => children(cx).into_view(cx),
+        false => fallback(cx).into_view(cx),
     }
 }
