@@ -230,6 +230,22 @@ mod server;
 /// # });
 /// ```
 ///
+/// 10. You can set any HTML element’s `innerHTML` with the `inner_html` attribute on an
+///     element. Be careful: this HTML will not be escaped, so you should ensure that it
+///     only contains trusted input.
+/// ```rust
+/// # use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let html = "<p>This HTML will be injected.</p>";
+/// view! { cx,
+///   <div inner_html=html/>
+/// }
+/// # ;
+/// # }
+/// # });
+/// ```
+///
 /// Here’s a simple example that shows off several of these features, put together
 /// ```rust
 /// # use leptos::*;
