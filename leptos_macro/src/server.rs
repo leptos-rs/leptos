@@ -137,7 +137,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     };
 
     Ok(quote::quote! {
-        #[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
+        #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
