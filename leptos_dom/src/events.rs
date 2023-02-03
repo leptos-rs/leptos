@@ -16,7 +16,8 @@ thread_local! {
 pub fn add_event_listener<E>(
   target: &web_sys::Element,
   event_name: Cow<'static, str>,
-  mut cb: impl FnMut(E) + 'static,
+  #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
+  #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
 ) where
   E: FromWasmAbi + 'static,
 {
