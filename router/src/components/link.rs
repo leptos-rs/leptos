@@ -70,35 +70,47 @@ pub fn A<H>(
 where
     H: ToHref + 'static,
 {
-    let location = use_location(cx);
-    let href = use_resolved_path(cx, move || href.to_href()());
-    let is_active = create_memo(cx, move |_| match href.get() {
-        None => false,
+    fn inner(
+        cx: Scope,
+        href: Memo<Option<String>>,
+        exact: bool,
+        state: Option<State>,
+        replace: bool,
+        class: Option<MaybeSignal<String>>,
+        children: Children,
+    ) -> HtmlElement<A> {
+        let location = use_location(cx);
+        let is_active = create_memo(cx, move |_| match href.get() {
+            None => false,
 
-        Some(to) => {
-            let path = to
-                .split(['?', '#'])
-                .next()
-                .unwrap_or_default()
-                .to_lowercase();
-            let loc = location.pathname.get().to_lowercase();
-            if exact {
-                loc == path
-            } else {
-                loc.starts_with(&path)
+            Some(to) => {
+                let path = to
+                    .split(['?', '#'])
+                    .next()
+                    .unwrap_or_default()
+                    .to_lowercase();
+                let loc = location.pathname.get().to_lowercase();
+                if exact {
+                    loc == path
+                } else {
+                    loc.starts_with(&path)
+                }
             }
-        }
-    });
+        });
 
-    view! { cx,
-        <a
-            href=move || href.get().unwrap_or_default()
-            prop:state={state.map(|s| s.to_js_value())}
-            prop:replace={replace}
-            aria-current=move || if is_active.get() { Some("page") } else { None }
-            class=move || class.as_ref().map(|class| class.get())
-        >
-            {children(cx)}
-        </a>
+        view! { cx,
+            <a
+                href=move || href.get().unwrap_or_default()
+                prop:state={state.map(|s| s.to_js_value())}
+                prop:replace={replace}
+                aria-current=move || if is_active.get() { Some("page") } else { None }
+                class=move || class.as_ref().map(|class| class.get())
+            >
+                {children(cx)}
+            </a>
+        }
     }
+
+    let href = use_resolved_path(cx, move || href.to_href()());
+    inner(cx, href, exact, state, replace, class, children)
 }

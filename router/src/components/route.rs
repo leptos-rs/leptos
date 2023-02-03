@@ -36,31 +36,47 @@ where
     F: Fn(Scope) -> E + 'static,
     P: std::fmt::Display,
 {
-    let children = children
-        .map(|children| {
-            children(cx)
-                .as_children()
-                .iter()
-                .filter_map(|child| {
-                    child
-                        .as_transparent()
-                        .and_then(|t| t.downcast_ref::<RouteDefinition>())
-                })
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    let id = ROUTE_ID.with(|id| {
-        let next = id.get() + 1;
-        id.set(next);
-        next
-    });
-    RouteDefinition {
-        id,
-        path: path.to_string(),
-        children,
-        view: Rc::new(move |cx| view(cx).into_view(cx)),
+    fn inner(
+        cx: Scope,
+        children: Option<Children>,
+        path: String,
+        view: Rc<dyn Fn(Scope) -> View>,
+    ) -> RouteDefinition {
+        let children = children
+            .map(|children| {
+                children(cx)
+                    .as_children()
+                    .iter()
+                    .filter_map(|child| {
+                        child
+                            .as_transparent()
+                            .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        let id = ROUTE_ID.with(|id| {
+            let next = id.get() + 1;
+            id.set(next);
+            next
+        });
+
+        RouteDefinition {
+            id,
+            path,
+            children,
+            view,
+        }
     }
+
+    inner(
+        cx,
+        children,
+        path.to_string(),
+        Rc::new(move |cx| view(cx).into_view(cx)),
+    )
 }
 
 impl IntoView for RouteDefinition {
