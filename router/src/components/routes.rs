@@ -29,7 +29,6 @@ pub fn Routes(
     let base_route = router.base();
 
     let mut branches = Vec::new();
-    let id_before = HydrationCtx::peek();
     let frag = children(cx);
     let children = frag
         .as_children()
@@ -195,6 +194,7 @@ pub fn Routes(
     });
 
     // show the root route
+    let id = HydrationCtx::id();
     let root = create_memo(cx, move |prev| {
         provide_context(cx, route_states);
         route_states.with(|state| {
@@ -216,8 +216,8 @@ pub fn Routes(
         })
     });
 
-    HydrationCtx::continue_from(id_before);
-    (move || root.get()).into_view(cx)
+    //HydrationCtx::continue_from(id_before);
+    leptos::DynChild::new_with_id(id, move || root.get())
 }
 
 #[derive(Clone, Debug, PartialEq)]

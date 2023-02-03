@@ -1,4 +1,7 @@
-use crate::{hydration::HydrationCtx, Comment, IntoView, View};
+use crate::{
+  hydration::{HydrationCtx, HydrationKey},
+  Comment, IntoView, View,
+};
 use cfg_if::cfg_if;
 use leptos_reactive::Scope;
 use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
@@ -7,8 +10,6 @@ cfg_if! {
     use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
     use leptos_reactive::{create_effect, ScopeDisposer};
     use wasm_bindgen::JsCast;
-  } else {
-    use crate::hydration::HydrationKey;
   }
 }
 
@@ -77,9 +78,7 @@ impl Mountable for DynChildRepr {
 }
 
 impl DynChildRepr {
-  fn new() -> Self {
-    let id = HydrationCtx::id();
-
+  fn new_with_id(id: HydrationKey) -> Self {
     let markers = (
       Comment::new(Cow::Borrowed("</DynChild>"), &id, true),
       #[cfg(debug_assertions)]
@@ -124,6 +123,7 @@ where
   CF: Fn() -> N + 'static,
   N: IntoView,
 {
+  id: crate::HydrationKey,
   child_fn: CF,
 }
 
@@ -135,7 +135,12 @@ where
   /// Creates a new dynamic child which will re-render whenever it's
   /// signal dependencies change.
   pub fn new(child_fn: CF) -> Self {
-    Self { child_fn }
+    Self::new_with_id(HydrationCtx::id(), child_fn)
+  }
+
+  #[doc(hidden)]
+  pub fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
+    Self { id, child_fn }
   }
 }
 
@@ -149,9 +154,9 @@ where
     instrument(level = "trace", name = "<DynChild />", skip_all)
   )]
   fn into_view(self, cx: Scope) -> View {
-    let Self { child_fn } = self;
+    let Self { id, child_fn } = self;
 
-    let component = DynChildRepr::new();
+    let component = DynChildRepr::new_with_id(id);
 
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     let closing = component.closing.node.clone();
