@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 use crate::{
-    hydration::SharedContext, serialization::Serializable, AnyEffect, AnyResource, Effect,
-    EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SerializableResource, SignalId, UnserializableResource, WriteSignal,
+    hydration::SharedContext, AnyEffect, AnyResource, Effect, EffectId, Memo, ReadSignal,
+    ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId, ScopeProperty,
+    SerializableResource, SignalId, UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -117,13 +117,8 @@ impl RuntimeId {
 
     #[track_caller]
     pub(crate) fn create_concrete_signal(self, value: Rc<RefCell<dyn Any>>) -> SignalId {
-        with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
-        })
-        .expect("tried to create a signal in a runtime that has been disposed")
+        with_runtime(self, |runtime| runtime.signals.borrow_mut().insert(value))
+            .expect("tried to create a signal in a runtime that has been disposed")
     }
 
     #[track_caller]
@@ -131,7 +126,7 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)));
+        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
 
         (
             ReadSignal {
@@ -155,8 +150,7 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)));
-
+        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
         RwSignal {
             runtime: self,
             id,
