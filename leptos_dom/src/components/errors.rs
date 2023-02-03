@@ -34,7 +34,6 @@ where
                 on_cleanup(cx, move || {
                   queue_microtask(move || {
                     errors.update(|errors: &mut Errors| {
-                      crate::log!("removing error at {id}");
                       errors.remove::<E>(&id);
                     });
                   });
