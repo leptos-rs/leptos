@@ -408,30 +408,8 @@ fn attribute_to_tokens_ssr(
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" {
         // ignore refs on SSR
-    } else if let Some(name) = name.strip_prefix("on:") {
-        let handler = node
-            .value
-            .as_ref()
-            .expect("event listener attributes need a value")
-            .as_ref();
-
-        #[allow(unused_variables)]
-        let (name, is_force_undelegated) = parse_event(name);
-
-        let event_type = TYPED_EVENTS
-            .iter()
-            .find(|e| **e == name)
-            .copied()
-            .unwrap_or("Custom");
-        let event_type = event_type
-            .parse::<TokenStream>()
-            .expect("couldn't parse event name");
-
-        let event_type = if is_force_undelegated {
-            quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
-        } else {
-            quote! { ::leptos::ev::#event_type }
-        };
+    } else if name.strip_prefix("on:").is_some() {
+        let (event_type, handler) = event_from_attribute_node(node);
         exprs_for_compiler.push(quote! {
             leptos::ssr_event_listener(#event_type, #handler);
         })
@@ -947,7 +925,9 @@ fn component_to_tokens(
 
     let props = attrs
         .clone()
-        .filter(|attr| !attr.key.to_string().starts_with("clone:"))
+        .filter(|attr| {
+            !attr.key.to_string().starts_with("clone:") && !attr.key.to_string().starts_with("on:")
+        })
         .map(|attr| {
             let name = &attr.key;
 
@@ -966,6 +946,7 @@ fn component_to_tokens(
         });
 
     let items_to_clone = attrs
+        .clone()
         .filter(|attr| attr.key.to_string().starts_with("clone:"))
         .map(|attr| {
             let ident = attr
@@ -976,6 +957,17 @@ fn component_to_tokens(
                 .to_owned();
 
             format_ident!("{ident}", span = attr.key.span())
+        })
+        .collect::<Vec<_>>();
+
+    let events = attrs
+        .filter(|attr| attr.key.to_string().starts_with("on:"))
+        .map(|attr| {
+            let (event_type, handler) = event_from_attribute_node(attr);
+
+            quote! {
+                .on(#event_type, #handler)
+            }
         })
         .collect::<Vec<_>>();
 
@@ -1004,15 +996,53 @@ fn component_to_tokens(
         }
     };
 
-    quote! {
+    let component = quote! {
         #name(
             #cx,
             #component_props_name::builder()
                 #(#props)*
                 #children
-                .build(),
+                .build()
         )
+    };
+
+    if events.is_empty() {
+        component
+    } else {
+        quote! {
+            #component.into_view(#cx)
+            #(#events)*
+        }
     }
+}
+
+fn event_from_attribute_node(attr: &NodeAttribute) -> (TokenStream, &Expr) {
+    let event_name = attr.key.to_string().strip_prefix("on:").unwrap().to_owned();
+
+    let handler = attr
+        .value
+        .as_ref()
+        .expect("event listener attributes need a value")
+        .as_ref();
+
+    #[allow(unused_variables)]
+    let (name, is_force_undelegated) = parse_event(&event_name);
+
+    let event_type = TYPED_EVENTS
+        .iter()
+        .find(|e| **e == name)
+        .copied()
+        .unwrap_or("Custom");
+    let event_type = event_type
+        .parse::<TokenStream>()
+        .expect("couldn't parse event name");
+
+    let event_type = if is_force_undelegated {
+        quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+    } else {
+        quote! { ::leptos::ev::#event_type }
+    };
+    (event_type, handler)
 }
 
 fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
