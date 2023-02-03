@@ -199,7 +199,7 @@ pub fn Routes(
         provide_context(cx, route_states);
         route_states.with(|state| {
             if state.routes.borrow().is_empty() {
-                Some(base_route.outlet().into_view(cx))
+                Some(base_route.outlet(cx).into_view(cx))
             } else {
                 let root = state.routes.borrow();
                 let root = root.get(0);
@@ -208,7 +208,7 @@ pub fn Routes(
                 }
 
                 if prev.is_none() || !root_equal.get() {
-                    root.as_ref().map(|route| route.outlet().into_view(cx))
+                    root.as_ref().map(|route| route.outlet(cx).into_view(cx))
                 } else {
                     prev.cloned().unwrap()
                 }

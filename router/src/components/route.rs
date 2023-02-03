@@ -104,7 +104,7 @@ impl RouteContext {
                 path: RefCell::new(path),
                 original_path: route.original_path.to_string(),
                 params,
-                outlet: Box::new(move || Some(element(cx))),
+                outlet: Box::new(move |cx| Some(element(cx))),
             }),
         })
     }
@@ -155,7 +155,7 @@ impl RouteContext {
                 path: RefCell::new(path.to_string()),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
-                outlet: Box::new(move || fallback.as_ref().map(move |f| f(cx))),
+                outlet: Box::new(move |cx| fallback.as_ref().map(move |f| f(cx))),
             }),
         }
     }
@@ -171,8 +171,8 @@ impl RouteContext {
     }
 
     /// The view associated with the current route.
-    pub fn outlet(&self) -> impl IntoView {
-        (self.inner.outlet)()
+    pub fn outlet(&self, cx: Scope) -> impl IntoView {
+        (self.inner.outlet)(cx)
     }
 }
 
@@ -184,7 +184,7 @@ pub(crate) struct RouteContextInner {
     pub(crate) path: RefCell<String>,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
-    pub(crate) outlet: Box<dyn Fn() -> Option<View>>,
+    pub(crate) outlet: Box<dyn Fn(Scope) -> Option<View>>,
 }
 
 impl PartialEq for RouteContextInner {
