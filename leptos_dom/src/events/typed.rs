@@ -150,6 +150,7 @@ generate_event_types! {
   canplaythrough: Event,
   change: Event,
   click: MouseEvent,
+  #[does_not_bubble]
   close: Event,
   compositionend: CompositionEvent,
   compositionstart: CompositionEvent,
