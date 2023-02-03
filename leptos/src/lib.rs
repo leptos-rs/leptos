@@ -172,3 +172,7 @@ pub type Children = Box<dyn FnOnce(Scope) -> Fragment>;
 /// A type for the `children` property on components that can be called
 /// more than once.
 pub type ChildrenFn = Box<dyn Fn(Scope) -> Fragment>;
+
+/// A type for the `children` property on components that can be called
+/// more than once, but may mutate the children.
+pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
