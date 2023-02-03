@@ -122,3 +122,96 @@ And why not? YOLO, right?
 ## Preventing Over-Rendering
 
 Not so YOLO.
+
+Everything we’ve just done is basically fine. But there’s one thing you should remember
+and try to be careful with. Each one of the control-flow functions we’ve created so far
+is basically a derived signal: it will rerun every time the value changes. In the examples
+above, where the value switches from even to odd on every change, this is fine.
+
+But consider the following example:
+
+```rust
+let (value, set_value) = create_signal(cx, 0);
+
+let message = move || if value() > 5 {
+	"Big"
+} else {
+	"Small"
+};
+
+view! { cx,
+	<p>{message}</p>
+}
+```
+
+This _works_, for sure. But if you added a log, you might be surprised
+
+```rust
+let message = move || if value() > 5 {
+	log!("{}: rendering Big", value());
+	"Big"
+} else {
+	log!("{}: rendering Small", value());
+	"Small"
+};
+```
+
+As a user clicks a button, you’d see something like this:
+
+```
+1: rendering Small
+2: rendering Small
+3: rendering Small
+4: rendering Small
+5: rendering Small
+6: rendering Big
+7: rendering Big
+8: rendering Big
+... ad infinitum
+```
+
+Every time `value` changes, it reruns the `if` statement. This makes sense, with
+how reactivity works. But it has a downside. For a simple text node, rerunning
+the `if` statement and rerendering isn’t a big deal. But imagine it were
+like this:
+
+```rust
+let message = move || if value() > 5 {
+	<Big/>
+} else {
+	<Small/>
+};
+```
+
+This rerenders `<Small/>` five times, then `<Big/>` infinitely. If they’re
+loading resources, creating signals, or even just creating DOM nodes, this is
+unnecessary work.
+
+The [`<Show/>`](https://docs.rs/leptos/latest/leptos/fn.Show.html) component is
+the answer. You pass it a `when` condition function, a `fallback` to be shown if
+the `when` function returns `false`, and children to be rendered if `when` is `true`.
+
+```rust
+let (value, set_value) = create_signal(cx, 0);
+
+view! { cx,
+  <Show
+    when=move || value() > 5
+    fallback=|cx| view! { cx, <Small/> }
+  >
+    <Big/>
+  </Show>
+}
+```
+
+`<Show/>` memoizes the `when` condition, so it only renders its `<Small/>` once,
+continuing to show the same component until `value` is greater than five;
+then it renders `<Big/>` once, continuing to show it indefinitely.
+
+This is a helpful tool to avoid rerendering when using dynamic `if` expressions.
+As always, there's some overhead: for a very simple node (like updating a single
+text node, or updating a class or attribute), a `move || if ...` will be more
+efficient. But if it’s at all expensive to render either branch, reach for
+`<Show/>`.
+
+<iframe src="https://codesandbox.io/p/sandbox/6-control-flow-in-view-zttwfx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px"></iframe>
