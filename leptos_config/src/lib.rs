@@ -93,8 +93,7 @@ fn from_str(input: &str) -> Result<Env, String> {
         "dev" | "development" => Ok(Env::DEV),
         "prod" | "production" => Ok(Env::PROD),
         _ => Err(format!(
-            "{} is not a supported environment. Use either `dev` or `production`.",
-            input
+            "{input} is not a supported environment. Use either `dev` or `production`.",
         )),
     }
 }
