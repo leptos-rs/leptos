@@ -8,10 +8,6 @@
 //! apps (SPAs), server-side rendering/multi-page apps (MPAs), or to synchronize
 //! state between the two.
 //!
-//! **Note:** This is a work in progress. The feature to pass client-side route [State] in
-//! [History.state](https://developer.mozilla.org/en-US/docs/Web/API/History/state), in particular,
-//! is incomplete.
-//!
 //! ## Philosophy
 //!
 //! Leptos Router is built on a few simple principles:
@@ -23,12 +19,7 @@
 //!    and are rendered by different components. This means you can navigate between siblings
 //!    in this tree without re-rendering or triggering any change in the parent routes.
 //!
-//! 3. **Route-based data loading.** Each route should know exactly which data it needs
-//!    to render itself when the route is defined. This allows each route’s data to be
-//!    reloaded independently, and allows data from nested routes to be loaded in parallel,
-//!    avoiding waterfalls.
-//!
-//! 4. **Progressive enhancement.** The [A] and [Form] components resolve any relative
+//! 3. **Progressive enhancement.** The [A] and [Form] components resolve any relative
 //!    nested routes, render actual `<a>` and `<form>` elements, and (when possible)
 //!    upgrading them to handle those navigations with client-side routing. If you’re using
 //!    them with server-side rendering (with or without hydration), they just work,
