@@ -27,7 +27,7 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
                     prev_scope.dispose();
                 }
                 is_showing.set(Some((child.id(), child.cx())));
-                provide_context(child.cx(), child.clone());
+                provide_context(cx, child.clone());
                 set_outlet.set(Some(child.outlet(cx).into_view(cx)))
             }
         }
