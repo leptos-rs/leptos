@@ -447,6 +447,7 @@ where
                                                     provide_context(cx, MetaContext::new());
                                                     provide_context(cx, req_parts);
                                                     provide_context(cx, default_res_options);
+                                                    provide_server_redirect(cx, move |path| redirect(cx, path));
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
