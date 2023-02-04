@@ -6,6 +6,11 @@ use leptos_reactive::{create_memo, Scope};
 /// and show the fallback when it is `false`, without rerendering every time
 /// the condition changes.
 ///
+/// *Note*: Because of the nature of generic arguments, it’s not really possible
+/// to make the `fallback` optional. If you want an empty fallback state—in other
+/// words, if you want to show the children if `when` is true and noting otherwise—use
+/// `fallback=|_| ()` (i.e., a fallback function that returns the unit type `()`).
+///
 /// ```rust
 /// # use leptos_reactive::*;
 /// # use leptos_macro::*;
