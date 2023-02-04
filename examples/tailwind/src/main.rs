@@ -20,7 +20,7 @@ cfg_if! {
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             let conf = get_configuration(None).await.unwrap();
 
-            let addr = conf.leptos_options.site_address.clone();
+            let addr = conf.leptos_options.site_addr.clone();
 
             // Generate the list of routes in your Leptos App
             let routes = generate_route_list(|cx| view! { cx, <App/> });
