@@ -427,8 +427,37 @@ impl View {
 
 #[cfg(debug_assertions)]
 pub(crate) fn to_kebab_case(name: &str) -> String {
+<<<<<<< HEAD
     if name.is_empty() {
         return String::new();
+=======
+  if name.is_empty() {
+    return String::new();
+  }
+
+  let mut new_name = String::with_capacity(name.len() + 8);
+
+  let mut chars = name.chars();
+
+  new_name.push(
+    chars
+      .next()
+      .map(|mut c| {
+        if c.is_ascii() {
+          c.make_ascii_lowercase();
+        }
+
+        c
+      })
+      .unwrap(),
+  );
+
+  for mut char in chars {
+    if char.is_ascii_uppercase() {
+      char.make_ascii_lowercase();
+
+      new_name.push('-');
+>>>>>>> 7ff0baa (Work on in-order streaming)
     }
 
     let mut new_name = String::with_capacity(name.len() + 8);
