@@ -18,6 +18,7 @@ mod logging;
 mod macro_helpers;
 mod node_ref;
 mod ssr;
+mod ssr_in_order;
 mod transparent;
 
 use cfg_if::cfg_if;
@@ -39,6 +40,8 @@ use once_cell::unsync::Lazy as LazyCell;
 use smallvec::SmallVec;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use ssr::*;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+pub use ssr_in_order::*;
 use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::{cell::RefCell, rc::Rc};

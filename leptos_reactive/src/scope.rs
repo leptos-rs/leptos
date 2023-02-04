@@ -371,6 +371,19 @@ impl Scope {
         })
         .unwrap_or_default()
     }
+
+    /// The set of all HTML fragments currently pending.
+    /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
+    /// `<Suspense/>` HTML when all resources are resolved, removing the `Future` from the set of
+    /// pending fragments.
+    pub fn take_pending_fragment(&self, id: &str) -> Option<(String, PinnedFuture<String>)> {
+        with_runtime(self.runtime, |runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            shared_context.pending_fragments.remove(id)
+        })
+        .ok()
+        .flatten()
+    }
 }
 
 impl fmt::Debug for ScopeDisposer {
