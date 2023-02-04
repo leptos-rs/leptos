@@ -586,6 +586,12 @@ impl<T> From<Signal<T>> for MaybeSignal<T> {
     }
 }
 
+impl From<&str> for MaybeSignal<String> {
+    fn from(value: &str) -> Self {
+        Self::Static(value.to_string())
+    }
+}
+
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for MaybeSignal<T>
 where
