@@ -406,7 +406,7 @@ fn attribute_to_tokens_ssr(
     exprs_for_compiler: &mut Vec<TokenStream>,
 ) {
     let name = node.key.to_string();
-    if name == "ref" || name == "_ref" {
+    if name == "ref" || name == "_ref" || name == "node_ref" {
         // ignore refs on SSR
     } else if name.strip_prefix("on:").is_some() {
         let (event_type, handler) = event_from_attribute_node(node);
