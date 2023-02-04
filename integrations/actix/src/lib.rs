@@ -269,7 +269,7 @@ pub fn handle_server_fns_with_context(
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-///     let addr = conf.leptos_options..clone();
+///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
 ///     
@@ -367,7 +367,7 @@ where
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-///     let addr = conf.leptos_options..clone();
+///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
 ///     
