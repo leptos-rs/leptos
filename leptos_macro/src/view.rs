@@ -409,7 +409,7 @@ fn attribute_to_tokens_ssr(
     if name == "ref" || name == "_ref" {
         // ignore refs on SSR
     } else if name.strip_prefix("on:").is_some() {
-        let (event_type, handler) = event_from_attribute_node(node);
+        let (event_type, handler) = event_from_attribute_node(node, false);
         exprs_for_compiler.push(quote! {
             leptos::ssr_event_listener(#event_type, #handler);
         })
@@ -963,7 +963,7 @@ fn component_to_tokens(
     let events = attrs
         .filter(|attr| attr.key.to_string().starts_with("on:"))
         .map(|attr| {
-            let (event_type, handler) = event_from_attribute_node(attr);
+            let (event_type, handler) = event_from_attribute_node(attr, true);
 
             quote! {
                 .on(#event_type, #handler)
@@ -1016,7 +1016,10 @@ fn component_to_tokens(
     }
 }
 
-fn event_from_attribute_node(attr: &NodeAttribute) -> (TokenStream, &Expr) {
+fn event_from_attribute_node(
+    attr: &NodeAttribute,
+    force_undelegated: bool,
+) -> (TokenStream, &Expr) {
     let event_name = attr.key.to_string().strip_prefix("on:").unwrap().to_owned();
 
     let handler = attr
@@ -1026,7 +1029,7 @@ fn event_from_attribute_node(attr: &NodeAttribute) -> (TokenStream, &Expr) {
         .as_ref();
 
     #[allow(unused_variables)]
-    let (name, is_force_undelegated) = parse_event(&event_name);
+    let (name, name_undelegated) = parse_event(&event_name);
 
     let event_type = TYPED_EVENTS
         .iter()
@@ -1037,7 +1040,7 @@ fn event_from_attribute_node(attr: &NodeAttribute) -> (TokenStream, &Expr) {
         .parse::<TokenStream>()
         .expect("couldn't parse event name");
 
-    let event_type = if is_force_undelegated {
+    let event_type = if force_undelegated || name_undelegated {
         quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
     } else {
         quote! { ::leptos::ev::#event_type }
