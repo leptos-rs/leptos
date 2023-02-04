@@ -438,6 +438,7 @@ fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseO
     provide_context(cx, MetaContext::new());
     provide_context(cx, res_options);
     provide_context(cx, req.clone());
+    provide_server_redirect(cx, move |path| redirect(cx, path));
 }
 
 fn leptos_corrected_path(req: &HttpRequest) -> String {
