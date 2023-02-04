@@ -37,7 +37,7 @@ cfg_if! {
             // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
             let conf = get_configuration(None).await.unwrap();
 
-            let addr = conf.leptos_options.site_address.clone();
+            let addr = conf.leptos_options.site_addr.clone();
             let routes = generate_route_list(|cx| view! { cx, <Counters/> });
 
             HttpServer::new(move || {

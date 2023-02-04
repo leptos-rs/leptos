@@ -43,7 +43,7 @@ pub struct LeptosOptions {
     /// Using an env variable here would allow you to run the same code in dev and prod
     /// Defaults to `127.0.0.1:3000`
     #[builder(setter(into), default=SocketAddr::from(([127,0,0,1], 3000)))]
-    pub site_address: SocketAddr,
+    pub site_addr: SocketAddr,
     /// The port the Websocket watcher listens on. Should match the `reload_port` in cargo-leptos(if using).
     /// Defaults to `3001`
     #[builder(default = 3001)]
@@ -58,7 +58,7 @@ impl LeptosOptions {
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
             env: Env::default(),
-            site_address: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?.parse()?,
+            site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?.parse()?,
             reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?.parse()?,
         })
     }

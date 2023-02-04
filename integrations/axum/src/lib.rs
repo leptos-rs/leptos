@@ -327,7 +327,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///     
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
 ///     let leptos_options = conf.leptos_options;
-///     let addr = leptos_options.site_address.clone();
+///     let addr = leptos_options..clone();
 ///     
 ///     // build our application with a route
 ///     let app = Router::new()
@@ -537,7 +537,7 @@ fn html_parts(options: &LeptosOptions, meta: Option<&MetaContext>) -> (String, &
         wasm_output_name.push_str("_bg");
     }
 
-    let site_ip = &options.site_address.ip().to_string();
+    let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
 
     let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
