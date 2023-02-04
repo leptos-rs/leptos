@@ -327,7 +327,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///     
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
 ///     let leptos_options = conf.leptos_options;
-///     let addr = leptos_options..clone();
+///     let addr = leptos_options.site_addr.clone();
 ///     
 ///     // build our application with a route
 ///     let app = Router::new()
