@@ -4,6 +4,7 @@ use convert_case::{
 };
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
+use proc_macro_error::ResultExt;
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use std::collections::HashSet;
 use syn::{
@@ -410,7 +411,7 @@ impl PropOpt {
             return None;
         }
 
-        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().ok()? {
+        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().unwrap_or_abort() {
             Some(
                 nested
                     .iter()
