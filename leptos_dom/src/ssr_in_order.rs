@@ -21,24 +21,25 @@ pub async fn render_to_stream_in_order(
 
   eprintln!("{chunks:#?}");
 
-  let (mut tx, rx) = futures::channel::mpsc::channel(4);
-  let mut buffer = String::new();
-  for chunk in chunks {
-    match chunk {
-      StreamChunk::Sync(sync) => buffer.push_str(&sync),
-      StreamChunk::Async(suspended) => {
-        // add static HTML before the Suspense and stream it down
-        _ = tx.try_send(std::mem::take(&mut buffer));
+  let (mut tx, rx) = futures::channel::mpsc::channel(1);
+  leptos_reactive::spawn_local(async move {
+    let mut buffer = String::new();
+    for chunk in chunks {
+      match chunk {
+        StreamChunk::Sync(sync) => buffer.push_str(&sync),
+        StreamChunk::Async(suspended) => {
+          // add static HTML before the Suspense and stream it down
+          _ = tx.try_send(std::mem::take(&mut buffer));
 
-        // send the inner stream
-        let suspended = suspended.await;
-        _ = tx.try_send(suspended.to_string());
+          // send the inner stream
+          let suspended = suspended.await;
+          _ = tx.try_send(suspended.to_string());
+        }
       }
     }
-  }
-
-  // send final sync chunk
-  _ = tx.try_send(std::mem::take(&mut buffer));
+    // send final sync chunk
+    _ = tx.try_send(std::mem::take(&mut buffer));
+  });
 
   rx
 }

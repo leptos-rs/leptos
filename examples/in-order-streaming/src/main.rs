@@ -34,7 +34,23 @@ async fn main() -> std::io::Result<()> {
                             cx,
                             || (),
                             |_| async {
+                                futures_timer::Delay::new(std::time::Duration::from_secs(1)).await;
+                            },
+                        );
+
+                        let two_seconds = create_resource(
+                            cx,
+                            || (),
+                            |_| async {
                                 futures_timer::Delay::new(std::time::Duration::from_secs(2)).await;
+                            },
+                        );
+
+                        let three_seconds = create_resource(
+                            cx,
+                            || (),
+                            |_| async {
+                                futures_timer::Delay::new(std::time::Duration::from_secs(3)).await;
                             },
                         );
 
@@ -44,12 +60,22 @@ async fn main() -> std::io::Result<()> {
                                 <body>
                                     <main>
                                         <h1>"Hello, world!"</h1>
-                                        <Suspense fallback=|| "Loading...">
-                                            <p>
-                                                "One second: "
-                                                {format!("{:?}", one_second.read())}
-                                            </p>
-                                        </Suspense>
+                                        <div>
+                                            <Suspense fallback=|| "Loading...">
+                                                <p>
+                                                    "One second: "
+                                                    {format!("{:?}", one_second.read())}
+                                                </p>
+                                            </Suspense>
+                                        </div>
+                                        <div>
+                                            <Suspense fallback=|| "Loading...">
+                                                <p>
+                                                    "Three seconds: "
+                                                    {format!("{:?}", three_seconds.read())}
+                                                </p>
+                                            </Suspense>
+                                        </div>
                                     </main>
                                 </body>
                             </html>
