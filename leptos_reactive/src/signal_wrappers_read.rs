@@ -399,6 +399,12 @@ where
     Dynamic(Signal<T>),
 }
 
+impl<T: Default> Default for MaybeSignal<T> {
+    fn default() -> Self {
+        Self::Static(Default::default())
+    }
+}
+
 impl<T> UntrackedGettableSignal<T> for MaybeSignal<T>
 where
     T: 'static,
