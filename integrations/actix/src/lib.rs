@@ -269,7 +269,7 @@ pub fn handle_server_fns_with_context(
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-///     let addr = conf.leptos_options.site_address.clone();
+///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
 ///     
@@ -367,7 +367,7 @@ where
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-///     let addr = conf.leptos_options.site_address.clone();
+///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
 ///     
@@ -529,7 +529,7 @@ fn html_parts(options: &LeptosOptions, meta_context: Option<&MetaContext>) -> (S
         wasm_output_name.push_str("_bg");
     }
 
-    let site_ip = &options.site_address.ip().to_string();
+    let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
     let pkg_path = &options.site_pkg_dir;
 
