@@ -487,22 +487,17 @@ async fn stream_app(
             .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
     );
 
-    // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+    // Get the first and second in the stream, which renders the app shell, and thus allows Resources to run
     let first_chunk = stream.next().await;
     let second_chunk = stream.next().await;
-    let third_chunk = stream.next().await;
 
     let res_options = res_options.0.read();
 
     let (status, mut headers) = (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
 
-    let complete_stream = futures::stream::iter([
-        first_chunk.unwrap(),
-        second_chunk.unwrap(),
-        third_chunk.unwrap(),
-    ])
-    .chain(stream);
+    let complete_stream =
+        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()]).chain(stream);
     let mut res = HttpResponse::Ok()
         .content_type("text/html")
         .streaming(complete_stream);
