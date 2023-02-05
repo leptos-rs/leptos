@@ -495,20 +495,16 @@ where
 
                 let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
-                // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+                // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
                 let first_chunk = stream.next().await;
                 let second_chunk = stream.next().await;
-                let third_chunk = stream.next().await;
 
                 // Extract the resources now that they've been rendered
                 let res_options = res_options3.0.read();
 
-                let complete_stream = futures::stream::iter([
-                    first_chunk.unwrap(),
-                    second_chunk.unwrap(),
-                    third_chunk.unwrap(),
-                ])
-                .chain(stream);
+                let complete_stream =
+                    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+                        .chain(stream);
 
                 let mut res = Response::new(StreamBody::new(
                     Box::pin(complete_stream) as PinnedHtmlStream
