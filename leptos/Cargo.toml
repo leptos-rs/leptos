@@ -1,6 +1,6 @@
 [package]
 name = "leptos"
-version = "0.0.20"
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -9,41 +9,39 @@ description = "Leptos is a full-stack, isomorphic Rust web framework leveraging 
 readme = "../README.md"
 
 [dependencies]
-leptos_core = { path = "../leptos_core", default-features = false, version = "0.0.20" }
-leptos_config = { path = "../leptos_config", default-features = false, version = "0.0.20" }
-leptos_dom = { path = "../leptos_dom", default-features = false, version = "0.0.20" }
-leptos_macro = { path = "../leptos_macro", default-features = false, version = "0.0.20" }
-leptos_reactive = { path = "../leptos_reactive", default-features = false, version = "0.0.20" }
-leptos_server = { path = "../leptos_server", default-features = false, version = "0.0.20" }
+cfg-if = "1"
+leptos_dom = { workspace = true }
+leptos_macro = { workspace = true }
+leptos_reactive = { workspace = true }
+leptos_server = { workspace = true }
+leptos_config = { workspace = true }
+tracing = "0.1"
+typed-builder = "0.12"
 
-[build-dependencies]
-rustc_version = "0.4"
+[dev-dependencies]
+leptos = { path = ".", default-features = false }
 
 [features]
-default = ["csr", "serde", "interning"]
+default = ["csr", "serde"]
 csr = [
-  "leptos_core/csr",
-  "leptos_dom/csr",
+  "leptos_dom/web",
   "leptos_macro/csr",
   "leptos_reactive/csr",
   "leptos_server/csr",
 ]
 hydrate = [
-  "leptos_core/hydrate",
-  "leptos_dom/hydrate",
+  "leptos_dom/web",
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
 ]
 ssr = [
-  "leptos_core/ssr",
   "leptos_dom/ssr",
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
   "leptos_server/ssr",
 ]
 stable = [
-  "leptos_core/stable",
   "leptos_dom/stable",
   "leptos_macro/stable",
   "leptos_reactive/stable",
@@ -52,10 +50,10 @@ stable = [
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
-interning = ["leptos_dom/interning"]
+tracing = ["leptos_macro/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable", "interning"]
+denylist = ["stable", "tracing"]
 skip_feature_sets = [
   [
     "csr",

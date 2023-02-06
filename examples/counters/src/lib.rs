@@ -11,7 +11,7 @@ struct CounterUpdater {
 }
 
 #[component]
-pub fn Counters(cx: Scope) -> web_sys::Element {
+pub fn Counters(cx: Scope) -> impl IntoView {
     let (next_counter_id, set_next_counter_id) = create_signal(cx, 0);
     let (counters, set_counters) = create_signal::<CounterHolder>(cx, vec![]);
     provide_context(cx, CounterUpdater { set_counters });
@@ -39,7 +39,7 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
     };
 
     view! { cx,
-        <div>
+        <>
             <button on:click=add_counter>
                 "Add Counter"
             </button>
@@ -63,16 +63,18 @@ pub fn Counters(cx: Scope) -> web_sys::Element {
                 " counters."
             </p>
             <ul>
-                <For each=counters key=|counter| counter.0>{
-                    |cx, (id, (value, set_value)): &(usize, (ReadSignal<i32>, WriteSignal<i32>))| {
+                <For
+                    each=counters
+                    key=|counter| counter.0
+                    view=move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
                         view! {
                             cx,
-                            <Counter id=*id value=*value set_value=*set_value/>
+                            <Counter id value set_value/>
                         }
                     }
-                }</For>
+                />
             </ul>
-        </div>
+        </>
     }
 }
 
@@ -82,7 +84,7 @@ fn Counter(
     id: usize,
     value: ReadSignal<i32>,
     set_value: WriteSignal<i32>,
-) -> web_sys::Element {
+) -> impl IntoView {
     let CounterUpdater { set_counters } = use_context(cx).unwrap_throw();
 
     let input = move |ev| set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default());
@@ -95,10 +97,10 @@ fn Counter(
         <li>
             <button on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
-                prop:value={move || value().to_string()}
+                prop:value={value}
                 on:input=input
             />
-            <span>{move || value().to_string()}</span>
+            <span>{value}</span>
             <button on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>

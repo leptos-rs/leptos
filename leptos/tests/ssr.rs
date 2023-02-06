@@ -1,9 +1,7 @@
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn simple_ssr_test() {
-    use leptos_dom::*;
-    use leptos_macro::view;
-    use leptos_reactive::{create_runtime, create_scope, create_signal};
+    use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
         let (value, set_value) = create_signal(cx, 0);
@@ -11,14 +9,14 @@ fn simple_ssr_test() {
             cx,
             <div>
                 <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
-                <span>"Value: " {move || value().to_string()} "!"</span>
+                <span>"Value: " {move || value.get().to_string()} "!"</span>
                 <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
             </div>
         };
 
         assert_eq!(
-            rendered,
-            r#"<div data-hk="0-0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"# //r#"<div data-hk="0" id="hydrated" data-hk="0"><button>-1</button><span>Value: <!--#-->0<!--/-->!</span><button>+1</button></div>"#
+            rendered.into_view(cx).render_to_string(cx),
+            "<div id=\"_0-1\"><button id=\"_0-2\">-1</button><span id=\"_0-3\">Value: <!--hk=_0-4o|leptos-dyn-child-start-->0<!--hk=_0-4c|leptos-dyn-child-end-->!</span><button id=\"_0-5\">+1</button></div>"
         );
     });
 }
@@ -26,20 +24,16 @@ fn simple_ssr_test() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn ssr_test_with_components() {
-    use leptos_core as leptos;
-    use leptos_core::Prop;
-    use leptos_dom::*;
-    use leptos_macro::*;
-    use leptos_reactive::{create_runtime, create_scope, create_signal, Scope};
+    use leptos::*;
 
     #[component]
-    fn Counter(cx: Scope, initial_value: i32) -> Element {
+    fn Counter(cx: Scope, initial_value: i32) -> impl IntoView {
         let (value, set_value) = create_signal(cx, initial_value);
         view! {
             cx,
             <div>
                 <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
-                <span>"Value: " {move || value().to_string()} "!"</span>
+                <span>"Value: " {move || value.get().to_string()} "!"</span>
                 <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
             </div>
         }
@@ -55,8 +49,42 @@ fn ssr_test_with_components() {
         };
 
         assert_eq!(
-            rendered,
-            "<div data-hk=\"0-0\" class=\"counters\"><!--#--><div data-hk=\"0-2-0\"><button>-1</button><span>Value: <!--#-->1<!--/-->!</span><button>+1</button></div><!--/--><!--#--><div data-hk=\"0-3-0\"><button>-1</button><span>Value: <!--#-->2<!--/-->!</span><button>+1</button></div><!--/--></div>"
+            rendered.into_view(cx).render_to_string(cx),
+            "<div id=\"_0-1\" class=\"counters\"><!--hk=_0-1-0o|leptos-counter-start--><div id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span id=\"_0-1-3\">Value: <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!--hk=_0-1-4c|leptos-dyn-child-end-->!</span><button id=\"_0-1-5\">+1</button></div><!--hk=_0-1-0c|leptos-counter-end--><!--hk=_0-1-5-0o|leptos-counter-start--><div id=\"_0-1-5-1\"><button id=\"_0-1-5-2\">-1</button><span id=\"_0-1-5-3\">Value: <!--hk=_0-1-5-4o|leptos-dyn-child-start-->2<!--hk=_0-1-5-4c|leptos-dyn-child-end-->!</span><button id=\"_0-1-5-5\">+1</button></div><!--hk=_0-1-5-0c|leptos-counter-end--></div>"
+        );
+    });
+}
+
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[test]
+fn ssr_test_with_snake_case_components() {
+    use leptos::*;
+
+    #[component]
+    fn snake_case_counter(cx: Scope, initial_value: i32) -> impl IntoView {
+        let (value, set_value) = create_signal(cx, initial_value);
+        view! {
+            cx,
+            <div>
+                <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+                <span>"Value: " {move || value.get().to_string()} "!"</span>
+                <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+            </div>
+        }
+    }
+
+    _ = create_scope(create_runtime(), |cx| {
+        let rendered = view! {
+            cx,
+            <div class="counters">
+                <SnakeCaseCounter initial_value=1/>
+                <SnakeCaseCounter initial_value=2/>
+            </div>
+        };
+
+        assert_eq!(
+            rendered.into_view(cx).render_to_string(cx),
+            "<div id=\"_0-1\" class=\"counters\"><!--hk=_0-1-0o|leptos-snake-case-counter-start--><div id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span id=\"_0-1-3\">Value: <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!--hk=_0-1-4c|leptos-dyn-child-end-->!</span><button id=\"_0-1-5\">+1</button></div><!--hk=_0-1-0c|leptos-snake-case-counter-end--><!--hk=_0-1-5-0o|leptos-snake-case-counter-start--><div id=\"_0-1-5-1\"><button id=\"_0-1-5-2\">-1</button><span id=\"_0-1-5-3\">Value: <!--hk=_0-1-5-4o|leptos-dyn-child-start-->2<!--hk=_0-1-5-4c|leptos-dyn-child-end-->!</span><button id=\"_0-1-5-5\">+1</button></div><!--hk=_0-1-5-0c|leptos-snake-case-counter-end--></div>"
         );
     });
 }
@@ -64,20 +92,59 @@ fn ssr_test_with_components() {
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 #[test]
 fn test_classes() {
-    use leptos_dom::*;
-    use leptos_macro::view;
-    use leptos_reactive::{create_runtime, create_scope, create_signal};
+    use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 5);
+        let (value, _set_value) = create_signal(cx, 5);
         let rendered = view! {
             cx,
-            <div class="my big" class:a={move || value() > 10} class:red=true class:car={move || value() > 1}></div>
+            <div class="my big" class:a={move || value.get() > 10} class:red=true class:car={move || value.get() > 1}></div>
         };
 
         assert_eq!(
-            rendered,
-            r#"<div data-hk="0-0" class="my big  red car"></div>"#
+            rendered.into_view(cx).render_to_string(cx),
+            "<div id=\"_0-1\" class=\"my big  red car\"></div>"
+        );
+    });
+}
+
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[test]
+fn ssr_with_styles() {
+    use leptos::*;
+
+    _ = create_scope(create_runtime(), |cx| {
+        let (value, set_value) = create_signal(cx, 0);
+        let styles = "myclass";
+        let rendered = view! {
+            cx, class = styles,
+            <div>
+                <button class="btn" on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
+            </div>
+        };
+
+        assert_eq!(
+            rendered.into_view(cx).render_to_string(cx),
+            "<div id=\"_0-1\" class=\" myclass\"><button id=\"_0-2\" class=\"btn myclass\">-1</button></div>"
+        );
+    });
+}
+
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+#[test]
+fn ssr_option() {
+    use leptos::*;
+
+    _ = create_scope(create_runtime(), |cx| {
+        let (value, set_value) = create_signal(cx, 0);
+        let rendered = view! {
+            cx,
+            <option/>
+        };
+
+        assert_eq!(
+            rendered.into_view(cx).render_to_string(cx),
+            "<option id=\"_0-1\"></option>"
         );
     });
 }

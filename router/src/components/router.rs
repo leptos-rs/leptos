@@ -3,7 +3,6 @@ use std::{cell::RefCell, rc::Rc};
 
 use leptos::*;
 use thiserror::Error;
-use typed_builder::TypedBuilder;
 
 #[cfg(not(feature = "ssr"))]
 use wasm_bindgen::JsCast;
@@ -12,37 +11,34 @@ use wasm_bindgen::JsCast;
 use leptos_reactive::use_transition;
 
 use crate::{
-    create_location, matching::resolve_path, History, Location, LocationChange, RouteContext,
-    RouterIntegrationContext, State,
+    create_location, matching::resolve_path, Branch, History, Location, LocationChange,
+    RouteContext, RouterIntegrationContext, State,
 };
 
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
 
-/// Props for the [Router] component, which sets up client-side and server-side routing.
-#[derive(TypedBuilder)]
-pub struct RouterProps {
+/// Provides for client-side and server-side routing. This should usually be somewhere near
+/// the root of the application.
+#[component]
+pub fn Router(
+    cx: Scope,
     /// The base URL for the router. Defaults to "".
-    #[builder(default, setter(strip_option))]
-    pub base: Option<&'static str>,
-    #[builder(default, setter(strip_option))]
+    #[prop(optional)]
+    base: Option<&'static str>,
     /// A fallback that should be shown if no route is matched.
-    pub fallback: Option<fn() -> Element>,
+    #[prop(optional)]
+    fallback: Option<fn(Scope) -> View>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
-    pub children: Box<dyn Fn() -> Vec<Element>>,
-}
-
-/// Provides for client-side and server-side routing. This should usually be somewhere near
-/// the root of the application.
-#[allow(non_snake_case)]
-pub fn Router(cx: Scope, props: RouterProps) -> impl IntoChild {
+    children: Children,
+) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
-    let router = RouterContext::new(cx, props.base, props.fallback);
+    let router = RouterContext::new(cx, base, fallback);
     provide_context(cx, router);
 
-    props.children
+    children(cx)
 }
 
 /// Context type that contains information about the current router state.
@@ -53,6 +49,8 @@ pub struct RouterContext {
 pub(crate) struct RouterContextInner {
     pub location: Location,
     pub base: RouteContext,
+    pub possible_routes: RefCell<Option<Vec<Branch>>>,
+    #[allow(unused)] // used in CSR/hydrate
     base_path: String,
     history: Box<dyn History>,
     cx: Scope,
@@ -82,17 +80,22 @@ impl RouterContext {
     pub(crate) fn new(
         cx: Scope,
         base: Option<&'static str>,
-        fallback: Option<fn() -> Element>,
+        fallback: Option<fn(Scope) -> View>,
     ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                 let history = use_context::<RouterIntegrationContext>(cx)
                     .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
             } else {
-                let history = use_context::<RouterIntegrationContext>(cx).expect("You must call provide_context::<RouterIntegrationContext>(cx, ...) somewhere above the <Router/>.\n\n \
-                If you are using `leptos_actix` or `leptos_axum` and seeing this message, it is a bug: \n \
-                1. Please check to make sure you're on the latest versions of `leptos_actix` or `leptos_axum` and of `leptos_router`. \n
-                2. If you're on the latest versions, please open an issue at https://github.com/gbj/leptos/issues");
+                let history = use_context::<RouterIntegrationContext>(cx).unwrap_or_else(|| {
+                    let msg = "No router integration found.\n\nIf you are using this in the browser, \
+                        you should enable `feature = [\"csr\"]` or `feature = [\"hydrate\"] in your \
+                        `leptos_router` import.\n\nIf you are using this on the server without a \
+                        Leptos server integration, you must call provide_context::<RouterIntegrationContext>(cx, ...) \
+                        somewhere above the <Router/>.";
+                    leptos::debug_warn!("{}", msg);
+                    panic!("{}", msg);
+                });
             }
         };
 
@@ -160,6 +163,7 @@ impl RouterContext {
             referrers,
             state,
             set_state,
+            possible_routes: Default::default(),
         });
 
         // handle all click events on anchor tags
@@ -182,6 +186,15 @@ impl RouterContext {
     pub fn base(&self) -> RouteContext {
         self.inner.base.clone()
     }
+
+    /// A list of all possible routes this router can match.
+    pub fn possible_branches(&self) -> Vec<Branch> {
+        self.inner
+            .possible_routes
+            .borrow()
+            .clone()
+            .unwrap_or_default()
+    }
 }
 
 impl RouterContextInner {
@@ -197,20 +210,18 @@ impl RouterContextInner {
             let resolved_to = if options.resolve {
                 this.base.resolve_path(to)
             } else {
-                resolve_path("", to, None)
+                resolve_path("", to, None).map(String::from)
             };
 
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
                 Some(resolved_to) => {
-                    let resolved_to = resolved_to.to_string();
                     if self.referrers.borrow().len() > 32 {
                         return Err(NavigationError::MaxRedirects);
                     }
 
                     if resolved_to != this.reference.get() || options.state != (this.state).get() {
                         if cfg!(feature = "server") {
-                            // TODO server out
                             self.history.navigate(&LocationChange {
                                 value: resolved_to,
                                 replace: options.replace,
@@ -336,19 +347,29 @@ impl RouterContextInner {
             }
 
             let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
-            // TODO "state" is set as a prop, not an attribute
-            let state = a.get_attribute("state"); // TODO state
+            let state = get_property(a.unchecked_ref(), "state")
+                .ok()
+                .and_then(|value| {
+                    if value == wasm_bindgen::JsValue::UNDEFINED {
+                        None
+                    } else {
+                        Some(value)
+                    }
+                });
 
             ev.prevent_default();
 
+            let replace = get_property(a.unchecked_ref(), "replace")
+                .ok()
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
             if let Err(e) = self.navigate_from_route(
                 &to,
                 &NavigateOptions {
                     resolve: false,
-                    // TODO "replace" is set as a prop, not an attribute
-                    replace: a.has_attribute("replace"),
+                    replace,
                     scroll: !a.has_attribute("noscroll"),
-                    state: State(None), // TODO state
+                    state: State(state),
                 },
             ) {
                 log::error!("{e:#?}");

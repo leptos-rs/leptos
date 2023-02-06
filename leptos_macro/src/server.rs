@@ -43,13 +43,13 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let block = body.block;
 
     cfg_if! {
-        if #[cfg(not(feature = "stable"))] {
+        if #[cfg(all(not(feature = "stable"), debug_assertions))] {
             use proc_macro::Span;
             let span = Span::call_site();
             #[cfg(not(target_os = "windows"))]
-            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("/", "-");
+            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace('/', "-");
             #[cfg(target_os = "windows")]
-            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
+            let url = format!("{}\\{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
         } else {
             let url = fn_name_as_str;
         }
@@ -71,6 +71,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
         if let Pat::Ident(id) = &*arg.pat {
             quote! {
+                #[allow(unused)]
                 let #id = cx;
             }
         } else {
@@ -90,7 +91,15 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
             FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
             FnArg::Typed(t) => t,
         };
-        quote! { #typed_arg }
+        let is_cx = fn_arg_is_cx(f);
+        if is_cx {
+            quote! {
+                #[allow(unused)]
+                #typed_arg
+            }
+        } else {
+            quote! { #typed_arg }
+        }
     });
     let fn_args_2 = fn_args.clone();
 
@@ -128,12 +137,12 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     };
 
     Ok(quote::quote! {
-        #[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
+        #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
 
-        impl ServerFn for #struct_name {
+        impl leptos::ServerFn for #struct_name {
             type Output = #output_ty;
 
             fn prefix() -> &'static str {

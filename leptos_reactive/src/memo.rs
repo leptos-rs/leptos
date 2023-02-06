@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use crate::{ReadSignal, Scope, SignalError, UntrackedGettableSignal};
 use std::fmt::Debug;
 
@@ -54,9 +55,19 @@ use std::fmt::Debug;
 /// });
 /// # }).dispose();
 /// ```
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            cx = ?cx.id,
+        )
+    )
+)]
 pub fn create_memo<T>(cx: Scope, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
 where
-    T: PartialEq + Debug + 'static,
+    T: PartialEq + 'static,
 {
     cx.runtime.create_memo(f)
 }
@@ -115,7 +126,10 @@ where
 /// # }).dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub struct Memo<T>(pub(crate) ReadSignal<Option<T>>)
+pub struct Memo<T>(
+    pub(crate) ReadSignal<Option<T>>,
+    #[cfg(debug_assertions)] pub(crate) &'static std::panic::Location<'static>,
+)
 where
     T: 'static;
 
@@ -124,13 +138,30 @@ where
     T: 'static,
 {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self(
+            self.0,
+            #[cfg(debug_assertions)]
+            self.1,
+        )
     }
 }
 
 impl<T> Copy for Memo<T> {}
 
 impl<T> UntrackedGettableSignal<T> for Memo<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -140,6 +171,19 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
         self.0.get_untracked().unwrap()
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         // Unwrapping here is fine for the same reasons as <Memo as
         // UntrackedSignal>::get_untracked
@@ -167,6 +211,18 @@ where
     /// # }).dispose();
     /// #
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            name = "Memo::get()",
+            level = "trace",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1
+            )
+        )
+    )]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -194,6 +250,19 @@ where
     /// # }).dispose();
     /// #
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            name = "Memo::with()",
+            level = "trace",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         // okay to unwrap here, because the value will *always* have initially
         // been set by the effect, synchronously
@@ -215,7 +284,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for Memo<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     type Output = T;
 
@@ -227,7 +296,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for Memo<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -237,7 +306,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for Memo<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()

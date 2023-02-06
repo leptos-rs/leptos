@@ -1,12 +1,12 @@
-use leptos::*;
+use leptos::{component, view, IntoView, Scope};
 use leptos_router::*;
 
 #[component]
-pub fn Nav(cx: Scope) -> Element {
+pub fn Nav(cx: Scope) -> impl IntoView {
     view! { cx,
         <header class="header">
             <nav class="inner">
-                <A href="/" class="home".to_string()>
+                <A href="/home">
                     <strong>"HN"</strong>
                 </A>
                 <A href="/new">

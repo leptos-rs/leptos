@@ -3,9 +3,9 @@ mod matcher;
 mod resolve_path;
 mod route;
 
-pub(crate) use expand_optionals::*;
-pub(crate) use matcher::*;
-pub(crate) use resolve_path::*;
+pub use expand_optionals::*;
+pub use matcher::*;
+pub use resolve_path::*;
 pub use route::*;
 
 use crate::RouteData;

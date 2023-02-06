@@ -1,3 +1,11 @@
+#![forbid(unsafe_code)]
+use crate::{
+    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    runtime::{with_runtime, RuntimeId},
+    serialization::Serializable,
+    spawn::spawn_local,
+    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
+};
 use std::{
     any::Any,
     cell::{Cell, RefCell},
@@ -7,14 +15,6 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     rc::Rc,
-};
-
-use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
-    runtime::{with_runtime, RuntimeId},
-    serialization::Serializable,
-    spawn::spawn_local,
-    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
 };
 
 /// Creates [Resource](crate::Resource), which is a signal that reflects the
@@ -67,7 +67,7 @@ pub fn create_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Serializable + 'static,
+    T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     // can't check this on the server without running the future
@@ -84,6 +84,19 @@ where
 /// output type of the Future to be [Serializable]. If your output cannot be
 /// serialized, or you just want to make sure the [Future] runs locally, use
 /// [create_local_resource_with_initial_value()].
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
+#[track_caller]
 pub fn create_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -92,7 +105,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Serializable + 'static,
+    T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -117,8 +130,10 @@ where
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
-        runtime.create_serializable_resource(Rc::clone(&r))
-    });
+        let r = Rc::clone(&r) as Rc<dyn SerializableResource>;
+        runtime.create_serializable_resource(r)
+    })
+    .expect("tried to create a Resource in a Runtime that has been disposed.");
 
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
@@ -134,6 +149,8 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
     }
 }
 
@@ -174,7 +191,7 @@ pub fn create_local_resource<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
@@ -188,6 +205,19 @@ where
 /// Unlike [create_resource_with_initial_value()], this [Future] will always run
 /// on the local system and therefore its output type does not need to be
 /// [Serializable].
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
+#[track_caller]
 pub fn create_local_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -196,7 +226,7 @@ pub fn create_local_resource_with_initial_value<S, T, Fu>(
 ) -> Resource<S, T>
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
     Fu: Future<Output = T> + 'static,
 {
     let resolved = initial_value.is_some();
@@ -221,8 +251,10 @@ where
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
-        runtime.create_unserializable_resource(Rc::clone(&r))
-    });
+        let r = Rc::clone(&r) as Rc<dyn UnserializableResource>;
+        runtime.create_unserializable_resource(r)
+    })
+    .expect("tried to create a Resource in a runtime that has been disposed.");
 
     create_effect(cx, {
         let r = Rc::clone(&r);
@@ -238,6 +270,8 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
     }
 }
 
@@ -245,7 +279,7 @@ where
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     r.load(false)
 }
@@ -254,73 +288,71 @@ where
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Debug + Clone + 'static,
-    T: Debug + Serializable + 'static,
+    T: Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-    with_runtime(cx.runtime, |runtime| {
-        if let Some(ref mut context) = *runtime.shared_context.borrow_mut() {
-            if let Some(data) = context.resolved_resources.remove(&id) {
-                // The server already sent us the serialized resource value, so
-                // deserialize & set it now
-                context.pending_resources.remove(&id); // no longer pending
-                r.resolved.set(true);
+    _ = with_runtime(cx.runtime, |runtime| {
+        let mut context = runtime.shared_context.borrow_mut();
+        if let Some(data) = context.resolved_resources.remove(&id) {
+            // The server already sent us the serialized resource value, so
+            // deserialize & set it now
+            context.pending_resources.remove(&id); // no longer pending
+            r.resolved.set(true);
 
-                let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
-                r.set_value.update(|n| *n = Some(res));
-                r.set_loading.update(|n| *n = false);
+            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
 
-                // for reactivity
-                r.source.subscribe();
-            } else if context.pending_resources.remove(&id) {
-                // We're still waiting for the resource, add a "resolver" closure so
-                // that it will be set as soon as the server sends the serialized
-                // value
-                r.set_loading.update(|n| *n = true);
+            r.set_value.update(|n| *n = Some(res));
+            r.set_loading.update(|n| *n = false);
 
-                let resolve = {
-                    let resolved = r.resolved.clone();
-                    let set_value = r.set_value;
-                    let set_loading = r.set_loading;
-                    move |res: String| {
-                        let res =
-                            T::from_json(&res).expect_throw("could not deserialize Resource JSON");
-                        resolved.set(true);
-                        set_value.update(|n| *n = Some(res));
-                        set_loading.update(|n| *n = false);
-                    }
-                };
-                let resolve =
-                    wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
-                let resource_resolvers = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
-                )
-                .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-                let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
-                _ = js_sys::Reflect::set(
-                    &resource_resolvers,
-                    &wasm_bindgen::JsValue::from_str(&id),
-                    resolve.as_ref().unchecked_ref(),
-                );
+            // for reactivity
+            r.source.subscribe();
+        } else if context.pending_resources.remove(&id) {
+            // We're still waiting for the resource, add a "resolver" closure so
+            // that it will be set as soon as the server sends the serialized
+            // value
+            r.set_loading.update(|n| *n = true);
 
-                // for reactivity
-                r.source.subscribe()
-            } else {
-                // Server didn't mark the resource as pending, so load it on the
-                // client
-                r.load(false);
-            }
+            let resolve = {
+                let resolved = r.resolved.clone();
+                let set_value = r.set_value;
+                let set_loading = r.set_loading;
+                move |res: String| {
+                    let res =
+                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
+                    resolved.set(true);
+                    set_value.update(|n| *n = Some(res));
+                    set_loading.update(|n| *n = false);
+                }
+            };
+            let resolve =
+                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+            let resource_resolvers = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
+            )
+            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
+            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
+            _ = js_sys::Reflect::set(
+                &resource_resolvers,
+                &wasm_bindgen::JsValue::from_str(&id),
+                resolve.as_ref().unchecked_ref(),
+            );
+
+            // for reactivity
+            r.source.subscribe()
         } else {
-            r.load(false)
+            // Server didn't mark the resource as pending, so load it on the
+            // client
+            r.load(false);
         }
     })
 }
 
 impl<S, T> Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + 'static,
+    S: Clone + 'static,
+    T: 'static,
 {
     /// Clones and returns the current value of the resource ([Option::None] if the
     /// resource is still pending). Also subscribes the running effect to this
@@ -335,6 +367,8 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.read())
         })
+        .ok()
+        .flatten()
     }
 
     /// Applies a function to the current value of the resource, and subscribes
@@ -348,6 +382,8 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
         })
+        .ok()
+        .flatten()
     }
 
     /// Returns a signal that indicates whether the resource is currently loading.
@@ -355,11 +391,12 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
         })
+        .expect("tried to call Resource::loading() in a runtime that has already been disposed.")
     }
 
     /// Re-runs the async function with the current source data.
     pub fn refetch(&self) {
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
         });
     }
@@ -376,6 +413,7 @@ where
                 resource.to_serialization_resolver(self.id)
             })
         })
+        .expect("tried to serialize a Resource in a runtime that has already been disposed")
         .await
     }
 }
@@ -426,13 +464,15 @@ where
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Resource<S, T>
 where
-    S: Debug + 'static,
-    T: Debug + 'static,
+    S: 'static,
+    T: 'static,
 {
     runtime: RuntimeId,
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 // Resources
@@ -443,8 +483,8 @@ slotmap::new_key_type! {
 
 impl<S, T> Clone for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    S: Clone + 'static,
+    T: Clone + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -452,22 +492,24 @@ where
             id: self.id,
             source_ty: PhantomData,
             out_ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
 
 impl<S, T> Copy for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    S: Clone + 'static,
+    T: Clone + 'static,
 {
 }
 
 #[cfg(not(feature = "stable"))]
 impl<S, T> FnOnce<()> for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    S: Clone + 'static,
+    T: Clone + 'static,
 {
     type Output = Option<T>;
 
@@ -479,8 +521,8 @@ where
 #[cfg(not(feature = "stable"))]
 impl<S, T> FnMut<()> for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    S: Clone + 'static,
+    T: Clone + 'static,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.read()
@@ -490,8 +532,8 @@ where
 #[cfg(not(feature = "stable"))]
 impl<S, T> Fn<()> for Resource<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + Clone + 'static,
+    S: Clone + 'static,
+    T: Clone + 'static,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.read()
@@ -502,7 +544,7 @@ where
 pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
-    T: Debug + 'static,
+    T: 'static,
 {
     scope: Scope,
     value: ReadSignal<Option<T>>,
@@ -519,8 +561,8 @@ where
 
 impl<S, T> ResourceState<S, T>
 where
-    S: Debug + Clone + 'static,
-    T: Debug + 'static,
+    S: Clone + 'static,
+    T: 'static,
 {
     pub fn read(&self) -> Option<T>
     where
@@ -626,22 +668,21 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(self.scope, {
-            let tx = tx.clone();
-            move |_| {
-                value.with({
-                    let mut tx = tx.clone();
-                    move |value| {
-                        if let Some(value) = value.as_ref() {
-                            tx.try_send((id, value.to_json().expect("could not serialize Resource")))
-                                .expect("failed while trying to write to Resource serializer");
-                        }
+        create_isomorphic_effect(self.scope, move |_| {
+            value.with({
+                let mut tx = tx.clone();
+                move |value| {
+                    if let Some(value) = value.as_ref() {
+                        tx.try_send((id, value.to_json().expect("could not serialize Resource")))
+                            .expect("failed while trying to write to Resource serializer");
                     }
-                })
-            }
+                }
+            })
         });
         Box::pin(async move {
-            rx.next().await.expect("failed while trying to resolve Resource serializer")
+            rx.next()
+                .await
+                .expect("failed while trying to resolve Resource serializer")
         })
     }
 }
@@ -662,8 +703,8 @@ pub(crate) trait SerializableResource {
 
 impl<S, T> SerializableResource for ResourceState<S, T>
 where
-    S: Debug + Clone,
-    T: Debug + Serializable,
+    S: Clone,
+    T: Serializable,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -682,11 +723,7 @@ pub(crate) trait UnserializableResource {
     fn as_any(&self) -> &dyn Any;
 }
 
-impl<S, T> UnserializableResource for ResourceState<S, T>
-where
-    S: Debug,
-    T: Debug,
-{
+impl<S, T> UnserializableResource for ResourceState<S, T> {
     fn as_any(&self) -> &dyn Any {
         self
     }

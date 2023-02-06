@@ -1,4 +1,5 @@
-use crate::{create_signal, spawn::queue_microtask, ReadSignal, Scope, WriteSignal};
+#![forbid(unsafe_code)]
+use crate::{create_signal, queue_microtask, ReadSignal, Scope, WriteSignal};
 
 /// Tracks [Resource](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
@@ -36,7 +37,9 @@ impl SuspenseContext {
     /// Notifies the suspense context that a new resource is now pending.
     pub fn increment(&self) {
         let setter = self.set_pending_resources;
-        queue_microtask(move || setter.update(|n| *n += 1));
+        queue_microtask(move || {
+            setter.update(|n| *n += 1);
+        });
     }
 
     /// Notifies the suspense context that a resource has resolved.
@@ -47,7 +50,7 @@ impl SuspenseContext {
                 if *n > 0 {
                     *n -= 1
                 }
-            })
+            });
         });
     }
 

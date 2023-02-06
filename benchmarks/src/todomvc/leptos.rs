@@ -1,4 +1,4 @@
-use leptos::*;
+pub use leptos::*;
 use miniserde::*;
 use web_sys::HtmlInputElement;
 
@@ -97,7 +97,7 @@ const ESCAPE_KEY: u32 = 27;
 const ENTER_KEY: u32 = 13;
 
 #[component]
-pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
+pub fn TodoMVC(cx: Scope, todos: Todos) -> impl IntoView {
     let mut next_id = todos
         .0
         .iter()
@@ -167,62 +167,64 @@ pub fn TodoMVC(cx: Scope, todos: Todos) -> Element {
     });
 
     view! { cx,
-        <main>
-            <section class="todoapp">
-                <header class="header">
-                    <h1>"todos"</h1>
-                    <input class="new-todo" placeholder="What needs to be done?" autofocus on:keydown=add_todo />
-                </header>
-                <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
-                    <input id="toggle-all" class="toggle-all" type="checkbox"
-                        prop:checked={move || todos.with(|t| t.remaining() > 0)}
-                        on:input=move |_| set_todos.update(|t| t.toggle_all())
-                    />
-                    <label for="toggle-all">"Mark all as complete"</label>
-                    <ul class="todo-list">
-                        <For each=filtered_todos key=|todo| todo.id>
-                            {move |cx, todo: &Todo| view! { cx,  <Todo todo=todo.clone() /> }}
-                        </For>
-                    </ul>
-                </section>
-                <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
-                    <span class="todo-count">
-                        <strong>{move || todos.with(|t| t.remaining().to_string())}</strong>
-                        {move || if todos.with(|t| t.remaining()) == 1 {
-                            " item"
-                        } else {
-                            " items"
-                        }}
-                        " left"
-                    </span>
-                    <ul class="filters">
-                        <li><a href="#/" class="selected" class:selected={move || mode() == Mode::All}>"All"</a></li>
-                        <li><a href="#/active" class:selected={move || mode() == Mode::Active}>"Active"</a></li>
-                        <li><a href="#/completed" class:selected={move || mode() == Mode::Completed}>"Completed"</a></li>
-                    </ul>
-                    <button
-                        class="clear-completed hidden"
-                        class:hidden={move || todos.with(|t| t.completed() == 0)}
-                        on:click=move |_| set_todos.update(|t| t.clear_completed())
-                    >
-                        "Clear completed"
-                    </button>
-                </footer>
-            </section>
-            <footer class="info">
-                <p>"Double-click to edit a todo"</p>
-                <p>"Created by "<a href="http://todomvc.com">"Greg Johnston"</a></p>
-                <p>"Part of "<a href="http://todomvc.com">"TodoMVC"</a></p>
-            </footer>
-        </main>
-    }
+      <main>
+          <section class="todoapp">
+              <header class="header">
+                  <h1>"todos"</h1>
+                  <input class="new-todo" placeholder="What needs to be done?" autofocus="" on:keydown=add_todo />
+              </header>
+              <section class="main" class:hidden={move || todos.with(|t| t.is_empty())}>
+                  <input id="toggle-all" class="toggle-all" type="checkbox"
+                      prop:checked={move || todos.with(|t| t.remaining() > 0)}
+                      on:input=move |_| set_todos.update(|t| t.toggle_all())
+                  />
+                  <label for="toggle-all">"Mark all as complete"</label>
+                  <ul class="todo-list">
+                      <For
+                        each=filtered_todos
+                        key=|todo| todo.id
+                        view=move |todo: Todo| view! { cx,  <Todo todo=todo.clone() /> }
+                      />
+                  </ul>
+              </section>
+              <footer class="footer" class:hidden={move || todos.with(|t| t.is_empty())}>
+                  <span class="todo-count">
+                      <strong>{move || todos.with(|t| t.remaining().to_string())}</strong>
+                      {move || if todos.with(|t| t.remaining()) == 1 {
+                          " item"
+                      } else {
+                          " items"
+                      }}
+                      " left"
+                  </span>
+                  <ul class="filters">
+                      <li><a href="#/" class="selected" class:selected={move || mode() == Mode::All}>"All"</a></li>
+                      <li><a href="#/active" class:selected={move || mode() == Mode::Active}>"Active"</a></li>
+                      <li><a href="#/completed" class:selected={move || mode() == Mode::Completed}>"Completed"</a></li>
+                  </ul>
+                  <button
+                      class="clear-completed hidden"
+                      class:hidden={move || todos.with(|t| t.completed() == 0)}
+                      on:click=move |_| set_todos.update(|t| t.clear_completed())
+                  >
+                      "Clear completed"
+                  </button>
+              </footer>
+          </section>
+          <footer class="info">
+              <p>"Double-click to edit a todo"</p>
+              <p>"Created by "<a href="http://todomvc.com">"Greg Johnston"</a></p>
+              <p>"Part of "<a href="http://todomvc.com">"TodoMVC"</a></p>
+          </footer>
+      </main>
+  }.into_view(cx)
 }
 
 #[component]
-pub fn Todo(cx: Scope, todo: Todo) -> Element {
+pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
-    let input = NodeRef::new(cx);
+    //let input = NodeRef::new(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -234,12 +236,12 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
         set_editing(false);
     };
 
-    let tpl = view! { cx,
+    view! { cx,
         <li
             class="todo"
             class:editing={editing}
             class:completed={move || (todo.completed)()}
-            _ref=input
+            //_ref=input
         >
             <div class="view">
                 <input
@@ -271,9 +273,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> Element {
             })
         }
         </li>
-    };
-
-    tpl
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,8 +1,10 @@
+#![forbid(unsafe_code)]
 use crate::{
     debug_warn,
     runtime::{with_runtime, RuntimeId},
-    spawn_local, Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
+    Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
 };
+use cfg_if::cfg_if;
 use futures::Stream;
 use std::{fmt::Debug, marker::PhantomData};
 use thiserror::Error;
@@ -45,28 +47,64 @@ use thiserror::Error;
 /// # }).dispose();
 /// #
 /// ```
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
 pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }
 
-/// Creates a signal that always contains the most recent value emitted by a [Stream].
+/// Creates a signal that always contains the most recent value emitted by a
+/// [Stream](futures::stream::Stream).
 /// If the stream has not yet emitted a value since the signal was created, the signal's
 /// value will be `None`.
+///
+/// **Note**: If used on the server side during server rendering, this will return `None`
+/// immediately and not begin driving the stream.
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+        )
+    )
+)]
 pub fn create_signal_from_stream<T>(
     cx: Scope,
+    #[allow(unused_mut)] // allowed because needed for SSR
     mut stream: impl Stream<Item = T> + Unpin + 'static,
 ) -> ReadSignal<Option<T>> {
-    use futures::StreamExt;
+    cfg_if! {
+        if #[cfg(feature = "ssr")] {
+            _ = stream;
+            let (read, _) = create_signal(cx, None);
+            read
+        } else {
+            use crate::spawn_local;
+            use futures::StreamExt;
 
-    let (read, write) = create_signal(cx, None);
-    spawn_local(async move {
-        while let Some(value) = stream.next().await {
-            write.set(Some(value));
+            let (read, write) = create_signal(cx, None);
+            spawn_local(async move {
+                while let Some(value) = stream.next().await {
+                    write.set(Some(value));
+                }
+            });
+            read
         }
-    });
-    read
+    }
 }
 
 /// The getter for a reactive signal.
@@ -120,9 +158,24 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -130,6 +183,19 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
         self.with_no_subscription(|v| v.clone())
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.with_no_subscription(f)
     }
@@ -157,6 +223,19 @@ where
     /// assert_eq!(first_char(), 'B');
     /// });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
     }
@@ -167,7 +246,7 @@ where
 
     #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
-        with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
+        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
     }
 
     /// Clones and returns the current value of the signal, and subscribes
@@ -184,6 +263,19 @@ where
     /// assert_eq!(count(), 0);
     /// });
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -194,10 +286,15 @@ where
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
     pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
+            Ok(Ok(v)) => Ok(v),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(SignalError::RuntimeDisposed),
+        }
     }
 
-    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    /// Generates a [Stream](futures::stream::Stream) that emits the new value of the signal
+    /// whenever it changes.
     pub fn to_stream(&self) -> impl Stream<Item = T>
     where
         T: Clone,
@@ -219,6 +316,8 @@ impl<T> Clone for ReadSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
@@ -228,7 +327,7 @@ impl<T> Copy for ReadSignal<T> {}
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for ReadSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     type Output = T;
 
@@ -240,7 +339,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for ReadSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -250,7 +349,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for ReadSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
@@ -298,19 +397,64 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> UntrackedSettableSignal<T> for WriteSignal<T>
 where
     T: 'static,
 {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::set_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn set_untracked(&self, new_value: T) {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::updated_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::update_returning_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.id.update_with_no_effect(self.runtime, f)
     }
 }
 
@@ -338,7 +482,58 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            name = "WriteSignal::update()",
+            level = "trace",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
+        self.id.update(self.runtime, f);
+    }
+
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
+    /// Forwards the return value of the closure if the closure was called
+    ///
+    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    /// let (count, set_count) = create_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// let value = set_count.update_returning(|n| { *n = 1; *n * 10 });
+    /// assert_eq!(value, Some(10));
+    /// assert_eq!(count(), 1);
+    ///
+    /// let value = set_count.update_returning(|n| { *n += 1; *n * 10 });
+    /// assert_eq!(value, Some(20));
+    /// assert_eq!(count(), 2);
+    /// # }).dispose();
+    /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::update_returning()"
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update(self.runtime, f)
     }
 
@@ -361,8 +556,21 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::set()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn set(&self, new_value: T) {
-        self.id.update(self.runtime, |n| *n = new_value)
+        self.id.update(self.runtime, |n| *n = new_value);
     }
 }
 
@@ -372,6 +580,8 @@ impl<T> Clone for WriteSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
@@ -431,6 +641,16 @@ where
 /// # }).dispose();
 /// #
 /// ```
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
 pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
     let s = cx.runtime.create_rw_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
@@ -466,6 +686,8 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: SignalId,
     pub(crate) ty: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> Clone for RwSignal<T> {
@@ -474,6 +696,8 @@ impl<T> Clone for RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: self.ty,
+            #[cfg(debug_assertions)]
+            defined_at: self.defined_at,
         }
     }
 }
@@ -481,6 +705,19 @@ impl<T> Clone for RwSignal<T> {
 impl<T> Copy for RwSignal<T> {}
 
 impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -489,18 +726,74 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
             .with_no_subscription(self.runtime, |v: &T| v.clone())
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id.with_no_subscription(self.runtime, f)
     }
 }
 
 impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::set_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn set_untracked(&self, new_value: T) {
         self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value)
+            .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+        self.id.update_with_no_effect(self.runtime, f);
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_returning_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -528,6 +821,19 @@ where
     /// # }).dispose();
     /// #
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
     }
@@ -545,7 +851,20 @@ where
     /// assert_eq!(count(), 0);
     /// # }).dispose();
     /// #
-    /// ```
+    /// ```   
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -570,7 +889,56 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
+        self.id.update(self.runtime, f);
+    }
+
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
+    /// Forwards the return value of the closure if the closure was called
+    ///
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    /// let count = create_rw_signal(cx, 0);
+    ///
+    /// // notifies subscribers
+    /// let value = count.update_returning(|n| { *n = 1; *n * 10 });
+    /// assert_eq!(value, Some(10));
+    /// assert_eq!(count(), 1);
+    ///
+    /// let value = count.update_returning(|n| { *n += 1; *n * 10 });
+    /// assert_eq!(value, Some(20));
+    /// assert_eq!(count(), 2);
+    /// # }).dispose();
+    /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::update_returning()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.id.update(self.runtime, f)
     }
 
@@ -588,8 +956,21 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::set()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn set(&self, value: T) {
-        self.id.update(self.runtime, |n| *n = value)
+        self.id.update(self.runtime, |n| *n = value);
     }
 
     /// Returns a read-only handle to the signal.
@@ -608,11 +989,27 @@ where
     /// assert_eq!(read_count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::read_only()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
     pub fn read_only(&self) -> ReadSignal<T> {
         ReadSignal {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
         }
     }
 
@@ -630,11 +1027,27 @@ where
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::write_only()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
     pub fn write_only(&self) -> WriteSignal<T> {
         WriteSignal {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
         }
     }
 
@@ -651,22 +1064,54 @@ where
     /// assert_eq!(get_count(), 1);
     /// # }).dispose();
     /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::split()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[track_caller]
     pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
         (
             ReadSignal {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
             },
         )
     }
 
-    /// Generates a [Stream] that emits the new value of the signal whenever it changes.
+    /// Generates a [Stream](futures::stream::Stream) that emits the new value of the signal
+    /// whenever it changes.
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::to_stream()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     pub fn to_stream(&self) -> impl Stream<Item = T>
     where
         T: Clone,
@@ -678,7 +1123,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnOnce<()> for RwSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     type Output = T;
 
@@ -690,7 +1135,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> FnMut<()> for RwSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
         self.get()
@@ -700,7 +1145,7 @@ where
 #[cfg(not(feature = "stable"))]
 impl<T> Fn<()> for RwSignal<T>
 where
-    T: Debug + Clone,
+    T: Clone,
 {
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
         self.get()
@@ -715,6 +1160,8 @@ slotmap::new_key_type! {
 
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
+    #[error("tried to access a signal in a runtime that had been disposed")]
+    RuntimeDisposed,
     #[error("tried to access a signal that had been disposed")]
     Disposed,
     #[error("error casting signal to type {0}")]
@@ -725,9 +1172,17 @@ impl SignalId {
     pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
+            // add this observer to the signal's dependencies (to allow notification)
             let mut subs = runtime.signal_subscribers.borrow_mut();
             if let Some(subs) = subs.entry(*self) {
                 subs.or_default().borrow_mut().insert(observer);
+            }
+
+            // add this signal to the effect's sources (to allow cleanup)
+            let mut effect_sources = runtime.effect_sources.borrow_mut();
+            if let Some(effect_sources) = effect_sources.entry(observer) {
+                let sources = effect_sources.or_default();
+                sources.borrow_mut().insert(*self);
             }
         }
     }
@@ -788,6 +1243,7 @@ impl SignalId {
         with_runtime(runtime, |runtime| {
             self.try_with_no_subscription(runtime, f).unwrap()
         })
+        .expect("tried to access a signal in a runtime that has been disposed")
     }
 
     pub(crate) fn with<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&T) -> U) -> U
@@ -795,9 +1251,10 @@ impl SignalId {
         T: 'static,
     {
         with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
+            .expect("tried to access a signal in a runtime that has been disposed")
     }
 
-    fn update_value<T>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T)) -> bool
+    fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
     where
         T: 'static,
     {
@@ -809,26 +1266,30 @@ impl SignalId {
             if let Some(value) = value {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
-                    f(value);
-                    true
+                    Some(f(value))
                 } else {
                     debug_warn!(
                         "[Signal::update] failed when downcasting to Signal<{}>",
                         std::any::type_name::<T>()
                     );
-                    false
+                    None
                 }
             } else {
                 debug_warn!(
                     "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
                     std::any::type_name::<T>()
                 );
-                false
+                None
             }
         })
+        .unwrap_or_default()
     }
 
-    pub(crate) fn update<T>(&self, runtime_id: RuntimeId, f: impl FnOnce(&mut T))
+    pub(crate) fn update<T, U>(
+        &self,
+        runtime_id: RuntimeId,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>
     where
         T: 'static,
     {
@@ -837,7 +1298,7 @@ impl SignalId {
             let updated = self.update_value(runtime_id, f);
 
             // notify subscribers
-            if updated {
+            if updated.is_some() {
                 let subs = {
                     let subs = runtime.signal_subscribers.borrow();
                     let subs = subs.get(*self);
@@ -854,15 +1315,21 @@ impl SignalId {
                         }
                     }
                 }
-            }
+            };
+            updated
         })
+        .unwrap_or_default()
     }
 
-    pub(crate) fn update_with_no_effect<T>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T))
+    pub(crate) fn update_with_no_effect<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>
     where
         T: 'static,
     {
         // update the value
-        self.update_value(runtime, f);
+        self.update_value(runtime, f)
     }
 }

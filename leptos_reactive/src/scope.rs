@@ -1,12 +1,10 @@
-use cfg_if::cfg_if;
-
-use crate::runtime::{with_runtime, RuntimeId};
-use crate::{hydration::SharedContext, EffectId, ResourceId, SignalId};
-use crate::{PinnedFuture, SuspenseContext};
+#![forbid(unsafe_code)]
+use crate::{
+    runtime::{with_runtime, RuntimeId},
+    EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
+};
 use futures::stream::FuturesUnordered;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::{future::Future, pin::Pin};
+use std::{collections::HashMap, fmt};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -73,14 +71,27 @@ pub fn run_scope_undisposed<T>(
 /// is [Copy] and `'static` this does not add much overhead or lifetime complexity.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scope {
-    pub(crate) runtime: RuntimeId,
-    pub(crate) id: ScopeId,
+    #[doc(hidden)]
+    pub runtime: RuntimeId,
+    #[doc(hidden)]
+    pub id: ScopeId,
 }
 
 impl Scope {
     /// The unique identifier for this scope.
     pub fn id(&self) -> ScopeId {
         self.id
+    }
+
+    /// Returns the chain of scope IDs beginning with this one, going to its parent, grandparents, etc.
+    pub fn ancestry(&self) -> Vec<ScopeId> {
+        let mut ids = vec![self.id];
+        let mut cx = *self;
+        while let Some(parent) = cx.parent() {
+            ids.push(parent.id());
+            cx = parent;
+        }
+        ids
     }
 
     /// Creates a child scope and runs the given function within it, returning a handle to dispose of it.
@@ -107,7 +118,7 @@ impl Scope {
     /// has navigated away from the route.)
     pub fn run_child_scope<T>(self, f: impl FnOnce(Scope) -> T) -> (T, ScopeDisposer) {
         let (res, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
                 .entry(self.id)
@@ -150,14 +161,21 @@ impl Scope {
             runtime.observer.set(prev_observer);
             untracked_result
         })
+        .expect("tried to run untracked function in a runtime that has been disposed")
     }
 }
 
 // Internals
 
 impl Scope {
-    pub(crate) fn dispose(self) {
-        with_runtime(self.runtime, |runtime| {
+    /// Disposes of this reactive scope.
+    ///
+    /// This will
+    /// 1. dispose of all child `Scope`s
+    /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+    /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
+    pub fn dispose(self) {
+        _ = with_runtime(self.runtime, |runtime| {
             // dispose of all child scopes
             let children = {
                 let mut children = runtime.scope_children.borrow_mut();
@@ -219,12 +237,25 @@ impl Scope {
     }
 
     pub(crate) fn with_scope_property(&self, f: impl FnOnce(&mut Vec<ScopeProperty>)) {
-        with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
             let scope = scopes
                 .get(self.id)
                 .expect("tried to add property to a scope that has been disposed");
             f(&mut scope.borrow_mut());
+        })
+    }
+
+    /// Returns the the parent Scope, if any.
+    pub fn parent(&self) -> Option<Scope> {
+        with_runtime(self.runtime, |runtime| {
+            runtime.scope_parents.borrow().get(self.id).copied()
+        })
+        .ok()
+        .flatten()
+        .map(|id| Scope {
+            runtime: self.runtime,
+            id,
         })
     }
 }
@@ -234,7 +265,7 @@ impl Scope {
 /// It runs after child scopes have been disposed, but before signals, effects, and resources
 /// are invalidated.
 pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
-    with_runtime(cx.runtime, |runtime| {
+    _ = with_runtime(cx.runtime, |runtime| {
         let mut cleanups = runtime.scope_cleanups.borrow_mut();
         let cleanups = cleanups
             .entry(cx.id)
@@ -278,185 +309,20 @@ impl ScopeDisposer {
 }
 
 impl Scope {
-    // hydration-specific code
-    cfg_if! {
-        if #[cfg(any(feature = "hydrate", doc))] {
-            /// `hydrate` only: Whether we're currently hydrating the page.
-            pub fn is_hydrating(&self) -> bool {
-                with_runtime(self.runtime, |runtime| {
-                runtime.shared_context.borrow().is_some()
-                })
-            }
-
-            /// `hydrate` only: Begins the hydration process.
-            pub fn start_hydration(&self, element: &web_sys::Element) {
-                with_runtime(self.runtime, |runtime| {
-                    runtime.start_hydration(element);
-                })
-            }
-
-            /// `hydrate` only: Ends the hydration process.
-            pub fn end_hydration(&self) {
-                with_runtime(self.runtime, |runtime| {
-                    runtime.end_hydration();
-                })
-            }
-
-            /// `hydrate` only: Gets the next element in the hydration queue, either from the
-            /// server-rendered DOM or from the template.
-            pub fn get_next_element(&self, template: &web_sys::Element) -> web_sys::Element {
-                use wasm_bindgen::{JsCast, UnwrapThrowExt};
-
-                let cloned_template = |t: &web_sys::Element| {
-                    let t = t
-                        .unchecked_ref::<web_sys::HtmlTemplateElement>()
-                        .content()
-                        .clone_node_with_deep(true)
-                        .expect_throw("(get_next_element) could not clone template")
-                        .unchecked_into::<web_sys::Element>()
-                        .first_element_child()
-                        .expect_throw("(get_next_element) could not get first child of template");
-                    t
-                };
-
-                with_runtime(self.runtime, |runtime| {
-                    if let Some(ref mut shared_context) = &mut *runtime.shared_context.borrow_mut() {
-                        if shared_context.context.is_some() {
-                            let key = shared_context.next_hydration_key();
-                            let node = shared_context.registry.remove(&key);
-
-                            //log::debug!("(hy) searching for {key}");
-
-                            if let Some(node) = node {
-                                //log::debug!("(hy) found {key}");
-                                shared_context.completed.push(node.clone());
-                                node
-                            } else {
-                                //log::debug!("(hy) did NOT find {key}");
-                                cloned_template(template)
-                            }
-                        } else {
-                            cloned_template(template)
-                        }
-                    } else {
-                        cloned_template(template)
-                    }
-                })
-            }
-        }
-    }
-
-    /// `hydrate` only: Given the current node, gets the span of the next component that has
-    /// been marked for hydration, returning its starting node and the set of all its nodes.
-    #[cfg(any(feature = "csr", feature = "hydrate", doc))]
-    pub fn get_next_marker(&self, start: &web_sys::Node) -> (web_sys::Node, Vec<web_sys::Node>) {
-        let mut end = Some(start.clone());
-        let mut count = 0;
-        let mut current = Vec::new();
-        let mut start = start.clone();
-
-        with_runtime(self.runtime, |runtime| {
-            if runtime
-                .shared_context
-                .borrow()
-                .as_ref()
-                .map(|sc| sc.context.as_ref())
-                .is_some()
-            {
-                while let Some(curr) = end {
-                    start = curr.clone();
-                    if curr.node_type() == 8 {
-                        // COMMENT
-                        let v = curr.node_value();
-                        if v == Some("#".to_string()) {
-                            count += 1;
-                        } else if v == Some("/".to_string()) {
-                            count -= 1;
-                            if count == 0 {
-                                current.push(curr.clone());
-                                return (curr, current);
-                            }
-                        }
-                    }
-                    current.push(curr.clone());
-                    end = curr.next_sibling();
-                }
-            }
-
-            (start, current)
-        })
-    }
-
-    /// On either the server side or the browser side, generates the next key in the hydration process.
-    pub fn next_hydration_key(&self) -> String {
-        with_runtime(self.runtime, |runtime| {
-            let mut sc = runtime.shared_context.borrow_mut();
-            if let Some(ref mut sc) = *sc {
-                sc.next_hydration_key()
-            } else {
-                let mut new_sc = SharedContext::default();
-                let id = new_sc.next_hydration_key();
-                *sc = Some(new_sc);
-                id
-            }
-        })
-    }
-
-    /// Runs the given function with the next hydration context.
-    pub fn with_next_context<T>(&self, f: impl FnOnce() -> T) -> T {
-        with_runtime(self.runtime, |runtime| {
-            if runtime
-                .shared_context
-                .borrow()
-                .as_ref()
-                .and_then(|sc| sc.context.as_ref())
-                .is_some()
-            {
-                let c = {
-                    if let Some(ref mut sc) = *runtime.shared_context.borrow_mut() {
-                        if let Some(ref mut context) = sc.context {
-                            let next = context.next_hydration_context();
-                            Some(std::mem::replace(context, next))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                };
-
-                let res = self.untrack(f);
-
-                if let Some(ref mut sc) = *runtime.shared_context.borrow_mut() {
-                    sc.context = c;
-                }
-                res
-            } else {
-                self.untrack(f)
-            }
-        })
-    }
-
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn all_resources(&self) -> Vec<ResourceId> {
-        with_runtime(self.runtime, |runtime| runtime.all_resources())
+        with_runtime(self.runtime, |runtime| runtime.all_resources()).unwrap_or_default()
     }
 
-    /// The current key for an HTML fragment created by server-rendering a `<Suspense/>` component.
-    pub fn current_fragment_key(&self) -> String {
-        with_runtime(self.runtime, |runtime| {
-            runtime
-                .shared_context
-                .borrow()
-                .as_ref()
-                .map(|context| context.current_fragment_key())
-                .unwrap_or_else(|| String::from("0f"))
-        })
+    /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are
+    /// pending from the server.
+    pub fn pending_resources(&self) -> Vec<ResourceId> {
+        with_runtime(self.runtime, |runtime| runtime.pending_resources()).unwrap_or_default()
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn serialization_resolvers(&self) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers())
+        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers()).unwrap_or_default()
     }
 
     /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,
@@ -464,48 +330,51 @@ impl Scope {
     pub fn register_suspense(
         &self,
         context: SuspenseContext,
+        key_before_suspense: &str,
         key: &str,
         resolver: impl FnOnce() -> String + 'static,
     ) {
         use crate::create_isomorphic_effect;
         use futures::StreamExt;
 
-        with_runtime(self.runtime, |runtime| {
-            if let Some(ref mut shared_context) = *runtime.shared_context.borrow_mut() {
-                let (tx, mut rx) = futures::channel::mpsc::unbounded();
+        _ = with_runtime(self.runtime, |runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            let (tx, mut rx) = futures::channel::mpsc::unbounded();
 
-                create_isomorphic_effect(*self, move |_| {
-                    let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
-                    if pending == 0 {
-                        _ = tx.unbounded_send(());
-                    }
-                });
+            create_isomorphic_effect(*self, move |_| {
+                let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
+                if pending == 0 {
+                    _ = tx.unbounded_send(());
+                }
+            });
 
-                shared_context.pending_fragments.insert(
-                    key.to_string(),
+            shared_context.pending_fragments.insert(
+                key.to_string(),
+                (
+                    key_before_suspense.to_string(),
                     Box::pin(async move {
                         rx.next().await;
                         resolver()
                     }),
-                );
-            }
+                ),
+            );
         })
     }
 
-    /// The set of all HTML fragments current pending, by their keys (see [Self::current_fragment_key]).
-    pub fn pending_fragments(&self) -> HashMap<String, Pin<Box<dyn Future<Output = String>>>> {
+    /// The set of all HTML fragments currently pending.
+    /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
+    /// `<Suspense/>` HTML when all resources are resolved.
+    pub fn pending_fragments(&self) -> HashMap<String, (String, PinnedFuture<String>)> {
         with_runtime(self.runtime, |runtime| {
-            if let Some(ref mut shared_context) = *runtime.shared_context.borrow_mut() {
-                std::mem::take(&mut shared_context.pending_fragments)
-            } else {
-                HashMap::new()
-            }
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            std::mem::take(&mut shared_context.pending_fragments)
         })
+        .unwrap_or_default()
     }
 }
 
-impl Debug for ScopeDisposer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for ScopeDisposer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ScopeDisposer").finish()
     }
 }

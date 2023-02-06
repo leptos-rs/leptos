@@ -3,7 +3,6 @@ members = [
   # core
   "leptos",
   "leptos_dom",
-  "leptos_core",
   "leptos_config",
   "leptos_macro",
   "leptos_reactive",
@@ -17,23 +16,25 @@ members = [
   "meta",
   "router",
 
-  # examples
-  "examples/counter",
-  "examples/counter-isomorphic",
-  "examples/counters",
-  "examples/counters-stable",
-  "examples/fetch",
-  "examples/hackernews",
-  "examples/hackernews-axum",
-  "examples/parent-child",
-  "examples/router",
-  "examples/todomvc",
-  "examples/todo-app-sqlite",
-  "examples/todo-app-sqlite-axum",
-  "examples/todo-app-cbor",
-  "examples/view-tests",
+  # book
+  "docs/book/project/ch02_getting_started",
+  "docs/book/project/ch03_building_ui",
+  "docs/book/project/ch04_reactivity",
 ]
-exclude = ["benchmarks"]
+exclude = ["benchmarks", "examples"]
+
+[workspace.package]
+version = "0.1.3"
+
+[workspace.dependencies]
+leptos = { path = "./leptos", default-features = false, version = "0.1.3" }
+leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.1.3" }
+leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.1.3" }
+leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.1.3" }
+leptos_server = { path = "./leptos_server", default-features = false, version = "0.1.3" }
+leptos_config = { path = "./leptos_config", default-features = false, version = "0.1.3" }
+leptos_router = { path = "./router", version = "0.1.3" }
+leptos_meta = { path = "./meta", default-feature = false, version = "0.1.3" }
 
 [profile.release]
 codegen-units = 1
@@ -41,29 +42,4 @@ lto = true
 opt-level = 'z'
 
 [workspace.metadata.cargo-all-features]
-skip_feature_sets = [
-  [
-    "csr",
-    "ssr",
-  ],
-  [
-    "csr",
-    "hydrate",
-  ],
-  [
-    "ssr",
-    "hydrate",
-  ],
-  [
-    "serde",
-    "serde-lite",
-  ],
-  [
-    "serde-lite",
-    "miniserde",
-  ],
-  [
-    "serde",
-    "miniserde",
-  ],
-]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

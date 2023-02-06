@@ -2,7 +2,6 @@ use crate::{use_head, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
-use typed_builder::TypedBuilder;
 
 /// Contains the current state of the document's `<title>`.
 #[derive(Clone, Default)]
@@ -45,17 +44,6 @@ where
     }
 }
 
-/// Properties for the [Title] component.
-#[derive(TypedBuilder)]
-pub struct TitleProps {
-    /// A function that will be applied to any text value before it’s set as the title.
-    #[builder(default, setter(strip_option, into))]
-    pub formatter: Option<Formatter>,
-    /// Sets the the current `document.title`.
-    #[builder(default, setter(strip_option, into))]
-    pub text: Option<TextProp>,
-}
-
 /// A component to set the document’s title by creating an [HTMLTitleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTitleElement).
 ///
 /// The `title` and `formatter` can be set independently of one another. For example, you can create a root-level
@@ -66,8 +54,8 @@ pub struct TitleProps {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
-///   provide_context(cx, MetaContext::new());
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///   provide_meta_context(cx);
 ///   let formatter = |text| format!("{text} — Leptos Online");
 ///
 ///   view! { cx,
@@ -79,7 +67,7 @@ pub struct TitleProps {
 /// }
 ///
 /// #[component]
-/// fn PageA(cx: Scope) -> Element {
+/// fn PageA(cx: Scope) -> impl IntoView {
 ///   view! { cx,
 ///     <main>
 ///       <Title text="Page A"/> // sets title to "Page A — Leptos Online"
@@ -88,7 +76,7 @@ pub struct TitleProps {
 /// }
 ///
 /// #[component]
-/// fn PageB(cx: Scope) -> Element {
+/// fn PageB(cx: Scope) -> impl IntoView {
 ///   view! { cx,
 ///     <main>
 ///       <Title text="Page B"/> // sets title to "Page B — Leptos Online"
@@ -96,10 +84,17 @@ pub struct TitleProps {
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
-pub fn Title(cx: Scope, props: TitleProps) {
+#[component(transparent)]
+pub fn Title(
+    cx: Scope,
+    /// A function that will be applied to any text value before it’s set as the title.
+    #[prop(optional, into)]
+    formatter: Option<Formatter>,
+    /// Sets the the current `document.title`.
+    #[prop(optional, into)]
+    text: Option<TextProp>,
+) -> impl IntoView {
     let meta = use_head(cx);
-    let TitleProps { text, formatter } = props;
 
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -111,24 +106,40 @@ pub fn Title(cx: Scope, props: TitleProps) {
             }
 
             let el = {
-                let el_ref = meta.title.el.borrow_mut();
+                let mut el_ref = meta.title.el.borrow_mut();
                 let el = if let Some(el) = &*el_ref {
+                    let prev_text = el.inner_text();
+                    on_cleanup(cx, {
+                        let el = el.clone();
+                        move || {
+                            _ = el.set_text(&prev_text);
+                        }
+                    });
+
                     el.clone()
                 } else {
                     match document().query_selector("title") {
                         Ok(Some(title)) => title.unchecked_into(),
                         _ => {
                             let el = document().create_element("title").unwrap_throw();
-                            document()
-                                .query_selector("head")
-                                .unwrap_throw()
-                                .unwrap_throw()
-                                .append_child(el.unchecked_ref())
+                            let head = document().head().unwrap_throw();
+                            head.append_child(el.unchecked_ref())
                                 .unwrap_throw();
+
+                            on_cleanup(cx, {
+                                let el = el.clone();
+                                move || {
+                                    _ = head.remove_child(&el);
+                                }
+                            });
+
+
                             el.unchecked_into()
                         }
                     }
                 };
+                *el_ref = Some(el.clone().unchecked_into());
+
                 el
             };
 

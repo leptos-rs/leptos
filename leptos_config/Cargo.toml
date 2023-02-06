@@ -1,11 +1,17 @@
 [package]
 name = "leptos_config"
-version = "0.0.20"
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
-description = "Configuraiton for the Leptos web framework."
+repository = "https://github.com/leptos-rs/leptos"
+description = "Configuration for the Leptos web framework."
+readme = "../README.md"
 
 [dependencies]
-typed-builder = "0.11.0"
+config = "0.13.3"
+fs = "0.0.5"
+regex = "1.7.0"
+serde = { version = "1.0.151", features = ["derive"] }
+thiserror = "1.0.38"
+typed-builder = "0.12"

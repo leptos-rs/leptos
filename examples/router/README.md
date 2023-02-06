@@ -1,6 +1,6 @@
 # Leptos Router Example
 
-This example demonstrates how Leptos’s router for client side routing.
+This example demonstrates how Leptos’s router works for client side routing.
 
 ## Build and Run it
 

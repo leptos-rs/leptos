@@ -1,24 +1,20 @@
 [package]
 name = "leptos_axum"
-version = "0.0.4"
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
 
 [dependencies]
-axum = "0.6"
-derive_builder = "0.12.0"
+axum = { version = "0.6", features = ["macros"] }
 futures = "0.3"
-kdl = "4.6.0"
-leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
-	"ssr",
-] }
-leptos_meta = { path = "../../meta", default-features = false, version = "0.0", features = [
-	"ssr",
-] }
-leptos_router = { path = "../../router", default-features = false, version = "0.0", features = [
-	"ssr",
-] }
-tokio = { version = "1.0", features = ["full"] }
+http = "0.2.8"
+hyper = "0.14.23"
+leptos = { workspace = true, features = ["ssr"] }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_router = { workspace = true, features = ["ssr"] }
+leptos_config = { workspace = true }
+tokio = { version = "1", features = ["full"] }
+parking_lot = "0.12.1"

@@ -21,13 +21,14 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
           override: true
+          components: rustfmt
 
       - name: Setup cargo-make
         uses: davidB/rust-cargo-make@v1
@@ -35,16 +36,10 @@ jobs:
       - name: Cargo generate-lockfile
         run: cargo generate-lockfile
 
-      - name: Cargo cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run Rustfmt
+        run: cargo fmt -- --check
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Run tests with all features
         run: cargo make ci

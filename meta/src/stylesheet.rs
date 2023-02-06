@@ -1,33 +1,5 @@
-use crate::use_head;
-use cfg_if::cfg_if;
+use crate::{Link, LinkProps};
 use leptos::*;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use typed_builder::TypedBuilder;
-
-/// Manages all of the stylesheets set by [Stylesheet] components.
-#[derive(Clone, Default, Debug)]
-pub struct StylesheetContext {
-    els: Rc<RefCell<HashMap<String, Option<web_sys::HtmlLinkElement>>>>,
-}
-
-impl StylesheetContext {
-    /// Converts the set of stylesheets into an HTML string that can be injected into the `<head>`.
-    pub fn as_string(&self) -> String {
-        self.els
-            .borrow()
-            .iter()
-            .map(|(href, _)| format!(r#"<link rel="stylesheet" href="{href}">"#))
-            .collect()
-    }
-}
-
-/// Properties for the [Stylesheet] component.
-#[derive(TypedBuilder)]
-pub struct StylesheetProps {
-    /// The URL at which the stylesheet can be located.
-    #[builder(setter(into))]
-    pub href: String,
-}
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
 /// head that loads a stylesheet from the URL given by the `href` property.
@@ -37,8 +9,8 @@ pub struct StylesheetProps {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> Element {
-///   provide_context(cx, MetaContext::new());
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///   provide_meta_context(cx);
 ///
 ///   view! { cx,
 ///     <main>
@@ -47,40 +19,23 @@ pub struct StylesheetProps {
 ///   }
 /// }
 /// ```
-#[allow(non_snake_case)]
-pub fn Stylesheet(cx: Scope, props: StylesheetProps) {
-    let StylesheetProps { href } = props;
-    cfg_if! {
-        if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            use leptos::document;
-
-            let meta = use_head(cx);
-
-            // TODO I guess this will create a duplicated <link> when hydrating
-            let existing_el = {
-                let els = meta.stylesheets.els.borrow();
-                els.get(&href).cloned()
-            };
-            if let Some(Some(_)) = existing_el {
-                leptos::leptos_dom::debug_warn!("<Stylesheet/> already loaded stylesheet {href}");
-            } else {
-                let el = document().create_element("link").unwrap_throw();
-                el.set_attribute("rel", "stylesheet").unwrap_throw();
-                el.set_attribute("href", &href).unwrap_throw();
-                document()
-                    .query_selector("head")
-                    .unwrap_throw()
-                    .unwrap_throw()
-                    .append_child(el.unchecked_ref())
-                    .unwrap_throw();
-                meta.stylesheets
-                    .els
-                    .borrow_mut()
-                    .insert(href, Some(el.unchecked_into()));
-            }
-        } else {
-            let meta = use_head(cx);
-            meta.stylesheets.els.borrow_mut().insert(href, None);
+#[component(transparent)]
+pub fn Stylesheet(
+    cx: Scope,
+    /// The URL at which the stylesheet is located.
+    #[prop(into)]
+    href: String,
+    /// An ID for the stylesheet.
+    #[prop(optional, into)]
+    id: Option<String>,
+) -> impl IntoView {
+    if let Some(id) = id {
+        view! { cx,
+            <Link id rel="stylesheet" href/>
+        }
+    } else {
+        view! { cx,
+            <Link rel="stylesheet" href/>
         }
     }
 }

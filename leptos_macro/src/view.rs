@@ -1,790 +1,392 @@
-use std::collections::HashMap;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, ExprPath};
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
-use uuid::Uuid;
+use proc_macro2::{Ident, Span, TokenStream, TokenTree};
+use quote::{format_ident, quote, quote_spanned};
+use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
+use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
 
 use crate::{is_component_node, Mode};
 
-const NON_BUBBLING_EVENTS: [&str; 11] = [
-    "load",
-    "unload",
-    "scroll",
-    "focus",
-    "blur",
-    "loadstart",
-    "progress",
-    "error",
-    "abort",
-    "load",
-    "loadend",
-];
-
-lazy_static::lazy_static! {
-    // Specialized event type
-    // https://github.com/yewstack/yew/blob/d422b533ea19a09cddf9b31ecd6cd5e5ce35ce3f/packages/yew/src/html/listener/events.rs
-    static ref EVENTS: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("auxclick", "MouseEvent");
-        m.insert("click", "MouseEvent");
-
-        m.insert("contextmenu", "MouseEvent");
-        m.insert("dblclick", "MouseEvent");
-
-        m.insert("drag", "DragEvent");
-        m.insert("dragend", "DragEvent");
-        m.insert("dragenter", "DragEvent");
-        m.insert("dragexit", "DragEvent");
-        m.insert("dragleave", "DragEvent");
-        m.insert("dragover", "DragEvent");
-        m.insert("dragstart", "DragEvent");
-        m.insert("drop", "DragEvent");
-
-        m.insert("blur", "FocusEvent");
-        m.insert("focus", "FocusEvent");
-        m.insert("focusin", "FocusEvent");
-        m.insert("focusout", "FocusEvent");
-
-        m.insert("keydown", "KeyboardEvent");
-        m.insert("keypress", "KeyboardEvent");
-        m.insert("keyup", "KeyboardEvent");
-
-        m.insert("loadstart", "ProgressEvent");
-        m.insert("progress", "ProgressEvent");
-        m.insert("loadend", "ProgressEvent");
-
-        m.insert("mousedown", "MouseEvent");
-        m.insert("mouseenter", "MouseEvent");
-        m.insert("mouseleave", "MouseEvent");
-        m.insert("mousemove", "MouseEvent");
-        m.insert("mouseout", "MouseEvent");
-        m.insert("mouseover", "MouseEvent");
-        m.insert("mouseup", "MouseEvent");
-        m.insert("wheel", "WheelEvent");
-
-        m.insert("input", "InputEvent");
-
-        m.insert("submit", "SubmitEvent");
-
-        m.insert("animationcancel", "AnimationEvent");
-        m.insert("animationend", "AnimationEvent");
-        m.insert("animationiteration", "AnimationEvent");
-        m.insert("animationstart", "AnimationEvent");
-
-        m.insert("gotpointercapture", "PointerEvent");
-        m.insert("lostpointercapture", "PointerEvent");
-        m.insert("pointercancel", "PointerEvent");
-        m.insert("pointerdown", "PointerEvent");
-        m.insert("pointerenter", "PointerEvent");
-        m.insert("pointerleave", "PointerEvent");
-        m.insert("pointermove", "PointerEvent");
-        m.insert("pointerout", "PointerEvent");
-        m.insert("pointerover", "PointerEvent");
-        m.insert("pointerup", "PointerEvent");
-
-        m.insert("touchcancel", "TouchEvent");
-        m.insert("touchend", "TouchEvent");
-
-        m.insert("transitioncancel", "TransitionEvent");
-        m.insert("transitionend", "TransitionEvent");
-        m.insert("transitionrun", "TransitionEvent");
-        m.insert("transitionstart", "TransitionEvent");
-        m
-    };
+#[derive(Clone, Copy)]
+enum TagType {
+    Unknown,
+    Html,
+    Svg,
+    Math,
 }
 
-pub(crate) fn render_view(cx: &Ident, nodes: &[Node], mode: Mode) -> TokenStream {
-    let template_uid = Ident::new(
-        &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
-        Span::call_site(),
-    );
+const TYPED_EVENTS: [&str; 126] = [
+    "afterprint",
+    "beforeprint",
+    "beforeunload",
+    "gamepadconnected",
+    "gamepaddisconnected",
+    "hashchange",
+    "languagechange",
+    "message",
+    "messageerror",
+    "offline",
+    "online",
+    "pagehide",
+    "pageshow",
+    "popstate",
+    "rejectionhandled",
+    "storage",
+    "unhandledrejection",
+    "unload",
+    "abort",
+    "animationcancel",
+    "animationend",
+    "animationiteration",
+    "animationstart",
+    "auxclick",
+    "beforeinput",
+    "blur",
+    "canplay",
+    "canplaythrough",
+    "change",
+    "click",
+    "close",
+    "compositionend",
+    "compositionstart",
+    "compositionupdate",
+    "contextmenu",
+    "cuechange",
+    "dblclick",
+    "drag",
+    "dragend",
+    "dragenter",
+    "dragleave",
+    "dragover",
+    "dragstart",
+    "drop",
+    "durationchange",
+    "emptied",
+    "ended",
+    "error",
+    "focus",
+    "focusin",
+    "focusout",
+    "formdata",
+    "gotpointercapture",
+    "input",
+    "invalid",
+    "keydown",
+    "keypress",
+    "keyup",
+    "load",
+    "loadeddata",
+    "loadedmetadata",
+    "loadstart",
+    "lostpointercapture",
+    "mousedown",
+    "mouseenter",
+    "mouseleave",
+    "mousemove",
+    "mouseout",
+    "mouseover",
+    "mouseup",
+    "pause",
+    "play",
+    "playing",
+    "pointercancel",
+    "pointerdown",
+    "pointerenter",
+    "pointerleave",
+    "pointermove",
+    "pointerout",
+    "pointerover",
+    "pointerup",
+    "progress",
+    "ratechange",
+    "reset",
+    "resize",
+    "scroll",
+    "securitypolicyviolation",
+    "seeked",
+    "seeking",
+    "select",
+    "selectionchange",
+    "selectstart",
+    "slotchange",
+    "stalled",
+    "submit",
+    "suspend",
+    "timeupdate",
+    "toggle",
+    "touchcancel",
+    "touchend",
+    "touchmove",
+    "touchstart",
+    "transitioncancel",
+    "transitionend",
+    "transitionrun",
+    "transitionstart",
+    "volumechange",
+    "waiting",
+    "webkitanimationend",
+    "webkitanimationiteration",
+    "webkitanimationstart",
+    "webkittransitionend",
+    "wheel",
+    "DOMContentLoaded",
+    "devicemotion",
+    "deviceorientation",
+    "orientationchange",
+    "copy",
+    "cut",
+    "paste",
+    "fullscreenchange",
+    "fullscreenerror",
+    "pointerlockchange",
+    "pointerlockerror",
+    "readystatechange",
+    "visibilitychange",
+];
 
-    if nodes.len() == 1 {
-        first_node_to_tokens(cx, &template_uid, &nodes[0], mode)
-    } else {
-        let nodes = nodes
-            .iter()
-            .map(|node| first_node_to_tokens(cx, &template_uid, node, mode));
-        quote! {
-            {
-                vec![
-                    #(#nodes),*
-                ]
+pub(crate) fn render_view(
+    cx: &Ident,
+    nodes: &[Node],
+    mode: Mode,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    if mode == Mode::Ssr {
+        if nodes.is_empty() {
+            let span = Span::call_site();
+            quote_spanned! {
+                span => leptos::Unit
             }
+        } else if nodes.len() == 1 {
+            root_node_to_tokens_ssr(cx, &nodes[0], global_class)
+        } else {
+            fragment_to_tokens_ssr(cx, Span::call_site(), nodes, global_class)
         }
+    } else if nodes.is_empty() {
+        let span = Span::call_site();
+        quote_spanned! {
+            span => leptos::Unit
+        }
+    } else if nodes.len() == 1 {
+        node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class)
+    } else {
+        fragment_to_tokens(
+            cx,
+            Span::call_site(),
+            nodes,
+            true,
+            TagType::Unknown,
+            global_class,
+        )
     }
 }
 
-fn first_node_to_tokens(cx: &Ident, template_uid: &Ident, node: &Node, mode: Mode) -> TokenStream {
+fn root_node_to_tokens_ssr(
+    cx: &Ident,
+    node: &Node,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     match node {
-        Node::Doctype(_) | Node::Comment(_) => quote! {},
-        Node::Fragment(node) => {
-            let nodes = node
-                .children
-                .iter()
-                .map(|node| first_node_to_tokens(cx, template_uid, node, mode));
-            quote! {
-                {
-                    vec![
-                        #(#nodes),*
-                    ]
-                }
-            }
+        Node::Fragment(fragment) => {
+            fragment_to_tokens_ssr(cx, Span::call_site(), &fragment.children, global_class)
         }
-        Node::Element(node) => root_element_to_tokens(cx, template_uid, node, mode),
-        Node::Block(node) => {
-            let value = node.value.as_ref();
-            quote! {
-                #value
-            }
-        }
+        Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
         Node::Text(node) => {
             let value = node.value.as_ref();
             quote! {
+                leptos::text(#value)
+            }
+        }
+        Node::Block(node) => {
+            let value = node.value.as_ref();
+            quote! {
+                #[allow(unused_braces)]
                 #value
             }
         }
-        _ => panic!("Root nodes need to be a Fragment (<></>), Element, or text."),
+        Node::Element(node) => root_element_to_tokens_ssr(cx, node, global_class),
     }
 }
 
-fn root_element_to_tokens(
+fn fragment_to_tokens_ssr(
     cx: &Ident,
-    template_uid: &Ident,
-    node: &NodeElement,
-    mode: Mode,
+    _span: Span,
+    nodes: &[Node],
+    global_class: Option<&TokenTree>,
 ) -> TokenStream {
-    let mut template = String::new();
-    let mut navigations = Vec::new();
-    let mut expressions = Vec::new();
+    let nodes = nodes.iter().map(|node| {
+        let node = root_node_to_tokens_ssr(cx, node, global_class);
+        quote! {
+            #node.into_view(#cx)
+        }
+    });
+    quote! {
+        {
+            leptos::Fragment::lazy(|| vec![
+                #(#nodes),*
+            ])
+        }
+    }
+}
 
+fn root_element_to_tokens_ssr(
+    cx: &Ident,
+    node: &NodeElement,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     if is_component_node(node) {
-        create_component(cx, node, mode)
+        component_to_tokens(cx, node, global_class)
     } else {
-        element_to_tokens(
+        let mut template = String::new();
+        let mut holes = Vec::<TokenStream>::new();
+        let mut exprs_for_compiler = Vec::<TokenStream>::new();
+
+        element_to_tokens_ssr(
             cx,
             node,
-            &Ident::new("root", Span::call_site()),
-            None,
-            &mut 0,
-            &mut 0,
             &mut template,
-            &mut navigations,
-            &mut expressions,
+            &mut holes,
+            &mut exprs_for_compiler,
             true,
-            mode,
+            global_class,
         );
 
-        match mode {
-            Mode::Ssr => {
-                quote! {{
-                    #(#navigations);*;
-
-                    let mut leptos_buffer = String::new();
-                    #(#expressions);*
-                    leptos_buffer
-                }}
+        let template = if holes.is_empty() {
+            quote! {
+            #template
             }
-            _ => {
-                // create the root element from which navigations and expressions will begin
-                let generate_root = match mode {
-                    // SSR is just going to return a format string, so no root/navigations
-                    Mode::Ssr => unreachable!(),
-                    // for CSR, just clone the template and take the first child as the root
-                    Mode::Client => quote! {
-                        let root = #template_uid.with(|template| leptos_dom::clone_template(template));
-                    },
-                    // for hydration, use get_next_element(), which will either draw from an SSRed node or clone the template
-                    Mode::Hydrate => {
-                        //let name = node.name_as_string().unwrap();
-                        quote! {
-                            let root = #template_uid.with(|template| #cx.get_next_element(template));
-                            // //log::debug!("root = {}", root.node_name());
-                        }
-                    }
-                };
-
-                let span = node.name.span();
-
-                let navigations = if navigations.is_empty() {
-                    quote! {}
-                } else {
-                    quote! { #(#navigations);* }
-                };
-
-                let expressions = if expressions.is_empty() {
-                    quote! {}
-                } else {
-                    quote! { #(#expressions;);* }
-                };
-
-                quote_spanned! {
-                    span => {
-                        thread_local! {
-                            static #template_uid: web_sys::HtmlTemplateElement = leptos_dom::create_template(#template)
-                        }
-
-                        #generate_root
-
-                        #navigations
-                        #expressions
-
-                        root
-                    }
-                }
+        } else {
+            quote! {
+            format!(
+                #template,
+                #(#holes)*
+            )
             }
+        };
+
+        let tag_name = node.name.to_string();
+        let typed_element_name = {
+            let camel_cased =
+                camel_case_tag_name(&tag_name.replace("svg::", "").replace("math::", ""));
+            Ident::new(&camel_cased, node.name.span())
+        };
+        let typed_element_name = if is_svg_element(&tag_name) {
+            quote! { svg::#typed_element_name }
+        } else if is_math_ml_element(&tag_name) {
+            quote! { math::#typed_element_name }
+        } else {
+            quote! { #typed_element_name }
+        };
+        quote! {
+        {
+            #(#exprs_for_compiler)*
+            ::leptos::HtmlElement::from_html(cx, leptos::leptos_dom::#typed_element_name::default(), #template)
+        }
         }
     }
 }
 
-#[derive(Clone, Debug)]
-enum PrevSibChange {
-    Sib(Ident),
-    Parent,
-    Skip,
-}
-
-fn attributes(node: &NodeElement) -> impl Iterator<Item = &NodeAttribute> {
-    node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(attribute) = node {
-            Some(attribute)
-        } else {
-            None
-        }
-    })
-}
-
-#[allow(clippy::too_many_arguments)]
-fn element_to_tokens(
+fn element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
-    parent: &Ident,
-    prev_sib: Option<Ident>,
-    next_el_id: &mut usize,
-    next_co_id: &mut usize,
     template: &mut String,
-    navigations: &mut Vec<TokenStream>,
-    expressions: &mut Vec<TokenStream>,
-    is_root_el: bool,
-    mode: Mode,
-) -> Ident {
-    // create this element
-    *next_el_id += 1;
-    let this_el_ident = child_ident(*next_el_id, node.name.span());
-
-    // Open tag
-    let name_str = node.name.to_string();
-    let span = node.name.span();
-
-    if mode == Mode::Ssr {
-        // SSR, push directly to buffer
-        expressions.push(quote::quote_spanned! {
-            span => leptos_buffer.push('<');
-                    leptos_buffer.push_str(#name_str);
-        });
-    } else {
-        // CSR/hydrate, push to template
-        template.push('<');
-        template.push_str(&name_str);
-    }
-
-    // for SSR: add a hydration key
-    if mode == Mode::Ssr && is_root_el {
-        expressions.push(quote::quote_spanned! {
-            span => leptos_buffer.push_str(" data-hk=\"");
-                    leptos_buffer.push_str(&#cx.next_hydration_key().to_string());
-                    leptos_buffer.push('"');
-        });
-    }
-
-    // for SSR: merge all class: attributes and class attribute
-    if mode == Mode::Ssr {
-        let class_attr = attributes(node)
-            .find(|a| a.key.to_string() == "class")
-            .map(|node| {
-                (
-                    node.key.span(),
-                    node.value
-                        .as_ref()
-                        .and_then(|n| String::try_from(n).ok())
-                        .unwrap_or_default()
-                        .trim()
-                        .to_string(),
-                )
-            });
-
-        let class_attrs = attributes(node).filter_map(|node| {
-                let name = node.key.to_string();
-                if name.starts_with("class:") || name.starts_with("class-") {
-                    let name = if name.starts_with("class:") {
-                        name.replacen("class:", "", 1)
-                    } else if name.starts_with("class-") {
-                        name.replacen("class-", "", 1)
-                    } else {
-                        name
-                    };
-                    let value = node.value.as_ref().expect("class: attributes need values").as_ref();
-                    let span = node.key.span();
-                    Some(quote_spanned! { 
-                        span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(&{#value}.into_class(#cx).as_value_string(#name));
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        if class_attr.is_some() || !class_attrs.is_empty() {
-            expressions.push(quote::quote_spanned! {
-                span => leptos_buffer.push_str(" class=\"");
-            });
-            if let Some((span, value)) = class_attr {
-                expressions.push(quote::quote_spanned! {
-                    span => leptos_buffer.push_str(#value);
-                });
-            }
-            for attr in class_attrs {
-                expressions.push(attr);
-            }
-            expressions.push(quote::quote_spanned! {
-                span => leptos_buffer.push('"');
-            });
-        }
-    }
-
-    // attributes
-    for attr in attributes(node) {
-        // SSR class attribute has just been handled
-        if !(mode == Mode::Ssr && attr.key.to_string() == "class") {
-            attr_to_tokens(
-                cx,
-                attr,
-                &this_el_ident,
-                template,
-                expressions,
-                mode,
-            );
-        }
-    }
-
-    // navigation for this el
-    let debug_name = node.name.to_string();
-    if mode != Mode::Ssr {
-        let this_nav = if is_root_el {
-            quote_spanned! {
-                span => let #this_el_ident = #debug_name;
-                    let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
-                    //debug!("=> got {}", #this_el_ident.node_name());
-            }
-        } else if let Some(prev_sib) = &prev_sib {
-            quote_spanned! {
-                span => let #this_el_ident = #debug_name;
-                    //log::debug!("next_sibling ({})", #debug_name);
-                    let #this_el_ident = #prev_sib.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#debug_name, "nextSibling"));
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
-            }
-        } else {
-            quote_spanned! {
-                span => let #this_el_ident = #debug_name;
-                    //log::debug!("first_child ({})", #debug_name);
-                    let #this_el_ident = #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#debug_name, "firstChild"));
-                    //log::debug!("=> got {}", #this_el_ident.node_name());
-            }
-        };
-        navigations.push(this_nav);
-    }
-
-    // self-closing tags
-    // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
-    if matches!(
-        name_str.as_str(),
-        "area"
-            | "base"
-            | "br"
-            | "col"
-            | "embed"
-            | "hr"
-            | "img"
-            | "input"
-            | "link"
-            | "meta"
-            | "param"
-            | "source"
-            | "track"
-            | "wbr"
-    ) {
-        if mode == Mode::Ssr {
-            expressions.push(quote::quote! {
-                leptos_buffer.push_str("/>");
-            });
-        } else {
-            template.push_str("/>");
-        }
-        return this_el_ident;
-    } else if mode == Mode::Ssr {
-        expressions.push(quote::quote! {
-            leptos_buffer.push('>');
-        });
-    } else {
-        template.push('>');
-    }
-
-    // iterate over children
-    let mut prev_sib = prev_sib;
-    let multi = !node.children.is_empty();
-    for (idx, child) in node.children.iter().enumerate() {
-        // set next sib (for any insertions)
-        let next_sib = next_sibling_node(&node.children, idx + 1, next_el_id);
-
-        let curr_id = child_to_tokens(
-            cx,
-            child,
-            &this_el_ident,
-            if idx == 0 { None } else { prev_sib.clone() },
-            next_sib,
-            next_el_id,
-            next_co_id,
-            template,
-            navigations,
-            expressions,
-            multi,
-            mode,
-            idx == 0,
-        );
-
-        prev_sib = match curr_id {
-            PrevSibChange::Sib(id) => Some(id),
-            PrevSibChange::Parent => None,
-            PrevSibChange::Skip => prev_sib,
-        };
-    }
-
-    // close tag
-    if mode == Mode::Ssr {
-        expressions.push(quote::quote! {
-            leptos_buffer.push_str("</");
-            leptos_buffer.push_str(#name_str);
-            leptos_buffer.push('>');
+    holes: &mut Vec<TokenStream>,
+    exprs_for_compiler: &mut Vec<TokenStream>,
+    is_root: bool,
+    global_class: Option<&TokenTree>,
+) {
+    if is_component_node(node) {
+        template.push_str("{}");
+        let component = component_to_tokens(cx, node, global_class);
+        holes.push(quote! {
+          {#component}.into_view(cx).render_to_string(cx),
         })
     } else {
-        template.push_str("</");
-        template.push_str(&name_str);
-        template.push('>');
-    }
+        let tag_name = node
+            .name
+            .to_string()
+            .replace("svg::", "")
+            .replace("math::", "");
+        template.push('<');
+        template.push_str(&tag_name);
 
-    this_el_ident
-}
-
-fn next_sibling_node(children: &[Node], idx: usize, next_el_id: &mut usize) -> Option<Ident> {
-    if children.len() <= idx {
-        None
-    } else {
-        let sibling = &children[idx];
-
-        match sibling {
-            Node::Element(sibling) => {
-                if is_component_node(sibling) {
-                    next_sibling_node(children, idx + 1, next_el_id)
-                } else {
-                    Some(child_ident(*next_el_id + 1, sibling.name.span()))
-                }
+        for attr in &node.attributes {
+            if let Node::Attribute(attr) = attr {
+                attribute_to_tokens_ssr(cx, attr, template, holes, exprs_for_compiler);
             }
-            Node::Block(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
-            Node::Text(sibling) => Some(child_ident(*next_el_id + 1, sibling.value.span())),
-            _ => panic!("expected either an element or a block"),
         }
-    }
-}
 
-fn attr_to_tokens(
-    cx: &Ident,
-    node: &NodeAttribute,
-    el_id: &Ident,
-    template: &mut String,
-    expressions: &mut Vec<TokenStream>,
-    mode: Mode,
-) {
-    let name = node.key.to_string();
-    let name = if name.starts_with('_') {
-        name.replacen('_', "", 1)
-    } else {
-        name
-    };
-    let name = if name.starts_with("attr:") {
-        name.replacen("attr:", "", 1)
-    } else {
-        name
-    };
-    let value = match &node.value {
-        Some(expr) => match expr.as_ref() {
-            syn::Expr::Lit(expr_lit) => {
-                if let syn::Lit::Str(s) = &expr_lit.lit {
-                    AttributeValue::Static(s.value())
-                } else {
-                    AttributeValue::Dynamic(expr)
-                }
+        // insert hydration ID
+        let hydration_id = if is_root {
+            quote! { leptos::HydrationCtx::peek(), }
+        } else {
+            quote! { leptos::HydrationCtx::id(), }
+        };
+        match node
+            .attributes
+            .iter()
+            .find(|node| matches!(node, Node::Attribute(attr) if attr.key.to_string() == "id"))
+        {
+            Some(_) => {
+                template.push_str(" leptos-hk=\"_{}\"");
             }
-            _ => AttributeValue::Dynamic(expr),
-        },
-        None => AttributeValue::Empty,
-    };
+            None => {
+                template.push_str(" id=\"_{}\"");
+            }
+        }
+        holes.push(hydration_id);
 
-    let span = node.key.span();
+        set_class_attribute_ssr(cx, node, template, holes, global_class);
 
-    // refs
-    if name == "ref" {
-        if mode != Mode::Ssr {
-            expressions.push(match &node.value {
-                Some(expr) => {
-                    if let Some(ident) = expr_to_ident(expr) {
-                        quote_spanned! {
-                            span =>
-                                #ident.load(#el_id.unchecked_ref::<web_sys::Element>());
+        if is_self_closing(node) {
+            template.push_str("/>");
+        } else {
+            template.push('>');
+            for child in &node.children {
+                match child {
+                    Node::Element(child) => element_to_tokens_ssr(
+                        cx,
+                        child,
+                        template,
+                        holes,
+                        exprs_for_compiler,
+                        false,
+                        global_class,
+                    ),
+                    Node::Text(text) => {
+                        if let Some(value) = value_to_string(&text.value) {
+                            template.push_str(&html_escape::encode_safe(&value));
+                        } else {
+                            template.push_str("{}");
+                            let value = text.value.as_ref();
+
+                            holes.push(quote! {
+                              #value.into_view(#cx).render_to_string(#cx),
+                            })
                         }
-                    } else {
-                        panic!("'ref' needs to be passed a variable name")
                     }
-                }
-                _ => panic!("'ref' needs to be passed a variable name"),
-            })
-        }
-    }
-    // Event Handlers
-    else if name.starts_with("on:") {
-        let handler = node
-            .value
-            .as_ref()
-            .expect("event listener attributes need a value")
-            .as_ref();
-
-        let name = name.replacen("on:", "", 1);
-        let event_type = EVENTS.get(&name.as_str()).copied().unwrap_or("Event");
-        let event_type = event_type.parse::<TokenStream>().expect("couldn't parse event name");
-
-        if mode != Mode::Ssr {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "stable")] {
-                    if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
-                        expressions.push(quote_spanned! {
-                            span => ::leptos::add_event_listener_undelegated(#el_id.unchecked_ref(), #name, #handler);
-                        });
-                    } else {
-                        expressions.push(quote_spanned! {
-                            span => ::leptos::add_event_listener(#el_id.unchecked_ref(), #name, #handler);
-                        });
+                    Node::Block(block) => {
+                        if let Some(value) = value_to_string(&block.value) {
+                            template.push_str(&value);
+                        } else {
+                            template.push_str("{}");
+                            let value = block.value.as_ref();
+                            holes.push(quote! {
+                              #value.into_view(#cx).render_to_string(#cx),
+                            })
+                        }
                     }
-                } else {
-                    if NON_BUBBLING_EVENTS.contains(&name.as_str()) {
-                        expressions.push(quote_spanned! {
-                            span => ::leptos::add_event_listener_undelegated::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
-                        });
-                    } else {
-                        expressions.push(quote_spanned! {
-                            span => ::leptos::add_event_listener::<web_sys::#event_type>(#el_id.unchecked_ref(), #name, #handler);
-                        });
-                    }
+                    Node::Fragment(_) => todo!(),
+                    _ => {}
                 }
             }
-        } else {
-            
-            // this is here to avoid warnings about unused signals
-            // that are used in event listeners. I'm open to better solutions.
-            expressions.push(quote_spanned! {
-                span => let _  = ssr_event_listener::<web_sys::#event_type>(#handler);
-            });
-        }
-    }
-    // Properties
-    else if name.starts_with("prop:") {
-        let name = name.replacen("prop:", "", 1);
-        // can't set properties in SSR
-        if mode != Mode::Ssr {
-            let value = node
-                .value
-                .as_ref()
-                .expect("prop: blocks need values")
-                .as_ref();
-            expressions.push(quote_spanned! {
-                span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
-            });
-        }
-    }
-    // Classes
-    else if name.starts_with("class:") {
-        let name = name.replacen("class:", "", 1);
-        if mode == Mode::Ssr {
-            // handled separately because they need to be merged
-        } else {
-            let value = node
-                .value
-                .as_ref()
-                .expect("class: attributes need values")
-                .as_ref();
-            expressions.push(quote_spanned! {
-                span => leptos_dom::class(#cx, #el_id.unchecked_ref(), #name, #value.into_class(#cx))
-            });
-        }
-    }
-    // Attributes
-    else {
-        match (value, mode) {
-            // Boolean attributes: only name present in template, no value
-            // Nothing set programmatically
-            (AttributeValue::Empty, Mode::Ssr) => {
-                expressions.push(quote::quote_spanned! {
-                    span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(#name);
-                });
-            }
-            (AttributeValue::Empty, _) => {
-                template.push(' ');
-                template.push_str(&name);
-            }
 
-            // Static attributes (i.e., just a literal given as value, not an expression)
-            // are just set in the template — again, nothing programmatic
-            (AttributeValue::Static(value), Mode::Ssr) => {
-                expressions.push(quote::quote_spanned! {
-                    span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(#name);
-                            leptos_buffer.push_str("=\"");
-                            leptos_buffer.push_str(&leptos_dom::escape_attr(&#value));
-                            leptos_buffer.push('"');
-                });
-            }
-            (AttributeValue::Static(value), _) => {
-                template.push(' ');
-                template.push_str(&name);
-                template.push_str("=\"");
-                template.push_str(&value);
-                template.push('"');
-            }
-
-            // Dynamic attributes are handled differently depending on the rendering mode
-            (AttributeValue::Dynamic(value), Mode::Ssr) => {
-                expressions.push(quote_spanned! {
-                    span => leptos_buffer.push(' ');
-                            leptos_buffer.push_str(&{#value}.into_attribute(#cx).as_value_string(#name));
-                });
-            }
-            (AttributeValue::Dynamic(value), _) => {
-                // For client-side rendering, dynamic attributes don't need to be rendered in the template
-                // They'll immediately be set synchronously before the cloned template is mounted
-                expressions.push(quote_spanned! {
-                    span => leptos_dom::attribute(#cx, #el_id.unchecked_ref(), #name, {#value}.into_attribute(#cx))
-                });
-            }
+            template.push_str("</");
+            template.push_str(&node.name.to_string());
+            template.push('>');
         }
     }
 }
 
-enum AttributeValue<'a> {
-    Static(String),
-    Dynamic(&'a syn::Expr),
-    Empty,
-}
-
-#[allow(clippy::too_many_arguments)]
-fn child_to_tokens(
-    cx: &Ident,
-    node: &Node,
-    parent: &Ident,
-    prev_sib: Option<Ident>,
-    next_sib: Option<Ident>,
-    next_el_id: &mut usize,
-    next_co_id: &mut usize,
-    template: &mut String,
-    navigations: &mut Vec<TokenStream>,
-    expressions: &mut Vec<TokenStream>,
-    multi: bool,
-    mode: Mode,
-    is_first_child: bool,
-) -> PrevSibChange {
-    match node {
-        Node::Element(node) => {
-            if is_component_node(node) {
-                component_to_tokens(
-                    cx,
-                    node,
-                    Some(parent),
-                    prev_sib,
-                    next_sib,
-                    template,
-                    expressions,
-                    navigations,
-                    next_el_id,
-                    next_co_id,
-                    multi,
-                    mode,
-                    is_first_child,
-                )
-            } else {
-                PrevSibChange::Sib(element_to_tokens(
-                    cx,
-                    node,
-                    parent,
-                    prev_sib,
-                    next_el_id,
-                    next_co_id,
-                    template,
-                    navigations,
-                    expressions,
-                    false,
-                    mode,
-                ))
-            }
-        }
-        Node::Text(node) => block_to_tokens(
-            cx,
-            &node.value,
-            node.value.span(),
-            parent,
-            prev_sib,
-            next_sib,
-            next_el_id,
-            next_co_id,
-            template,
-            expressions,
-            navigations,
-            mode,
-        ),
-        Node::Block(node) => block_to_tokens(
-            cx,
-            &node.value,
-            node.value.span(),
-            parent,
-            prev_sib,
-            next_sib,
-            next_el_id,
-            next_co_id,
-            template,
-            expressions,
-            navigations,
-            mode,
-        ),
-        _ => panic!("unexpected child node type"),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn block_to_tokens(
-    cx: &Ident,
-    value: &NodeValueExpr,
-    span: Span,
-    parent: &Ident,
-    prev_sib: Option<Ident>,
-    next_sib: Option<Ident>,
-    next_el_id: &mut usize,
-    next_co_id: &mut usize,
-    template: &mut String,
-    expressions: &mut Vec<TokenStream>,
-    navigations: &mut Vec<TokenStream>,
-    mode: Mode,
-) -> PrevSibChange {
-    let value = value.as_ref();
-    let str_value = match value {
+fn value_to_string(value: &syn_rsx::NodeValueExpr) -> Option<String> {
+    match &value.as_ref() {
         syn::Expr::Lit(lit) => match &lit.lit {
             syn::Lit::Str(s) => Some(s.value()),
             syn::Lit::Char(c) => Some(c.value().to_string()),
@@ -793,370 +395,657 @@ fn block_to_tokens(
             _ => None,
         },
         _ => None,
-    };
-    let current: Option<Ident> = None;
+    }
+}
 
-    // code to navigate to this text node
-
-    let (name, location) = /* if is_first_child && mode == Mode::Client {
-        (None, quote! { })
-    } 
-    else */ {
-        *next_el_id += 1;
-        let name = child_ident(*next_el_id, span);
-        let location = if let Some(sibling) = &prev_sib {
-            quote_spanned! {
-                span => //log::debug!("-> next sibling");
-                        let #name = #sibling.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error("{block}", "nextSibling"));
-                        //log::debug!("\tnext sibling = {}", #name.node_name());
-            }
-        } else {
-            quote_spanned! {
-                span => //log::debug!("\\|/ first child on {}", #parent.node_name());
-                        let #name = #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error("{block}", "firstChild"));
-                        //log::debug!("\tfirst child = {}", #name.node_name());
-            }
-        };
-        (Some(name), location)
-    };
-
-    let before = match &next_sib {
-        Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-        None => {
-            /* if multi {
-                quote! { leptos::Marker::LastChild }
-            } else {
-                quote! { leptos::Marker::LastChild }
-            } */
-            quote! { leptos::Marker::LastChild }
-        }
-    };
-
-    if let Some(v) = str_value {
-        if mode == Mode::Ssr {
-            expressions.push(quote::quote_spanned! {
-                span => leptos_buffer.push_str(&leptos_dom::escape_text(&#v));
-            });
-        } else {
-            navigations.push(location);
-            template.push_str(&v);
-        }
-
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
-        }
+fn attribute_to_tokens_ssr(
+    cx: &Ident,
+    node: &NodeAttribute,
+    template: &mut String,
+    holes: &mut Vec<TokenStream>,
+    exprs_for_compiler: &mut Vec<TokenStream>,
+) {
+    let name = node.key.to_string();
+    if name == "ref" || name == "_ref" || name == "node_ref" {
+        // ignore refs on SSR
+    } else if name.strip_prefix("on:").is_some() {
+        let (event_type, handler) = event_from_attribute_node(node, false);
+        exprs_for_compiler.push(quote! {
+            leptos::ssr_event_listener(#event_type, #handler);
+        })
+    } else if name.strip_prefix("prop:").is_some() || name.strip_prefix("class:").is_some() {
+        // ignore props for SSR
+        // ignore classes: we'll handle these separately
     } else {
-        // these markers are one of the primary templating differences across modes
-        match mode {
-            // in CSR, simply insert a comment node: it will be picked up and replaced with the value
-            Mode::Client => {
-                template.push_str("<!>");
-                navigations.push(location);
+        let name = name.replacen("attr:", "", 1);
 
-                let current = match current {
-                    Some(i) => quote! { Some(#i.into_child(#cx)) },
-                    None => quote! { None },
-                };
-                expressions.push(quote! {
-                    leptos::insert(
-                        #cx,
-                        #parent.clone(),
-                        #value.into_child(#cx),
-                        #before,
-                        #current,
-                    );
-                });
+        if name != "class" {
+            template.push(' ');
+
+            if let Some(value) = node.value.as_ref() {
+                if let Some(value) = value_to_string(value) {
+                    template.push_str(&name);
+                    template.push_str("=\"");
+                    template.push_str(&value);
+                    template.push('"');
+                } else {
+                    template.push_str("{}");
+                    let value = value.as_ref();
+                    holes.push(quote! {
+                        &{#value}.into_attribute(#cx)
+                            .as_nameless_value_string()
+                            .map(|a| format!("{}=\"{}\"", #name, leptos::escape_attr(&a)))
+                            .unwrap_or_default(),
+                    })
+                }
             }
-            // when hydrating, a text node will be generated by SSR; in the hydration/CSR template,
-            // wrap it with comments that mark where it begins and ends
-            Mode::Hydrate => {
-                //*next_el_id += 1;
-                let el = child_ident(*next_el_id, span);
-                *next_co_id += 1;
-                let co = comment_ident(*next_co_id, span);
-                //next_sib = Some(el.clone());
-
-                template.push_str("<!#><!/>");
-                let end = Ident::new(&format!("{co}_end"), span);
-
-                navigations.push(quote! {
-                    #location;
-                    let (#el, #co) = #cx.get_next_marker(&#name);
-                    let #end = #co.last().cloned().unwrap_or_else(|| #el.next_sibling().unwrap_throw());
-                    //log::debug!("get_next_marker => {}", #el.node_name());
-                });
-
-                expressions.push(quote! {
-                    leptos::insert(
-                        #cx,
-                        #parent.clone(),
-                        #value.into_child(#cx),
-                        #before,
-                        Some(Child::Nodes(#co)),
-                    );
-                });
-
-                return PrevSibChange::Sib(end);
-
-                //current = Some(el);
-            }
-            // in SSR, it needs to insert the value, wrapped in comments
-            Mode::Ssr => expressions.push(quote::quote_spanned! {
-                span => leptos_buffer.push_str("<!--#-->");
-                        leptos_buffer.push_str(&#value.into_child(#cx).as_child_string());
-                        leptos_buffer.push_str("<!--/-->");
-            }),
-        }
-
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn component_to_tokens(
+fn set_class_attribute_ssr(
     cx: &Ident,
     node: &NodeElement,
-    parent: Option<&Ident>,
-    prev_sib: Option<Ident>,
-    next_sib: Option<Ident>,
     template: &mut String,
-    expressions: &mut Vec<TokenStream>,
-    navigations: &mut Vec<TokenStream>,
-    next_el_id: &mut usize,
-    next_co_id: &mut usize,
-    multi: bool,
-    mode: Mode,
-    is_first_child: bool,
-) -> PrevSibChange {
-    let component_name = ident_from_tag_name(&node.name);
-    let component_name = format!("<{component_name}/>");
-    let create_component = create_component(cx, node, mode);
-    let span = node.name.span();
-
-    let mut current = None;
-
-    if let Some(parent) = parent {
-        let before = match &next_sib {
-            Some(child) => quote! { leptos::Marker::BeforeChild(#child.clone()) },
-            None => {
-                if multi {
-                    quote! { leptos::Marker::LastChild }
+    holes: &mut Vec<TokenStream>,
+    global_class: Option<&TokenTree>,
+) {
+    let static_global_class = match global_class {
+        Some(TokenTree::Literal(lit)) => lit.to_string(),
+        _ => String::new(),
+    };
+    let dyn_global_class = match global_class {
+        None => None,
+        Some(TokenTree::Literal(_)) => None,
+        Some(val) => Some(val),
+    };
+    let static_class_attr = node
+        .attributes
+        .iter()
+        .filter_map(|a| {
+            if let Node::Attribute(a) = a {
+                if a.key.to_string() == "class" {
+                    a.value.as_ref().and_then(value_to_string)
                 } else {
-                    quote! { leptos::Marker::NoChildren }
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .chain(std::iter::once(static_global_class))
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let dyn_class_attr = node
+        .attributes
+        .iter()
+        .filter_map(|a| {
+            if let Node::Attribute(a) = a {
+                if a.key.to_string() == "class" {
+                    if a.value.as_ref().and_then(value_to_string).is_some()
+                        || fancy_class_name(&a.key.to_string(), cx, a).is_some()
+                    {
+                        None
+                    } else {
+                        Some((a.key.span(), &a.value))
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let class_attrs = node
+        .attributes
+        .iter()
+        .filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                let name = node.key.to_string();
+                if name == "class" {
+                    return if let Some((_, name, value)) = fancy_class_name(&name, cx, node) {
+                        let span = node.key.span();
+                        Some((span, name, value))
+                    } else {
+                        None
+                    };
+                }
+                if name.starts_with("class:") || name.starts_with("class-") {
+                    let name = if name.starts_with("class:") {
+                        name.replacen("class:", "", 1)
+                    } else if name.starts_with("class-") {
+                        name.replacen("class-", "", 1)
+                    } else {
+                        name
+                    };
+                    let value = node
+                        .value
+                        .as_ref()
+                        .expect("class: attributes need values")
+                        .as_ref();
+                    let span = node.key.span();
+                    Some((span, name, value))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if !static_class_attr.is_empty()
+        || !dyn_class_attr.is_empty()
+        || !class_attrs.is_empty()
+        || dyn_global_class.is_some()
+    {
+        template.push_str(" class=\"");
+
+        template.push_str(&static_class_attr);
+
+        for (_span, value) in dyn_class_attr {
+            if let Some(value) = value {
+                template.push_str(" {}");
+                let value = value.as_ref();
+                holes.push(quote! {
+                  &(cx, #value).into_attribute(#cx).as_nameless_value_string()
+                    .map(|a| leptos::escape_attr(&a).to_string())
+                    .unwrap_or_default(),
+                });
+            }
+        }
+
+        for (_span, name, value) in &class_attrs {
+            template.push_str(" {}");
+            holes.push(quote! {
+              (cx, #value).into_class(#cx).as_value_string(#name),
+            });
+        }
+
+        if let Some(dyn_global_class) = dyn_global_class {
+            template.push_str(" {}");
+            holes.push(quote! { #dyn_global_class, });
+        }
+
+        template.push('"');
+    }
+}
+
+fn fragment_to_tokens(
+    cx: &Ident,
+    _span: Span,
+    nodes: &[Node],
+    lazy: bool,
+    parent_type: TagType,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    let nodes = nodes.iter().map(|node| {
+        let node = node_to_tokens(cx, node, parent_type, global_class);
+
+        quote! {
+            #node.into_view(#cx)
+        }
+    });
+    if lazy {
+        quote! {
+            {
+                leptos::Fragment::lazy(|| vec![
+                    #(#nodes),*
+                ])
+            }
+        }
+    } else {
+        quote! {
+            {
+                leptos::Fragment::new(vec![
+                    #(#nodes),*
+                ])
+            }
+        }
+    }
+}
+
+fn node_to_tokens(
+    cx: &Ident,
+    node: &Node,
+    parent_type: TagType,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    match node {
+        Node::Fragment(fragment) => fragment_to_tokens(
+            cx,
+            Span::call_site(),
+            &fragment.children,
+            true,
+            parent_type,
+            global_class,
+        ),
+        Node::Comment(_) | Node::Doctype(_) => quote! {},
+        Node::Text(node) => {
+            let value = node.value.as_ref();
+            quote! {
+                leptos::text(#value)
+            }
+        }
+        Node::Block(node) => {
+            let value = node.value.as_ref();
+            quote! { #value }
+        }
+        Node::Attribute(node) => attribute_to_tokens(cx, node),
+        Node::Element(node) => element_to_tokens(cx, node, parent_type, global_class),
+    }
+}
+
+fn element_to_tokens(
+    cx: &Ident,
+    node: &NodeElement,
+    mut parent_type: TagType,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    if is_component_node(node) {
+        component_to_tokens(cx, node, global_class)
+    } else {
+        let tag = node.name.to_string();
+        let name = if is_custom_element(&tag) {
+            let name = node.name.to_string();
+            quote! { leptos::leptos_dom::custom(#cx, leptos::leptos_dom::Custom::new(#name)) }
+        } else if is_svg_element(&tag) {
+            let name = &node.name;
+            parent_type = TagType::Svg;
+            quote! { leptos::leptos_dom::svg::#name(#cx) }
+        } else if is_math_ml_element(&tag) {
+            let name = &node.name;
+            parent_type = TagType::Math;
+            quote! { leptos::leptos_dom::math::#name(#cx) }
+        } else if is_ambiguous_element(&tag) {
+            let name = &node.name;
+            match parent_type {
+                TagType::Unknown => {
+                    // We decided this warning was too aggressive, but I'll leave it here in case we want it later
+                    /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
+                    but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
+                    quote! {
+                        leptos::leptos_dom::#name(#cx)
+                    }
+                }
+                TagType::Html => quote! { leptos::leptos_dom::#name(#cx) },
+                TagType::Svg => quote! { leptos::leptos_dom::svg::#name(#cx) },
+                TagType::Math => quote! { leptos::leptos_dom::math::#name(#cx) },
+            }
+        } else {
+            let name = &node.name;
+            parent_type = TagType::Html;
+            quote! { leptos::leptos_dom::#name(#cx) }
+        };
+        let attrs = node.attributes.iter().filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                Some(attribute_to_tokens(cx, node))
+            } else {
+                None
+            }
+        });
+        let global_class_expr = match global_class {
+            None => quote! {},
+            Some(class) => {
+                quote! {
+                    .class(#class, true)
                 }
             }
         };
-
-        if mode == Mode::Ssr {
-            expressions.push(quote::quote_spanned! {
-                span => // TODO wrap components but use get_next_element() instead of first_child/next_sibling?
-                        leptos_buffer.push_str("<!--#-->");
-                        leptos_buffer.push_str(&#create_component.into_child(#cx).as_child_string());
-                        leptos_buffer.push_str("<!--/-->");
-
-            });
-        } else if mode == Mode::Hydrate {
-            //let name = child_ident(*next_el_id, node);
-            *next_el_id += 1;
-            let el = child_ident(*next_el_id, node.name.span());
-            *next_co_id += 1;
-            let co = comment_ident(*next_co_id, node.name.span());
-            //next_sib = Some(el.clone());
-
-            let starts_at = if let Some(prev_sib) = prev_sib {
-                quote::quote! {{
-                    //log::debug!("starts_at = next_sibling");
-                    #prev_sib.next_sibling().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#component_name, "nextSibling"))
-                    //log::debug!("ok starts_at");
-                }}
-            } else {
-                quote::quote! {{
-                    //log::debug!("starts_at first_child");
-                    #parent.first_child().unwrap_or_else(|| ::leptos::__leptos_renderer_error(#component_name, "firstChild"))
-                    //log::debug!("starts_at ok");
-                }}
+        let children = node.children.iter().map(|node| {
+            let child = match node {
+                Node::Fragment(fragment) => fragment_to_tokens(
+                    cx,
+                    Span::call_site(),
+                    &fragment.children,
+                    true,
+                    parent_type,
+                    global_class,
+                ),
+                Node::Text(node) => {
+                    let value = node.value.as_ref();
+                    quote! {
+                        #[allow(unused_braces)] #value
+                    }
+                }
+                Node::Block(node) => {
+                    let value = node.value.as_ref();
+                    quote! {
+                        #[allow(unused_braces)] #value
+                    }
+                }
+                Node::Element(node) => element_to_tokens(cx, node, parent_type, global_class),
+                Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
             };
-
-            current = Some(el.clone());
-
-            template.push_str("<!#><!/>");
-            navigations.push(quote! {
-                let (#el, #co) = #cx.get_next_marker(&#starts_at);
-            });
-
-            let before = if next_sib.is_none() {
-                quote::quote! { Marker::LastChild }
-            } else {
-                quote::quote! { Marker::BeforeChild(#el) }
-            };
-
-            expressions.push(quote! {
-                leptos::insert(
-                    #cx,
-                    #parent.clone(),
-                    #create_component.into_child(#cx),
-                    #before,
-                    Some(Child::Nodes(#co)),
-                );
-            });
-        } else {
-            expressions.push(quote! {
-                leptos::insert(
-                    #cx,
-                    #parent.clone(),
-                    #create_component.into_child(#cx),
-                    #before,
-                    None,
-                );
-            });
-        }
-    } else {
-        expressions.push(create_component)
-    }
-
-    match current {
-        Some(el) => PrevSibChange::Sib(el),
-        None => {
-            if is_first_child {
-                PrevSibChange::Parent
-            } else {
-                PrevSibChange::Skip
+            quote! {
+                .child((#cx, #child))
             }
+        });
+        quote! {
+            #name
+                #(#attrs)*
+                #global_class_expr
+                #(#children)*
         }
     }
 }
 
-fn create_component(cx: &Ident, node: &NodeElement, mode: Mode) -> TokenStream {
+fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
+    let span = node.key.span();
+    let name = node.key.to_string();
+    if name == "ref" || name == "_ref" || name == "node_ref" {
+        let value = node
+            .value
+            .as_ref()
+            .and_then(|expr| expr_to_ident(expr))
+            .expect("'_ref' needs to be passed a variable name");
+        let node_ref = quote_spanned! { span => node_ref };
+
+        quote! {
+            .#node_ref(&#value)
+        }
+    } else if let Some(name) = name.strip_prefix("on:") {
+        let handler = node
+            .value
+            .as_ref()
+            .expect("event listener attributes need a value")
+            .as_ref();
+
+        let (name, is_force_undelegated) = parse_event(name);
+
+        let event_type = TYPED_EVENTS
+            .iter()
+            .find(|e| **e == name)
+            .copied()
+            .unwrap_or("Custom");
+        let is_custom = event_type == "Custom";
+        let event_type = event_type
+            .parse::<TokenStream>()
+            .expect("couldn't parse event name");
+
+        let event_type = if is_custom {
+            quote! { Custom::new(#name) }
+        } else {
+            event_type
+        };
+
+        let event_name_ident = match &node.key {
+            NodeName::Punctuated(parts) => {
+                if parts.len() >= 2 {
+                    Some(&parts[1])
+                } else {
+                    None
+                }
+            }
+            _ => unreachable!(),
+        };
+        let undelegated_ident = match &node.key {
+            NodeName::Punctuated(parts) => parts.last().and_then(|last| {
+                if last == "undelegated" {
+                    Some(last)
+                } else {
+                    None
+                }
+            }),
+            _ => unreachable!(),
+        };
+        let on = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let on = {
+            let span = on.span();
+            quote_spanned! {
+                span => .on
+            }
+        };
+        let event_type = if is_custom {
+            event_type
+        } else if let Some(ev_name) = event_name_ident {
+            let span = ev_name.span();
+            quote_spanned! {
+                span => #ev_name
+            }
+        } else {
+            event_type
+        };
+
+        let event_type = if is_force_undelegated {
+            let undelegated = if let Some(undelegated) = undelegated_ident {
+                let span = undelegated.span();
+                quote_spanned! {
+                    span => #undelegated
+                }
+            } else {
+                quote! { undelegated }
+            };
+            quote! { ::leptos::ev::#undelegated(::leptos::ev::#event_type) }
+        } else {
+            quote! { ::leptos::ev::#event_type }
+        };
+
+        quote! {
+            #on(#event_type, #handler)
+        }
+    } else if let Some(name) = name.strip_prefix("prop:") {
+        let value = node
+            .value
+            .as_ref()
+            .expect("prop: attributes need a value")
+            .as_ref();
+        let prop = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let prop = {
+            let span = prop.span();
+            quote_spanned! {
+                span => .prop
+            }
+        };
+        quote! {
+            #prop(#name, (#cx, #[allow(unused_braces)] #value))
+        }
+    } else if let Some(name) = name.strip_prefix("class:") {
+        let value = node
+            .value
+            .as_ref()
+            .expect("class: attributes need a value")
+            .as_ref();
+        let class = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let class = {
+            let span = class.span();
+            quote_spanned! {
+                span => .class
+            }
+        };
+        quote! {
+            #class(#name, (#cx, #[allow(unused_braces)] #value))
+        }
+    } else {
+        let name = name.replacen("attr:", "", 1);
+
+        if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
+            return fancy;
+        }
+
+        // all other attributes
+        let value = match node.value.as_ref() {
+            Some(value) => {
+                let value = value.as_ref();
+
+                quote! { #value }
+            }
+            None => quote_spanned! { span => "" },
+        };
+        let attr = match &node.key {
+            NodeName::Punctuated(parts) => Some(&parts[0]),
+            _ => None,
+        };
+        let attr = if let Some(attr) = attr {
+            let span = attr.span();
+            quote_spanned! {
+                span => .attr
+            }
+        } else {
+            quote! {
+                .attr
+            }
+        };
+        quote! {
+            #attr(#name, (#cx, #value))
+        }
+    }
+}
+
+fn component_to_tokens(
+    cx: &Ident,
+    node: &NodeElement,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    let name = &node.name;
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
-    let component_props_name = Ident::new(&format!("{component_name}Props"), span);
+    let component_props_name = format_ident!("{component_name}Props");
 
-    let children = if node.children.is_empty() {
-        quote! {}
-    } else if node.children.len() == 1 {
-        let child = render_view(cx, &node.children, mode);
-        quote_spanned! { span => .children(Box::new(move || vec![#child])) }
-    } else {
-        let children = render_view(cx, &node.children, mode);
-        quote_spanned! { span => .children(Box::new(move || #children)) }
-    };
-
-    let props = attributes(node).filter_map(|attr| {
-        let attr_name = attr.key.to_string();
-        if attr_name.starts_with("on:")
-            || attr_name.starts_with("prop:")
-            || attr_name.starts_with("class:")
-            || attr_name.starts_with("attr:")
-        {
-            None
+    let attrs = node.attributes.iter().filter_map(|node| {
+        if let Node::Attribute(node) = node {
+            Some(node)
         } else {
-            let name = ident_from_tag_name(&attr.key);
-            let span = attr.key.span();
+            None
+        }
+    });
+
+    let props = attrs
+        .clone()
+        .filter(|attr| {
+            !attr.key.to_string().starts_with("clone:") && !attr.key.to_string().starts_with("on:")
+        })
+        .map(|attr| {
+            let name = &attr.key;
+
             let value = attr
                 .value
                 .as_ref()
                 .map(|v| {
                     let v = v.as_ref();
-                    quote_spanned! { span => #v }
+                    quote! { #v }
                 })
-                .unwrap_or_else(|| quote_spanned! { span => #name });
-            Some(quote_spanned! {
-                span => .#name(#value)
-            })
-        }
-    });
+                .unwrap_or_else(|| quote! { #name });
 
-    let mut other_attrs = attributes(node).filter_map(|attr| {
-        let attr_name = attr.key.to_string();
-        let span = attr.key.span();
-        let value = attr.value.as_ref().map(|e| e.as_ref());
-        // Event Listeners
-        if let Some(event_name) = attr_name.strip_prefix("on:") {
-            let handler = attr
-                .value
-                .as_ref()
-                .expect("on: event listener attributes need a value")
-                .as_ref();
-            if NON_BUBBLING_EVENTS.contains(&event_name) {
-                Some(quote_spanned! {
-                    span => ::leptos::add_event_listener_undelegated(#component_name.unchecked_ref(), #event_name, #handler);
-                })
-            } else if let Some(event_type) = EVENTS.get(event_name).map(|&e| e.parse::<TokenStream>().unwrap_or_default()) {
-                Some(quote_spanned! {
-                    span => ::leptos::add_event_listener::<#event_type>(#component_name.unchecked_ref(), #event_name, #handler);
-                })
-            } else {
-                Some(quote_spanned! {
-                    span => ::leptos::add_event_listener::<web_sys::Event>(#component_name.unchecked_ref(), #event_name, #handler)
-                })
+            quote! {
+                .#name(#[allow(unused_braces)] #value)
             }
-        }
-        // Properties
-        else if let Some(name) = attr_name.strip_prefix("prop:") {
-            Some(quote_spanned! {
-                span => leptos_dom::property(#cx, #component_name.unchecked_ref(), #name, #value.into_property(#cx))
-            })
-        }
-        // Classes
-        else if let Some(name) = attr_name.strip_prefix("class:") {
-            Some(quote_spanned! {
-                span => leptos_dom::class(#cx, #component_name.unchecked_ref(), #name, #value.into_class(#cx))
-            })
-        }
-        // Attributes
-        else { attr_name.strip_prefix("attr:").map(|name| quote_spanned! {
-                span => leptos_dom::attribute(#cx, #component_name.unchecked_ref(), #name, #value.into_attribute(#cx))
-            }) }
-    }).peekable();
+        });
 
-    if other_attrs.peek().is_none() {
-        quote_spanned! {
-            span => create_component(#cx, move || {
-                #component_name(
-                    #cx,
-                    #component_props_name::builder()
-                        #(#props)*
-                        #children
-                        .build(),
-                )
+    let items_to_clone = attrs
+        .clone()
+        .filter(|attr| attr.key.to_string().starts_with("clone:"))
+        .map(|attr| {
+            let ident = attr
+                .key
+                .to_string()
+                .strip_prefix("clone:")
+                .unwrap()
+                .to_owned();
+
+            format_ident!("{ident}", span = attr.key.span())
+        })
+        .collect::<Vec<_>>();
+
+    let events = attrs
+        .filter(|attr| attr.key.to_string().starts_with("on:"))
+        .map(|attr| {
+            let (event_type, handler) = event_from_attribute_node(attr, true);
+
+            quote! {
+                .on(#event_type, #handler)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let children = if node.children.is_empty() {
+        quote! {}
+    } else {
+        let children = fragment_to_tokens(
+            cx,
+            span,
+            &node.children,
+            true,
+            TagType::Unknown,
+            global_class,
+        );
+
+        let clonables = items_to_clone
+            .iter()
+            .map(|ident| quote! { let #ident = #ident.clone(); });
+
+        quote! {
+            .children({
+                #(#clonables)*
+
+                Box::new(move |#cx| #children)
             })
         }
+    };
+
+    let component = quote! {
+        #name(
+            #cx,
+            #component_props_name::builder()
+                #(#props)*
+                #children
+                .build()
+        )
+    };
+
+    if events.is_empty() {
+        component
     } else {
-        quote_spanned! {
-            span => create_component(#cx, move || {
-                let #component_name = #component_name(
-                    #cx,
-                    #component_props_name::builder()
-                        #(#props)*
-                        #children
-                        .build(),
-                );
-                #(#other_attrs);*;
-                #component_name
-            })
+        quote! {
+            #component.into_view(#cx)
+            #(#events)*
         }
     }
 }
 
-/* fn span(node: &Node) -> Span {
-    node.name_span()
-        .unwrap_or_else(|| node.value.as_ref().unwrap().span())
-} */
+fn event_from_attribute_node(
+    attr: &NodeAttribute,
+    force_undelegated: bool,
+) -> (TokenStream, &Expr) {
+    let event_name = attr.key.to_string().strip_prefix("on:").unwrap().to_owned();
 
-fn child_ident(el_id: usize, span: Span) -> Ident {
-    let id = format!("_el{el_id}");
-    Ident::new(&id, span)
-}
+    let handler = attr
+        .value
+        .as_ref()
+        .expect("event listener attributes need a value")
+        .as_ref();
 
-fn comment_ident(co_id: usize, span: Span) -> Ident {
-    let id = format!("_co{co_id}");
-    Ident::new(&id, span)
+    #[allow(unused_variables)]
+    let (name, name_undelegated) = parse_event(&event_name);
+
+    let event_type = TYPED_EVENTS
+        .iter()
+        .find(|e| **e == name)
+        .copied()
+        .unwrap_or("Custom");
+    let event_type = event_type
+        .parse::<TokenStream>()
+        .expect("couldn't parse event name");
+
+    let event_type = if force_undelegated || name_undelegated {
+        quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+    } else {
+        quote! { ::leptos::ev::#event_type }
+    };
+    (event_type, handler)
 }
 
 fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
@@ -1168,7 +1057,11 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .last()
             .map(|segment| segment.ident.clone())
             .expect("element needs to have a name"),
-        NodeName::Block(_) => panic!("blocks not allowed in tag-name position"),
+        NodeName::Block(_) => {
+            let span = tag_name.span();
+            proc_macro_error::emit_error!(span, "blocks not allowed in tag-name position");
+            Ident::new("", span)
+        }
         _ => Ident::new(
             &tag_name.to_string().replace(['-', ':'], "_"),
             tag_name.span(),
@@ -1188,4 +1081,212 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
         syn::Expr::Path(path) => Some(path),
         _ => None,
     }
+}
+
+fn is_custom_element(tag: &str) -> bool {
+    tag.contains('-')
+}
+
+fn is_self_closing(node: &NodeElement) -> bool {
+    // self-closing tags
+    // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
+    matches!(
+        node.name.to_string().as_str(),
+        "area"
+            | "base"
+            | "br"
+            | "col"
+            | "embed"
+            | "hr"
+            | "img"
+            | "input"
+            | "link"
+            | "meta"
+            | "param"
+            | "source"
+            | "track"
+            | "wbr"
+    )
+}
+
+fn camel_case_tag_name(tag_name: &str) -> String {
+    let mut chars = tag_name.chars();
+    let first = chars.next();
+    let underscore = if tag_name == "option" || tag_name == "use" {
+        "_"
+    } else {
+        ""
+    };
+    first
+        .map(|f| f.to_ascii_uppercase())
+        .into_iter()
+        .chain(chars)
+        .collect::<String>()
+        + underscore
+}
+
+fn is_svg_element(tag: &str) -> bool {
+    matches!(
+        tag,
+        "animate"
+            | "animateMotion"
+            | "animateTransform"
+            | "circle"
+            | "clipPath"
+            | "defs"
+            | "desc"
+            | "discard"
+            | "ellipse"
+            | "feBlend"
+            | "feColorMatrix"
+            | "feComponentTransfer"
+            | "feComposite"
+            | "feConvolveMatrix"
+            | "feDiffuseLighting"
+            | "feDisplacementMap"
+            | "feDistantLight"
+            | "feDropShadow"
+            | "feFlood"
+            | "feFuncA"
+            | "feFuncB"
+            | "feFuncG"
+            | "feFuncR"
+            | "feGaussianBlur"
+            | "feImage"
+            | "feMerge"
+            | "feMergeNode"
+            | "feMorphology"
+            | "feOffset"
+            | "fePointLight"
+            | "feSpecularLighting"
+            | "feSpotLight"
+            | "feTile"
+            | "feTurbulence"
+            | "filter"
+            | "foreignObject"
+            | "g"
+            | "hatch"
+            | "hatchpath"
+            | "image"
+            | "line"
+            | "linearGradient"
+            | "marker"
+            | "mask"
+            | "metadata"
+            | "mpath"
+            | "path"
+            | "pattern"
+            | "polygon"
+            | "polyline"
+            | "radialGradient"
+            | "rect"
+            | "set"
+            | "stop"
+            | "svg"
+            | "switch"
+            | "symbol"
+            | "text"
+            | "textPath"
+            | "tspan"
+            | "use"
+            | "use_"
+            | "view"
+    )
+}
+
+fn is_math_ml_element(tag: &str) -> bool {
+    matches!(
+        tag,
+        "math"
+            | "mi"
+            | "mn"
+            | "mo"
+            | "ms"
+            | "mspace"
+            | "mtext"
+            | "menclose"
+            | "merror"
+            | "mfenced"
+            | "mfrac"
+            | "mpadded"
+            | "mphantom"
+            | "mroot"
+            | "mrow"
+            | "msqrt"
+            | "mstyle"
+            | "mmultiscripts"
+            | "mover"
+            | "mprescripts"
+            | "msub"
+            | "msubsup"
+            | "msup"
+            | "munder"
+            | "munderover"
+            | "mtable"
+            | "mtd"
+            | "mtr"
+            | "maction"
+            | "annotation"
+            | "semantics"
+    )
+}
+
+fn is_ambiguous_element(tag: &str) -> bool {
+    tag == "a" || tag == "script"
+}
+
+fn parse_event(event_name: &str) -> (&str, bool) {
+    if let Some(event_name) = event_name.strip_suffix(":undelegated") {
+        (event_name, true)
+    } else {
+        (event_name, false)
+    }
+}
+
+fn fancy_class_name<'a>(
+    name: &str,
+    cx: &Ident,
+    node: &'a NodeAttribute,
+) -> Option<(TokenStream, String, &'a Expr)> {
+    // special case for complex class names:
+    // e.g., Tailwind `class=("mt-[calc(100vh_-_3rem)]", true)`
+    if name == "class" {
+        if let Some(expr) = node.value.as_ref() {
+            if let syn::Expr::Tuple(tuple) = expr.as_ref() {
+                if tuple.elems.len() == 2 {
+                    let span = node.key.span();
+                    let class = quote_spanned! {
+                        span => .class
+                    };
+                    let class_name = &tuple.elems[0];
+                    let class_name = if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(s), ..
+                    }) = class_name
+                    {
+                        s.value()
+                    } else {
+                        proc_macro_error::emit_error!(
+                            class_name.span(),
+                            "class name must be a string literal"
+                        );
+                        Default::default()
+                    };
+                    let value = &tuple.elems[1];
+                    return Some((
+                        quote! {
+                            #class(#class_name, (#cx, #value))
+                        },
+                        class_name,
+                        value,
+                    ));
+                } else {
+                    proc_macro_error::emit_error!(
+                        tuple.span(),
+                        "class tuples must have two elements."
+                    )
+                }
+            }
+        }
+    }
+    None
 }

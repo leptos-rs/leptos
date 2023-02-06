@@ -1,21 +1,17 @@
 [package]
 name = "leptos_actix"
-version = "0.0.2"
+version = { workspace = true }
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-repository = "https://github.com/gbj/leptos"
+repository = "https://github.com/leptos-rs/leptos"
 description = "Actix integrations for the Leptos web framework."
 
 [dependencies]
 actix-web = "4"
 futures = "0.3"
-leptos = { path = "../../leptos", default-features = false, version = "0.0", features = [
-	"ssr",
-] }
-leptos_meta = { path = "../../meta", default-features = false, version = "0.0", features = [
-	"ssr",
-] }
-leptos_router = { path = "../../router", default-features = false, version = "0.0", features = [
-	"ssr",
-] }
+leptos = { workspace = true, features = ["ssr"] }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_router = { workspace = true, features = ["ssr"] }
+parking_lot = "0.12.1"
+regex = "1.7.0"

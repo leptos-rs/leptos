@@ -1,4 +1,5 @@
 #![deny(missing_docs)]
+#![forbid(unsafe_code)]
 
 //! # Leptos Server Functions
 //!
@@ -27,12 +28,15 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]` macro](leptos::leptos_macro::server) allows you to annotate a function to
+//! The [`#[server]`](https://docs.rs/leptos/latest/leptos/attr.server.html) macro allows you to annotate a function to
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
+//! **Important**: All server functions must be registered by calling [ServerFn::register]
+//! somewhere within your `main` function.
+//!
 //! ```rust,ignore
-//! # use leptos_reactive::*;
+//! # use leptos::*;
 //! #[server(ReadFromDB)]
 //! async fn read_posts(cx: Scope, how_many: usize, query: String) -> Result<Vec<Posts>, ServerFnError> {
 //!   // do some server-only work here to access the database
@@ -47,6 +51,11 @@
 //!   log::debug!("posts = {posts{:#?}");
 //! })
 //! # });
+//!
+//! // make sure you've registered it somewhere in main
+//! fn main() {
+//!   _ = ReadFromDB::register();
+//! }
 //! ```
 //!
 //! If you call this function from the client, it will serialize the function arguments and `POST`
@@ -165,6 +174,15 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
         .and_then(|fns| fns.get(path).cloned())
 }
 
+/// Returns the set of currently-registered server function paths, for debugging purposes.
+#[cfg(any(feature = "ssr", doc))]
+pub fn server_fns_by_path() -> Vec<&'static str> {
+    REGISTERED_SERVER_FUNCTIONS
+        .read()
+        .map(|vals| vals.keys().copied().collect())
+        .unwrap_or_default()
+}
+
 /// Holds the current options for encoding types.
 /// More could be added, but they need to be serde
 #[derive(Debug, PartialEq)]
@@ -266,11 +284,8 @@ where
             let value = match Self::encoding() {
                 Encoding::Url => serde_urlencoded::from_bytes(data)
                     .map_err(|e| ServerFnError::Deserialization(e.to_string())),
-                Encoding::Cbor => {
-                    println!("Deserialize Cbor!: {:x?}", &data);
-                    ciborium::de::from_reader(data)
-                        .map_err(|e| ServerFnError::Deserialization(e.to_string()))
-                }
+                Encoding::Cbor => ciborium::de::from_reader(data)
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
             };
             Box::pin(async move {
                 let value: Self = match value {
@@ -311,9 +326,19 @@ where
         let mut write = REGISTERED_SERVER_FUNCTIONS
             .write()
             .map_err(|e| ServerFnError::Registration(e.to_string()))?;
-        write.insert(Self::url(), run_server_fn);
+        let prev = write.insert(Self::url(), run_server_fn);
 
-        Ok(())
+        // if there was already a server function with this key,
+        // return Err
+        match prev {
+            Some(_) => Err(ServerFnError::Registration(format!(
+                "There was already a server function registered at {:?}. \
+                This can happen if you use the same server function name in two different modules
+                on `stable` or in `release` mode.",
+                Self::url()
+            ))),
+            None => Ok(()),
+        }
     }
 }
 
@@ -362,7 +387,6 @@ where
         Binary(Vec<u8>),
         Url(String),
     }
-    // log!("ARGS TO ENCODE: {:#}", &args);
     let args_encoded = match &enc {
         Encoding::Url => Payload::Url(
             serde_urlencoded::to_string(&args)
@@ -375,8 +399,6 @@ where
             Payload::Binary(buffer)
         }
     };
-
-    //log!("ENCODED DATA: {:#?}", args_encoded);
 
     let content_type_header = match &enc {
         Encoding::Url => "application/x-www-form-urlencoded",

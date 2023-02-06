@@ -61,7 +61,7 @@ impl Default for ParamsMap {
 /// ```
 /// # use leptos_router::params_map;
 /// let map = params_map! {
-///     "id".to_string() => "1".to_string()
+///     "id" => "1"
 /// };
 /// assert_eq!(map.get("id"), Some(&"1".to_string()));
 /// assert_eq!(map.get("missing"), None)
@@ -78,7 +78,7 @@ macro_rules! params_map {
         let start_capacity = common_macros::const_expr_count!($($key);*);
         #[allow(unused_mut)]
         let mut map = linear_map::LinearMap::with_capacity(start_capacity);
-        $( map.insert($key, $val); )*
+        $( map.insert($key.to_string(), $val.to_string()); )*
         $crate::ParamsMap(map)
     });
 }
@@ -107,6 +107,25 @@ where
     fn into_param(value: Option<&str>, name: &str) -> Result<Self, ParamsError>;
 }
 
+impl<T> IntoParam for Option<T>
+where
+    T: FromStr,
+    <T as FromStr>::Err: std::error::Error + 'static,
+{
+    fn into_param(value: Option<&str>, _name: &str) -> Result<Self, ParamsError> {
+        match value {
+            None => Ok(None),
+            Some(value) => match T::from_str(value) {
+                Ok(value) => Ok(Some(value)),
+                Err(e) => {
+                    eprintln!("{e}");
+                    Err(ParamsError::Params(Rc::new(e)))
+                }
+            },
+        }
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(not(feature = "stable"))] {
         auto trait NotOption {}
@@ -115,36 +134,6 @@ cfg_if::cfg_if! {
         impl<T> IntoParam for T
         where
             T: FromStr + NotOption,
-            <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-        {
-            fn into_param(value: Option<&str>, name: &str) -> Result<Self, ParamsError> {
-                let value = value.ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
-                Self::from_str(value).map_err(|e| ParamsError::Params(Rc::new(e)))
-            }
-        }
-
-        impl<T> IntoParam for Option<T>
-        where
-            T: FromStr,
-            <T as FromStr>::Err: std::error::Error + 'static,
-        {
-            fn into_param(value: Option<&str>, _name: &str) -> Result<Self, ParamsError> {
-                match value {
-                    None => Ok(None),
-                    Some(value) => match T::from_str(value) {
-                        Ok(value) => Ok(Some(value)),
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            Err(ParamsError::Params(Rc::new(e)))
-                        }
-                    },
-                }
-            }
-        }
-    } else {
-        impl<T> IntoParam for T
-        where
-            T: FromStr,
             <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
         {
             fn into_param(value: Option<&str>, name: &str) -> Result<Self, ParamsError> {

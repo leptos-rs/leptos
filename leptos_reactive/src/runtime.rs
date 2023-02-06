@@ -1,7 +1,8 @@
+#![forbid(unsafe_code)]
 use crate::{
-    hydration::SharedContext, serialization::Serializable, AnyEffect, AnyResource, Effect,
-    EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SignalId, WriteSignal,
+    hydration::SharedContext, AnyEffect, AnyResource, Effect, EffectId, Memo, ReadSignal,
+    ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId, ScopeProperty,
+    SerializableResource, SignalId, UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -33,19 +34,19 @@ cfg_if! {
 
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
-pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> T {
+pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
     // in the browser, everything should exist under one runtime
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             _ = id;
-            RUNTIME.with(|runtime| f(runtime))
+            Ok(RUNTIME.with(|runtime| f(runtime)))
         } else {
             RUNTIMES.with(|runtimes| {
                 let runtimes = runtimes.borrow();
-                let runtime = runtimes
-                    .get(id)
-                    .expect("Tried to access a Runtime that no longer exists.");
-                f(runtime)
+                match runtimes.get(id) {
+                    None => Err(()),
+                    Some(runtime) => Ok(f(runtime))
+                }
             })
         }
     }
@@ -75,15 +76,7 @@ impl RuntimeId {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
                 let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self));
-                if let Some(runtime) = runtime {
-                    for (scope_id, _) in runtime.scopes.borrow().iter() {
-                        let scope = Scope {
-                            runtime: self,
-                            id: scope_id,
-                        };
-                        scope.dispose();
-                    }
-                }
+                drop(runtime);
             }
         }
     }
@@ -95,6 +88,7 @@ impl RuntimeId {
             let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
             (scope, disposer)
         })
+        .expect("tried to create raw scope in a runtime that has already been disposed")
     }
 
     pub(crate) fn run_scope_undisposed<T>(
@@ -112,6 +106,7 @@ impl RuntimeId {
             let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
             (val, id, disposer)
         })
+        .expect("tried to run scope in a runtime that has been disposed")
     }
 
     pub(crate) fn run_scope<T>(self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
@@ -120,26 +115,33 @@ impl RuntimeId {
         ret
     }
 
+    #[track_caller]
+    pub(crate) fn create_concrete_signal(self, value: Rc<RefCell<dyn Any>>) -> SignalId {
+        with_runtime(self, |runtime| runtime.signals.borrow_mut().insert(value))
+            .expect("tried to create a signal in a runtime that has been disposed")
+    }
+
+    #[track_caller]
     pub(crate) fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
     where
         T: Any + 'static,
     {
-        let id = with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
-        });
+        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
+
         (
             ReadSignal {
                 runtime: self,
                 id,
                 ty: PhantomData,
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self,
                 id,
                 ty: PhantomData,
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
             },
         )
     }
@@ -148,38 +150,50 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
-        });
+        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
         RwSignal {
             runtime: self,
             id,
             ty: PhantomData,
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
         }
     }
 
+    #[track_caller]
+    pub(crate) fn create_concrete_effect(self, effect: Rc<dyn AnyEffect>) -> EffectId {
+        with_runtime(self, |runtime| runtime.effects.borrow_mut().insert(effect))
+            .expect("tried to create an effect in a runtime that has been disposed")
+    }
+
+    #[track_caller]
     pub(crate) fn create_effect<T>(self, f: impl Fn(Option<T>) -> T + 'static) -> EffectId
     where
         T: Any + 'static,
     {
-        with_runtime(self, |runtime| {
-            let effect = Effect {
-                f,
-                value: RefCell::new(None),
-            };
-            let id = { runtime.effects.borrow_mut().insert(Rc::new(effect)) };
-            id.run::<T>(self);
-            id
-        })
+        #[cfg(debug_assertions)]
+        let defined_at = std::panic::Location::caller();
+
+        let effect = Effect {
+            f,
+            value: RefCell::new(None),
+            #[cfg(debug_assertions)]
+            defined_at,
+        };
+
+        let id = self.create_concrete_effect(Rc::new(effect));
+        id.run(self);
+        id
     }
 
+    #[track_caller]
     pub(crate) fn create_memo<T>(self, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
     where
         T: PartialEq + Any + 'static,
     {
+        #[cfg(debug_assertions)]
+        let defined_at = std::panic::Location::caller();
+
         let (read, write) = self.create_signal(None);
 
         self.create_effect(move |_| {
@@ -194,13 +208,17 @@ impl RuntimeId {
             }
         });
 
-        Memo(read)
+        Memo(
+            read,
+            #[cfg(debug_assertions)]
+            defined_at,
+        )
     }
 }
 
 #[derive(Default)]
 pub(crate) struct Runtime {
-    pub shared_context: RefCell<Option<SharedContext>>,
+    pub shared_context: RefCell<SharedContext>,
     pub observer: Cell<Option<EffectId>>,
     pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
     pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
@@ -237,57 +255,22 @@ impl Runtime {
         Self::default()
     }
 
-    pub(crate) fn create_unserializable_resource<S, T>(
+    pub(crate) fn create_unserializable_resource(
         &self,
-        state: Rc<ResourceState<S, T>>,
-    ) -> ResourceId
-    where
-        S: Debug + Clone + 'static,
-        T: Debug + 'static,
-    {
+        state: Rc<dyn UnserializableResource>,
+    ) -> ResourceId {
         self.resources
             .borrow_mut()
             .insert(AnyResource::Unserializable(state))
     }
 
-    pub(crate) fn create_serializable_resource<S, T>(
+    pub(crate) fn create_serializable_resource(
         &self,
-        state: Rc<ResourceState<S, T>>,
-    ) -> ResourceId
-    where
-        S: Debug + Clone + 'static,
-        T: Debug + Serializable + 'static,
-    {
+        state: Rc<dyn SerializableResource>,
+    ) -> ResourceId {
         self.resources
             .borrow_mut()
             .insert(AnyResource::Serializable(state))
-    }
-
-    #[cfg(feature = "hydrate")]
-    pub fn start_hydration(&self, element: &web_sys::Element) {
-        use wasm_bindgen::{JsCast, UnwrapThrowExt};
-
-        // gather hydratable elements
-        let mut registry = HashMap::new();
-        if let Ok(templates) = element.query_selector_all("*[data-hk]") {
-            for i in 0..templates.length() {
-                let node = templates
-                    .item(i)
-                    .unwrap_throw() // ok to unwrap; we already have the index, so this can't fail
-                    .unchecked_into::<web_sys::Element>();
-                let key = node.get_attribute("data-hk").unwrap_throw();
-                registry.insert(key, node);
-            }
-        }
-
-        *self.shared_context.borrow_mut() = Some(SharedContext::new_with_registry(registry));
-    }
-
-    #[cfg(feature = "hydrate")]
-    pub fn end_hydration(&self) {
-        if let Some(ref mut sc) = *self.shared_context.borrow_mut() {
-            sc.context = None;
-        }
     }
 
     pub(crate) fn resource<S, T, U>(
@@ -296,8 +279,8 @@ impl Runtime {
         f: impl FnOnce(&ResourceState<S, T>) -> U,
     ) -> U
     where
-        S: Debug + 'static,
-        T: Debug + 'static,
+        S: 'static,
+        T: 'static,
     {
         let resources = self.resources.borrow();
         let res = resources.get(id);
@@ -328,6 +311,21 @@ impl Runtime {
             .borrow()
             .iter()
             .map(|(resource_id, _)| resource_id)
+            .collect()
+    }
+
+    /// Returns IDs for all [Resource]s found on any scope, pending from the server.
+    pub(crate) fn pending_resources(&self) -> Vec<ResourceId> {
+        self.resources
+            .borrow()
+            .iter()
+            .filter_map(|(resource_id, res)| {
+                if matches!(res, AnyResource::Serializable(_)) {
+                    Some(resource_id)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 

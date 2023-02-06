@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::*;
+use leptos::{component, view, IntoView, Scope};
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -10,25 +10,25 @@ use routes::story::*;
 use routes::users::*;
 
 #[component]
-pub fn App(cx: Scope) -> Element {
-    provide_context(cx, MetaContext::default());
-
+pub fn App(cx: Scope) -> impl IntoView {
+    provide_meta_context(cx);
     view! {
         cx,
-        <div>
-            <Stylesheet href="/style.css"/>
+        <>
+            <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
+            <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
             <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
             <Router>
                 <Nav />
                 <main>
                     <Routes>
-                        <Route path="users/:id" element=|cx| view! { cx,  <User/> }/>
-                        <Route path="stories/:id" element=|cx| view! { cx,  <Story/> }/>
-                        <Route path="*stories" element=|cx| view! { cx,  <Stories/> }/>
+                        <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
+                        <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
+                        <Route path=":stories?" view=|cx| view! { cx,  <Stories/> }/>
                     </Routes>
                 </main>
             </Router>
-        </div>
+        </>
     }
 }
 
@@ -41,7 +41,7 @@ cfg_if! {
         pub fn hydrate() {
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
-            leptos::hydrate(body().unwrap(), move |cx| {
+            leptos::mount_to_body(move |cx| {
                 view! { cx, <App/> }
             });
         }
