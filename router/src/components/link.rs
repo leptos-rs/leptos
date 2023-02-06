@@ -63,7 +63,7 @@ pub fn A<H>(
     replace: bool,
     /// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
     #[prop(optional, into)]
-    class: Option<MaybeSignal<String>>,
+    class: Option<AttributeValue>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -76,7 +76,7 @@ where
         exact: bool,
         state: Option<State>,
         replace: bool,
-        class: Option<MaybeSignal<String>>,
+        class: Option<AttributeValue>,
         children: Children,
     ) -> HtmlElement<A> {
         let location = use_location(cx);
@@ -104,7 +104,7 @@ where
                 prop:state={state.map(|s| s.to_js_value())}
                 prop:replace={replace}
                 aria-current=move || if is_active.get() { Some("page") } else { None }
-                class=move || class.as_ref().map(|class| class.get())
+                class=class
             >
                 {children(cx)}
             </a>
