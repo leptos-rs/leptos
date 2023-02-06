@@ -179,11 +179,11 @@ pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 
 /// A type for taking anything that implements [`IntoAttribute`].
 /// Very usefull inside components.
-/// 
+///
 /// ## Example
 /// ```rust
 /// use leptos::*;
-/// 
+///
 /// #[component]
 /// pub fn MyHeading(
 ///   cx: Scope,

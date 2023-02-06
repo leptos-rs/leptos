@@ -189,8 +189,8 @@ impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
 impl IntoAttribute for (Scope, Option<Box<dyn IntoAttribute>>) {
   fn into_attribute(self, _: Scope) -> Attribute {
     match self.1 {
-        Some(bx) => bx.into_attribute_boxed(self.0),
-        None => Attribute::Option(self.0, None),
+      Some(bx) => bx.into_attribute_boxed(self.0),
+      None => Attribute::Option(self.0, None),
     }
   }
 
