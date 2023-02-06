@@ -45,8 +45,10 @@
 //!           // LR will enhance the active <a> link with the [aria-current] attribute
 //!           // we can use this for styling them with CSS like `[aria-current] { font-weight: bold; }`
 //!           <A href="contacts">"Contacts"</A>
-//!           <A href="about">"About"</A>
-//!           <A href="settings">"Settings"</A>
+//!           // But we can also use a normal class attribute like it is a normal component
+//!           <A href="settings" class="my-class">"Settings"</A>
+//!           // It also supports signals!
+//!           <A href="about" class=move || "my-class">"About"</A>
 //!         </nav>
 //!         <main>
 //!           // <Routes/> both defines our routes and shows them on the page
