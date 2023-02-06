@@ -32,6 +32,9 @@ pub fn Form<A>(
     #[prop(optional)]
     #[allow(clippy::type_complexity)]
     on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
     #[prop(optional)]
@@ -52,6 +55,7 @@ where
         error: Option<RwSignal<Option<Box<dyn Error>>>>,
         #[allow(clippy::type_complexity)] on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
         #[allow(clippy::type_complexity)] on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+        class: Option<Attribute>,
         children: Children,
     ) -> HtmlElement<Form> {
         let action_version = version;
@@ -128,6 +132,7 @@ where
                 action=move || action.get()
                 enctype=enctype
                 on:submit=on_submit
+                class=class
             >
                 {children(cx)}
             </form>
@@ -135,6 +140,7 @@ where
     }
 
     let action = use_resolved_path(cx, move || action.to_href()());
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     inner(
         cx,
         method,
@@ -144,6 +150,7 @@ where
         error,
         on_form_data,
         on_response,
+        class,
         children,
     )
 }
@@ -158,6 +165,9 @@ pub fn ActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: Action<I, Result<O, ServerFnError>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -208,7 +218,7 @@ where
             action.set_pending(false);
         });
     });
-
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     Form(
         cx,
         FormProps::builder()
@@ -217,6 +227,7 @@ where
             .on_form_data(on_form_data)
             .on_response(on_response)
             .method("post")
+            .class(class)
             .children(children)
             .build(),
     )
@@ -232,6 +243,9 @@ pub fn MultiActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: MultiAction<I, Result<O, ServerFnError>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -265,10 +279,12 @@ where
         }
     };
 
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     view! { cx,
         <form
             method="POST"
             action=action
+            class=class
             on:submit=on_submit
         >
             {children(cx)}
