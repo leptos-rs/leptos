@@ -9,7 +9,7 @@ use crate::{ElementDescriptor, HtmlElement};
 /// # use leptos::*;
 /// #[component]
 /// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///   let input_ref = NodeRef::<HtmlElement<Input>>::new(cx);
+///   let input_ref = NodeRef::<Input>::new(cx);
 ///
 ///   let on_click = move |_| {
 ///     let node = input_ref
