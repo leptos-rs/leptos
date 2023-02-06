@@ -10,7 +10,7 @@
   - [Forms and Inputs](./view/05_forms.md)
   - [Control Flow](./view/06_control_flow.md)
   - [Error Handling](./view/07_errors.md)
-  - [Parent-Child Communication]()
+  - [Parent-Child Communication](./view/08_parent_child.md)
   - [Passing Children to Components]()
 - [Interlude: Reactivity and Functions]()
 - [Testing]()
