@@ -8,7 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 actix-files = { version = "0.6.2", optional = true }
-actix-web = { version = "4.2.1", optional = true, features = ["openssl", "macros"] }
+actix-web = { version = "4.2.1", optional = true, features = ["macros"] }
 anyhow = "1.0.68"
 broadcaster = "1.0.0"
 console_log = "0.2.0"
@@ -49,26 +49,26 @@ skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
-output-name = "todo_app_sqlite"	
+output-name = "todo_app_sqlite"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
 # Defaults to pkg	
-site-pkg-dir = "pkg" 	
+site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
 style-file = "./style.css"
 # [Optional] Files in the asset-dir will be copied to the site-root directory
 assets-dir = "public"
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "127.0.0.1:3000"	
+site-addr = "127.0.0.1:3000"
 # The port to use for automatic reload monitoring
-reload-port = 3001	
+reload-port = 3001
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
 end2end-cmd = "npx playwright test"
 #  The browserlist query used for optimizing the CSS.
-browserquery = "defaults" 	
+browserquery = "defaults"
 # Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head
-watch = false 	
+watch = false
 # The environment Leptos will run in, usually either "DEV" or "PROD"
 env = "DEV"
 # The features to use when compiling the bin target
