@@ -32,7 +32,7 @@ pub fn Form<A>(
     #[prop(optional)]
     #[allow(clippy::type_complexity)]
     on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
-    /// A class attribute for styling the form.
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<Box<dyn IntoAttribute>>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
@@ -165,7 +165,7 @@ pub fn ActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: Action<I, Result<O, ServerFnError>>,
-    /// A class attribute for styling the form.
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<Box<dyn IntoAttribute>>,
     /// Component children; should include the HTML of the form elements.
@@ -243,7 +243,7 @@ pub fn MultiActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: MultiAction<I, Result<O, ServerFnError>>,
-    /// A class attribute for styling the form.
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<Box<dyn IntoAttribute>>,
     /// Component children; should include the HTML of the form elements.
