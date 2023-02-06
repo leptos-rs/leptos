@@ -400,7 +400,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
   }
 
   /// Binds the element reference to [`NodeRef`].
-  pub fn node_ref(self, node_ref: &NodeRef<Self>) -> Self
+  pub fn node_ref(self, node_ref: NodeRef<El>) -> Self
   where
     Self: Clone,
   {
