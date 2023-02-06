@@ -124,15 +124,21 @@ impl IntoAttribute for Attribute {
   }
 }
 
+macro_rules! impl_into_attr_boxed {
+  () => {
+    #[inline]
+    fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
+      self.into_attribute(cx)
+    }
+  };
+}
+
 impl IntoAttribute for Option<Attribute> {
   fn into_attribute(self, cx: Scope) -> Attribute {
     self.unwrap_or(Attribute::Option(cx, None))
   }
 
-  #[inline]
-  fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-    self.into_attribute(cx)
-  }
+  impl_into_attr_boxed! {}
 }
 
 impl IntoAttribute for String {
@@ -140,10 +146,7 @@ impl IntoAttribute for String {
     Attribute::String(self)
   }
 
-  #[inline]
-  fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-    self.into_attribute(cx)
-  }
+  impl_into_attr_boxed! {}
 }
 
 impl IntoAttribute for bool {
@@ -151,10 +154,7 @@ impl IntoAttribute for bool {
     Attribute::Bool(self)
   }
 
-  #[inline]
-  fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-    self.into_attribute(cx)
-  }
+  impl_into_attr_boxed! {}
 }
 
 impl IntoAttribute for Option<String> {
@@ -162,10 +162,7 @@ impl IntoAttribute for Option<String> {
     Attribute::Option(cx, self)
   }
 
-  #[inline]
-  fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-    self.into_attribute(cx)
-  }
+  impl_into_attr_boxed! {}
 }
 
 impl<T, U> IntoAttribute for T
@@ -178,10 +175,7 @@ where
     Attribute::Fn(cx, modified_fn)
   }
 
-  #[inline]
-  fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-    self.into_attribute(cx)
-  }
+  impl_into_attr_boxed! {}
 }
 
 impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
@@ -189,9 +183,7 @@ impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
     self.1.into_attribute(self.0)
   }
 
-  fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-    self.into_attribute(cx)
-  }
+  impl_into_attr_boxed! {}
 }
 
 macro_rules! attr_type {
@@ -211,6 +203,8 @@ macro_rules! attr_type {
       fn into_attribute(self, cx: Scope) -> Attribute {
         Attribute::Option(cx, self.map(|n| n.to_string()))
       }
+
+      #[inline]
       fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
         self.into_attribute(cx)
       }
