@@ -186,6 +186,25 @@ impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
   impl_into_attr_boxed! {}
 }
 
+impl IntoAttribute for (Scope, Option<Box<dyn IntoAttribute>>) {
+  fn into_attribute(self, _: Scope) -> Attribute {
+    match self.1 {
+        Some(bx) => bx.into_attribute_boxed(self.0),
+        None => Attribute::Option(self.0, None),
+    }
+  }
+
+  impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for (Scope, Box<dyn IntoAttribute>) {
+  fn into_attribute(self, _: Scope) -> Attribute {
+    self.1.into_attribute_boxed(self.0)
+  }
+
+  impl_into_attr_boxed! {}
+}
+
 macro_rules! attr_type {
   ($attr_type:ty) => {
     impl IntoAttribute for $attr_type {

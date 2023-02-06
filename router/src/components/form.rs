@@ -34,7 +34,7 @@ pub fn Form<A>(
     on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
-    class: Option<Box<dyn IntoAttribute>>,
+    class: Option<AttributeValue>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
     #[prop(optional)]
@@ -167,7 +167,7 @@ pub fn ActionForm<I, O>(
     action: Action<I, Result<O, ServerFnError>>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
-    class: Option<Box<dyn IntoAttribute>>,
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -245,7 +245,7 @@ pub fn MultiActionForm<I, O>(
     action: MultiAction<I, Result<O, ServerFnError>>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
-    class: Option<Box<dyn IntoAttribute>>,
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView

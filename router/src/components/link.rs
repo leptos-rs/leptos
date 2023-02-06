@@ -63,7 +63,7 @@ pub fn A<H>(
     replace: bool,
     /// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
     #[prop(optional, into)]
-    class: Option<Box<dyn IntoAttribute>>,
+    class: Option<AttributeValue>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -76,7 +76,7 @@ where
         exact: bool,
         state: Option<State>,
         replace: bool,
-        class: Option<Attribute>,
+        class: Option<AttributeValue>,
         children: Children,
     ) -> HtmlElement<A> {
         let location = use_location(cx);
@@ -112,6 +112,5 @@ where
     }
 
     let href = use_resolved_path(cx, move || href.to_href()());
-    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     inner(cx, href, exact, state, replace, class, children)
 }
