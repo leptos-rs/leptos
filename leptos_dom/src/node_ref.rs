@@ -1,4 +1,6 @@
-use leptos_reactive::{create_rw_signal, RwSignal, Scope};
+use std::cell::Cell;
+
+use leptos_reactive::{create_effect, create_rw_signal, RwSignal, Scope};
 
 use crate::{ElementDescriptor, HtmlElement};
 
@@ -72,6 +74,22 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
         );
       }
       *current = Some(node.clone());
+    });
+  }
+
+  /// Runs the provided closure when the `NodeRef` has been connected
+  /// with it's [`HtmlElement`].
+  pub fn on_load<F>(self, cx: Scope, f: F)
+  where
+    T: Clone,
+    F: FnOnce(HtmlElement<T>) + 'static,
+  {
+    let f = Cell::new(Some(f));
+
+    create_effect(cx, move |_| {
+      if let Some(node_ref) = self.get() {
+        f.take().unwrap()(node_ref);
+      }
     });
   }
 }
