@@ -214,4 +214,70 @@ text node, or updating a class or attribute), a `move || if ...` will be more
 efficient. But if it’s at all expensive to render either branch, reach for
 `<Show/>`.
 
+## Note: Type Conversions
+
+There‘s one final thing it’s important to say in this section.
+
+The `view` macro doesn’t return the most-generic wrapping type
+[`View`](https://docs.rs/leptos/latest/leptos/enum.View.html).
+Instead, it returns things with types like `Fragment` or `HtmlElement<Input>`. This
+can be a little annoying if you’re returning different HTML elements from
+different branches of a conditional:
+
+```rust,compile_error
+view! { cx,
+	<main>
+		{move || match is_odd() {
+			true if value() == 1 => {
+				// returns HtmlElement<Pre>
+				view! { cx, <pre>"One"</pre> }
+			},
+			false if value() == 2 => {
+				// returns HtmlElement<P>
+				view! { cx, <p>"Two"</p> }
+			}
+			// returns HtmlElement<Textarea>
+			_ => view! { cx, <textarea>{value()}</textarea> }
+		}}
+	</main>
+}
+```
+
+This strong typing is actually very powerful, because
+[`HtmlElement`](https://docs.rs/leptos/0.1.3/leptos/struct.HtmlElement.html) is,
+among other things, a smart pointer: each `HtmlElement<T>` type implements
+`Deref` for the appropriate underlying `web_sys` type. In other words, in the browser
+your `view` returns real DOM elements, and you can access native DOM methods on
+them.
+
+But it can be a little annoying in conditional logic like this, because you can’t
+return different types from different branches of a condition in Rust. There are two ways
+to get yourself out of this situation:
+
+1. If you have multiple `HtmlElement` types, convert them to `HtmlElement<AnyElement>`
+   with [`.into_any()`](https://docs.rs/leptos/latest/leptos/struct.HtmlElement.html#method.into_any)
+2. If you have a variety of view types that are not all `HtmlElement`, convert them to
+   `View`s with [`.into_view(cx)`](https://docs.rs/leptos/latest/leptos/trait.IntoView.html#tymethod.into_view).
+
+Here’s the same example, with the conversion added:
+
+```rust,compile_error
+view! { cx,
+	<main>
+		{move || match is_odd() {
+			true if value() == 1 => {
+				// returns HtmlElement<Pre>
+				view! { cx, <pre>"One"</pre> }.into_any()
+			},
+			false if value() == 2 => {
+				// returns HtmlElement<P>
+				view! { cx, <p>"Two"</p> }.into_any()
+			}
+			// returns HtmlElement<Textarea>
+			_ => view! { cx, <textarea>{value()}</textarea> }.into_any()
+		}}
+	</main>
+}
+```
+
 <iframe src="https://codesandbox.io/p/sandbox/6-control-flow-in-view-zttwfx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px"></iframe>
