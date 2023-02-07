@@ -29,7 +29,14 @@ pub fn App(cx: Scope) -> impl IntoView {
         cx,
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/errors_axum.css"/>
-        <Router>
+        <Router fallback=|cx| {
+            let mut outside_errors = Errors::default();
+            outside_errors.insert_with_default_key(AppError::NotFound);
+            view! { cx,
+                <ErrorTemplate outside_errors/>
+            }
+            .into_view(cx)
+        }>
             <header>
                 <h1>"Error Examples:"</h1>
             </header>
