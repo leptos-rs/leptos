@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName};
+use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
 
 use crate::{is_component_node, Mode};
 
@@ -307,9 +307,11 @@ fn element_to_tokens_ssr(
         template.push('<');
         template.push_str(&tag_name);
 
+        let mut inner_html = None;
+
         for attr in &node.attributes {
             if let Node::Attribute(attr) = attr {
-                attribute_to_tokens_ssr(cx, attr, template, holes, exprs_for_compiler);
+                inner_html = attribute_to_tokens_ssr(cx, attr, template, holes, exprs_for_compiler);
             }
         }
 
@@ -339,42 +341,52 @@ fn element_to_tokens_ssr(
             template.push_str("/>");
         } else {
             template.push('>');
-            for child in &node.children {
-                match child {
-                    Node::Element(child) => element_to_tokens_ssr(
-                        cx,
-                        child,
-                        template,
-                        holes,
-                        exprs_for_compiler,
-                        false,
-                        global_class,
-                    ),
-                    Node::Text(text) => {
-                        if let Some(value) = value_to_string(&text.value) {
-                            template.push_str(&html_escape::encode_safe(&value));
-                        } else {
-                            template.push_str("{}");
-                            let value = text.value.as_ref();
 
-                            holes.push(quote! {
-                              #value.into_view(#cx).render_to_string(#cx),
-                            })
+            if let Some(inner_html) = inner_html {
+                template.push_str("{}");
+                let value = inner_html.as_ref();
+
+                holes.push(quote! {
+                  (#value).into_attribute(cx).as_nameless_value_string().unwrap_or_default(),
+                })
+            } else {
+                for child in &node.children {
+                    match child {
+                        Node::Element(child) => element_to_tokens_ssr(
+                            cx,
+                            child,
+                            template,
+                            holes,
+                            exprs_for_compiler,
+                            false,
+                            global_class,
+                        ),
+                        Node::Text(text) => {
+                            if let Some(value) = value_to_string(&text.value) {
+                                template.push_str(&html_escape::encode_safe(&value));
+                            } else {
+                                template.push_str("{}");
+                                let value = text.value.as_ref();
+
+                                holes.push(quote! {
+                                  #value.into_view(#cx).render_to_string(#cx),
+                                })
+                            }
                         }
-                    }
-                    Node::Block(block) => {
-                        if let Some(value) = value_to_string(&block.value) {
-                            template.push_str(&value);
-                        } else {
-                            template.push_str("{}");
-                            let value = block.value.as_ref();
-                            holes.push(quote! {
-                              #value.into_view(#cx).render_to_string(#cx),
-                            })
+                        Node::Block(block) => {
+                            if let Some(value) = value_to_string(&block.value) {
+                                template.push_str(&value);
+                            } else {
+                                template.push_str("{}");
+                                let value = block.value.as_ref();
+                                holes.push(quote! {
+                                  #value.into_view(#cx).render_to_string(#cx),
+                                })
+                            }
                         }
+                        Node::Fragment(_) => todo!(),
+                        _ => {}
                     }
-                    Node::Fragment(_) => todo!(),
-                    _ => {}
                 }
             }
 
@@ -398,13 +410,14 @@ fn value_to_string(value: &syn_rsx::NodeValueExpr) -> Option<String> {
     }
 }
 
-fn attribute_to_tokens_ssr(
+// returns `inner_html`
+fn attribute_to_tokens_ssr<'a>(
     cx: &Ident,
-    node: &NodeAttribute,
+    node: &'a NodeAttribute,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
-) {
+) -> Option<&'a NodeValueExpr> {
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "node_ref" {
         // ignore refs on SSR
@@ -416,6 +429,8 @@ fn attribute_to_tokens_ssr(
     } else if name.strip_prefix("prop:").is_some() || name.strip_prefix("class:").is_some() {
         // ignore props for SSR
         // ignore classes: we'll handle these separately
+    } else if name == "inner_html" {
+        return node.value.as_ref();
     } else {
         let name = name.replacen("attr:", "", 1);
 
@@ -440,7 +455,8 @@ fn attribute_to_tokens_ssr(
                 }
             }
         }
-    }
+    };
+    None
 }
 
 fn set_class_attribute_ssr(
