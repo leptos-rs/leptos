@@ -13,13 +13,6 @@ async fn main() -> std::io::Result<()> {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> });
 
-    let mut builder =
-        openssl::ssl::SslAcceptor::mozilla_intermediate(openssl::ssl::SslMethod::tls()).unwrap();
-    builder
-        .set_private_key_file("key.pem", openssl::ssl::SslFiletype::PEM)
-        .unwrap();
-    builder.set_certificate_chain_file("cert.pem").unwrap();
-
     HttpServer::new(move || {
         let leptos_options = &conf.leptos_options;
         let site_root = &leptos_options.site_root;
@@ -58,25 +51,7 @@ async fn main() -> std::io::Result<()> {
                             <html>
                                 <head></head>
                                 <body>
-                                    <main>
-                                        <h1>"Hello, world!"</h1>
-                                        <div>
-                                            <Suspense fallback=|| "Loading...">
-                                                <p>
-                                                    "One second: "
-                                                    {format!("{:?}", one_second.read())}
-                                                </p>
-                                            </Suspense>
-                                        </div>
-                                        <div>
-                                            <Suspense fallback=|| "Loading...">
-                                                <p>
-                                                    "Three seconds: "
-                                                    {format!("{:?}", three_seconds.read())}
-                                                </p>
-                                            </Suspense>
-                                        </div>
-                                    </main>
+                                    <App/>
                                 </body>
                             </html>
                         }
@@ -99,9 +74,7 @@ async fn main() -> std::io::Result<()> {
             .service(Files::new("/", site_root))
         //.wrap(middleware::Compress::default())
     })
-    .bind_openssl(&addr, builder)?
-    //.bind(&addr)?
-    //.bind_rustls(&addr, load_certs().unwrap())?
+    .bind(&addr)?
     .run()
     .await
 }

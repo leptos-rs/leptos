@@ -1,4 +1,4 @@
-use crate::{HydrationCtx, View};
+use crate::{CoreComponent, HydrationCtx, View};
 use cfg_if::cfg_if;
 use futures::Stream;
 use itertools::Itertools;
@@ -148,123 +148,110 @@ impl View {
           }
         }
       }
-      View::Transparent(_) => Default::default(),
-      _ => todo!(), /* ,
-                    View::CoreComponent(node) => {
-                      let (id, name, wrap, content) = match node {
-                        CoreComponent::Unit(u) => (
-                          u.id.clone(),
-                          "",
-                          false,
-                          Box::new(move || {
-                            #[cfg(debug_assertions)]
-                            {
-                              format!(
-                                "<!--hk={}|leptos-unit-->",
-                                HydrationCtx::to_string(&u.id, true)
-                              )
-                              .into()
-                            }
+      View::Transparent(_) => {}
+      View::CoreComponent(node) => {
+        let (id, name, wrap, content) = match node {
+          CoreComponent::Unit(u) => (
+            u.id.clone(),
+            "",
+            false,
+            Box::new(move |chunks: &mut Vec<StreamChunk>| {
+              #[cfg(debug_assertions)]
+              {
+                chunks.push(StreamChunk::Sync(
+                  format!(
+                    "<!--hk={}|leptos-unit-->",
+                    HydrationCtx::to_string(&u.id, true)
+                  )
+                  .into(),
+                ));
+              }
 
-                            #[cfg(not(debug_assertions))]
-                            format!("<!--hk={}-->", HydrationCtx::to_string(&u.id, true))
-                              .into()
-                          }) as Box<dyn FnOnce() -> Cow<'static, str>>,
-                        ),
-                        CoreComponent::DynChild(node) => {
-                          let child = node.child.take();
-                          (
-                            node.id,
-                            "dyn-child",
-                            true,
-                            Box::new(move || {
-                              if let Some(child) = *child {
-                                // On debug builds, `DynChild` has two marker nodes,
-                                // so there is no way for the text to be merged with
-                                // surrounding text when the browser parses the HTML,
-                                // but in release, `DynChild` only has a trailing marker,
-                                // and the browser automatically merges the dynamic text
-                                // into one single node, so we need to artificially make the
-                                // browser create the dynamic text as it's own text node
-                                if let View::Text(t) = child {
-                                  if !cfg!(debug_assertions) {
-                                    format!("<!>{}", t.content).into()
-                                  } else {
-                                    t.content
-                                  }
-                                } else {
-                                  child.render_to_string_helper()
-                                }
-                              } else {
-                                "".into()
-                              }
-                            }) as Box<dyn FnOnce() -> Cow<'static, str>>,
-                          )
-                        }
-                        CoreComponent::Each(node) => {
-                          let children = node.children.take();
-                          (
-                            node.id,
-                            "each",
-                            true,
-                            Box::new(move || {
-                              children
-                                .into_iter()
-                                .flatten()
-                                .map(|node| {
-                                  let id = node.id;
+              #[cfg(not(debug_assertions))]
+              chunks.push(StreamChunk::Sync(
+                format!("<!--hk={}-->", HydrationCtx::to_string(&u.id, true))
+                  .into(),
+              ));
+            }) as Box<dyn FnOnce(&mut Vec<StreamChunk>)>,
+          ),
+          CoreComponent::DynChild(node) => {
+            let child = node.child.take();
+            (
+              node.id,
+              "dyn-child",
+              true,
+              Box::new(move |chunks: &mut Vec<StreamChunk>| {
+                if let Some(child) = *child {
+                  // On debug builds, `DynChild` has two marker nodes,
+                  // so there is no way for the text to be merged with
+                  // surrounding text when the browser parses the HTML,
+                  // but in release, `DynChild` only has a trailing marker,
+                  // and the browser automatically merges the dynamic text
+                  // into one single node, so we need to artificially make the
+                  // browser create the dynamic text as it's own text node
+                  if let View::Text(t) = child {
+                    chunks.push(if !cfg!(debug_assertions) {
+                      StreamChunk::Sync(format!("<!>{}", t.content).into())
+                    } else {
+                      StreamChunk::Sync(t.content)
+                    });
+                  } else {
+                    child.into_stream_chunks_helper(cx, chunks);
+                  }
+                }
+              }) as Box<dyn FnOnce(&mut Vec<StreamChunk>)>,
+            )
+          }
+          CoreComponent::Each(node) => {
+            let children = node.children.take();
+            (
+              node.id,
+              "each",
+              true,
+              Box::new(move |chunks: &mut Vec<StreamChunk>| {
+                for node in children.into_iter().flatten() {
+                  let id = node.id;
 
-                                  let content = || node.child.render_to_string_helper();
+                  #[cfg(debug_assertions)]
+                  {
+                    chunks.push(StreamChunk::Sync(
+                      format!(
+                        "<!--hk={}|leptos-each-item-start-->",
+                        HydrationCtx::to_string(&id, false)
+                      )
+                      .into(),
+                    ));
+                    node.child.into_stream_chunks_helper(cx, chunks);
+                    chunks.push(StreamChunk::Sync(
+                      format!(
+                        "<!--hk={}|leptos-each-item-end-->",
+                        HydrationCtx::to_string(&id, true)
+                      )
+                      .into(),
+                    ));
+                  }
+                }
+              }) as Box<dyn FnOnce(&mut Vec<StreamChunk>)>,
+            )
+          }
+        };
 
-                                  #[cfg(debug_assertions)]
-                                  {
-                                    format!(
-                                      "<!--hk={}|leptos-each-item-start-->{}<!\
-                                       --hk={}|leptos-each-item-end-->",
-                                      HydrationCtx::to_string(&id, false),
-                                      content(),
-                                      HydrationCtx::to_string(&id, true),
-                                    )
-                                  }
-
-                                  #[cfg(not(debug_assertions))]
-                                  format!(
-                                    "{}<!--hk={}-->",
-                                    content(),
-                                    HydrationCtx::to_string(&id, true)
-                                  )
-                                })
-                                .join("")
-                                .into()
-                            }) as Box<dyn FnOnce() -> Cow<'static, str>>,
-                          )
-                        }
-                      };
-
-                      if wrap {
-                        cfg_if! {
-                          if #[cfg(debug_assertions)] {
-                            format!(
-                              r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
-                              HydrationCtx::to_string(&id, false),
-                              content(),
-                              HydrationCtx::to_string(&id, true),
-                            ).into()
-                          } else {
-                            let _ = name;
-
-                            format!(
-                              r#"{}<!--hk={}-->"#,
-                              content(),
-                              HydrationCtx::to_string(&id, true)
-                            ).into()
-                          }
-                        }
-                      } else {
-                        content()
-                      }
-                    }
-                    , */
+        if wrap {
+          cfg_if! {
+            if #[cfg(debug_assertions)] {
+              chunks.push(StreamChunk::Sync(format!("<!--hk={}|leptos-{name}-start-->", HydrationCtx::to_string(&id, false)).into()));
+              content(chunks);
+              chunks.push(StreamChunk::Sync(format!("<!--hk={}|leptos-{name}-end-->", HydrationCtx::to_string(&id, true)).into()));
+            } else {
+              let _ = name;
+              content(chunks);
+              chunks.push(StreamChunk::Sync(format!("<!--hk={}-->", HydrationCtx::to_string(&id, true)).into()))
+            }
+          }
+        } else {
+          content(chunks);
+        }
+      }
     }
   }
 }
