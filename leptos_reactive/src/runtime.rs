@@ -314,7 +314,7 @@ impl Runtime {
         }
     }
 
-    /// Returns IDs for all [Resource]s found on any scope.
+    /// Returns IDs for all [resources](crate::Resource) found on any scope.
     pub(crate) fn all_resources(&self) -> Vec<ResourceId> {
         self.resources
             .borrow()
@@ -323,7 +323,8 @@ impl Runtime {
             .collect()
     }
 
-    /// Returns IDs for all [Resource]s found on any scope, pending from the server.
+    /// Returns IDs for all [resources](crate::Resource) found on any
+    /// scope, pending from the server.
     pub(crate) fn pending_resources(&self) -> Vec<ResourceId> {
         self.resources
             .borrow()
