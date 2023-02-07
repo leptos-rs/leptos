@@ -399,6 +399,12 @@ where
     Dynamic(Signal<T>),
 }
 
+impl<T: Default> Default for MaybeSignal<T> {
+    fn default() -> Self {
+        Self::Static(Default::default())
+    }
+}
+
 impl<T> UntrackedGettableSignal<T> for MaybeSignal<T>
 where
     T: 'static,
@@ -577,6 +583,12 @@ impl<T> From<Memo<T>> for MaybeSignal<T> {
 impl<T> From<Signal<T>> for MaybeSignal<T> {
     fn from(value: Signal<T>) -> Self {
         Self::Dynamic(value)
+    }
+}
+
+impl From<&str> for MaybeSignal<String> {
+    fn from(value: &str) -> Self {
+        Self::Static(value.to_string())
     }
 }
 

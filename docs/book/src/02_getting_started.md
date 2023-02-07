@@ -1,37 +1,48 @@
 # Getting Started
 
-> The code for this chapter can be found [here](https://github.com/leptos-rs/leptos/tree/main/docs/book/project/ch02_getting_started).
+There are two basic paths to getting started with Leptos:
+1. Client-side rendering with [Trunk](https://trunkrs.dev/)
+2. Full-stack rendering with [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos)
 
-The easiest way to get started using Leptos is to use [Trunk](https://trunkrs.dev/), as many of our [examples](https://github.com/leptos-rs/leptos/tree/main/examples) do. (Trunk is a simple build tool that includes a dev server.)
+For the early examples, it will be easiest to begin with Trunk. We’ll introduce
+`cargo-leptos` a little later in this series.
+
 
 If you don’t already have it installed, you can install Trunk by running
 
 ```bash
-cargo install --lock trunk
+cargo install trunk
 ```
 
 Create a basic Rust binary project
 
 ```bash
-cargo init leptos-todo
+cargo init leptos-tutorial
 ```
 
-Add `leptos` as a dependency to your `Cargo.toml` with the `csr` featured enabled. (That stands for “client-side rendering.” We’ll talk more about Leptos’s support for server-side rendering and hydration later.)
-
-```toml
-leptos = "0.0"
+`cd` into your new `leptos-tutorial` project and add `leptos` as a dependency 
+```bash
+cargo add leptos
 ```
 
-You’ll want to set up a basic `index.html` with the following content:
-
+Create a simple `index.html` in the root of the `leptos-tutorial` directory
 ```html
-{{#include ../project/ch02_getting_started/index.html}}
+<!DOCTYPE html>
+<html>
+  <head></head>
+  <body></body>
+</html>
 ```
 
-Let’s start with a very simple `main.rs`
+And add a simple “Hello, world!” to your `main.rs`
+```rust 
+use leptos::*;
 
-```rust
-{{#include ../project/ch02_getting_started/src/main.rs}}
+fn main() {
+    mount_to_body(|_cx| view! { cx,  <p>"Hello, world!"</p> })
+}
 ```
 
-Now run `trunk serve --open`. Trunk should automatically compile your app and open it in your default browser. If you make edits to `main.rs`, Trunk will recompile your source code and live-reload the page.
+Now run `trunk serve --open`. Trunk should automatically compile your app and 
+open it in your default browser. If you make edits to `main.rs`, Trunk will 
+recompile your source code and live-reload the page.

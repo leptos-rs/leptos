@@ -1,11 +1,11 @@
-use crate::{HydrationCtx, HydrationKey, IntoView};
+use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{use_context, RwSignal};
 use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
-pub struct Errors(pub HashMap<HydrationKey, Arc<dyn Error + Send + Sync>>);
+pub struct Errors(pub HashMap<String, Arc<dyn Error + Send + Sync>>);
 
 impl<T, E> IntoView for Result<T, E>
 where
@@ -13,12 +13,20 @@ where
   E: Error + Send + Sync + 'static,
 {
   fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
+    let id = HydrationCtx::peek().previous;
+    let errors = use_context::<RwSignal<Errors>>(cx);
     match self {
-      Ok(stuff) => stuff.into_view(cx),
+      Ok(stuff) => {
+        if let Some(errors) = errors {
+          errors.update(|errors| {
+            errors.0.remove(&id);
+          });
+        }
+        stuff.into_view(cx)
+      }
       Err(error) => {
-        match use_context::<RwSignal<Errors>>(cx) {
+        match errors {
           Some(errors) => {
-            let id = HydrationCtx::id();
             errors.update({
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               let id = id.clone();
@@ -34,7 +42,6 @@ where
                 on_cleanup(cx, move || {
                   queue_microtask(move || {
                     errors.update(|errors: &mut Errors| {
-                      crate::log!("removing error at {id}");
                       errors.remove::<E>(&id);
                     });
                   });
@@ -57,7 +64,7 @@ where
 }
 impl Errors {
   /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
-  pub fn insert<E>(&mut self, key: HydrationKey, error: E)
+  pub fn insert<E>(&mut self, key: String, error: E)
   where
     E: Error + Send + Sync + 'static,
   {
@@ -68,10 +75,10 @@ impl Errors {
   where
     E: Error + Send + Sync + 'static,
   {
-    self.0.insert(HydrationKey::default(), Arc::new(error));
+    self.0.insert(String::new(), Arc::new(error));
   }
   /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
-  pub fn remove<E>(&mut self, key: &HydrationKey)
+  pub fn remove<E>(&mut self, key: &str)
   where
     E: Error + Send + Sync + 'static,
   {

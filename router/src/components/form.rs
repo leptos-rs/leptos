@@ -32,6 +32,9 @@ pub fn Form<A>(
     #[prop(optional)]
     #[allow(clippy::type_complexity)]
     on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
     #[prop(optional)]
@@ -43,86 +46,113 @@ pub fn Form<A>(
 where
     A: ToHref + 'static,
 {
-    let action_version = version;
-    let action = use_resolved_path(cx, move || action.to_href()());
+    fn inner(
+        cx: Scope,
+        method: Option<&'static str>,
+        action: Memo<Option<String>>,
+        enctype: Option<String>,
+        version: Option<RwSignal<usize>>,
+        error: Option<RwSignal<Option<Box<dyn Error>>>>,
+        #[allow(clippy::type_complexity)] on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+        #[allow(clippy::type_complexity)] on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+        class: Option<Attribute>,
+        children: Children,
+    ) -> HtmlElement<Form> {
+        let action_version = version;
+        let on_submit = move |ev: web_sys::SubmitEvent| {
+            if ev.default_prevented() {
+                return;
+            }
+            let navigate = use_navigate(cx);
 
-    let on_submit = move |ev: web_sys::SubmitEvent| {
-        if ev.default_prevented() {
-            return;
-        }
-        let navigate = use_navigate(cx);
+            let (form, method, action, enctype) = extract_form_attributes(&ev);
 
-        let (form, method, action, enctype) = extract_form_attributes(&ev);
+            let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+            if let Some(on_form_data) = on_form_data.clone() {
+                on_form_data(&form_data);
+            }
+            let params =
+                web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+            let action = use_resolved_path(cx, move || action.clone())
+                .get()
+                .unwrap_or_default();
+            // POST
+            if method == "post" {
+                ev.prevent_default();
 
-        let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
-        if let Some(on_form_data) = on_form_data.clone() {
-            on_form_data(&form_data);
-        }
-        let params =
-            web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
-        let action = use_resolved_path(cx, move || action.clone())
-            .get()
-            .unwrap_or_default();
-        // POST
-        if method == "post" {
-            ev.prevent_default();
-
-            let on_response = on_response.clone();
-            spawn_local(async move {
-                let res = gloo_net::http::Request::post(&action)
-                    .header("Accept", "application/json")
-                    .header("Content-Type", &enctype)
-                    .body(params)
-                    .send()
-                    .await;
-                match res {
-                    Err(e) => {
-                        log::error!("<Form/> error while POSTing: {e:#?}");
-                        if let Some(error) = error {
-                            error.set(Some(Box::new(e)));
+                let on_response = on_response.clone();
+                spawn_local(async move {
+                    let res = gloo_net::http::Request::post(&action)
+                        .header("Accept", "application/json")
+                        .header("Content-Type", &enctype)
+                        .body(params)
+                        .send()
+                        .await;
+                    match res {
+                        Err(e) => {
+                            log::error!("<Form/> error while POSTing: {e:#?}");
+                            if let Some(error) = error {
+                                error.set(Some(Box::new(e)));
+                            }
                         }
-                    }
-                    Ok(resp) => {
-                        if let Some(version) = action_version {
-                            version.update(|n| *n += 1);
-                        }
-                        if let Some(error) = error {
-                            error.set(None);
-                        }
-                        if let Some(on_response) = on_response.clone() {
-                            on_response(resp.as_raw());
-                        }
+                        Ok(resp) => {
+                            if let Some(version) = action_version {
+                                version.update(|n| *n += 1);
+                            }
+                            if let Some(error) = error {
+                                error.set(None);
+                            }
+                            if let Some(on_response) = on_response.clone() {
+                                on_response(resp.as_raw());
+                            }
 
-                        if resp.status() == 303 {
-                            if let Some(redirect_url) = resp.headers().get("Location") {
-                                _ = navigate(&redirect_url, Default::default());
+                            if resp.status() == 303 {
+                                if let Some(redirect_url) = resp.headers().get("Location") {
+                                    _ = navigate(&redirect_url, Default::default());
+                                }
                             }
                         }
                     }
-                }
-            });
-        }
-        // otherwise, GET
-        else {
-            let params = params.to_string().as_string().unwrap_or_default();
-            if navigate(&format!("{action}?{params}"), Default::default()).is_ok() {
-                ev.prevent_default();
+                });
             }
+            // otherwise, GET
+            else {
+                let params = params.to_string().as_string().unwrap_or_default();
+                if navigate(&format!("{action}?{params}"), Default::default()).is_ok() {
+                    ev.prevent_default();
+                }
+            }
+        };
+
+        let method = method.unwrap_or("get");
+
+        view! { cx,
+            <form
+                method=method
+                action=move || action.get()
+                enctype=enctype
+                on:submit=on_submit
+                class=class
+            >
+                {children(cx)}
+            </form>
         }
-    };
-
-    let method = method.unwrap_or("get");
-
-    view! { cx,
-        <form
-            method=method
-            action=move || action.get()
-            enctype=enctype
-            on:submit=on_submit
-        >
-            {children(cx)}
-        </form>
     }
+
+    let action = use_resolved_path(cx, move || action.to_href()());
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
+    inner(
+        cx,
+        method,
+        action,
+        enctype,
+        version,
+        error,
+        on_form_data,
+        on_response,
+        class,
+        children,
+    )
 }
 
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
@@ -135,6 +165,9 @@ pub fn ActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: Action<I, Result<O, ServerFnError>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -185,7 +218,7 @@ where
             action.set_pending(false);
         });
     });
-
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     Form(
         cx,
         FormProps::builder()
@@ -194,6 +227,7 @@ where
             .on_form_data(on_form_data)
             .on_response(on_response)
             .method("post")
+            .class(class)
             .children(children)
             .build(),
     )
@@ -209,6 +243,9 @@ pub fn MultiActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: MultiAction<I, Result<O, ServerFnError>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -242,10 +279,12 @@ where
         }
     };
 
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     view! { cx,
         <form
             method="POST"
             action=action
+            class=class
             on:submit=on_submit
         >
             {children(cx)}

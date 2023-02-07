@@ -230,6 +230,22 @@ mod server;
 /// # });
 /// ```
 ///
+/// 10. You can set any HTML element’s `innerHTML` with the `inner_html` attribute on an
+///     element. Be careful: this HTML will not be escaped, so you should ensure that it
+///     only contains trusted input.
+/// ```rust
+/// # use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let html = "<p>This HTML will be injected.</p>";
+/// view! { cx,
+///   <div inner_html=html/>
+/// }
+/// # ;
+/// # }
+/// # });
+/// ```
+///
 /// Here’s a simple example that shows off several of these features, put together
 /// ```rust
 /// # use leptos::*;
@@ -441,12 +457,14 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```
 ///
 /// 5. You can access the children passed into the component with the `children` property, which takes
-///    an argument of the form `Box<dyn FnOnce(Scope) -> Fragment>`.
+///    an argument of the type `Children`. This is an alias for `Box<dyn FnOnce(Scope) -> Fragment>`.
+///    If you need `children` to be a `Fn` or `FnMut`, you can use the `ChildrenFn` or `ChildrenFnMut`
+///    type aliases.
 ///
 /// ```
 /// # use leptos::*;
 /// #[component]
-/// fn ComponentWithChildren(cx: Scope, children: Box<dyn FnOnce(Scope) -> Fragment>) -> impl IntoView {
+/// fn ComponentWithChildren(cx: Scope, children: Children) -> impl IntoView {
 ///   view! {
 ///     cx,
 ///     <ul>

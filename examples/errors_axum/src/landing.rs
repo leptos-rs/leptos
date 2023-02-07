@@ -2,17 +2,14 @@ use crate::{
     error_template::{ErrorTemplate, ErrorTemplateProps},
     errors::AppError,
 };
-use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-cfg_if! { if #[cfg(feature = "ssr")] {
-    pub fn register_server_functions() {
-        _ = CauseInternalServerError::register();
-        _ = CauseNotFoundError::register();
-    }
-}}
+#[cfg(feature = "ssr")]
+pub fn register_server_functions() {
+    _ = CauseInternalServerError::register();
+}
 
 #[server(CauseInternalServerError, "/api")]
 pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
@@ -22,11 +19,6 @@ pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
     Err(ServerFnError::ServerError(
         "Generic Server Error".to_string(),
     ))
-}
-
-#[server(CauseNotFoundError, "/api")]
-pub async fn cause_not_found_error() -> Result<(), ServerFnError> {
-    Err(ServerFnError::ServerError("Not Found".to_string()))
 }
 
 #[component]
@@ -45,9 +37,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                 <Routes>
                     <Route path="" view=|cx| view! {
                         cx,
-                        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
-                            <ExampleErrors/>
-                        </ErrorBoundary>
+                        <ExampleErrors/>
                     }/>
                 </Routes>
             </main>
@@ -57,20 +47,29 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn ExampleErrors(cx: Scope) -> impl IntoView {
-    view! {
-            cx,
-            <p>
-                "This link will load a 404 page since it does not exist. Verify with browser development tools:"
-                <a href="/404">"This Page Does not Exist"</a>
-            </p>
-            <p>
-                "The following &ltdiv&gt will always contain an error and cause the page to produce status 500. Check browser dev tools. "
-            </p>
-            <div>
-            <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
-                <ReturnsError/>
-            </ErrorBoundary>
-            </div>
+    let generate_internal_error = create_server_action::<CauseInternalServerError>(cx);
+
+    view! { cx,
+        <p>
+            "These links will load 404 pages since they do not exist. Verify with browser development tools: " <br/>
+            <a href="/404">"This links to a page that does not exist"</a><br/>
+            <a href="/404" target="_blank">"Same link, but in a new tab"</a>
+        </p>
+        <p>
+            "After pressing this button check browser network tools. Can be used even when WASM is blocked:"
+            <ActionForm action=generate_internal_error>
+                <input name="error1" type="submit" value="Generate Internal Server Error"/>
+            </ActionForm>
+        </p>
+        <p>"The following <div> will always contain an error and cause this page to produce status 500. Check browser dev tools. "</p>
+        <div>
+        // note that the error boundries could be placed above in the Router or lower down
+        // in a particular route. The generated errors on the entire page contribue to the
+        // final status code sent by the server when producing ssr pages.
+        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
+            <ReturnsError/>
+        </ErrorBoundary>
+        </div>
     }
 }
 

@@ -172,3 +172,29 @@ pub type Children = Box<dyn FnOnce(Scope) -> Fragment>;
 /// A type for the `children` property on components that can be called
 /// more than once.
 pub type ChildrenFn = Box<dyn Fn(Scope) -> Fragment>;
+
+/// A type for the `children` property on components that can be called
+/// more than once, but may mutate the children.
+pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
+
+/// A type for taking anything that implements [`IntoAttribute`].
+/// Very usefull inside components.
+///
+/// ## Example
+/// ```rust
+/// use leptos::*;
+///
+/// #[component]
+/// pub fn MyHeading(
+///   cx: Scope,
+///   text: String,
+///   #[prop(optional, into)]
+///   class: Option<AttributeValue>
+/// ) -> impl IntoView {
+///   view!{
+///     cx,
+///     <h1 class=class>{text}</h1>
+///   }
+/// }
+/// ```
+pub type AttributeValue = Box<dyn IntoAttribute>;

@@ -269,7 +269,7 @@ pub fn handle_server_fns_with_context(
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-///     let addr = conf.leptos_options.site_address.clone();
+///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
 ///     
@@ -367,7 +367,7 @@ where
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-///     let addr = conf.leptos_options.site_address.clone();
+///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
 ///     
@@ -438,6 +438,7 @@ fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseO
     provide_context(cx, MetaContext::new());
     provide_context(cx, res_options);
     provide_context(cx, req.clone());
+    provide_server_redirect(cx, move |path| redirect(cx, path));
 }
 
 fn leptos_corrected_path(req: &HttpRequest) -> String {
@@ -486,22 +487,17 @@ async fn stream_app(
             .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
     );
 
-    // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+    // Get the first and second in the stream, which renders the app shell, and thus allows Resources to run
     let first_chunk = stream.next().await;
     let second_chunk = stream.next().await;
-    let third_chunk = stream.next().await;
 
     let res_options = res_options.0.read();
 
     let (status, mut headers) = (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
 
-    let complete_stream = futures::stream::iter([
-        first_chunk.unwrap(),
-        second_chunk.unwrap(),
-        third_chunk.unwrap(),
-    ])
-    .chain(stream);
+    let complete_stream =
+        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()]).chain(stream);
     let mut res = HttpResponse::Ok()
         .content_type("text/html")
         .streaming(complete_stream);
@@ -528,7 +524,7 @@ fn html_parts(options: &LeptosOptions, meta_context: Option<&MetaContext>) -> (S
         wasm_output_name.push_str("_bg");
     }
 
-    let site_ip = &options.site_address.ip().to_string();
+    let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
     let pkg_path = &options.site_pkg_dir;
 

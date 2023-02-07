@@ -200,7 +200,7 @@ where
 }
 
 impl EffectId {
-    pub(crate) fn run<T>(&self, runtime_id: RuntimeId) {
+    pub(crate) fn run(&self, runtime_id: RuntimeId) {
         _ = with_runtime(runtime_id, |runtime| {
             let effect = {
                 let effects = runtime.effects.borrow();

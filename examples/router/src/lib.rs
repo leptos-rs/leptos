@@ -20,6 +20,7 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 <A exact=true href="/">"Contacts"</A>
                 <A href="about">"About"</A>
                 <A href="settings">"Settings"</A>
+                <A href="redirect-home">"Redirect to Home"</A>
             </nav>
             <main>
                 <Routes>
@@ -43,6 +44,10 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                     <Route
                         path="settings"
                         view=move |cx| view! { cx,  <Settings/> }
+                    />
+                    <Route
+                        path="redirect-home"
+                        view=move |cx| view! { cx, <Redirect path="/"/> }
                     />
                 </Routes>
             </main>
