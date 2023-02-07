@@ -86,21 +86,19 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
     }
 }
 
+#[derive(Params, PartialEq, Clone, Debug)]
+pub struct ContactParams {
+    id: usize,
+}
+
 #[component]
 pub fn Contact(cx: Scope) -> impl IntoView {
     log::debug!("rendering <Contact/>");
 
-    let params = use_params_map(cx);
+    let params = use_params::<ContactParams>(cx);
     let contact = create_resource(
         cx,
-        move || {
-            params()
-                .get("id")
-                .cloned()
-                .unwrap_or_default()
-                .parse::<usize>()
-                .ok()
-        },
+        move || params().map(|params| params.id).ok(),
         // any of the following would work (they're identical)
         // move |id| async move { get_contact(id).await }
         // move |id| get_contact(id),
