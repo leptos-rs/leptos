@@ -2,7 +2,7 @@
 use crate::{
     hydration::SharedContext, serialization::Serializable, AnyEffect, AnyResource, Effect,
     EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SignalId, WriteSignal,
+    ScopeProperty, SignalId, UpdatableSignal, WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;

@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{ReadSignal, Scope, SignalError, UntrackedGettableSignal};
+use crate::{ReadSignal, RefSignal, Scope, SignalError, UntrackedGettableSignal};
 use std::fmt::Debug;
 
 /// Creates an efficient derived reactive value based on other reactive values.

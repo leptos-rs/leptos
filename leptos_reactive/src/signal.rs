@@ -1,13 +1,178 @@
 #![forbid(unsafe_code)]
 use crate::{
-    debug_warn,
+    create_effect, debug_warn, on_cleanup,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
+    Runtime, Scope, ScopeProperty,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, pin::Pin};
 use thiserror::Error;
+
+macro_rules! impl_get_fn_traits {
+    ($($ty:ident),*) => {
+        $(
+            #[cfg(not(feature = "stable"))]
+            impl<T: Clone> FnOnce<()> for $ty<T> {
+                type Output = T;
+
+                extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+                    self.get()
+                }
+            }
+
+            #[cfg(not(feature = "stable"))]
+            impl<T: Clone> FnMut<()> for $ty<T> {
+                extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+                    self.get()
+                }
+            }
+
+            #[cfg(not(feature = "stable"))]
+            impl<T: Clone> Fn<()> for $ty<T> {
+                extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+                    self.get()
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! impl_set_fn_traits {
+    ($($ty:ident),*) => {
+        $(
+            #[cfg(not(feature = "stable"))]
+            impl<T> FnOnce<(T,)> for $ty<T> {
+                type Output = ();
+
+                extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+                    self.set(args.0)
+                }
+            }
+
+            #[cfg(not(feature = "stable"))]
+            impl<T> FnMut<(T,)> for $ty<T> {
+                extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
+                    self.set(args.0)
+                }
+            }
+
+            #[cfg(not(feature = "stable"))]
+            impl<T> Fn<(T,)> for $ty<T> {
+                extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
+                    self.set(args.0)
+                }
+            }
+        )*
+    };
+}
+
+impl_get_fn_traits![ReadSignal, RwSignal];
+impl_set_fn_traits![WriteSignal, RwSignal];
+
+/// This trait allows getting an owned value of the signals
+/// inner type.
+pub trait GettableSignal<T: Clone> {
+    /// Clones and returns the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    fn get(&self) -> T;
+
+    /// Clones and returns the signal value, returning [`Some`] if the signal
+    /// is still alive, and [`None`] otherwise.
+    fn try_get(&self) -> Option<T>;
+}
+
+/// This trait allows obtaining an immutable reference to the signal's
+/// inner type.
+pub trait RefSignal<T> {
+    /// Applies a function to the current value of the signal, and subscribes
+    /// the running effect to this signal.
+    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+
+    /// Applies a function to the current value of the signal, and subscribes
+    /// the running effect to this signal. Returns [`Some`] if the signal is
+    /// valid and the function ran, otherwise returns [`None`].
+    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+}
+
+/// This trait allows setting the value of a signal.
+pub trait SettableSignal<T> {
+    /// Sets the signal’s value and notifies subscribers.
+    ///
+    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    fn set(&self, new_value: T);
+
+    /// Sets the signal’s value and notifies subscribers. Returns [`None`]
+    /// if the signal is still valid, [`Some(T)`] otherwise.
+    ///
+    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.    
+    fn try_set(&self, new_value: T) -> Option<T>;
+}
+
+/// This trait allows updating the inner value of a signal.
+pub trait UpdatableSignal<T> {
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed.
+    ///
+    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    fn update<O>(&self, f: impl FnOnce(&mut T) -> O) -> O;
+
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed. Returns
+    /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
+    ///
+    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
+}
+
+/// Trait implemented for all signal types which you can `get` a value
+/// from, such as [`ReadSignal`],
+/// [`Memo`](crate::Memo), etc., which allows getting the inner value without
+/// subscribing to the current scope.
+pub trait UntrackedGettableSignal<T> {
+    /// Gets the signal's value without creating a dependency on the
+    /// current scope.
+    fn get_untracked(&self) -> T
+    where
+        T: Clone;
+
+    /// Runs the provided closure with a reference to the current
+    /// value without creating a dependency on the current scope.
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+}
+
+/// Trait implemented for all signal types which you can `set` the inner
+/// value, such as [`WriteSignal`] and [`RwSignal`], which allows setting
+/// the inner value without causing effects which depend on the signal
+/// from being run.
+pub trait UntrackedSettableSignal<T> {
+    /// Sets the signal's value without notifying dependents.
+    fn set_untracked(&self, new_value: T);
+
+    /// Runs the provided closure with a mutable reference to the current
+    /// value without notifying dependents.
+    fn update_untracked(&self, f: impl FnOnce(&mut T));
+
+    /// Runs the provided closure with a mutable reference to the current
+    /// value without notifying dependents and returns
+    /// the value the closure returned.
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U>;
+}
+
+/// This trait allows converting a signal into a async [`Stream`].
+pub trait StreamableSignal<T> {
+    /// Generates a [`Stream`] that emits the new value of the signal
+    /// whenever it changes.
+
+    // We're returning an opaque type until impl trait in trait
+    // positions are stabilized, and also so any underlying
+    // changes are non-breaking
+    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
+}
 
 /// Creates a signal, the basic reactive primitive.
 ///
@@ -201,28 +366,25 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
     }
 }
 
-impl<T> ReadSignal<T>
-where
-    T: 'static,
-{
-    /// Applies a function to the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    ///
-    /// // ❌ unnecessarily clones the string
-    /// let first_char = move || name().chars().next().unwrap();
-    /// assert_eq!(first_char(), 'A');
-    ///
-    /// // ✅ gets the first char without cloning the `String`
-    /// let first_char = move || name.with(|n| n.chars().next().unwrap());
-    /// assert_eq!(first_char(), 'A');
-    /// set_name("Bob".to_string());
-    /// assert_eq!(first_char(), 'B');
-    /// });
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let (name, set_name) = create_signal(cx, "Alice".to_string());
+///
+/// // ❌ unnecessarily clones the string
+/// let first_char = move || name().chars().next().unwrap();
+/// assert_eq!(first_char(), 'A');
+///
+/// // ✅ gets the first char without cloning the `String`
+/// let first_char = move || name.with(|n| n.chars().next().unwrap());
+/// assert_eq!(first_char(), 'A');
+/// set_name("Bob".to_string());
+/// assert_eq!(first_char(), 'B');
+/// });
+/// ```
+impl<T> RefSignal<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -236,33 +398,42 @@ where
             )
         )
     )]
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+    fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
     }
 
-    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.id.with_no_subscription(self.runtime, f)
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::try_with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
+            .ok()
+            .flatten()
     }
+}
 
-    #[cfg(feature = "hydrate")]
-    pub(crate) fn subscribe(&self) {
-        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
-    }
-
-    /// Clones and returns the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    ///
-    /// If you want to get the value without cloning it, use [ReadSignal::with].
-    /// (`value.get()` is equivalent to `value.with(T::clone)`.)
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    ///
-    /// // calling the getter clones and returns the value
-    /// assert_eq!(count(), 0);
-    /// });
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// // calling the getter clones and returns the value
+/// assert_eq!(count(), 0);
+/// });
+/// ```
+impl<T: Clone> GettableSignal<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -276,11 +447,70 @@ where
             )
         )
     )]
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
+    fn get(&self) -> T {
         self.id.with(self.runtime, T::clone)
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::try_get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get(&self) -> Option<T> {
+        self.try_with(Clone::clone).ok()
+    }
+}
+
+impl<T: Clone> StreamableSignal<T> for ReadSignal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::to_stream()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+
+        let close_channel = tx.clone();
+
+        on_cleanup(cx, move || close_channel.close_channel());
+
+        let this = *self;
+
+        create_effect(cx, move |_| {
+            let _ = tx.unbounded_send(this.get());
+        });
+
+        Box::pin(rx)
+    }
+}
+
+impl<T> ReadSignal<T>
+where
+    T: 'static,
+{
+    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+        self.id.with_no_subscription(self.runtime, f)
+    }
+
+    #[cfg(feature = "hydrate")]
+    pub(crate) fn subscribe(&self) {
+        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
     }
 
     /// Applies the function to the current Signal, if it exists, and subscribes
@@ -291,22 +521,6 @@ where
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
         }
-    }
-
-    /// Generates a [Stream](futures::stream::Stream) that emits the new value of the signal
-    /// whenever it changes.
-    pub fn to_stream(&self) -> impl Stream<Item = T>
-    where
-        T: Clone,
-    {
-        let (tx, rx) = futures::channel::mpsc::unbounded();
-        let id = self.id;
-        let runtime = self.runtime;
-        // TODO: because it's not attached to a scope, this effect will leak if the scope is disposed
-        runtime.create_effect(move |_| {
-            _ = tx.unbounded_send(id.with(runtime, T::clone));
-        });
-        rx
     }
 }
 
@@ -323,38 +537,6 @@ impl<T> Clone for ReadSignal<T> {
 }
 
 impl<T> Copy for ReadSignal<T> {}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<()> for ReadSignal<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<()> for ReadSignal<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<()> for ReadSignal<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
 
 /// The setter for a reactive signal.
 ///
@@ -458,30 +640,23 @@ where
     }
 }
 
-impl<T> WriteSignal<T>
-where
-    T: 'static,
-{
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed.
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    ///
-    /// // notifies subscribers
-    /// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-    /// assert_eq!(count(), 1);
-    ///
-    /// // you can include arbitrary logic in this update function
-    /// // also notifies subscribers, even though the value hasn't changed
-    /// set_count.update(|n| if *n > 3 { *n += 1 });
-    /// assert_eq!(count(), 1);
-    /// # }).dispose();
-    /// ```
+/// # Examples
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// // notifies subscribers
+/// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
+/// assert_eq!(count(), 1);
+///
+/// // you can include arbitrary logic in this update function
+/// // also notifies subscribers, even though the value hasn't changed
+/// set_count.update(|n| if *n > 3 { *n += 1 });
+/// assert_eq!(count(), 1);
+/// # }).dispose();
+/// ```
+impl<T> UpdatableSignal<T> for WriteSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -495,36 +670,16 @@ where
             )
         )
     )]
-    pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.id.update(self.runtime, f);
+    fn update<O>(&self, f: impl FnOnce(&mut T) -> O) -> O {
+        // When the signal is dead?
+        self.id.update(self.runtime, f).unwrap()
     }
 
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed.
-    /// Forwards the return value of the closure if the closure was called
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    ///
-    /// // notifies subscribers
-    /// let value = set_count.update_returning(|n| { *n = 1; *n * 10 });
-    /// assert_eq!(value, Some(10));
-    /// assert_eq!(count(), 1);
-    ///
-    /// let value = set_count.update_returning(|n| { *n += 1; *n * 10 });
-    /// assert_eq!(value, Some(20));
-    /// assert_eq!(count(), 2);
-    /// # }).dispose();
-    /// ```
     #[cfg_attr(
         debug_assertions,
         instrument(
+            name = "WriteSignal::try_update()",
             level = "trace",
-            name = "WriteSignal::update_returning()"
             skip_all,
             fields(
                 id = ?self.id,
@@ -533,29 +688,29 @@ where
             )
         )
     )]
-    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(self.runtime, f)
     }
+}
 
-    /// Sets the signal’s value and notifies subscribers.
-    ///
-    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    ///
-    /// // notifies subscribers
-    /// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-    /// assert_eq!(count(), 1);
-    ///
-    /// // you can include arbitrary logic in this update function
-    /// // also notifies subscribers, even though the value hasn't changed
-    /// set_count.update(|n| if *n > 3 { *n += 1 });
-    /// assert_eq!(count(), 1);
-    /// # }).dispose();
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+///
+/// // notifies subscribers
+/// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
+/// assert_eq!(count(), 1);
+///
+/// // you can include arbitrary logic in this update function
+/// // also notifies subscribers, even though the value hasn't changed
+/// set_count.update(|n| if *n > 3 { *n += 1 });
+/// assert_eq!(count(), 1);
+/// # }).dispose();
+/// ```
+impl<T> SettableSignal<T> for WriteSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -569,8 +724,30 @@ where
             )
         )
     )]
-    pub fn set(&self, new_value: T) {
+    fn set(&self, new_value: T) {
         self.id.update(self.runtime, |n| *n = new_value);
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::try_set()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_set(&self, new_value: T) -> Option<T> {
+        let mut new_value = Some(new_value);
+
+        self.id
+            .update(self.runtime, |t| *t = new_value.take().unwrap());
+
+        new_value
     }
 }
 
@@ -587,38 +764,6 @@ impl<T> Clone for WriteSignal<T> {
 }
 
 impl<T> Copy for WriteSignal<T> {}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<(T,)> for WriteSignal<T>
-where
-    T: 'static,
-{
-    type Output = ();
-
-    extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
-        self.update(move |n| *n = args.0)
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<(T,)> for WriteSignal<T>
-where
-    T: 'static,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
-        self.update(move |n| *n = args.0)
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<(T,)> for WriteSignal<T>
-where
-    T: 'static,
-{
-    extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
-        self.update(move |n| *n = args.0)
-    }
-}
 
 /// Creates a reactive signal with the getter and setter unified in one value.
 /// You may prefer this style, or it may be easier to pass around in a context
@@ -798,29 +943,26 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
     }
 }
 
-impl<T> RwSignal<T>
-where
-    T: 'static,
-{
-    /// Applies a function to the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let name = create_rw_signal(cx, "Alice".to_string());
-    ///
-    /// // ❌ unnecessarily clones the string
-    /// let first_char = move || name().chars().next().unwrap();
-    /// assert_eq!(first_char(), 'A');
-    ///
-    /// // ✅ gets the first char without cloning the `String`
-    /// let first_char = move || name.with(|n| n.chars().next().unwrap());
-    /// assert_eq!(first_char(), 'A');
-    /// name.set("Bob".to_string());
-    /// assert_eq!(first_char(), 'B');
-    /// # }).dispose();
-    /// #
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let name = create_rw_signal(cx, "Alice".to_string());
+///
+/// // ❌ unnecessarily clones the string
+/// let first_char = move || name().chars().next().unwrap();
+/// assert_eq!(first_char(), 'A');
+///
+/// // ✅ gets the first char without cloning the `String`
+/// let first_char = move || name.with(|n| n.chars().next().unwrap());
+/// assert_eq!(first_char(), 'A');
+/// name.set("Bob".to_string());
+/// assert_eq!(first_char(), 'B');
+/// # }).dispose();
+/// #
+/// ```
+impl<T> RefSignal<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -834,24 +976,45 @@ where
             )
         )
     )]
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+    fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with(self.runtime, f)
     }
 
-    /// Clones and returns the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    ///
-    /// assert_eq!(count.get(), 0);
-    ///
-    /// // count() is shorthand for count.get()
-    /// assert_eq!(count(), 0);
-    /// # }).dispose();
-    /// #
-    /// ```   
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::try_with()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
+            .ok()
+            .flatten()
+    }
+}
+
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let count = create_rw_signal(cx, 0);
+///
+/// assert_eq!(count.get(), 0);
+///
+/// // count() is shorthand for count.get()
+/// assert_eq!(count(), 0);
+/// # }).dispose();
+/// #
+/// ```
+impl<T: Clone> GettableSignal<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -865,30 +1028,53 @@ where
             )
         )
     )]
-    pub fn get(&self) -> T
+    fn get(&self) -> T
     where
         T: Clone,
     {
         self.id.with(self.runtime, T::clone)
     }
 
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    ///
-    /// // notifies subscribers
-    /// count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-    /// assert_eq!(count(), 1);
-    ///
-    /// // you can include arbitrary logic in this update function
-    /// // also notifies subscribers, even though the value hasn't changed
-    /// count.update(|n| if *n > 3 { *n += 1 });
-    /// assert_eq!(count(), 1);
-    /// # }).dispose();
-    /// ```
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::try_get()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get(&self) -> Option<T> {
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, Clone::clone).ok()
+        })
+        .ok()
+        .flatten()
+    }
+}
+
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let count = create_rw_signal(cx, 0);
+///
+/// // notifies subscribers
+/// count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
+/// assert_eq!(count(), 1);
+///
+/// // you can include arbitrary logic in this update function
+/// // also notifies subscribers, even though the value hasn't changed
+/// count.update(|n| if *n > 3 { *n += 1 });
+/// assert_eq!(count(), 1);
+/// # }).dispose();
+/// ```
+impl<T> UpdatableSignal<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -902,34 +1088,15 @@ where
             )
         )
     )]
-    pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.id.update(self.runtime, f);
+    fn update<O>(&self, f: impl FnOnce(&mut T) -> O) -> O {
+        self.id.update(self.runtime, f).unwrap()
     }
 
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed.
-    /// Forwards the return value of the closure if the closure was called
-    ///
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    ///
-    /// // notifies subscribers
-    /// let value = count.update_returning(|n| { *n = 1; *n * 10 });
-    /// assert_eq!(value, Some(10));
-    /// assert_eq!(count(), 1);
-    ///
-    /// let value = count.update_returning(|n| { *n += 1; *n * 10 });
-    /// assert_eq!(value, Some(20));
-    /// assert_eq!(count(), 2);
-    /// # }).dispose();
-    /// ```
     #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
-            name = "RwSignal::update_returning()",
+            name = "RwSignal::try_update()",
             skip_all,
             fields(
                 id = ?self.id,
@@ -938,24 +1105,24 @@ where
             )
         )
     )]
-    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(self.runtime, f)
     }
+}
 
-    /// Sets the signal’s value and notifies subscribers.
-    ///
-    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    ///
-    /// assert_eq!(count(), 0);
-    /// count.set(1);
-    /// assert_eq!(count(), 1);
-    /// # }).dispose();
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let count = create_rw_signal(cx, 0);
+///
+/// assert_eq!(count(), 0);
+/// count.set(1);
+/// assert_eq!(count(), 1);
+/// # }).dispose();
+/// ```
+impl<T> SettableSignal<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -969,10 +1136,55 @@ where
             )
         )
     )]
-    pub fn set(&self, value: T) {
+    fn set(&self, value: T) {
         self.id.update(self.runtime, |n| *n = value);
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::try_set()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_set(&self, new_value: T) -> Option<T> {
+        let mut new_value = Some(new_value);
+
+        self.id
+            .update(self.runtime, |t| *t = new_value.take().unwrap());
+
+        new_value
+    }
+}
+
+impl<T: Clone> StreamableSignal<T> for RwSignal<T> {
+    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+
+        let close_channel = tx.clone();
+
+        on_cleanup(cx, move || close_channel.close_channel());
+
+        let this = *self;
+
+        create_effect(cx, move |_| {
+            let _ = tx.unbounded_send(this.get());
+        });
+
+        Box::pin(rx)
+    }
+}
+
+impl<T> RwSignal<T>
+where
+    T: 'static,
+{
     /// Returns a read-only handle to the signal.
     ///
     /// Useful if you're trying to give read access to another component but ensure that it can't write
@@ -1095,60 +1307,6 @@ where
                 defined_at: std::panic::Location::caller(),
             },
         )
-    }
-
-    /// Generates a [Stream](futures::stream::Stream) that emits the new value of the signal
-    /// whenever it changes.
-    #[cfg_attr(
-        debug_assertions,
-        instrument(
-            level = "trace",
-            name = "RwSignal::to_stream()",
-            skip_all,
-            fields(
-                id = ?self.id,
-                defined_at = %self.defined_at,
-                ty = %std::any::type_name::<T>()
-            )
-        )
-    )]
-    pub fn to_stream(&self) -> impl Stream<Item = T>
-    where
-        T: Clone,
-    {
-        self.read_only().to_stream()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<()> for RwSignal<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<()> for RwSignal<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<()> for RwSignal<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get()
     }
 }
 

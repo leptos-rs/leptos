@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{store_value, RwSignal, Scope, StoredValue, WriteSignal};
+use crate::{store_value, RwSignal, Scope, SettableSignal, StoredValue, WriteSignal};
 
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
 pub trait IntoSignalSetter<T>: Sized {

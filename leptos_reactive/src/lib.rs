@@ -78,6 +78,7 @@ mod runtime;
 mod scope;
 mod selector;
 mod serialization;
+#[macro_use]
 mod signal;
 mod signal_wrappers_read;
 mod signal_wrappers_write;
@@ -104,40 +105,6 @@ pub use spawn::*;
 pub use spawn_microtask::*;
 pub use stored_value::*;
 pub use suspense::*;
-
-/// Trait implemented for all signal types which you can `get` a value
-/// from, such as [`ReadSignal`],
-/// [`Memo`], etc., which allows getting the inner value without
-/// subscribing to the current scope.
-pub trait UntrackedGettableSignal<T> {
-    /// Gets the signal's value without creating a dependency on the
-    /// current scope.
-    fn get_untracked(&self) -> T
-    where
-        T: Clone;
-
-    /// Runs the provided closure with a reference to the current
-    /// value without creating a dependency on the current scope.
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
-}
-
-/// Trait implemented for all signal types which you can `set` the inner
-/// value, such as [`WriteSignal`] and [`RwSignal`], which allows setting
-/// the inner value without causing effects which depend on the signal
-/// from being run.
-pub trait UntrackedSettableSignal<T> {
-    /// Sets the signal's value without notifying dependents.
-    fn set_untracked(&self, new_value: T);
-
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents.
-    fn update_untracked(&self, f: impl FnOnce(&mut T));
-
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents and returns
-    /// the value the closure returned.
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U>;
-}
 
 #[doc(hidden)]
 #[macro_export]

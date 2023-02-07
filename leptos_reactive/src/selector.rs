@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
-use crate::{create_isomorphic_effect, create_signal, ReadSignal, Scope, WriteSignal};
+use crate::{
+    create_isomorphic_effect, create_signal, ReadSignal, Scope, UpdatableSignal, WriteSignal,
+};
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
