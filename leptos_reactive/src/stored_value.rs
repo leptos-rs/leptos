@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
-use crate::{create_rw_signal, RwSignal, Scope, UntrackedGettableSignal, UntrackedSettableSignal};
+use crate::{
+    create_rw_signal, GettableSignal, RwSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
+    UntrackedSettableSignal,
+};
 
 /// A **non-reactive** wrapper for any value, which can be created with [store_value].
 ///
@@ -23,37 +26,47 @@ impl<T> Clone for StoredValue<T> {
 
 impl<T> Copy for StoredValue<T> {}
 
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+///
+/// #[derive(Clone)]
+/// pub struct MyCloneableData {
+///   pub value: String
+/// }
+/// let data = store_value(cx, MyCloneableData { value: "a".into() });
+///
+/// // calling .get() clones and returns the value
+/// assert_eq!(data.get().value, "a");
+/// // there's a short-hand getter form
+/// assert_eq!(data().value, "a");
+/// });
+/// ```
+impl<T: Clone> GettableSignal<T> for StoredValue<T> {
+    fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.0.get_untracked()
+    }
+
+    fn try_get(&self) -> Option<T> {
+        todo!()
+    }
+}
+
+impl<T> UntrackedRefSignal<T> for StoredValue<T> {
+    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.0.with_untracked(f)
+    }
+}
+
 impl<T> StoredValue<T>
 where
     T: 'static,
 {
-    /// Clones and returns the current stored value.
-    ///
-    /// If you want to get the value without cloning it, use [StoredValue::with].
-    /// (`value.get()` is equivalent to `value.with(T::clone)`.)
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// #[derive(Clone)]
-    /// pub struct MyCloneableData {
-    ///   pub value: String
-    /// }
-    /// let data = store_value(cx, MyCloneableData { value: "a".into() });
-    ///
-    /// // calling .get() clones and returns the value
-    /// assert_eq!(data.get().value, "a");
-    /// // there's a short-hand getter form
-    /// assert_eq!(data().value, "a");
-    /// });
-    /// ```
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.with(T::clone)
-    }
-
     /// Applies a function to the current stored value.
     /// ```
     /// # use leptos_reactive::*;
@@ -68,8 +81,9 @@ where
     /// assert_eq!(data.with(|data| data.value.clone()), "a");
     /// });
     /// ```
+    #[deprecated = "Please use `with_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.0.with_untracked(f)
+        self.with_untracked(f)
     }
 
     /// Applies a function to the current value to mutate it in place.
@@ -173,34 +187,4 @@ where
     StoredValue(create_rw_signal(cx, value))
 }
 
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<()> for StoredValue<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<()> for StoredValue<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<()> for StoredValue<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
+impl_get_fn_traits!(StoredValue);

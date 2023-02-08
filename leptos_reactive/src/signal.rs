@@ -70,7 +70,7 @@ macro_rules! impl_set_fn_traits {
 }
 
 impl_get_fn_traits![ReadSignal, RwSignal];
-impl_set_fn_traits![WriteSignal, RwSignal];
+impl_set_fn_traits![WriteSignal];
 
 /// This trait allows getting an owned value of the signals
 /// inner type.
@@ -156,7 +156,11 @@ pub trait UntrackedGettableSignal<T> {
     fn get_untracked(&self) -> T
     where
         T: Clone;
+}
 
+/// This trait allows getting a reference to the signals inner value
+/// without creating a dependency on the signal.
+pub trait UntrackedRefSignal<T> {
     /// Runs the provided closure with a reference to the current
     /// value without creating a dependency on the current scope.
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
@@ -364,20 +368,22 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
     {
         self.with_no_subscription(|v| v.clone())
     }
+}
 
+impl<T> UntrackedRefSignal<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
-        instrument(
-            level = "trace",
-            name = "ReadSignal::with_untracked()",
-            skip_all,
-            fields(
-                id = ?self.id,
-                defined_at = %self.defined_at,
-                ty = %std::any::type_name::<T>()
-            )
+    debug_assertions,
+    instrument(
+        level = "trace",
+        name = "ReadSignal::with_untracked()",
+        skip_all,
+        fields(
+            id = ?self.id,
+            defined_at = %self.defined_at,
+            ty = %std::any::type_name::<T>()
         )
-    )]
+    )
+)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.with_no_subscription(f)
     }
@@ -907,20 +913,22 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
         self.id
             .with_no_subscription(self.runtime, |v: &T| v.clone())
     }
+}
 
+impl<T> UntrackedRefSignal<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
-        instrument(
-            level = "trace",
-            name = "RwSignal::with_untracked()",
-            skip_all,
-            fields(
-                id = ?self.id,
-                defined_at = %self.defined_at,
-                ty = %std::any::type_name::<T>()
-            )
+    debug_assertions,
+    instrument(
+        level = "trace",
+        name = "RwSignal::with_untracked()",
+        skip_all,
+        fields(
+            id = ?self.id,
+            defined_at = %self.defined_at,
+            ty = %std::any::type_name::<T>()
         )
-    )]
+    )
+)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id.with_no_subscription(self.runtime, f)
     }

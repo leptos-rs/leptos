@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
-use crate::{ReadSignal, RefSignal, Scope, SignalError, UntrackedGettableSignal};
+use crate::{
+    ReadSignal, RefSignal, Scope, SignalError, UntrackedGettableSignal, UntrackedRefSignal,
+};
 use std::fmt::Debug;
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -170,7 +172,9 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
         // the time this method can be called
         self.0.get_untracked().unwrap()
     }
+}
 
+impl<T> UntrackedRefSignal<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(

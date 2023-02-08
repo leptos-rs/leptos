@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
     store_value, GettableSignal, Memo, ReadSignal, RefSignal, RwSignal, Scope, StoredValue,
-    UntrackedGettableSignal,
+    UntrackedGettableSignal, UntrackedRefSignal,
 };
 
 /// Helper trait for converting `Fn() -> T` closures into
@@ -75,6 +75,18 @@ impl<T> UntrackedGettableSignal<T> for Signal<T>
 where
     T: 'static,
 {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Signal::get_untracked()",
+            skip_all,
+            fields(                
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -82,10 +94,24 @@ where
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with(|f| f())),
+            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with_untracked(|f| f())),
         }
     }
+}
 
+impl<T> UntrackedRefSignal<T> for Signal<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Signal::with_untracked()",
+            skip_all,
+            fields(
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.with_untracked(f),
@@ -93,7 +119,7 @@ where
             SignalTypes::DerivedSignal(cx, v_f) => {
                 let mut o = None;
 
-                cx.untrack(|| o = Some(f(&v_f.with(|v_f| v_f()))));
+                cx.untrack(|| o = Some(f(&v_f.with_untracked(|v_f| v_f()))));
 
                 o.unwrap()
             }
@@ -192,7 +218,7 @@ where
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.with(f),
             SignalTypes::Memo(s) => s.with(f),
-            SignalTypes::DerivedSignal(_, s) => f(&s.with(|s| s())),
+            SignalTypes::DerivedSignal(_, s) => f(&s.with_untracked(|s| s())),
         }
     }
 
@@ -236,7 +262,7 @@ where
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.get(),
             SignalTypes::Memo(s) => s.get(),
-            SignalTypes::DerivedSignal(_, s) => s.with(|s| s()),
+            SignalTypes::DerivedSignal(_, s) => s.with_untracked(|s| s()),
         }
     }
 
@@ -421,7 +447,9 @@ where
             Self::Dynamic(s) => s.get_untracked(),
         }
     }
+}
 
+impl<T> UntrackedRefSignal<T> for MaybeSignal<T> {
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         match self {
             Self::Static(t) => f(t),
