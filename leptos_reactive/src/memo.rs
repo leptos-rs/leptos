@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    ReadSignal, RefSignal, Scope, SignalError, UntrackedGettableSignal, UntrackedRefSignal,
+    GettableSignal, ReadSignal, RefSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
 };
 use std::fmt::Debug;
 
@@ -195,26 +195,23 @@ impl<T> UntrackedRefSignal<T> for Memo<T> {
     }
 }
 
-impl<T> Memo<T>
-where
-    T: 'static,
-{
-    /// Clones and returns the current value of the memo, and subscribes
-    /// the running effect to the memo.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    /// let double_count = create_memo(cx, move |_| count() * 2);
-    ///
-    /// assert_eq!(double_count.get(), 0);
-    /// set_count(1);
-    ///
-    /// // double_count() is shorthand for double_count.get()
-    /// assert_eq!(double_count(), 2);
-    /// # }).dispose();
-    /// #
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+/// let double_count = create_memo(cx, move |_| count() * 2);
+///
+/// assert_eq!(double_count.get(), 0);
+/// set_count(1);
+///
+/// // double_count() is shorthand for double_count.get()
+/// assert_eq!(double_count(), 2);
+/// # }).dispose();
+/// #
+/// ```
+impl<T: Clone> GettableSignal<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -227,38 +224,15 @@ where
             )
         )
     )]
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.with(T::clone)
+    fn get(&self) -> T {
+        self.0.get().unwrap()
     }
 
-    /// Applies a function to the current value of the memo, and subscribes
-    /// the running effect to this memo.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    /// let name_upper = create_memo(cx, move |_| name().to_uppercase());
-    ///
-    /// // ❌ unnecessarily clones the string
-    /// let first_char = move || name_upper().chars().next().unwrap();
-    /// assert_eq!(first_char(), 'A');
-    ///
-    /// // ✅ gets the first char without cloning the `String`
-    /// let first_char = move || name_upper.with(|n| n.chars().next().unwrap());
-    /// assert_eq!(first_char(), 'A');
-    /// set_name("Bob".to_string());
-    /// assert_eq!(first_char(), 'B');
-    /// # }).dispose();
-    /// #
-    /// ```
     #[cfg_attr(
         debug_assertions,
         instrument(
-            name = "Memo::with()",
             level = "trace",
+            name = "Memo::try_get()",
             skip_all,
             fields(
                 id = ?self.0.id,
@@ -267,18 +241,51 @@ where
             )
         )
     )]
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        // okay to unwrap here, because the value will *always* have initially
-        // been set by the effect, synchronously
-        self.0
-            .with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
+    fn try_get(&self) -> Option<T> {
+        self.0.try_get().flatten()
+    }
+}
+
+impl<T> RefSignal<T> for Memo<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::with()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.0.with(|t| f(t.as_ref().unwrap()))
     }
 
-    pub(crate) fn try_with<U>(&self, f: impl Fn(&T) -> U) -> Result<U, SignalError> {
-        self.0
-            .try_with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::try_with()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.try_with(|t| f(t.as_ref().unwrap())).ok()
     }
+}
 
+impl<T> Memo<T>
+where
+    T: 'static,
+{
     #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
         self.0.subscribe()

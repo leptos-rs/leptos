@@ -19,21 +19,21 @@ macro_rules! impl_get_fn_traits {
                 type Output = T;
 
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-                    self.get()
+                    self.get_untracked()
                 }
             }
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> FnMut<()> for $ty<T> {
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-                    self.get()
+                    self.get_untracked()
                 }
             }
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> Fn<()> for $ty<T> {
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-                    self.get()
+                    self.get_untracked()
                 }
             }
         )*

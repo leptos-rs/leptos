@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_rw_signal, GettableSignal, RwSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
+    create_rw_signal, RwSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
     UntrackedSettableSignal, UntrackedUpdatableSignal,
 };
 
@@ -44,16 +44,12 @@ impl<T> Copy for StoredValue<T> {}
 /// assert_eq!(data().value, "a");
 /// });
 /// ```
-impl<T: Clone> GettableSignal<T> for StoredValue<T> {
-    fn get(&self) -> T
+impl<T: Clone> UntrackedGettableSignal<T> for StoredValue<T> {
+    fn get_untracked(&self) -> T
     where
         T: Clone,
     {
         self.0.get_untracked()
-    }
-
-    fn try_get(&self) -> Option<T> {
-        todo!()
     }
 }
 
@@ -63,10 +59,24 @@ impl<T> UntrackedRefSignal<T> for StoredValue<T> {
     }
 }
 
-impl<T> StoredValue<T>
-where
-    T: 'static,
-{
+impl<T> UntrackedSettableSignal<T> for StoredValue<T> {
+    fn set_untracked(&self, new_value: T) {
+        self.0.set_untracked(new_value)
+    }
+}
+
+impl<T> StoredValue<T> {
+    /// Returns a clone of the signals current value, subscribing the effect
+    /// to this signal.
+    #[track_caller]
+    #[deprecated = "Please use `get_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.get_untracked()
+    }
+
     /// Applies a function to the current stored value.
     /// ```
     /// # use leptos_reactive::*;
@@ -81,21 +91,24 @@ where
     /// assert_eq!(data.with(|data| data.value.clone()), "a");
     /// });
     /// ```
+    #[track_caller]
     #[deprecated = "Please use `with_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.with_untracked(f)
     }
 
     /// Updates the stored value.
+    #[track_caller]
     #[deprecated = "Please use `update_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.0.update_untracked(f);
+        self.update_untracked(f);
     }
 
     /// Updates the stored value.
+    #[track_caller]
     #[deprecated = "Please use `try_update_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.0.try_update_untracked(f)
+        self.try_update_untracked(f)
     }
 
     /// Sets the stored value.
@@ -111,8 +124,10 @@ where
     /// assert_eq!(data.with(|data| data.value.clone()), "b");
     /// });
     /// ```
+    #[track_caller]
+    #[deprecated = "Please use `set_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn set(&self, value: T) {
-        self.0.set_untracked(value);
+        self.set_untracked(value);
     }
 }
 
