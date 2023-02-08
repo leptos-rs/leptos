@@ -1,4 +1,8 @@
-use leptos_reactive::{create_rw_signal, RwSignal, Scope};
+use std::cell::Cell;
+
+use leptos_reactive::{create_effect, create_rw_signal, RwSignal, Scope};
+
+use crate::{ElementDescriptor, HtmlElement};
 
 /// Contains a shared reference to a DOM node creating while using the `view`
 /// macro to create your UI.
@@ -7,7 +11,7 @@ use leptos_reactive::{create_rw_signal, RwSignal, Scope};
 /// # use leptos::*;
 /// #[component]
 /// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///   let input_ref = NodeRef::<HtmlElement<Input>>::new(cx);
+///   let input_ref = NodeRef::<Input>::new(cx);
 ///
 ///   let on_click = move |_| {
 ///     let node = input_ref
@@ -29,10 +33,11 @@ use leptos_reactive::{create_rw_signal, RwSignal, Scope};
 ///   }
 /// }
 /// ```
-#[derive(Clone, PartialEq)]
-pub struct NodeRef<T: Clone + 'static>(RwSignal<Option<T>>);
+pub struct NodeRef<T: ElementDescriptor + 'static>(
+  RwSignal<Option<HtmlElement<T>>>,
+);
 
-impl<T: Clone + 'static> NodeRef<T> {
+impl<T: ElementDescriptor + 'static> NodeRef<T> {
   /// Creates an empty reference.
   pub fn new(cx: Scope) -> Self {
     Self(create_rw_signal(cx, None))
@@ -44,7 +49,10 @@ impl<T: Clone + 'static> NodeRef<T> {
   /// Initially, the value will be `None`, but once it is loaded the effect
   /// will rerun and its value will be `Some(Element)`.
   #[track_caller]
-  pub fn get(&self) -> Option<T> {
+  pub fn get(&self) -> Option<HtmlElement<T>>
+  where
+    T: Clone,
+  {
     self.0.get()
   }
 
@@ -53,7 +61,10 @@ impl<T: Clone + 'static> NodeRef<T> {
   /// so that effects that use the node reference will rerun once it is loaded,
   /// i.e., effects can be forward-declared.
   #[track_caller]
-  pub fn load(&self, node: &T) {
+  pub fn load(&self, node: &HtmlElement<T>)
+  where
+    T: Clone,
+  {
     self.0.update(|current| {
       if current.is_some() {
         crate::debug_warn!(
@@ -65,27 +76,49 @@ impl<T: Clone + 'static> NodeRef<T> {
       *current = Some(node.clone());
     });
   }
+
+  /// Runs the provided closure when the `NodeRef` has been connected
+  /// with it's [`HtmlElement`].
+  pub fn on_load<F>(self, cx: Scope, f: F)
+  where
+    T: Clone,
+    F: FnOnce(HtmlElement<T>) + 'static,
+  {
+    let f = Cell::new(Some(f));
+
+    create_effect(cx, move |_| {
+      if let Some(node_ref) = self.get() {
+        f.take().unwrap()(node_ref);
+      }
+    });
+  }
 }
 
-impl<T: Clone + 'static> Copy for NodeRef<T> {}
+impl<T: ElementDescriptor> Clone for NodeRef<T> {
+  fn clone(&self) -> Self {
+    Self(self.0)
+  }
+}
+
+impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}
 
 cfg_if::cfg_if! {
     if #[cfg(not(feature = "stable"))] {
-        impl<T: Clone + 'static> FnOnce<()> for NodeRef<T> {
-            type Output = Option<T>;
+        impl<T: Clone + ElementDescriptor + 'static> FnOnce<()> for NodeRef<T> {
+            type Output = Option<HtmlElement<T>>;
 
             extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
                 self.get()
             }
         }
 
-        impl<T: Clone + 'static> FnMut<()> for NodeRef<T> {
+        impl<T: Clone + ElementDescriptor + 'static> FnMut<()> for NodeRef<T> {
             extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                 self.get()
             }
         }
 
-        impl<T: Clone + 'static> Fn<()> for NodeRef<T> {
+        impl<T: Clone + ElementDescriptor + Clone + 'static> Fn<()> for NodeRef<T> {
             extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                 self.get()
             }

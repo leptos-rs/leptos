@@ -1,9 +1,8 @@
+use crate::{is_component_node, Mode};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
 use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
-
-use crate::{is_component_node, Mode};
 
 #[derive(Clone, Copy)]
 enum TagType {
@@ -419,7 +418,7 @@ fn attribute_to_tokens_ssr<'a>(
     exprs_for_compiler: &mut Vec<TokenStream>,
 ) -> Option<&'a NodeValueExpr> {
     let name = node.key.to_string();
-    if name == "ref" || name == "_ref" || name == "node_ref" {
+    if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         // ignore refs on SSR
     } else if name.strip_prefix("on:").is_some() {
         let (event_type, handler) = event_from_attribute_node(node, false);
@@ -753,7 +752,7 @@ fn element_to_tokens(
 fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
     let span = node.key.span();
     let name = node.key.to_string();
-    if name == "ref" || name == "_ref" || name == "node_ref" {
+    if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         let value = node
             .value
             .as_ref()
@@ -762,7 +761,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
         let node_ref = quote_spanned! { span => node_ref };
 
         quote! {
-            .#node_ref(&#value)
+            .#node_ref(#value)
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         let handler = node
