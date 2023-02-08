@@ -36,31 +36,47 @@ where
     F: Fn(Scope) -> E + 'static,
     P: std::fmt::Display,
 {
-    let children = children
-        .map(|children| {
-            children(cx)
-                .as_children()
-                .iter()
-                .filter_map(|child| {
-                    child
-                        .as_transparent()
-                        .and_then(|t| t.downcast_ref::<RouteDefinition>())
-                })
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    let id = ROUTE_ID.with(|id| {
-        let next = id.get() + 1;
-        id.set(next);
-        next
-    });
-    RouteDefinition {
-        id,
-        path: path.to_string(),
-        children,
-        view: Rc::new(move |cx| view(cx).into_view(cx)),
+    fn inner(
+        cx: Scope,
+        children: Option<Children>,
+        path: String,
+        view: Rc<dyn Fn(Scope) -> View>,
+    ) -> RouteDefinition {
+        let children = children
+            .map(|children| {
+                children(cx)
+                    .as_children()
+                    .iter()
+                    .filter_map(|child| {
+                        child
+                            .as_transparent()
+                            .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        let id = ROUTE_ID.with(|id| {
+            let next = id.get() + 1;
+            id.set(next);
+            next
+        });
+
+        RouteDefinition {
+            id,
+            path,
+            children,
+            view,
+        }
     }
+
+    inner(
+        cx,
+        children,
+        path.to_string(),
+        Rc::new(move |cx| view(cx).into_view(cx)),
+    )
 }
 
 impl IntoView for RouteDefinition {
@@ -104,7 +120,7 @@ impl RouteContext {
                 path: RefCell::new(path),
                 original_path: route.original_path.to_string(),
                 params,
-                outlet: Box::new(move || Some(element(cx))),
+                outlet: Box::new(move |cx| Some(element(cx))),
             }),
         })
     }
@@ -155,7 +171,7 @@ impl RouteContext {
                 path: RefCell::new(path.to_string()),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
-                outlet: Box::new(move || fallback.as_ref().map(move |f| f(cx))),
+                outlet: Box::new(move |cx| fallback.as_ref().map(move |f| f(cx))),
             }),
         }
     }
@@ -171,8 +187,8 @@ impl RouteContext {
     }
 
     /// The view associated with the current route.
-    pub fn outlet(&self) -> impl IntoView {
-        (self.inner.outlet)()
+    pub fn outlet(&self, cx: Scope) -> impl IntoView {
+        (self.inner.outlet)(cx)
     }
 }
 
@@ -184,7 +200,7 @@ pub(crate) struct RouteContextInner {
     pub(crate) path: RefCell<String>,
     pub(crate) original_path: String,
     pub(crate) params: Memo<ParamsMap>,
-    pub(crate) outlet: Box<dyn Fn() -> Option<View>>,
+    pub(crate) outlet: Box<dyn Fn(Scope) -> Option<View>>,
 }
 
 impl PartialEq for RouteContextInner {

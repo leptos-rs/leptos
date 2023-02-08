@@ -83,6 +83,17 @@ impl Scope {
         self.id
     }
 
+    /// Returns the chain of scope IDs beginning with this one, going to its parent, grandparents, etc.
+    pub fn ancestry(&self) -> Vec<ScopeId> {
+        let mut ids = vec![self.id];
+        let mut cx = *self;
+        while let Some(parent) = cx.parent() {
+            ids.push(parent.id());
+            cx = parent;
+        }
+        ids
+    }
+
     /// Creates a child scope and runs the given function within it, returning a handle to dispose of it.
     ///
     /// The child scope has its own lifetime and disposer, but will be disposed when the parent is

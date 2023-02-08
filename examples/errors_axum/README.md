@@ -1,9 +1,8 @@
-# Leptos Todo App Sqlite with Axum
-
-This example creates a basic todo app with an Axum backend that uses Leptos' server functions to call sqlx from the client and seamlessly run it on the server.
+# Leptos Errors Demonstration with Axum
+This example demonstrates how Leptos Errors can work with an Axum backend on a server.
 
 ## Client Side Rendering
-This example cannot be built as a trunk standalone CSR-only app as it requires the server to send HTTP Status Codes.
+This example cannot be built as a trunk standalone CSR-only app as it requires the server to send status codes.
 
 ## Server Side Rendering with cargo-leptos
 cargo-leptos is now the easiest and most featureful way to build server side rendered apps with hydration. It provides automatic recompilation of client and server code, wasm optimisation, CSS minification, and more! Check out more about it [here](https://github.com/akesson/cargo-leptos)

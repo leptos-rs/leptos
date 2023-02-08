@@ -2,7 +2,8 @@
 use crate::{
     hydration::SharedContext, serialization::Serializable, AnyEffect, AnyResource, Effect,
     EffectId, Memo, ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SignalId, UpdatableSignal, WriteSignal,
+    ScopeProperty, SerializableResource, SignalId, UnserializableResource, UpdatableSignal,
+    WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -116,17 +117,18 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    pub(crate) fn create_concrete_signal(self, value: Rc<RefCell<dyn Any>>) -> SignalId {
+        with_runtime(self, |runtime| runtime.signals.borrow_mut().insert(value))
+            .expect("tried to create a signal in a runtime that has been disposed")
+    }
+
+    #[track_caller]
     pub(crate) fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
     where
         T: Any + 'static,
     {
-        let id = with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
-        })
-        .expect("tried to create a signal in a runtime that has been disposed");
+        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
+
         (
             ReadSignal {
                 runtime: self,
@@ -149,13 +151,7 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = with_runtime(self, |runtime| {
-            runtime
-                .signals
-                .borrow_mut()
-                .insert(Rc::new(RefCell::new(value)))
-        })
-        .expect("tried to create a signal in a runtime that has been disposed");
+        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
         RwSignal {
             runtime: self,
             id,
@@ -166,6 +162,12 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    pub(crate) fn create_concrete_effect(self, effect: Rc<dyn AnyEffect>) -> EffectId {
+        with_runtime(self, |runtime| runtime.effects.borrow_mut().insert(effect))
+            .expect("tried to create an effect in a runtime that has been disposed")
+    }
+
+    #[track_caller]
     pub(crate) fn create_effect<T>(self, f: impl Fn(Option<T>) -> T + 'static) -> EffectId
     where
         T: Any + 'static,
@@ -173,18 +175,16 @@ impl RuntimeId {
         #[cfg(debug_assertions)]
         let defined_at = std::panic::Location::caller();
 
-        with_runtime(self, |runtime| {
-            let effect = Effect {
-                f,
-                value: RefCell::new(None),
-                #[cfg(debug_assertions)]
-                defined_at,
-            };
-            let id = { runtime.effects.borrow_mut().insert(Rc::new(effect)) };
-            id.run::<T>(self);
-            id
-        })
-        .expect("tried to create an effect in a runtime that has been disposed")
+        let effect = Effect {
+            f,
+            value: RefCell::new(None),
+            #[cfg(debug_assertions)]
+            defined_at,
+        };
+
+        let id = self.create_concrete_effect(Rc::new(effect));
+        id.run(self);
+        id
     }
 
     #[track_caller]
@@ -256,27 +256,19 @@ impl Runtime {
         Self::default()
     }
 
-    pub(crate) fn create_unserializable_resource<S, T>(
+    pub(crate) fn create_unserializable_resource(
         &self,
-        state: Rc<ResourceState<S, T>>,
-    ) -> ResourceId
-    where
-        S: Clone + 'static,
-        T: 'static,
-    {
+        state: Rc<dyn UnserializableResource>,
+    ) -> ResourceId {
         self.resources
             .borrow_mut()
             .insert(AnyResource::Unserializable(state))
     }
 
-    pub(crate) fn create_serializable_resource<S, T>(
+    pub(crate) fn create_serializable_resource(
         &self,
-        state: Rc<ResourceState<S, T>>,
-    ) -> ResourceId
-    where
-        S: Clone + 'static,
-        T: Serializable + 'static,
-    {
+        state: Rc<dyn SerializableResource>,
+    ) -> ResourceId {
         self.resources
             .borrow_mut()
             .insert(AnyResource::Serializable(state))

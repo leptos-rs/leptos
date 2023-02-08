@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, debug_warn, on_cleanup,
+    create_effect, debug_warn,
+    macros::debug_warn,
+    on_cleanup,
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty,
 };
@@ -1070,7 +1072,11 @@ impl<T: Clone> GettableSignal<T> for RwSignal<T> {
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
-/// count.update(|n| if *n > 3 { *n += 1 });
+/// count.update(|n| {
+///   if *n > 3 {
+///     *n += 1
+///   }
+/// });
 /// assert_eq!(count(), 1);
 /// # }).dispose();
 /// ```
@@ -1366,7 +1372,9 @@ impl SignalId {
         }?;
         let value = value.try_borrow().unwrap_or_else(|e| {
             debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It seems you're trying to read the value of a signal within an effect caused by updating the signal.",
+                "Signal::try_with_no_subscription failed on Signal<{}>. It seems \
+         you're trying to read the value of a signal within an effect caused \
+         by updating the signal.",
                 std::any::type_name::<T>()
             );
             panic!("{e}");
@@ -1434,7 +1442,11 @@ impl SignalId {
                 }
             } else {
                 debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
+                    "[Signal::update] You’re trying to update a Signal<{}> that has \
+           already been disposed of. This is probably either a logic error in \
+           a component that creates and disposes of scopes, or a Resource \
+           resolving after its scope has been dropped without having been \
+           cleaned up.",
                     std::any::type_name::<T>()
                 );
                 None

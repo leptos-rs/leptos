@@ -327,7 +327,7 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///     
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
 ///     let leptos_options = conf.leptos_options;
-///     let addr = leptos_options.site_address.clone();
+///     let addr = leptos_options.site_addr.clone();
 ///     
 ///     // build our application with a route
 ///     let app = Router::new()
@@ -447,6 +447,7 @@ where
                                                     provide_context(cx, MetaContext::new());
                                                     provide_context(cx, req_parts);
                                                     provide_context(cx, default_res_options);
+                                                    provide_server_redirect(cx, move |path| redirect(cx, path));
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -494,20 +495,16 @@ where
 
                 let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
-                // Get the first, second, and third chunks in the stream, which renders the app shell, and thus allows Resources to run
+                // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
                 let first_chunk = stream.next().await;
                 let second_chunk = stream.next().await;
-                let third_chunk = stream.next().await;
 
                 // Extract the resources now that they've been rendered
                 let res_options = res_options3.0.read();
 
-                let complete_stream = futures::stream::iter([
-                    first_chunk.unwrap(),
-                    second_chunk.unwrap(),
-                    third_chunk.unwrap(),
-                ])
-                .chain(stream);
+                let complete_stream =
+                    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+                        .chain(stream);
 
                 let mut res = Response::new(StreamBody::new(
                     Box::pin(complete_stream) as PinnedHtmlStream
@@ -537,7 +534,7 @@ fn html_parts(options: &LeptosOptions, meta: Option<&MetaContext>) -> (String, &
         wasm_output_name.push_str("_bg");
     }
 
-    let site_ip = &options.site_address.ip().to_string();
+    let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
 
     let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {

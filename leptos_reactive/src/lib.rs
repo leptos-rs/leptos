@@ -106,17 +106,28 @@ pub use spawn_microtask::*;
 pub use stored_value::*;
 pub use suspense::*;
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! debug_warn {
-    ($($x:tt)*) => {
-        {
-            #[cfg(debug_assertions)]
+mod macros {
+    macro_rules! debug_warn {
+        ($($x:tt)*) => {
             {
-                log::warn!($($x)*)
+                #[cfg(debug_assertions)]
+                {
+                    ($crate::console_warn(&format_args!($($x)*).to_string()))
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    ($($x)*)
+                }
             }
-            #[cfg(not(debug_assertions))]
-            { }
         }
     }
+
+    pub(crate) use debug_warn;
+}
+
+pub(crate) fn console_warn(s: &str) {
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+    eprintln!("{s}");
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
 }

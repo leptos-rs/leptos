@@ -4,6 +4,7 @@ use convert_case::{
 };
 use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
+use proc_macro_error::ResultExt;
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use std::collections::HashSet;
 use syn::{
@@ -167,7 +168,7 @@ impl ToTokens for Model {
 
         let component = if *is_transparent {
             quote! {
-                #body_name(cx, #prop_names)
+                #body_name(#scope_name, #prop_names)
             }
         } else {
             quote! {
@@ -287,8 +288,8 @@ impl Prop {
         } else {
             abort!(
                 typed.pat,
-                "only `prop: bool` style types are allowed within the \
-                 `#[component]` macro"
+                "only `prop: bool` style types are allowed within the `#[component]` \
+         macro"
             );
         };
 
@@ -402,17 +403,15 @@ enum PropOpt {
 
 impl PropOpt {
     fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
-        const ABORT_OPT_MESSAGE: &str = "only `optional`, \
-                                         `optional_no_strip`, \
-                                         `strip_option`, \
-                                         `default` and `into` are \
-                                         allowed as arguments to `#[prop()]`";
+        const ABORT_OPT_MESSAGE: &str = "only `optional`, `optional_no_strip`, \
+                                     `strip_option`, `default` and `into` are \
+                                     allowed as arguments to `#[prop()]`";
 
         if attr.path != parse_quote!(prop) {
             return None;
         }
 
-        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().ok()? {
+        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().unwrap_or_abort() {
             Some(
                 nested
                     .iter()
@@ -613,9 +612,9 @@ fn is_option(ty: &Type) -> bool {
 }
 
 fn unwrap_option(ty: &Type) -> Option<Type> {
-    const STD_OPTION_MSG: &str = "make sure you're not shadowing the \
-    `std::option::Option` type that is automatically imported from the \
-    standard prelude";
+    const STD_OPTION_MSG: &str =
+        "make sure you're not shadowing the `std::option::Option` type that is \
+     automatically imported from the standard prelude";
 
     if let Type::Path(TypePath {
         path: Path { segments, .. },

@@ -15,11 +15,6 @@ members = [
   # libraries
   "meta",
   "router",
-
-  # book
-  "docs/book/project/ch02_getting_started",
-  "docs/book/project/ch03_building_ui",
-  "docs/book/project/ch04_reactivity",
 ]
 exclude = ["benchmarks", "examples"]
 

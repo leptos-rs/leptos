@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
+use crate::macros::debug_warn;
 use crate::runtime::{with_runtime, RuntimeId};
-use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use crate::{Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -200,7 +201,7 @@ where
 }
 
 impl EffectId {
-    pub(crate) fn run<T>(&self, runtime_id: RuntimeId) {
+    pub(crate) fn run(&self, runtime_id: RuntimeId) {
         _ = with_runtime(runtime_id, |runtime| {
             let effect = {
                 let effects = runtime.effects.borrow();

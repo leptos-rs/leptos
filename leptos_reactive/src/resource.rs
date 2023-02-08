@@ -131,7 +131,8 @@ where
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
-        runtime.create_serializable_resource(Rc::clone(&r))
+        let r = Rc::clone(&r) as Rc<dyn SerializableResource>;
+        runtime.create_serializable_resource(r)
     })
     .expect("tried to create a Resource in a Runtime that has been disposed.");
 
@@ -251,7 +252,8 @@ where
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
-        runtime.create_unserializable_resource(Rc::clone(&r))
+        let r = Rc::clone(&r) as Rc<dyn UnserializableResource>;
+        runtime.create_unserializable_resource(r)
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
