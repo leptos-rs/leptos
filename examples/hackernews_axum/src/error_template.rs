@@ -15,7 +15,7 @@ pub fn error_template(cx: Scope, errors: Option<RwSignal<Errors>>) -> View {
         // a unique key for each item as a reference
         key=|error| error.0.clone()
         // renders each item to a view
-        view= move |error| {
+        view= move |cx, error| {
         let error_string = error.1.to_string();
           view! {
             cx,
