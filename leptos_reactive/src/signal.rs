@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, debug_warn,
+    console_warn, create_effect,
     macros::debug_warn,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
@@ -77,6 +77,7 @@ impl_set_fn_traits![WriteSignal, RwSignal];
 pub trait GettableSignal<T: Clone> {
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
+    #[track_caller]
     fn get(&self) -> T;
 
     /// Clones and returns the signal value, returning [`Some`] if the signal
@@ -89,6 +90,7 @@ pub trait GettableSignal<T: Clone> {
 pub trait RefSignal<T> {
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal.
+    #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
     /// Applies a function to the current value of the signal, and subscribes
@@ -103,6 +105,7 @@ pub trait SettableSignal<T> {
     ///
     /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
+    #[track_caller]
     fn set(&self, new_value: T);
 
     /// Sets the signal’s value and notifies subscribers. Returns [`None`]
@@ -120,7 +123,19 @@ pub trait UpdatableSignal<T> {
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
-    fn update<O>(&self, f: impl FnOnce(&mut T) -> O) -> O;
+    #[track_caller]
+    fn update(&self, f: impl FnOnce(&mut T));
+
+    /// Applies a function to the current value to mutate it in place
+    /// and notifies subscribers that the signal has changed. Returns
+    /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
+    ///
+    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+    /// even if the value has not actually changed.
+    #[deprecated = "Please use `try_update` instead. This method will be removed in a future version of this crate"]
+    fn update_returning<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+        self.try_update(f)
+    }
 
     /// Applies a function to the current value to mutate it in place
     /// and notifies subscribers that the signal has changed. Returns
@@ -400,8 +415,16 @@ impl<T> RefSignal<T> for ReadSignal<T> {
             )
         )
     )]
-    fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.id.with(self.runtime, f)
+    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+            .expect("runtime to be alive ")
+        {
+            Ok(o) => o,
+            Err(_) => panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
     }
 
     #[cfg_attr(
@@ -450,7 +473,15 @@ impl<T: Clone> GettableSignal<T> for ReadSignal<T> {
         )
     )]
     fn get(&self) -> T {
-        self.id.with(self.runtime, T::clone)
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, T::clone))
+            .expect("runtime to be alive")
+        {
+            Ok(t) => t,
+            Err(_) => panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
     }
 
     #[cfg_attr(
@@ -672,9 +703,13 @@ impl<T> UpdatableSignal<T> for WriteSignal<T> {
             )
         )
     )]
-    fn update<O>(&self, f: impl FnOnce(&mut T) -> O) -> O {
-        // When the signal is dead?
-        self.id.update(self.runtime, f).unwrap()
+    fn update(&self, f: impl FnOnce(&mut T)) {
+        if self.id.update(self.runtime, f).is_none() {
+            warn_updating_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            );
+        }
     }
 
     #[cfg_attr(
@@ -978,8 +1013,16 @@ impl<T> RefSignal<T> for RwSignal<T> {
             )
         )
     )]
-    fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.id.with(self.runtime, f)
+    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+            .expect("runtime to be alive")
+        {
+            Ok(o) => o,
+            Err(_) => panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
     }
 
     #[cfg_attr(
@@ -1034,7 +1077,15 @@ impl<T: Clone> GettableSignal<T> for RwSignal<T> {
     where
         T: Clone,
     {
-        self.id.with(self.runtime, T::clone)
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, T::clone))
+            .expect("runtime to be alive")
+        {
+            Ok(t) => t,
+            Err(_) => panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
     }
 
     #[cfg_attr(
@@ -1094,8 +1145,13 @@ impl<T> UpdatableSignal<T> for RwSignal<T> {
             )
         )
     )]
-    fn update<O>(&self, f: impl FnOnce(&mut T) -> O) -> O {
-        self.id.update(self.runtime, f).unwrap()
+    fn update(&self, f: impl FnOnce(&mut T)) {
+        if self.id.update(self.runtime, f).is_none() {
+            warn_updating_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            );
+        }
     }
 
     #[cfg_attr(
@@ -1187,10 +1243,7 @@ impl<T: Clone> StreamableSignal<T> for RwSignal<T> {
     }
 }
 
-impl<T> RwSignal<T>
-where
-    T: 'static,
-{
+impl<T> RwSignal<T> {
     /// Returns a read-only handle to the signal.
     ///
     /// Useful if you're trying to give read access to another component but ensure that it can't write
@@ -1412,14 +1465,6 @@ impl SignalId {
         .expect("tried to access a signal in a runtime that has been disposed")
     }
 
-    pub(crate) fn with<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&T) -> U) -> U
-    where
-        T: 'static,
-    {
-        with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
-            .expect("tried to access a signal in a runtime that has been disposed")
-    }
-
     fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
     where
         T: 'static,
@@ -1502,4 +1547,53 @@ impl SignalId {
         // update the value
         self.update_value(runtime, f)
     }
+}
+
+#[track_caller]
+fn format_signal_warning(
+    msg: &str,
+    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+) -> String {
+    let location = std::panic::Location::caller();
+
+    let defined_at_msg = {
+        #[cfg(debug_assertions)]
+        {
+            format!("signal created here: {defined_at}\n")
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            String::default()
+        }
+    };
+
+    format!(
+        "{msg}\n\
+        {defined_at_msg}\
+        warning happened here: {location}",
+    )
+}
+
+#[track_caller]
+pub(crate) fn panic_getting_dead_signal(
+    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+) -> ! {
+    panic!(
+        "{}",
+        format_signal_warning(
+            "Attempted to get a signal after it was disposed.",
+            defined_at,
+        )
+    )
+}
+
+#[track_caller]
+pub(crate) fn warn_updating_dead_signal(
+    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+) {
+    console_warn(&format_signal_warning(
+        "Attempted to update a signal after it was disposed.",
+        defined_at,
+    ));
 }
