@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
+use crate::macros::debug_warn;
 use crate::runtime::{with_runtime, RuntimeId};
-use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use crate::{Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
 use std::cell::RefCell;
 use std::fmt::Debug;

@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    debug_warn,
+    macros::debug_warn,
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
 };
