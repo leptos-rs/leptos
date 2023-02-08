@@ -1,0 +1,6 @@
+imports_granularity = "Crate"
+max_width = 80
+format_strings = true
+imports_layout = "vertical"
+group_imports = "One"
+format_code_in_doc_comments = true
