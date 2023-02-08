@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_rw_signal, GettableSignal, RwSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
-    UntrackedSettableSignal,
+    UntrackedSettableSignal, UntrackedUpdatableSignal,
 };
 
 /// A **non-reactive** wrapper for any value, which can be created with [store_value].
@@ -86,45 +86,16 @@ where
         self.with_untracked(f)
     }
 
-    /// Applies a function to the current value to mutate it in place.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// pub struct MyUncloneableData {
-    ///   pub value: String
-    /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// data.update(|data| data.value = "b".into());
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
-    /// });
-    /// ```
+    /// Updates the stored value.
+    #[deprecated = "Please use `update_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.0.update_untracked(f);
     }
 
-    /// Applies a function to the current value to mutate it in place.
-    /// Forwards the return value of the closure if the closure was called.
-    /// ```
-    /// use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    ///     pub struct MyUncloneableData {
-    ///         pub value: String
-    ///     }
-    ///
-    ///     let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    ///     let updated = data.update_returning(|data| {
-    ///         data.value = "b".into();
-    ///         data.value.clone()
-    ///     });
-    ///
-    ///     assert_eq!(data.with(|data| data.value.clone()), "b");
-    ///     assert_eq!(updated, Some(String::from("b")));
-    /// });
-    /// ```
+    /// Updates the stored value.
+    #[deprecated = "Please use `try_update_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
     pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.0.update_returning_untracked(f)
+        self.0.try_update_untracked(f)
     }
 
     /// Sets the stored value.
@@ -142,6 +113,53 @@ where
     /// ```
     pub fn set(&self, value: T) {
         self.0.set_untracked(value);
+    }
+}
+
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+///
+/// pub struct MyUncloneableData {
+///   pub value: String
+/// }
+/// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+/// data.update(|data| data.value = "b".into());
+/// assert_eq!(data.with(|data| data.value.clone()), "b");
+/// });
+/// ```
+///
+/// ```
+/// use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+///
+///     pub struct MyUncloneableData {
+///         pub value: String
+///     }
+///
+///     let data = store_value(cx, MyUncloneableData { value: "a".into() });
+///     let updated = data.update_returning(|data| {
+///         data.value = "b".into();
+///         data.value.clone()
+///     });
+///
+///     assert_eq!(data.with(|data| data.value.clone()), "b");
+///     assert_eq!(updated, Some(String::from("b")));
+/// });
+/// ```
+impl<T> UntrackedUpdatableSignal<T> for StoredValue<T> {
+    fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+        self.0.update_untracked(f)
+    }
+
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.0.try_update_untracked(f)
+    }
+
+    fn try_update_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.0.try_update_untracked(f)
     }
 }
 

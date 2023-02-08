@@ -153,6 +153,7 @@ pub trait UpdatableSignal<T> {
 pub trait UntrackedGettableSignal<T> {
     /// Gets the signal's value without creating a dependency on the
     /// current scope.
+    #[track_caller]
     fn get_untracked(&self) -> T
     where
         T: Clone;
@@ -163,6 +164,7 @@ pub trait UntrackedGettableSignal<T> {
 pub trait UntrackedRefSignal<T> {
     /// Runs the provided closure with a reference to the current
     /// value without creating a dependency on the current scope.
+    #[track_caller]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 }
 
@@ -172,16 +174,31 @@ pub trait UntrackedRefSignal<T> {
 /// from being run.
 pub trait UntrackedSettableSignal<T> {
     /// Sets the signal's value without notifying dependents.
+    #[track_caller]
     fn set_untracked(&self, new_value: T);
+}
 
+/// This trait allows updating the signals value without causing
+/// dependant effects to run.
+pub trait UntrackedUpdatableSignal<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents.
+    #[track_caller]
     fn update_untracked(&self, f: impl FnOnce(&mut T));
 
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
     /// the value the closure returned.
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U>;
+    #[track_caller]
+    #[deprecated = "Please use `try_update_untracked` instead. This method will be removed in a future version of `leptos`"]
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.try_update_untracked(f)
+    }
+
+    /// Runs the provided closure with a mutable reference to the current
+    /// value without notifying dependents and returns
+    /// the value the closure returned.
+    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
 }
 
 /// This trait allows converting a signal into a async [`Stream`].
@@ -643,7 +660,9 @@ where
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
+}
 
+impl<T> UntrackedUpdatableSignal<T> for WriteSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -675,6 +694,10 @@ where
         )
     )]
     fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.id.update_with_no_effect(self.runtime, f)
+    }
+
+    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -952,29 +975,48 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
+}
 
+impl<T> UntrackedUpdatableSignal<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
-        instrument(
-            level = "trace",
-            name = "RwSignal::update_untracked()",
-            skip_all,
-            fields(
-                id = ?self.id,
-                defined_at = %self.defined_at,
-                ty = %std::any::type_name::<T>()
-            )
+    debug_assertions,
+    instrument(
+        level = "trace",
+        name = "RwSignal::update_untracked()",
+        skip_all,
+        fields(
+            id = ?self.id,
+            defined_at = %self.defined_at,
+            ty = %std::any::type_name::<T>()
         )
+    )
     )]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
 
     #[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        name = "RwSignal::update_returning_untracked()",
+        skip_all,
+        fields(
+            id = ?self.id,
+            defined_at = %self.defined_at,
+            ty = %std::any::type_name::<T>()
+        )
+    )
+    )]
+    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+        self.id.update_with_no_effect(self.runtime, f)
+    }
+
+    #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
-            name = "RwSignal::update_returning_untracked()",
+            name = "RwSignal::try_update_untracked()",
             skip_all,
             fields(
                 id = ?self.id,
@@ -983,7 +1025,7 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
             )
         )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
