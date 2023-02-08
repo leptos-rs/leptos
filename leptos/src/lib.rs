@@ -161,7 +161,7 @@ pub use suspense::*;
 mod transition;
 pub use transition::*;
 
-pub use leptos_reactive::debug_warn;
+pub use leptos_dom::debug_warn;
 
 extern crate self as leptos;
 
