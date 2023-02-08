@@ -210,7 +210,7 @@ impl EffectId {
             if let Some(effect) = effect {
                 effect.run(*self, runtime_id);
             } else {
-                debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
+                debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.");
             }
         })
     }
