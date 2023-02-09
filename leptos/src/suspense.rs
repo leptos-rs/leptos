@@ -2,7 +2,7 @@ use cfg_if::cfg_if;
 use leptos_dom::HydrationCtx;
 use leptos_dom::{DynChild, Fragment, IntoView};
 use leptos_macro::component;
-use leptos_reactive::{provide_context, Scope, SuspenseContext};
+use leptos_reactive::{provide_context, signal_prelude::*, Scope, SuspenseContext};
 use std::rc::Rc;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
