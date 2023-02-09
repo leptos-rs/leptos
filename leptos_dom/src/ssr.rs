@@ -187,8 +187,13 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
               "#
     )
   });
+<<<<<<< HEAD
     // stream data for each Resource as it resolves
     let resources = render_serializers(serializers);
+=======
+  // stream data for each Resource as it resolves
+  let resources = render_serializers(serializers);
+>>>>>>> 5444f32 (Significant progress on in-order streaming)
 
     // HTML for the view function and script to store resources
     let stream = futures::stream::once(async move {
@@ -491,20 +496,34 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
 }
 
 pub(crate) fn render_serializers(
+<<<<<<< HEAD
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> impl Stream<Item = String> {
     serializers.map(|(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
         format!(
             r#"<script>
+=======
+  serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
+) -> impl Stream<Item = String> {
+  serializers.map(|(id, json)| {
+    let id = serde_json::to_string(&id).unwrap();
+    format!(
+      r#"<script>
+>>>>>>> 5444f32 (Significant progress on in-order streaming)
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
                   }} else {{
                       __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
                   }}
               </script>"#,
+<<<<<<< HEAD
         )
     })
+=======
+    )
+  })
+>>>>>>> 5444f32 (Significant progress on in-order streaming)
 }
 
 #[doc(hidden)]
