@@ -261,7 +261,10 @@ fn root_element_to_tokens_ssr(
         };
 
         let tag_name = node.name.to_string();
-        let typed_element_name = {
+        let is_custom_element = is_custom_element(&tag_name);
+        let typed_element_name = if is_custom_element {
+            Ident::new("Custom", node.name.span())
+        } else {
             let camel_cased =
                 camel_case_tag_name(&tag_name.replace("svg::", "").replace("math::", ""));
             Ident::new(&camel_cased, node.name.span())
@@ -273,10 +276,19 @@ fn root_element_to_tokens_ssr(
         } else {
             quote! { #typed_element_name }
         };
+        let full_name = if is_custom_element {
+            quote! {
+                leptos::leptos_dom::Custom::new(#tag_name)
+            }
+        } else {
+            quote! {
+                leptos::leptos_dom::#typed_element_name::default()
+            }
+        };
         quote! {
         {
             #(#exprs_for_compiler)*
-            ::leptos::HtmlElement::from_html(cx, leptos::leptos_dom::#typed_element_name::default(), #template)
+            ::leptos::HtmlElement::from_html(cx, #full_name, #template)
         }
         }
     }
