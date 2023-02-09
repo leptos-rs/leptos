@@ -38,6 +38,7 @@ cfg_if! {
     use crate::hydration::HydrationKey;
   }
 }
+use leptos_reactive::Scope;
 use smallvec::SmallVec;
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 
@@ -159,6 +160,7 @@ impl Mountable for EachRepr {
 /// The internal representation of an [`Each`] item.
 #[derive(PartialEq, Eq)]
 pub(crate) struct EachItem {
+  cx: Scope,
   #[cfg(all(target_arch = "wasm32", feature = "web"))]
   document_fragment: web_sys::DocumentFragment,
   #[cfg(debug_assertions)]
@@ -184,7 +186,7 @@ impl fmt::Debug for EachItem {
 }
 
 impl EachItem {
-  fn new(child: View) -> Self {
+  fn new(cx: Scope, child: View) -> Self {
     let id = HydrationCtx::id();
 
     let markers = (
@@ -214,6 +216,7 @@ impl EachItem {
     };
 
     Self {
+      cx,
       #[cfg(all(target_arch = "wasm32", feature = "web"))]
       document_fragment,
       #[cfg(debug_assertions)]
@@ -223,6 +226,13 @@ impl EachItem {
       #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
       id,
     }
+  }
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl Drop for EachItem {
+  fn drop(&mut self) {
+    self.cx.dispose();
   }
 }
 
@@ -272,7 +282,7 @@ pub struct Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -287,7 +297,7 @@ impl<IF, I, T, EF, N, KF, K> Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K,
   K: Eq + Hash + 'static,
@@ -307,7 +317,7 @@ impl<IF, I, T, EF, N, KF, K> IntoView for Each<IF, I, T, EF, N, KF, K>
 where
   IF: Fn() -> I + 'static,
   I: IntoIterator<Item = T>,
-  EF: Fn(T) -> N + 'static,
+  EF: Fn(Scope, T) -> N + 'static,
   N: IntoView,
   KF: Fn(&T) -> K + 'static,
   K: Eq + Hash + 'static,
@@ -317,7 +327,7 @@ where
     debug_assertions,
     instrument(level = "trace", name = "<Each />", skip_all)
   )]
-  fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
+  fn into_view(self, cx: Scope) -> crate::View {
     let Self {
       items_fn,
       each_fn,
@@ -370,7 +380,7 @@ where
             *children_borrow = Vec::with_capacity(items.len());
 
             for item in items {
-              let each_item = EachItem::new(each_fn(item).into_view(cx));
+              let (each_item, _) = cx.run_child_scope(|cx| EachItem::new(cx, each_fn(cx, item).into_view(cx)));
 
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               mount_child(MountKind::Before(&closing), &each_item);
@@ -384,7 +394,7 @@ where
       } else {
         *component.children.borrow_mut() = (items_fn)()
           .into_iter()
-          .map(|child| Some(EachItem::new((each_fn)(child).into_view(cx))))
+          .map(|child| cx.run_child_scope(|cx| Some(EachItem::new(cx, (each_fn)(cx, child).into_view(cx)))).0)
           .collect();
       }
     }
@@ -568,7 +578,7 @@ impl Default for DiffOpAddMode {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn apply_cmds<T, EF, N>(
-  cx: leptos_reactive::Scope,
+  cx: Scope,
   opening: &web_sys::Node,
   closing: &web_sys::Node,
   mut cmds: Diff,
@@ -576,7 +586,7 @@ fn apply_cmds<T, EF, N>(
   mut items: SmallVec<[Option<T>; 128]>,
   each_fn: &EF,
 ) where
-  EF: Fn(T) -> N,
+  EF: Fn(Scope, T) -> N,
   N: IntoView,
 {
   let range = RANGE.with(|range| (*range).clone());
@@ -647,9 +657,10 @@ fn apply_cmds<T, EF, N>(
   for DiffOpAdd { at, mode } in cmds.added {
     let item = items[at].take().unwrap();
 
-    let child = each_fn(item).into_view(cx);
-
-    let each_item = EachItem::new(child);
+    let (each_item, _) = cx.run_child_scope(|cx| {
+      let child = each_fn(cx, item).into_view(cx);
+      EachItem::new(cx, child)
+    });
 
     match mode {
       DiffOpAddMode::Normal => {
