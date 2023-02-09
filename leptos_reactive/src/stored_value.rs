@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_rw_signal, RwSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
-    UntrackedSettableSignal, UntrackedUpdatableSignal,
+    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntrack, SignalUpdateUntracked,
+    SignalWith, SignalWithUntracked,
 };
 
 /// A **non-reactive** wrapper for any value, which can be created with [store_value].
@@ -44,7 +44,7 @@ impl<T> Copy for StoredValue<T> {}
 /// assert_eq!(data().value, "a");
 /// });
 /// ```
-impl<T: Clone> UntrackedGettableSignal<T> for StoredValue<T> {
+impl<T: Clone> SignalGetUntracked<T> for StoredValue<T> {
     fn get_untracked(&self) -> T
     where
         T: Clone,
@@ -53,15 +53,33 @@ impl<T: Clone> UntrackedGettableSignal<T> for StoredValue<T> {
     }
 }
 
-impl<T> UntrackedRefSignal<T> for StoredValue<T> {
+impl<T> SignalWithUntracked<T> for StoredValue<T> {
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.0.with_untracked(f)
     }
+
+    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.try_with_untracked(f)
+    }
 }
 
-impl<T> UntrackedSettableSignal<T> for StoredValue<T> {
+impl<T> SignalSetUntrack<T> for StoredValue<T> {
     fn set_untracked(&self, new_value: T) {
         self.0.set_untracked(new_value)
+    }
+
+    fn try_set_untracked(&self, new_value: T) -> Option<T> {
+        self.0.try_set_untracked(new_value)
+    }
+}
+
+impl<T> SignalWith<T> for StoredValue<T> {
+    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.0.with(f)
+    }
+
+    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.try_with(f)
     }
 }
 
@@ -164,7 +182,7 @@ impl<T> StoredValue<T> {
 ///     assert_eq!(updated, Some(String::from("b")));
 /// });
 /// ```
-impl<T> UntrackedUpdatableSignal<T> for StoredValue<T> {
+impl<T> SignalUpdateUntracked<T> for StoredValue<T> {
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.0.update_untracked(f)
     }

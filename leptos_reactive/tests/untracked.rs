@@ -1,7 +1,7 @@
 //#[cfg(not(feature = "stable"))]
 use leptos_reactive::{
-    create_isomorphic_effect, create_runtime, create_scope, create_signal, UntrackedGettableSignal,
-    UntrackedSettableSignal,
+    create_isomorphic_effect, create_runtime, create_scope, create_signal, SignalGetUntracked,
+    SignalSetUntrack,
 };
 
 //#[cfg(not(feature = "stable"))]

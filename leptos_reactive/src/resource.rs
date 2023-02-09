@@ -4,8 +4,8 @@ use crate::{
     runtime::{with_runtime, RuntimeId},
     serialization::Serializable,
     spawn::spawn_local,
-    use_context, Memo, ReadSignal, RefSignal, Scope, ScopeProperty, SuspenseContext,
-    UpdatableSignal, WriteSignal,
+    use_context, Memo, ReadSignal, Scope, ScopeProperty, SignalUpdate, SignalWith, SuspenseContext,
+    WriteSignal,
 };
 use std::{
     any::Any,

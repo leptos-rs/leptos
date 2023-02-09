@@ -2,7 +2,7 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use crate::{
-    create_isomorphic_effect, create_signal, ReadSignal, Scope, UpdatableSignal, WriteSignal,
+    create_isomorphic_effect, create_signal, ReadSignal, Scope, SignalUpdate, WriteSignal,
 };
 
 /// Creates a conditional signal that only notifies subscribers when a change

@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    store_value, RwSignal, Scope, SettableSignal, StoredValue, UntrackedRefSignal, WriteSignal,
+    store_value, RwSignal, Scope, SignalSet, SignalWithUntracked, StoredValue, WriteSignal,
 };
 
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].

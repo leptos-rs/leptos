@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    GettableSignal, ReadSignal, RefSignal, Scope, UntrackedGettableSignal, UntrackedRefSignal,
+    create_effect, on_cleanup, ReadSignal, Scope, SignalGet, SignalGetUntracked, SignalStream,
+    SignalWith, SignalWithUntracked,
 };
 use std::fmt::Debug;
 
@@ -150,7 +151,7 @@ where
 
 impl<T> Copy for Memo<T> {}
 
-impl<T> UntrackedGettableSignal<T> for Memo<T> {
+impl<T> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -174,7 +175,7 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
     }
 }
 
-impl<T> UntrackedRefSignal<T> for Memo<T> {
+impl<T> SignalWithUntracked<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -192,6 +193,23 @@ impl<T> UntrackedRefSignal<T> for Memo<T> {
         // Unwrapping here is fine for the same reasons as <Memo as
         // UntrackedSignal>::get_untracked
         self.0.with_untracked(|v| f(v.as_ref().unwrap()))
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::try_with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.try_with_untracked(|t| f(t.as_ref().unwrap()))
     }
 }
 
@@ -211,7 +229,7 @@ impl<T> UntrackedRefSignal<T> for Memo<T> {
 /// # }).dispose();
 /// #
 /// ```
-impl<T: Clone> GettableSignal<T> for Memo<T> {
+impl<T: Clone> SignalGet<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -246,7 +264,7 @@ impl<T: Clone> GettableSignal<T> for Memo<T> {
     }
 }
 
-impl<T> RefSignal<T> for Memo<T> {
+impl<T> SignalWith<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -279,6 +297,24 @@ impl<T> RefSignal<T> for Memo<T> {
     )]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         self.0.try_with(|t| f(t.as_ref().unwrap())).ok()
+    }
+}
+
+impl<T: Clone> SignalStream<T> for Memo<T> {
+    fn to_stream(&self, cx: Scope) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+
+        let close_channel = tx.clone();
+
+        on_cleanup(cx, move || close_channel.close_channel());
+
+        let this = *self;
+
+        create_effect(cx, move |_| {
+            let _ = tx.unbounded_send(this.get());
+        });
+
+        Box::pin(rx)
     }
 }
 

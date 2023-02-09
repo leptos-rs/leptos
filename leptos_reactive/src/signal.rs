@@ -74,7 +74,7 @@ impl_set_fn_traits![WriteSignal];
 
 /// This trait allows getting an owned value of the signals
 /// inner type.
-pub trait GettableSignal<T: Clone> {
+pub trait SignalGet<T: Clone> {
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
     #[track_caller]
@@ -87,7 +87,7 @@ pub trait GettableSignal<T: Clone> {
 
 /// This trait allows obtaining an immutable reference to the signal's
 /// inner type.
-pub trait RefSignal<T> {
+pub trait SignalWith<T> {
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal.
     #[track_caller]
@@ -100,7 +100,7 @@ pub trait RefSignal<T> {
 }
 
 /// This trait allows setting the value of a signal.
-pub trait SettableSignal<T> {
+pub trait SignalSet<T> {
     /// Sets the signal’s value and notifies subscribers.
     ///
     /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
@@ -117,7 +117,7 @@ pub trait SettableSignal<T> {
 }
 
 /// This trait allows updating the inner value of a signal.
-pub trait UpdatableSignal<T> {
+pub trait SignalUpdate<T> {
     /// Applies a function to the current value to mutate it in place
     /// and notifies subscribers that the signal has changed.
     ///
@@ -150,7 +150,7 @@ pub trait UpdatableSignal<T> {
 /// from, such as [`ReadSignal`],
 /// [`Memo`](crate::Memo), etc., which allows getting the inner value without
 /// subscribing to the current scope.
-pub trait UntrackedGettableSignal<T> {
+pub trait SignalGetUntracked<T> {
     /// Gets the signal's value without creating a dependency on the
     /// current scope.
     #[track_caller]
@@ -161,26 +161,38 @@ pub trait UntrackedGettableSignal<T> {
 
 /// This trait allows getting a reference to the signals inner value
 /// without creating a dependency on the signal.
-pub trait UntrackedRefSignal<T> {
+pub trait SignalWithUntracked<T> {
     /// Runs the provided closure with a reference to the current
     /// value without creating a dependency on the current scope.
     #[track_caller]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+
+    /// Runs the provided closure with a reference to the current
+    /// value without creating a dependency on the current scope.
+    /// Returns [`Some(O)`] if the signal is still valid, [`None`]
+    /// otherwise.
+    #[track_caller]
+    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
 }
 
 /// Trait implemented for all signal types which you can `set` the inner
 /// value, such as [`WriteSignal`] and [`RwSignal`], which allows setting
 /// the inner value without causing effects which depend on the signal
 /// from being run.
-pub trait UntrackedSettableSignal<T> {
+pub trait SignalSetUntrack<T> {
     /// Sets the signal's value without notifying dependents.
     #[track_caller]
     fn set_untracked(&self, new_value: T);
+
+    /// Attempts to set the signal if it's still valid. Returns [`None`]
+    /// if the signal was set, [`Some(T)`] otherwise.
+    #[track_caller]
+    fn try_set_untracked(&self, new_value: T) -> Option<T>;
 }
 
 /// This trait allows updating the signals value without causing
 /// dependant effects to run.
-pub trait UntrackedUpdatableSignal<T> {
+pub trait SignalUpdateUntracked<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents.
     #[track_caller]
@@ -202,7 +214,7 @@ pub trait UntrackedUpdatableSignal<T> {
 }
 
 /// This trait allows converting a signal into a async [`Stream`].
-pub trait StreamableSignal<T> {
+pub trait SignalStream<T> {
     /// Generates a [`Stream`] that emits the new value of the signal
     /// whenever it changes.
 
@@ -365,7 +377,7 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
+impl<T> SignalGetUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -387,22 +399,43 @@ impl<T> UntrackedGettableSignal<T> for ReadSignal<T> {
     }
 }
 
-impl<T> UntrackedRefSignal<T> for ReadSignal<T> {
+impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        name = "ReadSignal::with_untracked()",
-        skip_all,
-        fields(
-            id = ?self.id,
-            defined_at = %self.defined_at,
-            ty = %std::any::type_name::<T>()
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.with_no_subscription(f)
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::try_with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+            .ok()
+            .transpose()
+            .ok()
+            .flatten()
     }
 }
 
@@ -424,7 +457,7 @@ impl<T> UntrackedRefSignal<T> for ReadSignal<T> {
 /// assert_eq!(first_char(), 'B');
 /// });
 /// ```
-impl<T> RefSignal<T> for ReadSignal<T> {
+impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -481,7 +514,7 @@ impl<T> RefSignal<T> for ReadSignal<T> {
 /// assert_eq!(count(), 0);
 /// });
 /// ```
-impl<T: Clone> GettableSignal<T> for ReadSignal<T> {
+impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -525,7 +558,7 @@ impl<T: Clone> GettableSignal<T> for ReadSignal<T> {
     }
 }
 
-impl<T: Clone> StreamableSignal<T> for ReadSignal<T> {
+impl<T: Clone> SignalStream<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -639,7 +672,7 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-impl<T> UntrackedSettableSignal<T> for WriteSignal<T>
+impl<T> SignalSetUntrack<T> for WriteSignal<T>
 where
     T: 'static,
 {
@@ -660,9 +693,31 @@ where
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "WriteSignal::try_set_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_set_untracked(&self, new_value: T) -> Option<T> {
+        let mut new_value = Some(new_value);
+
+        self.id
+            .update(self.runtime, |t| *t = new_value.take().unwrap());
+
+        new_value
+    }
 }
 
-impl<T> UntrackedUpdatableSignal<T> for WriteSignal<T> {
+impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -718,7 +773,7 @@ impl<T> UntrackedUpdatableSignal<T> for WriteSignal<T> {
 /// assert_eq!(count(), 1);
 /// # }).dispose();
 /// ```
-impl<T> UpdatableSignal<T> for WriteSignal<T> {
+impl<T> SignalUpdate<T> for WriteSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -776,7 +831,7 @@ impl<T> UpdatableSignal<T> for WriteSignal<T> {
 /// assert_eq!(count(), 1);
 /// # }).dispose();
 /// ```
-impl<T> SettableSignal<T> for WriteSignal<T> {
+impl<T> SignalSet<T> for WriteSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -915,7 +970,7 @@ impl<T> Clone for RwSignal<T> {
 
 impl<T> Copy for RwSignal<T> {}
 
-impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
+impl<T> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -938,26 +993,47 @@ impl<T> UntrackedGettableSignal<T> for RwSignal<T> {
     }
 }
 
-impl<T> UntrackedRefSignal<T> for RwSignal<T> {
+impl<T> SignalWithUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        name = "RwSignal::with_untracked()",
-        skip_all,
-        fields(
-            id = ?self.id,
-            defined_at = %self.defined_at,
-            ty = %std::any::type_name::<T>()
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
         )
-    )
-)]
+    )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id.with_no_subscription(self.runtime, f)
     }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::try_with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+            .ok()
+            .transpose()
+            .ok()
+            .flatten()
+    }
 }
 
-impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
+impl<T> SignalSetUntrack<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -975,9 +1051,31 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
         self.id
             .update_with_no_effect(self.runtime, |v| *v = new_value);
     }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::try_set_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_set_untracked(&self, new_value: T) -> Option<T> {
+        let mut new_value = Some(new_value);
+
+        self.id
+            .update(self.runtime, |t| *t = new_value.take().unwrap());
+
+        new_value
+    }
 }
 
-impl<T> UntrackedUpdatableSignal<T> for RwSignal<T> {
+impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
     debug_assertions,
     instrument(
@@ -1049,7 +1147,7 @@ impl<T> UntrackedUpdatableSignal<T> for RwSignal<T> {
 /// # }).dispose();
 /// #
 /// ```
-impl<T> RefSignal<T> for RwSignal<T> {
+impl<T> SignalWith<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -1109,7 +1207,7 @@ impl<T> RefSignal<T> for RwSignal<T> {
 /// # }).dispose();
 /// #
 /// ```
-impl<T: Clone> GettableSignal<T> for RwSignal<T> {
+impl<T: Clone> SignalGet<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -1181,7 +1279,7 @@ impl<T: Clone> GettableSignal<T> for RwSignal<T> {
 /// assert_eq!(count(), 1);
 /// # }).dispose();
 /// ```
-impl<T> UpdatableSignal<T> for RwSignal<T> {
+impl<T> SignalUpdate<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -1234,7 +1332,7 @@ impl<T> UpdatableSignal<T> for RwSignal<T> {
 /// assert_eq!(count(), 1);
 /// # }).dispose();
 /// ```
-impl<T> SettableSignal<T> for RwSignal<T> {
+impl<T> SignalSet<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -1275,7 +1373,7 @@ impl<T> SettableSignal<T> for RwSignal<T> {
     }
 }
 
-impl<T: Clone> StreamableSignal<T> for RwSignal<T> {
+impl<T: Clone> SignalStream<T> for RwSignal<T> {
     fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
 

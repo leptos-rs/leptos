@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{create_signal, queue_microtask, ReadSignal, Scope, UpdatableSignal, WriteSignal};
+use crate::{create_signal, queue_microtask, ReadSignal, Scope, SignalUpdate, WriteSignal};
 
 /// Tracks [Resource](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
