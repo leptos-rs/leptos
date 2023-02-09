@@ -78,6 +78,30 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
 
 impl<T> Copy for SignalSetter<T> {}
 
+impl<T> SignalSet<T> for SignalSetter<T> {
+    fn set(&self, new_value: T) {
+        match self.inner {
+            SignalSetterTypes::Default => {}
+            SignalSetterTypes::Write(w) => w.set(new_value),
+            SignalSetterTypes::Mapped(_, s) => s.with_untracked(|setter| setter(new_value)),
+        }
+    }
+
+    fn try_set(&self, new_value: T) -> Option<T> {
+        match self.inner {
+            SignalSetterTypes::Default => Some(new_value),
+            SignalSetterTypes::Write(w) => w.try_set(new_value),
+            SignalSetterTypes::Mapped(_, s) => {
+                let mut new_value = Some(new_value);
+
+                let _ = s.try_with_untracked(|setter| setter(new_value.take().unwrap()));
+
+                new_value
+            }
+        }
+    }
+}
+
 impl<T> SignalSetter<T>
 where
     T: 'static,
