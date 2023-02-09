@@ -30,7 +30,7 @@ use std::hash::Hash;
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
-///         view=move |counter: Counter| {
+///         view=move |cx, counter: Counter| {
 ///           view! {
 ///             cx,
 ///             <button>"Value: " {move || counter.count.get()}</button>
@@ -54,7 +54,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
-    EF: Fn(T) -> N + 'static,
+    EF: Fn(Scope, T) -> N + 'static,
     N: IntoView,
     KF: Fn(&T) -> K + 'static,
     K: Eq + Hash + 'static,

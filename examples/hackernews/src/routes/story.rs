@@ -53,7 +53,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
                                     <For
                                         each=move || story.comments.clone().unwrap_or_default()
                                         key=|comment| comment.id
-                                        view=move |comment| view! { cx,  <Comment comment /> }
+                                        view=move |cx, comment| view! { cx,  <Comment comment /> }
                                     />
                                 </ul>
                             </div>
@@ -98,7 +98,7 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> impl IntoView {
                                 <For
                                     each=move || comments.clone()
                                     key=|comment| comment.id
-                                    view=move |comment: api::Comment| view! { cx, <Comment comment /> }
+                                    view=move |cx, comment: api::Comment| view! { cx, <Comment comment /> }
                                 />
                             </ul>
                         }
