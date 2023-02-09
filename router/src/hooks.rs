@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use leptos::{create_memo, use_context, Memo, Scope};
+use leptos::{create_memo, signal_prelude::*, use_context, Memo, Scope};
 
 use crate::{
     Location, NavigateOptions, NavigationError, Params, ParamsError, ParamsMap, RouteContext,

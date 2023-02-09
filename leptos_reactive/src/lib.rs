@@ -93,17 +93,11 @@ pub use effect::*;
 pub use memo::*;
 pub use resource::*;
 use runtime::*;
-pub use runtime::{
-  create_runtime,
-  RuntimeId,
-};
+pub use runtime::{create_runtime, RuntimeId};
 pub use scope::*;
 pub use selector::*;
 pub use serialization::*;
-pub use signal::{
-  prelude as signal_prelude,
-  *,
-};
+pub use signal::{prelude as signal_prelude, *};
 pub use signal_wrappers_read::*;
 pub use signal_wrappers_write::*;
 pub use slice::*;
@@ -113,7 +107,7 @@ pub use stored_value::*;
 pub use suspense::*;
 
 mod macros {
-  macro_rules! debug_warn {
+    macro_rules! debug_warn {
         ($($x:tt)*) => {
             {
                 #[cfg(debug_assertions)]
@@ -128,12 +122,12 @@ mod macros {
         }
     }
 
-  pub(crate) use debug_warn;
+    pub(crate) use debug_warn;
 }
 
 pub(crate) fn console_warn(s: &str) {
-  #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-  eprintln!("{s}");
-  #[cfg(any(feature = "csr", feature = "hydrate"))]
-  web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+    eprintln!("{s}");
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
 }

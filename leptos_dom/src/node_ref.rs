@@ -1,6 +1,8 @@
 use std::cell::Cell;
 
-use leptos_reactive::{create_effect, create_rw_signal, RwSignal, Scope};
+use leptos_reactive::{
+  create_effect, create_rw_signal, signal_prelude::*, RwSignal, Scope,
+};
 
 use crate::{ElementDescriptor, HtmlElement};
 

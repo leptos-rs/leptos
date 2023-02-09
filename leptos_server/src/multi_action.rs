@@ -1,6 +1,7 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    create_rw_signal, spawn_local, store_value, ReadSignal, RwSignal, Scope, StoredValue,
+    create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal, RwSignal, Scope,
+    StoredValue,
 };
 use std::{future::Future, pin::Pin, rc::Rc};
 
@@ -19,9 +20,9 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
-///     // do something...
-///     // return a task id
-///     42
+///   // do something...
+///   // return a task id
+///   42
 /// }
 /// let add_todo = create_multi_action(cx, |task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
@@ -54,7 +55,8 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// let action2 = create_multi_action(cx, |input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 = create_multi_action(cx, |input: &(usize, String)| async { todo!() });
+/// let action3 =
+///   create_multi_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 pub struct MultiAction<I, O>(StoredValue<MultiActionState<I, O>>)
@@ -241,9 +243,9 @@ where
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
-///     // do something...
-///     // return a task id
-///     42
+///   // do something...
+///   // return a task id
+///   42
 /// }
 /// let add_todo = create_multi_action(cx, |task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
@@ -277,7 +279,8 @@ where
 /// let action2 = create_multi_action(cx, |input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 = create_multi_action(cx, |input: &(usize, String)| async { todo!() });
+/// let action3 =
+///   create_multi_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 pub fn create_multi_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> MultiAction<I, O>
