@@ -72,7 +72,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                 <For
                     each={move || counters.get()}
                     key={|counter| counter.0}
-                    view=move |(id, (value, set_value))| {
+                    view=move |cx, (id, (value, set_value))| {
                         view! {
                             cx,
                             <Counter id value set_value/>
