@@ -1,7 +1,14 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, on_cleanup, ReadSignal, Scope, SignalGet, SignalGetUntracked, SignalStream,
-    SignalWith, SignalWithUntracked,
+  create_effect,
+  on_cleanup,
+  ReadSignal,
+  Scope,
+  SignalGet,
+  SignalGetUntracked,
+  SignalStream,
+  SignalWith,
+  SignalWithUntracked,
 };
 use std::fmt::Debug;
 
@@ -68,11 +75,14 @@ use std::fmt::Debug;
         )
     )
 )]
-pub fn create_memo<T>(cx: Scope, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
+pub fn create_memo<T>(
+  cx: Scope,
+  f: impl Fn(Option<&T>) -> T + 'static,
+) -> Memo<T>
 where
-    T: PartialEq + 'static,
+  T: PartialEq + 'static,
 {
-    cx.runtime.create_memo(f)
+  cx.runtime.create_memo(f)
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -130,29 +140,29 @@ where
 /// ```
 #[derive(Debug, PartialEq, Eq)]
 pub struct Memo<T>(
-    pub(crate) ReadSignal<Option<T>>,
-    #[cfg(debug_assertions)] pub(crate) &'static std::panic::Location<'static>,
+  pub(crate) ReadSignal<Option<T>>,
+  #[cfg(debug_assertions)] pub(crate) &'static std::panic::Location<'static>,
 )
 where
-    T: 'static;
+  T: 'static;
 
 impl<T> Clone for Memo<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    fn clone(&self) -> Self {
-        Self(
-            self.0,
-            #[cfg(debug_assertions)]
-            self.1,
-        )
-    }
+  fn clone(&self) -> Self {
+    Self(
+      self.0,
+      #[cfg(debug_assertions)]
+      self.1,
+    )
+  }
 }
 
 impl<T> Copy for Memo<T> {}
 
 impl<T> SignalGetUntracked<T> for Memo<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -165,18 +175,18 @@ impl<T> SignalGetUntracked<T> for Memo<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        // Unwrapping is fine because `T` will already be `Some(T)` by
-        // the time this method can be called
-        self.0.get_untracked().unwrap()
-    }
+  fn get_untracked(&self) -> T
+  where
+    T: Clone,
+  {
+    // Unwrapping is fine because `T` will already be `Some(T)` by
+    // the time this method can be called
+    self.0.get_untracked().unwrap()
+  }
 }
 
 impl<T> SignalWithUntracked<T> for Memo<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -189,13 +199,13 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             )
         )
     )]
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        // Unwrapping here is fine for the same reasons as <Memo as
-        // UntrackedSignal>::get_untracked
-        self.0.with_untracked(|v| f(v.as_ref().unwrap()))
-    }
+  fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+    // Unwrapping here is fine for the same reasons as <Memo as
+    // UntrackedSignal>::get_untracked
+    self.0.with_untracked(|v| f(v.as_ref().unwrap()))
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -208,9 +218,9 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             )
         )
     )]
-    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with_untracked(|t| f(t.as_ref().unwrap()))
-    }
+  fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    self.0.try_with_untracked(|t| f(t.as_ref().unwrap()))
+  }
 }
 
 /// # Examples
@@ -230,7 +240,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 /// #
 /// ```
 impl<T: Clone> SignalGet<T> for Memo<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             name = "Memo::get()",
@@ -242,11 +252,11 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             )
         )
     )]
-    fn get(&self) -> T {
-        self.0.get().unwrap()
-    }
+  fn get(&self) -> T {
+    self.0.get().unwrap()
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -259,13 +269,13 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             )
         )
     )]
-    fn try_get(&self) -> Option<T> {
-        self.0.try_get().flatten()
-    }
+  fn try_get(&self) -> Option<T> {
+    self.0.try_get().flatten()
+  }
 }
 
 impl<T> SignalWith<T> for Memo<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -278,11 +288,11 @@ impl<T> SignalWith<T> for Memo<T> {
             )
         )
     )]
-    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.0.with(|t| f(t.as_ref().unwrap()))
-    }
+  fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+    self.0.with(|t| f(t.as_ref().unwrap()))
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -295,67 +305,40 @@ impl<T> SignalWith<T> for Memo<T> {
             )
         )
     )]
-    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with(|t| f(t.as_ref().unwrap())).ok()
-    }
+  fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    self.0.try_with(|t| f(t.as_ref().unwrap())).ok()
+  }
 }
 
 impl<T: Clone> SignalStream<T> for Memo<T> {
-    fn to_stream(&self, cx: Scope) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
-        let (tx, rx) = futures::channel::mpsc::unbounded();
+  fn to_stream(
+    &self,
+    cx: Scope,
+  ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+    let (tx, rx) = futures::channel::mpsc::unbounded();
 
-        let close_channel = tx.clone();
+    let close_channel = tx.clone();
 
-        on_cleanup(cx, move || close_channel.close_channel());
+    on_cleanup(cx, move || close_channel.close_channel());
 
-        let this = *self;
+    let this = *self;
 
-        create_effect(cx, move |_| {
-            let _ = tx.unbounded_send(this.get());
-        });
+    create_effect(cx, move |_| {
+      let _ = tx.unbounded_send(this.get());
+    });
 
-        Box::pin(rx)
-    }
+    Box::pin(rx)
+  }
 }
 
 impl<T> Memo<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    #[cfg(feature = "hydrate")]
-    pub(crate) fn subscribe(&self) {
-        self.0.subscribe()
-    }
+  #[cfg(feature = "hydrate")]
+  pub(crate) fn subscribe(&self) {
+    self.0.subscribe()
+  }
 }
 
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<()> for Memo<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<()> for Memo<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<()> for Memo<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
+impl_get_fn_traits![Memo];

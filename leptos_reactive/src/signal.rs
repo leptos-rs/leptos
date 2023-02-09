@@ -1,14 +1,24 @@
 #![forbid(unsafe_code)]
 use crate::{
-    console_warn, create_effect,
-    macros::debug_warn,
-    on_cleanup,
-    runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty,
+  console_warn,
+  create_effect,
+  macros::debug_warn,
+  on_cleanup,
+  runtime::{
+    with_runtime,
+    RuntimeId,
+  },
+  Runtime,
+  Scope,
+  ScopeProperty,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
-use std::{fmt::Debug, marker::PhantomData, pin::Pin};
+use std::{
+  fmt::Debug,
+  marker::PhantomData,
+  pin::Pin,
+};
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
@@ -72,78 +82,91 @@ macro_rules! impl_set_fn_traits {
 impl_get_fn_traits![ReadSignal, RwSignal];
 impl_set_fn_traits![WriteSignal];
 
+/// This prelude imports all signal types as well as all signal
+/// traits needed to use those types.
+pub mod prelude {
+  pub use super::*;
+  pub use crate::{
+    memo::*,
+    selector::*,
+    signal_wrappers_read::*,
+    signal_wrappers_write::*,
+  };
+}
+
 /// This trait allows getting an owned value of the signals
 /// inner type.
 pub trait SignalGet<T: Clone> {
-    /// Clones and returns the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    #[track_caller]
-    fn get(&self) -> T;
+  /// Clones and returns the current value of the signal, and subscribes
+  /// the running effect to this signal.
+  #[track_caller]
+  fn get(&self) -> T;
 
-    /// Clones and returns the signal value, returning [`Some`] if the signal
-    /// is still alive, and [`None`] otherwise.
-    fn try_get(&self) -> Option<T>;
+  /// Clones and returns the signal value, returning [`Some`] if the signal
+  /// is still alive, and [`None`] otherwise.
+  fn try_get(&self) -> Option<T>;
 }
 
 /// This trait allows obtaining an immutable reference to the signal's
 /// inner type.
 pub trait SignalWith<T> {
-    /// Applies a function to the current value of the signal, and subscribes
-    /// the running effect to this signal.
-    #[track_caller]
-    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+  /// Applies a function to the current value of the signal, and subscribes
+  /// the running effect to this signal.
+  #[track_caller]
+  fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
-    /// Applies a function to the current value of the signal, and subscribes
-    /// the running effect to this signal. Returns [`Some`] if the signal is
-    /// valid and the function ran, otherwise returns [`None`].
-    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+  /// Applies a function to the current value of the signal, and subscribes
+  /// the running effect to this signal. Returns [`Some`] if the signal is
+  /// valid and the function ran, otherwise returns [`None`].
+  fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
 }
 
 /// This trait allows setting the value of a signal.
 pub trait SignalSet<T> {
-    /// Sets the signal’s value and notifies subscribers.
-    ///
-    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    #[track_caller]
-    fn set(&self, new_value: T);
+  /// Sets the signal’s value and notifies subscribers.
+  ///
+  /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
+  /// even if the value has not actually changed.
+  #[track_caller]
+  fn set(&self, new_value: T);
 
-    /// Sets the signal’s value and notifies subscribers. Returns [`None`]
-    /// if the signal is still valid, [`Some(T)`] otherwise.
-    ///
-    /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.    
-    fn try_set(&self, new_value: T) -> Option<T>;
+  /// Sets the signal’s value and notifies subscribers. Returns [`None`]
+  /// if the signal is still valid, [`Some(T)`] otherwise.
+  ///
+  /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
+  /// even if the value has not actually changed.    
+  fn try_set(&self, new_value: T) -> Option<T>;
 }
 
 /// This trait allows updating the inner value of a signal.
 pub trait SignalUpdate<T> {
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed.
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    #[track_caller]
-    fn update(&self, f: impl FnOnce(&mut T));
+  /// Applies a function to the current value to mutate it in place
+  /// and notifies subscribers that the signal has changed.
+  ///
+  /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+  /// even if the value has not actually changed.
+  #[track_caller]
+  fn update(&self, f: impl FnOnce(&mut T));
 
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed. Returns
-    /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    #[deprecated = "Please use `try_update` instead. This method will be removed in a future version of this crate"]
-    fn update_returning<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.try_update(f)
-    }
+  /// Applies a function to the current value to mutate it in place
+  /// and notifies subscribers that the signal has changed. Returns
+  /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
+  ///
+  /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+  /// even if the value has not actually changed.
+  #[deprecated = "Please use `try_update` instead. This method will be removed \
+                  in a future version of this crate"]
+  fn update_returning<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    self.try_update(f)
+  }
 
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed. Returns
-    /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
-    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
+  /// Applies a function to the current value to mutate it in place
+  /// and notifies subscribers that the signal has changed. Returns
+  /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
+  ///
+  /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
+  /// even if the value has not actually changed.
+  fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
 }
 
 /// Trait implemented for all signal types which you can `get` a value
@@ -151,28 +174,28 @@ pub trait SignalUpdate<T> {
 /// [`Memo`](crate::Memo), etc., which allows getting the inner value without
 /// subscribing to the current scope.
 pub trait SignalGetUntracked<T> {
-    /// Gets the signal's value without creating a dependency on the
-    /// current scope.
-    #[track_caller]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone;
+  /// Gets the signal's value without creating a dependency on the
+  /// current scope.
+  #[track_caller]
+  fn get_untracked(&self) -> T
+  where
+    T: Clone;
 }
 
 /// This trait allows getting a reference to the signals inner value
 /// without creating a dependency on the signal.
 pub trait SignalWithUntracked<T> {
-    /// Runs the provided closure with a reference to the current
-    /// value without creating a dependency on the current scope.
-    #[track_caller]
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
+  /// Runs the provided closure with a reference to the current
+  /// value without creating a dependency on the current scope.
+  #[track_caller]
+  fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
-    /// Runs the provided closure with a reference to the current
-    /// value without creating a dependency on the current scope.
-    /// Returns [`Some(O)`] if the signal is still valid, [`None`]
-    /// otherwise.
-    #[track_caller]
-    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+  /// Runs the provided closure with a reference to the current
+  /// value without creating a dependency on the current scope.
+  /// Returns [`Some(O)`] if the signal is still valid, [`None`]
+  /// otherwise.
+  #[track_caller]
+  fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
 }
 
 /// Trait implemented for all signal types which you can `set` the inner
@@ -180,48 +203,52 @@ pub trait SignalWithUntracked<T> {
 /// the inner value without causing effects which depend on the signal
 /// from being run.
 pub trait SignalSetUntrack<T> {
-    /// Sets the signal's value without notifying dependents.
-    #[track_caller]
-    fn set_untracked(&self, new_value: T);
+  /// Sets the signal's value without notifying dependents.
+  #[track_caller]
+  fn set_untracked(&self, new_value: T);
 
-    /// Attempts to set the signal if it's still valid. Returns [`None`]
-    /// if the signal was set, [`Some(T)`] otherwise.
-    #[track_caller]
-    fn try_set_untracked(&self, new_value: T) -> Option<T>;
+  /// Attempts to set the signal if it's still valid. Returns [`None`]
+  /// if the signal was set, [`Some(T)`] otherwise.
+  #[track_caller]
+  fn try_set_untracked(&self, new_value: T) -> Option<T>;
 }
 
 /// This trait allows updating the signals value without causing
 /// dependant effects to run.
 pub trait SignalUpdateUntracked<T> {
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents.
-    #[track_caller]
-    fn update_untracked(&self, f: impl FnOnce(&mut T));
+  /// Runs the provided closure with a mutable reference to the current
+  /// value without notifying dependents.
+  #[track_caller]
+  fn update_untracked(&self, f: impl FnOnce(&mut T));
 
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents and returns
-    /// the value the closure returned.
-    #[track_caller]
-    #[deprecated = "Please use `try_update_untracked` instead. This method will be removed in a future version of `leptos`"]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.try_update_untracked(f)
-    }
+  /// Runs the provided closure with a mutable reference to the current
+  /// value without notifying dependents and returns
+  /// the value the closure returned.
+  #[track_caller]
+  #[deprecated = "Please use `try_update_untracked` instead. This method will \
+                  be removed in a future version of `leptos`"]
+  fn update_returning_untracked<U>(
+    &self,
+    f: impl FnOnce(&mut T) -> U,
+  ) -> Option<U> {
+    self.try_update_untracked(f)
+  }
 
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents and returns
-    /// the value the closure returned.
-    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
+  /// Runs the provided closure with a mutable reference to the current
+  /// value without notifying dependents and returns
+  /// the value the closure returned.
+  fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
 }
 
 /// This trait allows converting a signal into a async [`Stream`].
 pub trait SignalStream<T> {
-    /// Generates a [`Stream`] that emits the new value of the signal
-    /// whenever it changes.
+  /// Generates a [`Stream`] that emits the new value of the signal
+  /// whenever it changes.
 
-    // We're returning an opaque type until impl trait in trait
-    // positions are stabilized, and also so any underlying
-    // changes are non-breaking
-    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
+  // We're returning an opaque type until impl trait in trait
+  // positions are stabilized, and also so any underlying
+  // changes are non-breaking
+  fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
 /// Creates a signal, the basic reactive primitive.
@@ -274,10 +301,13 @@ pub trait SignalStream<T> {
     )
 )]
 #[track_caller]
-pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
-    let s = cx.runtime.create_signal(value);
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
-    s
+pub fn create_signal<T>(
+  cx: Scope,
+  value: T,
+) -> (ReadSignal<T>, WriteSignal<T>) {
+  let s = cx.runtime.create_signal(value);
+  cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
+  s
 }
 
 /// Creates a signal that always contains the most recent value emitted by a
@@ -298,28 +328,28 @@ pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) 
     )
 )]
 pub fn create_signal_from_stream<T>(
-    cx: Scope,
-    #[allow(unused_mut)] // allowed because needed for SSR
-    mut stream: impl Stream<Item = T> + Unpin + 'static,
+  cx: Scope,
+  #[allow(unused_mut)] // allowed because needed for SSR
+  mut stream: impl Stream<Item = T> + Unpin + 'static,
 ) -> ReadSignal<Option<T>> {
-    cfg_if! {
-        if #[cfg(feature = "ssr")] {
-            _ = stream;
-            let (read, _) = create_signal(cx, None);
-            read
-        } else {
-            use crate::spawn_local;
-            use futures::StreamExt;
+  cfg_if! {
+      if #[cfg(feature = "ssr")] {
+          _ = stream;
+          let (read, _) = create_signal(cx, None);
+          read
+      } else {
+          use crate::spawn_local;
+          use futures::StreamExt;
 
-            let (read, write) = create_signal(cx, None);
-            spawn_local(async move {
-                while let Some(value) = stream.next().await {
-                    write.set(Some(value));
-                }
-            });
-            read
-        }
-    }
+          let (read, write) = create_signal(cx, None);
+          spawn_local(async move {
+              while let Some(value) = stream.next().await {
+                  write.set(Some(value));
+              }
+          });
+          read
+      }
+  }
 }
 
 /// The getter for a reactive signal.
@@ -368,17 +398,17 @@ pub fn create_signal_from_stream<T>(
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ReadSignal<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
-    pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>,
+  pub(crate) runtime: RuntimeId,
+  pub(crate) id: SignalId,
+  pub(crate) ty: PhantomData<T>,
+  #[cfg(debug_assertions)]
+  pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> SignalGetUntracked<T> for ReadSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -391,16 +421,16 @@ impl<T> SignalGetUntracked<T> for ReadSignal<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        self.with_no_subscription(|v| v.clone())
-    }
+  fn get_untracked(&self) -> T
+  where
+    T: Clone,
+  {
+    self.with_no_subscription(|v| v.clone())
+  }
 }
 
 impl<T> SignalWithUntracked<T> for ReadSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -413,11 +443,11 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
             )
         )
     )]
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.with_no_subscription(f)
-    }
+  fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+    self.with_no_subscription(f)
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -430,13 +460,13 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
             )
         )
     )]
-    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .ok()
-            .transpose()
-            .ok()
-            .flatten()
-    }
+  fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+      .ok()
+      .transpose()
+      .ok()
+      .flatten()
+  }
 }
 
 /// # Examples
@@ -458,7 +488,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// });
 /// ```
 impl<T> SignalWith<T> for ReadSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -471,19 +501,19 @@ impl<T> SignalWith<T> for ReadSignal<T> {
             )
         )
     )]
-    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .expect("runtime to be alive ")
-        {
-            Ok(o) => o,
-            Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
-                self.defined_at,
-            ),
-        }
+  fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+    match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+      .expect("runtime to be alive ")
+    {
+      Ok(o) => o,
+      Err(_) => panic_getting_dead_signal(
+        #[cfg(debug_assertions)]
+        self.defined_at,
+      ),
     }
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -496,11 +526,11 @@ impl<T> SignalWith<T> for ReadSignal<T> {
             )
         )
     )]
-    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
-            .ok()
-            .flatten()
-    }
+  fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
+      .ok()
+      .flatten()
+  }
 }
 
 /// # Examples
@@ -515,7 +545,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 /// });
 /// ```
 impl<T: Clone> SignalGet<T> for ReadSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -528,19 +558,21 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
             )
         )
     )]
-    fn get(&self) -> T {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, T::clone))
-            .expect("runtime to be alive")
-        {
-            Ok(t) => t,
-            Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
-                self.defined_at,
-            ),
-        }
+  fn get(&self) -> T {
+    match with_runtime(self.runtime, |runtime| {
+      self.id.try_with(runtime, T::clone)
+    })
+    .expect("runtime to be alive")
+    {
+      Ok(t) => t,
+      Err(_) => panic_getting_dead_signal(
+        #[cfg(debug_assertions)]
+        self.defined_at,
+      ),
     }
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -553,13 +585,13 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
             )
         )
     )]
-    fn try_get(&self) -> Option<T> {
-        self.try_with(Clone::clone).ok()
-    }
+  fn try_get(&self) -> Option<T> {
+    self.try_with(Clone::clone).ok()
+  }
 }
 
 impl<T: Clone> SignalStream<T> for ReadSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -572,57 +604,60 @@ impl<T: Clone> SignalStream<T> for ReadSignal<T> {
             )
         )
     )]
-    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
-        let (tx, rx) = futures::channel::mpsc::unbounded();
+  fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
+    let (tx, rx) = futures::channel::mpsc::unbounded();
 
-        let close_channel = tx.clone();
+    let close_channel = tx.clone();
 
-        on_cleanup(cx, move || close_channel.close_channel());
+    on_cleanup(cx, move || close_channel.close_channel());
 
-        let this = *self;
+    let this = *self;
 
-        create_effect(cx, move |_| {
-            let _ = tx.unbounded_send(this.get());
-        });
+    create_effect(cx, move |_| {
+      let _ = tx.unbounded_send(this.get());
+    });
 
-        Box::pin(rx)
-    }
+    Box::pin(rx)
+  }
 }
 
 impl<T> ReadSignal<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.id.with_no_subscription(self.runtime, f)
-    }
+  pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
+    self.id.with_no_subscription(self.runtime, f)
+  }
 
-    #[cfg(feature = "hydrate")]
-    pub(crate) fn subscribe(&self) {
-        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
-    }
+  #[cfg(feature = "hydrate")]
+  pub(crate) fn subscribe(&self) {
+    _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
+  }
 
-    /// Applies the function to the current Signal, if it exists, and subscribes
-    /// the running effect.
-    pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
-            Ok(Ok(v)) => Ok(v),
-            Ok(Err(e)) => Err(e),
-            Err(_) => Err(SignalError::RuntimeDisposed),
-        }
+  /// Applies the function to the current Signal, if it exists, and subscribes
+  /// the running effect.
+  pub(crate) fn try_with<U>(
+    &self,
+    f: impl FnOnce(&T) -> U,
+  ) -> Result<U, SignalError> {
+    match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
+      Ok(Ok(v)) => Ok(v),
+      Ok(Err(e)) => Err(e),
+      Err(_) => Err(SignalError::RuntimeDisposed),
     }
+  }
 }
 
 impl<T> Clone for ReadSignal<T> {
-    fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+  fn clone(&self) -> Self {
+    Self {
+      runtime: self.runtime,
+      id: self.id,
+      ty: PhantomData,
+      #[cfg(debug_assertions)]
+      defined_at: self.defined_at,
     }
+  }
 }
 
 impl<T> Copy for ReadSignal<T> {}
@@ -663,20 +698,20 @@ impl<T> Copy for ReadSignal<T> {}
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct WriteSignal<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
-    pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>,
+  pub(crate) runtime: RuntimeId,
+  pub(crate) id: SignalId,
+  pub(crate) ty: PhantomData<T>,
+  #[cfg(debug_assertions)]
+  pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> SignalSetUntrack<T> for WriteSignal<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -689,12 +724,13 @@ where
             )
         )
     )]
-    fn set_untracked(&self, new_value: T) {
-        self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value);
-    }
+  fn set_untracked(&self, new_value: T) {
+    self
+      .id
+      .update_with_no_effect(self.runtime, |v| *v = new_value);
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -707,18 +743,19 @@ where
             )
         )
     )]
-    fn try_set_untracked(&self, new_value: T) -> Option<T> {
-        let mut new_value = Some(new_value);
+  fn try_set_untracked(&self, new_value: T) -> Option<T> {
+    let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+    self
+      .id
+      .update(self.runtime, |t| *t = new_value.take().unwrap());
 
-        new_value
-    }
+    new_value
+  }
 }
 
 impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -731,11 +768,11 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
-    fn update_untracked(&self, f: impl FnOnce(&mut T)) {
-        self.id.update_with_no_effect(self.runtime, f);
-    }
+  fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+    self.id.update_with_no_effect(self.runtime, f);
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -748,13 +785,16 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.id.update_with_no_effect(self.runtime, f)
-    }
+  fn update_returning_untracked<U>(
+    &self,
+    f: impl FnOnce(&mut T) -> U,
+  ) -> Option<U> {
+    self.id.update_with_no_effect(self.runtime, f)
+  }
 
-    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.id.update_with_no_effect(self.runtime, f)
-    }
+  fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    self.id.update_with_no_effect(self.runtime, f)
+  }
 }
 
 /// # Examples
@@ -774,7 +814,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// # }).dispose();
 /// ```
 impl<T> SignalUpdate<T> for WriteSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             name = "WriteSignal::update()",
@@ -787,16 +827,16 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
             )
         )
     )]
-    fn update(&self, f: impl FnOnce(&mut T)) {
-        if self.id.update(self.runtime, f).is_none() {
-            warn_updating_dead_signal(
-                #[cfg(debug_assertions)]
-                self.defined_at,
-            );
-        }
+  fn update(&self, f: impl FnOnce(&mut T)) {
+    if self.id.update(self.runtime, f).is_none() {
+      warn_updating_dead_signal(
+        #[cfg(debug_assertions)]
+        self.defined_at,
+      );
     }
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             name = "WriteSignal::try_update()",
@@ -809,9 +849,9 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
             )
         )
     )]
-    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.id.update(self.runtime, f)
-    }
+  fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    self.id.update(self.runtime, f)
+  }
 }
 
 /// # Examples
@@ -832,7 +872,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// # }).dispose();
 /// ```
 impl<T> SignalSet<T> for WriteSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -845,11 +885,11 @@ impl<T> SignalSet<T> for WriteSignal<T> {
             )
         )
     )]
-    fn set(&self, new_value: T) {
-        self.id.update(self.runtime, |n| *n = new_value);
-    }
+  fn set(&self, new_value: T) {
+    self.id.update(self.runtime, |n| *n = new_value);
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -862,26 +902,27 @@ impl<T> SignalSet<T> for WriteSignal<T> {
             )
         )
     )]
-    fn try_set(&self, new_value: T) -> Option<T> {
-        let mut new_value = Some(new_value);
+  fn try_set(&self, new_value: T) -> Option<T> {
+    let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+    self
+      .id
+      .update(self.runtime, |t| *t = new_value.take().unwrap());
 
-        new_value
-    }
+    new_value
+  }
 }
 
 impl<T> Clone for WriteSignal<T> {
-    fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+  fn clone(&self) -> Self {
+    Self {
+      runtime: self.runtime,
+      id: self.id,
+      ty: PhantomData,
+      #[cfg(debug_assertions)]
+      defined_at: self.defined_at,
     }
+  }
 }
 
 impl<T> Copy for WriteSignal<T> {}
@@ -918,9 +959,9 @@ impl<T> Copy for WriteSignal<T> {}
     )
 )]
 pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
-    let s = cx.runtime.create_rw_signal(value);
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
-    s
+  let s = cx.runtime.create_rw_signal(value);
+  cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
+  s
 }
 
 /// A signal that combines the getter and setter into one value, rather than
@@ -947,31 +988,31 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct RwSignal<T>
 where
-    T: 'static,
+  T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
-    pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
-    pub(crate) defined_at: &'static std::panic::Location<'static>,
+  pub(crate) runtime: RuntimeId,
+  pub(crate) id: SignalId,
+  pub(crate) ty: PhantomData<T>,
+  #[cfg(debug_assertions)]
+  pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> Clone for RwSignal<T> {
-    fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: self.ty,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+  fn clone(&self) -> Self {
+    Self {
+      runtime: self.runtime,
+      id: self.id,
+      ty: self.ty,
+      #[cfg(debug_assertions)]
+      defined_at: self.defined_at,
     }
+  }
 }
 
 impl<T> Copy for RwSignal<T> {}
 
 impl<T> SignalGetUntracked<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -984,17 +1025,18 @@ impl<T> SignalGetUntracked<T> for RwSignal<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        self.id
-            .with_no_subscription(self.runtime, |v: &T| v.clone())
-    }
+  fn get_untracked(&self) -> T
+  where
+    T: Clone,
+  {
+    self
+      .id
+      .with_no_subscription(self.runtime, |v: &T| v.clone())
+  }
 }
 
 impl<T> SignalWithUntracked<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1007,11 +1049,11 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
             )
         )
     )]
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.id.with_no_subscription(self.runtime, f)
-    }
+  fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+    self.id.with_no_subscription(self.runtime, f)
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1024,17 +1066,17 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .ok()
-            .transpose()
-            .ok()
-            .flatten()
-    }
+  fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+      .ok()
+      .transpose()
+      .ok()
+      .flatten()
+  }
 }
 
 impl<T> SignalSetUntrack<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1047,12 +1089,13 @@ impl<T> SignalSetUntrack<T> for RwSignal<T> {
             )
         )
     )]
-    fn set_untracked(&self, new_value: T) {
-        self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value);
-    }
+  fn set_untracked(&self, new_value: T) {
+    self
+      .id
+      .update_with_no_effect(self.runtime, |v| *v = new_value);
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1065,18 +1108,19 @@ impl<T> SignalSetUntrack<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_set_untracked(&self, new_value: T) -> Option<T> {
-        let mut new_value = Some(new_value);
+  fn try_set_untracked(&self, new_value: T) -> Option<T> {
+    let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+    self
+      .id
+      .update(self.runtime, |t| *t = new_value.take().unwrap());
 
-        new_value
-    }
+    new_value
+  }
 }
 
 impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
     debug_assertions,
     instrument(
         level = "trace",
@@ -1089,11 +1133,11 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
-    fn update_untracked(&self, f: impl FnOnce(&mut T)) {
-        self.id.update_with_no_effect(self.runtime, f);
-    }
+  fn update_untracked(&self, f: impl FnOnce(&mut T)) {
+    self.id.update_with_no_effect(self.runtime, f);
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
     debug_assertions,
     instrument(
         level = "trace",
@@ -1106,11 +1150,14 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.id.update_with_no_effect(self.runtime, f)
-    }
+  fn update_returning_untracked<U>(
+    &self,
+    f: impl FnOnce(&mut T) -> U,
+  ) -> Option<U> {
+    self.id.update_with_no_effect(self.runtime, f)
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1123,9 +1170,9 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.id.update_with_no_effect(self.runtime, f)
-    }
+  fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    self.id.update_with_no_effect(self.runtime, f)
+  }
 }
 
 /// # Examples
@@ -1148,7 +1195,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// #
 /// ```
 impl<T> SignalWith<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1161,19 +1208,19 @@ impl<T> SignalWith<T> for RwSignal<T> {
             )
         )
     )]
-    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .expect("runtime to be alive")
-        {
-            Ok(o) => o,
-            Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
-                self.defined_at,
-            ),
-        }
+  fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+    match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+      .expect("runtime to be alive")
+    {
+      Ok(o) => o,
+      Err(_) => panic_getting_dead_signal(
+        #[cfg(debug_assertions)]
+        self.defined_at,
+      ),
     }
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1186,11 +1233,11 @@ impl<T> SignalWith<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
-            .ok()
-            .flatten()
-    }
+  fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+    with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
+      .ok()
+      .flatten()
+  }
 }
 
 /// # Examples
@@ -1208,7 +1255,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
 /// #
 /// ```
 impl<T: Clone> SignalGet<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1221,22 +1268,24 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
             )
         )
     )]
-    fn get(&self) -> T
-    where
-        T: Clone,
+  fn get(&self) -> T
+  where
+    T: Clone,
+  {
+    match with_runtime(self.runtime, |runtime| {
+      self.id.try_with(runtime, T::clone)
+    })
+    .expect("runtime to be alive")
     {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, T::clone))
-            .expect("runtime to be alive")
-        {
-            Ok(t) => t,
-            Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
-                self.defined_at,
-            ),
-        }
+      Ok(t) => t,
+      Err(_) => panic_getting_dead_signal(
+        #[cfg(debug_assertions)]
+        self.defined_at,
+      ),
     }
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1249,13 +1298,13 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_get(&self) -> Option<T> {
-        with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, Clone::clone).ok()
-        })
-        .ok()
-        .flatten()
-    }
+  fn try_get(&self) -> Option<T> {
+    with_runtime(self.runtime, |runtime| {
+      self.id.try_with(runtime, Clone::clone).ok()
+    })
+    .ok()
+    .flatten()
+  }
 }
 
 /// # Examples
@@ -1280,7 +1329,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// # }).dispose();
 /// ```
 impl<T> SignalUpdate<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1293,16 +1342,16 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
             )
         )
     )]
-    fn update(&self, f: impl FnOnce(&mut T)) {
-        if self.id.update(self.runtime, f).is_none() {
-            warn_updating_dead_signal(
-                #[cfg(debug_assertions)]
-                self.defined_at,
-            );
-        }
+  fn update(&self, f: impl FnOnce(&mut T)) {
+    if self.id.update(self.runtime, f).is_none() {
+      warn_updating_dead_signal(
+        #[cfg(debug_assertions)]
+        self.defined_at,
+      );
     }
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1315,9 +1364,9 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.id.update(self.runtime, f)
-    }
+  fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    self.id.update(self.runtime, f)
+  }
 }
 
 /// # Examples
@@ -1333,7 +1382,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 /// # }).dispose();
 /// ```
 impl<T> SignalSet<T> for RwSignal<T> {
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1346,11 +1395,11 @@ impl<T> SignalSet<T> for RwSignal<T> {
             )
         )
     )]
-    fn set(&self, value: T) {
-        self.id.update(self.runtime, |n| *n = value);
-    }
+  fn set(&self, value: T) {
+    self.id.update(self.runtime, |n| *n = value);
+  }
 
-    #[cfg_attr(
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1363,52 +1412,53 @@ impl<T> SignalSet<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_set(&self, new_value: T) -> Option<T> {
-        let mut new_value = Some(new_value);
+  fn try_set(&self, new_value: T) -> Option<T> {
+    let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+    self
+      .id
+      .update(self.runtime, |t| *t = new_value.take().unwrap());
 
-        new_value
-    }
+    new_value
+  }
 }
 
 impl<T: Clone> SignalStream<T> for RwSignal<T> {
-    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
-        let (tx, rx) = futures::channel::mpsc::unbounded();
+  fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
+    let (tx, rx) = futures::channel::mpsc::unbounded();
 
-        let close_channel = tx.clone();
+    let close_channel = tx.clone();
 
-        on_cleanup(cx, move || close_channel.close_channel());
+    on_cleanup(cx, move || close_channel.close_channel());
 
-        let this = *self;
+    let this = *self;
 
-        create_effect(cx, move |_| {
-            let _ = tx.unbounded_send(this.get());
-        });
+    create_effect(cx, move |_| {
+      let _ = tx.unbounded_send(this.get());
+    });
 
-        Box::pin(rx)
-    }
+    Box::pin(rx)
+  }
 }
 
 impl<T> RwSignal<T> {
-    /// Returns a read-only handle to the signal.
-    ///
-    /// Useful if you're trying to give read access to another component but ensure that it can't write
-    /// to the signal and cause other parts of the DOM to update.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    /// let read_count = count.read_only();
-    /// assert_eq!(count(), 0);
-    /// assert_eq!(read_count(), 0);
-    /// count.set(1);
-    /// assert_eq!(count(), 1);
-    /// assert_eq!(read_count(), 1);
-    /// # }).dispose();
-    /// ```
-    #[cfg_attr(
+  /// Returns a read-only handle to the signal.
+  ///
+  /// Useful if you're trying to give read access to another component but ensure that it can't write
+  /// to the signal and cause other parts of the DOM to update.
+  /// ```
+  /// # use leptos_reactive::*;
+  /// # create_scope(create_runtime(), |cx| {
+  /// let count = create_rw_signal(cx, 0);
+  /// let read_count = count.read_only();
+  /// assert_eq!(count(), 0);
+  /// assert_eq!(read_count(), 0);
+  /// count.set(1);
+  /// assert_eq!(count(), 1);
+  /// assert_eq!(read_count(), 1);
+  /// # }).dispose();
+  /// ```
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1421,32 +1471,32 @@ impl<T> RwSignal<T> {
             )
         )
     )]
-    #[track_caller]
-    pub fn read_only(&self) -> ReadSignal<T> {
-        ReadSignal {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: std::panic::Location::caller(),
-        }
+  #[track_caller]
+  pub fn read_only(&self) -> ReadSignal<T> {
+    ReadSignal {
+      runtime: self.runtime,
+      id: self.id,
+      ty: PhantomData,
+      #[cfg(debug_assertions)]
+      defined_at: std::panic::Location::caller(),
     }
+  }
 
-    /// Returns a write-only handle to the signal.
-    ///
-    /// Useful if you're trying to give write access to another component, or split an
-    /// `RwSignal` into a [ReadSignal] and a [WriteSignal].
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    /// let set_count = count.write_only();
-    /// assert_eq!(count(), 0);
-    /// set_count(1);
-    /// assert_eq!(count(), 1);
-    /// # }).dispose();
-    /// ```
-    #[cfg_attr(
+  /// Returns a write-only handle to the signal.
+  ///
+  /// Useful if you're trying to give write access to another component, or split an
+  /// `RwSignal` into a [ReadSignal] and a [WriteSignal].
+  /// ```
+  /// # use leptos_reactive::*;
+  /// # create_scope(create_runtime(), |cx| {
+  /// let count = create_rw_signal(cx, 0);
+  /// let set_count = count.write_only();
+  /// assert_eq!(count(), 0);
+  /// set_count(1);
+  /// assert_eq!(count(), 1);
+  /// # }).dispose();
+  /// ```
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1459,31 +1509,31 @@ impl<T> RwSignal<T> {
             )
         )
     )]
-    #[track_caller]
-    pub fn write_only(&self) -> WriteSignal<T> {
-        WriteSignal {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: std::panic::Location::caller(),
-        }
+  #[track_caller]
+  pub fn write_only(&self) -> WriteSignal<T> {
+    WriteSignal {
+      runtime: self.runtime,
+      id: self.id,
+      ty: PhantomData,
+      #[cfg(debug_assertions)]
+      defined_at: std::panic::Location::caller(),
     }
+  }
 
-    /// Splits an `RwSignal` into its getter and setter.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
-    /// let (get_count, set_count) = count.split();
-    /// assert_eq!(count(), 0);
-    /// assert_eq!(get_count(), 0);
-    /// set_count(1);
-    /// assert_eq!(count(), 1);
-    /// assert_eq!(get_count(), 1);
-    /// # }).dispose();
-    /// ```
-    #[cfg_attr(
+  /// Splits an `RwSignal` into its getter and setter.
+  /// ```
+  /// # use leptos_reactive::*;
+  /// # create_scope(create_runtime(), |cx| {
+  /// let count = create_rw_signal(cx, 0);
+  /// let (get_count, set_count) = count.split();
+  /// assert_eq!(count(), 0);
+  /// assert_eq!(get_count(), 0);
+  /// set_count(1);
+  /// assert_eq!(count(), 1);
+  /// assert_eq!(get_count(), 1);
+  /// # }).dispose();
+  /// ```
+  #[cfg_attr(
         debug_assertions,
         instrument(
             level = "trace",
@@ -1496,25 +1546,25 @@ impl<T> RwSignal<T> {
             )
         )
     )]
-    #[track_caller]
-    pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
-        (
-            ReadSignal {
-                runtime: self.runtime,
-                id: self.id,
-                ty: PhantomData,
-                #[cfg(debug_assertions)]
-                defined_at: std::panic::Location::caller(),
-            },
-            WriteSignal {
-                runtime: self.runtime,
-                id: self.id,
-                ty: PhantomData,
-                #[cfg(debug_assertions)]
-                defined_at: std::panic::Location::caller(),
-            },
-        )
-    }
+  #[track_caller]
+  pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
+    (
+      ReadSignal {
+        runtime: self.runtime,
+        id: self.id,
+        ty: PhantomData,
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
+      },
+      WriteSignal {
+        runtime: self.runtime,
+        id: self.id,
+        ty: PhantomData,
+        #[cfg(debug_assertions)]
+        defined_at: std::panic::Location::caller(),
+      },
+    )
+  }
 }
 
 // Internals
@@ -1525,223 +1575,223 @@ slotmap::new_key_type! {
 
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
-    #[error("tried to access a signal in a runtime that had been disposed")]
-    RuntimeDisposed,
-    #[error("tried to access a signal that had been disposed")]
-    Disposed,
-    #[error("error casting signal to type {0}")]
-    Type(&'static str),
+  #[error("tried to access a signal in a runtime that had been disposed")]
+  RuntimeDisposed,
+  #[error("tried to access a signal that had been disposed")]
+  Disposed,
+  #[error("error casting signal to type {0}")]
+  Type(&'static str),
 }
 
 impl SignalId {
-    pub(crate) fn subscribe(&self, runtime: &Runtime) {
-        // add subscriber
-        if let Some(observer) = runtime.observer.get() {
-            // add this observer to the signal's dependencies (to allow notification)
-            let mut subs = runtime.signal_subscribers.borrow_mut();
-            if let Some(subs) = subs.entry(*self) {
-                subs.or_default().borrow_mut().insert(observer);
-            }
+  pub(crate) fn subscribe(&self, runtime: &Runtime) {
+    // add subscriber
+    if let Some(observer) = runtime.observer.get() {
+      // add this observer to the signal's dependencies (to allow notification)
+      let mut subs = runtime.signal_subscribers.borrow_mut();
+      if let Some(subs) = subs.entry(*self) {
+        subs.or_default().borrow_mut().insert(observer);
+      }
 
-            // add this signal to the effect's sources (to allow cleanup)
-            let mut effect_sources = runtime.effect_sources.borrow_mut();
-            if let Some(effect_sources) = effect_sources.entry(observer) {
-                let sources = effect_sources.or_default();
-                sources.borrow_mut().insert(*self);
-            }
-        }
+      // add this signal to the effect's sources (to allow cleanup)
+      let mut effect_sources = runtime.effect_sources.borrow_mut();
+      if let Some(effect_sources) = effect_sources.entry(observer) {
+        let sources = effect_sources.or_default();
+        sources.borrow_mut().insert(*self);
+      }
     }
+  }
 
-    pub(crate) fn try_with_no_subscription<T, U>(
-        &self,
-        runtime: &Runtime,
-        f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError>
-    where
-        T: 'static,
-    {
-        // get the value
-        let value = {
-            let signals = runtime.signals.borrow();
-            match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
-                Ok(s) => Ok(s),
-                Err(e) => {
-                    debug_warn!("[Signal::try_with] {e}");
-                    Err(e)
-                }
-            }
-        }?;
-        let value = value.try_borrow().unwrap_or_else(|e| {
-            debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It seems \
+  pub(crate) fn try_with_no_subscription<T, U>(
+    &self,
+    runtime: &Runtime,
+    f: impl FnOnce(&T) -> U,
+  ) -> Result<U, SignalError>
+  where
+    T: 'static,
+  {
+    // get the value
+    let value = {
+      let signals = runtime.signals.borrow();
+      match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
+        Ok(s) => Ok(s),
+        Err(e) => {
+          debug_warn!("[Signal::try_with] {e}");
+          Err(e)
+        }
+      }
+    }?;
+    let value = value.try_borrow().unwrap_or_else(|e| {
+      debug_warn!(
+        "Signal::try_with_no_subscription failed on Signal<{}>. It seems \
          you're trying to read the value of a signal within an effect caused \
          by updating the signal.",
-                std::any::type_name::<T>()
-            );
-            panic!("{e}");
-        });
-        let value = value
-            .downcast_ref::<T>()
-            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
-        Ok(f(value))
-    }
+        std::any::type_name::<T>()
+      );
+      panic!("{e}");
+    });
+    let value = value
+      .downcast_ref::<T>()
+      .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
+    Ok(f(value))
+  }
 
-    pub(crate) fn try_with<T, U>(
-        &self,
-        runtime: &Runtime,
-        f: impl FnOnce(&T) -> U,
-    ) -> Result<U, SignalError>
-    where
-        T: 'static,
-    {
-        self.subscribe(runtime);
+  pub(crate) fn try_with<T, U>(
+    &self,
+    runtime: &Runtime,
+    f: impl FnOnce(&T) -> U,
+  ) -> Result<U, SignalError>
+  where
+    T: 'static,
+  {
+    self.subscribe(runtime);
 
-        self.try_with_no_subscription(runtime, f)
-    }
+    self.try_with_no_subscription(runtime, f)
+  }
 
-    pub(crate) fn with_no_subscription<T, U>(
-        &self,
-        runtime: RuntimeId,
-        f: impl FnOnce(&T) -> U,
-    ) -> U
-    where
-        T: 'static,
-    {
-        with_runtime(runtime, |runtime| {
-            self.try_with_no_subscription(runtime, f).unwrap()
-        })
-        .expect("tried to access a signal in a runtime that has been disposed")
-    }
+  pub(crate) fn with_no_subscription<T, U>(
+    &self,
+    runtime: RuntimeId,
+    f: impl FnOnce(&T) -> U,
+  ) -> U
+  where
+    T: 'static,
+  {
+    with_runtime(runtime, |runtime| {
+      self.try_with_no_subscription(runtime, f).unwrap()
+    })
+    .expect("tried to access a signal in a runtime that has been disposed")
+  }
 
-    fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
-    where
-        T: 'static,
-    {
-        with_runtime(runtime, |runtime| {
-            let value = {
-                let signals = runtime.signals.borrow();
-                signals.get(*self).cloned()
-            };
-            if let Some(value) = value {
-                let mut value = value.borrow_mut();
-                if let Some(value) = value.downcast_mut::<T>() {
-                    Some(f(value))
-                } else {
-                    debug_warn!(
-                        "[Signal::update] failed when downcasting to Signal<{}>",
-                        std::any::type_name::<T>()
-                    );
-                    None
-                }
-            } else {
-                debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> that has \
+  fn update_value<T, U>(
+    &self,
+    runtime: RuntimeId,
+    f: impl FnOnce(&mut T) -> U,
+  ) -> Option<U>
+  where
+    T: 'static,
+  {
+    with_runtime(runtime, |runtime| {
+      let value = {
+        let signals = runtime.signals.borrow();
+        signals.get(*self).cloned()
+      };
+      if let Some(value) = value {
+        let mut value = value.borrow_mut();
+        if let Some(value) = value.downcast_mut::<T>() {
+          Some(f(value))
+        } else {
+          debug_warn!(
+            "[Signal::update] failed when downcasting to Signal<{}>",
+            std::any::type_name::<T>()
+          );
+          None
+        }
+      } else {
+        debug_warn!(
+          "[Signal::update] You’re trying to update a Signal<{}> that has \
            already been disposed of. This is probably either a logic error in \
            a component that creates and disposes of scopes, or a Resource \
            resolving after its scope has been dropped without having been \
            cleaned up.",
-                    std::any::type_name::<T>()
-                );
-                None
-            }
-        })
-        .unwrap_or_default()
-    }
+          std::any::type_name::<T>()
+        );
+        None
+      }
+    })
+    .unwrap_or_default()
+  }
 
-    pub(crate) fn update<T, U>(
-        &self,
-        runtime_id: RuntimeId,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U>
-    where
-        T: 'static,
-    {
-        with_runtime(runtime_id, |runtime| {
-            // update the value
-            let updated = self.update_value(runtime_id, f);
+  pub(crate) fn update<T, U>(
+    &self,
+    runtime_id: RuntimeId,
+    f: impl FnOnce(&mut T) -> U,
+  ) -> Option<U>
+  where
+    T: 'static,
+  {
+    with_runtime(runtime_id, |runtime| {
+      // update the value
+      let updated = self.update_value(runtime_id, f);
 
-            // notify subscribers
-            if updated.is_some() {
-                let subs = {
-                    let subs = runtime.signal_subscribers.borrow();
-                    let subs = subs.get(*self);
-                    subs.map(|subs| subs.borrow().clone())
-                };
-                if let Some(subs) = subs {
-                    for sub in subs {
-                        let effect = {
-                            let effects = runtime.effects.borrow();
-                            effects.get(sub).cloned()
-                        };
-                        if let Some(effect) = effect {
-                            effect.run(sub, runtime_id);
-                        }
-                    }
-                }
+      // notify subscribers
+      if updated.is_some() {
+        let subs = {
+          let subs = runtime.signal_subscribers.borrow();
+          let subs = subs.get(*self);
+          subs.map(|subs| subs.borrow().clone())
+        };
+        if let Some(subs) = subs {
+          for sub in subs {
+            let effect = {
+              let effects = runtime.effects.borrow();
+              effects.get(sub).cloned()
             };
-            updated
-        })
-        .unwrap_or_default()
-    }
+            if let Some(effect) = effect {
+              effect.run(sub, runtime_id);
+            }
+          }
+        }
+      };
+      updated
+    })
+    .unwrap_or_default()
+  }
 
-    pub(crate) fn update_with_no_effect<T, U>(
-        &self,
-        runtime: RuntimeId,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U>
-    where
-        T: 'static,
-    {
-        // update the value
-        self.update_value(runtime, f)
-    }
+  pub(crate) fn update_with_no_effect<T, U>(
+    &self,
+    runtime: RuntimeId,
+    f: impl FnOnce(&mut T) -> U,
+  ) -> Option<U>
+  where
+    T: 'static,
+  {
+    // update the value
+    self.update_value(runtime, f)
+  }
 }
 
 #[track_caller]
 fn format_signal_warning(
-    msg: &str,
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+  msg: &str,
+  #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
 ) -> String {
-    let location = std::panic::Location::caller();
+  let location = std::panic::Location::caller();
 
-    let defined_at_msg = {
-        #[cfg(debug_assertions)]
-        {
-            format!("signal created here: {defined_at}\n")
-        }
+  let defined_at_msg = {
+    #[cfg(debug_assertions)]
+    {
+      format!("signal created here: {defined_at}\n")
+    }
 
-        #[cfg(not(debug_assertions))]
-        {
-            String::default()
-        }
-    };
+    #[cfg(not(debug_assertions))]
+    {
+      String::default()
+    }
+  };
 
-    format!(
-        "{msg}\n\
-        {defined_at_msg}\
-        warning happened here: {location}",
-    )
+  format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
 }
 
 #[track_caller]
 pub(crate) fn panic_getting_dead_signal(
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+  #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
 ) -> ! {
-    panic!(
-        "{}",
-        format_signal_warning(
-            "Attempted to get a signal after it was disposed.",
-            defined_at,
-        )
+  panic!(
+    "{}",
+    format_signal_warning(
+      "Attempted to get a signal after it was disposed.",
+      defined_at,
     )
+  )
 }
 
 #[track_caller]
 pub(crate) fn warn_updating_dead_signal(
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+  #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
 ) {
-    console_warn(&format_signal_warning(
-        "Attempted to update a signal after it was disposed.",
-        defined_at,
-    ));
+  console_warn(&format_signal_warning(
+    "Attempted to update a signal after it was disposed.",
+    defined_at,
+  ));
 }
