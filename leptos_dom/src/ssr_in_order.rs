@@ -1,65 +1,100 @@
-use crate::{CoreComponent, HydrationCtx, View};
+use crate::{render_serializers, CoreComponent, HydrationCtx, View};
+use async_recursion::async_recursion;
 use cfg_if::cfg_if;
-use futures::Stream;
+use futures::{channel::mpsc::Sender, Stream, StreamExt};
 use itertools::Itertools;
-use leptos_reactive::{create_runtime, run_scope_undisposed, Scope};
-use std::{borrow::Cow, future::Future, pin::Pin};
+use leptos_reactive::{
+  create_runtime, run_scope_undisposed, suspense::StreamChunk, RuntimeId,
+  Scope, ScopeId,
+};
+use std::borrow::Cow;
 
-/// Renders an in-order HTML stream, pausing at `<Suspense/>` components.
-pub async fn render_to_stream_in_order(
+/// Renders an in-order HTML stream, pausing at `<Suspense/>` components. The stream contains,
+/// in order:
+/// 1. `prefix`
+/// 2. HTML from the `view` in order, pausing to wait for each `<Suspense/>`
+/// 3. any serialized [Resource](leptos_reactive::Resource)s
+/// 4. `suffix`.
+///
+/// `additional_context` is injected before the `view` is rendered. The `prefix` and `suffix`
+/// are generated after the `view` is rendered.
+pub fn render_to_stream_in_order_undisposed_with_prefix_and_suffix_and_context(
   view: impl FnOnce(Scope) -> View + 'static,
-) -> impl Stream<Item = String> {
+  prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+  suffix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+  additional_context: impl FnOnce(Scope) + 'static,
+) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
   HydrationCtx::reset_id();
 
   // create the runtime
   let runtime = create_runtime();
 
-  let (chunks, y, z) = run_scope_undisposed(runtime, |cx| {
-    let view = view(cx);
-    view.into_stream_chunks(cx)
+  let ((chunks, prefix, suffix, pending_resources, serializers), scope_id, _) =
+    run_scope_undisposed(runtime, |cx| {
+      // add additional context
+      additional_context(cx);
+
+      // render view and return chunks
+      let view = view(cx);
+
+      let prefix = prefix(cx);
+      let suffix = suffix(cx);
+      (
+        view.into_stream_chunks(cx),
+        prefix,
+        suffix,
+        serde_json::to_string(&cx.pending_resources()).unwrap(),
+        cx.serialization_resolvers(),
+      )
+    });
+
+  let (tx, rx) = futures::channel::mpsc::channel(1);
+  leptos_reactive::spawn_local(async move {
+    handle_chunks(tx, chunks).await;
   });
 
-  eprintln!("{chunks:#?}");
+  let stream = futures::stream::once(async move {
+    format!(
+      r#"
+        {prefix}
+        <script>
+            __LEPTOS_PENDING_RESOURCES = {pending_resources};
+            __LEPTOS_RESOLVED_RESOURCES = new Map();
+            __LEPTOS_RESOURCE_RESOLVERS = new Map();
+        </script>
+      "#
+    )
+  })
+  .chain(rx)
+  .chain(render_serializers(serializers))
+  .chain(futures::stream::once(async move { suffix.into() }));
 
-  let (mut tx, rx) = futures::channel::mpsc::channel(1);
-  leptos_reactive::spawn_local(async move {
-    let mut buffer = String::new();
-    for chunk in chunks {
-      match chunk {
-        StreamChunk::Sync(sync) => buffer.push_str(&sync),
-        StreamChunk::Async(suspended) => {
-          // add static HTML before the Suspense and stream it down
-          _ = tx.try_send(std::mem::take(&mut buffer));
+  (stream, runtime, scope_id)
+}
 
-          // send the inner stream
-          let suspended = suspended.await;
-          _ = tx.try_send(suspended.to_string());
-        }
+#[async_recursion(?Send)]
+async fn handle_chunks(mut tx: Sender<String>, chunks: Vec<StreamChunk>) {
+  let mut buffer = String::new();
+  for chunk in chunks {
+    match chunk {
+      StreamChunk::Sync(sync) => buffer.push_str(&sync),
+      StreamChunk::Async(suspended) => {
+        // add static HTML before the Suspense and stream it down
+        _ = tx.try_send(std::mem::take(&mut buffer));
+
+        // send the inner stream
+        let suspended = suspended.await;
+        handle_chunks(tx.clone(), suspended).await;
       }
     }
-    // send final sync chunk
-    _ = tx.try_send(std::mem::take(&mut buffer));
-  });
-
-  rx
-}
-
-enum StreamChunk {
-  Sync(Cow<'static, str>),
-  Async(Pin<Box<dyn Future<Output = String>>>),
-}
-
-impl std::fmt::Debug for StreamChunk {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    match self {
-      StreamChunk::Sync(data) => write!(f, "StreamChunk::Sync({data:?})"),
-      StreamChunk::Async(_) => write!(f, "StreamChunk::Async(_)"),
-    }
   }
+  // send final sync chunk
+  _ = tx.try_send(std::mem::take(&mut buffer));
 }
 
 impl View {
-  fn into_stream_chunks(self, cx: Scope) -> Vec<StreamChunk> {
+  /// Renders the view into a set of HTML chunks that can be streamed.
+  pub fn into_stream_chunks(self, cx: Scope) -> Vec<StreamChunk> {
     let mut chunks = Vec::new();
     self.into_stream_chunks_helper(cx, &mut chunks);
     chunks
@@ -67,23 +102,14 @@ impl View {
 
   fn into_stream_chunks_helper(self, cx: Scope, chunks: &mut Vec<StreamChunk>) {
     match self {
-      // TODO this doesn't handle nested <Suspense/>, but would stream out of order
-      View::Suspense(id, node) => {
-        eprintln!("rendering Suspense");
+      View::Suspense(id, _) => {
         let id = id.to_string();
-        chunks.push(StreamChunk::Sync(
-          format!("<!--suspense-open-{id}-->").into(),
-        ));
         if let Some((_, fragment)) = cx.take_pending_fragment(&id) {
           chunks.push(StreamChunk::Async(fragment));
         }
-        chunks.push(StreamChunk::Sync(
-          format!("<!--suspense-close-{id}-->").into(),
-        ));
       }
       View::Text(node) => chunks.push(StreamChunk::Sync(node.content)),
       View::Component(node) => {
-        eprintln!("\nrendering Component");
         cfg_if! {
           if #[cfg(debug_assertions)] {
             let name = crate::to_kebab_case(&node.name);
@@ -101,7 +127,6 @@ impl View {
         }
       }
       View::Element(el) => {
-        eprintln!("rendering Element");
         if let Some(prerendered) = el.prerendered {
           chunks.push(StreamChunk::Sync(prerendered))
         } else {

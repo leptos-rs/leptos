@@ -8,6 +8,7 @@ repository = "https://github.com/leptos-rs/leptos"
 description = "DOM operations for the Leptos web framework."
 
 [dependencies]
+async-recursion = "1"
 cfg-if = "1"
 drain_filter_polyfill = "0.1"
 educe = "0.4"

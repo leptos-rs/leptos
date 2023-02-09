@@ -17,7 +17,9 @@ mod hydration;
 mod logging;
 mod macro_helpers;
 mod node_ref;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 mod ssr;
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 mod ssr_in_order;
 mod transparent;
 

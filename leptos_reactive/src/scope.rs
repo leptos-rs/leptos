@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
     runtime::{with_runtime, RuntimeId},
+    suspense::StreamChunk,
     EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
@@ -330,31 +331,36 @@ impl Scope {
     pub fn register_suspense(
         &self,
         context: SuspenseContext,
-        key_before_suspense: &str,
         key: &str,
-        resolver: impl FnOnce() -> String + 'static,
+        out_of_order_resolver: impl FnOnce() -> String + 'static,
+        in_order_resolver: impl FnOnce() -> Vec<StreamChunk> + 'static,
     ) {
         use crate::create_isomorphic_effect;
         use futures::StreamExt;
 
         _ = with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
-            let (tx, mut rx) = futures::channel::mpsc::unbounded();
+            let (tx1, mut rx1) = futures::channel::mpsc::unbounded();
+            let (tx2, mut rx2) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
                 let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
                 if pending == 0 {
-                    _ = tx.unbounded_send(());
+                    _ = tx1.unbounded_send(());
+                    _ = tx2.unbounded_send(());
                 }
             });
 
             shared_context.pending_fragments.insert(
                 key.to_string(),
                 (
-                    key_before_suspense.to_string(),
                     Box::pin(async move {
-                        rx.next().await;
-                        resolver()
+                        rx1.next().await;
+                        out_of_order_resolver()
+                    }),
+                    Box::pin(async move {
+                        rx2.next().await;
+                        in_order_resolver()
                     }),
                 ),
             );
@@ -362,9 +368,12 @@ impl Scope {
     }
 
     /// The set of all HTML fragments currently pending.
-    /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
-    /// `<Suspense/>` HTML when all resources are resolved.
-    pub fn pending_fragments(&self) -> HashMap<String, (String, PinnedFuture<String>)> {
+    ///
+    /// The keys are hydration IDs. Valeus are tuples of two pinned
+    /// `Future`s that return content for out-of-order and in-order streaming, respectively.
+    pub fn pending_fragments(
+        &self,
+    ) -> HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
@@ -372,11 +381,14 @@ impl Scope {
         .unwrap_or_default()
     }
 
-    /// The set of all HTML fragments currently pending.
-    /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
-    /// `<Suspense/>` HTML when all resources are resolved, removing the `Future` from the set of
-    /// pending fragments.
-    pub fn take_pending_fragment(&self, id: &str) -> Option<(String, PinnedFuture<String>)> {
+    /// Takes the pending HTML for a single `<Suspense/>` node.
+    ///
+    /// Returns a tuple of two pinned `Future`s that return content for out-of-order
+    /// and in-order streaming, respectively.
+    pub fn take_pending_fragment(
+        &self,
+        id: &str,
+    ) -> Option<(PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             shared_context.pending_fragments.remove(id)

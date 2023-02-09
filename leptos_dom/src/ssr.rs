@@ -2,10 +2,12 @@
 
 use crate::{CoreComponent, HydrationCtx, IntoView, View};
 use cfg_if::cfg_if;
-use futures::{stream::FuturesUnordered, Stream, StreamExt};
+use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
 use leptos_reactive::*;
-use std::borrow::Cow;
+use std::{borrow::Cow, pin::Pin};
+
+type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 /// Renders the given function to a static HTML string.
 ///
@@ -152,14 +154,14 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
   });
 
   let fragments = FuturesUnordered::new();
-  for (fragment_id, (key_before, fut)) in pending_fragments {
-    fragments.push(async move { (fragment_id, key_before, fut.await) })
+  for (fragment_id, (fut, _)) in pending_fragments {
+    fragments.push(async move { (fragment_id, fut.await) })
   }
 
   // resources and fragments
   // stream HTML for each <Suspense/> as it resolves
   // TODO can remove id_before_suspense entirely now
-  let fragments = fragments.map(|(fragment_id, _, html)| {
+  let fragments = fragments.map(|(fragment_id, html)| {
     format!(
       r#"
               <template id="{fragment_id}f">{html}</template>
@@ -186,18 +188,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     )
   });
   // stream data for each Resource as it resolves
-  let resources = serializers.map(|(id, json)| {
-    let id = serde_json::to_string(&id).unwrap();
-    format!(
-      r#"<script>
-                  if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                      __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
-                  }} else {{
-                      __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
-                  }}
-              </script>"#,
-    )
-  });
+  let resources = render_serializers(serializers);
 
   // HTML for the view function and script to store resources
   let stream = futures::stream::once(async move {
@@ -457,6 +448,23 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
   }
 
   new_name
+}
+
+pub(crate) fn render_serializers(
+  serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
+) -> impl Stream<Item = String> {
+  serializers.map(|(id, json)| {
+    let id = serde_json::to_string(&id).unwrap();
+    format!(
+      r#"<script>
+                  if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
+                      __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
+                  }} else {{
+                      __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
+                  }}
+              </script>"#,
+    )
+  })
 }
 
 #[doc(hidden)]
