@@ -6,8 +6,7 @@ use leptos_reactive::{
 #[cfg(not(feature = "stable"))]
 #[test]
 fn effect_runs() {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{cell::RefCell, rc::Rc};
 
     create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
@@ -35,8 +34,7 @@ fn effect_runs() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn effect_tracks_memo() {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{cell::RefCell, rc::Rc};
 
     create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
@@ -66,8 +64,7 @@ fn effect_tracks_memo() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn untrack_mutes_effect() {
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{cell::RefCell, rc::Rc};
 
     create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);

@@ -1,9 +1,8 @@
 #![forbid(unsafe_code)]
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
-
 use crate::{
     create_isomorphic_effect, create_signal, ReadSignal, Scope, SignalUpdate, WriteSignal,
 };
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
@@ -18,26 +17,29 @@ use crate::{
 /// # use std::rc::Rc;
 /// # use std::cell::RefCell;
 /// # create_scope(create_runtime(), |cx| {
-///    let (a, set_a) = create_signal(cx, 0);
-///    let is_selected = create_selector(cx, a);
-///    let total_notifications = Rc::new(RefCell::new(0));
-///    let not = Rc::clone(&total_notifications);
-///    create_isomorphic_effect(cx, {let is_selected = is_selected.clone(); move |_| {
-///      if is_selected(5) {
-///        *not.borrow_mut() += 1;
-///      }
-///    }});
+/// let (a, set_a) = create_signal(cx, 0);
+/// let is_selected = create_selector(cx, a);
+/// let total_notifications = Rc::new(RefCell::new(0));
+/// let not = Rc::clone(&total_notifications);
+/// create_isomorphic_effect(cx, {
+///   let is_selected = is_selected.clone();
+///   move |_| {
+///     if is_selected(5) {
+///       *not.borrow_mut() += 1;
+///     }
+///   }
+/// });
 ///
-///    assert_eq!(is_selected(5), false);
-///    assert_eq!(*total_notifications.borrow(), 0);
-///    set_a(5);
-///    assert_eq!(is_selected(5), true);
-///    assert_eq!(*total_notifications.borrow(), 1);
-///    set_a(5);
-///    assert_eq!(is_selected(5), true);
-///    assert_eq!(*total_notifications.borrow(), 1);
-///    set_a(4);
-///    assert_eq!(is_selected(5), false);
+/// assert_eq!(is_selected(5), false);
+/// assert_eq!(*total_notifications.borrow(), 0);
+/// set_a(5);
+/// assert_eq!(is_selected(5), true);
+/// assert_eq!(*total_notifications.borrow(), 1);
+/// set_a(5);
+/// assert_eq!(is_selected(5), true);
+/// assert_eq!(*total_notifications.borrow(), 1);
+/// set_a(4);
+/// assert_eq!(is_selected(5), false);
 ///  # })
 ///  # .dispose()
 /// ```

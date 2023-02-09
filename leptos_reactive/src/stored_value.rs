@@ -87,7 +87,9 @@ impl<T> StoredValue<T> {
     /// Returns a clone of the signals current value, subscribing the effect
     /// to this signal.
     #[track_caller]
-    #[deprecated = "Please use `get_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
+    #[deprecated = "Please use `get_untracked` instead, as this method does not \
+                  track the stored value. This method will also be removed in \
+                  a future version of `leptos`"]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -110,21 +112,27 @@ impl<T> StoredValue<T> {
     /// });
     /// ```
     #[track_caller]
-    #[deprecated = "Please use `with_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
+    #[deprecated = "Please use `with_untracked` instead, as this method does not \
+                  track the stored value. This method will also be removed in \
+                  a future version of `leptos`"]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.with_untracked(f)
     }
 
     /// Updates the stored value.
     #[track_caller]
-    #[deprecated = "Please use `update_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
+    #[deprecated = "Please use `update_untracked` instead, as this method does \
+                  not track the stored value. This method will also be removed \
+                  in a future version of `leptos`"]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.update_untracked(f);
     }
 
     /// Updates the stored value.
     #[track_caller]
-    #[deprecated = "Please use `try_update_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
+    #[deprecated = "Please use `try_update_untracked` instead, as this method \
+                  does not track the stored value. This method will also be \
+                  removed in a future version of `leptos`"]
     pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
         self.try_update_untracked(f)
     }
@@ -143,7 +151,9 @@ impl<T> StoredValue<T> {
     /// });
     /// ```
     #[track_caller]
-    #[deprecated = "Please use `set_untracked` instead, as this method does not track the stored value. This method will also be removed in a future version of `leptos`"]
+    #[deprecated = "Please use `set_untracked` instead, as this method does not \
+                  track the stored value. This method will also be removed in \
+                  a future version of `leptos`"]
     pub fn set(&self, value: T) {
         self.set_untracked(value);
     }
@@ -222,7 +232,7 @@ impl<T> SignalUpdateUntracked<T> for StoredValue<T> {
 /// # create_scope(create_runtime(), |cx| {
 /// // this structure is neither `Copy` nor `Clone`
 /// pub struct MyUncloneableData {
-///   pub value: String
+///   pub value: String,
 /// }
 ///
 /// // ✅ you can move the `StoredValue` and access it with .with()

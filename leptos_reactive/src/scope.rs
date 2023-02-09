@@ -139,8 +139,8 @@ impl Scope {
     /// let (a, set_a) = create_signal(cx, 0);
     /// let (b, set_b) = create_signal(cx, 0);
     /// let c = create_memo(cx, move |_| {
-    ///     // this memo will *only* update when `a` changes
-    ///     a() + cx.untrack(move || b())
+    ///   // this memo will *only* update when `a` changes
+    ///   a() + cx.untrack(move || b())
     /// });
     ///
     /// assert_eq!(c(), 0);

@@ -176,12 +176,13 @@ where
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
 ///   // do some work
-///   ComplicatedUnserializableStruct { }
+///   ComplicatedUnserializableStruct {}
 /// }
 ///
 /// // create the resource; it will run but not be serialized
 /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
-/// let result = create_local_resource(cx, move || (), |_| setup_complicated_struct());
+/// let result =
+///   create_local_resource(cx, move || (), |_| setup_complicated_struct());
 /// # }
 /// # }).dispose();
 /// ```
@@ -392,7 +393,10 @@ where
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
         })
-        .expect("tried to call Resource::loading() in a runtime that has already been disposed.")
+        .expect(
+            "tried to call Resource::loading() in a runtime that has already been \
+       disposed.",
+        )
     }
 
     /// Re-runs the async function with the current source data.
@@ -414,7 +418,10 @@ where
                 resource.to_serialization_resolver(self.id)
             })
         })
-        .expect("tried to serialize a Resource in a runtime that has already been disposed")
+        .expect(
+            "tried to serialize a Resource in a runtime that has already been \
+       disposed",
+        )
         .await
     }
 }

@@ -1,10 +1,9 @@
 #![forbid(unsafe_code)]
+use crate::{runtime::with_runtime, Scope};
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
 };
-
-use crate::{runtime::with_runtime, Scope};
 
 /// Provides a context value of type `T` to the current reactive [Scope](crate::Scope)
 /// and all of its descendants. This can be consumed using [use_context](crate::use_context).
