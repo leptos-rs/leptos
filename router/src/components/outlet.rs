@@ -7,7 +7,6 @@ use leptos::*;
 /// that child route is displayed. Renders nothing if there is no nested child.
 #[component]
 pub fn Outlet(cx: Scope) -> impl IntoView {
-    log!("rendering <Outlet/> on {:?}", cx.id());
     let id = HydrationCtx::id();
     let route = use_route(cx);
     let is_showing = Rc::new(Cell::new(None::<(usize, Scope)>));
