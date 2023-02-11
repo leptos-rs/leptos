@@ -149,7 +149,6 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
         ev.stop_propagation();
         let key_code = ev.key_code();
         if key_code == ENTER_KEY {
-            let title = input.value();
             let title = title.trim();
             if !title.is_empty() {
                 let new = Todo::new(cx, Uuid::new_v4(), title.to_string());
