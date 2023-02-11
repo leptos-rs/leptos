@@ -1,4 +1,4 @@
-//! MathML elements.
+//! Exports types for working with MathML elements.
 
 use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
@@ -10,7 +10,7 @@ cfg_if! {
     use once_cell::unsync::Lazy as LazyCell;
     use wasm_bindgen::JsCast;
   } else {
-    use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
+    use super::{HydrationKey, html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
   }
 }
 

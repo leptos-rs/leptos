@@ -708,7 +708,7 @@ fn element_to_tokens(
         let tag = node.name.to_string();
         let name = if is_custom_element(&tag) {
             let name = node.name.to_string();
-            quote! { leptos::leptos_dom::custom(#cx, leptos::leptos_dom::Custom::new(#name)) }
+            quote! { leptos::leptos_dom::html::custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             let name = &node.name;
             parent_type = TagType::Svg;
@@ -830,7 +830,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .expect("couldn't parse event name");
 
         let event_type = if is_custom {
-            quote! { Custom::new(#name) }
+            quote! { leptos::leptos_dom::events::Custom::new(#name) }
         } else {
             event_type
         };

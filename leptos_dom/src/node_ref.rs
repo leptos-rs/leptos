@@ -1,4 +1,4 @@
-use crate::{ElementDescriptor, HtmlElement};
+use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{create_effect, create_rw_signal, RwSignal, Scope};
 use std::cell::Cell;
 
