@@ -142,7 +142,16 @@
 //! ```
 
 pub use leptos_config::{self, LeptosOptions};
-pub use leptos_dom::{self, *};
+pub use leptos_dom::{
+    self,
+    helpers::{
+        event_target, event_target_checked, event_target_value,
+        request_animation_frame, request_idle_callback, set_interval,
+        set_timeout, window_event_listener,
+    },
+    Attribute, Class, Fragment, HtmlElement, IntoAttribute, IntoClass,
+    IntoProperty, IntoView, Property, View,
+};
 pub use leptos_macro::*;
 pub use leptos_reactive::*;
 pub use leptos_server::{
@@ -179,9 +188,7 @@ pub type ChildrenFn = Box<dyn Fn(Scope) -> Fragment>;
 pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 
 /// A type for taking anything that implements [`IntoAttribute`].
-/// Very usefull inside components.
 ///
-/// ## Example
 /// ```rust
 /// use leptos::*;
 ///

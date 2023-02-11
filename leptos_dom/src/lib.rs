@@ -10,7 +10,7 @@ extern crate tracing;
 
 mod components;
 mod events;
-mod helpers;
+pub mod helpers;
 pub mod html;
 mod hydration;
 mod logging;
@@ -25,7 +25,6 @@ pub use components::*;
 pub use events::typed as ev;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
-pub use helpers::*;
 pub use html::{math, svg, HtmlElement};
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};

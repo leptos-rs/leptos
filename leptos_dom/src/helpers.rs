@@ -1,3 +1,5 @@
+//! A variety of DOM utility functions.
+
 use crate::{is_server, window};
 use std::time::Duration;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
