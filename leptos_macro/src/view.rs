@@ -148,32 +148,34 @@ pub(crate) fn render_view(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     if mode == Mode::Ssr {
-        if nodes.is_empty() {
-            let span = Span::call_site();
-            quote_spanned! {
-                span => leptos::Unit
+        match nodes.len() {
+            0 => {
+                let span = Span::call_site();
+                quote_spanned! {
+                    span => leptos::Unit
+                }
             }
-        } else if nodes.len() == 1 {
-            root_node_to_tokens_ssr(cx, &nodes[0], global_class)
-        } else {
-            fragment_to_tokens_ssr(cx, Span::call_site(), nodes, global_class)
+            1 => root_node_to_tokens_ssr(cx, &nodes[0], global_class),
+            _ => fragment_to_tokens_ssr(cx, Span::call_site(), nodes, global_class),
         }
-    } else if nodes.is_empty() {
-        let span = Span::call_site();
-        quote_spanned! {
-            span => leptos::Unit
-        }
-    } else if nodes.len() == 1 {
-        node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class)
     } else {
-        fragment_to_tokens(
-            cx,
-            Span::call_site(),
-            nodes,
-            true,
-            TagType::Unknown,
-            global_class,
-        )
+        match nodes.len() {
+            0 => {
+                let span = Span::call_site();
+                quote_spanned! {
+                    span => leptos::Unit
+                }
+            }
+            1 => node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class),
+            _ => fragment_to_tokens(
+                cx,
+                Span::call_site(),
+                nodes,
+                true,
+                TagType::Unknown,
+                global_class,
+            ),
+        }
     }
 }
 
@@ -477,30 +479,32 @@ fn set_class_attribute_ssr(
     holes: &mut Vec<TokenStream>,
     global_class: Option<&TokenTree>,
 ) {
-    let static_global_class = match global_class {
-        Some(TokenTree::Literal(lit)) => lit.to_string(),
-        _ => String::new(),
-    };
-    let dyn_global_class = match global_class {
-        None => None,
-        Some(TokenTree::Literal(_)) => None,
-        Some(val) => Some(val),
+    let (static_global_class, dyn_global_class) = match global_class {
+        Some(TokenTree::Literal(lit)) => {
+            let str = lit.to_string();
+            // A lit here can be a string, byte_string, char, byte_char, int or float.
+            // If it's a string we remove the quotes so folks can use them directly
+            // without needing braces. E.g. view!{cx, class="my-class", ... }
+            let str = if str.starts_with('"') && str.ends_with('"') {
+                str[1..str.len() - 1].to_string()
+            } else {
+                str
+            };
+            (str, None)
+        }
+        None => (String::new(), None),
+        Some(val) => (String::new(), Some(val)),
     };
     let static_class_attr = node
         .attributes
         .iter()
-        .filter_map(|a| {
-            if let Node::Attribute(a) = a {
-                if a.key.to_string() == "class" {
-                    a.value.as_ref().and_then(value_to_string)
-                } else {
-                    None
-                }
-            } else {
-                None
+        .filter_map(|a| match a {
+            Node::Attribute(attr) if attr.key.to_string() == "class" => {
+                attr.value.as_ref().and_then(value_to_string)
             }
+            _ => None,
         })
-        .chain(std::iter::once(static_global_class))
+        .chain(Some(static_global_class))
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
