@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
-use syn::{parse_macro_input, DeriveInput};
+use syn::parse_macro_input;
 use syn_rsx::{parse, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -34,7 +34,6 @@ mod params;
 mod view;
 use view::render_view;
 mod component;
-mod props;
 mod server;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -643,16 +642,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(Props, attributes(builder))]
-pub fn derive_prop(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    props::impl_derive_prop(&input)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-// Derive Params trait for routing
+/// Derives a trait that parses a map of string keys and values into a typed
+/// data structure, e.g., for route params.
 #[proc_macro_derive(Params, attributes(params))]
 pub fn params_derive(
     input: proc_macro::TokenStream,
