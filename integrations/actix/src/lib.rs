@@ -32,11 +32,19 @@ pub struct ResponseParts {
 
 impl ResponseParts {
     /// Insert a header, overwriting any previous value with the same key
-    pub fn insert_header(&mut self, key: header::HeaderName, value: header::HeaderValue) {
+    pub fn insert_header(
+        &mut self,
+        key: header::HeaderName,
+        value: header::HeaderValue,
+    ) {
         self.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact
-    pub fn append_header(&mut self, key: header::HeaderName, value: header::HeaderValue) {
+    pub fn append_header(
+        &mut self,
+        key: header::HeaderName,
+        value: header::HeaderValue,
+    ) {
         self.headers.append(key, value);
     }
 }
@@ -60,13 +68,21 @@ impl ResponseOptions {
         res_parts.status = Some(status);
     }
     /// Insert a header, overwriting any previous value with the same key
-    pub fn insert_header(&self, key: header::HeaderName, value: header::HeaderValue) {
+    pub fn insert_header(
+        &self,
+        key: header::HeaderName,
+        value: header::HeaderValue,
+    ) {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.insert(key, value);
     }
     /// Append a header, leaving any header with the same key intact
-    pub fn append_header(&self, key: header::HeaderName, value: header::HeaderValue) {
+    pub fn append_header(
+        &self,
+        key: header::HeaderName,
+        value: header::HeaderValue,
+    ) {
         let mut writeable = self.0.write();
         let res_parts = &mut *writeable;
         res_parts.headers.append(key, value);
@@ -81,7 +97,8 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
     response_options.set_status(StatusCode::FOUND);
     response_options.insert_header(
         header::LOCATION,
-        header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
+        header::HeaderValue::from_str(path)
+            .expect("Failed to create HeaderValue"),
     );
 }
 
@@ -173,7 +190,8 @@ pub fn handle_server_fns_with_context(
 
                     match server_fn(cx, body).await {
                         Ok(serialized) => {
-                            let res_options = use_context::<ResponseOptions>(cx).unwrap();
+                            let res_options =
+                                use_context::<ResponseOptions>(cx).unwrap();
 
                             // clean up the scope, which we only needed to run the server fn
                             disposer.dispose();
@@ -183,7 +201,8 @@ pub fn handle_server_fns_with_context(
                             let mut res_parts = res_options.0.write();
 
                             if accept_header == Some("application/json")
-                                || accept_header == Some("application/x-www-form-urlencoded")
+                                || accept_header
+                                    == Some("application/x-www-form-urlencoded")
                                 || accept_header == Some("application/cbor")
                             {
                                 res = HttpResponse::Ok();
@@ -221,7 +240,9 @@ pub fn handle_server_fns_with_context(
                                     res.body(Bytes::from(data))
                                 }
                                 Payload::Url(data) => {
-                                    res.content_type("application/x-www-form-urlencoded");
+                                    res.content_type(
+                                        "application/x-www-form-urlencoded",
+                                    );
                                     res.body(data)
                                 }
                                 Payload::Json(data) => {
@@ -230,13 +251,15 @@ pub fn handle_server_fns_with_context(
                                 }
                             }
                         }
-                        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+                        Err(e) => HttpResponse::InternalServerError()
+                            .body(e.to_string()),
                     }
                 } else {
                     HttpResponse::BadRequest().body(format!(
                         "Could not find a server function at the route {:?}. \
-                        \n\nIt's likely that you need to call ServerFn::register() on the \
-                        server function type, somewhere in your `main` function.",
+                         \n\nIt's likely that you need to call \
+                         ServerFn::register() on the server function type, \
+                         somewhere in your `main` function.",
                         req.path()
                     ))
                 }
@@ -256,13 +279,13 @@ pub fn handle_server_fns_with_context(
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
-/// use actix_web::{HttpServer, App};
+/// use actix_web::{App, HttpServer};
 /// use leptos::*;
-/// use std::{env,net::SocketAddr};
+/// use std::{env, net::SocketAddr};
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   view! { cx, <main>"Hello, world!"</main> }
+///     view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -272,11 +295,17 @@ pub fn handle_server_fns_with_context(
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
-///     
+///
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_app_to_stream(leptos_options.to_owned(), |cx| view! { cx, <MyApp/> }))
+///             .route(
+///                 "/{tail:.*}",
+///                 leptos_actix::render_app_to_stream(
+///                     leptos_options.to_owned(),
+///                     |cx| view! { cx, <MyApp/> },
+///                 ),
+///             )
 ///     })
 ///     .bind(&addr)?
 ///     .run()
@@ -353,14 +382,14 @@ where
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
-/// use actix_web::{HttpServer, App};
+/// use actix_web::{App, HttpServer};
 /// use leptos::*;
-/// use std::{env,net::SocketAddr};
 /// use leptos_actix::DataResponse;
+/// use std::{env, net::SocketAddr};
 ///
 /// #[component]
 /// fn MyApp(cx: Scope, data: &'static str) -> impl IntoView {
-///   view! { cx, <main>"Hello, world!"</main> }
+///     view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -370,14 +399,21 @@ where
 ///     let addr = conf.leptos_options.site_addr.clone();
 ///     HttpServer::new(move || {
 ///         let leptos_options = &conf.leptos_options;
-///     
+///
 ///         App::new()
 ///             // {tail:.*} passes the remainder of the URL as the route
 ///             // the actual routing will be handled by `leptos_router`
-///             .route("/{tail:.*}", leptos_actix::render_preloaded_data_app(
-///                 leptos_options.to_owned(),
-///                 |req| async move { Ok(DataResponse::Data("async func that can preload data")) },
-///                 |cx, data| view! { cx, <MyApp data/> })
+///             .route(
+///                 "/{tail:.*}",
+///                 leptos_actix::render_preloaded_data_app(
+///                     leptos_options.to_owned(),
+///                     |req| async move {
+///                         Ok(DataResponse::Data(
+///                             "async func that can preload data",
+///                         ))
+///                     },
+///                     |cx, data| view! { cx, <MyApp data/> },
+///                 ),
 ///             )
 ///     })
 ///     .bind(&addr)?
@@ -430,7 +466,11 @@ where
     })
 }
 
-fn provide_contexts(cx: leptos::Scope, req: &HttpRequest, res_options: ResponseOptions) {
+fn provide_contexts(
+    cx: leptos::Scope,
+    req: &HttpRequest,
+    res_options: ResponseOptions,
+) {
     let path = leptos_corrected_path(req);
 
     let integration = ServerIntegration { path };
@@ -457,25 +497,27 @@ async fn stream_app(
     res_options: ResponseOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> HttpResponse<BoxBody> {
-    let (stream, runtime, scope) = render_to_stream_with_prefix_undisposed_with_context(
-        app,
-        move |cx| {
-            let meta = use_context::<MetaContext>(cx);
-            let head = meta
-                .as_ref()
-                .map(|meta| meta.dehydrate())
-                .unwrap_or_default();
-            let body_meta = meta
-                .as_ref()
-                .and_then(|meta| meta.body.as_string())
-                .unwrap_or_default();
-            format!("{head}</head><body{body_meta}>").into()
-        },
-        additional_context,
-    );
+    let (stream, runtime, scope) =
+        render_to_stream_with_prefix_undisposed_with_context(
+            app,
+            move |cx| {
+                let meta = use_context::<MetaContext>(cx);
+                let head = meta
+                    .as_ref()
+                    .map(|meta| meta.dehydrate())
+                    .unwrap_or_default();
+                let body_meta = meta
+                    .as_ref()
+                    .and_then(|meta| meta.body.as_string())
+                    .unwrap_or_default();
+                format!("{head}</head><body{body_meta}>").into()
+            },
+            additional_context,
+        );
 
     let cx = leptos::Scope { runtime, id: scope };
-    let (head, tail) = html_parts(options, use_context::<MetaContext>(cx).as_ref());
+    let (head, tail) =
+        html_parts(options, use_context::<MetaContext>(cx).as_ref());
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })
@@ -493,11 +535,13 @@ async fn stream_app(
 
     let res_options = res_options.0.read();
 
-    let (status, mut headers) = (res_options.status, res_options.headers.clone());
+    let (status, mut headers) =
+        (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
 
     let complete_stream =
-        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()]).chain(stream);
+        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+            .chain(stream);
     let mut res = HttpResponse::Ok()
         .content_type("text/html")
         .streaming(complete_stream);
@@ -514,7 +558,10 @@ async fn stream_app(
     res
 }
 
-fn html_parts(options: &LeptosOptions, meta_context: Option<&MetaContext>) -> (String, String) {
+fn html_parts(
+    options: &LeptosOptions,
+    meta_context: Option<&MetaContext>,
+) -> (String, String) {
     // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
     // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
@@ -578,7 +625,9 @@ fn html_parts(options: &LeptosOptions, meta_context: Option<&MetaContext>) -> (S
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
-pub fn generate_route_list<IV>(app_fn: impl FnOnce(leptos::Scope) -> IV + 'static) -> Vec<String>
+pub fn generate_route_list<IV>(
+    app_fn: impl FnOnce(leptos::Scope) -> IV + 'static,
+) -> Vec<String>
 where
     IV: IntoView + 'static,
 {
@@ -658,7 +707,12 @@ pub trait LeptosRoutes {
 /// to those paths to Leptos's renderer.
 impl<T> LeptosRoutes for actix_web::App<T>
 where
-    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+    T: ServiceFactory<
+        ServiceRequest,
+        Config = (),
+        Error = Error,
+        InitError = (),
+    >,
 {
     fn leptos_routes<IV>(
         self,
@@ -671,7 +725,10 @@ where
     {
         let mut router = self;
         for path in paths.iter() {
-            router = router.route(path, render_app_to_stream(options.clone(), app_fn.clone()));
+            router = router.route(
+                path,
+                render_app_to_stream(options.clone(), app_fn.clone()),
+            );
         }
         router
     }
@@ -693,7 +750,11 @@ where
         for path in paths.iter() {
             router = router.route(
                 path,
-                render_preloaded_data_app(options.clone(), data_fn.clone(), app_fn.clone()),
+                render_preloaded_data_app(
+                    options.clone(),
+                    data_fn.clone(),
+                    app_fn.clone(),
+                ),
             );
         }
         router

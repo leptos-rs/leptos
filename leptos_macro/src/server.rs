@@ -23,7 +23,10 @@ fn fn_arg_is_cx(f: &syn::FnArg) -> bool {
     }
 }
 
-pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
+pub fn server_macro_impl(
+    args: proc_macro::TokenStream,
+    s: TokenStream2,
+) -> Result<TokenStream2> {
     let ServerFnName {
         struct_name,
         prefix,
@@ -57,17 +60,21 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let fields = body.inputs.iter().filter(|f| !fn_arg_is_cx(f)).map(|f| {
         let typed_arg = match f {
-            FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
+            FnArg::Receiver(_) => {
+                panic!("cannot use receiver types in server function macro")
+            }
             FnArg::Typed(t) => t,
         };
         quote! { pub #typed_arg }
     });
 
-    let cx_arg = body
-        .inputs
-        .iter()
-        .next()
-        .and_then(|f| if fn_arg_is_cx(f) { Some(f) } else { None });
+    let cx_arg = body.inputs.iter().next().and_then(|f| {
+        if fn_arg_is_cx(f) {
+            Some(f)
+        } else {
+            None
+        }
+    });
     let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
         if let Pat::Ident(id) = &*arg.pat {
             quote! {
@@ -88,7 +95,9 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let fn_args = body.inputs.iter().map(|f| {
         let typed_arg = match f {
-            FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
+            FnArg::Receiver(_) => {
+                panic!("cannot use receiver types in server function macro")
+            }
             FnArg::Typed(t) => t,
         };
         let is_cx = fn_arg_is_cx(f);
@@ -124,10 +133,14 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let output_ty = if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
-            if let PathArguments::AngleBracketed(args) = &pat.path.segments[0].arguments {
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
                 &args.args[0]
             } else {
-                panic!("server functions should return Result<T, ServerFnError>");
+                panic!(
+                    "server functions should return Result<T, ServerFnError>"
+                );
             }
         } else {
             panic!("server functions should return Result<T, ServerFnError>");

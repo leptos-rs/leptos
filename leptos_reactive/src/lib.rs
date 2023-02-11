@@ -39,30 +39,30 @@
 //! // this is omitted from most of the examples in the docs
 //! // you usually won't need to call it yourself
 //! create_scope(create_runtime(), |cx| {
-//!   // a signal: returns a (getter, setter) pair
-//!   let (count, set_count) = create_signal(cx, 0);
+//!     // a signal: returns a (getter, setter) pair
+//!     let (count, set_count) = create_signal(cx, 0);
 //!
-//!   // calling the getter gets the value
-//!   assert_eq!(count(), 0);
-//!   // calling the setter sets the value
-//!   set_count(1);
-//!   // or we can mutate it in place with update()
-//!   set_count.update(|n| *n += 1);
+//!     // calling the getter gets the value
+//!     assert_eq!(count(), 0);
+//!     // calling the setter sets the value
+//!     set_count(1);
+//!     // or we can mutate it in place with update()
+//!     set_count.update(|n| *n += 1);
 //!
-//!   // a derived signal: a plain closure that relies on the signal
-//!   // the closure will run whenever we *access* double_count()
-//!   let double_count = move || count() * 2;
-//!   assert_eq!(double_count(), 4);
-//!   
-//!   // a memo: subscribes to the signal
-//!   // the closure will run only when count changes
-//!   let memoized_triple_count = create_memo(cx, move |_| count() * 3);
-//!   assert_eq!(memoized_triple_count(), 6);
+//!     // a derived signal: a plain closure that relies on the signal
+//!     // the closure will run whenever we *access* double_count()
+//!     let double_count = move || count() * 2;
+//!     assert_eq!(double_count(), 4);
 //!
-//!   // this effect will run whenever count() changes
-//!   create_effect(cx, move |_| {
-//!     println!("Count = {}", count());
-//!   });
+//!     // a memo: subscribes to the signal
+//!     // the closure will run only when count changes
+//!     let memoized_triple_count = create_memo(cx, move |_| count() * 3);
+//!     assert_eq!(memoized_triple_count(), 6);
+//!
+//!     // this effect will run whenever count() changes
+//!     create_effect(cx, move |_| {
+//!         println!("Count = {}", count());
+//!     });
 //! });
 //! ```
 
@@ -136,7 +136,10 @@ pub trait UntrackedSettableSignal<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
     /// the value the closure returned.
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U>;
+    fn update_returning_untracked<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>;
 }
 
 mod macros {

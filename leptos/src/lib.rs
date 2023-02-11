@@ -132,7 +132,7 @@
 //!
 //! #[component]
 //! fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
-//!   todo!()
+//!     todo!()
 //! }
 //!
 //! pub fn main() {
@@ -142,14 +142,14 @@
 //! ```
 
 pub use leptos_config::*;
-pub use leptos_dom;
-pub use leptos_dom::wasm_bindgen::{JsCast, UnwrapThrowExt};
-pub use leptos_dom::*;
+pub use leptos_dom::{
+    self,
+    wasm_bindgen::{JsCast, UnwrapThrowExt},
+    *,
+};
 pub use leptos_macro::*;
 pub use leptos_reactive::*;
-pub use leptos_server;
-pub use leptos_server::*;
-
+pub use leptos_server::{self, *};
 pub use tracing;
 pub use typed_builder;
 mod error_boundary;
@@ -161,9 +161,8 @@ pub use show::*;
 mod suspense;
 pub use suspense::*;
 mod transition;
-pub use transition::*;
-
 pub use leptos_dom::debug_warn;
+pub use transition::*;
 
 extern crate self as leptos;
 
@@ -188,15 +187,14 @@ pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 ///
 /// #[component]
 /// pub fn MyHeading(
-///   cx: Scope,
-///   text: String,
-///   #[prop(optional, into)]
-///   class: Option<AttributeValue>
+///     cx: Scope,
+///     text: String,
+///     #[prop(optional, into)] class: Option<AttributeValue>,
 /// ) -> impl IntoView {
-///   view!{
-///     cx,
-///     <h1 class=class>{text}</h1>
-///   }
+///     view! {
+///       cx,
+///       <h1 class=class>{text}</h1>
+///     }
 /// }
 /// ```
 pub type AttributeValue = Box<dyn IntoAttribute>;

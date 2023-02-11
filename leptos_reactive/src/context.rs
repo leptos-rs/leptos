@@ -1,10 +1,9 @@
 #![forbid(unsafe_code)]
+use crate::{runtime::with_runtime, Scope};
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
 };
-
-use crate::{runtime::with_runtime, Scope};
 
 /// Provides a context value of type `T` to the current reactive [Scope](crate::Scope)
 /// and all of its descendants. This can be consumed using [use_context](crate::use_context).
@@ -58,7 +57,8 @@ where
 
     _ = with_runtime(cx.runtime, |runtime| {
         let mut contexts = runtime.scope_contexts.borrow_mut();
-        let context = contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
+        let context =
+            contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
         context.insert(id, Box::new(value) as Box<dyn Any>);
     });
 }
@@ -119,21 +119,25 @@ where
             let contexts = runtime.scope_contexts.borrow();
             let context = contexts.get(cx.id);
             context
-                .and_then(|context| context.get(&id).and_then(|val| val.downcast_ref::<T>()))
+                .and_then(|context| {
+                    context.get(&id).and_then(|val| val.downcast_ref::<T>())
+                })
                 .cloned()
         };
         match local_value {
             Some(val) => Some(val),
-            None => runtime
-                .scope_parents
-                .borrow()
-                .get(cx.id)
-                .and_then(|parent| {
-                    use_context::<T>(Scope {
-                        runtime: cx.runtime,
-                        id: *parent,
+            None => {
+                runtime
+                    .scope_parents
+                    .borrow()
+                    .get(cx.id)
+                    .and_then(|parent| {
+                        use_context::<T>(Scope {
+                            runtime: cx.runtime,
+                            id: *parent,
+                        })
                     })
-                }),
+            }
         }
     })
     .ok()

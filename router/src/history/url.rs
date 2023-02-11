@@ -22,7 +22,8 @@ pub fn unescape(s: &str) -> String {
 
 #[cfg(feature = "ssr")]
 pub fn escape(s: &str) -> String {
-    percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC).to_string()
+    percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC)
+        .to_string()
 }
 
 #[cfg(not(feature = "ssr"))]
@@ -36,7 +37,8 @@ impl TryFrom<&str> for Url {
 
     fn try_from(url: &str) -> Result<Self, Self::Error> {
         let fake_host = String::from("http://leptos");
-        let url = web_sys::Url::new_with_base(url, &fake_host).map_js_error()?;
+        let url =
+            web_sys::Url::new_with_base(url, &fake_host).map_js_error()?;
         Ok(Self {
             origin: url.origin(),
             pathname: url.pathname(),
@@ -44,15 +46,30 @@ impl TryFrom<&str> for Url {
             search_params: ParamsMap(
                 try_iter(&url.search_params())
                     .map_js_error()?
-                    .ok_or("Failed to use URLSearchParams as an iterator".to_string())?
+                    .ok_or(
+                        "Failed to use URLSearchParams as an iterator"
+                            .to_string(),
+                    )?
                     .map(|value| {
-                        let array: Array = value.map_js_error()?.dyn_into().map_js_error()?;
+                        let array: Array =
+                            value.map_js_error()?.dyn_into().map_js_error()?;
                         Ok((
-                            array.get(0).dyn_into::<JsString>().map_js_error()?.into(),
-                            array.get(1).dyn_into::<JsString>().map_js_error()?.into(),
+                            array
+                                .get(0)
+                                .dyn_into::<JsString>()
+                                .map_js_error()?
+                                .into(),
+                            array
+                                .get(1)
+                                .dyn_into::<JsString>()
+                                .map_js_error()?
+                                .into(),
                         ))
                     })
-                    .collect::<Result<linear_map::LinearMap<String, String>, Self::Error>>()?,
+                    .collect::<Result<
+                        linear_map::LinearMap<String, String>,
+                        Self::Error,
+                    >>()?,
             ),
             hash: url.hash(),
         })

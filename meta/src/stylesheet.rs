@@ -10,13 +10,13 @@ use leptos::*;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Stylesheet href="/style.css"/>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Stylesheet href="/style.css"/>
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]

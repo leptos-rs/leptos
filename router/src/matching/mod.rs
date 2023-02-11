@@ -3,12 +3,11 @@ mod matcher;
 mod resolve_path;
 mod route;
 
+use crate::RouteData;
 pub use expand_optionals::*;
 pub use matcher::*;
 pub use resolve_path::*;
 pub use route::*;
-
-use crate::RouteData;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RouteMatch {
@@ -16,7 +15,10 @@ pub(crate) struct RouteMatch {
     pub route: RouteData,
 }
 
-pub(crate) fn get_route_matches(branches: Vec<Branch>, location: String) -> Vec<RouteMatch> {
+pub(crate) fn get_route_matches(
+    branches: Vec<Branch>,
+    location: String,
+) -> Vec<RouteMatch> {
     for branch in branches {
         if let Some(matches) = branch.matcher(&location) {
             return matches;

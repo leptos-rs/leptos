@@ -1,5 +1,4 @@
 use std::{net::AddrParseError, num::ParseIntError};
-
 use thiserror::Error;
 
 #[derive(Debug, Error, Clone)]
