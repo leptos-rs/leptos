@@ -7,6 +7,9 @@ use std::cell::Cell;
 ///
 /// ```
 /// # use leptos::*;
+///
+/// use leptos::html::Input;
+///
 /// #[component]
 /// pub fn MyComponent(cx: Scope) -> impl IntoView {
 ///     let input_ref = NodeRef::<Input>::new(cx);
