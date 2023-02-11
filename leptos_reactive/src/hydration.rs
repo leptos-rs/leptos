@@ -13,7 +13,8 @@ pub struct SharedContext {
     //    Future of <Suspense/> HTML when resolved (out-of-order)
     //    Future of additional stream chunks when resolved (in-order)
     // )`
-    pub pending_fragments: HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)>,
+    pub pending_fragments:
+        HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)>,
 }
 
 impl std::fmt::Debug for SharedContext {

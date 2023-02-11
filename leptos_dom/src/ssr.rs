@@ -187,13 +187,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
               "#
     )
   });
-<<<<<<< HEAD
     // stream data for each Resource as it resolves
     let resources = render_serializers(serializers);
-=======
-  // stream data for each Resource as it resolves
-  let resources = render_serializers(serializers);
->>>>>>> 5444f32 (Significant progress on in-order streaming)
 
     // HTML for the view function and script to store resources
     let stream = futures::stream::once(async move {
@@ -432,37 +427,8 @@ impl View {
 
 #[cfg(debug_assertions)]
 pub(crate) fn to_kebab_case(name: &str) -> String {
-<<<<<<< HEAD
     if name.is_empty() {
         return String::new();
-=======
-  if name.is_empty() {
-    return String::new();
-  }
-
-  let mut new_name = String::with_capacity(name.len() + 8);
-
-  let mut chars = name.chars();
-
-  new_name.push(
-    chars
-      .next()
-      .map(|mut c| {
-        if c.is_ascii() {
-          c.make_ascii_lowercase();
-        }
-
-        c
-      })
-      .unwrap(),
-  );
-
-  for mut char in chars {
-    if char.is_ascii_uppercase() {
-      char.make_ascii_lowercase();
-
-      new_name.push('-');
->>>>>>> 7ff0baa (Work on in-order streaming)
     }
 
     let mut new_name = String::with_capacity(name.len() + 8);
@@ -496,34 +462,20 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
 }
 
 pub(crate) fn render_serializers(
-<<<<<<< HEAD
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> impl Stream<Item = String> {
     serializers.map(|(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
         format!(
             r#"<script>
-=======
-  serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
-) -> impl Stream<Item = String> {
-  serializers.map(|(id, json)| {
-    let id = serde_json::to_string(&id).unwrap();
-    format!(
-      r#"<script>
->>>>>>> 5444f32 (Significant progress on in-order streaming)
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
                   }} else {{
                       __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
                   }}
               </script>"#,
-<<<<<<< HEAD
         )
     })
-=======
-    )
-  })
->>>>>>> 5444f32 (Significant progress on in-order streaming)
 }
 
 #[doc(hidden)]
