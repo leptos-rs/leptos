@@ -120,7 +120,7 @@ mod server;
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
-///   <button on:click=|ev: web_sys::MouseEvent| {
+///   <button on:click=|ev| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
 ///     "Click me"
@@ -259,9 +259,9 @@ mod server;
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-///     let clear = move |_ev: web_sys::MouseEvent| set_value(0);
-///     let decrement = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value -= 1);
-///     let increment = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value += 1);
+///     let clear = move |_ev| set_value(0);
+///     let decrement = move |_ev| set_value.update(|value| *value -= 1);
+///     let increment = move |_ev| set_value.update(|value| *value += 1);
 ///
 ///     // this JSX is compiled to an HTML template string for performance
 ///     view! {
@@ -467,6 +467,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```compile_error
 /// // ❌ This won't work.
 /// # use leptos::*;
+/// use leptos::html::Div;
+///
 /// #[component]
 /// fn MyComponent<T: Fn() -> HtmlElement<Div>>(cx: Scope, render_prop: T) -> impl IntoView {
 ///   todo!()
@@ -476,6 +478,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```
 /// // ✅ Do this instead
 /// # use leptos::*;
+/// use leptos::html::Div;
+///
 /// #[component]
 /// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView
 /// where
