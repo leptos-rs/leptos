@@ -5,7 +5,10 @@ until I started using Leptos.” And it’s true. Closures are at the heart of a
 application. It sometimes looks a little silly:
 
 ```rust
+// a signal holds a value, and can be updated
 let (count, set_count) = create_signal(cx, 0);
+
+// a derived signal is a function that accesses other signals
 let double_count = move || count() * 2;
 let count_is_odd = move || count() & 1 == 1;
 let text = move || if count_is_odd() {
@@ -13,6 +16,12 @@ let text = move || if count_is_odd() {
 } else {
 	"even"
 };
+
+// an effect automatically tracks the signals it depends on
+// and re-runs when they change
+create_effect(cx, move |_| {
+	log!("text = {}", text());
+});
 
 view! { cx,
 	<p>{move || text().to_uppercase()}</p>
@@ -58,3 +67,10 @@ pub fn SimpleCounter(cx: Scope) -> impl IntoView {
 ```
 
 The `SimpleCounter` function itself runs once. The `value` signal is created once. The framework hands off the `increment` function to the browser as an event listener. When you click the button, the browser calls `increment`, which updates `value` via `set_value`. And that updates the single text node represented in our view by `{value}`.
+
+Closures are key to reactivity. They provide the framework with the ability to re-run the smallest possible unit of your application in responsive to a change.
+
+So remember two things:
+
+1. Your component function is a setup function, not a render function: it only runs once.
+2. For values in your view template to be reactive, they must be functions: either signals (which implement the `Fn` traits) or closures.
