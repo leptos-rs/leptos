@@ -10,7 +10,7 @@ async fn main() -> std::io::Result<()> {
     use leptos_start::app::*;
 
     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-    let addr = conf.leptos_options.site_address;
+    let addr = conf.leptos_options.site_addr;
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> });
 
@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
                             let site_root = &leptos_options.site_root;
                             let pkg_path = leptos_options.site_pkg_dir.clone();
                             let output_name = leptos_options.output_name.clone();
-                            let site_ip = leptos_options.site_address.ip().to_string();
+                            let site_ip = leptos_options.site_addr.ip().to_string();
                             let reload_port = leptos_options.reload_port;
 
                             let mut wasm_output_name = output_name.clone();
@@ -92,15 +92,18 @@ async fn main() -> std::io::Result<()> {
                                             <head>
                                             <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
                                             <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                                            <script>import('/{pkg_path}/{output_name}.js').then(m => m.default('/{pkg_path}/{wasm_output_name}.wasm').then(() => m.hydrate()))</script>
                                             {head}
+                                            {leptos_autoreload}
                                             </head>
                                             <body{body_meta}>"#).into()
                                 }},
                                 move |_| {
-                                    format!(r#"
+                                    /*format!(r#"
                                     <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                                     {leptos_autoreload}
-                                    "#).into()
+                                    "#).into()*/
+                                    "".into()
                                 },
                                 move |cx| {
                                     fn provide_contexts(
