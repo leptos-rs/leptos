@@ -1,6 +1,6 @@
 use crate::Children;
 use leptos_dom::{Errors, IntoView};
-use leptos_macro::component;
+use leptos_macro::{component, view};
 use leptos_reactive::{create_rw_signal, provide_context, RwSignal, Scope};
 
 /// When you render a `Result<_, _>` in your view, in the `Err` case it will
@@ -45,8 +45,16 @@ where
     // Run children so that they render and execute resources
     let children = children(cx);
 
-    move || match errors.get().0.is_empty() {
+    move || {
+        match errors.get().0.is_empty() {
         true => children.clone().into_view(cx),
-        false => fallback(cx, errors).into_view(cx),
+        false => view! { cx,
+            <>
+                {fallback(cx, errors)}
+                <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
+            </>
+        }
+        .into_view(cx),
+    }
     }
 }

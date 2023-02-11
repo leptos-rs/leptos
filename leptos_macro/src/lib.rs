@@ -19,7 +19,10 @@ pub(crate) enum Mode {
 
 impl Default for Mode {
     fn default() -> Self {
-        if cfg!(feature = "hydrate") || cfg!(feature = "csr") || cfg!(feature = "web") {
+        if cfg!(feature = "hydrate")
+            || cfg!(feature = "csr")
+            || cfg!(feature = "web")
+        {
             Mode::Client
         } else {
             Mode::Ssr
@@ -213,8 +216,8 @@ mod server;
 /// ```
 ///
 /// 9. You can add the same class to every element in the view by passing in a special
-///    `class = {/* ... */}` argument after `cx, `. This is useful for injecting a class
-///    providing by a scoped styling library.
+///    `class = {/* ... */},` argument after `cx, `. This is useful for injecting a class
+///    provided by a scoped styling library.
 /// ```rust
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
@@ -282,22 +285,33 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let mut tokens = tokens.into_iter();
     let (cx, comma) = (tokens.next(), tokens.next());
     match (cx, comma) {
-        (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct))) if punct.as_char() == ',' => {
+        (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
+            if punct.as_char() == ',' =>
+        {
             let first = tokens.next();
             let second = tokens.next();
             let third = tokens.next();
             let fourth = tokens.next();
-            let global_class = match (&first, &second, &third, &fourth) {
-                (
-                    Some(TokenTree::Ident(first)),
-                    Some(TokenTree::Punct(eq)),
-                    Some(val),
-                    Some(TokenTree::Punct(comma)),
-                ) if *first == "class"
-                    && eq.to_string() == '='.to_string()
-                    && comma.to_string() == ','.to_string() =>
+            let global_class = match (&first, &second) {
+                (Some(TokenTree::Ident(first)), Some(TokenTree::Punct(eq)))
+                    if *first == "class" && eq.as_char() == '=' =>
                 {
-                    Some(val.clone())
+                    match &fourth {
+                        Some(TokenTree::Punct(comma))
+                            if comma.as_char() == ',' =>
+                        {
+                            third.clone()
+                        }
+                        _ => {
+                            let error_msg = concat!(
+                                "To create a scope class with the view! macro \
+                                 you must put a comma `,` after the value.\n",
+                                "e.g., view!{cx, class=\"my-class\", \
+                                 <div>...</div>}"
+                            );
+                            panic!("{error_msg}")
+                        }
+                    }
                 }
                 _ => None,
             };
@@ -323,7 +337,10 @@ pub fn view(tokens: TokenStream) -> TokenStream {
             .into()
         }
         _ => {
-            panic!("view! macro needs a context and RSX: e.g., view! {{ cx, <div>...</div> }}")
+            panic!(
+                "view! macro needs a context and RSX: e.g., view! {{ cx, \
+                 <div>...</div> }}"
+            )
         }
     }
 }
@@ -348,33 +365,34 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// fn HelloComponent(
-///   cx: Scope,
-///   /// The user's name.
-///   name: String,
-///   /// The user's age.
-///   age: u8
+///     cx: Scope,
+///     /// The user's name.
+///     name: String,
+///     /// The user's age.
+///     age: u8,
 /// ) -> impl IntoView {
-///   // create the signals (reactive values) that will update the UI
-///   let (age, set_age) = create_signal(cx, age);
-///   // increase `age` by 1 every second
-///   set_interval(move || {
-///     set_age.update(|age| *age += 1)
-///   }, Duration::from_secs(1));
-///   
-///   // return the user interface, which will be automatically updated
-///   // when signal values change
-///   view! { cx,
-///     <p>"Your name is " {name} " and you are " {age} " years old."</p>
-///   }
+///     // create the signals (reactive values) that will update the UI
+///     let (age, set_age) = create_signal(cx, age);
+///     // increase `age` by 1 every second
+///     set_interval(
+///         move || set_age.update(|age| *age += 1),
+///         Duration::from_secs(1),
+///     );
+///
+///     // return the user interface, which will be automatically updated
+///     // when signal values change
+///     view! { cx,
+///       <p>"Your name is " {name} " and you are " {age} " years old."</p>
+///     }
 /// }
 ///
 /// #[component]
 /// fn App(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <main>
-///       <HelloComponent name="Greg".to_string() age=32/>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <HelloComponent name="Greg".to_string() age=32/>
+///       </main>
+///     }
 /// }
 /// ```
 ///
@@ -399,11 +417,15 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 /// // PascalCase: Generated component will be called MyComponent
 /// #[component]
-/// fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
+/// fn MyComponent(cx: Scope) -> impl IntoView {
+///     todo!()
+/// }
 ///
 /// // snake_case: Generated component will be called MySnakeCaseComponent
 /// #[component]
-/// fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
+/// fn my_snake_case_component(cx: Scope) -> impl IntoView {
+///     todo!()
+/// }
 /// ```
 ///
 /// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
@@ -416,22 +438,28 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// use component::{MyComponent, MyComponentProps};
 ///
 /// mod component {
-///   use leptos::*;
+///     use leptos::*;
 ///
-///   #[component]
-///   pub fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
+///     #[component]
+///     pub fn MyComponent(cx: Scope) -> impl IntoView {
+///         todo!()
+///     }
 /// }
 /// ```
 /// ```
 /// # use leptos::*;
 ///
-/// use snake_case_component::{MySnakeCaseComponent, MySnakeCaseComponentProps};
+/// use snake_case_component::{
+///     MySnakeCaseComponent, MySnakeCaseComponentProps,
+/// };
 ///
 /// mod snake_case_component {
-///   use leptos::*;
+///     use leptos::*;
 ///
-///   #[component]
-///   pub fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
+///     #[component]
+///     pub fn my_snake_case_component(cx: Scope) -> impl IntoView {
+///         todo!()
+///     }
 /// }
 /// ```
 ///
@@ -451,8 +479,10 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// # use leptos::*;
 /// #[component]
 /// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView
-/// where T: Fn() -> HtmlElement<Div> {
-///   todo!()
+/// where
+///     T: Fn() -> HtmlElement<Div>,
+/// {
+///     todo!()
 /// }
 /// ```
 ///
@@ -465,26 +495,26 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// # use leptos::*;
 /// #[component]
 /// fn ComponentWithChildren(cx: Scope, children: Children) -> impl IntoView {
-///   view! {
-///     cx,
-///     <ul>
-///       {children(cx)
-///         .nodes
-///         .into_iter()
-///         .map(|child| view! { cx, <li>{child}</li> })
-///         .collect::<Vec<_>>()}
-///     </ul>
-///   }
+///     view! {
+///       cx,
+///       <ul>
+///         {children(cx)
+///           .nodes
+///           .into_iter()
+///           .map(|child| view! { cx, <li>{child}</li> })
+///           .collect::<Vec<_>>()}
+///       </ul>
+///     }
 /// }
 ///
 /// #[component]
 /// fn WrapSomeChildren(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <ComponentWithChildren>
-///       "Ooh, look at us!"
-///       <span>"We're being projected!"</span>
-///     </ComponentWithChildren>
-///   }
+///     view! { cx,
+///       <ComponentWithChildren>
+///         "Ooh, look at us!"
+///         <span>"We're being projected!"</span>
+///       </ComponentWithChildren>
+///     }
 /// }
 /// ```
 ///
@@ -506,30 +536,27 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// pub fn MyComponent(
-///   cx: Scope,
-///   #[prop(into)]
-///   name: String,
-///   #[prop(optional)]
-///   optional_value: Option<i32>,
-///   #[prop(optional_no_strip)]
-///   optional_no_strip: Option<i32>
+///     cx: Scope,
+///     #[prop(into)] name: String,
+///     #[prop(optional)] optional_value: Option<i32>,
+///     #[prop(optional_no_strip)] optional_no_strip: Option<i32>,
 /// ) -> impl IntoView {
-///   // whatever UI you need
+///     // whatever UI you need
 /// }
 ///
-///  #[component]
+/// #[component]
 /// pub fn App(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <MyComponent
-///       name="Greg" // automatically converted to String with `.into()`
-///       optional_value=42 // received as `Some(42)`
-///       optional_no_strip=Some(42) // received as `Some(42)`
-///     />
-///     <MyComponent
-///       name="Bob" // automatically converted to String with `.into()`
-///       // optional values can both be omitted, and received as `None`
-///     />
-///   }
+///     view! { cx,
+///       <MyComponent
+///         name="Greg" // automatically converted to String with `.into()`
+///         optional_value=42 // received as `Some(42)`
+///         optional_no_strip=Some(42) // received as `Some(42)`
+///       />
+///       <MyComponent
+///         name="Bob" // automatically converted to String with `.into()`
+///         // optional values can both be omitted, and received as `None`
+///       />
+///     }
 /// }
 /// ```
 #[proc_macro_error::proc_macro_error]
@@ -627,7 +654,9 @@ pub fn derive_prop(input: TokenStream) -> TokenStream {
 
 // Derive Params trait for routing
 #[proc_macro_derive(Params, attributes(params))]
-pub fn params_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn params_derive(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let ast = syn::parse(input).unwrap();
     params::impl_params(&ast)
 }

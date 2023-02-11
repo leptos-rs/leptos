@@ -8,9 +8,10 @@ use proc_macro_error::ResultExt;
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use std::collections::HashSet;
 use syn::{
-    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
-    ItemFn, LitStr, Meta, MetaList, MetaNameValue, NestedMeta, Pat, PatIdent, Path, PathArguments,
-    ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
+    FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaList, MetaNameValue,
+    NestedMeta, Pat, PatIdent, Path, PathArguments, ReturnType, Type, TypePath,
+    Visibility,
 };
 
 pub struct Model {
@@ -62,7 +63,8 @@ impl Parse for Model {
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
                 drain_filter(&mut ty.attrs, |attr| {
-                    attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+                    attr.path == parse_quote!(doc)
+                        || attr.path == parse_quote!(prop)
                 });
             }
         });
@@ -91,7 +93,10 @@ impl Parse for Model {
 
 // implemented manually because Vec::drain_filter is nightly only
 // follows std recommended parallel
-fn drain_filter<T>(vec: &mut Vec<T>, mut some_predicate: impl FnMut(&mut T) -> bool) {
+fn drain_filter<T>(
+    vec: &mut Vec<T>,
+    mut some_predicate: impl FnMut(&mut T) -> bool,
+) {
     let mut i = 0;
     while i < vec.len() {
         if some_predicate(&mut vec[i]) {
@@ -139,32 +144,33 @@ impl ToTokens for Model {
 
         let prop_names = prop_names(props);
 
-        let builder_name_doc =
-            LitStr::new(&format!("Props for the [`{name}`] component."), name.span());
+        let builder_name_doc = LitStr::new(
+            &format!("Props for the [`{name}`] component."),
+            name.span(),
+        );
 
         let component_fn_prop_docs = generate_component_fn_prop_docs(props);
 
-        let (tracing_instrument_attr, tracing_span_expr, tracing_guard_expr) = if cfg!(
-            feature = "tracing"
-        ) {
-            (
-                quote! {
-                    #[cfg_attr(
-                        debug_assertions,
-                        ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
-                    )]
-                },
-                quote! {
-                    let span = ::leptos::leptos_dom::tracing::Span::current();
-                },
-                quote! {
-                    #[cfg(debug_assertions)]
-                    let _guard = span.entered();
-                },
-            )
-        } else {
-            (quote! {}, quote! {}, quote! {})
-        };
+        let (tracing_instrument_attr, tracing_span_expr, tracing_guard_expr) =
+            if cfg!(feature = "tracing") {
+                (
+                    quote! {
+                        #[cfg_attr(
+                            debug_assertions,
+                            ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                        )]
+                    },
+                    quote! {
+                        let span = ::leptos::leptos_dom::tracing::Span::current();
+                    },
+                    quote! {
+                        #[cfg(debug_assertions)]
+                        let _guard = span.entered();
+                    },
+                )
+            } else {
+                (quote! {}, quote! {}, quote! {})
+            };
 
         let component = if *is_transparent {
             quote! {
@@ -249,11 +255,16 @@ impl Prop {
             .attrs
             .iter()
             .enumerate()
-            .filter_map(|(i, attr)| PropOpt::from_attribute(attr).map(|opt| (i, opt)))
+            .filter_map(|(i, attr)| {
+                PropOpt::from_attribute(attr).map(|opt| (i, opt))
+            })
             .fold(HashSet::new(), |mut acc, cur| {
                 // Make sure opts aren't repeated
                 if acc.intersection(&cur.1).next().is_some() {
-                    abort!(typed.attrs[cur.0], "`#[prop]` options are repeated");
+                    abort!(
+                        typed.attrs[cur.0],
+                        "`#[prop]` options are repeated"
+                    );
                 }
 
                 acc.extend(cur.1);
@@ -262,10 +273,13 @@ impl Prop {
             });
 
         // Make sure conflicting options are not present
-        if prop_opts.contains(&PropOpt::Optional) && prop_opts.contains(&PropOpt::OptionalNoStrip) {
+        if prop_opts.contains(&PropOpt::Optional)
+            && prop_opts.contains(&PropOpt::OptionalNoStrip)
+        {
             abort!(
                 typed,
-                "`optional` and `optional_no_strip` options are mutually exclusive"
+                "`optional` and `optional_no_strip` options are mutually \
+                 exclusive"
             );
         } else if prop_opts.contains(&PropOpt::Optional)
             && prop_opts.contains(&PropOpt::StripOption)
@@ -279,7 +293,8 @@ impl Prop {
         {
             abort!(
                 typed,
-                "`optional_no_strip` and `strip_option` options are mutually exclusive"
+                "`optional_no_strip` and `strip_option` options are mutually \
+                 exclusive"
             );
         }
 
@@ -288,8 +303,8 @@ impl Prop {
         } else {
             abort!(
                 typed.pat,
-                "only `prop: bool` style types are allowed within the `#[component]` \
-         macro"
+                "only `prop: bool` style types are allowed within the \
+                 `#[component]` macro"
             );
         };
 
@@ -333,7 +348,8 @@ impl Docs {
             .iter()
             .enumerate()
             .map(|(idx, attr)| {
-                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) = attr.parse_meta().unwrap()
+                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) =
+                    attr.parse_meta().unwrap()
                 {
                     let doc_str = quote!(#doc);
 
@@ -368,7 +384,8 @@ impl Docs {
             .0
             .iter()
             .map(|attr| {
-                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) = attr.parse_meta().unwrap()
+                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) =
+                    attr.parse_meta().unwrap()
                 {
                     let mut doc_str = quote!(#doc).to_string();
 
@@ -403,15 +420,17 @@ enum PropOpt {
 
 impl PropOpt {
     fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
-        const ABORT_OPT_MESSAGE: &str = "only `optional`, `optional_no_strip`, \
-                                     `strip_option`, `default` and `into` are \
-                                     allowed as arguments to `#[prop()]`";
+        const ABORT_OPT_MESSAGE: &str =
+            "only `optional`, `optional_no_strip`, `strip_option`, `default` \
+             and `into` are allowed as arguments to `#[prop()]`";
 
         if attr.path != parse_quote!(prop) {
             return None;
         }
 
-        if let Meta::List(MetaList { nested, .. }) = attr.parse_meta().unwrap_or_abort() {
+        if let Meta::List(MetaList { nested, .. }) =
+            attr.parse_meta().unwrap_or_abort()
+        {
             Some(
                 nested
                     .iter()
@@ -473,7 +492,8 @@ struct TypedBuilderOpts {
 impl TypedBuilderOpts {
     fn from_opts(opts: &HashSet<PropOpt>, is_ty_option: bool) -> Self {
         Self {
-            default: opts.contains(&PropOpt::Optional) || opts.contains(&PropOpt::OptionalNoStrip),
+            default: opts.contains(&PropOpt::Optional)
+                || opts.contains(&PropOpt::OptionalNoStrip),
             default_with_value: opts.iter().find_map(|p| match p {
                 PropOpt::OptionalWithDefault(v) => Some(v.to_owned()),
                 _ => None,
@@ -531,7 +551,8 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
                 ty,
             } = prop;
 
-            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
+            let builder_attrs =
+                TypedBuilderOpts::from_opts(prop_opts, is_option(ty));
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 
@@ -566,7 +587,8 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     let optional_prop_docs = props
         .iter()
         .filter(|Prop { prop_opts, .. }| {
-            prop_opts.contains(&PropOpt::Optional) || prop_opts.contains(&PropOpt::OptionalNoStrip)
+            prop_opts.contains(&PropOpt::Optional)
+                || prop_opts.contains(&PropOpt::OptionalNoStrip)
         })
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
@@ -613,8 +635,8 @@ fn is_option(ty: &Type) -> bool {
 
 fn unwrap_option(ty: &Type) -> Option<Type> {
     const STD_OPTION_MSG: &str =
-        "make sure you're not shadowing the `std::option::Option` type that is \
-     automatically imported from the standard prelude";
+        "make sure you're not shadowing the `std::option::Option` type that \
+         is automatically imported from the standard prelude";
 
     if let Type::Path(TypePath {
         path: Path { segments, .. },
@@ -623,9 +645,9 @@ fn unwrap_option(ty: &Type) -> Option<Type> {
     {
         if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
             if first.ident == "Option" {
-                if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                    args, ..
-                }) = &first.arguments
+                if let PathArguments::AngleBracketed(
+                    AngleBracketedGenericArguments { args, .. },
+                ) = &first.arguments
                 {
                     if let [first] = &args.iter().collect::<Vec<_>>()[..] {
                         if let GenericArgument::Type(ty) = first {
@@ -706,7 +728,11 @@ fn prop_to_doc(
                 &if !prop_opts.contains(&PropOpt::Into) {
                     format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
                 } else {
-                    format!("- **{}**: `impl`[`Into<{}>`]", quote!(#name), pretty_ty)
+                    format!(
+                        "- **{}**: `impl`[`Into<{}>`]",
+                        quote!(#name),
+                        pretty_ty
+                    )
                 },
                 name.ident.span(),
             );

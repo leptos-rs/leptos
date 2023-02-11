@@ -40,210 +40,214 @@ cfg_if! {
 }
 
 use crate::{
-  ev::EventDescriptor,
-  hydration::HydrationCtx,
-  macro_helpers::{IntoAttribute, IntoClass, IntoProperty},
-  Element, Fragment, IntoView, NodeRef, Text, View,
+    ev::EventDescriptor,
+    hydration::HydrationCtx,
+    macro_helpers::{IntoAttribute, IntoClass, IntoProperty},
+    Element, Fragment, IntoView, NodeRef, Text, View,
 };
 use leptos_reactive::Scope;
 use std::{borrow::Cow, fmt};
 
 /// Trait which allows creating an element tag.
 pub trait ElementDescriptor: ElementDescriptorBounds {
-  /// The name of the element, i.e., `div`, `p`, `custom-element`.
-  fn name(&self) -> Cow<'static, str>;
+    /// The name of the element, i.e., `div`, `p`, `custom-element`.
+    fn name(&self) -> Cow<'static, str>;
 
-  /// Determains if the tag is void, i.e., `<input>` and `<br>`.
-  fn is_void(&self) -> bool {
-    false
-  }
+    /// Determains if the tag is void, i.e., `<input>` and `<br>`.
+    fn is_void(&self) -> bool {
+        false
+    }
 
-  /// A unique `id` that should be generated for each new instance of
-  /// this element, and be consistant for both SSR and CSR.
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  fn hydration_id(&self) -> &HydrationKey;
+    /// A unique `id` that should be generated for each new instance of
+    /// this element, and be consistant for both SSR and CSR.
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    fn hydration_id(&self) -> &HydrationKey;
 }
 
 /// Trait for converting any type which impl [`AsRef<web_sys::Element>`]
 /// to [`HtmlElement`].
 pub trait ToHtmlElement {
-  /// Converts the type to [`HtmlElement`].
-  fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement>;
+    /// Converts the type to [`HtmlElement`].
+    fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement>;
 }
 
 impl<T> ToHtmlElement for T
 where
-  T: AsRef<web_sys::Element>,
+    T: AsRef<web_sys::Element>,
 {
-  fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement> {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      let el = self.as_ref().clone().unchecked_into();
+    fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement> {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            let el = self.as_ref().clone().unchecked_into();
 
-      let element = AnyElement {
-        name: "".into(),
-        is_void: false,
-        element: el,
-      };
+            let element = AnyElement {
+                name: "".into(),
+                is_void: false,
+                element: el,
+            };
 
-      HtmlElement {
-        cx,
-        element,
-        #[cfg(debug_assertions)]
-        span: ::tracing::Span::current(),
-      }
+            HtmlElement {
+                cx,
+                element,
+                #[cfg(debug_assertions)]
+                span: ::tracing::Span::current(),
+            }
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let _ = cx;
+
+            unreachable!();
+        }
     }
-
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let _ = cx;
-
-      unreachable!();
-    }
-  }
 }
 
 /// Represents potentially any element.
 #[derive(Clone, Debug)]
 pub struct AnyElement {
-  pub(crate) name: Cow<'static, str>,
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  pub(crate) element: web_sys::HtmlElement,
-  pub(crate) is_void: bool,
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub(crate) id: HydrationKey,
+    pub(crate) name: Cow<'static, str>,
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    pub(crate) element: web_sys::HtmlElement,
+    pub(crate) is_void: bool,
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    pub(crate) id: HydrationKey,
 }
 
 impl std::ops::Deref for AnyElement {
-  type Target = web_sys::HtmlElement;
+    type Target = web_sys::HtmlElement;
 
-  fn deref(&self) -> &Self::Target {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    return &self.element;
+    fn deref(&self) -> &Self::Target {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        return &self.element;
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
-  }
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
+    }
 }
 
 impl std::convert::AsRef<web_sys::HtmlElement> for AnyElement {
-  fn as_ref(&self) -> &web_sys::HtmlElement {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    return &self.element;
+    fn as_ref(&self) -> &web_sys::HtmlElement {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        return &self.element;
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
-  }
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
+    }
 }
 
 impl ElementDescriptor for AnyElement {
-  fn name(&self) -> Cow<'static, str> {
-    self.name.clone()
-  }
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
 
-  fn is_void(&self) -> bool {
-    self.is_void
-  }
+    fn is_void(&self) -> bool {
+        self.is_void
+    }
 
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  fn hydration_id(&self) -> &HydrationKey {
-    &self.id
-  }
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    fn hydration_id(&self) -> &HydrationKey {
+        &self.id
+    }
 }
 
 /// Represents a custom HTML element, such as `<my-element>`.
 #[derive(Clone, Debug)]
 pub struct Custom {
-  name: Cow<'static, str>,
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  element: web_sys::HtmlElement,
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  id: HydrationKey,
+    name: Cow<'static, str>,
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    element: web_sys::HtmlElement,
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    id: HydrationKey,
 }
 
 impl Custom {
-  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-    let name = name.into();
-    let id = HydrationCtx::id();
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+        let name = name.into();
+        let id = HydrationCtx::id();
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    let element = if HydrationCtx::is_hydrating() {
-      if let Some(el) = crate::document().get_element_by_id(&format!("_{id}")) {
-        #[cfg(debug_assertions)]
-        assert_eq!(
-          el.node_name().to_ascii_uppercase(),
-          name.to_ascii_uppercase(),
-          "SSR and CSR elements have the same `TopoId` but different node \
-           kinds. This is either a discrepancy between SSR and CSR rendering
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        let element = if HydrationCtx::is_hydrating() {
+            if let Some(el) =
+                crate::document().get_element_by_id(&format!("_{id}"))
+            {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                    el.node_name().to_ascii_uppercase(),
+                    name.to_ascii_uppercase(),
+                    "SSR and CSR elements have the same `TopoId` but \
+                     different node kinds. This is either a discrepancy \
+                     between SSR and CSR rendering
                     logic, which is considered a bug, or it can also be a \
-           leptos hydration issue."
-        );
+                     leptos hydration issue."
+                );
 
-        el.remove_attribute("id").unwrap();
+                el.remove_attribute("id").unwrap();
 
-        el.unchecked_into()
-      } else if let Ok(Some(el)) =
-        crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
-      {
-        #[cfg(debug_assertions)]
-        assert_eq!(
-          el.node_name().to_ascii_uppercase(),
-          name.to_ascii_uppercase(),
-          "SSR and CSR elements have the same `TopoId` but different node \
-           kinds. This is either a discrepancy between SSR and CSR rendering
+                el.unchecked_into()
+            } else if let Ok(Some(el)) =
+                crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
+            {
+                #[cfg(debug_assertions)]
+                assert_eq!(
+                    el.node_name().to_ascii_uppercase(),
+                    name.to_ascii_uppercase(),
+                    "SSR and CSR elements have the same `TopoId` but \
+                     different node kinds. This is either a discrepancy \
+                     between SSR and CSR rendering
                     logic, which is considered a bug, or it can also be a \
-           leptos hydration issue."
-        );
+                     leptos hydration issue."
+                );
 
-        el.remove_attribute("leptos-hk").unwrap();
+                el.remove_attribute("leptos-hk").unwrap();
 
-        el.unchecked_into()
-      } else {
-        crate::warn!(
-          "element with id {id} not found, ignoring it for hydration"
-        );
+                el.unchecked_into()
+            } else {
+                crate::warn!(
+                    "element with id {id} not found, ignoring it for hydration"
+                );
 
-        crate::document().create_element(&name).unwrap()
-      }
-    } else {
-      crate::document().create_element(&name).unwrap()
-    };
+                crate::document().create_element(&name).unwrap()
+            }
+        } else {
+            crate::document().create_element(&name).unwrap()
+        };
 
-    Self {
-      name,
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      element: element.unchecked_into(),
-      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-      id,
+        Self {
+            name,
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            element: element.unchecked_into(),
+            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            id,
+        }
     }
-  }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl std::ops::Deref for Custom {
-  type Target = web_sys::HtmlElement;
+    type Target = web_sys::HtmlElement;
 
-  fn deref(&self) -> &Self::Target {
-    &self.element
-  }
+    fn deref(&self) -> &Self::Target {
+        &self.element
+    }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl std::convert::AsRef<web_sys::HtmlElement> for Custom {
-  fn as_ref(&self) -> &web_sys::HtmlElement {
-    &self.element
-  }
+    fn as_ref(&self) -> &web_sys::HtmlElement {
+        &self.element
+    }
 }
 
 impl ElementDescriptor for Custom {
-  fn name(&self) -> Cow<'static, str> {
-    self.name.clone()
-  }
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
 
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  fn hydration_id(&self) -> &HydrationKey {
-    &self.id
-  }
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    fn hydration_id(&self) -> &HydrationKey {
+        &self.id
+    }
 }
 
 cfg_if! {
@@ -277,501 +281,504 @@ cfg_if! {
 
 impl<El> std::ops::Deref for HtmlElement<El>
 where
-  El: ElementDescriptor + std::ops::Deref,
+    El: ElementDescriptor + std::ops::Deref,
 {
-  type Target = <El as std::ops::Deref>::Target;
+    type Target = <El as std::ops::Deref>::Target;
 
-  fn deref(&self) -> &Self::Target {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    return self.element.deref();
+    fn deref(&self) -> &Self::Target {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        return self.element.deref();
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
-  }
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        unimplemented!("{HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG}");
+    }
 }
 
 impl<El: ElementDescriptor + 'static> HtmlElement<El> {
-  fn new(cx: Scope, element: El) -> Self {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        Self {
-          cx,
-          element,
-          #[cfg(debug_assertions)]
-          span: ::tracing::Span::current()
-        }
-      } else {
-        Self {
-          cx,
-          attrs: smallvec![],
-          children: smallvec![],
-          element,
-          prerendered: None
-        }
-      }
-    }
-  }
-
-  #[doc(hidden)]
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub fn from_html(
-    cx: Scope,
-    element: El,
-    html: impl Into<Cow<'static, str>>,
-  ) -> Self {
-    Self {
-      cx,
-      attrs: smallvec![],
-      children: smallvec![],
-      element,
-      prerendered: Some(html.into()),
-    }
-  }
-
-  /// Converts this element into [`HtmlElement<AnyElement>`].
-  pub fn into_any(self) -> HtmlElement<AnyElement> {
-    cfg_if! {
-      if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let Self {
-          cx,
-          element,
-          #[cfg(debug_assertions)]
-          span
-        } = self;
-
-        HtmlElement {
-          cx,
-          element: AnyElement {
-            name: element.name(),
-            element: element.as_ref().clone(),
-            is_void: element.is_void(),
-          },
-          #[cfg(debug_assertions)]
-          span
-        }
-      } else {
-        let Self {
-          cx,
-          attrs,
-          children,
-          element,
-          prerendered
-        } = self;
-
-        HtmlElement {
-          cx,
-          attrs,
-          children,
-          prerendered,
-          element: AnyElement {
-            name: element.name(),
-            is_void: element.is_void(),
-            id: element.hydration_id().clone(),
-          },
-        }
-      }
-    }
-  }
-
-  /// Adds an `id` to the element.
-  #[track_caller]
-  pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
-    let id = id.into();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      self
-        .element
-        .as_ref()
-        .set_attribute(wasm_bindgen::intern("id"), &id)
-        .unwrap();
-
-      self
-    }
-
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let mut this = self;
-
-      this.attrs.push(("id".into(), id));
-
-      this
-    }
-  }
-
-  /// Binds the element reference to [`NodeRef`].
-  pub fn node_ref(self, node_ref: &NodeRef<Self>) -> Self
-  where
-    Self: Clone,
-  {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    node_ref.load(&self);
-
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    let _ = node_ref;
-
-    self
-  }
-
-  /// Runs the callback when this element has been mounted to the DOM.
-  ///
-  /// ### Important Note
-  /// This method will only ever run at most once. If this element
-  /// is unmounted and remounted, or moved somewhere else, it will not
-  /// re-run unless you call this method again.
-  pub fn on_mount(self, f: impl FnOnce(Self) + 'static) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      use futures::future::poll_fn;
-      use once_cell::unsync::OnceCell;
-      use std::{
-        cell::RefCell,
-        rc::Rc,
-        task::{Poll, Waker},
-      };
-
-      let this = self.clone();
-      let el = self.element.as_ref().clone();
-
-      wasm_bindgen_futures::spawn_local(async move {
-        while !crate::document().body().unwrap().contains(Some(&el)) {
-          // We need to cook ourselves a small future that resolves
-          // when the next animation frame is available
-          let waker = Rc::new(RefCell::new(None::<Waker>));
-          let ready = Rc::new(OnceCell::new());
-
-          crate::request_animation_frame({
-            let waker = waker.clone();
-            let ready = ready.clone();
-
-            move || {
-              let _ = ready.set(());
-              if let Some(waker) = &*waker.borrow() {
-                waker.wake_by_ref();
-              }
+    fn new(cx: Scope, element: El) -> Self {
+        cfg_if! {
+          if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+            Self {
+              cx,
+              element,
+              #[cfg(debug_assertions)]
+              span: ::tracing::Span::current()
             }
-          });
-
-          // Wait for the animation frame to become available
-          poll_fn(move |cx| {
-            let mut waker_borrow = waker.borrow_mut();
-
-            *waker_borrow = Some(cx.waker().clone());
-
-            if ready.get().is_some() {
-              Poll::Ready(())
-            } else {
-              Poll::<()>::Pending
+          } else {
+            Self {
+              cx,
+              attrs: smallvec![],
+              children: smallvec![],
+              element,
+              prerendered: None
             }
-          })
-          .await;
-        }
-
-        f(this);
-      });
-    }
-
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let _ = f;
-    }
-    self
-  }
-
-  /// Adds an attribute to this element.
-  #[track_caller]
-  pub fn attr(
-    self,
-    name: impl Into<Cow<'static, str>>,
-    attr: impl IntoAttribute,
-  ) -> Self {
-    let name = name.into();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      attribute_helper(
-        self.element.as_ref(),
-        name,
-        attr.into_attribute(self.cx),
-      );
-      self
-    }
-
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      use crate::macro_helpers::Attribute;
-
-      let mut this = self;
-
-      let mut attr = attr.into_attribute(this.cx);
-      while let Attribute::Fn(_, f) = attr {
-        attr = f();
-      }
-      match attr {
-        Attribute::String(value) => {
-          this.attrs.push((name, value.into()));
-        }
-        Attribute::Bool(include) => {
-          if include {
-            this.attrs.push((name, "".into()));
           }
         }
-        Attribute::Option(_, maybe) => {
-          if let Some(value) = maybe {
-            this.attrs.push((name, value.into()));
+    }
+
+    #[doc(hidden)]
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    pub fn from_html(
+        cx: Scope,
+        element: El,
+        html: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            cx,
+            attrs: smallvec![],
+            children: smallvec![],
+            element,
+            prerendered: Some(html.into()),
+        }
+    }
+
+    /// Converts this element into [`HtmlElement<AnyElement>`].
+    pub fn into_any(self) -> HtmlElement<AnyElement> {
+        cfg_if! {
+          if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+            let Self {
+              cx,
+              element,
+              #[cfg(debug_assertions)]
+              span
+            } = self;
+
+            HtmlElement {
+              cx,
+              element: AnyElement {
+                name: element.name(),
+                element: element.as_ref().clone(),
+                is_void: element.is_void(),
+              },
+              #[cfg(debug_assertions)]
+              span
+            }
+          } else {
+            let Self {
+              cx,
+              attrs,
+              children,
+              element,
+              prerendered
+            } = self;
+
+            HtmlElement {
+              cx,
+              attrs,
+              children,
+              prerendered,
+              element: AnyElement {
+                name: element.name(),
+                is_void: element.is_void(),
+                id: element.hydration_id().clone(),
+              },
+            }
           }
         }
-        _ => unreachable!(),
-      }
-
-      this
-    }
-  }
-
-  /// Adds a class to an element.
-  #[track_caller]
-  pub fn class(
-    self,
-    name: impl Into<Cow<'static, str>>,
-    class: impl IntoClass,
-  ) -> Self {
-    let name = name.into();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      let el = self.element.as_ref();
-      let value = class.into_class(self.cx);
-      class_helper(el, name, value);
-
-      self
     }
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      use crate::macro_helpers::Class;
+    /// Adds an `id` to the element.
+    #[track_caller]
+    pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
+        let id = id.into();
 
-      let mut this = self;
-
-      let class = class.into_class(this.cx);
-
-      let include = match class {
-        Class::Value(include) => include,
-        Class::Fn(_, f) => f(),
-      };
-
-      if include {
-        if let Some((_, ref mut value)) =
-          this.attrs.iter_mut().find(|(name, _)| name == "class")
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-          *value = format!("{value} {name}").into();
-        } else {
-          this.attrs.push(("class".into(), name));
+            self.element
+                .as_ref()
+                .set_attribute(wasm_bindgen::intern("id"), &id)
+                .unwrap();
+
+            self
         }
-      }
 
-      this
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let mut this = self;
+
+            this.attrs.push(("id".into(), id));
+
+            this
+        }
     }
-  }
 
-  /// Sets a property on an element.
-  #[track_caller]
-  pub fn prop(
-    self,
-    name: impl Into<Cow<'static, str>>,
-    value: impl IntoProperty,
-  ) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    /// Binds the element reference to [`NodeRef`].
+    pub fn node_ref(self, node_ref: NodeRef<El>) -> Self
+    where
+        Self: Clone,
     {
-      let name = name.into();
-      let value = value.into_property(self.cx);
-      let el = self.element.as_ref();
-      property_helper(el, name, value);
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        node_ref.load(&self);
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        let _ = node_ref;
+
+        self
     }
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let _ = name;
-      let _ = value;
+    /// Runs the callback when this element has been mounted to the DOM.
+    ///
+    /// ### Important Note
+    /// This method will only ever run at most once. If this element
+    /// is unmounted and remounted, or moved somewhere else, it will not
+    /// re-run unless you call this method again.
+    pub fn on_mount(self, f: impl FnOnce(Self) + 'static) -> Self {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            use futures::future::poll_fn;
+            use once_cell::unsync::OnceCell;
+            use std::{
+                cell::RefCell,
+                rc::Rc,
+                task::{Poll, Waker},
+            };
+
+            let this = self.clone();
+            let el = self.element.as_ref().clone();
+
+            wasm_bindgen_futures::spawn_local(async move {
+                while !crate::document().body().unwrap().contains(Some(&el)) {
+                    // We need to cook ourselves a small future that resolves
+                    // when the next animation frame is available
+                    let waker = Rc::new(RefCell::new(None::<Waker>));
+                    let ready = Rc::new(OnceCell::new());
+
+                    crate::request_animation_frame({
+                        let waker = waker.clone();
+                        let ready = ready.clone();
+
+                        move || {
+                            let _ = ready.set(());
+                            if let Some(waker) = &*waker.borrow() {
+                                waker.wake_by_ref();
+                            }
+                        }
+                    });
+
+                    // Wait for the animation frame to become available
+                    poll_fn(move |cx| {
+                        let mut waker_borrow = waker.borrow_mut();
+
+                        *waker_borrow = Some(cx.waker().clone());
+
+                        if ready.get().is_some() {
+                            Poll::Ready(())
+                        } else {
+                            Poll::<()>::Pending
+                        }
+                    })
+                    .await;
+                }
+
+                f(this);
+            });
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let _ = f;
+        }
+        self
     }
 
-    self
-  }
+    /// Adds an attribute to this element.
+    #[track_caller]
+    pub fn attr(
+        self,
+        name: impl Into<Cow<'static, str>>,
+        attr: impl IntoAttribute,
+    ) -> Self {
+        let name = name.into();
 
-  /// Adds an event listener to this element.
-  #[track_caller]
-  pub fn on<E: EventDescriptor + 'static>(
-    self,
-    event: E,
-    #[allow(unused_mut)] // used for tracing in debug
-    mut event_handler: impl FnMut(E::EventType) + 'static,
-  ) -> Self {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      cfg_if! {
-          if #[cfg(debug_assertions)] {
-              let onspan = ::tracing::span!(
-                  parent: &self.span,
-                  ::tracing::Level::TRACE,
-                  "on",
-                  event = %event.name()
-              );
-              let _onguard = onspan.enter();
-          }
-      }
-      let event_name = event.name();
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            attribute_helper(
+                self.element.as_ref(),
+                name,
+                attr.into_attribute(self.cx),
+            );
+            self
+        }
 
-      if event.bubbles() {
-        add_event_listener(self.element.as_ref(), event_name, event_handler);
-      } else {
-        add_event_listener_undelegated(
-          self.element.as_ref(),
-          &event_name,
-          event_handler,
-        );
-      }
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            use crate::macro_helpers::Attribute;
 
-      self
+            let mut this = self;
+
+            let mut attr = attr.into_attribute(this.cx);
+            while let Attribute::Fn(_, f) = attr {
+                attr = f();
+            }
+            match attr {
+                Attribute::String(value) => {
+                    this.attrs.push((name, value.into()));
+                }
+                Attribute::Bool(include) => {
+                    if include {
+                        this.attrs.push((name, "".into()));
+                    }
+                }
+                Attribute::Option(_, maybe) => {
+                    if let Some(value) = maybe {
+                        this.attrs.push((name, value.into()));
+                    }
+                }
+                _ => unreachable!(),
+            }
+
+            this
+        }
     }
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      _ = event;
-      _ = event_handler;
+    /// Adds a class to an element.
+    #[track_caller]
+    pub fn class(
+        self,
+        name: impl Into<Cow<'static, str>>,
+        class: impl IntoClass,
+    ) -> Self {
+        let name = name.into();
 
-      self
-    }
-  }
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            let el = self.element.as_ref();
+            let value = class.into_class(self.cx);
+            class_helper(el, name, value);
 
-  /// Adds a child to this element.
-  #[track_caller]
-  pub fn child(self, child: impl IntoView) -> Self {
-    let child = child.into_view(self.cx);
+            self
+        }
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      if !HydrationCtx::is_hydrating() {
-        // add a debug-only, run-time warning for the SVG <a> element
-        #[cfg(debug_assertions)]
-        warn_on_ambiguous_a(self.element.as_ref(), &child);
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            use crate::macro_helpers::Class;
 
-        mount_child(MountKind::Append(self.element.as_ref()), &child);
-      }
+            let mut this = self;
 
-      self
-    }
+            let class = class.into_class(this.cx);
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let mut this = self;
+            let include = match class {
+                Class::Value(include) => include,
+                Class::Fn(_, f) => f(),
+            };
 
-      this.children.push(child);
+            if include {
+                if let Some((_, ref mut value)) =
+                    this.attrs.iter_mut().find(|(name, _)| name == "class")
+                {
+                    *value = format!("{value} {name}").into();
+                } else {
+                    this.attrs.push(("class".into(), name));
+                }
+            }
 
-      this
-    }
-  }
-
-  /// Sets the inner HTML of this element from the provided
-  /// string slice.
-  ///
-  /// # Security
-  /// Be very careful when using this method. Always remember to
-  /// sanitize the input to avoid a cross-site scripting (XSS)
-  /// vulnerability.
-  pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
-    let html = html.into();
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      self.element.as_ref().set_inner_html(&html);
-
-      self
+            this
+        }
     }
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let mut this = self;
+    /// Sets a property on an element.
+    #[track_caller]
+    pub fn prop(
+        self,
+        name: impl Into<Cow<'static, str>>,
+        value: impl IntoProperty,
+    ) -> Self {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            let name = name.into();
+            let value = value.into_property(self.cx);
+            let el = self.element.as_ref();
+            property_helper(el, name, value);
+        }
 
-      let child = HtmlElement::from_html(
-        this.cx,
-        Custom {
-          name: "inner-html".into(),
-          id: Default::default(),
-        },
-        html,
-      );
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let _ = name;
+            let _ = value;
+        }
 
-      this.children = smallvec![child.into_view(this.cx)];
-
-      this
+        self
     }
-  }
+
+    /// Adds an event listener to this element.
+    #[track_caller]
+    pub fn on<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        #[allow(unused_mut)] // used for tracing in debug
+        mut event_handler: impl FnMut(E::EventType) + 'static,
+    ) -> Self {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            cfg_if! {
+                if #[cfg(debug_assertions)] {
+                    let onspan = ::tracing::span!(
+                        parent: &self.span,
+                        ::tracing::Level::TRACE,
+                        "on",
+                        event = %event.name()
+                    );
+                    let _onguard = onspan.enter();
+                }
+            }
+            let event_name = event.name();
+
+            if event.bubbles() {
+                add_event_listener(
+                    self.element.as_ref(),
+                    event_name,
+                    event_handler,
+                );
+            } else {
+                add_event_listener_undelegated(
+                    self.element.as_ref(),
+                    &event_name,
+                    event_handler,
+                );
+            }
+
+            self
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            _ = event;
+            _ = event_handler;
+
+            self
+        }
+    }
+
+    /// Adds a child to this element.
+    #[track_caller]
+    pub fn child(self, child: impl IntoView) -> Self {
+        let child = child.into_view(self.cx);
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            if !HydrationCtx::is_hydrating() {
+                // add a debug-only, run-time warning for the SVG <a> element
+                #[cfg(debug_assertions)]
+                warn_on_ambiguous_a(self.element.as_ref(), &child);
+
+                mount_child(MountKind::Append(self.element.as_ref()), &child);
+            }
+
+            self
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let mut this = self;
+
+            this.children.push(child);
+
+            this
+        }
+    }
+
+    /// Sets the inner HTML of this element from the provided
+    /// string slice.
+    ///
+    /// # Security
+    /// Be very careful when using this method. Always remember to
+    /// sanitize the input to avoid a cross-site scripting (XSS)
+    /// vulnerability.
+    pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
+        let html = html.into();
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            self.element.as_ref().set_inner_html(&html);
+
+            self
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let mut this = self;
+
+            let child = HtmlElement::from_html(
+                this.cx,
+                Custom {
+                    name: "inner-html".into(),
+                    id: Default::default(),
+                },
+                html,
+            );
+
+            this.children = smallvec![child.into_view(this.cx)];
+
+            this
+        }
+    }
 }
 
 impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
-  #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
-  fn into_view(self, _: Scope) -> View {
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    {
-      View::Element(Element::new(self.element))
+    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
+    fn into_view(self, _: Scope) -> View {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            View::Element(Element::new(self.element))
+        }
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let Self {
+                element,
+                mut attrs,
+                children,
+                prerendered,
+                ..
+            } = self;
+
+            let id = element.hydration_id().clone();
+
+            let mut element = Element::new(element);
+            let children = children;
+
+            if attrs.iter_mut().any(|(name, _)| name == "id") {
+                attrs.push(("leptos-hk".into(), format!("_{id}").into()));
+            } else {
+                attrs.push(("id".into(), format!("_{id}").into()));
+            }
+
+            element.attrs = attrs;
+            element.children.extend(children);
+            element.prerendered = prerendered;
+
+            View::Element(element)
+        }
     }
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    {
-      let Self {
-        element,
-        mut attrs,
-        children,
-        prerendered,
-        ..
-      } = self;
-
-      let id = element.hydration_id().clone();
-
-      let mut element = Element::new(element);
-      let children = children;
-
-      if attrs.iter_mut().any(|(name, _)| name == "id") {
-        attrs.push(("leptos-hk".into(), format!("_{id}").into()));
-      } else {
-        attrs.push(("id".into(), format!("_{id}").into()));
-      }
-
-      element.attrs = attrs;
-      element.children.extend(children);
-      element.prerendered = prerendered;
-
-      View::Element(element)
-    }
-  }
 }
 
 impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
-  #[cfg_attr(
-    debug_assertions,
-    instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
-  )]
-  fn into_view(self, cx: Scope) -> View {
-    Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
-      .into_view(cx)
-  }
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
+            .into_view(cx)
+    }
 }
 
 /// Creates any custom element, such as `<my-element>`.
 pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
-  HtmlElement::new(
-    cx,
-    Custom {
-      name: el.name(),
-      #[cfg(all(target_arch = "wasm32", feature = "web"))]
-      element: el.as_ref().clone(),
-      #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-      id: el.hydration_id().clone(),
-    },
-  )
+    HtmlElement::new(
+        cx,
+        Custom {
+            name: el.name(),
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            element: el.as_ref().clone(),
+            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            id: el.hydration_id().clone(),
+        },
+    )
 }
 
 /// Creates a text node.
 pub fn text(text: impl Into<Cow<'static, str>>) -> Text {
-  Text::new(text.into())
+    Text::new(text.into())
 }
 
 macro_rules! generate_html_tags {
@@ -894,70 +901,75 @@ macro_rules! generate_html_tags {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn create_leptos_element(
-  tag: &str,
-  id: crate::HydrationKey,
-  clone_element: fn() -> web_sys::HtmlElement,
+    tag: &str,
+    id: crate::HydrationKey,
+    clone_element: fn() -> web_sys::HtmlElement,
 ) -> web_sys::HtmlElement {
-  if HydrationCtx::is_hydrating() {
-    if let Some(el) = crate::document().get_element_by_id(&format!("_{id}")) {
-      #[cfg(debug_assertions)]
-      assert_eq!(
-        &el.node_name().to_ascii_uppercase(),
-        tag,
-        "SSR and CSR elements have the same `TopoId` but different node \
-         kinds. This is either a discrepancy between SSR and CSR rendering
+    if HydrationCtx::is_hydrating() {
+        if let Some(el) = crate::document().get_element_by_id(&format!("_{id}"))
+        {
+            #[cfg(debug_assertions)]
+            assert_eq!(
+                &el.node_name().to_ascii_uppercase(),
+                tag,
+                "SSR and CSR elements have the same `TopoId` but different \
+                 node kinds. This is either a discrepancy between SSR and CSR \
+                 rendering
             logic, which is considered a bug, or it can also be a leptos \
-         hydration issue."
-      );
+                 hydration issue."
+            );
 
-      el.remove_attribute("id").unwrap();
+            el.remove_attribute("id").unwrap();
 
-      el.unchecked_into()
-    } else if let Ok(Some(el)) =
-      crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
-    {
-      #[cfg(debug_assertions)]
-      assert_eq!(
-        el.node_name().to_ascii_uppercase(),
-        tag,
-        "SSR and CSR elements have the same `TopoId` but different node \
-         kinds. This is either a discrepancy between SSR and CSR rendering
+            el.unchecked_into()
+        } else if let Ok(Some(el)) =
+            crate::document().query_selector(&format!("[leptos-hk=_{id}]"))
+        {
+            #[cfg(debug_assertions)]
+            assert_eq!(
+                el.node_name().to_ascii_uppercase(),
+                tag,
+                "SSR and CSR elements have the same `TopoId` but different \
+                 node kinds. This is either a discrepancy between SSR and CSR \
+                 rendering
             logic, which is considered a bug, or it can also be a leptos \
-         hydration issue."
-      );
+                 hydration issue."
+            );
 
-      el.remove_attribute("leptos-hk").unwrap();
+            el.remove_attribute("leptos-hk").unwrap();
 
-      el.unchecked_into()
+            el.unchecked_into()
+        } else {
+            crate::warn!(
+                "element with id {id} not found, ignoring it for hydration"
+            );
+
+            clone_element()
+        }
     } else {
-      crate::warn!("element with id {id} not found, ignoring it for hydration");
-
-      clone_element()
+        clone_element()
     }
-  } else {
-    clone_element()
-  }
 }
 
 #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
 fn warn_on_ambiguous_a(parent: &web_sys::Element, child: &View) {
-  if let View::Element(el) = &child {
-    if (el.name == "a"
-      || el.name == "script"
-      || el.name == "style"
-      || el.name == "title")
-      && parent.namespace_uri() != el.element.namespace_uri()
-    {
-      crate::warn!(
-        "Warning: you are appending an SVG element to an HTML element, or an \
-         HTML element to an SVG. Typically, this occurs when you create an \
-         <a/> or <script/> with the `view` macro and append it to an SVG, but \
-         the framework assumed it was HTML when you created it. To specify \
-         that it is an SVG element, use <svg::{{tag name}}/> in the view \
-         macro."
-      )
+    if let View::Element(el) = &child {
+        if (el.name == "a"
+            || el.name == "script"
+            || el.name == "style"
+            || el.name == "title")
+            && parent.namespace_uri() != el.element.namespace_uri()
+        {
+            crate::warn!(
+                "Warning: you are appending an SVG element to an HTML \
+                 element, or an HTML element to an SVG. Typically, this \
+                 occurs when you create an <a/> or <script/> with the `view` \
+                 macro and append it to an SVG, but the framework assumed it \
+                 was HTML when you created it. To specify that it is an SVG \
+                 element, use <svg::{{tag name}}/> in the view macro."
+            )
+        }
     }
-  }
 }
 
 generate_html_tags![

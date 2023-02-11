@@ -60,7 +60,9 @@ impl Matcher {
         // quick path: not a match if
         // 1) matcher has add'l segments not found in location
         // 2) location has add'l segments, there's no splat, and partial matches not allowed
-        if loc_len < self.len || (len_diff > 0 && self.splat.is_none() && !self.partial) {
+        if loc_len < self.len
+            || (len_diff > 0 && self.splat.is_none() && !self.partial)
+        {
             None
         }
         // otherwise, start building a match
@@ -68,7 +70,9 @@ impl Matcher {
             let mut path = String::new();
             let mut params = ParamsMap::new();
 
-            for (segment, loc_segment) in self.segments.iter().zip(loc_segments.iter()) {
+            for (segment, loc_segment) in
+                self.segments.iter().zip(loc_segments.iter())
+            {
                 if let Some(param_name) = segment.strip_prefix(':') {
                     params.insert(param_name.into(), (*loc_segment).into());
                 } else if segment != loc_segment {

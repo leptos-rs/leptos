@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
-use crate::runtime::{with_runtime, RuntimeId};
-use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use crate::{
+    macros::debug_warn,
+    runtime::{with_runtime, RuntimeId},
+    Runtime, Scope, ScopeProperty,
+};
 use cfg_if::cfg_if;
-use std::cell::RefCell;
-use std::fmt::Debug;
+use std::{cell::RefCell, fmt::Debug};
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 /// `create_effect` immediately runs the given function once, tracks its dependence
@@ -114,8 +116,10 @@ where
     )
 )]
 #[track_caller]
-pub fn create_isomorphic_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
-where
+pub fn create_isomorphic_effect<T>(
+    cx: Scope,
+    f: impl Fn(Option<T>) -> T + 'static,
+) where
     T: 'static,
 {
     let e = cx.runtime.create_effect(f);
@@ -209,7 +213,13 @@ impl EffectId {
             if let Some(effect) = effect {
                 effect.run(*self, runtime_id);
             } else {
-                debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
+                debug_warn!(
+                    "[Effect] Trying to run an Effect that has been disposed. \
+                     This is probably either a logic error in a component \
+                     that creates and disposes of scopes, or a Resource \
+                     resolving after its scope has been dropped without \
+                     having been cleaned up."
+                );
             }
         })
     }

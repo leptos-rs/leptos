@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
-use leptos_dom::HydrationCtx;
-use leptos_dom::{DynChild, Fragment, IntoView};
+use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use std::rc::Rc;
@@ -92,7 +91,7 @@ where
                     let initial = {
                         // no resources were read under this, so just return the child
                         if context.pending_resources.get() == 0 {
-                            child.clone()
+                            child
                         }
                         // show the fallback, but also prepare to stream HTML
                         else {

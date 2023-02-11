@@ -91,7 +91,7 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                                         <For
                                             each=move || stories.clone()
                                             key=|story| story.id
-                                            view=move |story: api::Story| {
+                                            view=move |cx, story: api::Story| {
                                                 view! { cx,
                                                     <Story story/>
                                                 }

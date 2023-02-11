@@ -4,14 +4,14 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::spanned::Spanned;
-use syn::{DeriveInput, Error, Result};
+use syn::{spanned::Spanned, DeriveInput, Error, Result};
 
 pub fn impl_derive_prop(ast: &DeriveInput) -> Result<TokenStream> {
     let data = match &ast.data {
         syn::Data::Struct(data) => match &data.fields {
             syn::Fields::Named(fields) => {
-                let struct_info = struct_info::StructInfo::new(ast, fields.named.iter())?;
+                let struct_info =
+                    struct_info::StructInfo::new(ast, fields.named.iter())?;
                 let builder_creation = struct_info.builder_creation_impl()?;
                 let conversion_helper = struct_info.conversion_helper_impl()?;
                 let fields = struct_info
@@ -48,25 +48,33 @@ pub fn impl_derive_prop(ast: &DeriveInput) -> Result<TokenStream> {
             }
         },
         syn::Data::Enum(_) => {
-            return Err(Error::new(ast.span(), "Prop is not supported for enums"))
+            return Err(Error::new(
+                ast.span(),
+                "Prop is not supported for enums",
+            ))
         }
         syn::Data::Union(_) => {
-            return Err(Error::new(ast.span(), "Prop is not supported for unions"))
+            return Err(Error::new(
+                ast.span(),
+                "Prop is not supported for unions",
+            ))
         }
     };
     Ok(data)
 }
 
 mod struct_info {
+    use super::{
+        field_info::{FieldBuilderAttr, FieldInfo},
+        util::{
+            empty_type, empty_type_tuple, expr_to_single_string,
+            make_punctuated_single, modify_types_generics_hack,
+            path_to_single_string, strip_raw_ident_prefix, type_tuple,
+        },
+    };
     use proc_macro2::TokenStream;
     use quote::quote;
     use syn::parse::Error;
-
-    use super::field_info::{FieldBuilderAttr, FieldInfo};
-    use super::util::{
-        empty_type, empty_type_tuple, expr_to_single_string, make_punctuated_single,
-        modify_types_generics_hack, path_to_single_string, strip_raw_ident_prefix, type_tuple,
-    };
 
     #[derive(Debug)]
     pub struct StructInfo<'a> {
@@ -93,17 +101,27 @@ mod struct_info {
             fields: impl Iterator<Item = &'a syn::Field>,
         ) -> Result<StructInfo<'a>, Error> {
             let builder_attr = TypeBuilderAttr::new(&ast.attrs)?;
-            let builder_name = strip_raw_ident_prefix(format!("{}Builder", ast.ident));
+            let builder_name =
+                strip_raw_ident_prefix(format!("{}Builder", ast.ident));
             Ok(StructInfo {
                 vis: &ast.vis,
                 name: &ast.ident,
                 generics: &ast.generics,
                 fields: fields
                     .enumerate()
-                    .map(|(i, f)| FieldInfo::new(i, f, builder_attr.field_defaults.clone()))
+                    .map(|(i, f)| {
+                        FieldInfo::new(
+                            i,
+                            f,
+                            builder_attr.field_defaults.clone(),
+                        )
+                    })
                     .collect::<Result<_, _>>()?,
                 builder_attr,
-                builder_name: syn::Ident::new(&builder_name, proc_macro2::Span::call_site()),
+                builder_name: syn::Ident::new(
+                    &builder_name,
+                    proc_macro2::Span::call_site(),
+                ),
                 conversion_helper_trait_name: syn::Ident::new(
                     &format!("{builder_name}_Optional"),
                     proc_macro2::Span::call_site(),
@@ -115,7 +133,10 @@ mod struct_info {
             })
         }
 
-        fn modify_generics<F: FnMut(&mut syn::Generics)>(&self, mut mutator: F) -> syn::Generics {
+        fn modify_generics<F: FnMut(&mut syn::Generics)>(
+            &self,
+            mut mutator: F,
+        ) -> syn::Generics {
             let mut generics = self.generics.clone();
             mutator(&mut generics);
             generics
@@ -128,38 +149,51 @@ mod struct_info {
                 ref builder_name,
                 ..
             } = *self;
-            let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+            let (impl_generics, ty_generics, where_clause) =
+                self.generics.split_for_impl();
             let all_fields_param = syn::GenericParam::Type(
-                syn::Ident::new("PropFields", proc_macro2::Span::call_site()).into(),
+                syn::Ident::new("PropFields", proc_macro2::Span::call_site())
+                    .into(),
             );
             let b_generics = self.modify_generics(|g| {
                 g.params.insert(0, all_fields_param.clone());
             });
-            let empties_tuple = type_tuple(self.included_fields().map(|_| empty_type()));
-            let generics_with_empty = modify_types_generics_hack(&ty_generics, |args| {
-                args.insert(0, syn::GenericArgument::Type(empties_tuple.clone().into()));
-            });
-            let phantom_generics = self.generics.params.iter().map(|param| match param {
-                syn::GenericParam::Lifetime(lifetime) => {
-                    let lifetime = &lifetime.lifetime;
-                    quote!(::core::marker::PhantomData<&#lifetime ()>)
-                }
-                syn::GenericParam::Type(ty) => {
-                    let ty = &ty.ident;
-                    quote!(::core::marker::PhantomData<#ty>)
-                }
-                syn::GenericParam::Const(_cnst) => {
-                    quote!()
-                }
-            });
-            let builder_method_doc = match self.builder_attr.builder_method_doc {
+            let empties_tuple =
+                type_tuple(self.included_fields().map(|_| empty_type()));
+            let generics_with_empty =
+                modify_types_generics_hack(&ty_generics, |args| {
+                    args.insert(
+                        0,
+                        syn::GenericArgument::Type(
+                            empties_tuple.clone().into(),
+                        ),
+                    );
+                });
+            let phantom_generics =
+                self.generics.params.iter().map(|param| match param {
+                    syn::GenericParam::Lifetime(lifetime) => {
+                        let lifetime = &lifetime.lifetime;
+                        quote!(::core::marker::PhantomData<&#lifetime ()>)
+                    }
+                    syn::GenericParam::Type(ty) => {
+                        let ty = &ty.ident;
+                        quote!(::core::marker::PhantomData<#ty>)
+                    }
+                    syn::GenericParam::Const(_cnst) => {
+                        quote!()
+                    }
+                });
+            let builder_method_doc = match self.builder_attr.builder_method_doc
+            {
                 Some(ref doc) => quote!(#doc),
                 None => {
                     let doc = format!(
                         "
                     Create a builder for building `{name}`.
-                    On the builder, call {setters} to set the values of the fields.
-                    Finally, call `.build()` to create the instance of `{name}`.
+                    On the builder, call {setters} to set the values of the \
+                         fields.
+                    Finally, call `.build()` to create the instance of \
+                         `{name}`.
                     ",
                         name = self.name,
                         setters = {
@@ -172,7 +206,8 @@ mod struct_info {
                                 } else {
                                     write!(&mut result, ", ").unwrap();
                                 }
-                                write!(&mut result, "`.{}(...)`", field.name).unwrap();
+                                write!(&mut result, "`.{}(...)`", field.name)
+                                    .unwrap();
                                 if field.builder_attr.default.is_some() {
                                     write!(&mut result, "(optional)").unwrap();
                                 }
@@ -188,8 +223,9 @@ mod struct_info {
                     Some(ref doc) => quote!(#[doc = #doc]),
                     None => {
                         let doc = format!(
-                        "Builder for [`{name}`] instances.\n\nSee [`{name}::builder()`] for more info."
-                    );
+                            "Builder for [`{name}`] instances.\n\nSee \
+                             [`{name}::builder()`] for more info."
+                        );
                         quote!(#[doc = #doc])
                     }
                 }
@@ -197,8 +233,11 @@ mod struct_info {
                 quote!(#[doc(hidden)])
             };
 
-            let (b_generics_impl, b_generics_ty, b_generics_where_extras_predicates) =
-                b_generics.split_for_impl();
+            let (
+                b_generics_impl,
+                b_generics_ty,
+                b_generics_where_extras_predicates,
+            ) = b_generics.split_for_impl();
             let mut b_generics_where: syn::WhereClause = syn::parse2(quote! {
                 where PropFields: Clone
             })?;
@@ -266,7 +305,10 @@ mod struct_info {
             })
         }
 
-        pub fn field_impl(&self, field: &FieldInfo) -> Result<TokenStream, Error> {
+        pub fn field_impl(
+            &self,
+            field: &FieldInfo,
+        ) -> Result<TokenStream, Error> {
             let StructInfo {
                 ref builder_name, ..
             } = *self;
@@ -296,7 +338,9 @@ mod struct_info {
                         syn::parse(quote!(#ident).into()).unwrap()
                     }
                     syn::GenericParam::Lifetime(lifetime_def) => {
-                        syn::GenericArgument::Lifetime(lifetime_def.lifetime.clone())
+                        syn::GenericArgument::Lifetime(
+                            lifetime_def.lifetime.clone(),
+                        )
                     }
                     syn::GenericParam::Const(const_param) => {
                         let ident = const_param.ident.clone();
@@ -319,11 +363,17 @@ mod struct_info {
                             .elems
                             .push_value(f.tuplized_type_ty_param());
                     } else {
-                        g.params
-                            .insert(index_after_lifetime_in_generics, f.generic_ty_param());
+                        g.params.insert(
+                            index_after_lifetime_in_generics,
+                            f.generic_ty_param(),
+                        );
                         let generic_argument: syn::Type = f.type_ident();
-                        ty_generics_tuple.elems.push_value(generic_argument.clone());
-                        target_generics_tuple.elems.push_value(generic_argument);
+                        ty_generics_tuple
+                            .elems
+                            .push_value(generic_argument.clone());
+                        target_generics_tuple
+                            .elems
+                            .push_value(generic_argument);
                     }
                     ty_generics_tuple.elems.push_punct(Default::default());
                     target_generics_tuple.elems.push_punct(Default::default());
@@ -362,25 +412,28 @@ mod struct_info {
             } else {
                 field_type
             };
-            let (arg_type, arg_expr) = if field.builder_attr.setter.auto_into.is_some() {
-                (
-                    quote!(impl ::core::convert::Into<#arg_type>),
-                    quote!(#field_name.into()),
-                )
-            } else {
-                (quote!(#arg_type), quote!(#field_name))
-            };
-
-            let (param_list, arg_expr) =
-                if let Some(transform) = &field.builder_attr.setter.transform {
-                    let params = transform.params.iter().map(|(pat, ty)| quote!(#pat: #ty));
-                    let body = &transform.body;
-                    (quote!(#(#params),*), quote!({ #body }))
-                } else if field.builder_attr.setter.strip_option.is_some() {
-                    (quote!(#field_name: #arg_type), quote!(Some(#arg_expr)))
+            let (arg_type, arg_expr) =
+                if field.builder_attr.setter.auto_into.is_some() {
+                    (
+                        quote!(impl ::core::convert::Into<#arg_type>),
+                        quote!(#field_name.into()),
+                    )
                 } else {
-                    (quote!(#field_name: #arg_type), arg_expr)
+                    (quote!(#arg_type), quote!(#field_name))
                 };
+
+            let (param_list, arg_expr) = if let Some(transform) =
+                &field.builder_attr.setter.transform
+            {
+                let params =
+                    transform.params.iter().map(|(pat, ty)| quote!(#pat: #ty));
+                let body = &transform.body;
+                (quote!(#(#params),*), quote!({ #body }))
+            } else if field.builder_attr.setter.strip_option.is_some() {
+                (quote!(#field_name: #arg_type), quote!(Some(#arg_expr)))
+            } else {
+                (quote!(#field_name: #arg_type), arg_expr)
+            };
 
             let repeated_fields_error_type_name = syn::Ident::new(
                 &format!(
@@ -390,7 +443,8 @@ mod struct_info {
                 ),
                 proc_macro2::Span::call_site(),
             );
-            let repeated_fields_error_message = format!("Repeated field {field_name}");
+            let repeated_fields_error_message =
+                format!("Repeated field {field_name}");
 
             Ok(quote! {
                 #[allow(dead_code, non_camel_case_types, missing_docs)]
@@ -421,7 +475,10 @@ mod struct_info {
             })
         }
 
-        pub fn required_field_impl(&self, field: &FieldInfo) -> Result<TokenStream, Error> {
+        pub fn required_field_impl(
+            &self,
+            field: &FieldInfo,
+        ) -> Result<TokenStream, Error> {
             let StructInfo {
                 ref name,
                 ref builder_name,
@@ -442,7 +499,9 @@ mod struct_info {
                         syn::parse(quote!(#ident).into()).unwrap()
                     }
                     syn::GenericParam::Lifetime(lifetime_def) => {
-                        syn::GenericArgument::Lifetime(lifetime_def.lifetime.clone())
+                        syn::GenericArgument::Lifetime(
+                            lifetime_def.lifetime.clone(),
+                        )
                     }
                     syn::GenericParam::Const(const_param) => {
                         let ident = &const_param.ident;
@@ -464,11 +523,14 @@ mod struct_info {
                         // whether or not `f` is set.
                         assert!(
                             f.ordinal != field.ordinal,
-                            "`required_field_impl` called for optional field {}",
+                            "`required_field_impl` called for optional field \
+                             {}",
                             field.name
                         );
-                        g.params
-                            .insert(index_after_lifetime_in_generics, f.generic_ty_param());
+                        g.params.insert(
+                            index_after_lifetime_in_generics,
+                            f.generic_ty_param(),
+                        );
                         builder_generics_tuple.elems.push_value(f.type_ident());
                     } else if f.ordinal < field.ordinal {
                         // Only add a `build` method that warns about missing `field` if `f` is set.
@@ -484,8 +546,10 @@ mod struct_info {
                         // missing we will show a warning for `field` and
                         // not for `f` - which means this warning should appear whether
                         // or not `f` is set.
-                        g.params
-                            .insert(index_after_lifetime_in_generics, f.generic_ty_param());
+                        g.params.insert(
+                            index_after_lifetime_in_generics,
+                            f.generic_ty_param(),
+                        );
                         builder_generics_tuple.elems.push_value(f.type_ident());
                     }
 
@@ -512,7 +576,8 @@ mod struct_info {
                 ),
                 proc_macro2::Span::call_site(),
             );
-            let early_build_error_message = format!("Missing required field {field_name}");
+            let early_build_error_message =
+                format!("Missing required field {field_name}");
 
             Ok(quote! {
                 #[doc(hidden)]
@@ -551,24 +616,31 @@ mod struct_info {
                             lifetimes: None,
                             modifier: syn::TraitBoundModifier::None,
                             path: syn::PathSegment {
-                                ident: self.conversion_helper_trait_name.clone(),
+                                ident: self
+                                    .conversion_helper_trait_name
+                                    .clone(),
                                 arguments: syn::PathArguments::AngleBracketed(
                                     syn::AngleBracketedGenericArguments {
                                         colon2_token: None,
                                         lt_token: Default::default(),
-                                        args: make_punctuated_single(syn::GenericArgument::Type(
-                                            field.ty.clone(),
-                                        )),
+                                        args: make_punctuated_single(
+                                            syn::GenericArgument::Type(
+                                                field.ty.clone(),
+                                            ),
+                                        ),
                                         gt_token: Default::default(),
                                     },
                                 ),
                             }
                             .into(),
                         };
-                        let mut generic_param: syn::TypeParam = field.generic_ident.clone().into();
+                        let mut generic_param: syn::TypeParam =
+                            field.generic_ident.clone().into();
                         generic_param.bounds.push(trait_ref.into());
-                        g.params
-                            .insert(index_after_lifetime_in_generics, generic_param.into());
+                        g.params.insert(
+                            index_after_lifetime_in_generics,
+                            generic_param.into(),
+                        );
                     }
                 }
             });
@@ -576,21 +648,22 @@ mod struct_info {
 
             let (_, ty_generics, where_clause) = self.generics.split_for_impl();
 
-            let modified_ty_generics = modify_types_generics_hack(&ty_generics, |args| {
-                args.insert(
-                    0,
-                    syn::GenericArgument::Type(
-                        type_tuple(self.included_fields().map(|field| {
-                            if field.builder_attr.default.is_some() {
-                                field.type_ident()
-                            } else {
-                                field.tuplized_type_ty_param()
-                            }
-                        }))
-                        .into(),
-                    ),
-                );
-            });
+            let modified_ty_generics =
+                modify_types_generics_hack(&ty_generics, |args| {
+                    args.insert(
+                        0,
+                        syn::GenericArgument::Type(
+                            type_tuple(self.included_fields().map(|field| {
+                                if field.builder_attr.default.is_some() {
+                                    field.type_ident()
+                                } else {
+                                    field.tuplized_type_ty_param()
+                                }
+                            }))
+                            .into(),
+                        ),
+                    );
+                });
 
             let descructuring = self.included_fields().map(|f| f.name);
 
@@ -620,8 +693,10 @@ mod struct_info {
                     None => {
                         // I'd prefer “a” or “an” to “its”, but determining which is grammatically
                         // correct is roughly impossible.
-                        let doc =
-                            format!("Finalise the builder and create its [`{name}`] instance");
+                        let doc = format!(
+                            "Finalise the builder and create its [`{name}`] \
+                             instance"
+                        );
                         quote!(#[doc = #doc])
                     }
                 }
@@ -668,7 +743,9 @@ mod struct_info {
         pub fn new(attrs: &[syn::Attribute]) -> Result<TypeBuilderAttr, Error> {
             let mut result = TypeBuilderAttr::default();
             for attr in attrs {
-                if path_to_single_string(&attr.path).as_deref() != Some("builder") {
+                if path_to_single_string(&attr.path).as_deref()
+                    != Some("builder")
+                {
                     continue;
                 }
 
@@ -687,7 +764,10 @@ mod struct_info {
                         }
                     }
                     _ => {
-                        return Err(Error::new_spanned(attr.tokens.clone(), "Expected (<...>)"));
+                        return Err(Error::new_spanned(
+                            attr.tokens.clone(),
+                            "Expected (<...>)",
+                        ));
                     }
                 }
             }
@@ -698,8 +778,14 @@ mod struct_info {
         fn apply_meta(&mut self, expr: syn::Expr) -> Result<(), Error> {
             match expr {
                 syn::Expr::Assign(assign) => {
-                    let name = expr_to_single_string(&assign.left)
-                        .ok_or_else(|| Error::new_spanned(&assign.left, "Expected identifier"))?;
+                    let name = expr_to_single_string(&assign.left).ok_or_else(
+                        || {
+                            Error::new_spanned(
+                                &assign.left,
+                                "Expected identifier",
+                            )
+                        },
+                    )?;
                     match name.as_str() {
                         "builder_method_doc" => {
                             self.builder_method_doc = Some(*assign.right);
@@ -722,8 +808,10 @@ mod struct_info {
                     }
                 }
                 syn::Expr::Path(path) => {
-                    let name = path_to_single_string(&path.path)
-                        .ok_or_else(|| Error::new_spanned(&path, "Expected identifier"))?;
+                    let name =
+                        path_to_single_string(&path.path).ok_or_else(|| {
+                            Error::new_spanned(&path, "Expected identifier")
+                        })?;
                     match name.as_str() {
                         "doc" => {
                             self.doc = true;
@@ -736,19 +824,22 @@ mod struct_info {
                     }
                 }
                 syn::Expr::Call(call) => {
-                    let subsetting_name = if let syn::Expr::Path(path) = &*call.func {
-                        path_to_single_string(&path.path)
-                    } else {
-                        None
-                    }
-                    .ok_or_else(|| {
-                        let call_func = &call.func;
-                        let call_func = quote!(#call_func);
-                        Error::new_spanned(
-                            &call.func,
-                            format!("Illegal builder setting group {call_func}"),
-                        )
-                    })?;
+                    let subsetting_name =
+                        if let syn::Expr::Path(path) = &*call.func {
+                            path_to_single_string(&path.path)
+                        } else {
+                            None
+                        }
+                        .ok_or_else(|| {
+                            let call_func = &call.func;
+                            let call_func = quote!(#call_func);
+                            Error::new_spanned(
+                                &call.func,
+                                format!(
+                                    "Illegal builder setting group {call_func}"
+                                ),
+                            )
+                        })?;
                     match subsetting_name.as_str() {
                         "field_defaults" => {
                             for arg in call.args {
@@ -758,7 +849,10 @@ mod struct_info {
                         }
                         _ => Err(Error::new_spanned(
                             &call.func,
-                            format!("Illegal builder setting group name {subsetting_name}"),
+                            format!(
+                                "Illegal builder setting group name \
+                                 {subsetting_name}"
+                            ),
                         )),
                     }
                 }
@@ -769,14 +863,13 @@ mod struct_info {
 }
 
 mod field_info {
+    use super::util::{
+        expr_to_single_string, ident_to_type, path_to_single_string,
+        strip_raw_ident_prefix,
+    };
     use proc_macro2::{Span, TokenStream};
     use quote::quote;
-    use syn::parse::Error;
-    use syn::spanned::Spanned;
-
-    use super::util::{
-        expr_to_single_string, ident_to_type, path_to_single_string, strip_raw_ident_prefix,
-    };
+    use syn::{parse::Error, spanned::Spanned};
 
     #[derive(Debug)]
     pub struct FieldInfo<'a> {
@@ -798,7 +891,10 @@ mod field_info {
                     ordinal,
                     name,
                     generic_ident: syn::Ident::new(
-                        &format!("__{}", strip_raw_ident_prefix(name.to_string())),
+                        &format!(
+                            "__{}",
+                            strip_raw_ident_prefix(name.to_string())
+                        ),
                         Span::call_site(),
                     ),
                     ty: &field.ty,
@@ -843,12 +939,16 @@ mod field_info {
                 return None;
             }
             let generic_params =
-                if let syn::PathArguments::AngleBracketed(generic_params) = &segment.arguments {
+                if let syn::PathArguments::AngleBracketed(generic_params) =
+                    &segment.arguments
+                {
                     generic_params
                 } else {
                     return None;
                 };
-            if let syn::GenericArgument::Type(ty) = generic_params.args.first()? {
+            if let syn::GenericArgument::Type(ty) =
+                generic_params.args.first()?
+            {
                 Some(ty)
             } else {
                 None
@@ -874,7 +974,9 @@ mod field_info {
     impl FieldBuilderAttr {
         pub fn with(mut self, attrs: &[syn::Attribute]) -> Result<Self, Error> {
             for attr in attrs {
-                if path_to_single_string(&attr.path).as_deref() != Some("builder") {
+                if path_to_single_string(&attr.path).as_deref()
+                    != Some("builder")
+                {
                     continue;
                 }
 
@@ -893,7 +995,10 @@ mod field_info {
                         }
                     }
                     _ => {
-                        return Err(Error::new_spanned(attr.tokens.clone(), "Expected (<...>)"));
+                        return Err(Error::new_spanned(
+                            attr.tokens.clone(),
+                            "Expected (<...>)",
+                        ));
                     }
                 }
             }
@@ -906,8 +1011,14 @@ mod field_info {
         pub fn apply_meta(&mut self, expr: syn::Expr) -> Result<(), Error> {
             match expr {
                 syn::Expr::Assign(assign) => {
-                    let name = expr_to_single_string(&assign.left)
-                        .ok_or_else(|| Error::new_spanned(&assign.left, "Expected identifier"))?;
+                    let name = expr_to_single_string(&assign.left).ok_or_else(
+                        || {
+                            Error::new_spanned(
+                                &assign.left,
+                                "Expected identifier",
+                            )
+                        },
+                    )?;
                     match name.as_str() {
                         "default" => {
                             self.default = Some(*assign.right);
@@ -920,13 +1031,23 @@ mod field_info {
                             }) = *assign.right
                             {
                                 use std::str::FromStr;
-                                let tokenized_code = TokenStream::from_str(&code.value())?;
+                                let tokenized_code =
+                                    TokenStream::from_str(&code.value())?;
                                 self.default = Some(
-                                    syn::parse(tokenized_code.into())
-                                        .map_err(|e| Error::new_spanned(code, format!("{e}")))?,
+                                    syn::parse(tokenized_code.into()).map_err(
+                                        |e| {
+                                            Error::new_spanned(
+                                                code,
+                                                format!("{e}"),
+                                            )
+                                        },
+                                    )?,
                                 );
                             } else {
-                                return Err(Error::new_spanned(assign.right, "Expected string"));
+                                return Err(Error::new_spanned(
+                                    assign.right,
+                                    "Expected string",
+                                ));
                             }
                             Ok(())
                         }
@@ -937,13 +1058,18 @@ mod field_info {
                     }
                 }
                 syn::Expr::Path(path) => {
-                    let name = path_to_single_string(&path.path)
-                        .ok_or_else(|| Error::new_spanned(&path, "Expected identifier"))?;
+                    let name =
+                        path_to_single_string(&path.path).ok_or_else(|| {
+                            Error::new_spanned(&path, "Expected identifier")
+                        })?;
                     match name.as_str() {
                         "default" => {
                             self.default = Some(
-                                syn::parse(quote!(::core::default::Default::default()).into())
-                                    .unwrap(),
+                                syn::parse(
+                                    quote!(::core::default::Default::default())
+                                        .into(),
+                                )
+                                .unwrap(),
                             );
                             Ok(())
                         }
@@ -954,19 +1080,22 @@ mod field_info {
                     }
                 }
                 syn::Expr::Call(call) => {
-                    let subsetting_name = if let syn::Expr::Path(path) = &*call.func {
-                        path_to_single_string(&path.path)
-                    } else {
-                        None
-                    }
-                    .ok_or_else(|| {
-                        let call_func = &call.func;
-                        let call_func = quote!(#call_func);
-                        Error::new_spanned(
-                            &call.func,
-                            format!("Illegal builder setting group {call_func}"),
-                        )
-                    })?;
+                    let subsetting_name =
+                        if let syn::Expr::Path(path) = &*call.func {
+                            path_to_single_string(&path.path)
+                        } else {
+                            None
+                        }
+                        .ok_or_else(|| {
+                            let call_func = &call.func;
+                            let call_func = quote!(#call_func);
+                            Error::new_spanned(
+                                &call.func,
+                                format!(
+                                    "Illegal builder setting group {call_func}"
+                                ),
+                            )
+                        })?;
                     match subsetting_name.as_ref() {
                         "setter" => {
                             for arg in call.args {
@@ -976,7 +1105,10 @@ mod field_info {
                         }
                         _ => Err(Error::new_spanned(
                             &call.func,
-                            format!("Illegal builder setting group name {subsetting_name}"),
+                            format!(
+                                "Illegal builder setting group name \
+                                 {subsetting_name}"
+                            ),
                         )),
                     }
                 }
@@ -987,13 +1119,18 @@ mod field_info {
                 }) => {
                     if let syn::Expr::Path(path) = *expr {
                         let name = path_to_single_string(&path.path)
-                            .ok_or_else(|| Error::new_spanned(&path, "Expected identifier"))?;
+                            .ok_or_else(|| {
+                                Error::new_spanned(&path, "Expected identifier")
+                            })?;
                         match name.as_str() {
                             "default" => {
                                 self.default = None;
                                 Ok(())
                             }
-                            _ => Err(Error::new_spanned(path, "Unknown setting".to_owned())),
+                            _ => Err(Error::new_spanned(
+                                path,
+                                "Unknown setting".to_owned(),
+                            )),
                         }
                     } else {
                         Err(Error::new_spanned(
@@ -1010,15 +1147,22 @@ mod field_info {
             if let (Some(skip), None) = (&self.setter.skip, &self.default) {
                 return Err(Error::new(
                     *skip,
-                    "#[builder(skip)] must be accompanied by default or default_code",
+                    "#[builder(skip)] must be accompanied by default or \
+                     default_code",
                 ));
             }
 
             if let (Some(strip_option), Some(transform)) =
                 (&self.setter.strip_option, &self.setter.transform)
             {
-                let mut error = Error::new(transform.span, "transform conflicts with strip_option");
-                error.combine(Error::new(*strip_option, "strip_option set here"));
+                let mut error = Error::new(
+                    transform.span,
+                    "transform conflicts with strip_option",
+                );
+                error.combine(Error::new(
+                    *strip_option,
+                    "strip_option set here",
+                ));
                 return Err(error);
             }
             Ok(())
@@ -1029,8 +1173,14 @@ mod field_info {
         fn apply_meta(&mut self, expr: syn::Expr) -> Result<(), Error> {
             match expr {
                 syn::Expr::Assign(assign) => {
-                    let name = expr_to_single_string(&assign.left)
-                        .ok_or_else(|| Error::new_spanned(&assign.left, "Expected identifier"))?;
+                    let name = expr_to_single_string(&assign.left).ok_or_else(
+                        || {
+                            Error::new_spanned(
+                                &assign.left,
+                                "Expected identifier",
+                            )
+                        },
+                    )?;
                     match name.as_str() {
                         "doc" => {
                             self.doc = Some(*assign.right);
@@ -1040,8 +1190,10 @@ mod field_info {
                             // if self.strip_option.is_some() {
                             // return Err(Error::new(assign.span(), "Illegal setting - transform
                             // conflicts with strip_option")); }
-                            self.transform =
-                                Some(parse_transform_closure(assign.left.span(), &assign.right)?);
+                            self.transform = Some(parse_transform_closure(
+                                assign.left.span(),
+                                &assign.right,
+                            )?);
                             Ok(())
                         }
                         _ => Err(Error::new_spanned(
@@ -1051,8 +1203,10 @@ mod field_info {
                     }
                 }
                 syn::Expr::Path(path) => {
-                    let name = path_to_single_string(&path.path)
-                        .ok_or_else(|| Error::new_spanned(&path, "Expected identifier"))?;
+                    let name =
+                        path_to_single_string(&path.path).ok_or_else(|| {
+                            Error::new_spanned(&path, "Expected identifier")
+                        })?;
                     macro_rules! handle_fields {
                     ( $( $flag:expr, $field:ident, $already:expr, $checks:expr; )* ) => {
                         match name.as_str() {
@@ -1093,7 +1247,9 @@ mod field_info {
                 }) => {
                     if let syn::Expr::Path(path) = *expr {
                         let name = path_to_single_string(&path.path)
-                            .ok_or_else(|| Error::new_spanned(&path, "Expected identifier"))?;
+                            .ok_or_else(|| {
+                                Error::new_spanned(&path, "Expected identifier")
+                            })?;
                         match name.as_str() {
                             "doc" => {
                                 self.doc = None;
@@ -1111,7 +1267,10 @@ mod field_info {
                                 self.strip_option = None;
                                 Ok(())
                             }
-                            _ => Err(Error::new_spanned(path, "Unknown setting".to_owned())),
+                            _ => Err(Error::new_spanned(
+                                path,
+                                "Unknown setting".to_owned(),
+                            )),
                         }
                     } else {
                         Err(Error::new_spanned(
@@ -1132,16 +1291,25 @@ mod field_info {
         span: Span,
     }
 
-    fn parse_transform_closure(span: Span, expr: &syn::Expr) -> Result<Transform, Error> {
+    fn parse_transform_closure(
+        span: Span,
+        expr: &syn::Expr,
+    ) -> Result<Transform, Error> {
         let closure = match expr {
             syn::Expr::Closure(closure) => closure,
             _ => return Err(Error::new_spanned(expr, "Expected closure")),
         };
         if let Some(kw) = &closure.asyncness {
-            return Err(Error::new(kw.span, "Transform closure cannot be async"));
+            return Err(Error::new(
+                kw.span,
+                "Transform closure cannot be async",
+            ));
         }
         if let Some(kw) = &closure.capture {
-            return Err(Error::new(kw.span, "Transform closure cannot be move"));
+            return Err(Error::new(
+                kw.span,
+                "Transform closure cannot be move",
+            ));
         }
 
         let params = closure
@@ -1216,7 +1384,9 @@ mod util {
         .into()
     }
 
-    pub fn type_tuple(elems: impl Iterator<Item = syn::Type>) -> syn::TypeTuple {
+    pub fn type_tuple(
+        elems: impl Iterator<Item = syn::Type>,
+    ) -> syn::TypeTuple {
         let mut result = syn::TypeTuple {
             paren_token: Default::default(),
             elems: elems.collect(),
@@ -1234,7 +1404,9 @@ mod util {
         }
     }
 
-    pub fn make_punctuated_single<T, P: Default>(value: T) -> syn::punctuated::Punctuated<T, P> {
+    pub fn make_punctuated_single<T, P: Default>(
+        value: T,
+    ) -> syn::punctuated::Punctuated<T, P> {
         let mut punctuated = syn::punctuated::Punctuated::new();
         punctuated.push(value);
         punctuated
@@ -1245,17 +1417,21 @@ mod util {
         mut mutator: F,
     ) -> syn::AngleBracketedGenericArguments
     where
-        F: FnMut(&mut syn::punctuated::Punctuated<syn::GenericArgument, syn::token::Comma>),
+        F: FnMut(
+            &mut syn::punctuated::Punctuated<
+                syn::GenericArgument,
+                syn::token::Comma,
+            >,
+        ),
     {
         let mut abga: syn::AngleBracketedGenericArguments =
-            syn::parse(ty_generics.clone().into_token_stream().into()).unwrap_or_else(|_| {
-                syn::AngleBracketedGenericArguments {
+            syn::parse(ty_generics.clone().into_token_stream().into())
+                .unwrap_or_else(|_| syn::AngleBracketedGenericArguments {
                     colon2_token: None,
                     lt_token: Default::default(),
                     args: Default::default(),
                     gt_token: Default::default(),
-                }
-            });
+                });
         mutator(&mut abga.args);
         abga
     }

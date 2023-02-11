@@ -34,6 +34,8 @@
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
 //! - [`counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable) adapts the `counters` example
 //!   to show how to use Leptos with `stable` Rust.
+//! - [`error_boundary`](https://github.com/leptos-rs/leptos/tree/main/examples/error_boundary) shows how to use
+//!   `Result` types to handle errors.
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`todomvc`](https://github.com/leptos-rs/leptos/tree/main/examples/todomvc) implements the classic to-do
@@ -130,7 +132,7 @@
 //!
 //! #[component]
 //! fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
-//!   todo!()
+//!     todo!()
 //! }
 //!
 //! pub fn main() {
@@ -140,14 +142,14 @@
 //! ```
 
 pub use leptos_config::*;
-pub use leptos_dom;
-pub use leptos_dom::wasm_bindgen::{JsCast, UnwrapThrowExt};
-pub use leptos_dom::*;
+pub use leptos_dom::{
+    self,
+    wasm_bindgen::{JsCast, UnwrapThrowExt},
+    *,
+};
 pub use leptos_macro::*;
 pub use leptos_reactive::*;
-pub use leptos_server;
-pub use leptos_server::*;
-
+pub use leptos_server::{self, *};
 pub use tracing;
 pub use typed_builder;
 mod error_boundary;
@@ -159,9 +161,8 @@ pub use show::*;
 mod suspense;
 pub use suspense::*;
 mod transition;
+pub use leptos_dom::debug_warn;
 pub use transition::*;
-
-pub use leptos_reactive::debug_warn;
 
 extern crate self as leptos;
 
@@ -176,3 +177,24 @@ pub type ChildrenFn = Box<dyn Fn(Scope) -> Fragment>;
 /// A type for the `children` property on components that can be called
 /// more than once, but may mutate the children.
 pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
+
+/// A type for taking anything that implements [`IntoAttribute`].
+/// Very usefull inside components.
+///
+/// ## Example
+/// ```rust
+/// use leptos::*;
+///
+/// #[component]
+/// pub fn MyHeading(
+///     cx: Scope,
+///     text: String,
+///     #[prop(optional, into)] class: Option<AttributeValue>,
+/// ) -> impl IntoView {
+///     view! {
+///       cx,
+///       <h1 class=class>{text}</h1>
+///     }
+/// }
+/// ```
+pub type AttributeValue = Box<dyn IntoAttribute>;

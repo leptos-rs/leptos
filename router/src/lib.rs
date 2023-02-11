@@ -28,7 +28,7 @@
 //! ## Example
 //!
 //! ```rust
-//!
+//! 
 //! use leptos::*;
 //! use leptos_router::*;
 //!
@@ -45,8 +45,10 @@
 //!           // LR will enhance the active <a> link with the [aria-current] attribute
 //!           // we can use this for styling them with CSS like `[aria-current] { font-weight: bold; }`
 //!           <A href="contacts">"Contacts"</A>
-//!           <A href="about">"About"</A>
-//!           <A href="settings">"Settings"</A>
+//!           // But we can also use a normal class attribute like it is a normal component
+//!           <A href="settings" class="my-class">"Settings"</A>
+//!           // It also supports signals!
+//!           <A href="about" class=move || "my-class">"About"</A>
 //!         </nav>
 //!         <main>
 //!           // <Routes/> both defines our routes and shows them on the page
@@ -126,7 +128,6 @@
 //! fn About(cx: Scope) -> impl IntoView {
 //!   todo!()
 //! }
-//!
 //! ```
 //!
 //! ## Module Route Definitions
@@ -193,11 +194,9 @@ mod history;
 mod hooks;
 #[doc(hidden)]
 pub mod matching;
-pub use matching::RouteDefinition;
-
 pub use components::*;
 #[cfg(any(feature = "ssr", doc))]
 pub use extract_routes::*;
 pub use history::*;
 pub use hooks::*;
-pub use matching::*;
+pub use matching::{RouteDefinition, *};

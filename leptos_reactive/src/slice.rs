@@ -1,4 +1,6 @@
-use crate::{create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter};
+use crate::{
+    create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter,
+};
 
 /// Derives a reactive slice of an [RwSignal](crate::RwSignal).
 ///

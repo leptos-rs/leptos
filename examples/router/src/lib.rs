@@ -1,13 +1,17 @@
 mod api;
-
+use crate::api::*;
 use leptos::*;
 use leptos_router::*;
 
-use crate::api::{get_contact, get_contacts};
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+struct ExampleContext(i32);
 
 #[component]
 pub fn RouterExample(cx: Scope) -> impl IntoView {
     log::debug!("rendering <RouterExample/>");
+
+    // contexts are passed down through the route tree
+    provide_context(cx, ExampleContext(0));
 
     view! { cx,
         <Router>
@@ -59,6 +63,13 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
 pub fn ContactList(cx: Scope) -> impl IntoView {
     log::debug!("rendering <ContactList/>");
 
+    // contexts are passed down through the route tree
+    provide_context(cx, ExampleContext(42));
+
+    on_cleanup(cx, || {
+        log!("cleaning up <ContactList/>");
+    });
+
     let location = use_location(cx);
     let contacts = create_resource(cx, move || location.search.get(), get_contacts);
     let contacts = move || {
@@ -86,21 +97,28 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
     }
 }
 
+#[derive(Params, PartialEq, Clone, Debug)]
+pub struct ContactParams {
+    id: usize,
+}
+
 #[component]
 pub fn Contact(cx: Scope) -> impl IntoView {
     log::debug!("rendering <Contact/>");
 
-    let params = use_params_map(cx);
+    log::debug!(
+        "ExampleContext should be Some(42). It is {:?}",
+        use_context::<ExampleContext>(cx)
+    );
+
+    on_cleanup(cx, || {
+        log!("cleaning up <Contact/>");
+    });
+
+    let params = use_params::<ContactParams>(cx);
     let contact = create_resource(
         cx,
-        move || {
-            params()
-                .get("id")
-                .cloned()
-                .unwrap_or_default()
-                .parse::<usize>()
-                .ok()
-        },
+        move || params().map(|params| params.id).ok(),
         // any of the following would work (they're identical)
         // move |id| async move { get_contact(id).await }
         // move |id| get_contact(id),
@@ -138,6 +156,16 @@ pub fn Contact(cx: Scope) -> impl IntoView {
 #[component]
 pub fn About(cx: Scope) -> impl IntoView {
     log::debug!("rendering <About/>");
+
+    on_cleanup(cx, || {
+        log!("cleaning up <About/>");
+    });
+
+    log::debug!(
+        "ExampleContext should be Some(0). It is {:?}",
+        use_context::<ExampleContext>(cx)
+    );
+
     // use_navigate allows you to navigate programmatically by calling a function
     let navigate = use_navigate(cx);
 
@@ -159,6 +187,11 @@ pub fn About(cx: Scope) -> impl IntoView {
 #[component]
 pub fn Settings(cx: Scope) -> impl IntoView {
     log::debug!("rendering <Settings/>");
+
+    on_cleanup(cx, || {
+        log!("cleaning up <Settings/>");
+    });
+
     view! { cx,
         <>
             <h1>"Settings"</h1>

@@ -4,6 +4,9 @@ use std::{error::Error, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
+type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
+type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
+
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
 #[component]
@@ -30,13 +33,14 @@ pub fn Form<A>(
     error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// A callback will be called with the [FormData](web_sys::FormData) when the form is submitted.
     #[prop(optional)]
-    #[allow(clippy::type_complexity)]
-    on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    on_form_data: Option<OnFormData>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
     #[prop(optional)]
-    #[allow(clippy::type_complexity)]
-    on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+    on_response: Option<OnResponse>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -50,8 +54,9 @@ where
         enctype: Option<String>,
         version: Option<RwSignal<usize>>,
         error: Option<RwSignal<Option<Box<dyn Error>>>>,
-        #[allow(clippy::type_complexity)] on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
-        #[allow(clippy::type_complexity)] on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+        on_form_data: Option<OnFormData>,
+        on_response: Option<OnResponse>,
+        class: Option<Attribute>,
         children: Children,
     ) -> HtmlElement<Form> {
         let action_version = version;
@@ -63,12 +68,16 @@ where
 
             let (form, method, action, enctype) = extract_form_attributes(&ev);
 
-            let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+            let form_data =
+                web_sys::FormData::new_with_form(&form).unwrap_throw();
             if let Some(on_form_data) = on_form_data.clone() {
                 on_form_data(&form_data);
             }
             let params =
-                web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+                web_sys::UrlSearchParams::new_with_str_sequence_sequence(
+                    &form_data,
+                )
+                .unwrap_throw();
             let action = use_resolved_path(cx, move || action.clone())
                 .get()
                 .unwrap_or_default();
@@ -103,8 +112,13 @@ where
                             }
 
                             if resp.status() == 303 {
-                                if let Some(redirect_url) = resp.headers().get("Location") {
-                                    _ = navigate(&redirect_url, Default::default());
+                                if let Some(redirect_url) =
+                                    resp.headers().get("Location")
+                                {
+                                    _ = navigate(
+                                        &redirect_url,
+                                        Default::default(),
+                                    );
                                 }
                             }
                         }
@@ -114,7 +128,9 @@ where
             // otherwise, GET
             else {
                 let params = params.to_string().as_string().unwrap_or_default();
-                if navigate(&format!("{action}?{params}"), Default::default()).is_ok() {
+                if navigate(&format!("{action}?{params}"), Default::default())
+                    .is_ok()
+                {
                     ev.prevent_default();
                 }
             }
@@ -128,6 +144,7 @@ where
                 action=move || action.get()
                 enctype=enctype
                 on:submit=on_submit
+                class=class
             >
                 {children(cx)}
             </form>
@@ -135,6 +152,7 @@ where
     }
 
     let action = use_resolved_path(cx, move || action.to_href()());
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     inner(
         cx,
         method,
@@ -144,6 +162,7 @@ where
         error,
         on_form_data,
         on_response,
+        class,
         children,
     )
 }
@@ -158,6 +177,9 @@ pub fn ActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: Action<I, Result<O, ServerFnError>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -168,7 +190,10 @@ where
     let action_url = if let Some(url) = action.url() {
         url
     } else {
-        debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        debug_warn!(
+            "<ActionForm/> action needs a URL. Either use \
+             create_server_action() or Action::using_server_fn()."
+        );
         String::new()
     };
     let version = action.version();
@@ -189,17 +214,21 @@ where
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
         spawn_local(async move {
-            let body =
-                JsFuture::from(resp.text().expect("couldn't get .text() from Response")).await;
+            let body = JsFuture::from(
+                resp.text().expect("couldn't get .text() from Response"),
+            )
+            .await;
             match body {
                 Ok(json) => {
                     match O::from_json(
-                        &json.as_string().expect("couldn't get String from JsString"),
+                        &json
+                            .as_string()
+                            .expect("couldn't get String from JsString"),
                     ) {
                         Ok(res) => value.set(Some(Ok(res))),
-                        Err(e) => {
-                            value.set(Some(Err(ServerFnError::Deserialization(e.to_string()))))
-                        }
+                        Err(e) => value.set(Some(Err(
+                            ServerFnError::Deserialization(e.to_string()),
+                        ))),
                     }
                 }
                 Err(e) => log::error!("{e:?}"),
@@ -208,7 +237,7 @@ where
             action.set_pending(false);
         });
     });
-
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     Form(
         cx,
         FormProps::builder()
@@ -217,6 +246,7 @@ where
             .on_form_data(on_form_data)
             .on_response(on_response)
             .method("post")
+            .class(class)
             .children(children)
             .build(),
     )
@@ -232,6 +262,9 @@ pub fn MultiActionForm<I, O>(
     /// by default using [create_server_action](leptos_server::create_server_action) or added
     /// manually using [leptos_server::Action::using_server_fn].
     action: MultiAction<I, Result<O, ServerFnError>>,
+    /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
+    #[prop(optional, into)]
+    class: Option<AttributeValue>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -243,7 +276,10 @@ where
     let action = if let Some(url) = multi_action.url() {
         url
     } else {
-        debug_warn!("<MultiActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        debug_warn!(
+            "<MultiActionForm/> action needs a URL. Either use \
+             create_server_action() or Action::using_server_fn()."
+        );
         String::new()
     };
 
@@ -265,10 +301,12 @@ where
         }
     };
 
+    let class = class.map(|bx| bx.into_attribute_boxed(cx));
     view! { cx,
         <form
             method="POST"
             action=action
+            class=class
             on:submit=on_submit
         >
             {children(cx)}
@@ -292,10 +330,14 @@ fn extract_form_attributes(
                         .unwrap_or_default()
                         .to_lowercase(),
                     form.get_attribute("enctype")
-                        .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                        .unwrap_or_else(|| {
+                            "application/x-www-form-urlencoded".to_string()
+                        })
                         .to_lowercase(),
                 )
-            } else if let Some(input) = el.dyn_ref::<web_sys::HtmlInputElement>() {
+            } else if let Some(input) =
+                el.dyn_ref::<web_sys::HtmlInputElement>()
+            {
                 let form = ev
                     .target()
                     .unwrap()
@@ -314,11 +356,15 @@ fn extract_form_attributes(
                     }),
                     input.get_attribute("enctype").unwrap_or_else(|| {
                         form.get_attribute("enctype")
-                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                            .unwrap_or_else(|| {
+                                "application/x-www-form-urlencoded".to_string()
+                            })
                             .to_lowercase()
                     }),
                 )
-            } else if let Some(button) = el.dyn_ref::<web_sys::HtmlButtonElement>() {
+            } else if let Some(button) =
+                el.dyn_ref::<web_sys::HtmlButtonElement>()
+            {
                 let form = ev
                     .target()
                     .unwrap()
@@ -337,18 +383,25 @@ fn extract_form_attributes(
                     }),
                     button.get_attribute("enctype").unwrap_or_else(|| {
                         form.get_attribute("enctype")
-                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                            .unwrap_or_else(|| {
+                                "application/x-www-form-urlencoded".to_string()
+                            })
                             .to_lowercase()
                     }),
                 )
             } else {
-                leptos_dom::debug_warn!("<Form/> cannot be submitted from a tag other than <form>, <input>, or <button>");
+                leptos_dom::debug_warn!(
+                    "<Form/> cannot be submitted from a tag other than \
+                     <form>, <input>, or <button>"
+                );
                 panic!()
             }
         }
         None => match ev.target() {
             None => {
-                leptos_dom::debug_warn!("<Form/> SubmitEvent fired without a target.");
+                leptos_dom::debug_warn!(
+                    "<Form/> SubmitEvent fired without a target."
+                );
                 panic!()
             }
             Some(form) => {
@@ -358,8 +411,9 @@ fn extract_form_attributes(
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string()),
                     form.get_attribute("action").unwrap_or_default(),
-                    form.get_attribute("enctype")
-                        .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string()),
+                    form.get_attribute("enctype").unwrap_or_else(|| {
+                        "application/x-www-form-urlencoded".to_string()
+                    }),
                 )
             }
         },
@@ -369,7 +423,9 @@ fn extract_form_attributes(
 fn action_input_from_form_data<I: serde::de::DeserializeOwned>(
     form_data: &web_sys::FormData,
 ) -> Result<I, serde_urlencoded::de::Error> {
-    let data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data).unwrap_throw();
+    let data =
+        web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
+            .unwrap_throw();
     let data = data.to_string().as_string().unwrap_or_default();
     serde_urlencoded::from_str::<I>(&data)
 }
