@@ -191,7 +191,6 @@ impl Scope {
                     .dispose();
                 }
             }
-
             // run cleanups
             if let Some(cleanups) = runtime.scope_cleanups.borrow_mut().remove(self.id) {
                 for cleanup in cleanups {

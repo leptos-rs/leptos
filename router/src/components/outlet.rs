@@ -26,9 +26,11 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
                 if let Some(prev_scope) = prev.map(|(_, scope)| scope) {
                     prev_scope.dispose();
                 }
-                is_showing.set(Some((child.id(), child.cx())));
-                provide_context(cx, child.clone());
-                set_outlet.set(Some(child.outlet(cx).into_view(cx)))
+                _ = cx.child_scope(|child_cx| {
+                    provide_context(child_cx, child.clone());
+                    set_outlet.set(Some(child.outlet(child_cx).into_view(child_cx)));
+                    is_showing.set(Some((child.id(), child_cx)));
+                });
             }
         }
     });
