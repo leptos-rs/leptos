@@ -46,7 +46,7 @@ pub fn Style(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::style(cx)
+    let builder_el = leptos::leptos_dom::html::style(cx)
         .attr("id", &id)
         .attr("media", media)
         .attr("nonce", nonce)

@@ -76,7 +76,7 @@ where
         replace: bool,
         class: Option<AttributeValue>,
         children: Children,
-    ) -> HtmlElement<A> {
+    ) -> HtmlElement<leptos::html::A> {
         let location = use_location(cx);
         let is_active = create_memo(cx, move |_| match href.get() {
             None => false,

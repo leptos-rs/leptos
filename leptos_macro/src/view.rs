@@ -295,7 +295,7 @@ fn root_element_to_tokens_ssr(
             }
         } else {
             quote! {
-                leptos::leptos_dom::#typed_element_name::default()
+                leptos::leptos_dom::html::#typed_element_name::default()
             }
         };
         quote! {
@@ -456,7 +456,7 @@ fn attribute_to_tokens_ssr<'a>(
     } else if name.strip_prefix("on:").is_some() {
         let (event_type, handler) = event_from_attribute_node(node, false);
         exprs_for_compiler.push(quote! {
-            leptos::ssr_event_listener(#event_type, #handler);
+            leptos::leptos_dom::helpers::ssr_event_listener(#event_type, #handler);
         })
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
@@ -483,7 +483,7 @@ fn attribute_to_tokens_ssr<'a>(
                     holes.push(quote! {
                         &{#value}.into_attribute(#cx)
                             .as_nameless_value_string()
-                            .map(|a| format!("{}=\"{}\"", #name, leptos::escape_attr(&a)))
+                            .map(|a| format!("{}=\"{}\"", #name, leptos::leptos_dom::ssr::escape_attr(&a)))
                             .unwrap_or_default(),
                     })
                 }
@@ -607,7 +607,7 @@ fn set_class_attribute_ssr(
                 let value = value.as_ref();
                 holes.push(quote! {
                   &(cx, #value).into_attribute(#cx).as_nameless_value_string()
-                    .map(|a| leptos::escape_attr(&a).to_string())
+                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
                     .unwrap_or_default(),
                 });
             }
@@ -725,10 +725,12 @@ fn element_to_tokens(
                     /* proc_macro_error::emit_warning!(name.span(), "The view macro is assuming this is an HTML element, \
                     but it is ambiguous; if it is an SVG or MathML element, prefix with svg:: or math::"); */
                     quote! {
-                        leptos::leptos_dom::#name(#cx)
+                        leptos::leptos_dom::html::#name(#cx)
                     }
                 }
-                TagType::Html => quote! { leptos::leptos_dom::#name(#cx) },
+                TagType::Html => {
+                    quote! { leptos::leptos_dom::html::#name(#cx) }
+                }
                 TagType::Svg => quote! { leptos::leptos_dom::svg::#name(#cx) },
                 TagType::Math => {
                     quote! { leptos::leptos_dom::math::#name(#cx) }
@@ -737,7 +739,7 @@ fn element_to_tokens(
         } else {
             let name = &node.name;
             parent_type = TagType::Html;
-            quote! { leptos::leptos_dom::#name(#cx) }
+            quote! { leptos::leptos_dom::html::#name(#cx) }
         };
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
@@ -830,7 +832,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .expect("couldn't parse event name");
 
         let event_type = if is_custom {
-            quote! { leptos::leptos_dom::events::Custom::new(#name) }
+            quote! { leptos::leptos_dom::leptos_dom::events::Custom::new(#name) }
         } else {
             event_type
         };
@@ -885,9 +887,9 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             } else {
                 quote! { undelegated }
             };
-            quote! { ::leptos::ev::#undelegated(::leptos::ev::#event_type) }
+            quote! { ::leptos::leptos_dom::ev::#undelegated(::leptos::leptos_dom::ev::#event_type) }
         } else {
-            quote! { ::leptos::ev::#event_type }
+            quote! { ::leptos::leptos_dom::ev::#event_type }
         };
 
         quote! {
@@ -1105,9 +1107,9 @@ fn event_from_attribute_node(
         .expect("couldn't parse event name");
 
     let event_type = if force_undelegated || name_undelegated {
-        quote! { ::leptos::ev::undelegated(::leptos::ev::#event_type) }
+        quote! { ::leptos::leptos_dom::ev::undelegated(::leptos::leptos_dom::ev::#event_type) }
     } else {
-        quote! { ::leptos::ev::#event_type }
+        quote! { ::leptos::leptos_dom::ev::#event_type }
     };
     (event_type, handler)
 }

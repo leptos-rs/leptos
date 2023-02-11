@@ -143,20 +143,21 @@
 
 pub use leptos_config::{self, LeptosOptions};
 pub use leptos_dom::{
-    self,
+    self, debug_warn, document, error,
     helpers::{
         event_target, event_target_checked, event_target_value,
         request_animation_frame, request_idle_callback, set_interval,
         set_timeout, window_event_listener,
     },
-    Attribute, Class, Fragment, HtmlElement, IntoAttribute, IntoClass,
-    IntoProperty, IntoView, Property, View,
+    html, log, math, svg, warn, window, Attribute, Class, Fragment,
+    HtmlElement, IntoAttribute, IntoClass, IntoProperty, IntoView, Property,
+    View,
 };
 pub use leptos_macro::*;
 pub use leptos_reactive::*;
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
-    create_server_multi_action, Action, MultiAction,
+    create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
 };
 pub use typed_builder;
 mod error_boundary;
@@ -168,7 +169,7 @@ pub use show::*;
 mod suspense;
 pub use suspense::*;
 mod transition;
-pub use leptos_dom::debug_warn;
+#[cfg(debug_assertions)]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;

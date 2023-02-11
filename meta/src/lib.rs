@@ -45,13 +45,17 @@
 //! which mode your app is operating in.
 
 use cfg_if::cfg_if;
-use leptos::{leptos_dom::debug_warn, *};
+use leptos::{
+    leptos_dom::{debug_warn, html::AnyElement},
+    *,
+};
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Debug,
     rc::Rc,
 };
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 mod body;
 mod html;
@@ -255,6 +259,8 @@ impl MetaContext {
     /// # }
     /// ```
     pub fn dehydrate(&self) -> String {
+        use leptos::leptos_dom::HydrationCtx;
+
         let prev_key = HydrationCtx::peek();
         let mut tags = String::new();
 

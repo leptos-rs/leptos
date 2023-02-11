@@ -1,5 +1,6 @@
 use leptos::*;
 use std::rc::Rc;
+use wasm_bindgen::UnwrapThrowExt;
 
 mod location;
 mod params;
@@ -35,7 +36,7 @@ pub struct BrowserIntegration {}
 
 impl BrowserIntegration {
     fn current() -> LocationChange {
-        let loc = leptos_dom::location();
+        let loc = leptos_dom::helpers::location();
         LocationChange {
             value: loc.pathname().unwrap_or_default()
                 + &loc.search().unwrap_or_default()
@@ -53,7 +54,7 @@ impl History for BrowserIntegration {
 
         let (location, set_location) = create_signal(cx, Self::current());
 
-        leptos_dom::window_event_listener("popstate", move |_| {
+        leptos::window_event_listener("popstate", move |_| {
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
                 let change = Self::current();
@@ -98,7 +99,7 @@ impl History for BrowserIntegration {
                 .unwrap_throw();
         }
         // scroll to el
-        if let Ok(hash) = leptos_dom::location().hash() {
+        if let Ok(hash) = leptos_dom::helpers::location().hash() {
             if !hash.is_empty() {
                 let hash = js_sys::decode_uri(&hash[1..])
                     .ok()
