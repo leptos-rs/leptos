@@ -5,9 +5,7 @@ pub mod errors;
 use crate::errors::LeptosConfigError;
 use config::{Config, File, FileFormat};
 use regex::Regex;
-use std::convert::TryFrom;
-use std::fs;
-use std::{env::VarError, net::SocketAddr, str::FromStr};
+use std::{convert::TryFrom, env::VarError, fs, net::SocketAddr, str::FromStr};
 use typed_builder::TypedBuilder;
 
 /// A Struct to allow us to parse LeptosOptions from the file. Not really needed, most interactions should
@@ -53,18 +51,26 @@ pub struct LeptosOptions {
 impl LeptosOptions {
     fn try_from_env() -> Result<Self, LeptosConfigError> {
         Ok(LeptosOptions {
-            output_name: std::env::var("LEPTOS_OUTPUT_NAME")
-                .map_err(|e| LeptosConfigError::EnvVarError(format!("LEPTOS_OUTPUT_NAME: {e}")))?,
+            output_name: std::env::var("LEPTOS_OUTPUT_NAME").map_err(|e| {
+                LeptosConfigError::EnvVarError(format!(
+                    "LEPTOS_OUTPUT_NAME: {e}"
+                ))
+            })?,
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
             env: Env::default(),
-            site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?.parse()?,
-            reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?.parse()?,
+            site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
+                .parse()?,
+            reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?
+                .parse()?,
         })
     }
 }
 
-fn env_w_default(key: &str, default: &str) -> Result<String, LeptosConfigError> {
+fn env_w_default(
+    key: &str,
+    default: &str,
+) -> Result<String, LeptosConfigError> {
     match std::env::var(key) {
         Ok(val) => Ok(val),
         Err(VarError::NotPresent) => Ok(default.to_string()),
@@ -93,7 +99,8 @@ fn from_str(input: &str) -> Result<Env, String> {
         "dev" | "development" => Ok(Env::DEV),
         "prod" | "production" => Ok(Env::PROD),
         _ => Err(format!(
-            "{input} is not a supported environment. Use either `dev` or `production`.",
+            "{input} is not a supported environment. Use either `dev` or \
+             `production`.",
         )),
     }
 }
@@ -132,11 +139,15 @@ impl TryFrom<String> for Env {
 /// you'll need to set the options as environment variables or rely on the defaults. This is the preferred
 /// approach for cargo-leptos. If Some("./Cargo.toml") is provided, Leptos will read in the settings itself. This
 /// option currently does not allow dashes in file or foldernames, as all dashes become underscores
-pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosConfigError> {
+pub async fn get_configuration(
+    path: Option<&str>,
+) -> Result<ConfFile, LeptosConfigError> {
     if let Some(path) = path {
-        let text = fs::read_to_string(path).map_err(|_| LeptosConfigError::ConfigNotFound)?;
+        let text = fs::read_to_string(path)
+            .map_err(|_| LeptosConfigError::ConfigNotFound)?;
 
-        let re: Regex = Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
+        let re: Regex =
+            Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
         let start = match re.find(&text) {
             Some(found) => found.start(),
             None => return Err(LeptosConfigError::ConfigSectionNotFound),
@@ -154,7 +165,9 @@ pub async fn get_configuration(path: Option<&str>) -> Result<ConfFile, LeptosCon
             // Layer on the environment-specific values.
             // Add in settings from environment variables (with a prefix of LEPTOS and '_' as separator)
             // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
-            .add_source(config::Environment::with_prefix("LEPTOS").separator("_"))
+            .add_source(
+                config::Environment::with_prefix("LEPTOS").separator("_"),
+            )
             .build()?;
 
         settings

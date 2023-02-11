@@ -39,13 +39,13 @@ impl std::fmt::Debug for HtmlContext {
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Html lang="he" dir="rtl"/>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Html lang="he" dir="rtl"/>
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]

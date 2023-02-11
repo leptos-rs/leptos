@@ -2,7 +2,8 @@
 use crate::{
     macros::debug_warn,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, UntrackedGettableSignal, UntrackedSettableSignal,
+    Runtime, Scope, ScopeProperty, UntrackedGettableSignal,
+    UntrackedSettableSignal,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
@@ -59,7 +60,10 @@ use thiserror::Error;
     )
 )]
 #[track_caller]
-pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
+pub fn create_signal<T>(
+    cx: Scope,
+    value: T,
+) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
@@ -285,8 +289,12 @@ where
 
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
-    pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
+    pub(crate) fn try_with<U>(
+        &self,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError> {
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+        {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
@@ -453,7 +461,10 @@ where
             )
         )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn update_returning_untracked<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -511,11 +522,17 @@ where
     /// let (count, set_count) = create_signal(cx, 0);
     ///
     /// // notifies subscribers
-    /// let value = set_count.update_returning(|n| { *n = 1; *n * 10 });
+    /// let value = set_count.update_returning(|n| {
+    ///     *n = 1;
+    ///     *n * 10
+    /// });
     /// assert_eq!(value, Some(10));
     /// assert_eq!(count(), 1);
     ///
-    /// let value = set_count.update_returning(|n| { *n += 1; *n * 10 });
+    /// let value = set_count.update_returning(|n| {
+    ///     *n += 1;
+    ///     *n * 10
+    /// });
     /// assert_eq!(value, Some(20));
     /// assert_eq!(count(), 2);
     /// # }).dispose();
@@ -533,7 +550,10 @@ where
             )
         )
     )]
-    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    pub fn update_returning<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.id.update(self.runtime, f)
     }
 
@@ -793,7 +813,10 @@ impl<T> UntrackedSettableSignal<T> for RwSignal<T> {
             )
         )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn update_returning_untracked<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -885,7 +908,11 @@ where
     ///
     /// // you can include arbitrary logic in this update function
     /// // also notifies subscribers, even though the value hasn't changed
-    /// count.update(|n| if *n > 3 { *n += 1 });
+    /// count.update(|n| {
+    ///     if *n > 3 {
+    ///         *n += 1
+    ///     }
+    /// });
     /// assert_eq!(count(), 1);
     /// # }).dispose();
     /// ```
@@ -916,11 +943,17 @@ where
     /// let count = create_rw_signal(cx, 0);
     ///
     /// // notifies subscribers
-    /// let value = count.update_returning(|n| { *n = 1; *n * 10 });
+    /// let value = count.update_returning(|n| {
+    ///     *n = 1;
+    ///     *n * 10
+    /// });
     /// assert_eq!(value, Some(10));
     /// assert_eq!(count(), 1);
     ///
-    /// let value = count.update_returning(|n| { *n += 1; *n * 10 });
+    /// let value = count.update_returning(|n| {
+    ///     *n += 1;
+    ///     *n * 10
+    /// });
     /// assert_eq!(value, Some(20));
     /// assert_eq!(count(), 2);
     /// # }).dispose();
@@ -938,7 +971,10 @@ where
             )
         )
     )]
-    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    pub fn update_returning<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.id.update(self.runtime, f)
     }
 
@@ -1208,7 +1244,9 @@ impl SignalId {
         }?;
         let value = value.try_borrow().unwrap_or_else(|e| {
             debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It seems you're trying to read the value of a signal within an effect caused by updating the signal.",
+                "Signal::try_with_no_subscription failed on Signal<{}>. It \
+                 seems you're trying to read the value of a signal within an \
+                 effect caused by updating the signal.",
                 std::any::type_name::<T>()
             );
             panic!("{e}");
@@ -1246,15 +1284,25 @@ impl SignalId {
         .expect("tried to access a signal in a runtime that has been disposed")
     }
 
-    pub(crate) fn with<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&T) -> U) -> U
+    pub(crate) fn with<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&T) -> U,
+    ) -> U
     where
         T: 'static,
     {
         with_runtime(runtime, |runtime| self.try_with(runtime, f).unwrap())
-            .expect("tried to access a signal in a runtime that has been disposed")
+            .expect(
+                "tried to access a signal in a runtime that has been disposed",
+            )
     }
 
-    fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
+    fn update_value<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>
     where
         T: 'static,
     {
@@ -1269,14 +1317,19 @@ impl SignalId {
                     Some(f(value))
                 } else {
                     debug_warn!(
-                        "[Signal::update] failed when downcasting to Signal<{}>",
+                        "[Signal::update] failed when downcasting to \
+                         Signal<{}>",
                         std::any::type_name::<T>()
                     );
                     None
                 }
             } else {
                 debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> that has already been disposed of. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.",
+                    "[Signal::update] You’re trying to update a Signal<{}> \
+                     that has already been disposed of. This is probably \
+                     either a logic error in a component that creates and \
+                     disposes of scopes, or a Resource resolving after its \
+                     scope has been dropped without having been cleaned up.",
                     std::any::type_name::<T>()
                 );
                 None

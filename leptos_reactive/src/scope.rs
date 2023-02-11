@@ -14,7 +14,10 @@ use std::{collections::HashMap, fmt};
 /// values will not have access to values created under another `create_scope`.
 ///
 /// You usually don't need to call this manually.
-pub fn create_scope(runtime: RuntimeId, f: impl FnOnce(Scope) + 'static) -> ScopeDisposer {
+pub fn create_scope(
+    runtime: RuntimeId,
+    f: impl FnOnce(Scope) + 'static,
+) -> ScopeDisposer {
     runtime.run_scope_undisposed(f, None).2
 }
 
@@ -37,7 +40,10 @@ pub fn raw_scope_and_disposer(runtime: RuntimeId) -> (Scope, ScopeDisposer) {
 /// of the synchronous operation.
 ///
 /// You usually don't need to call this manually.
-pub fn run_scope<T>(runtime: RuntimeId, f: impl FnOnce(Scope) -> T + 'static) -> T {
+pub fn run_scope<T>(
+    runtime: RuntimeId,
+    f: impl FnOnce(Scope) -> T + 'static,
+) -> T {
     runtime.run_scope(f, None)
 }
 
@@ -116,13 +122,20 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
-    pub fn run_child_scope<T>(self, f: impl FnOnce(Scope) -> T) -> (T, ScopeDisposer) {
-        let (res, child_id, disposer) = self.runtime.run_scope_undisposed(f, Some(self));
+    pub fn run_child_scope<T>(
+        self,
+        f: impl FnOnce(Scope) -> T,
+    ) -> (T, ScopeDisposer) {
+        let (res, child_id, disposer) =
+            self.runtime.run_scope_undisposed(f, Some(self));
         _ = with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
                 .entry(self.id)
-                .expect("trying to add a child to a Scope that has already been disposed")
+                .expect(
+                    "trying to add a child to a Scope that has already been \
+                     disposed",
+                )
                 .or_default()
                 .push(child_id);
         });
@@ -161,7 +174,10 @@ impl Scope {
             runtime.observer.set(prev_observer);
             untracked_result
         })
-        .expect("tried to run untracked function in a runtime that has been disposed")
+        .expect(
+            "tried to run untracked function in a runtime that has been \
+             disposed",
+        )
     }
 }
 
@@ -192,7 +208,9 @@ impl Scope {
                 }
             }
             // run cleanups
-            if let Some(cleanups) = runtime.scope_cleanups.borrow_mut().remove(self.id) {
+            if let Some(cleanups) =
+                runtime.scope_cleanups.borrow_mut().remove(self.id)
+            {
                 for cleanup in cleanups {
                     cleanup();
                 }
@@ -209,14 +227,20 @@ impl Scope {
                         ScopeProperty::Signal(id) => {
                             // remove the signal
                             runtime.signals.borrow_mut().remove(id);
-                            let subs = runtime.signal_subscribers.borrow_mut().remove(id);
+                            let subs = runtime
+                                .signal_subscribers
+                                .borrow_mut()
+                                .remove(id);
 
                             // each of the subs needs to remove the signal from its dependencies
                             // so that it doesn't try to read the (now disposed) signal
                             if let Some(subs) = subs {
-                                let source_map = runtime.effect_sources.borrow();
+                                let source_map =
+                                    runtime.effect_sources.borrow();
                                 for effect in subs.borrow().iter() {
-                                    if let Some(effect_sources) = source_map.get(*effect) {
+                                    if let Some(effect_sources) =
+                                        source_map.get(*effect)
+                                    {
                                         effect_sources.borrow_mut().remove(&id);
                                     }
                                 }
@@ -235,12 +259,15 @@ impl Scope {
         })
     }
 
-    pub(crate) fn with_scope_property(&self, f: impl FnOnce(&mut Vec<ScopeProperty>)) {
+    pub(crate) fn with_scope_property(
+        &self,
+        f: impl FnOnce(&mut Vec<ScopeProperty>),
+    ) {
         _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
-            let scope = scopes
-                .get(self.id)
-                .expect("tried to add property to a scope that has been disposed");
+            let scope = scopes.get(self.id).expect(
+                "tried to add property to a scope that has been disposed",
+            );
             f(&mut scope.borrow_mut());
         })
     }
@@ -310,18 +337,23 @@ impl ScopeDisposer {
 impl Scope {
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
     pub fn all_resources(&self) -> Vec<ResourceId> {
-        with_runtime(self.runtime, |runtime| runtime.all_resources()).unwrap_or_default()
+        with_runtime(self.runtime, |runtime| runtime.all_resources())
+            .unwrap_or_default()
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are
     /// pending from the server.
     pub fn pending_resources(&self) -> Vec<ResourceId> {
-        with_runtime(self.runtime, |runtime| runtime.pending_resources()).unwrap_or_default()
+        with_runtime(self.runtime, |runtime| runtime.pending_resources())
+            .unwrap_or_default()
     }
 
     /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
-    pub fn serialization_resolvers(&self) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers()).unwrap_or_default()
+    pub fn serialization_resolvers(
+        &self,
+    ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
+        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers())
+            .unwrap_or_default()
     }
 
     /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,
@@ -341,7 +373,8 @@ impl Scope {
             let (tx, mut rx) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
-                let pending = context.pending_resources.try_with(|n| *n).unwrap_or(0);
+                let pending =
+                    context.pending_resources.try_with(|n| *n).unwrap_or(0);
                 if pending == 0 {
                     _ = tx.unbounded_send(());
                 }
@@ -363,7 +396,9 @@ impl Scope {
     /// The set of all HTML fragments currently pending.
     /// Returns a tuple of the hydration ID of the previous element, and a pinned `Future` that will yield the
     /// `<Suspense/>` HTML when all resources are resolved.
-    pub fn pending_fragments(&self) -> HashMap<String, (String, PinnedFuture<String>)> {
+    pub fn pending_fragments(
+        &self,
+    ) -> HashMap<String, (String, PinnedFuture<String>)> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)

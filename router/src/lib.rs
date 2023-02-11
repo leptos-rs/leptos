@@ -28,7 +28,7 @@
 //! ## Example
 //!
 //! ```rust
-//!
+//! 
 //! use leptos::*;
 //! use leptos_router::*;
 //!
@@ -128,7 +128,6 @@
 //! fn About(cx: Scope) -> impl IntoView {
 //!   todo!()
 //! }
-//!
 //! ```
 //!
 //! ## Module Route Definitions
@@ -195,11 +194,9 @@ mod history;
 mod hooks;
 #[doc(hidden)]
 pub mod matching;
-pub use matching::RouteDefinition;
-
 pub use components::*;
 #[cfg(any(feature = "ssr", doc))]
 pub use extract_routes::*;
 pub use history::*;
 pub use hooks::*;
-pub use matching::*;
+pub use matching::{RouteDefinition, *};

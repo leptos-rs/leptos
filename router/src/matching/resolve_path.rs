@@ -17,7 +17,9 @@ pub fn resolve_path<'a>(
         let result = if let Some(from_path) = from_path {
             if path.starts_with('/') {
                 base_path
-            } else if from_path.to_lowercase().find(&base_path.to_lowercase()) != Some(0) {
+            } else if from_path.to_lowercase().find(&base_path.to_lowercase())
+                != Some(0)
+            {
                 base_path + from_path
             } else {
                 from_path

@@ -1,18 +1,16 @@
+use crate::{
+    matching::{
+        expand_optionals, get_route_matches, join_paths, Branch, Matcher,
+        RouteDefinition, RouteMatch,
+    },
+    RouteContext, RouterContext,
+};
+use leptos::*;
 use std::{
     cell::{Cell, RefCell},
     cmp::Reverse,
     ops::IndexMut,
     rc::Rc,
-};
-
-use leptos::*;
-
-use crate::{
-    matching::{
-        expand_optionals, get_route_matches, join_paths, Branch, Matcher, RouteDefinition,
-        RouteMatch,
-    },
-    RouteContext, RouterContext,
 };
 
 /// Contains route definitions and manages the actual routing process.
@@ -92,7 +90,8 @@ pub fn Routes(
                     {
                         let mut prev_one = { prev.borrow()[i].clone() };
                         if next_match.path_match.path != prev_one.path() {
-                            prev_one.set_path(next_match.path_match.path.clone());
+                            prev_one
+                                .set_path(next_match.path_match.path.clone());
                         }
                         if i >= next.borrow().len() {
                             next.borrow_mut().push(prev_one);
@@ -116,10 +115,12 @@ pub fn Routes(
                             {
                                 let next = next.clone();
                                 move |cx| {
-                                    if let Some(route_states) = use_context::<Memo<RouterState>>(cx)
+                                    if let Some(route_states) =
+                                        use_context::<Memo<RouterState>>(cx)
                                     {
                                         route_states.with(|route_states| {
-                                            let routes = route_states.routes.borrow();
+                                            let routes =
+                                                route_states.routes.borrow();
                                             routes.get(i + 1).cloned()
                                         })
                                     } else {
@@ -184,11 +185,15 @@ pub fn Routes(
 
                 if prev.is_none() || !root_equal.get() {
                     let (root_view, _) = cx.run_child_scope(|cx| {
-                        let prev_cx = std::mem::replace(&mut *root_cx.borrow_mut(), Some(cx));
+                        let prev_cx = std::mem::replace(
+                            &mut *root_cx.borrow_mut(),
+                            Some(cx),
+                        );
                         if let Some(prev_cx) = prev_cx {
                             prev_cx.dispose();
                         }
-                        root.as_ref().map(|route| route.outlet(cx).into_view(cx))
+                        root.as_ref()
+                            .map(|route| route.outlet(cx).into_view(cx))
                     });
                     root_view
                 } else {
@@ -231,7 +236,9 @@ impl RouteData {
         #[allow(clippy::bool_to_int_with_if)] // on the splat.is_none()
         segments.iter().fold(
             (segments.len() as i32) - if splat.is_none() { 0 } else { 1 },
-            |score, segment| score + if segment.starts_with(':') { 2 } else { 3 },
+            |score, segment| {
+                score + if segment.starts_with(':') { 2 } else { 3 }
+            },
         )
     }
 }

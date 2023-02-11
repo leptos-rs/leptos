@@ -80,7 +80,6 @@
 
 pub use form_urlencoded;
 use leptos_reactive::*;
-
 use proc_macro2::{Literal, TokenStream};
 use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -95,7 +94,6 @@ mod action;
 mod multi_action;
 pub use action::*;
 pub use multi_action::*;
-
 #[cfg(any(feature = "ssr", doc))]
 use std::{
     collections::HashMap,
@@ -103,7 +101,10 @@ use std::{
 };
 
 #[cfg(any(feature = "ssr", doc))]
-type ServerFnTraitObj = dyn Fn(Scope, &[u8]) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
+type ServerFnTraitObj = dyn Fn(
+        Scope,
+        &[u8],
+    ) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
     + Send
     + Sync;
 
@@ -302,16 +303,18 @@ where
                 // serialize the output
                 let result = match Self::encoding() {
                     Encoding::Url => match serde_json::to_string(&result)
-                        .map_err(|e| ServerFnError::Serialization(e.to_string()))
-                    {
+                        .map_err(|e| {
+                            ServerFnError::Serialization(e.to_string())
+                        }) {
                         Ok(r) => Payload::Url(r),
                         Err(e) => return Err(e),
                     },
                     Encoding::Cbor => {
                         let mut buffer: Vec<u8> = Vec::new();
                         match ciborium::ser::into_writer(&result, &mut buffer)
-                            .map_err(|e| ServerFnError::Serialization(e.to_string()))
-                        {
+                            .map_err(|e| {
+                                ServerFnError::Serialization(e.to_string())
+                            }) {
                             Ok(_) => Payload::Binary(buffer),
                             Err(e) => return Err(e),
                         }
@@ -319,7 +322,8 @@ where
                 };
 
                 Ok(result)
-            }) as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
+            })
+                as Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>
         });
 
         // store it in the hashmap
@@ -332,8 +336,9 @@ where
         // return Err
         match prev {
             Some(_) => Err(ServerFnError::Registration(format!(
-                "There was already a server function registered at {:?}. \
-                This can happen if you use the same server function name in two different modules
+                "There was already a server function registered at {:?}. This \
+                 can happen if you use the same server function name in two \
+                 different modules
                 on `stable` or in `release` mode.",
                 Self::url()
             ))),
@@ -452,6 +457,7 @@ where
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
 
         let mut deserializer = JSONDeserializer::from_str(&text);
-        T::deserialize(&mut deserializer).map_err(|e| ServerFnError::Deserialization(e.to_string()))
+        T::deserialize(&mut deserializer)
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
 }

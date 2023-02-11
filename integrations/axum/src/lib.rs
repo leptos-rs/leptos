@@ -9,7 +9,10 @@
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
     extract::Path,
-    http::{header::HeaderName, header::HeaderValue, HeaderMap, Request, StatusCode},
+    http::{
+        header::{HeaderName, HeaderValue},
+        HeaderMap, Request, StatusCode,
+    },
     response::IntoResponse,
     routing::get,
 };
@@ -21,7 +24,7 @@ use leptos_meta::MetaContext;
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc};
-use tokio::{task::spawn_blocking, task::LocalSet};
+use tokio::task::{spawn_blocking, LocalSet};
 
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
@@ -92,7 +95,8 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
     response_options.set_status(StatusCode::FOUND);
     response_options.insert_header(
         header::LOCATION,
-        header::HeaderValue::from_str(path).expect("Failed to create HeaderValue"),
+        header::HeaderValue::from_str(path)
+            .expect("Failed to create HeaderValue"),
     );
 }
 
@@ -118,8 +122,8 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 ///
 /// ```
 /// use axum::{handler::Handler, routing::post, Router};
-/// use std::net::SocketAddr;
 /// use leptos::*;
+/// use std::net::SocketAddr;
 ///
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
@@ -128,7 +132,7 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 ///
 ///     // build our application with a route
 ///     let app = Router::new()
-///       .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
+///         .route("/api/*fn_name", post(leptos_axum::handle_server_fns));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -196,9 +200,12 @@ async fn handle_server_fns_inner(
                 .expect("couldn't spawn runtime")
                 .block_on({
                     async move {
-                        let res = if let Some(server_fn) = server_fn_by_path(fn_name.as_str()) {
+                        let res = if let Some(server_fn) =
+                            server_fn_by_path(fn_name.as_str())
+                        {
                             let runtime = create_runtime();
-                            let (cx, disposer) = raw_scope_and_disposer(runtime);
+                            let (cx, disposer) =
+                                raw_scope_and_disposer(runtime);
 
                             additional_context(cx);
 
@@ -211,34 +218,43 @@ async fn handle_server_fns_inner(
                             match server_fn(cx, &req_parts.body).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
-                                    let res_options = use_context::<ResponseOptions>(cx);
+                                    let res_options =
+                                        use_context::<ResponseOptions>(cx);
 
                                     // clean up the scope, which we only needed to run the server fn
                                     disposer.dispose();
                                     runtime.dispose();
 
                                     // if this is Accept: application/json then send a serialized JSON response
-                                    let accept_header =
-                                        headers.get("Accept").and_then(|value| value.to_str().ok());
+                                    let accept_header = headers
+                                        .get("Accept")
+                                        .and_then(|value| value.to_str().ok());
                                     let mut res = Response::builder();
 
                                     // Add headers from ResponseParts if they exist. These should be added as long
                                     // as the server function returns an OK response
-                                    let res_options_outer = res_options.unwrap().0;
-                                    let res_options_inner = res_options_outer.read();
+                                    let res_options_outer =
+                                        res_options.unwrap().0;
+                                    let res_options_inner =
+                                        res_options_outer.read();
                                     let (status, mut res_headers) = (
                                         res_options_inner.status,
                                         res_options_inner.headers.clone(),
                                     );
 
-                                    if let Some(header_ref) = res.headers_mut() {
-                                           header_ref.extend(res_headers.drain());
+                                    if let Some(header_ref) = res.headers_mut()
+                                    {
+                                        header_ref.extend(res_headers.drain());
                                     };
 
                                     if accept_header == Some("application/json")
                                         || accept_header
-                                            == Some("application/x-www-form-urlencoded")
-                                        || accept_header == Some("application/cbor")
+                                            == Some(
+                                                "application/\
+                                                 x-www-form-urlencoded",
+                                            )
+                                        || accept_header
+                                            == Some("application/cbor")
                                     {
                                         res = res.status(StatusCode::OK);
                                     }
@@ -246,7 +262,9 @@ async fn handle_server_fns_inner(
                                     else {
                                         let referer = headers
                                             .get("Referer")
-                                            .and_then(|value| value.to_str().ok())
+                                            .and_then(|value| {
+                                                value.to_str().ok()
+                                            })
                                             .unwrap_or("/");
 
                                         res = res
@@ -260,16 +278,23 @@ async fn handle_server_fns_inner(
                                     };
                                     match serialized {
                                         Payload::Binary(data) => res
-                                            .header("Content-Type", "application/cbor")
+                                            .header(
+                                                "Content-Type",
+                                                "application/cbor",
+                                            )
                                             .body(Full::from(data)),
                                         Payload::Url(data) => res
                                             .header(
                                                 "Content-Type",
-                                                "application/x-www-form-urlencoded",
+                                                "application/\
+                                                 x-www-form-urlencoded",
                                             )
                                             .body(Full::from(data)),
                                         Payload::Json(data) => res
-                                            .header("Content-Type", "application/json")
+                                            .header(
+                                                "Content-Type",
+                                                "application/json",
+                                            )
                                             .body(Full::from(data)),
                                     }
                                 }
@@ -280,11 +305,13 @@ async fn handle_server_fns_inner(
                         } else {
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
-                                .body(Full::from(
-                                    format!("Could not find a server function at the route {fn_name}. \
-                                    \n\nIt's likely that you need to call ServerFn::register() on the \
-                                    server function type, somewhere in your `main` function." )
-                                ))
+                                .body(Full::from(format!(
+                                    "Could not find a server function at the \
+                                     route {fn_name}. \n\nIt's likely that \
+                                     you need to call ServerFn::register() on \
+                                     the server function type, somewhere in \
+                                     your `main` function."
+                                )))
                         }
                         .expect("could not build Response");
 
@@ -297,7 +324,8 @@ async fn handle_server_fns_inner(
     rx.await.unwrap()
 }
 
-pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
+pub type PinnedHtmlStream =
+    Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>>;
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
@@ -310,28 +338,28 @@ pub type PinnedHtmlStream = Pin<Box<dyn Stream<Item = io::Result<Bytes>> + Send>
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
-/// use axum::handler::Handler;
-/// use axum::Router;
-/// use std::{net::SocketAddr, env};
+/// use axum::{handler::Handler, Router};
 /// use leptos::*;
 /// use leptos_config::get_configuration;
+/// use std::{env, net::SocketAddr};
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   view! { cx, <main>"Hello, world!"</main> }
+///     view! { cx, <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[tokio::main]
 /// async fn main() {
-///     
 ///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
 ///     let leptos_options = conf.leptos_options;
 ///     let addr = leptos_options.site_addr.clone();
-///     
+///
 ///     // build our application with a route
-///     let app = Router::new()
-///     .fallback(leptos_axum::render_app_to_stream(leptos_options, |cx| view! { cx, <MyApp/> }));
+///     let app = Router::new().fallback(leptos_axum::render_app_to_stream(
+///         leptos_options,
+///         |cx| view! { cx, <MyApp/> },
+///     ));
 ///
 ///     // run our app with hyper
 ///     // `axum::Server` is a re-export of `hyper::Server`
@@ -354,8 +382,13 @@ pub fn render_app_to_stream<IV>(
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>> + Send + 'static>>
-       + Clone
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
        + Send
        + 'static
 where
@@ -395,8 +428,13 @@ pub fn render_app_to_stream_with_context<IV>(
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request<Body>,
-) -> Pin<Box<dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>> + Send + 'static>>
-       + Clone
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
        + Send
        + 'static
 where
@@ -502,13 +540,16 @@ where
                 // Extract the resources now that they've been rendered
                 let res_options = res_options3.0.read();
 
-                let complete_stream =
-                    futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-                        .chain(stream);
+                let complete_stream = futures::stream::iter([
+                    first_chunk.unwrap(),
+                    second_chunk.unwrap(),
+                ])
+                .chain(stream);
 
-                let mut res = Response::new(StreamBody::new(
-                    Box::pin(complete_stream) as PinnedHtmlStream
-                ));
+                let mut res = Response::new(StreamBody::new(Box::pin(
+                    complete_stream,
+                )
+                    as PinnedHtmlStream));
 
                 if let Some(status) = res_options.status {
                     *res.status_mut() = status
@@ -522,7 +563,10 @@ where
     }
 }
 
-fn html_parts(options: &LeptosOptions, meta: Option<&MetaContext>) -> (String, &'static str) {
+fn html_parts(
+    options: &LeptosOptions,
+    meta: Option<&MetaContext>,
+) -> (String, &'static str) {
     let pkg_path = &options.site_pkg_dir;
     let output_name = &options.output_name;
 
@@ -564,7 +608,8 @@ fn html_parts(options: &LeptosOptions, meta: Option<&MetaContext>) -> (String, &
         false => "".to_string(),
     };
 
-    let html_metadata = meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
+    let html_metadata =
+        meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
     let head = format!(
         r#"<!DOCTYPE html>
             <html{html_metadata}>
@@ -584,7 +629,9 @@ fn html_parts(options: &LeptosOptions, meta: Option<&MetaContext>) -> (String, &
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
-pub async fn generate_route_list<IV>(app_fn: impl FnOnce(Scope) -> IV + 'static) -> Vec<String>
+pub async fn generate_route_list<IV>(
+    app_fn: impl FnOnce(Scope) -> IV + 'static,
+) -> Vec<String>
 where
     IV: IntoView + 'static,
 {
@@ -645,7 +692,11 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 
-    fn leptos_routes_with_handler<H, T>(self, paths: Vec<String>, handler: H) -> Self
+    fn leptos_routes_with_handler<H, T>(
+        self,
+        paths: Vec<String>,
+        handler: H,
+    ) -> Self
     where
         H: axum::handler::Handler<T, (), axum::body::Body>,
         T: 'static;
@@ -696,7 +747,11 @@ impl LeptosRoutes for axum::Router {
         router
     }
 
-    fn leptos_routes_with_handler<H, T>(self, paths: Vec<String>, handler: H) -> Self
+    fn leptos_routes_with_handler<H, T>(
+        self,
+        paths: Vec<String>,
+        handler: H,
+    ) -> Self
     where
         H: axum::handler::Handler<T, (), axum::body::Body>,
         T: 'static,

@@ -68,12 +68,16 @@ where
 
             let (form, method, action, enctype) = extract_form_attributes(&ev);
 
-            let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+            let form_data =
+                web_sys::FormData::new_with_form(&form).unwrap_throw();
             if let Some(on_form_data) = on_form_data.clone() {
                 on_form_data(&form_data);
             }
             let params =
-                web_sys::UrlSearchParams::new_with_str_sequence_sequence(&form_data).unwrap_throw();
+                web_sys::UrlSearchParams::new_with_str_sequence_sequence(
+                    &form_data,
+                )
+                .unwrap_throw();
             let action = use_resolved_path(cx, move || action.clone())
                 .get()
                 .unwrap_or_default();
@@ -108,8 +112,13 @@ where
                             }
 
                             if resp.status() == 303 {
-                                if let Some(redirect_url) = resp.headers().get("Location") {
-                                    _ = navigate(&redirect_url, Default::default());
+                                if let Some(redirect_url) =
+                                    resp.headers().get("Location")
+                                {
+                                    _ = navigate(
+                                        &redirect_url,
+                                        Default::default(),
+                                    );
                                 }
                             }
                         }
@@ -119,7 +128,9 @@ where
             // otherwise, GET
             else {
                 let params = params.to_string().as_string().unwrap_or_default();
-                if navigate(&format!("{action}?{params}"), Default::default()).is_ok() {
+                if navigate(&format!("{action}?{params}"), Default::default())
+                    .is_ok()
+                {
                     ev.prevent_default();
                 }
             }
@@ -179,7 +190,10 @@ where
     let action_url = if let Some(url) = action.url() {
         url
     } else {
-        debug_warn!("<ActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        debug_warn!(
+            "<ActionForm/> action needs a URL. Either use \
+             create_server_action() or Action::using_server_fn()."
+        );
         String::new()
     };
     let version = action.version();
@@ -200,17 +214,21 @@ where
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
         spawn_local(async move {
-            let body =
-                JsFuture::from(resp.text().expect("couldn't get .text() from Response")).await;
+            let body = JsFuture::from(
+                resp.text().expect("couldn't get .text() from Response"),
+            )
+            .await;
             match body {
                 Ok(json) => {
                     match O::from_json(
-                        &json.as_string().expect("couldn't get String from JsString"),
+                        &json
+                            .as_string()
+                            .expect("couldn't get String from JsString"),
                     ) {
                         Ok(res) => value.set(Some(Ok(res))),
-                        Err(e) => {
-                            value.set(Some(Err(ServerFnError::Deserialization(e.to_string()))))
-                        }
+                        Err(e) => value.set(Some(Err(
+                            ServerFnError::Deserialization(e.to_string()),
+                        ))),
                     }
                 }
                 Err(e) => log::error!("{e:?}"),
@@ -258,7 +276,10 @@ where
     let action = if let Some(url) = multi_action.url() {
         url
     } else {
-        debug_warn!("<MultiActionForm/> action needs a URL. Either use create_server_action() or Action::using_server_fn().");
+        debug_warn!(
+            "<MultiActionForm/> action needs a URL. Either use \
+             create_server_action() or Action::using_server_fn()."
+        );
         String::new()
     };
 
@@ -309,10 +330,14 @@ fn extract_form_attributes(
                         .unwrap_or_default()
                         .to_lowercase(),
                     form.get_attribute("enctype")
-                        .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                        .unwrap_or_else(|| {
+                            "application/x-www-form-urlencoded".to_string()
+                        })
                         .to_lowercase(),
                 )
-            } else if let Some(input) = el.dyn_ref::<web_sys::HtmlInputElement>() {
+            } else if let Some(input) =
+                el.dyn_ref::<web_sys::HtmlInputElement>()
+            {
                 let form = ev
                     .target()
                     .unwrap()
@@ -331,11 +356,15 @@ fn extract_form_attributes(
                     }),
                     input.get_attribute("enctype").unwrap_or_else(|| {
                         form.get_attribute("enctype")
-                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                            .unwrap_or_else(|| {
+                                "application/x-www-form-urlencoded".to_string()
+                            })
                             .to_lowercase()
                     }),
                 )
-            } else if let Some(button) = el.dyn_ref::<web_sys::HtmlButtonElement>() {
+            } else if let Some(button) =
+                el.dyn_ref::<web_sys::HtmlButtonElement>()
+            {
                 let form = ev
                     .target()
                     .unwrap()
@@ -354,18 +383,25 @@ fn extract_form_attributes(
                     }),
                     button.get_attribute("enctype").unwrap_or_else(|| {
                         form.get_attribute("enctype")
-                            .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string())
+                            .unwrap_or_else(|| {
+                                "application/x-www-form-urlencoded".to_string()
+                            })
                             .to_lowercase()
                     }),
                 )
             } else {
-                leptos_dom::debug_warn!("<Form/> cannot be submitted from a tag other than <form>, <input>, or <button>");
+                leptos_dom::debug_warn!(
+                    "<Form/> cannot be submitted from a tag other than \
+                     <form>, <input>, or <button>"
+                );
                 panic!()
             }
         }
         None => match ev.target() {
             None => {
-                leptos_dom::debug_warn!("<Form/> SubmitEvent fired without a target.");
+                leptos_dom::debug_warn!(
+                    "<Form/> SubmitEvent fired without a target."
+                );
                 panic!()
             }
             Some(form) => {
@@ -375,8 +411,9 @@ fn extract_form_attributes(
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string()),
                     form.get_attribute("action").unwrap_or_default(),
-                    form.get_attribute("enctype")
-                        .unwrap_or_else(|| "application/x-www-form-urlencoded".to_string()),
+                    form.get_attribute("enctype").unwrap_or_else(|| {
+                        "application/x-www-form-urlencoded".to_string()
+                    }),
                 )
             }
         },
@@ -386,7 +423,9 @@ fn extract_form_attributes(
 fn action_input_from_form_data<I: serde::de::DeserializeOwned>(
     form_data: &web_sys::FormData,
 ) -> Result<I, serde_urlencoded::de::Error> {
-    let data = web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data).unwrap_throw();
+    let data =
+        web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
+            .unwrap_throw();
     let data = data.to_string().as_string().unwrap_or_default();
     serde_urlencoded::from_str::<I>(&data)
 }
