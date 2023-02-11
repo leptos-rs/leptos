@@ -4,6 +4,9 @@ use std::{error::Error, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
+type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
+type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
+
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
 #[component]
@@ -30,16 +33,14 @@ pub fn Form<A>(
     error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// A callback will be called with the [FormData](web_sys::FormData) when the form is submitted.
     #[prop(optional)]
-    #[allow(clippy::type_complexity)]
-    on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
+    on_form_data: Option<OnFormData>,
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
     /// A callback will be called with the [Response](web_sys::Response) the server sends in response
     /// to a form submission.
     #[prop(optional)]
-    #[allow(clippy::type_complexity)]
-    on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+    on_response: Option<OnResponse>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -53,8 +54,8 @@ where
         enctype: Option<String>,
         version: Option<RwSignal<usize>>,
         error: Option<RwSignal<Option<Box<dyn Error>>>>,
-        #[allow(clippy::type_complexity)] on_form_data: Option<Rc<dyn Fn(&web_sys::FormData)>>,
-        #[allow(clippy::type_complexity)] on_response: Option<Rc<dyn Fn(&web_sys::Response)>>,
+        on_form_data: Option<OnFormData>,
+        on_response: Option<OnResponse>,
         class: Option<Attribute>,
         children: Children,
     ) -> HtmlElement<Form> {

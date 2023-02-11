@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
+use crate::macros::debug_warn;
 use crate::runtime::{with_runtime, RuntimeId};
-use crate::{debug_warn, Runtime, Scope, ScopeProperty};
+use crate::{Runtime, Scope, ScopeProperty};
 use cfg_if::cfg_if;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -209,7 +210,7 @@ impl EffectId {
             if let Some(effect) = effect {
                 effect.run(*self, runtime_id);
             } else {
-                debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.")
+                debug_warn!("[Effect] Trying to run an Effect that has been disposed. This is probably either a logic error in a component that creates and disposes of scopes, or a Resource resolving after its scope has been dropped without having been cleaned up.");
             }
         })
     }

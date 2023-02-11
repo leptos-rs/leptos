@@ -30,7 +30,7 @@ pub fn ErrorTemplate(
         .into_iter()
         .filter_map(|(_k, v)| v.downcast_ref::<AppError>().cloned())
         .collect();
-    println!("Errors: {errors:#?}");
+    log!("Errors: {errors:#?}");
 
     // Only the response code for the first error is actually sent from the server
     // this may be customized by the specific application
@@ -49,7 +49,7 @@ pub fn ErrorTemplate(
             // a unique key for each item as a reference
             key=|(index, _error)| *index
             // renders each item to a view
-            view= move |error| {
+            view=move |cx, error| {
                 let error_string = error.1.to_string();
                 let error_code= error.1.status_code();
                 view! { cx,

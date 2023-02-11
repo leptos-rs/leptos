@@ -34,6 +34,8 @@
 //!   communication via contexts, and the `<For/>` component for efficient keyed list updates.
 //! - [`counters_stable`](https://github.com/leptos-rs/leptos/tree/main/examples/counters_stable) adapts the `counters` example
 //!   to show how to use Leptos with `stable` Rust.
+//! - [`error_boundary`](https://github.com/leptos-rs/leptos/tree/main/examples/error_boundary) shows how to use
+//!   `Result` types to handle errors.
 //! - [`parent_child`](https://github.com/leptos-rs/leptos/tree/main/examples/parent_child) shows four different
 //!   ways a parent component can communicate with a child, including passing a closure, context, and more
 //! - [`todomvc`](https://github.com/leptos-rs/leptos/tree/main/examples/todomvc) implements the classic to-do
@@ -161,7 +163,7 @@ pub use suspense::*;
 mod transition;
 pub use transition::*;
 
-pub use leptos_reactive::debug_warn;
+pub use leptos_dom::debug_warn;
 
 extern crate self as leptos;
 
