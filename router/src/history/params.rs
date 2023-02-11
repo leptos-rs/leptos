@@ -104,7 +104,8 @@ pub trait IntoParam
 where
     Self: Sized,
 {
-    fn into_param(value: Option<&str>, name: &str) -> Result<Self, ParamsError>;
+    fn into_param(value: Option<&str>, name: &str)
+        -> Result<Self, ParamsError>;
 }
 
 impl<T> IntoParam for Option<T>
@@ -112,7 +113,10 @@ where
     T: FromStr,
     <T as FromStr>::Err: std::error::Error + 'static,
 {
-    fn into_param(value: Option<&str>, _name: &str) -> Result<Self, ParamsError> {
+    fn into_param(
+        value: Option<&str>,
+        _name: &str,
+    ) -> Result<Self, ParamsError> {
         match value {
             None => Ok(None),
             Some(value) => match T::from_str(value) {

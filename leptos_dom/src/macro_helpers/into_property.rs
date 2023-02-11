@@ -9,51 +9,51 @@ use wasm_bindgen::UnwrapThrowExt;
 /// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
 /// macro’s use. You usually won't need to interact with it directly.
 pub enum Property {
-  /// A static JavaScript value.
-  Value(JsValue),
-  /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-  Fn(Scope, Box<dyn Fn() -> JsValue>),
+    /// A static JavaScript value.
+    Value(JsValue),
+    /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
+    Fn(Scope, Box<dyn Fn() -> JsValue>),
 }
 
 /// Converts some type into a [Property].
 ///
 /// This is implemented by default for Rust primitive types, [String] and friends, and [JsValue].
 pub trait IntoProperty {
-  /// Converts the object into a [Property].
-  fn into_property(self, cx: Scope) -> Property;
+    /// Converts the object into a [Property].
+    fn into_property(self, cx: Scope) -> Property;
 }
 
 impl<T, U> IntoProperty for T
 where
-  T: Fn() -> U + 'static,
-  U: Into<JsValue>,
+    T: Fn() -> U + 'static,
+    U: Into<JsValue>,
 {
-  fn into_property(self, cx: Scope) -> Property {
-    let modified_fn = Box::new(move || self().into());
-    Property::Fn(cx, modified_fn)
-  }
+    fn into_property(self, cx: Scope) -> Property {
+        let modified_fn = Box::new(move || self().into());
+        Property::Fn(cx, modified_fn)
+    }
 }
 
 impl<T: IntoProperty> IntoProperty for (Scope, T) {
-  fn into_property(self, _: Scope) -> Property {
-    self.1.into_property(self.0)
-  }
+    fn into_property(self, _: Scope) -> Property {
+        self.1.into_property(self.0)
+    }
 }
 
 macro_rules! prop_type {
-  ($prop_type:ty) => {
-    impl IntoProperty for $prop_type {
-      fn into_property(self, _cx: Scope) -> Property {
-        Property::Value(self.into())
-      }
-    }
+    ($prop_type:ty) => {
+        impl IntoProperty for $prop_type {
+            fn into_property(self, _cx: Scope) -> Property {
+                Property::Value(self.into())
+            }
+        }
 
-    impl IntoProperty for Option<$prop_type> {
-      fn into_property(self, _cx: Scope) -> Property {
-        Property::Value(self.into())
-      }
-    }
-  };
+        impl IntoProperty for Option<$prop_type> {
+            fn into_property(self, _cx: Scope) -> Property {
+                Property::Value(self.into())
+            }
+        }
+    };
 }
 
 prop_type!(JsValue);
@@ -81,39 +81,40 @@ use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn property_helper(
-  el: &web_sys::Element,
-  name: Cow<'static, str>,
-  value: Property,
+    el: &web_sys::Element,
+    name: Cow<'static, str>,
+    value: Property,
 ) {
-  use leptos_reactive::create_render_effect;
+    use leptos_reactive::create_render_effect;
 
-  match value {
-    Property::Fn(cx, f) => {
-      let el = el.clone();
-      create_render_effect(cx, move |old| {
-        let new = f();
-        let prop_name = wasm_bindgen::intern(&name);
-        if old.as_ref() != Some(&new)
-          && !(old.is_none() && new == wasm_bindgen::JsValue::UNDEFINED)
-        {
-          property_expression(&el, prop_name, new.clone())
+    match value {
+        Property::Fn(cx, f) => {
+            let el = el.clone();
+            create_render_effect(cx, move |old| {
+                let new = f();
+                let prop_name = wasm_bindgen::intern(&name);
+                if old.as_ref() != Some(&new)
+                    && !(old.is_none()
+                        && new == wasm_bindgen::JsValue::UNDEFINED)
+                {
+                    property_expression(&el, prop_name, new.clone())
+                }
+                new
+            });
         }
-        new
-      });
-    }
-    Property::Value(value) => {
-      let prop_name = wasm_bindgen::intern(&name);
-      property_expression(el, prop_name, value)
-    }
-  };
+        Property::Value(value) => {
+            let prop_name = wasm_bindgen::intern(&name);
+            property_expression(el, prop_name, value)
+        }
+    };
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub(crate) fn property_expression(
-  el: &web_sys::Element,
-  prop_name: &str,
-  value: JsValue,
+    el: &web_sys::Element,
+    prop_name: &str,
+    value: JsValue,
 ) {
-  js_sys::Reflect::set(el, &JsValue::from_str(prop_name), &value)
-    .unwrap_throw();
+    js_sys::Reflect::set(el, &JsValue::from_str(prop_name), &value)
+        .unwrap_throw();
 }

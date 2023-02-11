@@ -1,5 +1,7 @@
 #[cfg(not(feature = "stable"))]
-use leptos_reactive::{create_memo, create_runtime, create_scope, create_signal};
+use leptos_reactive::{
+    create_memo, create_runtime, create_scope, create_signal,
+};
 
 #[cfg(not(feature = "stable"))]
 #[test]

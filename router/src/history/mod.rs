@@ -1,6 +1,5 @@
-use std::rc::Rc;
-
 use leptos::*;
+use std::rc::Rc;
 
 mod location;
 mod params;
@@ -83,11 +82,19 @@ impl History for BrowserIntegration {
 
         if loc.replace {
             history
-                .replace_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
+                .replace_state_with_url(
+                    &loc.state.to_js_value(),
+                    "",
+                    Some(&loc.value),
+                )
                 .unwrap_throw();
         } else {
             history
-                .push_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
+                .push_state_with_url(
+                    &loc.state.to_js_value(),
+                    "",
+                    Some(&loc.value),
+                )
                 .unwrap_throw();
         }
         // scroll to el
@@ -116,7 +123,9 @@ impl History for BrowserIntegration {
 /// # use leptos_router::*;
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
-/// let integration = ServerIntegration { path: "insert/current/path/here".to_string() };
+/// let integration = ServerIntegration {
+///     path: "insert/current/path/here".to_string(),
+/// };
 /// provide_context(cx, RouterIntegrationContext::new(integration));
 /// # });
 /// ```

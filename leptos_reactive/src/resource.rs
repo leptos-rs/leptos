@@ -1,10 +1,12 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, create_isomorphic_effect, create_memo, create_signal, queue_microtask,
+    create_effect, create_isomorphic_effect, create_memo, create_signal,
+    queue_microtask,
     runtime::{with_runtime, RuntimeId},
     serialization::Serializable,
     spawn::spawn_local,
-    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext, WriteSignal,
+    use_context, Memo, ReadSignal, Scope, ScopeProperty, SuspenseContext,
+    WriteSignal,
 };
 use std::{
     any::Any,
@@ -113,7 +115,9 @@ where
 
     let (loading, set_loading) = create_signal(cx, false);
 
-    let fetcher = Rc::new(move |s| Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>);
+    let fetcher = Rc::new(move |s| {
+        Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
+    });
     let source = create_memo(cx, move |_| source());
 
     let r = Rc::new(ResourceState {
@@ -170,17 +174,18 @@ where
 /// # create_scope(create_runtime(), |cx| {
 /// #[derive(Debug, Clone)] // doesn't implement Serialize, Deserialize
 /// struct ComplicatedUnserializableStruct {
-///   // something here that can't be serialized
+///     // something here that can't be serialized
 /// }
 /// // any old async function; maybe this is calling a REST API or something
 /// async fn setup_complicated_struct() -> ComplicatedUnserializableStruct {
-///   // do some work
-///   ComplicatedUnserializableStruct { }
+///     // do some work
+///     ComplicatedUnserializableStruct {}
 /// }
 ///
 /// // create the resource; it will run but not be serialized
 /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
-/// let result = create_local_resource(cx, move || (), |_| setup_complicated_struct());
+/// let result =
+///     create_local_resource(cx, move || (), |_| setup_complicated_struct());
 /// # }
 /// # }).dispose();
 /// ```
@@ -234,7 +239,9 @@ where
 
     let (loading, set_loading) = create_signal(cx, false);
 
-    let fetcher = Rc::new(move |s| Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>);
+    let fetcher = Rc::new(move |s| {
+        Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
+    });
     let source = create_memo(cx, move |_| source());
 
     let r = Rc::new(ResourceState {
@@ -300,7 +307,8 @@ where
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
 
-            let res = T::from_json(&data).expect_throw("could not deserialize Resource JSON");
+            let res = T::from_json(&data)
+                .expect_throw("could not deserialize Resource JSON");
 
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
@@ -318,21 +326,25 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res =
-                        T::from_json(&res).expect_throw("could not deserialize Resource JSON");
+                    let res = T::from_json(&res)
+                        .expect_throw("could not deserialize Resource JSON");
                     resolved.set(true);
                     set_value.update(|n| *n = Some(res));
                     set_loading.update(|n| *n = false);
                 }
             };
-            let resolve =
-                wasm_bindgen::closure::Closure::wrap(Box::new(resolve) as Box<dyn Fn(String)>);
+            let resolve = wasm_bindgen::closure::Closure::wrap(
+                Box::new(resolve) as Box<dyn Fn(String)>,
+            );
             let resource_resolvers = js_sys::Reflect::get(
                 &web_sys::window().unwrap(),
                 &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOURCE_RESOLVERS"),
             )
-            .expect_throw("no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope");
-            let id = serde_json::to_string(&id).expect_throw("could not serialize Resource ID");
+            .expect_throw(
+                "no __LEPTOS_RESOURCE_RESOLVERS found in the JS global scope",
+            );
+            let id = serde_json::to_string(&id)
+                .expect_throw("could not serialize Resource ID");
             _ = js_sys::Reflect::set(
                 &resource_resolvers,
                 &wasm_bindgen::JsValue::from_str(&id),
@@ -365,7 +377,9 @@ where
         T: Clone,
     {
         with_runtime(self.runtime, |runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.read())
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.read()
+            })
         })
         .ok()
         .flatten()
@@ -380,7 +394,9 @@ where
     /// [Resource::read].
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         with_runtime(self.runtime, |runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.with(f))
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.with(f)
+            })
         })
         .ok()
         .flatten()
@@ -389,15 +405,22 @@ where
     /// Returns a signal that indicates whether the resource is currently loading.
     pub fn loading(&self) -> ReadSignal<bool> {
         with_runtime(self.runtime, |runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.loading)
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.loading
+            })
         })
-        .expect("tried to call Resource::loading() in a runtime that has already been disposed.")
+        .expect(
+            "tried to call Resource::loading() in a runtime that has already \
+             been disposed.",
+        )
     }
 
     /// Re-runs the async function with the current source data.
     pub fn refetch(&self) {
         _ = with_runtime(self.runtime, |runtime| {
-            runtime.resource(self.id, |resource: &ResourceState<S, T>| resource.refetch())
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                resource.refetch()
+            })
         });
     }
 
@@ -413,7 +436,10 @@ where
                 resource.to_serialization_resolver(self.id)
             })
         })
-        .expect("tried to serialize a Resource in a runtime that has already been disposed")
+        .expect(
+            "tried to serialize a Resource in a runtime that has already been \
+             disposed",
+        )
         .await
     }
 }
@@ -673,8 +699,16 @@ where
                 let mut tx = tx.clone();
                 move |value| {
                     if let Some(value) = value.as_ref() {
-                        tx.try_send((id, value.to_json().expect("could not serialize Resource")))
-                            .expect("failed while trying to write to Resource serializer");
+                        tx.try_send((
+                            id,
+                            value
+                                .to_json()
+                                .expect("could not serialize Resource"),
+                        ))
+                        .expect(
+                            "failed while trying to write to Resource \
+                             serializer",
+                        );
                     }
                 }
             })

@@ -156,7 +156,12 @@ pub(crate) fn render_view(
                 }
             }
             1 => root_node_to_tokens_ssr(cx, &nodes[0], global_class),
-            _ => fragment_to_tokens_ssr(cx, Span::call_site(), nodes, global_class),
+            _ => fragment_to_tokens_ssr(
+                cx,
+                Span::call_site(),
+                nodes,
+                global_class,
+            ),
         }
     } else {
         match nodes.len() {
@@ -185,9 +190,12 @@ fn root_node_to_tokens_ssr(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     match node {
-        Node::Fragment(fragment) => {
-            fragment_to_tokens_ssr(cx, Span::call_site(), &fragment.children, global_class)
-        }
+        Node::Fragment(fragment) => fragment_to_tokens_ssr(
+            cx,
+            Span::call_site(),
+            &fragment.children,
+            global_class,
+        ),
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
         Node::Text(node) => {
             let value = node.value.as_ref();
@@ -202,7 +210,9 @@ fn root_node_to_tokens_ssr(
                 #value
             }
         }
-        Node::Element(node) => root_element_to_tokens_ssr(cx, node, global_class),
+        Node::Element(node) => {
+            root_element_to_tokens_ssr(cx, node, global_class)
+        }
     }
 }
 
@@ -267,8 +277,9 @@ fn root_element_to_tokens_ssr(
         let typed_element_name = if is_custom_element {
             Ident::new("Custom", node.name.span())
         } else {
-            let camel_cased =
-                camel_case_tag_name(&tag_name.replace("svg::", "").replace("math::", ""));
+            let camel_cased = camel_case_tag_name(
+                &tag_name.replace("svg::", "").replace("math::", ""),
+            );
             Ident::new(&camel_cased, node.name.span())
         };
         let typed_element_name = if is_svg_element(&tag_name) {
@@ -324,7 +335,13 @@ fn element_to_tokens_ssr(
 
         for attr in &node.attributes {
             if let Node::Attribute(attr) = attr {
-                inner_html = attribute_to_tokens_ssr(cx, attr, template, holes, exprs_for_compiler);
+                inner_html = attribute_to_tokens_ssr(
+                    cx,
+                    attr,
+                    template,
+                    holes,
+                    exprs_for_compiler,
+                );
             }
         }
 
@@ -376,7 +393,9 @@ fn element_to_tokens_ssr(
                         ),
                         Node::Text(text) => {
                             if let Some(value) = value_to_string(&text.value) {
-                                template.push_str(&html_escape::encode_safe(&value));
+                                template.push_str(&html_escape::encode_safe(
+                                    &value,
+                                ));
                             } else {
                                 template.push_str("{}");
                                 let value = text.value.as_ref();
@@ -439,7 +458,9 @@ fn attribute_to_tokens_ssr<'a>(
         exprs_for_compiler.push(quote! {
             leptos::ssr_event_listener(#event_type, #handler);
         })
-    } else if name.strip_prefix("prop:").is_some() || name.strip_prefix("class:").is_some() {
+    } else if name.strip_prefix("prop:").is_some()
+        || name.strip_prefix("class:").is_some()
+    {
         // ignore props for SSR
         // ignore classes: we'll handle these separately
     } else if name == "inner_html" {
@@ -538,7 +559,9 @@ fn set_class_attribute_ssr(
             if let Node::Attribute(node) = node {
                 let name = node.key.to_string();
                 if name == "class" {
-                    return if let Some((_, name, value)) = fancy_class_name(&name, cx, node) {
+                    return if let Some((_, name, value)) =
+                        fancy_class_name(&name, cx, node)
+                    {
                         let span = node.key.span();
                         Some((span, name, value))
                     } else {
@@ -667,7 +690,9 @@ fn node_to_tokens(
             quote! { #value }
         }
         Node::Attribute(node) => attribute_to_tokens(cx, node),
-        Node::Element(node) => element_to_tokens(cx, node, parent_type, global_class),
+        Node::Element(node) => {
+            element_to_tokens(cx, node, parent_type, global_class)
+        }
     }
 }
 
@@ -705,7 +730,9 @@ fn element_to_tokens(
                 }
                 TagType::Html => quote! { leptos::leptos_dom::#name(#cx) },
                 TagType::Svg => quote! { leptos::leptos_dom::svg::#name(#cx) },
-                TagType::Math => quote! { leptos::leptos_dom::math::#name(#cx) },
+                TagType::Math => {
+                    quote! { leptos::leptos_dom::math::#name(#cx) }
+                }
             }
         } else {
             let name = &node.name;
@@ -749,8 +776,12 @@ fn element_to_tokens(
                         #[allow(unused_braces)] #value
                     }
                 }
-                Node::Element(node) => element_to_tokens(cx, node, parent_type, global_class),
-                Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
+                Node::Element(node) => {
+                    element_to_tokens(cx, node, parent_type, global_class)
+                }
+                Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
+                    quote! {}
+                }
             };
             quote! {
                 .child((#cx, #child))
@@ -957,7 +988,8 @@ fn component_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("clone:") && !attr.key.to_string().starts_with("on:")
+            !attr.key.to_string().starts_with("clone:")
+                && !attr.key.to_string().starts_with("on:")
         })
         .map(|attr| {
             let name = &attr.key;
@@ -1051,7 +1083,8 @@ fn event_from_attribute_node(
     attr: &NodeAttribute,
     force_undelegated: bool,
 ) -> (TokenStream, &Expr) {
-    let event_name = attr.key.to_string().strip_prefix("on:").unwrap().to_owned();
+    let event_name =
+        attr.key.to_string().strip_prefix("on:").unwrap().to_owned();
 
     let handler = attr
         .value
@@ -1090,7 +1123,10 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
             .expect("element needs to have a name"),
         NodeName::Block(_) => {
             let span = tag_name.span();
-            proc_macro_error::emit_error!(span, "blocks not allowed in tag-name position");
+            proc_macro_error::emit_error!(
+                span,
+                "blocks not allowed in tag-name position"
+            );
             Ident::new("", span)
         }
         _ => Ident::new(
@@ -1291,7 +1327,8 @@ fn fancy_class_name<'a>(
                     };
                     let class_name = &tuple.elems[0];
                     let class_name = if let Expr::Lit(ExprLit {
-                        lit: Lit::Str(s), ..
+                        lit: Lit::Str(s),
+                        ..
                     }) = class_name
                     {
                         s.value()
