@@ -213,8 +213,8 @@ mod server;
 /// ```
 ///
 /// 9. You can add the same class to every element in the view by passing in a special
-///    `class = {/* ... */}` argument after `cx, `. This is useful for injecting a class
-///    providing by a scoped styling library.
+///    `class = {/* ... */},` argument after `cx, `. This is useful for injecting a class
+///    provided by a scoped styling library.
 /// ```rust
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
@@ -287,17 +287,20 @@ pub fn view(tokens: TokenStream) -> TokenStream {
             let second = tokens.next();
             let third = tokens.next();
             let fourth = tokens.next();
-            let global_class = match (&first, &second, &third, &fourth) {
-                (
-                    Some(TokenTree::Ident(first)),
-                    Some(TokenTree::Punct(eq)),
-                    Some(val),
-                    Some(TokenTree::Punct(comma)),
-                ) if *first == "class"
-                    && eq.to_string() == '='.to_string()
-                    && comma.to_string() == ','.to_string() =>
+            let global_class = match (&first, &second) {
+                (Some(TokenTree::Ident(first)), Some(TokenTree::Punct(eq)))
+                    if *first == "class" && eq.as_char() == '=' =>
                 {
-                    Some(val.clone())
+                    match &fourth {
+                        Some(TokenTree::Punct(comma)) if comma.as_char() == ',' => third.clone(),
+                        _ => {
+                            let error_msg = concat!(
+                                "To create a scope class with the view! macro you must put a comma `,` after the value.\n",
+                                "e.g., view!{cx, class=\"my-class\", <div>...</div>}"
+                            );
+                            panic!("{error_msg}")
+                        }
+                    }
                 }
                 _ => None,
             };
