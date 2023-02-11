@@ -9,15 +9,15 @@ use leptos::*;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Style>
-///         "body { font-weight: bold; }"
-///       </Style>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Style>
+///           "body { font-weight: bold; }"
+///         </Style>
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]
@@ -58,7 +58,9 @@ pub fn Style(
         for node in frag.nodes {
             match node {
                 View::Text(text) => style.push_str(&text.content),
-                _ => leptos::warn!("Only text nodes are supported as children of <Style/>."),
+                _ => leptos::warn!(
+                    "Only text nodes are supported as children of <Style/>."
+                ),
             }
         }
         builder_el.child(style)

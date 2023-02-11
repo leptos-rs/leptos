@@ -55,33 +55,33 @@ where
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
-///   let formatter = |text| format!("{text} — Leptos Online");
+///     provide_meta_context(cx);
+///     let formatter = |text| format!("{text} — Leptos Online");
 ///
-///   view! { cx,
-///     <main>
-///       <Title formatter/>
-///       // ... routing logic here
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Title formatter/>
+///         // ... routing logic here
+///       </main>
+///     }
 /// }
 ///
 /// #[component]
 /// fn PageA(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <main>
-///       <Title text="Page A"/> // sets title to "Page A — Leptos Online"
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Title text="Page A"/> // sets title to "Page A — Leptos Online"
+///       </main>
+///     }
 /// }
 ///
 /// #[component]
 /// fn PageB(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <main>
-///       <Title text="Page B"/> // sets title to "Page B — Leptos Online"
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Title text="Page B"/> // sets title to "Page B — Leptos Online"
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]

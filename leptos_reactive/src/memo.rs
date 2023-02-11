@@ -65,7 +65,10 @@ use std::fmt::Debug;
         )
     )
 )]
-pub fn create_memo<T>(cx: Scope, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
+pub fn create_memo<T>(
+    cx: Scope,
+    f: impl Fn(Option<&T>) -> T + 'static,
+) -> Memo<T>
 where
     T: PartialEq + 'static,
 {
@@ -270,9 +273,13 @@ where
             .with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
     }
 
-    pub(crate) fn try_with<U>(&self, f: impl Fn(&T) -> U) -> Result<U, SignalError> {
-        self.0
-            .try_with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
+    pub(crate) fn try_with<U>(
+        &self,
+        f: impl Fn(&T) -> U,
+    ) -> Result<U, SignalError> {
+        self.0.try_with(|n| {
+            f(n.as_ref().expect("Memo is missing its initial value"))
+        })
     }
 
     #[cfg(feature = "hydrate")]

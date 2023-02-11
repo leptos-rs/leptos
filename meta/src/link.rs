@@ -9,18 +9,18 @@ use leptos::*;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Link rel="preload"
-///         href="myFont.woff2"
-///         as_="font"
-///         type_="font/woff2"
-///         crossorigin="anonymous"
-///       />
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Link rel="preload"
+///           href="myFont.woff2"
+///           as_="font"
+///           type_="font/woff2"
+///           crossorigin="anonymous"
+///         />
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]

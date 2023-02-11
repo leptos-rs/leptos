@@ -1,22 +1,17 @@
-use cfg_if::cfg_if;
-use std::{cell::RefCell, rc::Rc};
-
-use leptos::*;
-use thiserror::Error;
-
-#[cfg(not(feature = "ssr"))]
-use wasm_bindgen::JsCast;
-
-#[cfg(feature = "transition")]
-use leptos_reactive::use_transition;
-
 use crate::{
-    create_location, matching::resolve_path, Branch, History, Location, LocationChange,
-    RouteContext, RouterIntegrationContext, State,
+    create_location, matching::resolve_path, Branch, History, Location,
+    LocationChange, RouteContext, RouterIntegrationContext, State,
 };
-
 #[cfg(not(feature = "ssr"))]
 use crate::{unescape, Url};
+use cfg_if::cfg_if;
+use leptos::*;
+#[cfg(feature = "transition")]
+use leptos_reactive::use_transition;
+use std::{cell::RefCell, rc::Rc};
+use thiserror::Error;
+#[cfg(not(feature = "ssr"))]
+use wasm_bindgen::JsCast;
 
 /// Provides for client-side and server-side routing. This should usually be somewhere near
 /// the root of the application.
@@ -120,10 +115,12 @@ impl RouterContext {
         }
 
         // the current URL
-        let (reference, set_reference) = create_signal(cx, source.with(|s| s.value.clone()));
+        let (reference, set_reference) =
+            create_signal(cx, source.with(|s| s.value.clone()));
 
         // the current History.state
-        let (state, set_state) = create_signal(cx, source.with(|s| s.state.clone()));
+        let (state, set_state) =
+            create_signal(cx, source.with(|s| s.state.clone()));
 
         // we'll use this transition to wait for async resources to load when navigating to a new route
         #[cfg(feature = "transition")]
@@ -131,7 +128,8 @@ impl RouterContext {
 
         // Each field of `location` reactively represents a different part of the current location
         let location = create_location(cx, reference, state);
-        let referrers: Rc<RefCell<Vec<LocationChange>>> = Rc::new(RefCell::new(Vec::new()));
+        let referrers: Rc<RefCell<Vec<LocationChange>>> =
+            Rc::new(RefCell::new(Vec::new()));
 
         // Create base route with fallback element
         let base_path = base_path.unwrap_or_default();
@@ -220,7 +218,9 @@ impl RouterContextInner {
                         return Err(NavigationError::MaxRedirects);
                     }
 
-                    if resolved_to != this.reference.get() || options.state != (this.state).get() {
+                    if resolved_to != this.reference.get()
+                        || options.state != (this.state).get()
+                    {
                         if cfg!(feature = "server") {
                             self.history.navigate(&LocationChange {
                                 value: resolved_to,
@@ -230,12 +230,14 @@ impl RouterContextInner {
                             });
                         } else {
                             {
-                                self.referrers.borrow_mut().push(LocationChange {
-                                    value: self.reference.get(),
-                                    replace: options.replace,
-                                    scroll: options.scroll,
-                                    state: self.state.get(),
-                                });
+                                self.referrers.borrow_mut().push(
+                                    LocationChange {
+                                        value: self.reference.get(),
+                                        replace: options.replace,
+                                        scroll: options.scroll,
+                                        state: self.state.get(),
+                                    },
+                                );
                             }
                             let len = self.referrers.borrow().len();
 
@@ -319,7 +321,9 @@ impl RouterContextInner {
             // let browser handle this event if link has target,
             // or if it doesn't have href or state
             // TODO "state" is set as a prop, not an attribute
-            if !target.is_empty() || (href.is_empty() && !a.has_attribute("state")) {
+            if !target.is_empty()
+                || (href.is_empty() && !a.has_attribute("state"))
+            {
                 return;
             }
 
@@ -347,15 +351,15 @@ impl RouterContextInner {
             }
 
             let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
-            let state = get_property(a.unchecked_ref(), "state")
-                .ok()
-                .and_then(|value| {
+            let state = get_property(a.unchecked_ref(), "state").ok().and_then(
+                |value| {
                     if value == wasm_bindgen::JsValue::UNDEFINED {
                         None
                     } else {
                         Some(value)
                     }
-                });
+                },
+            );
 
             ev.prevent_default();
 

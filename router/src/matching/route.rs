@@ -1,7 +1,5 @@
+use leptos::{leptos_dom::View, *};
 use std::rc::Rc;
-
-use leptos::leptos_dom::View;
-use leptos::*;
 
 /// Defines a single route in a nested route tree. This is the return
 /// type of the [`<Route/>`](crate::Route) component, but can also be

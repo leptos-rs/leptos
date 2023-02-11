@@ -1,6 +1,7 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    create_rw_signal, spawn_local, store_value, ReadSignal, RwSignal, Scope, StoredValue,
+    create_rw_signal, spawn_local, store_value, ReadSignal, RwSignal, Scope,
+    StoredValue,
 };
 use std::{future::Future, pin::Pin, rc::Rc};
 
@@ -46,15 +47,16 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// # run_scope(create_runtime(), |cx| {
 /// // if there's a single argument, just use that
 /// let action1 = create_multi_action(cx, |input: &String| {
-///   let input = input.clone();
-///   async move { todo!() }
+///     let input = input.clone();
+///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
 /// let action2 = create_multi_action(cx, |input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 = create_multi_action(cx, |input: &(usize, String)| async { todo!() });
+/// let action3 =
+///     create_multi_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 pub struct MultiAction<I, O>(StoredValue<MultiActionState<I, O>>)
@@ -269,18 +271,22 @@ where
 /// # run_scope(create_runtime(), |cx| {
 /// // if there's a single argument, just use that
 /// let action1 = create_multi_action(cx, |input: &String| {
-///   let input = input.clone();
-///   async move { todo!() }
+///     let input = input.clone();
+///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
 /// let action2 = create_multi_action(cx, |input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 = create_multi_action(cx, |input: &(usize, String)| async { todo!() });
+/// let action3 =
+///     create_multi_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
-pub fn create_multi_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> MultiAction<I, O>
+pub fn create_multi_action<I, O, F, Fu>(
+    cx: Scope,
+    action_fn: F,
+) -> MultiAction<I, O>
 where
     I: 'static,
     O: 'static,
@@ -313,14 +319,16 @@ where
 ///
 /// #[server(MyServerFn)]
 /// async fn my_server_fn() -> Result<(), ServerFnError> {
-///   todo!()
+///     todo!()
 /// }
 ///
 /// # run_scope(create_runtime(), |cx| {
 /// let my_server_multi_action = create_server_multi_action::<MyServerFn>(cx);
 /// # });
 /// ```
-pub fn create_server_multi_action<S>(cx: Scope) -> MultiAction<S, Result<S::Output, ServerFnError>>
+pub fn create_server_multi_action<S>(
+    cx: Scope,
+) -> MultiAction<S, Result<S::Output, ServerFnError>>
 where
     S: Clone + ServerFn,
 {
