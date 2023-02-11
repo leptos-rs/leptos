@@ -200,7 +200,7 @@ fn root_node_to_tokens_ssr(
         Node::Text(node) => {
             let value = node.value.as_ref();
             quote! {
-                leptos::text(#value)
+                leptos::leptos_dom::html::text(#value)
             }
         }
         Node::Block(node) => {
@@ -682,7 +682,7 @@ fn node_to_tokens(
         Node::Text(node) => {
             let value = node.value.as_ref();
             quote! {
-                leptos::text(#value)
+                leptos::leptos_dom::html::text(#value)
             }
         }
         Node::Block(node) => {

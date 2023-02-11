@@ -55,6 +55,7 @@ use std::{
     fmt::Debug,
     rc::Rc,
 };
+#[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 mod body;

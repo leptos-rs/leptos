@@ -35,8 +35,8 @@ pub fn server_macro_impl(
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = match encoding {
-        Encoding::Cbor => quote! { ::leptos::Encoding::Cbor },
-        Encoding::Url => quote! { ::leptos::Encoding::Url },
+        Encoding::Cbor => quote! { ::leptos::leptos_server::Encoding::Cbor },
+        Encoding::Url => quote! { ::leptos::leptos_server::Encoding::Url },
     };
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
@@ -166,7 +166,7 @@ pub fn server_macro_impl(
                 #url
             }
 
-            fn encoding() -> ::leptos::Encoding {
+            fn encoding() -> ::leptos::leptos_server::Encoding {
                 #encoding
             }
 
@@ -192,7 +192,7 @@ pub fn server_macro_impl(
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
-            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
+            ::leptos::leptos_server::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
         }
     })
 }

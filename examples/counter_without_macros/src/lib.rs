@@ -1,4 +1,4 @@
-use leptos::{ev, *};
+use leptos::{ev, html::*, *};
 
 pub struct Props {
     /// The starting value for the counter
@@ -25,7 +25,9 @@ pub fn view(cx: Scope, props: Props) -> impl IntoView {
         .child((
             cx,
             button(cx)
-                .on(ev::click, move |_| set_value.update(|value| *value -= step))
+                .on(ev::click, move |_| {
+                    set_value.update(|value| *value -= step)
+                })
                 .child((cx, "-1")),
         ))
         .child((
@@ -38,7 +40,9 @@ pub fn view(cx: Scope, props: Props) -> impl IntoView {
         .child((
             cx,
             button(cx)
-                .on(ev::click, move |_| set_value.update(|value| *value += step))
+                .on(ev::click, move |_| {
+                    set_value.update(|value| *value += step)
+                })
                 .child((cx, "+1")),
         ))
 }
