@@ -5,8 +5,9 @@
 
 //! The DOM implementation for `leptos`.
 
+#[doc(hidden)]
 #[cfg_attr(debug_assertions, macro_use)]
-extern crate tracing;
+pub extern crate tracing;
 
 mod components;
 mod events;

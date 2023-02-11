@@ -291,7 +291,7 @@ fn root_element_to_tokens_ssr(
         };
         let full_name = if is_custom_element {
             quote! {
-                leptos::leptos_dom::Custom::new(#tag_name)
+                leptos::leptos_dom::html::Custom::new(#tag_name)
             }
         } else {
             quote! {
@@ -347,9 +347,9 @@ fn element_to_tokens_ssr(
 
         // insert hydration ID
         let hydration_id = if is_root {
-            quote! { leptos::HydrationCtx::peek(), }
+            quote! { leptos::leptos_dom::HydrationCtx::peek(), }
         } else {
-            quote! { leptos::HydrationCtx::id(), }
+            quote! { leptos::leptos_dom::HydrationCtx::id(), }
         };
         match node
             .attributes
