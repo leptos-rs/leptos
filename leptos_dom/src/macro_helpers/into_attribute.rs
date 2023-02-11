@@ -103,7 +103,7 @@ impl std::fmt::Debug for Attribute {
 pub trait IntoAttribute {
     /// Converts the object into an [Attribute].
     fn into_attribute(self, cx: Scope) -> Attribute;
-    /// Helper function for dealing with [Box<dyn IntoAttribute>]
+    /// Helper function for dealing with `Box<dyn IntoAttribute>`.
     fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute;
 }
 
