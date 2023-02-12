@@ -686,7 +686,7 @@ enum MountKind<'a> {
     Append(&'a web_sys::Node),
 }
 
-/// Runs the provided closure and mounts the result to eht `<body>`.
+/// Runs the provided closure and mounts the result to the `<body>`.
 pub fn mount_to_body<F, N>(f: F)
 where
     F: FnOnce(Scope) -> N + 'static,

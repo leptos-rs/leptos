@@ -659,9 +659,7 @@ pub fn params_derive(
 }
 
 pub(crate) fn is_component_node(node: &NodeElement) -> bool {
-    let name = node.name.to_string();
-    let first_char = name.chars().next();
-    first_char
-        .map(|first_char| first_char.is_ascii_uppercase())
-        .unwrap_or(false)
+    node.name
+        .to_string()
+        .starts_with(|c: char| c.is_ascii_uppercase())
 }
