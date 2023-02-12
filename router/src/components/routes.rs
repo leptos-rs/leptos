@@ -5,7 +5,7 @@ use crate::{
     },
     RouteContext, RouterContext,
 };
-use leptos::*;
+use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
     cell::{Cell, RefCell},
     cmp::Reverse,
@@ -203,8 +203,7 @@ pub fn Routes(
         })
     });
 
-    //HydrationCtx::continue_from(id_before);
-    leptos::DynChild::new_with_id(id, move || root.get())
+    leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
 }
 
 #[derive(Clone, Debug, PartialEq)]

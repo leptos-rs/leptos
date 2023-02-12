@@ -1,8 +1,8 @@
-//! SVG elements.
+//! Exports types for working with SVG elements.
 
-use super::{ElementDescriptor, HtmlElement};
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-use super::{HydrationKey, HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
+use super::{html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG, HydrationKey};
+use super::{ElementDescriptor, HtmlElement};
 use crate::HydrationCtx;
 use leptos_reactive::Scope;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]

@@ -178,7 +178,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                ::leptos::Component::new(
+                ::leptos::leptos_dom::Component::new(
                     stringify!(#name),
                     move |cx| {
                         #tracing_guard_expr

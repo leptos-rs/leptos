@@ -25,6 +25,7 @@ leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 simple_logger = "4.0.0"
 gloo-net = { git = "https://github.com/rustwasm/gloo" }
+wasm-bindgen = "0.2"
 
 [features]
 default = []

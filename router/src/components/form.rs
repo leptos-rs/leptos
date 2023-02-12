@@ -1,7 +1,7 @@
 use crate::{use_navigate, use_resolved_path, ToHref};
 use leptos::*;
 use std::{error::Error, rc::Rc};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 
 type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
@@ -58,7 +58,7 @@ where
         on_response: Option<OnResponse>,
         class: Option<Attribute>,
         children: Children,
-    ) -> HtmlElement<Form> {
+    ) -> HtmlElement<html::Form> {
         let action_version = version;
         let on_submit = move |ev: web_sys::SubmitEvent| {
             if ev.default_prevented() {

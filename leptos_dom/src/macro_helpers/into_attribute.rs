@@ -6,7 +6,8 @@ use wasm_bindgen::UnwrapThrowExt;
 /// Represents the different possible values an attribute node could have.
 ///
 /// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
-/// macro’s use. You usually won't need to interact with it directly.
+/// macro’s use. You usually won't need to interact with it directly, but it can be useful for defining
+/// permissive APIs for certain components.
 #[derive(Clone)]
 pub enum Attribute {
     /// A plain string value.
@@ -103,7 +104,7 @@ impl std::fmt::Debug for Attribute {
 pub trait IntoAttribute {
     /// Converts the object into an [Attribute].
     fn into_attribute(self, cx: Scope) -> Attribute;
-    /// Helper function for dealing with [Box<dyn IntoAttribute>]
+    /// Helper function for dealing with `Box<dyn IntoAttribute>`.
     fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute;
 }
 
