@@ -443,7 +443,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     let waker = Rc::new(RefCell::new(None::<Waker>));
                     let ready = Rc::new(OnceCell::new());
 
-                    crate::request_animation_frame({
+                    crate::helpers::request_animation_frame({
                         let waker = waker.clone();
                         let ready = ready.clone();
 
