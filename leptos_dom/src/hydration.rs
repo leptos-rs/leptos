@@ -110,7 +110,7 @@ impl HydrationCtx {
         ID.with(|id| *id.borrow_mut() = Default::default());
     }
 
-    /// Resums hydration from the provided `id`. Usefull for
+    /// Resumes hydration from the provided `id`. Useful for
     /// `Suspense` and other fancy things.
     pub fn continue_from(id: HydrationKey) {
         ID.with(|i| *i.borrow_mut() = id);
