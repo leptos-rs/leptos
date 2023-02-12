@@ -2,7 +2,7 @@ use crate::{html::ElementDescriptor, HtmlElement};
 use leptos_reactive::{create_effect, create_rw_signal, RwSignal, Scope};
 use std::cell::Cell;
 
-/// Contains a shared reference to a DOM node creating while using the `view`
+/// Contains a shared reference to a DOM node created while using the `view`
 /// macro to create your UI.
 ///
 /// ```
@@ -12,7 +12,7 @@ use std::cell::Cell;
 ///
 /// #[component]
 /// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///     let input_ref = NodeRef::<Input>::new(cx);
+///     let input_ref = create_node_ref::<Input>(cx);
 ///
 ///     let on_click = move |_| {
 ///         let node =
@@ -37,8 +37,46 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
     RwSignal<Option<HtmlElement<T>>>,
 );
 
+/// Creates a shared reference to a DOM node created while using the `view`
+/// macro to create your UI.
+///
+/// ```
+/// # use leptos::*;
+///
+/// use leptos::html::Input;
+///
+/// #[component]
+/// pub fn MyComponent(cx: Scope) -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>(cx);
+///
+///     let on_click = move |_| {
+///         let node =
+///             input_ref.get().expect("input_ref should be loaded by now");
+///         // `node` is strongly typed
+///         // it is dereferenced to an `HtmlInputElement` automatically
+///         log!("value is {:?}", node.value())
+///     };
+///
+///     view! {
+///       cx,
+///       <div>
+///       // `node_ref` loads the input
+///       <input _ref=input_ref type="text"/>
+///       // the button consumes it
+///       <button on:click=on_click>"Click me"</button>
+///       </div>
+///     }
+/// }
+/// ```
+pub fn create_node_ref<T: ElementDescriptor + 'static>(
+    cx: Scope,
+) -> NodeRef<T> {
+    NodeRef(create_rw_signal(cx, None))
+}
+
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
     /// Creates an empty reference.
+    #[deprecated = "Use `create_node_ref` instead of `NodeRef::new()`."]
     pub fn new(cx: Scope) -> Self {
         Self(create_rw_signal(cx, None))
     }
