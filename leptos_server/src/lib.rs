@@ -78,7 +78,6 @@
 //!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
 //!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 
-pub use form_urlencoded;
 use leptos_reactive::*;
 use proc_macro2::{Literal, TokenStream};
 use quote::TokenStreamExt;
@@ -384,7 +383,7 @@ where
     T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
     use ciborium::ser::into_writer;
-    use leptos_dom::js_sys::Uint8Array;
+    use js_sys::Uint8Array;
     use serde_json::Deserializer as JSONDeserializer;
 
     #[derive(Debug)]

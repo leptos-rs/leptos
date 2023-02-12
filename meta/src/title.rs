@@ -2,6 +2,8 @@ use crate::{use_head, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 /// Contains the current state of the document's `<title>`.
 #[derive(Clone, Default)]

@@ -7,7 +7,8 @@ use wasm_bindgen::UnwrapThrowExt;
 /// allowing you to do fine-grained updates to single fields.
 ///
 /// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
-/// macro’s use. You usually won't need to interact with it directly.
+/// macro’s use. You usually won't need to interact with it directly, but it can be useful for defining
+/// permissive APIs for certain components.
 pub enum Property {
     /// A static JavaScript value.
     Value(JsValue),

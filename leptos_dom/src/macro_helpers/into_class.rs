@@ -7,7 +7,8 @@ use wasm_bindgen::UnwrapThrowExt;
 /// in [`Element.classList`](https://developer.mozilla.org/en-US/docs/Web/API/Element/classList).
 ///
 /// This mostly exists for the [`view`](https://docs.rs/leptos_macro/latest/leptos_macro/macro.view.html)
-/// macro’s use. You usually won't need to interact with it directly.
+/// macro’s use. You usually won't need to interact with it directly, but it can be useful for defining
+/// permissive APIs for certain components.
 pub enum Class {
     /// Whether the class is present.
     Value(bool),

@@ -194,16 +194,16 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
         use futures::StreamExt;
 
         let mut source = gloo_net::eventsource::futures::EventSource::new("/api/events")
-            .expect_throw("couldn't connect to SSE stream");
+            .expect("couldn't connect to SSE stream");
         let s = create_signal_from_stream(
             cx,
             source.subscribe("message").unwrap().map(|value| {
                 value
-                    .expect_throw("no message event")
+                    .expect("no message event")
                     .1
                     .data()
                     .as_string()
-                    .expect_throw("expected string value")
+                    .expect("expected string value")
             }),
         );
 

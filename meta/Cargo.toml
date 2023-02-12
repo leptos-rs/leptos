@@ -12,6 +12,7 @@ cfg-if = "1"
 leptos = { workspace = true }
 tracing = "0.1"
 typed-builder = "0.12"
+wasm-bindgen = "0.2"
 
 [dependencies.web-sys]
 version = "0.3"
