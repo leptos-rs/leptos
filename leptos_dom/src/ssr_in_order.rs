@@ -9,19 +9,62 @@ use leptos_reactive::{
 };
 use std::borrow::Cow;
 
+/// Renders a view to HTML, waiting to return until all `async` [Resource](leptos_reactive::Resource)s
+/// loaded in `<Suspense/>` elements have finished loading.
+pub async fn render_to_string_async(
+    view: impl FnOnce(Scope) -> View + 'static,
+) -> String {
+    let mut buf = String::new();
+    let mut stream = Box::pin(render_to_stream_in_order(view));
+    while let Some(chunk) = stream.next().await {
+        buf.push_str(&chunk);
+    }
+    buf
+}
+
+/// Renders an in-order HTML stream, pausing at `<Suspense/>` components. The stream contains,
+/// in order:
+/// 1. HTML from the `view` in order, pausing to wait for each `<Suspense/>`
+/// 2. any serialized [Resource](leptos_reactive::Resource)s
+pub fn render_to_stream_in_order(
+    view: impl FnOnce(Scope) -> View + 'static,
+) -> impl Stream<Item = String> {
+    render_to_stream_in_order_with_prefix(view, |_| "".into())
+}
+
 /// Renders an in-order HTML stream, pausing at `<Suspense/>` components. The stream contains,
 /// in order:
 /// 1. `prefix`
 /// 2. HTML from the `view` in order, pausing to wait for each `<Suspense/>`
 /// 3. any serialized [Resource](leptos_reactive::Resource)s
-/// 4. `suffix`.
 ///
-/// `additional_context` is injected before the `view` is rendered. The `prefix` and `suffix`
-/// are generated after the `view` is rendered.
-pub fn render_to_stream_in_order_undisposed_with_prefix_and_suffix_and_context(
+/// `additional_context` is injected before the `view` is rendered. The `prefix` is generated
+/// after the `view` is rendered, but before `<Suspense/>` nodes have resolved.
+pub fn render_to_stream_in_order_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
-    suffix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+) -> impl Stream<Item = String> {
+    let (stream, runtime, _) =
+        render_to_stream_in_order_with_prefix_undisposed_with_context(
+            view,
+            prefix,
+            |_| {},
+        );
+    runtime.dispose();
+    stream
+}
+
+/// Renders an in-order HTML stream, pausing at `<Suspense/>` components. The stream contains,
+/// in order:
+/// 1. `prefix`
+/// 2. HTML from the `view` in order, pausing to wait for each `<Suspense/>`
+/// 3. any serialized [Resource](leptos_reactive::Resource)s
+///
+/// `additional_context` is injected before the `view` is rendered. The `prefix` is generated
+/// after the `view` is rendered, but before `<Suspense/>` nodes have resolved.
+pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
+    view: impl FnOnce(Scope) -> View + 'static,
+    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
     additional_context: impl FnOnce(Scope) + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
     HydrationCtx::reset_id();
@@ -29,7 +72,7 @@ pub fn render_to_stream_in_order_undisposed_with_prefix_and_suffix_and_context(
     // create the runtime
     let runtime = create_runtime();
 
-    let ((chunks, prefix, suffix, pending_resources, serializers), scope_id, _) =
+    let ((chunks, prefix, pending_resources, serializers), scope_id, _) =
         run_scope_undisposed(runtime, |cx| {
             // add additional context
             additional_context(cx);
@@ -38,11 +81,9 @@ pub fn render_to_stream_in_order_undisposed_with_prefix_and_suffix_and_context(
             let view = view(cx);
 
             let prefix = prefix(cx);
-            let suffix = suffix(cx);
             (
                 view.into_stream_chunks(cx),
                 prefix,
-                suffix,
                 serde_json::to_string(&cx.pending_resources()).unwrap(),
                 cx.serialization_resolvers(),
             )
@@ -66,8 +107,7 @@ pub fn render_to_stream_in_order_undisposed_with_prefix_and_suffix_and_context(
         )
     })
     .chain(rx)
-    .chain(render_serializers(serializers))
-    .chain(futures::stream::once(async move { suffix.into() }));
+    .chain(render_serializers(serializers));
 
     (stream, runtime, scope_id)
 }

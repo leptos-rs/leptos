@@ -1,4 +1,5 @@
 use leptos::*;
+use leptos_meta::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
@@ -20,18 +21,13 @@ pub fn App(cx: Scope) -> impl IntoView {
             <h1>"Hello, world!"</h1>
             <p>"Some text"</p>
             <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
-                {move || one_second.read().map(|_| view! { cx, <p>
-                    "Should load after one second."
-                    </p>
-                    <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
-                        {move || three_seconds.read().map(|_| view! { cx,
-                            <p>"Should load after two seconds."</p>
-                            <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
-                    })}
-                    </Suspense>
+                {move || one_second.read().map(|_| view! { cx,
+                    <Meta name="title" content="Only works in async..."/>
+                    <p>"Should load after one second."</p>
+                    <button on:click=move |_| set_count.update(|n| *n += 1)>{count}</button>
                 })}
             </Suspense>
-            <p>"Should load along with the suspended content."</p>
+            <p>"This either loads a) after the suspense (if in-order), b) before the suspense (if out-of-order), or c) with all the content (if async)"</p>
         </main>
     }
 }

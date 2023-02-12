@@ -269,7 +269,9 @@ pub fn handle_server_fns_with_context(
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
-/// to route it using [leptos_router], serving an HTML stream of your application.
+/// to route it using [leptos_router], serving an HTML stream of your application. The stream
+/// will include fallback content for any `<Suspense/>` nodes, and be immediately interactive,
+/// but requires some client-side JavaScript.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
@@ -331,6 +333,133 @@ where
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an in-order HTML stream of your application.
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// sending down its HTML. The app will become interactive once it has fully loaded.
+///
+/// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
+/// rendering it, and includes any meta tags injected using [leptos_meta].
+///
+/// The HTML stream is rendered using [render_to_stream_in_order], and includes everything described in
+/// the documentation for that function.
+///
+/// This can then be set up at an appropriate route in your application:
+/// ```
+/// use actix_web::{App, HttpServer};
+/// use leptos::*;
+/// use std::{env, net::SocketAddr};
+///
+/// #[component]
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///     view! { cx, <main>"Hello, world!"</main> }
+/// }
+///
+/// # if false { // don't actually try to run a server in a doctest...
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let addr = conf.leptos_options.site_addr.clone();
+///     HttpServer::new(move || {
+///         let leptos_options = &conf.leptos_options;
+///
+///         App::new()
+///             // {tail:.*} passes the remainder of the URL as the route
+///             // the actual routing will be handled by `leptos_router`
+///             .route(
+///                 "/{tail:.*}",
+///                 leptos_actix::render_app_to_stream_in_order(
+///                     leptos_options.to_owned(),
+///                     |cx| view! { cx, <MyApp/> },
+///                 ),
+///             )
+///     })
+///     .bind(&addr)?
+///     .run()
+///     .await
+/// }
+/// # }
+/// ```
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+pub fn render_app_to_stream_in_order<IV>(
+    options: LeptosOptions,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where
+    IV: IntoView,
+{
+    render_app_to_stream_in_order_with_context(options, |_cx| {}, app_fn)
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], asynchronously rendering an HTML page after all
+/// `async` [Resource](leptos::Resource)s have loaded.
+///
+/// The provides a [MetaContext] and a [RouterIntegrationContext] to the app’s context before
+/// rendering it, and includes any meta tags injected using [leptos_meta].
+///
+/// The HTML stream is rendered using [render_to_string_async], and includes everything described in
+/// the documentation for that function.
+///
+/// This can then be set up at an appropriate route in your application:
+/// ```
+/// use actix_web::{App, HttpServer};
+/// use leptos::*;
+/// use std::{env, net::SocketAddr};
+///
+/// #[component]
+/// fn MyApp(cx: Scope) -> impl IntoView {
+///     view! { cx, <main>"Hello, world!"</main> }
+/// }
+///
+/// # if false { // don't actually try to run a server in a doctest...
+/// #[actix_web::main]
+/// async fn main() -> std::io::Result<()> {
+///     let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
+///     let addr = conf.leptos_options.site_addr.clone();
+///     HttpServer::new(move || {
+///         let leptos_options = &conf.leptos_options;
+///
+///         App::new()
+///             // {tail:.*} passes the remainder of the URL as the route
+///             // the actual routing will be handled by `leptos_router`
+///             .route(
+///                 "/{tail:.*}",
+///                 leptos_actix::render_app_async(
+///                     leptos_options.to_owned(),
+///                     |cx| view! { cx, <MyApp/> },
+///                 ),
+///             )
+///     })
+///     .bind(&addr)?
+///     .run()
+///     .await
+/// }
+/// # }
+/// ```
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+pub fn render_app_async<IV>(
+    options: LeptosOptions,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where
+    IV: IntoView,
+{
+    render_app_async_with_context(options, |_cx| {}, app_fn)
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
 ///
 /// This function allows you to provide additional information to Leptos for your route.
@@ -367,6 +496,96 @@ where
             };
 
             stream_app(&options, app, res_options, additional_context).await
+        }
+    })
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an in-order HTML stream of your application.
+///
+/// This function allows you to provide additional information to Leptos for your route.
+/// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+pub fn render_app_to_stream_in_order_with_context<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where
+    IV: IntoView,
+{
+    web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
+        let app_fn = app_fn.clone();
+        let additional_context = additional_context.clone();
+        let res_options = ResponseOptions::default();
+
+        async move {
+            let app = {
+                let app_fn = app_fn.clone();
+                let res_options = res_options.clone();
+                move |cx| {
+                    provide_contexts(cx, &req, res_options);
+                    (app_fn)(cx).into_view(cx)
+                }
+            };
+
+            stream_app_in_order(&options, app, res_options, additional_context)
+                .await
+        }
+    })
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], asynchronously serving the page once all `async`
+/// [Resource](leptos::Resource)s have loaded.
+///
+/// This function allows you to provide additional information to Leptos for your route.
+/// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+pub fn render_app_async_with_context<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+) -> Route
+where
+    IV: IntoView,
+{
+    web::get().to(move |req: HttpRequest| {
+        let options = options.clone();
+        let app_fn = app_fn.clone();
+        let additional_context = additional_context.clone();
+        let res_options = ResponseOptions::default();
+
+        async move {
+            let app = {
+                let app_fn = app_fn.clone();
+                let res_options = res_options.clone();
+                move |cx| {
+                    provide_contexts(cx, &req, res_options);
+                    (app_fn)(cx).into_view(cx)
+                }
+            };
+
+            render_app_async_helper(
+                &options,
+                app,
+                res_options,
+                additional_context,
+            )
+            .await
         }
     })
 }
@@ -429,6 +648,9 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[deprecated = "You can now use `render_app_async` with `create_resource` and \
+                `<Suspense/>` to achieve async rendering without manually \
+                preloading data."]
 pub fn render_preloaded_data_app<Data, Fut, IV>(
     options: LeptosOptions,
     data_fn: impl Fn(HttpRequest) -> Fut + Clone + 'static,
@@ -545,6 +767,131 @@ async fn stream_app(
     let mut res = HttpResponse::Ok()
         .content_type("text/html")
         .streaming(complete_stream);
+    // Add headers manipulated in the response
+    for (key, value) in headers.drain() {
+        if let Some(key) = key {
+            res.headers_mut().append(key, value);
+        }
+    }
+    // Set status to what is returned in the function
+    let res_status = res.status_mut();
+    *res_status = status;
+    // Return the response
+    res
+}
+
+async fn stream_app_in_order(
+    options: &LeptosOptions,
+    app: impl FnOnce(leptos::Scope) -> View + 'static,
+    res_options: ResponseOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+) -> HttpResponse<BoxBody> {
+    let (stream, runtime, scope) =
+        render_to_stream_in_order_with_prefix_undisposed_with_context(
+            app,
+            move |cx| {
+                let meta = use_context::<MetaContext>(cx);
+                let head = meta
+                    .as_ref()
+                    .map(|meta| meta.dehydrate())
+                    .unwrap_or_default();
+                let body_meta = meta
+                    .as_ref()
+                    .and_then(|meta| meta.body.as_string())
+                    .unwrap_or_default();
+                format!("{head}</head><body{body_meta}>").into()
+            },
+            additional_context,
+        );
+
+    let cx = leptos::Scope { runtime, id: scope };
+    let (head, tail) =
+        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+
+    let mut stream = Box::pin(
+        futures::stream::once(async move { head.clone() })
+            .chain(stream)
+            .chain(futures::stream::once(async move {
+                runtime.dispose();
+                tail.to_string()
+            }))
+            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
+    );
+
+    // Get the first and second in the stream, which renders the app shell, and thus allows Resources to run
+    let first_chunk = stream.next().await;
+    let second_chunk = stream.next().await;
+
+    let res_options = res_options.0.read();
+
+    let (status, mut headers) =
+        (res_options.status, res_options.headers.clone());
+    let status = status.unwrap_or_default();
+
+    let complete_stream =
+        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+            .chain(stream);
+    let mut res = HttpResponse::Ok()
+        .content_type("text/html")
+        .streaming(complete_stream);
+    // Add headers manipulated in the response
+    for (key, value) in headers.drain() {
+        if let Some(key) = key {
+            res.headers_mut().append(key, value);
+        }
+    }
+    // Set status to what is returned in the function
+    let res_status = res.status_mut();
+    *res_status = status;
+    // Return the response
+    res
+}
+
+async fn render_app_async_helper(
+    options: &LeptosOptions,
+    app: impl FnOnce(leptos::Scope) -> View + 'static,
+    res_options: ResponseOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+) -> HttpResponse<BoxBody> {
+    let (stream, runtime, scope) =
+        render_to_stream_in_order_with_prefix_undisposed_with_context(
+            app,
+            move |_| "".into(),
+            additional_context,
+        );
+    let mut buf = String::new();
+    let mut stream = Box::pin(stream);
+    while let Some(chunk) = stream.next().await {
+        buf.push_str(&chunk);
+    }
+
+    let cx = leptos::Scope { runtime, id: scope };
+    let (head, tail) =
+        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+
+    // in async, we load the meta content *now*, after the suspenses have resolved
+    let meta = use_context::<MetaContext>(cx);
+    let head_meta = meta
+        .as_ref()
+        .map(|meta| meta.dehydrate())
+        .unwrap_or_default();
+    let body_meta = meta
+        .as_ref()
+        .and_then(|meta| meta.body.as_string())
+        .unwrap_or_default();
+
+    runtime.dispose();
+
+    let html = format!("{head}{head_meta}</head><body{body_meta}>{buf}{tail}");
+
+    let res_options = res_options.0.read();
+
+    let (status, mut headers) =
+        (res_options.status, res_options.headers.clone());
+    let status = status.unwrap_or_default();
+
+    let mut res = HttpResponse::Ok().content_type("text/html").body(html);
+
     // Add headers manipulated in the response
     for (key, value) in headers.drain() {
         if let Some(key) = key {
@@ -680,6 +1027,27 @@ pub trait LeptosRoutes {
     where
         IV: IntoView + 'static;
 
+    fn leptos_in_order_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+
+    fn leptos_async_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+
+    #[deprecated = "You can now use `leptos_async_routes` with \
+                    `create_resource` and `<Suspense/>` to achieve async \
+                    rendering without manually preloading data."]
     fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
         options: LeptosOptions,
@@ -733,6 +1101,42 @@ where
         router
     }
 
+    fn leptos_in_order_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router.route(
+                path,
+                render_app_to_stream_in_order(options.clone(), app_fn.clone()),
+            );
+        }
+        router
+    }
+
+    fn leptos_async_routes<IV>(
+        self,
+        options: LeptosOptions,
+        paths: Vec<String>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for path in paths.iter() {
+            router = router
+                .route(path, render_app_async(options.clone(), app_fn.clone()));
+        }
+        router
+    }
+
     fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
         options: LeptosOptions,
@@ -750,6 +1154,7 @@ where
         for path in paths.iter() {
             router = router.route(
                 path,
+                #[allow(deprecated)]
                 render_preloaded_data_app(
                     options.clone(),
                     data_fn.clone(),
