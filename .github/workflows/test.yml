@@ -30,6 +30,9 @@ jobs:
           override: true
           components: rustfmt
 
+      - name: Add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Setup cargo-make
         uses: davidB/rust-cargo-make@v1
 
@@ -43,4 +46,3 @@ jobs:
 
       - name: Run tests with all features
         run: cargo make ci
-
