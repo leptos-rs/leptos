@@ -94,13 +94,14 @@ impl ResponseOptions {
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(cx: leptos::Scope, path: &str) {
-    let response_options = use_context::<ResponseOptions>(cx).unwrap();
-    response_options.set_status(StatusCode::FOUND);
-    response_options.insert_header(
-        header::LOCATION,
-        header::HeaderValue::from_str(path)
-            .expect("Failed to create HeaderValue"),
-    );
+    if let Some(response_options) = use_context::<ResponseOptions>(cx) {
+        response_options.set_status(StatusCode::FOUND);
+        response_options.insert_header(
+            header::LOCATION,
+            header::HeaderValue::from_str(path)
+                .expect("Failed to create HeaderValue"),
+        );
+    }
 }
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
