@@ -45,7 +45,7 @@ where
                             on_cleanup(cx, move || {
                               queue_microtask(move || {
                                 errors.update(|errors: &mut Errors| {
-                                  errors.remove::<E>(&id);
+                                  errors.remove(&id);
                                 });
                               });
                             });
