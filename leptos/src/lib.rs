@@ -146,7 +146,10 @@ pub use leptos_config::{self, get_configuration, LeptosOptions};
     target_arch = "wasm32",
     any(feature = "csr", feature = "hydrate")
 )))]
-pub use leptos_dom::ssr::{self, render_to_string};
+/// Utilities for server-side rendering HTML.
+pub mod ssr {
+    pub use leptos_dom::{ssr::*, ssr_in_order::*};
+}
 pub use leptos_dom::{
     self, create_node_ref, debug_warn, document, error, ev,
     helpers::{

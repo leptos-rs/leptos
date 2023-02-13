@@ -791,7 +791,7 @@ async fn stream_app_in_order(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> HttpResponse<BoxBody> {
     let (stream, runtime, scope) =
-        render_to_stream_in_order_with_prefix_undisposed_with_context(
+        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
             app,
             move |cx| {
                 let meta = use_context::<MetaContext>(cx);
@@ -858,7 +858,7 @@ async fn render_app_async_helper(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> HttpResponse<BoxBody> {
     let (stream, runtime, scope) =
-        render_to_stream_in_order_with_prefix_undisposed_with_context(
+        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
             app,
             move |_| "".into(),
             additional_context,

@@ -21,6 +21,7 @@ use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
+    ssr::*,
     *,
 };
 use leptos_meta::MetaContext;
@@ -741,7 +742,7 @@ where
                                             };
 
                                             let (bundle, runtime, scope) =
-                                                render_to_stream_in_order_with_prefix_undisposed_with_context(
+                                                leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
                                                     |cx| {
                                                         let meta = use_context::<MetaContext>(cx);
@@ -941,7 +942,7 @@ where
 
                 let full_path = format!("http://leptos.dev{path}");
 
-                let (mut tx, rx) = futures::channel::oneshot::channel();
+                let (tx, rx) = futures::channel::oneshot::channel();
 
                 spawn_blocking({
                     let app_fn = app_fn.clone();
