@@ -209,7 +209,6 @@ pub trait SignalUpdateUntracked<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
     /// the value the closure returned.
-    #[track_caller]
     #[deprecated = "Please use `try_update_untracked` instead. This method will \
                   be removed in a future version of `leptos`"]
     fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
@@ -230,6 +229,7 @@ pub trait SignalStream<T> {
     // We're returning an opaque type until impl trait in trait
     // positions are stabilized, and also so any underlying
     // changes are non-breaking
+    #[track_caller]
     fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
