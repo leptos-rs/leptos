@@ -142,6 +142,11 @@
 //! ```
 
 pub use leptos_config::{self, get_configuration, LeptosOptions};
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "csr", feature = "hydrate")
+)))]
+pub use leptos_dom::ssr::{self, render_to_string};
 pub use leptos_dom::{
     self, create_node_ref, debug_warn, document, error, ev,
     helpers::{
@@ -149,10 +154,9 @@ pub use leptos_dom::{
         request_animation_frame, request_idle_callback, set_interval,
         set_timeout, window_event_listener,
     },
-    html, log, math, mount_to, mount_to_body,
-    ssr::{self, render_to_string},
-    svg, warn, window, Attribute, Class, Errors, Fragment, HtmlElement,
-    IntoAttribute, IntoClass, IntoProperty, IntoView, NodeRef, Property, View,
+    html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
+    Class, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
+    IntoProperty, IntoView, NodeRef, Property, View,
 };
 pub use leptos_macro::*;
 pub use leptos_reactive::*;
