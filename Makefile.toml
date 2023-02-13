@@ -20,9 +20,8 @@ args = ["+nightly", "build-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.build-wasm]
-command = "cargo"
-args = ["+nightly", "build-all-features", "--target=wasm32-unknown-unknown"]
-install_crate = "cargo-all-features"
+clear = true
+dependencies = [{ name = "build-wasm", path = "leptos" }]
 
 [tasks.check-examples]
 clear = true
