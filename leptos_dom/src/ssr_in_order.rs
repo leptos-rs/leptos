@@ -1,4 +1,8 @@
-use crate::{render_serializers, CoreComponent, HydrationCtx, View};
+#![cfg(not(all(target_arch = "wasm32", feature = "web")))]
+
+//! Server-side HTML rendering utilities for in-order streaming and async rendering.
+
+use crate::{ssr::render_serializers, CoreComponent, HydrationCtx, View};
 use async_recursion::async_recursion;
 use cfg_if::cfg_if;
 use futures::{channel::mpsc::Sender, Stream, StreamExt};
@@ -156,7 +160,7 @@ impl View {
             View::Component(node) => {
                 cfg_if! {
                   if #[cfg(debug_assertions)] {
-                    let name = crate::to_kebab_case(&node.name);
+                    let name = crate::ssr::to_kebab_case(&node.name);
                     chunks.push(StreamChunk::Sync(format!(r#"<!--hk={}|leptos-{name}-start-->"#, HydrationCtx::to_string(&node.id, false)).into()));
                     for child in node.children {
                         child.into_stream_chunks_helper(cx, chunks);

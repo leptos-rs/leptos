@@ -20,7 +20,6 @@ pub mod math;
 mod node_ref;
 pub mod ssr;
 pub mod ssr_in_order;
-pub mod ssr;
 pub mod svg;
 mod transparent;
 use cfg_if::cfg_if;
