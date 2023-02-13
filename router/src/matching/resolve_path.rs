@@ -74,7 +74,7 @@ pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
 
 const TRIM_PATH: &str = r#"^/+|/+$"#;
 const BEGINS_WITH_QUERY_OR_HASH: &str = r#"^[?#]"#;
-const HAS_SCHEME: &str = r#"^(?:[a-z0-9]+:)?//"#;
+const HAS_SCHEME: &str = r#"^[a-z0-9+.-]+:"#;
 const QUERY: &str = r#"/*(\*.*)?$"#;
 
 #[cfg(not(feature = "ssr"))]
