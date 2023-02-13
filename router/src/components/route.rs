@@ -2,7 +2,7 @@ use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
     ParamsMap, RouterContext,
 };
-use leptos::*;
+use leptos::{leptos_dom::Transparent, *};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,

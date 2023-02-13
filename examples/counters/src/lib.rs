@@ -1,5 +1,4 @@
-use leptos::*;
-use leptos::{For, ForProps};
+use leptos::{For, ForProps, *};
 
 const MANY_COUNTERS: usize = 1000;
 
@@ -84,9 +83,11 @@ fn Counter(
     value: ReadSignal<i32>,
     set_value: WriteSignal<i32>,
 ) -> impl IntoView {
-    let CounterUpdater { set_counters } = use_context(cx).unwrap_throw();
+    let CounterUpdater { set_counters } = use_context(cx).unwrap();
 
-    let input = move |ev| set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default());
+    let input = move |ev| {
+        set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default())
+    };
 
     // just an example of how a cleanup function works
     // this will run when the scope is disposed, i.e., when this row is deleted

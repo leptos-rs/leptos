@@ -373,7 +373,7 @@ where
 /// Calling [WriteSignal::update] will mutate the signal’s value in place,
 /// and notify all subscribers that the signal’s value has changed.
 ///
-/// `ReadSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
+/// `WriteSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
 /// `set_value.update(|value| *value = new_value)`.
 ///
 /// `WriteSignal` is [Copy] and `'static`, so it can very easily moved into closures

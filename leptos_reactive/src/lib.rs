@@ -67,7 +67,7 @@
 //! ```
 
 #[cfg_attr(debug_assertions, macro_use)]
-pub extern crate tracing;
+extern crate tracing;
 
 mod context;
 mod effect;

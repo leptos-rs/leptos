@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
-use syn::{parse_macro_input, DeriveInput};
+use syn::parse_macro_input;
 use syn_rsx::{parse, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -34,7 +34,6 @@ mod params;
 mod view;
 use view::render_view;
 mod component;
-mod props;
 mod server;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -121,7 +120,7 @@ mod server;
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
-///   <button on:click=|ev: web_sys::MouseEvent| {
+///   <button on:click=|ev| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
 ///     "Click me"
@@ -260,9 +259,9 @@ mod server;
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-///     let clear = move |_ev: web_sys::MouseEvent| set_value(0);
-///     let decrement = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value -= 1);
-///     let increment = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value += 1);
+///     let clear = move |_ev| set_value(0);
+///     let decrement = move |_ev| set_value.update(|value| *value -= 1);
+///     let increment = move |_ev| set_value.update(|value| *value += 1);
 ///
 ///     // this JSX is compiled to an HTML template string for performance
 ///     view! {
@@ -468,6 +467,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```compile_error
 /// // ❌ This won't work.
 /// # use leptos::*;
+/// use leptos::html::Div;
+///
 /// #[component]
 /// fn MyComponent<T: Fn() -> HtmlElement<Div>>(cx: Scope, render_prop: T) -> impl IntoView {
 ///   todo!()
@@ -477,6 +478,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```
 /// // ✅ Do this instead
 /// # use leptos::*;
+/// use leptos::html::Div;
+///
 /// #[component]
 /// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView
 /// where
@@ -629,7 +632,9 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - **Return types must be [Serializable](leptos_reactive::Serializable).**
 ///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 ///   need to deserialize the result to return it to the client.
-/// - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
+/// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
+///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
+///   They are serialized as an `application/x-www-form-urlencoded`
 ///   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
 ///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 /// - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
@@ -643,16 +648,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(Props, attributes(builder))]
-pub fn derive_prop(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    props::impl_derive_prop(&input)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-// Derive Params trait for routing
+/// Derives a trait that parses a map of string keys and values into a typed
+/// data structure, e.g., for route params.
 #[proc_macro_derive(Params, attributes(params))]
 pub fn params_derive(
     input: proc_macro::TokenStream,
@@ -662,9 +659,7 @@ pub fn params_derive(
 }
 
 pub(crate) fn is_component_node(node: &NodeElement) -> bool {
-    let name = node.name.to_string();
-    let first_char = name.chars().next();
-    first_char
-        .map(|first_char| first_char.is_ascii_uppercase())
-        .unwrap_or(false)
+    node.name
+        .to_string()
+        .starts_with(|c: char| c.is_ascii_uppercase())
 }

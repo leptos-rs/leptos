@@ -19,7 +19,10 @@ use axum::{
 use futures::{Future, SinkExt, Stream, StreamExt};
 use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
-use leptos::*;
+use leptos::{
+    leptos_server::{server_fn_by_path, Payload},
+    *,
+};
 use leptos_meta::MetaContext;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -564,7 +567,7 @@ where
                                             };
 
                                             let (bundle, runtime, scope) =
-                                                render_to_stream_with_prefix_undisposed_with_context(
+                                                leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
                                                     |cx| {
                                                         let meta = use_context::<MetaContext>(cx);

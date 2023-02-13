@@ -12,12 +12,16 @@ dependencies = ["build", "check-examples", "test"]
 
 [tasks.build]
 clear = true
-dependencies = ["build-all"]
+dependencies = ["build-all", "build-wasm"]
 
 [tasks.build-all]
 command = "cargo"
 args = ["+nightly", "build-all-features"]
 install_crate = "cargo-all-features"
+
+[tasks.build-wasm]
+clear = true
+dependencies = [{ name = "build-wasm", path = "leptos" }]
 
 [tasks.check-examples]
 clear = true

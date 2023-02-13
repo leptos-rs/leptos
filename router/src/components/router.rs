@@ -166,7 +166,7 @@ impl RouterContext {
 
         // handle all click events on anchor tags
         #[cfg(not(feature = "ssr"))]
-        leptos_dom::window_event_listener("click", {
+        leptos::window_event_listener("click", {
             let inner = Rc::clone(&inner);
             move |ev| inner.clone().handle_anchor_click(ev)
         });
@@ -340,7 +340,8 @@ impl RouterContextInner {
 
             // let browser handle this event if it leaves our domain
             // or our base path
-            if url.origin != leptos_dom::location().origin().unwrap_or_default()
+            if url.origin
+                != leptos_dom::helpers::location().origin().unwrap_or_default()
                 || (!self.base_path.is_empty()
                     && !path_name.is_empty()
                     && !path_name
@@ -351,22 +352,24 @@ impl RouterContextInner {
             }
 
             let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
-            let state = get_property(a.unchecked_ref(), "state").ok().and_then(
-                |value| {
-                    if value == wasm_bindgen::JsValue::UNDEFINED {
-                        None
-                    } else {
-                        Some(value)
-                    }
-                },
-            );
+            let state =
+                leptos_dom::helpers::get_property(a.unchecked_ref(), "state")
+                    .ok()
+                    .and_then(|value| {
+                        if value == wasm_bindgen::JsValue::UNDEFINED {
+                            None
+                        } else {
+                            Some(value)
+                        }
+                    });
 
             ev.prevent_default();
 
-            let replace = get_property(a.unchecked_ref(), "replace")
-                .ok()
-                .and_then(|value| value.as_bool())
-                .unwrap_or(false);
+            let replace =
+                leptos_dom::helpers::get_property(a.unchecked_ref(), "replace")
+                    .ok()
+                    .and_then(|value| value.as_bool())
+                    .unwrap_or(false);
             if let Err(e) = self.navigate_from_route(
                 &to,
                 &NavigateOptions {

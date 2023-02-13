@@ -1,5 +1,7 @@
 #![cfg(not(all(target_arch = "wasm32", feature = "web")))]
 
+//! Server-side HTML rendering utilities.
+
 use crate::{CoreComponent, HydrationCtx, IntoView, View};
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};

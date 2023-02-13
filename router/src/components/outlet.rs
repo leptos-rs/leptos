@@ -1,5 +1,5 @@
 use crate::use_route;
-use leptos::*;
+use leptos::{leptos_dom::HydrationCtx, *};
 use std::{cell::Cell, rc::Rc};
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where
@@ -37,5 +37,5 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
         }
     });
 
-    leptos::DynChild::new_with_id(id, move || outlet.get())
+    leptos::leptos_dom::DynChild::new_with_id(id, move || outlet.get())
 }

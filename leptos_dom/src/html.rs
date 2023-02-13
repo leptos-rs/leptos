@@ -1,5 +1,4 @@
-pub mod math;
-pub mod svg;
+//! Exports types for working with HTML elements.
 
 use cfg_if::cfg_if;
 
@@ -25,7 +24,7 @@ cfg_if! {
     use crate::hydration::HydrationKey;
     use smallvec::{smallvec, SmallVec};
 
-    const HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG: &str =
+    pub(crate) const HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG: &str =
       "`Deref<Target = web_sys::HtmlElement>` and `AsRef<web_sys::HtmlElement>` \
       can only be used on web targets. \
       This is for the same reason that normal `wasm_bindgen` methods can be used \
@@ -162,6 +161,7 @@ pub struct Custom {
 }
 
 impl Custom {
+    /// Creates a new custom element with the given tag name.
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
         let id = HydrationCtx::id();
@@ -295,7 +295,7 @@ where
 }
 
 impl<El: ElementDescriptor + 'static> HtmlElement<El> {
-    fn new(cx: Scope, element: El) -> Self {
+    pub(crate) fn new(cx: Scope, element: El) -> Self {
         cfg_if! {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             Self {
@@ -443,7 +443,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     let waker = Rc::new(RefCell::new(None::<Waker>));
                     let ready = Rc::new(OnceCell::new());
 
-                    crate::request_animation_frame({
+                    crate::helpers::request_animation_frame({
                         let waker = waker.clone();
                         let ready = ready.clone();
 

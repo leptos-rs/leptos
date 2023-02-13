@@ -5,33 +5,32 @@
 
 //! The DOM implementation for `leptos`.
 
+#[doc(hidden)]
 #[cfg_attr(debug_assertions, macro_use)]
 pub extern crate tracing;
 
 mod components;
 mod events;
-mod helpers;
-#[doc(hidden)]
+pub mod helpers;
 pub mod html;
 mod hydration;
 mod logging;
 mod macro_helpers;
+pub mod math;
 mod node_ref;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-mod ssr;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-mod ssr_in_order;
+pub mod ssr;
+pub mod ssr_in_order;
+pub mod ssr;
+pub mod svg;
 mod transparent;
-
 use cfg_if::cfg_if;
 pub use components::*;
 pub use events::typed as ev;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
-pub use helpers::*;
-pub use html::*;
+pub use html::HtmlElement;
+use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-pub use js_sys;
 use leptos_reactive::Scope;
 pub use logging::*;
 pub use macro_helpers::*;
@@ -40,19 +39,13 @@ pub use node_ref::*;
 use once_cell::unsync::Lazy as LazyCell;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use smallvec::SmallVec;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-pub use ssr::*;
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-pub use ssr_in_order::*;
 use std::{borrow::Cow, fmt};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::{cell::RefCell, rc::Rc};
 pub use transparent::*;
-pub use wasm_bindgen;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::JsCast;
 use wasm_bindgen::UnwrapThrowExt;
-pub use web_sys;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 thread_local! {
@@ -695,7 +688,7 @@ enum MountKind<'a> {
     Append(&'a web_sys::Node),
 }
 
-/// Runs the provided closure and mounts the result to eht `<body>`.
+/// Runs the provided closure and mounts the result to the `<body>`.
 pub fn mount_to_body<F, N>(f: F)
 where
     F: FnOnce(Scope) -> N + 'static,
