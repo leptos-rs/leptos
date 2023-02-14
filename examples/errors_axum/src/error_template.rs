@@ -44,7 +44,7 @@ pub fn ErrorTemplate(
             // a function that returns the items we're iterating over; a signal is fine
             each= move || {errors.clone().into_iter().enumerate()}
             // a unique key for each item as a reference
-            key=|(index, _error)| *index
+            key=|(index, _)| *index
             // renders each item to a view
             view=move |cx, error| {
                 let error_string = error.1.to_string();
