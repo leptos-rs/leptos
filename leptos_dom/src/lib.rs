@@ -10,7 +10,7 @@
 pub extern crate tracing;
 
 mod components;
-pub mod events;
+mod events;
 pub mod helpers;
 pub mod html;
 mod hydration;

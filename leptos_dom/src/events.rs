@@ -1,5 +1,3 @@
-//! Types for DOM events, including re-exports of native DOM event types from `web-sys`.
-
 pub mod typed;
 
 use std::{borrow::Cow, cell::RefCell, collections::HashSet};
@@ -154,13 +152,3 @@ pub(crate) fn event_delegation_key(event_name: &str) -> String {
     n.push_str(event_name);
     n
 }
-
-// Export `web_sys` event types that we already have from `leptos_dom`
-pub use web_sys::{
-    AnimationEvent, BeforeUnloadEvent, CompositionEvent, DeviceMotionEvent,
-    DeviceOrientationEvent, DragEvent, ErrorEvent, FocusEvent, GamepadEvent,
-    HashChangeEvent, InputEvent, KeyboardEvent, MouseEvent,
-    PageTransitionEvent, PointerEvent, PopStateEvent, ProgressEvent,
-    PromiseRejectionEvent, SecurityPolicyViolationEvent, StorageEvent,
-    SubmitEvent, TouchEvent, TransitionEvent, UiEvent, WheelEvent,
-};
