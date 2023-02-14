@@ -1,4 +1,4 @@
-//! Collection of typed events.
+//! Event types used internally by the framework.
 
 use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;

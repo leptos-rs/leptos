@@ -1,3 +1,5 @@
+//! Types for DOM events, including re-exports of native DOM event types from `web-sys`.
+
 pub mod typed;
 
 use std::{borrow::Cow, cell::RefCell, collections::HashSet};
@@ -8,12 +10,12 @@ use wasm_bindgen::{
 };
 
 thread_local! {
-    pub static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
+    pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
 }
 
 /// Adds an event listener to the target DOM element using implicit event delegation.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn add_event_listener<E>(
+pub(crate) fn add_event_listener<E>(
     target: &web_sys::Element,
     event_name: Cow<'static, str>,
     #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
@@ -39,7 +41,7 @@ pub fn add_event_listener<E>(
 
 #[doc(hidden)]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn add_event_listener_undelegated<E>(
+pub(crate) fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &str,
     mut cb: impl FnMut(E) + 'static,
@@ -152,3 +154,13 @@ pub(crate) fn event_delegation_key(event_name: &str) -> String {
     n.push_str(event_name);
     n
 }
+
+// Export `web_sys` event types that we already have from `leptos_dom`
+pub use web_sys::{
+    AnimationEvent, BeforeUnloadEvent, CompositionEvent, DeviceMotionEvent,
+    DeviceOrientationEvent, DragEvent, ErrorEvent, FocusEvent, GamepadEvent,
+    HashChangeEvent, InputEvent, KeyboardEvent, MouseEvent,
+    PageTransitionEvent, PointerEvent, PopStateEvent, ProgressEvent,
+    PromiseRejectionEvent, SecurityPolicyViolationEvent, StorageEvent,
+    SubmitEvent, TouchEvent, TransitionEvent, UiEvent, WheelEvent,
+};
