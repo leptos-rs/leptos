@@ -13,13 +13,14 @@ use actix_web::{
     web::Bytes,
     *,
 };
-use futures::{Future, StreamExt};
+use futures::{Future, Stream, StreamExt};
 use http::StatusCode;
 use leptos::{
     leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
     leptos_server::{server_fn_by_path, Payload},
     *,
 };
+use leptos_integration_utils::{build_async_response, html_parts};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -726,62 +727,11 @@ async fn stream_app(
     let (stream, runtime, scope) =
         render_to_stream_with_prefix_undisposed_with_context(
             app,
-            move |cx| {
-                let meta = use_context::<MetaContext>(cx);
-                let head = meta
-                    .as_ref()
-                    .map(|meta| meta.dehydrate())
-                    .unwrap_or_default();
-                let body_meta = meta
-                    .as_ref()
-                    .and_then(|meta| meta.body.as_string())
-                    .unwrap_or_default();
-                format!("{head}</head><body{body_meta}>").into()
-            },
+            move |cx| generate_head_metadata(cx).into(),
             additional_context,
         );
 
-    let cx = leptos::Scope { runtime, id: scope };
-    let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
-
-    let mut stream = Box::pin(
-        futures::stream::once(async move { head.clone() })
-            .chain(stream)
-            .chain(futures::stream::once(async move {
-                runtime.dispose();
-                tail.to_string()
-            }))
-            .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
-    );
-
-    // Get the first and second in the stream, which renders the app shell, and thus allows Resources to run
-    let first_chunk = stream.next().await;
-    let second_chunk = stream.next().await;
-
-    let res_options = res_options.0.read();
-
-    let (status, mut headers) =
-        (res_options.status, res_options.headers.clone());
-    let status = status.unwrap_or_default();
-
-    let complete_stream =
-        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-            .chain(stream);
-    let mut res = HttpResponse::Ok()
-        .content_type("text/html")
-        .streaming(complete_stream);
-    // Add headers manipulated in the response
-    for (key, value) in headers.drain() {
-        if let Some(key) = key {
-            res.headers_mut().append(key, value);
-        }
-    }
-    // Set status to what is returned in the function
-    let res_status = res.status_mut();
-    *res_status = status;
-    // Return the response
-    res
+    build_stream_response(options, res_options, stream, runtime, scope).await
 }
 
 async fn stream_app_in_order(
@@ -794,20 +744,21 @@ async fn stream_app_in_order(
         leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
             app,
             move |cx| {
-                let meta = use_context::<MetaContext>(cx);
-                let head = meta
-                    .as_ref()
-                    .map(|meta| meta.dehydrate())
-                    .unwrap_or_default();
-                let body_meta = meta
-                    .as_ref()
-                    .and_then(|meta| meta.body.as_string())
-                    .unwrap_or_default();
-                format!("{head}</head><body{body_meta}>").into()
+                generate_head_metadata(cx).into()
             },
             additional_context,
         );
 
+    build_stream_response(options, res_options, stream, runtime, scope).await
+}
+
+async fn build_stream_response(
+    options: &LeptosOptions,
+    res_options: ResponseOptions,
+    stream: impl Stream<Item = String> + 'static,
+    runtime: RuntimeId,
+    scope: ScopeId,
+) -> HttpResponse {
     let cx = leptos::Scope { runtime, id: scope };
     let (head, tail) =
         html_parts(options, use_context::<MetaContext>(cx).as_ref());
@@ -863,30 +814,8 @@ async fn render_app_async_helper(
             move |_| "".into(),
             additional_context,
         );
-    let mut buf = String::new();
-    let mut stream = Box::pin(stream);
-    while let Some(chunk) = stream.next().await {
-        buf.push_str(&chunk);
-    }
 
-    let cx = leptos::Scope { runtime, id: scope };
-    let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
-
-    // in async, we load the meta content *now*, after the suspenses have resolved
-    let meta = use_context::<MetaContext>(cx);
-    let head_meta = meta
-        .as_ref()
-        .map(|meta| meta.dehydrate())
-        .unwrap_or_default();
-    let body_meta = meta
-        .as_ref()
-        .and_then(|meta| meta.body.as_string())
-        .unwrap_or_default();
-
-    runtime.dispose();
-
-    let html = format!("{head}{head_meta}</head><body{body_meta}>{buf}{tail}");
+    let html = build_async_response(stream, options, runtime, scope).await;
 
     let res_options = res_options.0.read();
 
@@ -907,70 +836,6 @@ async fn render_app_async_helper(
     *res_status = status;
     // Return the response
     res
-}
-
-fn html_parts(
-    options: &LeptosOptions,
-    meta_context: Option<&MetaContext>,
-) -> (String, String) {
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
-    // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
-    let output_name = &options.output_name;
-    let mut wasm_output_name = output_name.clone();
-    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
-        wasm_output_name.push_str("_bg");
-    }
-
-    let site_ip = &options.site_addr.ip().to_string();
-    let reload_port = options.reload_port;
-    let pkg_path = &options.site_pkg_dir;
-
-    let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
-        true => format!(
-            r#"
-            <script crossorigin="">(function () {{
-                var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                ws.onmessage = (ev) => {{
-                    let msg = JSON.parse(ev.data);
-                    if (msg.all) window.location.reload();
-                    if (msg.css) {{
-                        const link = document.querySelector("link#leptos");
-                        if (link) {{
-                            let href = link.getAttribute('href').split('?')[0];
-                            let newHref = href + '?version=' + new Date().getMilliseconds();
-                            link.setAttribute('href', newHref);
-                        }} else {{
-                            console.warn("Could not find link#leptos");
-                        }}
-                    }};
-                }};
-                ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-            }})()
-            </script>
-            "#
-        ),
-        false => "".to_string(),
-    };
-
-    let html_metadata = meta_context
-        .and_then(|mc| mc.html.as_string())
-        .unwrap_or_default();
-    let head = format!(
-        r#"<!DOCTYPE html>
-        <html{html_metadata}>
-            <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                {leptos_autoreload}
-                "#
-    );
-    let tail = "</body></html>".to_string();
-
-    (head, tail)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically

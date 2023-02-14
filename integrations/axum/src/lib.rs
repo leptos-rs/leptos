@@ -16,7 +16,10 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use futures::{Future, SinkExt, Stream, StreamExt};
+use futures::{
+    channel::mpsc::{Receiver, Sender},
+    Future, SinkExt, Stream, StreamExt,
+};
 use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::{
@@ -24,7 +27,8 @@ use leptos::{
     ssr::*,
     *,
 };
-use leptos_meta::MetaContext;
+use leptos_integration_utils::{build_async_response, html_parts};
+use leptos_meta::{generate_head_metadata, MetaContext};
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc};
@@ -534,7 +538,7 @@ where
 
                 let full_path = format!("http://leptos.dev{path}");
 
-                let (mut tx, rx) = futures::channel::mpsc::channel(8);
+                let (tx, rx) = futures::channel::mpsc::channel(8);
 
                 spawn_blocking({
                     let app_fn = app_fn.clone();
@@ -552,17 +556,7 @@ where
                                                 let full_path = full_path.clone();
                                                 let req_parts = generate_request_parts(req).await;
                                                 move |cx| {
-                                                    let integration = ServerIntegration {
-                                                        path: full_path.clone(),
-                                                    };
-                                                    provide_context(
-                                                        cx,
-                                                        RouterIntegrationContext::new(integration),
-                                                    );
-                                                    provide_context(cx, MetaContext::new());
-                                                    provide_context(cx, req_parts);
-                                                    provide_context(cx, default_res_options);
-                                                    provide_server_redirect(cx, move |path| redirect(cx, path));
+                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -570,43 +564,11 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| {
-                                                        let meta = use_context::<MetaContext>(cx);
-                                                        let head = meta
-                                                            .as_ref()
-                                                            .map(|meta| meta.dehydrate())
-                                                            .unwrap_or_default();
-                                                        let body_meta = meta
-                                                            .as_ref()
-                                                            .and_then(|meta| meta.body.as_string())
-                                                            .unwrap_or_default();
-                                                        format!("{head}</head><body{body_meta}>").into()
-                                                    },
+                                                    |cx| generate_head_metadata(cx).into(),
                                                     add_context,
                                                 );
 
-                                            let cx = Scope { runtime, id: scope };
-                                            let (head, tail) = html_parts(&options, use_context::<MetaContext>(cx).as_ref());
-
-                                            _ = tx.send(head).await;
-                                            let mut shell = Box::pin(bundle);
-                                            while let Some(fragment) = shell.next().await {
-                                                _ = tx.send(fragment).await;
-                                            }
-                                            _ = tx.send(tail.to_string()).await;
-
-                                            // Extract the value of ResponseOptions from here
-                                            let res_options =
-                                                use_context::<ResponseOptions>(cx).unwrap();
-
-                                            let new_res_parts = res_options.0.read().clone();
-
-                                            let mut writable = res_options2.0.write();
-                                            *writable = new_res_parts;
-
-                                            runtime.dispose();
-
-                                            tx.close_channel();
+                                                forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
                                         })
                                         .await;
                                 }
@@ -614,36 +576,72 @@ where
                     }
                 });
 
-                let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
-
-                // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
-                let first_chunk = stream.next().await;
-                let second_chunk = stream.next().await;
-
-                // Extract the resources now that they've been rendered
-                let res_options = res_options3.0.read();
-
-                let complete_stream = futures::stream::iter([
-                    first_chunk.unwrap(),
-                    second_chunk.unwrap(),
-                ])
-                .chain(stream);
-
-                let mut res = Response::new(StreamBody::new(Box::pin(
-                    complete_stream,
-                )
-                    as PinnedHtmlStream));
-
-                if let Some(status) = res_options.status {
-                    *res.status_mut() = status
-                }
-                let mut res_headers = res_options.headers.clone();
-                res.headers_mut().extend(res_headers.drain());
-
-                res
+                generate_response(res_options3, rx).await
             }
         })
     }
+}
+
+async fn forward_stream(
+    options: &LeptosOptions,
+    res_options2: ResponseOptions,
+    bundle: impl Stream<Item = String> + 'static,
+    runtime: RuntimeId,
+    scope: ScopeId,
+    mut tx: Sender<String>,
+) {
+    let cx = Scope { runtime, id: scope };
+    let (head, tail) =
+        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+
+    _ = tx.send(head).await;
+    let mut shell = Box::pin(bundle);
+    while let Some(fragment) = shell.next().await {
+        _ = tx.send(fragment).await;
+    }
+    _ = tx.send(tail.to_string()).await;
+
+    // Extract the value of ResponseOptions from here
+    let res_options = use_context::<ResponseOptions>(cx).unwrap();
+
+    let new_res_parts = res_options.0.read().clone();
+
+    let mut writable = res_options2.0.write();
+    *writable = new_res_parts;
+
+    runtime.dispose();
+
+    tx.close_channel();
+}
+
+async fn generate_response(
+    res_options: ResponseOptions,
+    rx: Receiver<String>,
+) -> Response<StreamBody<PinnedHtmlStream>> {
+    let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
+
+    // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
+    let first_chunk = stream.next().await;
+    let second_chunk = stream.next().await;
+
+    // Extract the resources now that they've been rendered
+    let res_options = res_options.0.read();
+
+    let complete_stream =
+        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+            .chain(stream);
+
+    let mut res = Response::new(StreamBody::new(
+        Box::pin(complete_stream) as PinnedHtmlStream
+    ));
+
+    if let Some(status) = res_options.status {
+        *res.status_mut() = status
+    }
+    let mut res_headers = res_options.headers.clone();
+    res.headers_mut().extend(res_headers.drain());
+
+    res
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -708,7 +706,7 @@ where
 
                 let full_path = format!("http://leptos.dev{path}");
 
-                let (mut tx, rx) = futures::channel::mpsc::channel(8);
+                let (tx, rx) = futures::channel::mpsc::channel(8);
 
                 spawn_blocking({
                     let app_fn = app_fn.clone();
@@ -726,17 +724,7 @@ where
                                                 let full_path = full_path.clone();
                                                 let req_parts = generate_request_parts(req).await;
                                                 move |cx| {
-                                                    let integration = ServerIntegration {
-                                                        path: full_path.clone(),
-                                                    };
-                                                    provide_context(
-                                                        cx,
-                                                        RouterIntegrationContext::new(integration),
-                                                    );
-                                                    provide_context(cx, MetaContext::new());
-                                                    provide_context(cx, req_parts);
-                                                    provide_context(cx, default_res_options);
-                                                    provide_server_redirect(cx, move |path| redirect(cx, path));
+                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -744,43 +732,11 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| {
-                                                        let meta = use_context::<MetaContext>(cx);
-                                                        let head = meta
-                                                            .as_ref()
-                                                            .map(|meta| meta.dehydrate())
-                                                            .unwrap_or_default();
-                                                        let body_meta = meta
-                                                            .as_ref()
-                                                            .and_then(|meta| meta.body.as_string())
-                                                            .unwrap_or_default();
-                                                        format!("{head}</head><body{body_meta}>").into()
-                                                    },
+                                                    |cx| generate_head_metadata(cx).into(),
                                                     add_context,
                                                 );
 
-                                            let cx = Scope { runtime, id: scope };
-                                            let (head, tail) = html_parts(&options, use_context::<MetaContext>(cx).as_ref());
-
-                                            _ = tx.send(head).await;
-                                            let mut shell = Box::pin(bundle);
-                                            while let Some(fragment) = shell.next().await {
-                                                _ = tx.send(fragment).await;
-                                            }
-                                            _ = tx.send(tail.to_string()).await;
-
-                                            // Extract the value of ResponseOptions from here
-                                            let res_options =
-                                                use_context::<ResponseOptions>(cx).unwrap();
-
-                                            let new_res_parts = res_options.0.read().clone();
-
-                                            let mut writable = res_options2.0.write();
-                                            *writable = new_res_parts;
-
-                                            runtime.dispose();
-
-                                            tx.close_channel();
+                                            forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
                                         })
                                         .await;
                                 }
@@ -788,36 +744,24 @@ where
                     }
                 });
 
-                let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
-
-                // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
-                let first_chunk = stream.next().await;
-                let second_chunk = stream.next().await;
-
-                // Extract the resources now that they've been rendered
-                let res_options = res_options3.0.read();
-
-                let complete_stream = futures::stream::iter([
-                    first_chunk.unwrap(),
-                    second_chunk.unwrap(),
-                ])
-                .chain(stream);
-
-                let mut res = Response::new(StreamBody::new(Box::pin(
-                    complete_stream,
-                )
-                    as PinnedHtmlStream));
-
-                if let Some(status) = res_options.status {
-                    *res.status_mut() = status
-                }
-                let mut res_headers = res_options.headers.clone();
-                res.headers_mut().extend(res_headers.drain());
-
-                res
+                generate_response(res_options3, rx).await
             }
         })
     }
+}
+
+fn provide_contexts(
+    cx: Scope,
+    path: String,
+    req_parts: RequestParts,
+    default_res_options: ResponseOptions,
+) {
+    let integration = ServerIntegration { path };
+    provide_context(cx, RouterIntegrationContext::new(integration));
+    provide_context(cx, MetaContext::new());
+    provide_context(cx, req_parts);
+    provide_context(cx, default_res_options);
+    provide_server_redirect(cx, move |path| redirect(cx, path));
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -960,60 +904,30 @@ where
                                                 let full_path = full_path.clone();
                                                 let req_parts = generate_request_parts(req).await;
                                                 move |cx| {
-                                                    let integration = ServerIntegration {
-                                                        path: full_path.clone(),
-                                                    };
-                                                    provide_context(
-                                                        cx,
-                                                        RouterIntegrationContext::new(integration),
-                                                    );
-                                                    provide_context(cx, MetaContext::new());
-                                                    provide_context(cx, req_parts);
-                                                    provide_context(cx, default_res_options);
-                                                    provide_server_redirect(cx, move |path| redirect(cx, path));
+                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
 
-                                            let (bundle, runtime, scope) =
+                                            let (stream, runtime, scope) =
                                                 render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
                                                     |_| "".into(),
                                                     add_context,
                                                 );
 
-                                            let cx = Scope { runtime, id: scope };
-                                            let (head, tail) = html_parts(&options, use_context::<MetaContext>(cx).as_ref());
-
-                                            let mut buf = String::new();
-                                            let mut bundle = Box::pin(bundle);
-                                            while let Some(chunk) = bundle.next().await {
-                                                buf.push_str(&chunk);
-                                            }
-
-                                            // in async, we load the meta content *now*, after the suspenses have resolved
-                                            let meta = use_context::<MetaContext>(cx);
-                                            let head_meta = meta
-                                                .as_ref()
-                                                .map(|meta| meta.dehydrate())
-                                                .unwrap_or_default();
-                                            let body_meta = meta
-                                                .as_ref()
-                                                .and_then(|meta| meta.body.as_string())
-                                                .unwrap_or_default();
-
-                                            let html = format!("{head}{head_meta}</head><body{body_meta}>{buf}{tail}");
-
                                             // Extract the value of ResponseOptions from here
+                                            let cx = leptos::Scope { runtime, id: scope };
                                             let res_options =
                                                 use_context::<ResponseOptions>(cx).unwrap();
+
+                                            let html = build_async_response(stream, &options, runtime, scope).await;
 
                                             let new_res_parts = res_options.0.read().clone();
 
                                             let mut writable = res_options2.0.write();
                                             *writable = new_res_parts;
 
-                                            runtime.dispose();
                                             _ = tx.send(html);
                                         })
                                         .await;
@@ -1038,69 +952,6 @@ where
             }
         })
     }
-}
-
-fn html_parts(
-    options: &LeptosOptions,
-    meta: Option<&MetaContext>,
-) -> (String, &'static str) {
-    let pkg_path = &options.site_pkg_dir;
-    let output_name = &options.output_name;
-
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
-    // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
-    let mut wasm_output_name = output_name.clone();
-    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
-        wasm_output_name.push_str("_bg");
-    }
-
-    let site_ip = &options.site_addr.ip().to_string();
-    let reload_port = options.reload_port;
-
-    let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
-        true => format!(
-            r#"
-                <script crossorigin="">(function () {{
-                    var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                    ws.onmessage = (ev) => {{
-                        let msg = JSON.parse(ev.data);
-                        if (msg.all) window.location.reload();
-                        if (msg.css) {{
-                            const link = document.querySelector("link#leptos");
-                            if (link) {{
-                                let href = link.getAttribute('href').split('?')[0];
-                                let newHref = href + '?version=' + new Date().getMilliseconds();
-                                link.setAttribute('href', newHref);
-                            }} else {{
-                                console.warn("Could not find link#leptos");
-                            }}
-                        }};
-                    }};
-                    ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-                }})()
-                </script>
-                "#
-        ),
-        false => "".to_string(),
-    };
-
-    let html_metadata =
-        meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
-    let head = format!(
-        r#"<!DOCTYPE html>
-            <html{html_metadata}>
-                <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                    <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                    {leptos_autoreload}
-                    "#
-    );
-    let tail = "</body></html>";
-    (head, tail)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
