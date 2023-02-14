@@ -25,7 +25,7 @@ pub fn ErrorTemplate(
     let errors: Vec<AppError> = errors
         .get()
         .into_iter()
-        .filter_map(|v| v.downcast_ref::<AppError>().cloned())
+        .filter_map(|(_, v)| v.downcast_ref::<AppError>().cloned())
         .collect();
     log!("Errors: {errors:#?}");
 
