@@ -591,7 +591,7 @@ fn html_parts(
                     if (msg.css) {{
                         let found = false;
                         document.querySelectorAll("link").forEach((link) => {{
-                            if (link.getAttribute('href').includes("fail")) {{
+                            if (link.getAttribute('href').includes(msg.css)) {{
                                 let newHref = '/' + msg.css + '?version=' + new Date().getMilliseconds();
                                 link.setAttribute('href', newHref);
                                 found = true;
