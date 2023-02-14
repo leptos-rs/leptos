@@ -148,7 +148,7 @@ pub use leptos_config::{self, get_configuration, LeptosOptions};
 )))]
 pub use leptos_dom::ssr::{self, render_to_string};
 pub use leptos_dom::{
-    self, create_node_ref, debug_warn, document, error, ev, events,
+    self, create_node_ref, debug_warn, document, error, ev,
     helpers::{
         event_target, event_target_checked, event_target_value,
         request_animation_frame, request_idle_callback, set_interval,
