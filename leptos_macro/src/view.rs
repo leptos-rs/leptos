@@ -152,7 +152,7 @@ pub(crate) fn render_view(
             0 => {
                 let span = Span::call_site();
                 quote_spanned! {
-                    span => leptos::Unit
+                    span => leptos::leptos_dom::Unit
                 }
             }
             1 => root_node_to_tokens_ssr(cx, &nodes[0], global_class),
@@ -168,7 +168,7 @@ pub(crate) fn render_view(
             0 => {
                 let span = Span::call_site();
                 quote_spanned! {
-                    span => leptos::Unit
+                    span => leptos::leptos_dom::Unit
                 }
             }
             1 => node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class),
