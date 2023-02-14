@@ -45,7 +45,7 @@ where
                             on_cleanup(cx, move || {
                               queue_microtask(move || {
                                 errors.update(|errors: &mut Errors| {
-                                  errors.remove::<E>(&id);
+                                  errors.remove(&id);
                                 });
                               });
                             });
@@ -82,10 +82,7 @@ impl Errors {
         self.0.insert(String::new(), Arc::new(error));
     }
     /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
-    pub fn remove<E>(&mut self, key: &str)
-    where
-        E: Error + Send + Sync + 'static,
-    {
+    pub fn remove(&mut self, key: &str) {
         self.0.remove(key);
     }
 }
