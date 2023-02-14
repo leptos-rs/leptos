@@ -8,12 +8,12 @@ use wasm_bindgen::{
 };
 
 thread_local! {
-    pub static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
+    pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
 }
 
 /// Adds an event listener to the target DOM element using implicit event delegation.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn add_event_listener<E>(
+pub(crate) fn add_event_listener<E>(
     target: &web_sys::Element,
     event_name: Cow<'static, str>,
     #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
@@ -39,7 +39,7 @@ pub fn add_event_listener<E>(
 
 #[doc(hidden)]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub fn add_event_listener_undelegated<E>(
+pub(crate) fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &str,
     mut cb: impl FnMut(E) + 'static,
