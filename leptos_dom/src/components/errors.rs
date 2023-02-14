@@ -5,7 +5,34 @@ use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
-pub struct Errors(pub HashMap<String, Arc<dyn Error + Send + Sync>>);
+pub struct Errors(HashMap<String, Arc<dyn Error + Send + Sync>>);
+
+impl IntoIterator for Errors {
+    type Item = Arc<dyn Error + Send + Sync>;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self.0.into_values())
+    }
+}
+
+/// An owning iterator over all the errors contained in the [Errors] struct.
+pub struct IntoIter(
+    std::collections::hash_map::IntoValues<
+        String,
+        Arc<dyn Error + Send + Sync>,
+    >,
+);
+
+impl Iterator for IntoIter {
+    type Item = Arc<dyn Error + Send + Sync>;
+
+    fn next(
+        &mut self,
+    ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        self.0.next()
+    }
+}
 
 impl<T, E> IntoView for Result<T, E>
 where
@@ -67,6 +94,11 @@ where
     }
 }
 impl Errors {
+    /// Returns `true` if there are no errors.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
     pub fn insert<E>(&mut self, key: String, error: E)
     where
@@ -74,6 +106,7 @@ impl Errors {
     {
         self.0.insert(key, Arc::new(error));
     }
+
     /// Add an error with the default key for errors outside the reactive system
     pub fn insert_with_default_key<E>(&mut self, error: E)
     where
@@ -81,8 +114,12 @@ impl Errors {
     {
         self.0.insert(String::new(), Arc::new(error));
     }
+
     /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
-    pub fn remove(&mut self, key: &str) {
-        self.0.remove(key);
+    pub fn remove(
+        &mut self,
+        key: &str,
+    ) -> Option<Arc<dyn Error + Send + Sync>> {
+        self.0.remove(key)
     }
 }
