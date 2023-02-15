@@ -27,7 +27,6 @@ pub fn ErrorTemplate(
         .into_iter()
         .filter_map(|(_, v)| v.downcast_ref::<TodoAppError>().cloned())
         .collect();
-    println!("Errors: {errors:#?}");
 
     // Only the response code for the first error is actually sent from the server
     // this may be customized by the specific application
