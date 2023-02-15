@@ -47,6 +47,25 @@ impl Iterator for IntoIter {
     }
 }
 
+/// An iterator over all the errors contained in the [Errors] struct.
+pub struct Iter<'a>(
+    std::collections::hash_map::Iter<
+        'a,
+        ErrorKey,
+        Arc<dyn Error + Send + Sync>,
+    >,
+);
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a ErrorKey, &'a Arc<dyn Error + Send + Sync>);
+
+    fn next(
+        &mut self,
+    ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        self.0.next()
+    }
+}
+
 impl<T, E> IntoView for Result<T, E>
 where
     T: IntoView + 'static,
@@ -134,5 +153,10 @@ impl Errors {
         key: &ErrorKey,
     ) -> Option<Arc<dyn Error + Send + Sync>> {
         self.0.remove(key)
+    }
+
+    /// An iterator over all the errors, in arbitrary order.
+    pub fn iter(&self) -> Iter<'_> {
+        Iter(self.0.iter())
     }
 }
