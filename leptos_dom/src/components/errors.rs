@@ -5,7 +5,66 @@ use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
-pub struct Errors(pub HashMap<String, Arc<dyn Error + Send + Sync>>);
+pub struct Errors(HashMap<ErrorKey, Arc<dyn Error + Send + Sync>>);
+
+/// A unique key for an error that occurs at a particular location in the user interface.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+pub struct ErrorKey(String);
+
+impl<T> From<T> for ErrorKey
+where
+    T: Into<String>,
+{
+    fn from(key: T) -> ErrorKey {
+        ErrorKey(key.into())
+    }
+}
+
+impl IntoIterator for Errors {
+    type Item = (ErrorKey, Arc<dyn Error + Send + Sync>);
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self.0.into_iter())
+    }
+}
+
+/// An owning iterator over all the errors contained in the [Errors] struct.
+pub struct IntoIter(
+    std::collections::hash_map::IntoIter<
+        ErrorKey,
+        Arc<dyn Error + Send + Sync>,
+    >,
+);
+
+impl Iterator for IntoIter {
+    type Item = (ErrorKey, Arc<dyn Error + Send + Sync>);
+
+    fn next(
+        &mut self,
+    ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        self.0.next()
+    }
+}
+
+/// An iterator over all the errors contained in the [Errors] struct.
+pub struct Iter<'a>(
+    std::collections::hash_map::Iter<
+        'a,
+        ErrorKey,
+        Arc<dyn Error + Send + Sync>,
+    >,
+);
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (&'a ErrorKey, &'a Arc<dyn Error + Send + Sync>);
+
+    fn next(
+        &mut self,
+    ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
+        self.0.next()
+    }
+}
 
 impl<T, E> IntoView for Result<T, E>
 where
@@ -13,7 +72,7 @@ where
     E: Error + Send + Sync + 'static,
 {
     fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
-        let id = HydrationCtx::peek().previous;
+        let id = ErrorKey(HydrationCtx::peek().previous);
         let errors = use_context::<RwSignal<Errors>>(cx);
         match self {
             Ok(stuff) => {
@@ -67,22 +126,37 @@ where
     }
 }
 impl Errors {
+    /// Returns `true` if there are no errors.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Add an error to Errors that will be processed by `<ErrorBoundary/>`
-    pub fn insert<E>(&mut self, key: String, error: E)
+    pub fn insert<E>(&mut self, key: ErrorKey, error: E)
     where
         E: Error + Send + Sync + 'static,
     {
         self.0.insert(key, Arc::new(error));
     }
+
     /// Add an error with the default key for errors outside the reactive system
     pub fn insert_with_default_key<E>(&mut self, error: E)
     where
         E: Error + Send + Sync + 'static,
     {
-        self.0.insert(String::new(), Arc::new(error));
+        self.0.insert(Default::default(), Arc::new(error));
     }
+
     /// Remove an error to Errors that will be processed by `<ErrorBoundary/>`
-    pub fn remove(&mut self, key: &str) {
-        self.0.remove(key);
+    pub fn remove(
+        &mut self,
+        key: &ErrorKey,
+    ) -> Option<Arc<dyn Error + Send + Sync>> {
+        self.0.remove(key)
+    }
+
+    /// An iterator over all the errors, in arbitrary order.
+    pub fn iter(&self) -> Iter<'_> {
+        Iter(self.0.iter())
     }
 }

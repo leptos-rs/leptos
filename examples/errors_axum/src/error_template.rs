@@ -1,8 +1,6 @@
 use crate::errors::AppError;
 use cfg_if::cfg_if;
-use leptos::Errors;
-use leptos::*;
-
+use leptos::{Errors, *};
 #[cfg(feature = "ssr")]
 use leptos_axum::ResponseOptions;
 
@@ -23,12 +21,11 @@ pub fn ErrorTemplate(
     };
 
     // Get Errors from Signal
-    let errors = errors.get().0;
-
     // Downcast lets us take a type that implements `std::error::Error`
     let errors: Vec<AppError> = errors
+        .get()
         .into_iter()
-        .filter_map(|(_k, v)| v.downcast_ref::<AppError>().cloned())
+        .filter_map(|(_, v)| v.downcast_ref::<AppError>().cloned())
         .collect();
     log!("Errors: {errors:#?}");
 
@@ -47,7 +44,7 @@ pub fn ErrorTemplate(
             // a function that returns the items we're iterating over; a signal is fine
             each= move || {errors.clone().into_iter().enumerate()}
             // a unique key for each item as a reference
-            key=|(index, _error)| *index
+            key=|(index, _)| *index
             // renders each item to a view
             view=move |cx, error| {
                 let error_string = error.1.to_string();

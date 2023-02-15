@@ -509,8 +509,8 @@ slotmap::new_key_type! {
 
 impl<S, T> Clone for Resource<S, T>
 where
-    S: Clone + 'static,
-    T: Clone + 'static,
+    S: 'static,
+    T: 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -526,8 +526,8 @@ where
 
 impl<S, T> Copy for Resource<S, T>
 where
-    S: Clone + 'static,
-    T: Clone + 'static,
+    S: 'static,
+    T: 'static,
 {
 }
 
