@@ -287,7 +287,7 @@ fn root_element_to_tokens_ssr(
         } else if is_math_ml_element(&tag_name) {
             quote! { math::#typed_element_name }
         } else {
-            quote! { #typed_element_name }
+            quote! { html::#typed_element_name }
         };
         let full_name = if is_custom_element {
             quote! {
@@ -295,7 +295,7 @@ fn root_element_to_tokens_ssr(
             }
         } else {
             quote! {
-                leptos::leptos_dom::html::#typed_element_name::default()
+                leptos::leptos_dom::#typed_element_name::default()
             }
         };
         quote! {
