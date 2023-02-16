@@ -11,9 +11,28 @@ thread_local! {
     pub(crate) static GLOBAL_EVENTS: RefCell<HashSet<Cow<'static, str>>> = RefCell::new(HashSet::new());
 }
 
-/// Adds an event listener to the target DOM element using implicit event delegation.
+// Used in template macro
+#[doc(hidden)]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub(crate) fn add_event_listener<E>(
+pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
+    target: &web_sys::Element,
+    event: E,
+    #[allow(unused_mut)] // used for tracing in debug
+    mut event_handler: impl FnMut(E::EventType) + 'static,
+) {
+    let event_name = event.name();
+
+    if event.bubbles() {
+        add_event_listener(target, event_name, event_handler);
+    } else {
+        add_event_listener_undelegated(target, &event_name, event_handler);
+    }
+}
+
+/// Adds an event listener to the target DOM element using implicit event delegation.
+#[doc(hidden)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+pub fn add_event_listener<E>(
     target: &web_sys::Element,
     event_name: Cow<'static, str>,
     #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
