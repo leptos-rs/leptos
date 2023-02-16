@@ -141,6 +141,7 @@ cfg_if! {
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
+      #[doc(hidden)]
       #[cfg(debug_assertions)]
       pub name: Cow<'static, str>,
       #[doc(hidden)]
