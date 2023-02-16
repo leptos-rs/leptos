@@ -167,6 +167,57 @@ impl RuntimeId {
         )
     }
 
+    #[track_caller]
+    pub(crate) fn create_many_signals_with_map<T, U>(
+        self,
+        cx: Scope,
+        values: impl IntoIterator<Item = T>,
+        map_fn: impl Fn((ReadSignal<T>, WriteSignal<T>)) -> U,
+    ) -> Vec<U>
+    where
+        T: Any + 'static,
+    {
+        with_runtime(self, move |runtime| {
+            let mut signals = runtime.signals.borrow_mut();
+            let properties = runtime.scopes.borrow();
+            let mut properties = properties
+                .get(cx.id)
+                .expect(
+                    "tried to add signals to a scope that has been disposed",
+                )
+                .borrow_mut();
+            let values = values.into_iter();
+            let size = values.size_hint().0;
+            signals.reserve(size);
+            properties.reserve(size);
+            values
+                .map(|value| signals.insert(Rc::new(RefCell::new(value))))
+                .map(|id| {
+                    properties.push(ScopeProperty::Signal(id));
+                    (
+                        ReadSignal {
+                            runtime: self,
+                            id,
+                            ty: PhantomData,
+                            #[cfg(debug_assertions)]
+                            defined_at: std::panic::Location::caller(),
+                        },
+                        WriteSignal {
+                            runtime: self,
+                            id,
+                            ty: PhantomData,
+                            #[cfg(debug_assertions)]
+                            defined_at: std::panic::Location::caller(),
+                        },
+                    )
+                })
+                .map(map_fn)
+                .collect()
+        })
+        .expect("tried to create a signal in a runtime that has been disposed")
+    }
+
+    #[track_caller]
     pub(crate) fn create_rw_signal<T>(self, value: T) -> RwSignal<T>
     where
         T: Any + 'static,
