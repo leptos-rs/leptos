@@ -71,7 +71,8 @@ impl<T: IntoClass> IntoClass for (Scope, T) {
 use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub(crate) fn class_helper(
+#[doc(hidden)]
+pub fn class_helper(
     el: &web_sys::Element,
     name: Cow<'static, str>,
     value: Class,

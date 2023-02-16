@@ -254,7 +254,8 @@ attr_type!(char);
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use std::borrow::Cow;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub(crate) fn attribute_helper(
+#[doc(hidden)]
+pub fn attribute_helper(
     el: &web_sys::Element,
     name: Cow<'static, str>,
     value: Attribute,
