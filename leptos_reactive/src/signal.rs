@@ -81,7 +81,7 @@ pub mod prelude {
 
 /// This trait allows getting an owned value of the signals
 /// inner type.
-pub trait SignalGet<T: Clone> {
+pub trait SignalGet<T> {
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
     #[track_caller]
