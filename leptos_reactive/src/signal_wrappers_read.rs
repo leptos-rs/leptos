@@ -71,10 +71,7 @@ impl<T> Copy for Signal<T> {}
 /// Please note that using `Signal::with_untracked` still clones the inner value,
 /// so there's no benefit to using it as opposed to calling
 /// `Signal::get_untracked`.
-impl<T> SignalGetUntracked<T> for Signal<T>
-where
-    T: 'static,
-{
+impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -87,14 +84,31 @@ where
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
+    fn get_untracked(&self) -> T {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
             SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with(|f| f())),
+        }
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Signal::try_get_untracked()",
+            skip_all,
+            fields(
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get_untracked(&self) -> Option<T> {
+        match &self.inner {
+            SignalTypes::ReadSignal(s) => s.try_get_untracked(),
+            SignalTypes::Memo(m) => m.try_get_untracked(),
+            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.try_with(|f| f())),
         }
     }
 }
@@ -580,17 +594,18 @@ impl<T> SignalWithUntracked<T> for MaybeSignal<T> {
     }
 }
 
-impl<T> SignalGetUntracked<T> for MaybeSignal<T>
-where
-    T: 'static,
-{
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
+impl<T: Clone> SignalGetUntracked<T> for MaybeSignal<T> {
+    fn get_untracked(&self) -> T {
         match self {
             Self::Static(t) => t.clone(),
             Self::Dynamic(s) => s.get_untracked(),
+        }
+    }
+
+    fn try_get_untracked(&self) -> Option<T> {
+        match self {
+            Self::Static(t) => Some(t.clone()),
+            Self::Dynamic(s) => s.try_get_untracked(),
         }
     }
 }

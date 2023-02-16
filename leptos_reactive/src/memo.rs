@@ -151,7 +151,7 @@ where
 
 impl<T> Copy for Memo<T> {}
 
-impl<T> SignalGetUntracked<T> for Memo<T> {
+impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -165,13 +165,27 @@ impl<T> SignalGetUntracked<T> for Memo<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
+    fn get_untracked(&self) -> T {
         // Unwrapping is fine because `T` will already be `Some(T)` by
         // the time this method can be called
         self.0.get_untracked().unwrap()
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::try_get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get_untracked(&self) -> Option<T> {
+        self.0.try_get_untracked().flatten()
     }
 }
 

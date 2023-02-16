@@ -162,9 +162,12 @@ pub trait SignalGetUntracked<T> {
     /// Gets the signal's value without creating a dependency on the
     /// current scope.
     #[track_caller]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone;
+    fn get_untracked(&self) -> T;
+
+    /// Gets the signal's value without creating a dependency on the
+    /// current scope. Returns [`Some(T)`] if the signal is still
+    /// valid, [`None`] otherwise.
+    fn try_get_untracked(&self) -> Option<T>;
 }
 
 /// This trait allows getting a reference to the signals inner value
@@ -386,7 +389,7 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-impl<T> SignalGetUntracked<T> for ReadSignal<T> {
+impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -400,11 +403,39 @@ impl<T> SignalGetUntracked<T> for ReadSignal<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        self.with_no_subscription(|v| v.clone())
+    fn get_untracked(&self) -> T {
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with_no_subscription(runtime, T::clone)
+        })
+        .expect("runtime to be alive")
+        {
+            Ok(t) => t,
+            Err(_) => panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "ReadSignal::try_get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get_untracked(&self) -> Option<T> {
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with_no_subscription(runtime, Clone::clone).ok()
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -979,7 +1010,7 @@ impl<T> Clone for RwSignal<T> {
 
 impl<T> Copy for RwSignal<T> {}
 
-impl<T> SignalGetUntracked<T> for RwSignal<T> {
+impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -993,12 +1024,35 @@ impl<T> SignalGetUntracked<T> for RwSignal<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        self.id
-            .with_no_subscription(self.runtime, |v: &T| v.clone())
+    fn get_untracked(&self) -> T {
+        self.id.with_no_subscription(self.runtime, Clone::clone)
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "RwSignal::try_get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get_untracked(&self) -> Option<T> {
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with_no_subscription(runtime, Clone::clone)
+        })
+        .expect("runtime to be alive")
+        {
+            Ok(t) => t,
+            Err(_) => panic_getting_dead_signal(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
     }
 }
 
