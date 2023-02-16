@@ -142,7 +142,7 @@ cfg_if! {
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
       #[cfg(debug_assertions)]
-      name: Cow<'static, str>,
+      pub name: Cow<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
     }

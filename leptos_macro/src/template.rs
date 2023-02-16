@@ -76,10 +76,10 @@ fn root_element_to_tokens(
             quote! { #(#expressions;);* }
         };
 
+        let tag_name = node.name.to_string();
+
         quote_spanned! {
             span => {
-                use leptos::ev::EventDescriptor;
-
                 thread_local! {
                     static #template_uid: web_sys::HtmlTemplateElement = {
                         let document = leptos::document();
@@ -95,6 +95,8 @@ fn root_element_to_tokens(
                 #expressions
 
                 leptos::leptos_dom::View::Element(leptos::leptos_dom::Element {
+                    #[cfg(debug_assertions)]
+                    name: #tag_name.into(),
                     element: root.unchecked_into()
                 })
             }

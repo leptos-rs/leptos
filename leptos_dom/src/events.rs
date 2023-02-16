@@ -20,17 +20,6 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
     #[allow(unused_mut)] // used for tracing in debug
     mut event_handler: impl FnMut(E::EventType) + 'static,
 ) {
-    cfg_if::cfg_if! {
-        if #[cfg(debug_assertions)] {
-            let onspan = ::tracing::span!(
-                parent: &self.span,
-                ::tracing::Level::TRACE,
-                "on",
-                event = %event.name()
-            );
-            let _onguard = onspan.enter();
-        }
-    }
     let event_name = event.name();
 
     if event.bubbles() {
