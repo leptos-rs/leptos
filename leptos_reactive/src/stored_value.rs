@@ -149,11 +149,11 @@ impl<T> StoredValue<T> {
 
     /// Same as [`StoredValue::get`] but will not panic by default.
     #[track_caller]
-    pub fn try_get(&self) -> T
+    pub fn try_get(&self) -> Option<T>
     where
         T: Clone,
     {
-        todo!()
+        self.0.try_get_untracked()
     }
 
     /// Applies a function to the current stored value.
