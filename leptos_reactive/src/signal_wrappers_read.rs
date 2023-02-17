@@ -669,7 +669,8 @@ where
     /// }
     ///
     /// assert_eq!(above_3(&count.into()), false);
-    /// assert_eq!(above_3(&double_count), true);
+    /// assert_eq!(above_3(&double_count.into()), true);
+    /// assert_eq!(above_3(&2.into()), false);
     /// # });
     /// ```
     #[cfg_attr(
