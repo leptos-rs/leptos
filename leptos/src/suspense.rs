@@ -87,6 +87,7 @@ where
                 } else {
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let child = orig_child(cx).into_view(cx);
+                    let after_original_child = HydrationCtx::id();
 
                     let initial = {
                         // no resources were read under this, so just return the child
@@ -118,8 +119,7 @@ where
                         }
                     };
 
-                    HydrationCtx::continue_from(current_id.clone());
-
+                    HydrationCtx::continue_from(after_original_child);
                     initial
                 }
             }
