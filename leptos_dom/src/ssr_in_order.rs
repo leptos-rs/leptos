@@ -170,7 +170,7 @@ impl View {
                     for child in node.children {
                         child.into_stream_chunks_helper(cx, chunks);
                     }
-                    chunks.push(StreamChunk::Sync(format!(r#"<!--hk={}-->"#, HydrationCtx::to_string(&node.id, true))))
+                    chunks.push(StreamChunk::Sync(format!(r#"<!--hk={}-->"#, HydrationCtx::to_string(&node.id, true)).into()))
                   }
                 }
             }
