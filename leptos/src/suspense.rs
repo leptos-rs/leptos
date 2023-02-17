@@ -1,9 +1,7 @@
 use cfg_if::cfg_if;
 use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
 use leptos_macro::component;
-use leptos_reactive::{
-    provide_context, signal_prelude::*, Scope, SuspenseContext,
-};
+use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use std::rc::Rc;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
@@ -87,6 +85,8 @@ where
                         fallback().into_view(cx)
                     }
                 } else {
+                    use leptos_reactive::signal_prelude::*;
+
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let child = orig_child(cx).into_view(cx);
                     let after_original_child = HydrationCtx::id();

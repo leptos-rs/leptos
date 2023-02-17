@@ -95,30 +95,30 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     pub fn dispatch(&self, input: I) {
-        self.0.with(|a| a.dispatch(input))
+        self.0.with_value(|a| a.dispatch(input))
     }
 
     /// The set of all submissions to this multi-action.
     pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
-        self.0.with(|a| a.submissions())
+        self.0.with_value(|a| a.submissions())
     }
 
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<String> {
-        self.0.with(|a| a.url.as_ref().cloned())
+        self.0.with_value(|a| a.url.as_ref().cloned())
     }
 
     /// How many times an action has successfully resolved.
     pub fn version(&self) -> RwSignal<usize> {
-        self.0.with(|a| a.version)
+        self.0.with_value(|a| a.version)
     }
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         let prefix = T::prefix();
-        self.0.update(|a| {
+        self.0.update_value(|a| {
             a.url = if prefix.is_empty() {
                 Some(T::url().to_string())
             } else {

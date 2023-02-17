@@ -90,30 +90,30 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     pub fn dispatch(&self, input: I) {
-        self.0.with(|a| a.dispatch(input))
+        self.0.with_value(|a| a.dispatch(input))
     }
 
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
     pub fn pending(&self) -> ReadSignal<bool> {
-        self.0.with(|a| a.pending.read_only())
+        self.0.with_value(|a| a.pending.read_only())
     }
 
     /// Updates whether the action is currently pending.
     pub fn set_pending(&self, pending: bool) {
-        self.0.with(|a| a.pending.set(pending))
+        self.0.with_value(|a| a.pending.set(pending))
     }
 
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<String> {
-        self.0.with(|a| a.url.as_ref().cloned())
+        self.0.with_value(|a| a.url.as_ref().cloned())
     }
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         let prefix = T::prefix();
-        self.0.update(|state| {
+        self.0.update_value(|state| {
             state.url = if prefix.is_empty() {
                 Some(T::url().to_string())
             } else {
@@ -125,18 +125,18 @@ where
 
     /// How many times the action has successfully resolved.
     pub fn version(&self) -> RwSignal<usize> {
-        self.0.with(|a| a.version)
+        self.0.with_value(|a| a.version)
     }
 
     /// The current argument that was dispatched to the `async` function.
     /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
     pub fn input(&self) -> RwSignal<Option<I>> {
-        self.0.with(|a| a.input)
+        self.0.with_value(|a| a.input)
     }
 
     /// The most recent return value of the `async` function.
     pub fn value(&self) -> RwSignal<Option<O>> {
-        self.0.with(|a| a.value)
+        self.0.with_value(|a| a.value)
     }
 }
 
