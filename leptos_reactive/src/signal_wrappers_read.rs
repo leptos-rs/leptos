@@ -88,7 +88,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with(|f| f())),
+            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with_value(|f| f())),
         }
     }
 
@@ -108,7 +108,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.try_get_untracked(),
             SignalTypes::Memo(m) => m.try_get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.try_with(|f| f())),
+            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.try_with_value(|f| f())),
         }
     }
 }
@@ -133,7 +133,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
             SignalTypes::DerivedSignal(cx, v_f) => {
                 let mut o = None;
 
-                cx.untrack(|| o = Some(f(&v_f.with(|v_f| v_f()))));
+                cx.untrack(|| o = Some(f(&v_f.with_value(|v_f| v_f()))));
 
                 o.unwrap()
             }
@@ -156,7 +156,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.try_with_untracked(f),
             SignalTypes::Memo(m) => m.try_with_untracked(f),
-            SignalTypes::DerivedSignal(_, s) => s.try_with(|t| f(&t())),
+            SignalTypes::DerivedSignal(_, s) => s.try_with_value(|t| f(&t())),
         }
     }
 }
@@ -207,7 +207,7 @@ impl<T> SignalWith<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.with(f),
             SignalTypes::Memo(s) => s.with(f),
-            SignalTypes::DerivedSignal(_, s) => f(&s.with(|s| s())),
+            SignalTypes::DerivedSignal(_, s) => f(&s.with_value(|s| s())),
         }
     }
 
@@ -228,7 +228,7 @@ impl<T> SignalWith<T> for Signal<T> {
             SignalTypes::ReadSignal(r) => r.try_with(f).ok(),
 
             SignalTypes::Memo(m) => m.try_with(f),
-            SignalTypes::DerivedSignal(_, s) => s.try_with(|t| f(&t())),
+            SignalTypes::DerivedSignal(_, s) => s.try_with_value(|t| f(&t())),
         }
     }
 }
@@ -257,7 +257,7 @@ impl<T: Clone> SignalGet<T> for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.get(),
             SignalTypes::Memo(m) => m.get(),
-            SignalTypes::DerivedSignal(_, s) => s.with(|t| t()),
+            SignalTypes::DerivedSignal(_, s) => s.with_value(|t| t()),
         }
     }
 
@@ -265,7 +265,7 @@ impl<T: Clone> SignalGet<T> for Signal<T> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.try_get(),
             SignalTypes::Memo(m) => m.try_get(),
-            SignalTypes::DerivedSignal(_, s) => s.try_with(|t| t()),
+            SignalTypes::DerivedSignal(_, s) => s.try_with_value(|t| t()),
         }
     }
 }
@@ -283,7 +283,7 @@ impl<T: Clone> SignalStream<T> for Signal<T> {
                 on_cleanup(cx, move || close_channel.close_channel());
 
                 create_effect(cx, move |_| {
-                    let _ = s.try_with(|t| tx.unbounded_send(t()));
+                    let _ = s.try_with_value(|t| tx.unbounded_send(t()));
                 });
 
                 Box::pin(rx)

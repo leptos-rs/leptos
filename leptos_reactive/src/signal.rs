@@ -12,60 +12,72 @@ use std::{fmt::Debug, marker::PhantomData, pin::Pin};
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
-    ($($ty:ident),*) => {
+    ($($ty:ident $(($method_name:ident))?),*) => {
         $(
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> FnOnce<()> for $ty<T> {
                 type Output = T;
 
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-                    self.get()
+                    impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
             }
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> FnMut<()> for $ty<T> {
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-                    self.get()
+                    impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
             }
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> Fn<()> for $ty<T> {
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-                    self.get()
+                    impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
             }
         )*
     };
+    (@method_name $self:ident) => {
+        $self.get()
+    };
+    (@method_name $self:ident $ident:ident) => {
+        $self.$ident()
+    };
 }
 
 macro_rules! impl_set_fn_traits {
-    ($($ty:ident),*) => {
+    ($($ty:ident $($method_name:ident)?),*) => {
         $(
             #[cfg(not(feature = "stable"))]
             impl<T> FnOnce<(T,)> for $ty<T> {
                 type Output = ();
 
                 extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
-                    self.set(args.0)
+                    impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
             }
 
             #[cfg(not(feature = "stable"))]
             impl<T> FnMut<(T,)> for $ty<T> {
                 extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
-                    self.set(args.0)
+                    impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
             }
 
             #[cfg(not(feature = "stable"))]
             impl<T> Fn<(T,)> for $ty<T> {
                 extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
-                    self.set(args.0)
+                    impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
             }
         )*
+    };
+    (@method_name $self:ident $args:ident) => {
+        $self.set($args.0)
+    };
+    (@method_name $self:ident $ident:ident $args:ident) => {
+        $self.$ident($args.0)
     };
 }
 
