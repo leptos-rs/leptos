@@ -100,25 +100,24 @@ fn Post(cx: Scope) -> impl IntoView {
     };
 
     view! { cx,
-        <ErrorBoundary fallback=|cx, errors| {
-            view! { cx,
-                <div class="error">
-                    <h1>"Something went wrong."</h1>
-                    <ul>
-                    {move || errors.get()
-                        .0
-                        .into_iter()
-                        .map(|(_, error)| view! { cx, <li>{error.to_string()} </li> })
-                        .collect::<Vec<_>>()
-                    }
-                    </ul>
-                </div>
-            }
-        }>
-            <Suspense fallback=move || view! { cx, <p>"Loading post..."</p> }>
+        <Suspense fallback=move || view! { cx, <p>"Loading post..."</p> }>
+            <ErrorBoundary fallback=|cx, errors| {
+                view! { cx,
+                    <div class="error">
+                        <h1>"Something went wrong."</h1>
+                        <ul>
+                        {move || errors.get()
+                            .into_iter()
+                            .map(|(_, error)| view! { cx, <li>{error.to_string()} </li> })
+                            .collect::<Vec<_>>()
+                        }
+                        </ul>
+                    </div>
+                }
+            }>
                 {post_view}
-            </Suspense>
-        </ErrorBoundary>
+            </ErrorBoundary>
+        </Suspense>
     }
 }
 
