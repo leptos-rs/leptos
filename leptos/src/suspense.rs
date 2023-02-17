@@ -1,6 +1,5 @@
 use cfg_if::cfg_if;
-use leptos_dom::HydrationCtx;
-use leptos_dom::{DynChild, Fragment, IntoView};
+use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{provide_context, signal_prelude::*, Scope, SuspenseContext};
 use std::rc::Rc;
@@ -88,6 +87,7 @@ where
                 } else {
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let child = orig_child(cx).into_view(cx);
+                    let after_original_child = HydrationCtx::id();
 
                     let initial = {
                         // no resources were read under this, so just return the child
@@ -119,8 +119,7 @@ where
                         }
                     };
 
-                    HydrationCtx::continue_from(current_id.clone());
-
+                    HydrationCtx::continue_from(after_original_child);
                     initial
                 }
             }

@@ -68,7 +68,10 @@ use std::fmt::Debug;
         )
     )
 )]
-pub fn create_memo<T>(cx: Scope, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
+pub fn create_memo<T>(
+    cx: Scope,
+    f: impl Fn(Option<&T>) -> T + 'static,
+) -> Memo<T>
 where
     T: PartialEq + 'static,
 {

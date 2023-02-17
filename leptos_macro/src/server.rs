@@ -23,7 +23,10 @@ fn fn_arg_is_cx(f: &syn::FnArg) -> bool {
     }
 }
 
-pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Result<TokenStream2> {
+pub fn server_macro_impl(
+    args: proc_macro::TokenStream,
+    s: TokenStream2,
+) -> Result<TokenStream2> {
     let ServerFnName {
         struct_name,
         prefix,
@@ -32,8 +35,8 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
     } = syn::parse::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = match encoding {
-        Encoding::Cbor => quote! { ::leptos::Encoding::Cbor },
-        Encoding::Url => quote! { ::leptos::Encoding::Url },
+        Encoding::Cbor => quote! { ::leptos::leptos_server::Encoding::Cbor },
+        Encoding::Url => quote! { ::leptos::leptos_server::Encoding::Url },
     };
 
     let body = syn::parse::<ServerFnBody>(s.into())?;
@@ -57,17 +60,21 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let fields = body.inputs.iter().filter(|f| !fn_arg_is_cx(f)).map(|f| {
         let typed_arg = match f {
-            FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
+            FnArg::Receiver(_) => {
+                panic!("cannot use receiver types in server function macro")
+            }
             FnArg::Typed(t) => t,
         };
         quote! { pub #typed_arg }
     });
 
-    let cx_arg = body
-        .inputs
-        .iter()
-        .next()
-        .and_then(|f| if fn_arg_is_cx(f) { Some(f) } else { None });
+    let cx_arg = body.inputs.iter().next().and_then(|f| {
+        if fn_arg_is_cx(f) {
+            Some(f)
+        } else {
+            None
+        }
+    });
     let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
         if let Pat::Ident(id) = &*arg.pat {
             quote! {
@@ -88,7 +95,9 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let fn_args = body.inputs.iter().map(|f| {
         let typed_arg = match f {
-            FnArg::Receiver(_) => panic!("cannot use receiver types in server function macro"),
+            FnArg::Receiver(_) => {
+                panic!("cannot use receiver types in server function macro")
+            }
             FnArg::Typed(t) => t,
         };
         let is_cx = fn_arg_is_cx(f);
@@ -124,10 +133,14 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
 
     let output_ty = if let syn::Type::Path(pat) = &return_ty {
         if pat.path.segments[0].ident == "Result" {
-            if let PathArguments::AngleBracketed(args) = &pat.path.segments[0].arguments {
+            if let PathArguments::AngleBracketed(args) =
+                &pat.path.segments[0].arguments
+            {
                 &args.args[0]
             } else {
-                panic!("server functions should return Result<T, ServerFnError>");
+                panic!(
+                    "server functions should return Result<T, ServerFnError>"
+                );
             }
         } else {
             panic!("server functions should return Result<T, ServerFnError>");
@@ -153,7 +166,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
                 #url
             }
 
-            fn encoding() -> ::leptos::Encoding {
+            fn encoding() -> ::leptos::leptos_server::Encoding {
                 #encoding
             }
 
@@ -179,7 +192,7 @@ pub fn server_macro_impl(args: proc_macro::TokenStream, s: TokenStream2) -> Resu
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
-            ::leptos::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
+            ::leptos::leptos_server::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
         }
     })
 }

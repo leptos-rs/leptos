@@ -16,23 +16,22 @@
 //!
 //! #[component]
 //! fn MyApp(cx: Scope) -> impl IntoView {
-//!   let (name, set_name) = create_signal(cx, "Alice".to_string());
+//!     let (name, set_name) = create_signal(cx, "Alice".to_string());
 //!
-//!   view! { cx,
-//!     <Title
-//!       // reactively sets document.title when `name` changes
-//!       text=name
-//!       // applies the `formatter` function to the `text` value
-//!       formatter=|text| format!("“{text}” is your name")
-//!     />
-//!     <main>
-//!       <input
-//!         prop:value=name
-//!         on:input=move |ev| set_name(event_target_value(&ev))
+//!     view! { cx,
+//!       <Title
+//!         // reactively sets document.title when `name` changes
+//!         text=name
+//!         // applies the `formatter` function to the `text` value
+//!         formatter=|text| format!("“{text}” is your name")
 //!       />
-//!     </main>
-//!   }
-//!
+//!       <main>
+//!         <input
+//!           prop:value=name
+//!           on:input=move |ev| set_name(event_target_value(&ev))
+//!         />
+//!       </main>
+//!     }
 //! }
 //! ```
 //! # Feature Flags
@@ -46,14 +45,18 @@
 //! which mode your app is operating in.
 
 use cfg_if::cfg_if;
+use leptos::{
+    leptos_dom::{debug_warn, html::AnyElement},
+    *,
+};
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Debug,
     rc::Rc,
 };
-
-use leptos::{leptos_dom::debug_warn, *};
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
 mod body;
 mod html;
@@ -93,7 +96,14 @@ pub struct MetaContext {
 pub struct MetaTagsContext {
     next_id: Rc<Cell<MetaTagId>>,
     #[allow(clippy::type_complexity)]
-    els: Rc<RefCell<HashMap<String, (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>)>>>,
+    els: Rc<
+        RefCell<
+            HashMap<
+                String,
+                (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>),
+            >,
+        >,
+    >,
 }
 
 impl std::fmt::Debug for MetaTagsContext {
@@ -109,12 +119,19 @@ impl MetaTagsContext {
         self.els
             .borrow()
             .iter()
-            .map(|(_, (builder_el, cx, _))| builder_el.clone().into_view(*cx).render_to_string(*cx))
+            .map(|(_, (builder_el, cx, _))| {
+                builder_el.clone().into_view(*cx).render_to_string(*cx)
+            })
             .collect()
     }
 
     #[doc(hidden)]
-    pub fn register(&self, cx: Scope, id: String, builder_el: HtmlElement<AnyElement>) {
+    pub fn register(
+        &self,
+        cx: Scope,
+        id: String,
+        builder_el: HtmlElement<AnyElement>,
+    ) {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                 use leptos::document;
@@ -190,10 +207,11 @@ pub fn use_head(cx: Scope) -> MetaContext {
     match use_context::<MetaContext>(cx) {
         None => {
             debug_warn!(
-                "use_head() is being called without a MetaContext being provided. \
-            We'll automatically create and provide one, but if this is being called in a child \
-            route it may cause bugs. To be safe, you should provide_meta_context(cx) \
-            somewhere in the root of the app."
+                "use_head() is being called without a MetaContext being \
+                 provided. We'll automatically create and provide one, but if \
+                 this is being called in a child route it may cause bugs. To \
+                 be safe, you should provide_meta_context(cx) somewhere in \
+                 the root of the app."
             );
             let meta = MetaContext::new();
             provide_context(cx, meta.clone());
@@ -242,6 +260,8 @@ impl MetaContext {
     /// # }
     /// ```
     pub fn dehydrate(&self) -> String {
+        use leptos::leptos_dom::HydrationCtx;
+
         let prev_key = HydrationCtx::peek();
         let mut tags = String::new();
 

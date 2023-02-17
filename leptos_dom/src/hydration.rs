@@ -51,25 +51,25 @@ cfg_if! {
 /// A stable identifer within the server-rendering or hydration process.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
-  /// The key of the previous component.
-  pub previous: String,
-  /// The element offset within the current component.
-  pub offset: usize,
+    /// The key of the previous component.
+    pub previous: String,
+    /// The element offset within the current component.
+    pub offset: usize,
 }
 
 impl Display for HydrationKey {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}{}", self.previous, self.offset)
-  }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.previous, self.offset)
+    }
 }
 
 impl Default for HydrationKey {
-  fn default() -> Self {
-    Self {
-      previous: "0-".to_string(),
-      offset: 0,
+    fn default() -> Self {
+        Self {
+            previous: "0-".to_string(),
+            offset: 0,
+        }
     }
-  }
 }
 
 thread_local!(static ID: RefCell<HydrationKey> = Default::default());
@@ -78,65 +78,65 @@ thread_local!(static ID: RefCell<HydrationKey> = Default::default());
 pub struct HydrationCtx;
 
 impl HydrationCtx {
-  /// Get the next `id` without incrementing it.
-  pub fn peek() -> HydrationKey {
-    ID.with(|id| id.borrow().clone())
-  }
-
-  /// Increments the current hydration `id` and returns it
-  pub fn id() -> HydrationKey {
-    ID.with(|id| {
-      let mut id = id.borrow_mut();
-      id.offset = id.offset.wrapping_add(1);
-      id.clone()
-    })
-  }
-
-  /// Resets the hydration `id` for the next component, and returns it
-  pub fn next_component() -> HydrationKey {
-    ID.with(|id| {
-      let mut id = id.borrow_mut();
-      let offset = id.offset;
-      id.previous.push_str(&offset.to_string());
-      id.previous.push('-');
-      id.offset = 0;
-      id.clone()
-    })
-  }
-
-  #[doc(hidden)]
-  #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-  pub fn reset_id() {
-    ID.with(|id| *id.borrow_mut() = Default::default());
-  }
-
-  /// Resums hydration from the provided `id`. Usefull for
-  /// `Suspense` and other fancy things.
-  pub fn continue_from(id: HydrationKey) {
-    ID.with(|i| *i.borrow_mut() = id);
-  }
-
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  pub(crate) fn stop_hydrating() {
-    IS_HYDRATING.with(|is_hydrating| {
-      std::mem::take(&mut *is_hydrating.borrow_mut());
-    })
-  }
-
-  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-  pub(crate) fn is_hydrating() -> bool {
-    IS_HYDRATING.with(|is_hydrating| **is_hydrating.borrow())
-  }
-
-  pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {
-    #[cfg(debug_assertions)]
-    return format!("_{id}{}", if closing { 'c' } else { 'o' });
-
-    #[cfg(not(debug_assertions))]
-    {
-      let _ = closing;
-
-      format!("_{id}")
+    /// Get the next `id` without incrementing it.
+    pub fn peek() -> HydrationKey {
+        ID.with(|id| id.borrow().clone())
     }
-  }
+
+    /// Increments the current hydration `id` and returns it
+    pub fn id() -> HydrationKey {
+        ID.with(|id| {
+            let mut id = id.borrow_mut();
+            id.offset = id.offset.wrapping_add(1);
+            id.clone()
+        })
+    }
+
+    /// Resets the hydration `id` for the next component, and returns it
+    pub fn next_component() -> HydrationKey {
+        ID.with(|id| {
+            let mut id = id.borrow_mut();
+            let offset = id.offset;
+            id.previous.push_str(&offset.to_string());
+            id.previous.push('-');
+            id.offset = 0;
+            id.clone()
+        })
+    }
+
+    #[doc(hidden)]
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    pub fn reset_id() {
+        ID.with(|id| *id.borrow_mut() = Default::default());
+    }
+
+    /// Resumes hydration from the provided `id`. Useful for
+    /// `Suspense` and other fancy things.
+    pub fn continue_from(id: HydrationKey) {
+        ID.with(|i| *i.borrow_mut() = id);
+    }
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    pub(crate) fn stop_hydrating() {
+        IS_HYDRATING.with(|is_hydrating| {
+            std::mem::take(&mut *is_hydrating.borrow_mut());
+        })
+    }
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    pub(crate) fn is_hydrating() -> bool {
+        IS_HYDRATING.with(|is_hydrating| **is_hydrating.borrow())
+    }
+
+    pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {
+        #[cfg(debug_assertions)]
+        return format!("_{id}{}", if closing { 'c' } else { 'o' });
+
+        #[cfg(not(debug_assertions))]
+        {
+            let _ = closing;
+
+            format!("_{id}")
+        }
+    }
 }

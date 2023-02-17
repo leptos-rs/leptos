@@ -298,7 +298,10 @@ pub trait SignalStream<T> {
     )
 )]
 #[track_caller]
-pub fn create_signal<T>(cx: Scope, value: T) -> (ReadSignal<T>, WriteSignal<T>) {
+pub fn create_signal<T>(
+    cx: Scope,
+    value: T,
+) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
@@ -656,8 +659,12 @@ where
 
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
-    pub(crate) fn try_with<U>(&self, f: impl FnOnce(&T) -> U) -> Result<U, SignalError> {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f)) {
+    pub(crate) fn try_with<U>(
+        &self,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError> {
+        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
+        {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
@@ -688,7 +695,7 @@ impl<T> Copy for ReadSignal<T> {}
 /// Calling [WriteSignal::update] will mutate the signal’s value in place,
 /// and notify all subscribers that the signal’s value has changed.
 ///
-/// `ReadSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
+/// `WriteSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
 /// `set_value.update(|value| *value = new_value)`.
 ///
 /// `WriteSignal` is [Copy] and `'static`, so it can very easily moved into closures
@@ -800,7 +807,10 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn update_returning_untracked<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 
@@ -1648,9 +1658,9 @@ impl SignalId {
         }?;
         let value = value.try_borrow().unwrap_or_else(|e| {
             debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It seems \
-         you're trying to read the value of a signal within an effect caused \
-         by updating the signal.",
+                "Signal::try_with_no_subscription failed on Signal<{}>. It \
+                 seems you're trying to read the value of a signal within an \
+                 effect caused by updating the signal.",
                 std::any::type_name::<T>()
             );
             panic!("{e}");
@@ -1703,18 +1713,19 @@ impl SignalId {
                     Some(f(value))
                 } else {
                     debug_warn!(
-                        "[Signal::update] failed when downcasting to Signal<{}>",
+                        "[Signal::update] failed when downcasting to \
+                         Signal<{}>",
                         std::any::type_name::<T>()
                     );
                     None
                 }
             } else {
                 debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> that has \
-           already been disposed of. This is probably either a logic error in \
-           a component that creates and disposes of scopes, or a Resource \
-           resolving after its scope has been dropped without having been \
-           cleaned up.",
+                    "[Signal::update] You’re trying to update a Signal<{}> \
+                     that has already been disposed of. This is probably \
+                     either a logic error in a component that creates and \
+                     disposes of scopes, or a Resource resolving after its \
+                     scope has been dropped without having been cleaned up.",
                     std::any::type_name::<T>()
                 );
                 None

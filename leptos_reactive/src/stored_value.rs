@@ -338,7 +338,7 @@ impl<T> StoredValue<T> {
 /// # create_scope(create_runtime(), |cx| {
 /// // this structure is neither `Copy` nor `Clone`
 /// pub struct MyUncloneableData {
-///   pub value: String,
+///     pub value: String,
 /// }
 ///
 /// // ✅ you can move the `StoredValue` and access it with .with()

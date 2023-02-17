@@ -36,9 +36,9 @@ where
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
-///   // ✅ calling the signal clones and returns the value
-///   //    it is a shorthand for arg.get()
-///   arg() > 3
+///     // ✅ calling the signal clones and returns the value
+///     //    it is a shorthand for arg.get()
+///     arg() > 3
 /// }
 ///
 /// assert_eq!(above_3(&count.into()), false);
@@ -306,7 +306,7 @@ where
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
-    ///   arg() > 3
+    ///     arg.get() > 3
     /// }
     ///
     /// assert_eq!(above_3(&count.into()), false);
@@ -396,7 +396,9 @@ impl<T> Clone for SignalTypes<T> {
         match self {
             Self::ReadSignal(arg0) => Self::ReadSignal(*arg0),
             Self::Memo(arg0) => Self::Memo(*arg0),
-            Self::DerivedSignal(arg0, arg1) => Self::DerivedSignal(*arg0, *arg1),
+            Self::DerivedSignal(arg0, arg1) => {
+                Self::DerivedSignal(*arg0, *arg1)
+            }
         }
     }
 }
@@ -409,9 +411,13 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ReadSignal(arg0) => f.debug_tuple("ReadSignal").field(arg0).finish(),
+            Self::ReadSignal(arg0) => {
+                f.debug_tuple("ReadSignal").field(arg0).finish()
+            }
             Self::Memo(arg0) => f.debug_tuple("Memo").field(arg0).finish(),
-            Self::DerivedSignal(_, _) => f.debug_tuple("DerivedSignal").finish(),
+            Self::DerivedSignal(_, _) => {
+                f.debug_tuple("DerivedSignal").finish()
+            }
         }
     }
 }
@@ -424,7 +430,9 @@ where
         match (self, other) {
             (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,
             (Self::Memo(l0), Self::Memo(r0)) => l0 == r0,
-            (Self::DerivedSignal(_, l0), Self::DerivedSignal(_, r0)) => std::ptr::eq(l0, r0),
+            (Self::DerivedSignal(_, l0), Self::DerivedSignal(_, r0)) => {
+                std::ptr::eq(l0, r0)
+            }
             _ => false,
         }
     }
@@ -447,9 +455,9 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 ///
 /// // this function takes either a reactive or non-reactive value
 /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
-///   // ✅ calling the signal clones and returns the value
-///   //    it is a shorthand for arg.get()
-///   arg() > 3
+///     // ✅ calling the signal clones and returns the value
+///     //    it is a shorthand for arg.get()
+///     arg() > 3
 /// }
 ///
 /// assert_eq!(above_3(&static_value.into()), true);
@@ -638,8 +646,8 @@ where
     /// let double_count = Signal::derive(cx, move || count() * 2);
     ///
     /// // this function takes any kind of wrapped signal
-    /// fn above_3(arg: &Signal<i32>) -> bool {
-    ///   arg() > 3
+    /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
+    ///     arg.get() > 3
     /// }
     ///
     /// assert_eq!(above_3(&count.into()), false);

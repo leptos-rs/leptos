@@ -1,13 +1,11 @@
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
-
-use leptos::*;
-
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
     ParamsMap, RouterContext,
+};
+use leptos::{leptos_dom::Transparent, *};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
 };
 
 thread_local! {
@@ -161,7 +159,11 @@ impl RouteContext {
         self.inner.params
     }
 
-    pub(crate) fn base(cx: Scope, path: &str, fallback: Option<fn(Scope) -> View>) -> Self {
+    pub(crate) fn base(
+        cx: Scope,
+        path: &str,
+        fallback: Option<fn(Scope) -> View>,
+    ) -> Self {
         Self {
             inner: Rc::new(RouteContextInner {
                 cx,
@@ -171,14 +173,17 @@ impl RouteContext {
                 path: RefCell::new(path.to_string()),
                 original_path: path.to_string(),
                 params: create_memo(cx, |_| ParamsMap::new()),
-                outlet: Box::new(move |cx| fallback.as_ref().map(move |f| f(cx))),
+                outlet: Box::new(move |cx| {
+                    fallback.as_ref().map(move |f| f(cx))
+                }),
             }),
         }
     }
 
     /// Resolves a relative route, relative to the current route's path.
     pub fn resolve_path(&self, to: &str) -> Option<String> {
-        resolve_path(&self.inner.base_path, to, Some(&self.inner.path.borrow())).map(String::from)
+        resolve_path(&self.inner.base_path, to, Some(&self.inner.path.borrow()))
+            .map(String::from)
     }
 
     /// The nested child route, if any.

@@ -1,105 +1,142 @@
+use crate::{html::ElementDescriptor, HtmlElement};
+use leptos_reactive::{create_effect, create_rw_signal, signal_prelude::*, RwSignal, Scope};
 use std::cell::Cell;
 
-use leptos_reactive::{
-  create_effect, create_rw_signal, signal_prelude::*, RwSignal, Scope,
-};
-
-use crate::{ElementDescriptor, HtmlElement};
-
-/// Contains a shared reference to a DOM node creating while using the `view`
+/// Contains a shared reference to a DOM node created while using the `view`
 /// macro to create your UI.
 ///
 /// ```
 /// # use leptos::*;
+///
+/// use leptos::html::Input;
+///
 /// #[component]
 /// pub fn MyComponent(cx: Scope) -> impl IntoView {
-///   let input_ref = NodeRef::<Input>::new(cx);
+///     let input_ref = create_node_ref::<Input>(cx);
 ///
-///   let on_click = move |_| {
-///     let node = input_ref
-///       .get()
-///       .expect("input_ref should be loaded by now");
-///     // `node` is strongly typed
-///     // it is dereferenced to an `HtmlInputElement` automatically
-///     log!("value is {:?}", node.value())
-///   };
+///     let on_click = move |_| {
+///         let node =
+///             input_ref.get().expect("input_ref should be loaded by now");
+///         // `node` is strongly typed
+///         // it is dereferenced to an `HtmlInputElement` automatically
+///         log!("value is {:?}", node.value())
+///     };
 ///
-///   view! {
-///     cx,
-///     <div>
-///     // `node_ref` loads the input
-///     <input _ref=input_ref type="text"/>
-///     // the button consumes it
-///     <button on:click=on_click>"Click me"</button>
-///     </div>
-///   }
+///     view! {
+///       cx,
+///       <div>
+///       // `node_ref` loads the input
+///       <input _ref=input_ref type="text"/>
+///       // the button consumes it
+///       <button on:click=on_click>"Click me"</button>
+///       </div>
+///     }
 /// }
 /// ```
 pub struct NodeRef<T: ElementDescriptor + 'static>(
-  RwSignal<Option<HtmlElement<T>>>,
+    RwSignal<Option<HtmlElement<T>>>,
 );
 
+/// Creates a shared reference to a DOM node created while using the `view`
+/// macro to create your UI.
+///
+/// ```
+/// # use leptos::*;
+///
+/// use leptos::html::Input;
+///
+/// #[component]
+/// pub fn MyComponent(cx: Scope) -> impl IntoView {
+///     let input_ref = create_node_ref::<Input>(cx);
+///
+///     let on_click = move |_| {
+///         let node =
+///             input_ref.get().expect("input_ref should be loaded by now");
+///         // `node` is strongly typed
+///         // it is dereferenced to an `HtmlInputElement` automatically
+///         log!("value is {:?}", node.value())
+///     };
+///
+///     view! {
+///       cx,
+///       <div>
+///       // `node_ref` loads the input
+///       <input _ref=input_ref type="text"/>
+///       // the button consumes it
+///       <button on:click=on_click>"Click me"</button>
+///       </div>
+///     }
+/// }
+/// ```
+pub fn create_node_ref<T: ElementDescriptor + 'static>(
+    cx: Scope,
+) -> NodeRef<T> {
+    NodeRef(create_rw_signal(cx, None))
+}
+
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
-  /// Creates an empty reference.
-  pub fn new(cx: Scope) -> Self {
-    Self(create_rw_signal(cx, None))
-  }
+    /// Creates an empty reference.
+    #[deprecated = "Use `create_node_ref` instead of `NodeRef::new()`."]
+    pub fn new(cx: Scope) -> Self {
+        Self(create_rw_signal(cx, None))
+    }
 
-  /// Gets the element that is currently stored in the reference.
-  ///
-  /// This tracks reactively, so that node references can be used in effects.
-  /// Initially, the value will be `None`, but once it is loaded the effect
-  /// will rerun and its value will be `Some(Element)`.
-  #[track_caller]
-  pub fn get(&self) -> Option<HtmlElement<T>>
-  where
-    T: Clone,
-  {
-    self.0.get()
-  }
+    /// Gets the element that is currently stored in the reference.
+    ///
+    /// This tracks reactively, so that node references can be used in effects.
+    /// Initially, the value will be `None`, but once it is loaded the effect
+    /// will rerun and its value will be `Some(Element)`.
+    #[track_caller]
+    pub fn get(&self) -> Option<HtmlElement<T>>
+    where
+        T: Clone,
+    {
+        self.0.get()
+    }
 
-  #[doc(hidden)]
-  /// Loads an element into the reference. This tracks reactively,
-  /// so that effects that use the node reference will rerun once it is loaded,
-  /// i.e., effects can be forward-declared.
-  #[track_caller]
-  pub fn load(&self, node: &HtmlElement<T>)
-  where
-    T: Clone,
-  {
-    self.0.update(|current| {
-      if current.is_some() {
-        crate::debug_warn!(
-          "You are setting a NodeRef that has already been filled. It’s \
-           possible this is intentional, but it’s also possible that you’re \
-           accidentally using the same NodeRef for multiple _ref attributes."
-        );
-      }
-      *current = Some(node.clone());
-    });
-  }
+    #[doc(hidden)]
+    /// Loads an element into the reference. This tracks reactively,
+    /// so that effects that use the node reference will rerun once it is loaded,
+    /// i.e., effects can be forward-declared.
+    #[track_caller]
+    pub fn load(&self, node: &HtmlElement<T>)
+    where
+        T: Clone,
+    {
+        self.0.update(|current| {
+            if current.is_some() {
+                crate::debug_warn!(
+                    "You are setting a NodeRef that has already been filled. \
+                     It’s possible this is intentional, but it’s also \
+                     possible that you’re accidentally using the same NodeRef \
+                     for multiple _ref attributes."
+                );
+            }
+            *current = Some(node.clone());
+        });
+    }
 
-  /// Runs the provided closure when the `NodeRef` has been connected
-  /// with it's [`HtmlElement`].
-  pub fn on_load<F>(self, cx: Scope, f: F)
-  where
-    T: Clone,
-    F: FnOnce(HtmlElement<T>) + 'static,
-  {
-    let f = Cell::new(Some(f));
+    /// Runs the provided closure when the `NodeRef` has been connected
+    /// with it's [`HtmlElement`].
+    pub fn on_load<F>(self, cx: Scope, f: F)
+    where
+        T: Clone,
+        F: FnOnce(HtmlElement<T>) + 'static,
+    {
+        let f = Cell::new(Some(f));
 
-    create_effect(cx, move |_| {
-      if let Some(node_ref) = self.get() {
-        f.take().unwrap()(node_ref);
-      }
-    });
-  }
+        create_effect(cx, move |_| {
+            if let Some(node_ref) = self.get() {
+                f.take().unwrap()(node_ref);
+            }
+        });
+    }
 }
 
 impl<T: ElementDescriptor> Clone for NodeRef<T> {
-  fn clone(&self) -> Self {
-    Self(self.0)
-  }
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
 }
 
 impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}

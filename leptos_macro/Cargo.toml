@@ -25,6 +25,7 @@ leptos_dom = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 convert_case = "0.6.0"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 log = "0.4"

@@ -9,15 +9,15 @@ use leptos::*;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Script>
-///         "console.log('Hello, world!');"
-///       </Script>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Script>
+///           "console.log('Hello, world!');"
+///         </Script>
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]
@@ -67,7 +67,7 @@ pub fn Script(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::script(cx)
+    let builder_el = leptos::leptos_dom::html::script(cx)
         .attr("id", &id)
         .attr("async", async_)
         .attr("crossorigin", crossorigin)
@@ -86,7 +86,9 @@ pub fn Script(
         for node in frag.nodes {
             match node {
                 View::Text(text) => script.push_str(&text.content),
-                _ => leptos::warn!("Only text nodes are supported as children of <Script/>."),
+                _ => leptos::warn!(
+                    "Only text nodes are supported as children of <Script/>."
+                ),
             }
         }
         builder_el.child(script)

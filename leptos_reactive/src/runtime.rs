@@ -34,7 +34,10 @@ cfg_if! {
 
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
-pub(crate) fn with_runtime<T>(id: RuntimeId, f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
+pub(crate) fn with_runtime<T>(
+    id: RuntimeId,
+    f: impl FnOnce(&Runtime) -> T,
+) -> Result<T, ()> {
     // in the browser, everything should exist under one runtime
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -88,7 +91,10 @@ impl RuntimeId {
             let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
             (scope, disposer)
         })
-        .expect("tried to create raw scope in a runtime that has already been disposed")
+        .expect(
+            "tried to create raw scope in a runtime that has already been \
+             disposed",
+        )
     }
 
     pub(crate) fn run_scope_undisposed<T>(
@@ -109,24 +115,38 @@ impl RuntimeId {
         .expect("tried to run scope in a runtime that has been disposed")
     }
 
-    pub(crate) fn run_scope<T>(self, f: impl FnOnce(Scope) -> T, parent: Option<Scope>) -> T {
+    pub(crate) fn run_scope<T>(
+        self,
+        f: impl FnOnce(Scope) -> T,
+        parent: Option<Scope>,
+    ) -> T {
         let (ret, _, disposer) = self.run_scope_undisposed(f, parent);
         disposer.dispose();
         ret
     }
 
     #[track_caller]
-    pub(crate) fn create_concrete_signal(self, value: Rc<RefCell<dyn Any>>) -> SignalId {
+    pub(crate) fn create_concrete_signal(
+        self,
+        value: Rc<RefCell<dyn Any>>,
+    ) -> SignalId {
         with_runtime(self, |runtime| runtime.signals.borrow_mut().insert(value))
-            .expect("tried to create a signal in a runtime that has been disposed")
+            .expect(
+                "tried to create a signal in a runtime that has been disposed",
+            )
     }
 
     #[track_caller]
-    pub(crate) fn create_signal<T>(self, value: T) -> (ReadSignal<T>, WriteSignal<T>)
+    pub(crate) fn create_signal<T>(
+        self,
+        value: T,
+    ) -> (ReadSignal<T>, WriteSignal<T>)
     where
         T: Any + 'static,
     {
-        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
+        let id = self.create_concrete_signal(
+            Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>
+        );
 
         (
             ReadSignal {
@@ -150,7 +170,9 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        let id = self.create_concrete_signal(Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>);
+        let id = self.create_concrete_signal(
+            Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>
+        );
         RwSignal {
             runtime: self,
             id,
@@ -161,13 +183,21 @@ impl RuntimeId {
     }
 
     #[track_caller]
-    pub(crate) fn create_concrete_effect(self, effect: Rc<dyn AnyEffect>) -> EffectId {
-        with_runtime(self, |runtime| runtime.effects.borrow_mut().insert(effect))
-            .expect("tried to create an effect in a runtime that has been disposed")
+    pub(crate) fn create_concrete_effect(
+        self,
+        effect: Rc<dyn AnyEffect>,
+    ) -> EffectId {
+        with_runtime(self, |runtime| {
+            runtime.effects.borrow_mut().insert(effect)
+        })
+        .expect("tried to create an effect in a runtime that has been disposed")
     }
 
     #[track_caller]
-    pub(crate) fn create_effect<T>(self, f: impl Fn(Option<T>) -> T + 'static) -> EffectId
+    pub(crate) fn create_effect<T>(
+        self,
+        f: impl Fn(Option<T>) -> T + 'static,
+    ) -> EffectId
     where
         T: Any + 'static,
     {
@@ -187,7 +217,10 @@ impl RuntimeId {
     }
 
     #[track_caller]
-    pub(crate) fn create_memo<T>(self, f: impl Fn(Option<&T>) -> T + 'static) -> Memo<T>
+    pub(crate) fn create_memo<T>(
+        self,
+        f: impl Fn(Option<&T>) -> T + 'static,
+    ) -> Memo<T>
     where
         T: PartialEq + Any + 'static,
     {
@@ -224,13 +257,17 @@ pub(crate) struct Runtime {
     pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
     pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
     #[allow(clippy::type_complexity)]
-    pub scope_contexts: RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
+    pub scope_contexts:
+        RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
     #[allow(clippy::type_complexity)]
-    pub scope_cleanups: RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
+    pub scope_cleanups:
+        RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
-    pub signal_subscribers: RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
+    pub signal_subscribers:
+        RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
     pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
-    pub effect_sources: RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
+    pub effect_sources:
+        RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
 

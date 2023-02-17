@@ -9,18 +9,18 @@ use leptos::*;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Link rel="preload"
-///         href="myFont.woff2"
-///         as_="font"
-///         type_="font/woff2"
-///         crossorigin="anonymous"
-///       />
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Link rel="preload"
+///           href="myFont.woff2"
+///           as_="font"
+///           type_="font/woff2"
+///           crossorigin="anonymous"
+///         />
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]
@@ -85,7 +85,7 @@ pub fn Link(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::link(cx)
+    let builder_el = leptos::leptos_dom::html::link(cx)
         .attr("id", &id)
         .attr("as_", as_)
         .attr("crossorigin", crossorigin)

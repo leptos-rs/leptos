@@ -14,31 +14,38 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
     match captures {
         None => vec![pattern.into()],
         Some(matched) => {
-            let start: usize = js_sys::Reflect::get(&matched, &JsValue::from_str("index"))
-                .unwrap()
-                .as_f64()
-                .unwrap() as usize;
+            let start: usize =
+                js_sys::Reflect::get(&matched, &JsValue::from_str("index"))
+                    .unwrap()
+                    .as_f64()
+                    .unwrap() as usize;
             let mut prefix = pattern[0..start].to_string();
-            let mut suffix = &pattern[start + matched.get(1).as_string().unwrap().len()..];
+            let mut suffix =
+                &pattern[start + matched.get(1).as_string().unwrap().len()..];
             let mut prefixes = vec![prefix.clone()];
 
             prefix += &matched.get(1).as_string().unwrap();
             prefixes.push(prefix.clone());
 
-            while let Some(matched) = OPTIONAL_RE_2.exec(suffix.trim_start_matches('?')) {
+            while let Some(matched) =
+                OPTIONAL_RE_2.exec(suffix.trim_start_matches('?'))
+            {
                 prefix += &matched.get(1).as_string().unwrap();
                 prefixes.push(prefix.clone());
                 suffix = &suffix[matched.get(0).as_string().unwrap().len()..];
             }
 
-            expand_optionals(suffix)
-                .iter()
-                .fold(Vec::new(), |mut results, expansion| {
+            expand_optionals(suffix).iter().fold(
+                Vec::new(),
+                |mut results, expansion| {
                     results.extend(prefixes.iter().map(|prefix| {
-                        Cow::Owned(prefix.clone() + expansion.trim_start_matches('?'))
+                        Cow::Owned(
+                            prefix.clone() + expansion.trim_start_matches('?'),
+                        )
                     }));
                     results
-                })
+                },
+            )
         }
     }
 }
@@ -65,20 +72,25 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
             prefix += &captures[1];
             prefixes.push(prefix.clone());
 
-            while let Some(captures) = OPTIONAL_RE_2.captures(suffix.trim_start_matches('?')) {
+            while let Some(captures) =
+                OPTIONAL_RE_2.captures(suffix.trim_start_matches('?'))
+            {
                 prefix += &captures[1];
                 prefixes.push(prefix.clone());
                 suffix = &suffix[captures[0].len()..];
             }
 
-            expand_optionals(suffix)
-                .iter()
-                .fold(Vec::new(), |mut results, expansion| {
+            expand_optionals(suffix).iter().fold(
+                Vec::new(),
+                |mut results, expansion| {
                     results.extend(prefixes.iter().map(|prefix| {
-                        Cow::Owned(prefix.clone() + expansion.trim_start_matches('?'))
+                        Cow::Owned(
+                            prefix.clone() + expansion.trim_start_matches('?'),
+                        )
                     }));
                     results
-                })
+                },
+            )
         }
     }
 }

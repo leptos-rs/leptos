@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
-use syn::{parse_macro_input, DeriveInput};
+use syn::parse_macro_input;
 use syn_rsx::{parse, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -19,7 +19,10 @@ pub(crate) enum Mode {
 
 impl Default for Mode {
     fn default() -> Self {
-        if cfg!(feature = "hydrate") || cfg!(feature = "csr") || cfg!(feature = "web") {
+        if cfg!(feature = "hydrate")
+            || cfg!(feature = "csr")
+            || cfg!(feature = "web")
+        {
             Mode::Client
         } else {
             Mode::Ssr
@@ -29,10 +32,11 @@ impl Default for Mode {
 
 mod params;
 mod view;
+use template::render_template;
 use view::render_view;
 mod component;
-mod props;
 mod server;
+mod template;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
@@ -118,7 +122,7 @@ mod server;
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
-///   <button on:click=|ev: web_sys::MouseEvent| {
+///   <button on:click=|ev| {
 ///     log::debug!("click event: {ev:#?}");
 ///   }>
 ///     "Click me"
@@ -213,8 +217,8 @@ mod server;
 /// ```
 ///
 /// 9. You can add the same class to every element in the view by passing in a special
-///    `class = {/* ... */}` argument after `cx, `. This is useful for injecting a class
-///    providing by a scoped styling library.
+///    `class = {/* ... */},` argument after `cx, `. This is useful for injecting a class
+///    provided by a scoped styling library.
 /// ```rust
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
@@ -257,9 +261,9 @@ mod server;
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-///     let clear = move |_ev: web_sys::MouseEvent| set_value(0);
-///     let decrement = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value -= 1);
-///     let increment = move |_ev: web_sys::MouseEvent| set_value.update(|value| *value += 1);
+///     let clear = move |_ev| set_value(0);
+///     let decrement = move |_ev| set_value.update(|value| *value -= 1);
+///     let increment = move |_ev| set_value.update(|value| *value += 1);
 ///
 ///     // this JSX is compiled to an HTML template string for performance
 ///     view! {
@@ -282,22 +286,33 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let mut tokens = tokens.into_iter();
     let (cx, comma) = (tokens.next(), tokens.next());
     match (cx, comma) {
-        (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct))) if punct.as_char() == ',' => {
+        (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
+            if punct.as_char() == ',' =>
+        {
             let first = tokens.next();
             let second = tokens.next();
             let third = tokens.next();
             let fourth = tokens.next();
-            let global_class = match (&first, &second, &third, &fourth) {
-                (
-                    Some(TokenTree::Ident(first)),
-                    Some(TokenTree::Punct(eq)),
-                    Some(val),
-                    Some(TokenTree::Punct(comma)),
-                ) if *first == "class"
-                    && eq.to_string() == '='.to_string()
-                    && comma.to_string() == ','.to_string() =>
+            let global_class = match (&first, &second) {
+                (Some(TokenTree::Ident(first)), Some(TokenTree::Punct(eq)))
+                    if *first == "class" && eq.as_char() == '=' =>
                 {
-                    Some(val.clone())
+                    match &fourth {
+                        Some(TokenTree::Punct(comma))
+                            if comma.as_char() == ',' =>
+                        {
+                            third.clone()
+                        }
+                        _ => {
+                            let error_msg = concat!(
+                                "To create a scope class with the view! macro \
+                                 you must put a comma `,` after the value.\n",
+                                "e.g., view!{cx, class=\"my-class\", \
+                                 <div>...</div>}"
+                            );
+                            panic!("{error_msg}")
+                        }
+                    }
                 }
                 _ => None,
             };
@@ -323,8 +338,48 @@ pub fn view(tokens: TokenStream) -> TokenStream {
             .into()
         }
         _ => {
-            panic!("view! macro needs a context and RSX: e.g., view! {{ cx, <div>...</div> }}")
+            panic!(
+                "view! macro needs a context and RSX: e.g., view! {{ cx, \
+                 <div>...</div> }}"
+            )
         }
+    }
+}
+
+/// An optimized, cached template for client-side rendering. Follows the same
+/// syntax as the [view](crate::macro) macro. In hydration or server-side rendering mode,
+/// behaves exactly as the `view` macro. In client-side rendering mode, uses a `<template>`
+/// node to efficiently render the element. Should only be used with a single root element.
+#[proc_macro_error::proc_macro_error]
+#[proc_macro]
+pub fn template(tokens: TokenStream) -> TokenStream {
+    if cfg!(feature = "csr") {
+        let tokens: proc_macro2::TokenStream = tokens.into();
+        let mut tokens = tokens.into_iter();
+        let (cx, comma) = (tokens.next(), tokens.next());
+        match (cx, comma) {
+            (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
+                if punct.as_char() == ',' =>
+            {
+                match parse(tokens.collect::<proc_macro2::TokenStream>().into())
+                {
+                    Ok(nodes) => render_template(
+                        &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
+                        &nodes,
+                    ),
+                    Err(error) => error.to_compile_error(),
+                }
+                .into()
+            }
+            _ => {
+                panic!(
+                    "view! macro needs a context and RSX: e.g., view! {{ cx, \
+                     <div>...</div> }}"
+                )
+            }
+        }
+    } else {
+        view(tokens)
     }
 }
 
@@ -348,33 +403,34 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// fn HelloComponent(
-///   cx: Scope,
-///   /// The user's name.
-///   name: String,
-///   /// The user's age.
-///   age: u8
+///     cx: Scope,
+///     /// The user's name.
+///     name: String,
+///     /// The user's age.
+///     age: u8,
 /// ) -> impl IntoView {
-///   // create the signals (reactive values) that will update the UI
-///   let (age, set_age) = create_signal(cx, age);
-///   // increase `age` by 1 every second
-///   set_interval(move || {
-///     set_age.update(|age| *age += 1)
-///   }, Duration::from_secs(1));
-///   
-///   // return the user interface, which will be automatically updated
-///   // when signal values change
-///   view! { cx,
-///     <p>"Your name is " {name} " and you are " {age} " years old."</p>
-///   }
+///     // create the signals (reactive values) that will update the UI
+///     let (age, set_age) = create_signal(cx, age);
+///     // increase `age` by 1 every second
+///     set_interval(
+///         move || set_age.update(|age| *age += 1),
+///         Duration::from_secs(1),
+///     );
+///
+///     // return the user interface, which will be automatically updated
+///     // when signal values change
+///     view! { cx,
+///       <p>"Your name is " {name} " and you are " {age} " years old."</p>
+///     }
 /// }
 ///
 /// #[component]
 /// fn App(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <main>
-///       <HelloComponent name="Greg".to_string() age=32/>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <HelloComponent name="Greg".to_string() age=32/>
+///       </main>
+///     }
 /// }
 /// ```
 ///
@@ -399,11 +455,15 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 /// // PascalCase: Generated component will be called MyComponent
 /// #[component]
-/// fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
+/// fn MyComponent(cx: Scope) -> impl IntoView {
+///     todo!()
+/// }
 ///
 /// // snake_case: Generated component will be called MySnakeCaseComponent
 /// #[component]
-/// fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
+/// fn my_snake_case_component(cx: Scope) -> impl IntoView {
+///     todo!()
+/// }
 /// ```
 ///
 /// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
@@ -416,22 +476,28 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// use component::{MyComponent, MyComponentProps};
 ///
 /// mod component {
-///   use leptos::*;
+///     use leptos::*;
 ///
-///   #[component]
-///   pub fn MyComponent(cx: Scope) -> impl IntoView { todo!() }
+///     #[component]
+///     pub fn MyComponent(cx: Scope) -> impl IntoView {
+///         todo!()
+///     }
 /// }
 /// ```
 /// ```
 /// # use leptos::*;
 ///
-/// use snake_case_component::{MySnakeCaseComponent, MySnakeCaseComponentProps};
+/// use snake_case_component::{
+///     MySnakeCaseComponent, MySnakeCaseComponentProps,
+/// };
 ///
 /// mod snake_case_component {
-///   use leptos::*;
+///     use leptos::*;
 ///
-///   #[component]
-///   pub fn my_snake_case_component(cx: Scope) -> impl IntoView { todo!() }
+///     #[component]
+///     pub fn my_snake_case_component(cx: Scope) -> impl IntoView {
+///         todo!()
+///     }
 /// }
 /// ```
 ///
@@ -440,6 +506,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```compile_error
 /// // ❌ This won't work.
 /// # use leptos::*;
+/// use leptos::html::Div;
+///
 /// #[component]
 /// fn MyComponent<T: Fn() -> HtmlElement<Div>>(cx: Scope, render_prop: T) -> impl IntoView {
 ///   todo!()
@@ -449,10 +517,14 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// ```
 /// // ✅ Do this instead
 /// # use leptos::*;
+/// use leptos::html::Div;
+///
 /// #[component]
 /// fn MyComponent<T>(cx: Scope, render_prop: T) -> impl IntoView
-/// where T: Fn() -> HtmlElement<Div> {
-///   todo!()
+/// where
+///     T: Fn() -> HtmlElement<Div>,
+/// {
+///     todo!()
 /// }
 /// ```
 ///
@@ -465,26 +537,26 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 /// # use leptos::*;
 /// #[component]
 /// fn ComponentWithChildren(cx: Scope, children: Children) -> impl IntoView {
-///   view! {
-///     cx,
-///     <ul>
-///       {children(cx)
-///         .nodes
-///         .into_iter()
-///         .map(|child| view! { cx, <li>{child}</li> })
-///         .collect::<Vec<_>>()}
-///     </ul>
-///   }
+///     view! {
+///       cx,
+///       <ul>
+///         {children(cx)
+///           .nodes
+///           .into_iter()
+///           .map(|child| view! { cx, <li>{child}</li> })
+///           .collect::<Vec<_>>()}
+///       </ul>
+///     }
 /// }
 ///
 /// #[component]
 /// fn WrapSomeChildren(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <ComponentWithChildren>
-///       "Ooh, look at us!"
-///       <span>"We're being projected!"</span>
-///     </ComponentWithChildren>
-///   }
+///     view! { cx,
+///       <ComponentWithChildren>
+///         "Ooh, look at us!"
+///         <span>"We're being projected!"</span>
+///       </ComponentWithChildren>
+///     }
 /// }
 /// ```
 ///
@@ -506,30 +578,27 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 ///
 /// #[component]
 /// pub fn MyComponent(
-///   cx: Scope,
-///   #[prop(into)]
-///   name: String,
-///   #[prop(optional)]
-///   optional_value: Option<i32>,
-///   #[prop(optional_no_strip)]
-///   optional_no_strip: Option<i32>
+///     cx: Scope,
+///     #[prop(into)] name: String,
+///     #[prop(optional)] optional_value: Option<i32>,
+///     #[prop(optional_no_strip)] optional_no_strip: Option<i32>,
 /// ) -> impl IntoView {
-///   // whatever UI you need
+///     // whatever UI you need
 /// }
 ///
-///  #[component]
+/// #[component]
 /// pub fn App(cx: Scope) -> impl IntoView {
-///   view! { cx,
-///     <MyComponent
-///       name="Greg" // automatically converted to String with `.into()`
-///       optional_value=42 // received as `Some(42)`
-///       optional_no_strip=Some(42) // received as `Some(42)`
-///     />
-///     <MyComponent
-///       name="Bob" // automatically converted to String with `.into()`
-///       // optional values can both be omitted, and received as `None`
-///     />
-///   }
+///     view! { cx,
+///       <MyComponent
+///         name="Greg" // automatically converted to String with `.into()`
+///         optional_value=42 // received as `Some(42)`
+///         optional_no_strip=Some(42) // received as `Some(42)`
+///       />
+///       <MyComponent
+///         name="Bob" // automatically converted to String with `.into()`
+///         // optional values can both be omitted, and received as `None`
+///       />
+///     }
 /// }
 /// ```
 #[proc_macro_error::proc_macro_error]
@@ -602,7 +671,9 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - **Return types must be [Serializable](leptos_reactive::Serializable).**
 ///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 ///   need to deserialize the result to return it to the client.
-/// - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
+/// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
+///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
+///   They are serialized as an `application/x-www-form-urlencoded`
 ///   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
 ///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 /// - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
@@ -616,26 +687,18 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(Props, attributes(builder))]
-pub fn derive_prop(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    props::impl_derive_prop(&input)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-// Derive Params trait for routing
+/// Derives a trait that parses a map of string keys and values into a typed
+/// data structure, e.g., for route params.
 #[proc_macro_derive(Params, attributes(params))]
-pub fn params_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn params_derive(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let ast = syn::parse(input).unwrap();
     params::impl_params(&ast)
 }
 
 pub(crate) fn is_component_node(node: &NodeElement) -> bool {
-    let name = node.name.to_string();
-    let first_char = name.chars().next();
-    first_char
-        .map(|first_char| first_char.is_ascii_uppercase())
-        .unwrap_or(false)
+    node.name
+        .to_string()
+        .starts_with(|c: char| c.is_ascii_uppercase())
 }

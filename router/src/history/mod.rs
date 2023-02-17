@@ -1,6 +1,6 @@
-use std::rc::Rc;
-
 use leptos::*;
+use std::rc::Rc;
+use wasm_bindgen::UnwrapThrowExt;
 
 mod location;
 mod params;
@@ -36,7 +36,7 @@ pub struct BrowserIntegration {}
 
 impl BrowserIntegration {
     fn current() -> LocationChange {
-        let loc = leptos_dom::location();
+        let loc = leptos_dom::helpers::location();
         LocationChange {
             value: loc.pathname().unwrap_or_default()
                 + &loc.search().unwrap_or_default()
@@ -54,7 +54,7 @@ impl History for BrowserIntegration {
 
         let (location, set_location) = create_signal(cx, Self::current());
 
-        leptos_dom::window_event_listener("popstate", move |_| {
+        leptos::window_event_listener("popstate", move |_| {
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
                 let change = Self::current();
@@ -83,15 +83,23 @@ impl History for BrowserIntegration {
 
         if loc.replace {
             history
-                .replace_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
+                .replace_state_with_url(
+                    &loc.state.to_js_value(),
+                    "",
+                    Some(&loc.value),
+                )
                 .unwrap_throw();
         } else {
             history
-                .push_state_with_url(&loc.state.to_js_value(), "", Some(&loc.value))
+                .push_state_with_url(
+                    &loc.state.to_js_value(),
+                    "",
+                    Some(&loc.value),
+                )
                 .unwrap_throw();
         }
         // scroll to el
-        if let Ok(hash) = leptos_dom::location().hash() {
+        if let Ok(hash) = leptos_dom::helpers::location().hash() {
             if !hash.is_empty() {
                 let hash = js_sys::decode_uri(&hash[1..])
                     .ok()
@@ -116,7 +124,9 @@ impl History for BrowserIntegration {
 /// # use leptos_router::*;
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
-/// let integration = ServerIntegration { path: "insert/current/path/here".to_string() };
+/// let integration = ServerIntegration {
+///     path: "insert/current/path/here".to_string(),
+/// };
 /// provide_context(cx, RouterIntegrationContext::new(integration));
 /// # });
 /// ```

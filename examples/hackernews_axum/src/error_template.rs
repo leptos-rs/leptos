@@ -16,19 +16,21 @@ pub fn error_template(cx: Scope, errors: Option<RwSignal<Errors>>) -> View {
   let Some(errors) = errors else {
         panic!("No Errors found and we expected errors!");
     };
-  view! {cx,
-  <h1>"Errors"</h1>
-  <For
-      // a function that returns the items we're iterating over; a signal is fine
-      each= move || {errors.get().0.into_iter()}
-      // a unique key for each item as a reference
-      key=|error| error.0.clone()
-      // renders each item to a view
-      view= move |cx, error| {
-      let error_string = error.1.to_string();
-        view! {
-          cx,
-          <p>"Error: " {error_string}</p>
+
+    view! {cx,
+    <h1>"Errors"</h1>
+    <For
+        // a function that returns the items we're iterating over; a signal is fine
+        each=errors
+        // a unique key for each item as a reference
+        key=|(key, _)| key.clone()
+        // renders each item to a view
+        view= move |cx, (_, error)| {
+        let error_string = error.to_string();
+          view! {
+            cx,
+            <p>"Error: " {error_string}</p>
+          }
         }
       }
     />

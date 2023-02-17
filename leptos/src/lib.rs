@@ -132,7 +132,7 @@
 //!
 //! #[component]
 //! fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
-//!   todo!()
+//!     todo!()
 //! }
 //!
 //! pub fn main() {
@@ -141,16 +141,29 @@
 //! # }
 //! ```
 
-pub use leptos_config::*;
-pub use leptos_dom;
-pub use leptos_dom::wasm_bindgen::{JsCast, UnwrapThrowExt};
-pub use leptos_dom::*;
+pub use leptos_config::{self, get_configuration, LeptosOptions};
+#[cfg(not(all(
+    target_arch = "wasm32",
+    any(feature = "csr", feature = "hydrate")
+)))]
+pub use leptos_dom::ssr::{self, render_to_string};
+pub use leptos_dom::{
+    self, create_node_ref, debug_warn, document, error, ev,
+    helpers::{
+        event_target, event_target_checked, event_target_value,
+        request_animation_frame, request_idle_callback, set_interval,
+        set_timeout, window_event_listener,
+    },
+    html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
+    Class, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
+    IntoProperty, IntoView, NodeRef, Property, View,
+};
 pub use leptos_macro::*;
 pub use leptos_reactive::*;
-pub use leptos_server;
-pub use leptos_server::*;
-
-pub use tracing;
+pub use leptos_server::{
+    self, create_action, create_multi_action, create_server_action,
+    create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
+};
 pub use typed_builder;
 mod error_boundary;
 pub use error_boundary::*;
@@ -161,9 +174,10 @@ pub use show::*;
 mod suspense;
 pub use suspense::*;
 mod transition;
+#[cfg(debug_assertions)]
+#[doc(hidden)]
+pub use tracing;
 pub use transition::*;
-
-pub use leptos_dom::debug_warn;
 
 extern crate self as leptos;
 
@@ -180,23 +194,20 @@ pub type ChildrenFn = Box<dyn Fn(Scope) -> Fragment>;
 pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 
 /// A type for taking anything that implements [`IntoAttribute`].
-/// Very usefull inside components.
 ///
-/// ## Example
 /// ```rust
 /// use leptos::*;
 ///
 /// #[component]
 /// pub fn MyHeading(
-///   cx: Scope,
-///   text: String,
-///   #[prop(optional, into)]
-///   class: Option<AttributeValue>
+///     cx: Scope,
+///     text: String,
+///     #[prop(optional, into)] class: Option<AttributeValue>,
 /// ) -> impl IntoView {
-///   view!{
-///     cx,
-///     <h1 class=class>{text}</h1>
-///   }
+///     view! {
+///       cx,
+///       <h1 class=class>{text}</h1>
+///     }
 /// }
 /// ```
 pub type AttributeValue = Box<dyn IntoAttribute>;

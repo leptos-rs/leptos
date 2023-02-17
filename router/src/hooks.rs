@@ -1,18 +1,18 @@
-use std::rc::Rc;
-
-use leptos::{create_memo, signal_prelude::*, use_context, Memo, Scope};
-
 use crate::{
-    Location, NavigateOptions, NavigationError, Params, ParamsError, ParamsMap, RouteContext,
-    RouterContext,
+    Location, NavigateOptions, NavigationError, Params, ParamsError, ParamsMap,
+    RouteContext, RouterContext,
 };
+use leptos::{create_memo, signal_prelude::*, use_context, Memo, Scope};
+use std::rc::Rc;
 
 /// Returns the current [RouterContext], containing information about the router's state.
 pub fn use_router(cx: Scope) -> RouterContext {
     if let Some(router) = use_context::<RouterContext>(cx) {
         router
     } else {
-        leptos::leptos_dom::debug_warn!("You must call use_router() within a <Router/> component");
+        leptos::leptos_dom::debug_warn!(
+            "You must call use_router() within a <Router/> component"
+        );
         panic!("You must call use_router() within a <Router/> component");
     }
 }
@@ -59,7 +59,10 @@ where
 }
 
 /// Resolves the given path relative to the current route.
-pub fn use_resolved_path(cx: Scope, path: impl Fn() -> String + 'static) -> Memo<Option<String>> {
+pub fn use_resolved_path(
+    cx: Scope,
+    path: impl Fn() -> String + 'static,
+) -> Memo<Option<String>> {
     let route = use_route(cx);
 
     create_memo(cx, move |_| {
@@ -73,7 +76,11 @@ pub fn use_resolved_path(cx: Scope, path: impl Fn() -> String + 'static) -> Memo
 }
 
 /// Returns a function that can be used to navigate to a new route.
-pub fn use_navigate(cx: Scope) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
+pub fn use_navigate(
+    cx: Scope,
+) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
     let router = use_router(cx);
-    move |to, options| Rc::clone(&router.inner).navigate_from_route(to, &options)
+    move |to, options| {
+        Rc::clone(&router.inner).navigate_from_route(to, &options)
+    }
 }

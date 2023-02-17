@@ -187,6 +187,8 @@ This rerenders `<Small/>` five times, then `<Big/>` infinitely. If they’re
 loading resources, creating signals, or even just creating DOM nodes, this is
 unnecessary work.
 
+### `<Show/>`
+
 The [`<Show/>`](https://docs.rs/leptos/latest/leptos/fn.Show.html) component is
 the answer. You pass it a `when` condition function, a `fallback` to be shown if
 the `when` function returns `false`, and children to be rendered if `when` is `true`.

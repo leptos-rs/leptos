@@ -46,15 +46,15 @@ where
     let children = children(cx);
 
     move || {
-        match errors.get().0.is_empty() {
-        true => children.clone().into_view(cx),
-        false => view! { cx,
-            <>
-                {fallback(cx, errors)}
-                <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
-            </>
+        match errors.with(Errors::is_empty) {
+            true => children.clone().into_view(cx),
+            false => view! { cx,
+                <>
+                    {fallback(cx, errors)}
+                    <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
+                </>
+            }
+            .into_view(cx),
         }
-        .into_view(cx),
-    }
     }
 }

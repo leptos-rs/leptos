@@ -1,4 +1,4 @@
-use leptos::wasm_bindgen::JsValue;
+use wasm_bindgen::JsValue;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct State(pub Option<JsValue>);

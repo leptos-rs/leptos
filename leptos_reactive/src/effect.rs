@@ -116,8 +116,10 @@ where
     )
 )]
 #[track_caller]
-pub fn create_isomorphic_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
-where
+pub fn create_isomorphic_effect<T>(
+    cx: Scope,
+    f: impl Fn(Option<T>) -> T + 'static,
+) where
     T: 'static,
 {
     let e = cx.runtime.create_effect(f);
@@ -212,10 +214,11 @@ impl EffectId {
                 effect.run(*self, runtime_id);
             } else {
                 debug_warn!(
-                    "[Effect] Trying to run an Effect that has been disposed. This is \
-           probably either a logic error in a component that creates and \
-           disposes of scopes, or a Resource resolving after its scope has \
-           been dropped without having been cleaned up."
+                    "[Effect] Trying to run an Effect that has been disposed. \
+                     This is probably either a logic error in a component \
+                     that creates and disposes of scopes, or a Resource \
+                     resolving after its scope has been dropped without \
+                     having been cleaned up."
                 );
             }
         })

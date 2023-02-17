@@ -9,15 +9,15 @@ use leptos::*;
 ///
 /// #[component]
 /// fn MyApp(cx: Scope) -> impl IntoView {
-///   provide_meta_context(cx);
+///     provide_meta_context(cx);
 ///
-///   view! { cx,
-///     <main>
-///       <Style>
-///         "body { font-weight: bold; }"
-///       </Style>
-///     </main>
-///   }
+///     view! { cx,
+///       <main>
+///         <Style>
+///           "body { font-weight: bold; }"
+///         </Style>
+///       </main>
+///     }
 /// }
 /// ```
 #[component(transparent)]
@@ -46,7 +46,7 @@ pub fn Style(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::style(cx)
+    let builder_el = leptos::leptos_dom::html::style(cx)
         .attr("id", &id)
         .attr("media", media)
         .attr("nonce", nonce)
@@ -58,7 +58,9 @@ pub fn Style(
         for node in frag.nodes {
             match node {
                 View::Text(text) => style.push_str(&text.content),
-                _ => leptos::warn!("Only text nodes are supported as children of <Style/>."),
+                _ => leptos::warn!(
+                    "Only text nodes are supported as children of <Style/>."
+                ),
             }
         }
         builder_el.child(style)

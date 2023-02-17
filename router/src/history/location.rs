@@ -1,11 +1,13 @@
+use super::params::ParamsMap;
+use crate::{State, Url};
 use leptos::*;
 
-use crate::{State, Url};
-
-use super::params::ParamsMap;
-
 /// Creates a reactive location from the given path and state.
-pub fn create_location(cx: Scope, path: ReadSignal<String>, state: ReadSignal<State>) -> Location {
+pub fn create_location(
+    cx: Scope,
+    path: ReadSignal<String>,
+    state: ReadSignal<State>,
+) -> Location {
     let url = create_memo(cx, move |prev: Option<&Url>| {
         path.with(|path| match Url::try_from(path.as_str()) {
             Ok(url) => url,
@@ -16,10 +18,12 @@ pub fn create_location(cx: Scope, path: ReadSignal<String>, state: ReadSignal<St
         })
     });
 
-    let pathname = create_memo(cx, move |_| url.with(|url| url.pathname.clone()));
+    let pathname =
+        create_memo(cx, move |_| url.with(|url| url.pathname.clone()));
     let search = create_memo(cx, move |_| url.with(|url| url.search.clone()));
     let hash = create_memo(cx, move |_| url.with(|url| url.hash.clone()));
-    let query = create_memo(cx, move |_| url.with(|url| url.search_params.clone()));
+    let query =
+        create_memo(cx, move |_| url.with(|url| url.search_params.clone()));
 
     Location {
         pathname,

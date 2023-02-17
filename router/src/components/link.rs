@@ -1,7 +1,5 @@
-use leptos::leptos_dom::IntoView;
-use leptos::*;
-
 use crate::{use_location, use_resolved_path, State};
+use leptos::{leptos_dom::IntoView, *};
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
@@ -78,7 +76,7 @@ where
         replace: bool,
         class: Option<AttributeValue>,
         children: Children,
-    ) -> HtmlElement<A> {
+    ) -> HtmlElement<leptos::html::A> {
         let location = use_location(cx);
         let is_active = create_memo(cx, move |_| match href.get() {
             None => false,

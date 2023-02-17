@@ -22,12 +22,12 @@ use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 /// let total_notifications = Rc::new(RefCell::new(0));
 /// let not = Rc::clone(&total_notifications);
 /// create_isomorphic_effect(cx, {
-///   let is_selected = is_selected.clone();
-///   move |_| {
-///     if is_selected(5) {
-///       *not.borrow_mut() += 1;
+///     let is_selected = is_selected.clone();
+///     move |_| {
+///         if is_selected(5) {
+///             *not.borrow_mut() += 1;
+///         }
 ///     }
-///   }
 /// });
 ///
 /// assert_eq!(is_selected(5), false);
@@ -68,8 +68,9 @@ where
     T: PartialEq + Eq + Debug + Clone + Hash + 'static,
 {
     #[allow(clippy::type_complexity)]
-    let subs: Rc<RefCell<HashMap<T, (ReadSignal<bool>, WriteSignal<bool>)>>> =
-        Rc::new(RefCell::new(HashMap::new()));
+    let subs: Rc<
+        RefCell<HashMap<T, (ReadSignal<bool>, WriteSignal<bool>)>>,
+    > = Rc::new(RefCell::new(HashMap::new()));
     let v = Rc::new(RefCell::new(None));
 
     create_isomorphic_effect(cx, {
@@ -82,7 +83,9 @@ where
             if prev.as_ref() != Some(&next_value) {
                 let subs = { subs.borrow().clone() };
                 for (key, signal) in subs.into_iter() {
-                    if f(&key, &next_value) || (prev.is_some() && f(&key, prev.as_ref().unwrap())) {
+                    if f(&key, &next_value)
+                        || (prev.is_some() && f(&key, prev.as_ref().unwrap()))
+                    {
                         signal.1.update(|n| *n = true);
                     }
                 }

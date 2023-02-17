@@ -1,6 +1,5 @@
-use leptos::{component, IntoView, Scope};
-
 use crate::{use_head, TextProp};
+use leptos::{component, IntoView, Scope};
 
 /// Injects an [HTMLMetaElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document
 /// head to set metadata
@@ -42,7 +41,7 @@ pub fn Meta(
     let next_id = meta.tags.get_next_id();
     let id = format!("leptos-link-{}", next_id.0);
 
-    let builder_el = leptos::meta(cx)
+    let builder_el = leptos::leptos_dom::html::meta(cx)
         .attr("charset", move || charset.as_ref().map(|v| v.get()))
         .attr("name", move || name.as_ref().map(|v| v.get()))
         .attr("http-equiv", move || http_equiv.as_ref().map(|v| v.get()))

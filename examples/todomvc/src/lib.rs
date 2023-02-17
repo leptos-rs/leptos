@@ -1,4 +1,4 @@
-use leptos::{web_sys::HtmlInputElement, *};
+use leptos::{html::Input, leptos_dom::helpers::location_hash, *};
 use storage::TodoSerialized;
 use uuid::Uuid;
 
@@ -12,12 +12,15 @@ const STORAGE_KEY: &str = "todos-leptos";
 // Basic operations to manipulate the todo list: nothing really interesting here
 impl Todos {
     pub fn new(cx: Scope) -> Self {
-        let starting_todos = if let Ok(Some(storage)) = window().local_storage() {
+        let starting_todos = if let Ok(Some(storage)) = window().local_storage()
+        {
             storage
                 .get_item(STORAGE_KEY)
                 .ok()
                 .flatten()
-                .and_then(|value| serde_json::from_str::<Vec<TodoSerialized>>(&value).ok())
+                .and_then(|value| {
+                    serde_json::from_str::<Vec<TodoSerialized>>(&value).ok()
+                })
                 .map(|values| {
                     values
                         .into_iter()
@@ -89,7 +92,12 @@ impl Todo {
         Self::new_with_completed(cx, id, title, false)
     }
 
-    pub fn new_with_completed(cx: Scope, id: Uuid, title: String, completed: bool) -> Self {
+    pub fn new_with_completed(
+        cx: Scope,
+        id: Uuid,
+        title: String,
+        completed: bool,
+    ) -> Self {
         // RwSignal combines the getter and setter in one struct, rather than separating
         // the getter from the setter. This makes it more convenient in some cases, such
         // as when we're putting the signals into a struct and passing it around. There's
@@ -129,22 +137,24 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
     // Handle the three filter modes: All, Active, and Completed
     let (mode, set_mode) = create_signal(cx, Mode::All);
     window_event_listener("hashchange", move |_| {
-        let new_mode = location_hash().map(|hash| route(&hash)).unwrap_or_default();
+        let new_mode =
+            location_hash().map(|hash| route(&hash)).unwrap_or_default();
         set_mode(new_mode);
     });
 
     // Callback to add a todo on pressing the `Enter` key, if the field isn't empty
+    let input_ref = NodeRef::<Input>::new(cx);
     let add_todo = move |ev: web_sys::KeyboardEvent| {
-        let target = event_target::<HtmlInputElement>(&ev);
+        let input = input_ref.get().unwrap();
         ev.stop_propagation();
         let key_code = ev.key_code();
         if key_code == ENTER_KEY {
-            let title = event_target_value(&ev);
+            let title = input.value();
             let title = title.trim();
             if !title.is_empty() {
                 let new = Todo::new(cx, Uuid::new_v4(), title.to_string());
                 set_todos.update(|t| t.add(new));
-                target.set_value("");
+                input.set_value("");
             }
         }
     };
@@ -184,7 +194,8 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
                 .iter()
                 .map(TodoSerialized::from)
                 .collect::<Vec<_>>();
-            let json = serde_json::to_string(&objs).expect("couldn't serialize Todos");
+            let json =
+                serde_json::to_string(&objs).expect("couldn't serialize Todos");
             if storage.set_item(STORAGE_KEY, &json).is_err() {
                 log::error!("error while trying to set item in localStorage");
             }
@@ -201,6 +212,7 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
                         placeholder="What needs to be done?"
                         autofocus
                         on:keydown=add_todo
+                        node_ref=input_ref
                     />
                 </header>
                 <section

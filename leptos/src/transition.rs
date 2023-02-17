@@ -19,7 +19,9 @@ use std::{cell::RefCell, rc::Rc};
 /// # use leptos::*;
 /// # if false {
 /// # run_scope(create_runtime(), |cx| {
-/// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> { Some(vec![]) }
+/// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> {
+///     Some(vec![])
+/// }
 ///
 /// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
 /// let (pending, set_pending) = create_signal(cx, false);

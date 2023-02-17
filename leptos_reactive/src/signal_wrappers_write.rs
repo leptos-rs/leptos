@@ -32,9 +32,9 @@ where
 ///
 /// // this function takes any kind of signal setter
 /// fn set_to_4(setter: &SignalSetter<i32>) {
-///   // ✅ calling the signal sets the value
-///   //    it is a shorthand for arg.set()
-///   setter(4);
+///     // ✅ calling the signal sets the value
+///     //    it is a shorthand for arg.set()
+///     setter(4);
 /// }
 ///
 /// set_to_4(&set_count.into());
@@ -114,9 +114,9 @@ where
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
-    ///   // ✅ calling the signal sets the value
-    ///   //    it is a shorthand for arg.set()
-    ///   setter(4)
+    ///     // ✅ calling the signal sets the value
+    ///     //    it is a shorthand for arg.set()
+    ///     setter(4)
     /// }
     ///
     /// set_to_4(&set_count.into());
@@ -138,7 +138,10 @@ where
     )]
     pub fn map(cx: Scope, mapped_setter: impl Fn(T) + 'static) -> Self {
         Self {
-            inner: SignalSetterTypes::Mapped(cx, store_value(cx, Box::new(mapped_setter))),
+            inner: SignalSetterTypes::Mapped(
+                cx,
+                store_value(cx, Box::new(mapped_setter)),
+            ),
             #[cfg(debug_assertions)]
             defined_at: std::panic::Location::caller(),
         }
@@ -233,7 +236,9 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Write(arg0) => f.debug_tuple("WriteSignal").field(arg0).finish(),
+            Self::Write(arg0) => {
+                f.debug_tuple("WriteSignal").field(arg0).finish()
+            }
             Self::Mapped(_, _) => f.debug_tuple("Mapped").finish(),
             Self::Default => f.debug_tuple("SignalSetter<Default>").finish(),
         }

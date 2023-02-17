@@ -39,35 +39,35 @@
 //! // this is omitted from most of the examples in the docs
 //! // you usually won't need to call it yourself
 //! create_scope(create_runtime(), |cx| {
-//!   // a signal: returns a (getter, setter) pair
-//!   let (count, set_count) = create_signal(cx, 0);
+//!     // a signal: returns a (getter, setter) pair
+//!     let (count, set_count) = create_signal(cx, 0);
 //!
-//!   // calling the getter gets the value
-//!   assert_eq!(count(), 0);
-//!   // calling the setter sets the value
-//!   set_count(1);
-//!   // or we can mutate it in place with update()
-//!   set_count.update(|n| *n += 1);
+//!     // calling the getter gets the value
+//!     assert_eq!(count(), 0);
+//!     // calling the setter sets the value
+//!     set_count(1);
+//!     // or we can mutate it in place with update()
+//!     set_count.update(|n| *n += 1);
 //!
-//!   // a derived signal: a plain closure that relies on the signal
-//!   // the closure will run whenever we *access* double_count()
-//!   let double_count = move || count() * 2;
-//!   assert_eq!(double_count(), 4);
+//!     // a derived signal: a plain closure that relies on the signal
+//!     // the closure will run whenever we *access* double_count()
+//!     let double_count = move || count() * 2;
+//!     assert_eq!(double_count(), 4);
 //!
-//!   // a memo: subscribes to the signal
-//!   // the closure will run only when count changes
-//!   let memoized_triple_count = create_memo(cx, move |_| count() * 3);
-//!   assert_eq!(memoized_triple_count(), 6);
+//!     // a memo: subscribes to the signal
+//!     // the closure will run only when count changes
+//!     let memoized_triple_count = create_memo(cx, move |_| count() * 3);
+//!     assert_eq!(memoized_triple_count(), 6);
 //!
-//!   // this effect will run whenever count() changes
-//!   create_effect(cx, move |_| {
-//!     println!("Count = {}", count());
-//!   });
+//!     // this effect will run whenever count() changes
+//!     create_effect(cx, move |_| {
+//!         println!("Count = {}", count());
+//!     });
 //! });
 //! ```
 
 #[cfg_attr(debug_assertions, macro_use)]
-pub extern crate tracing;
+extern crate tracing;
 
 #[macro_use]
 mod signal;
