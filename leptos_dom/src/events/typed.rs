@@ -1,4 +1,4 @@
-//! Collection of typed events.
+//! Types for all DOM events.
 
 use std::{borrow::Cow, marker::PhantomData};
 use wasm_bindgen::convert::FromWasmAbi;
@@ -268,3 +268,13 @@ generate_event_types! {
   readystatechange: Event,
   visibilitychange: Event,
 }
+
+// Export `web_sys` event types
+pub use web_sys::{
+    AnimationEvent, BeforeUnloadEvent, CompositionEvent, DeviceMotionEvent,
+    DeviceOrientationEvent, DragEvent, ErrorEvent, FocusEvent, GamepadEvent,
+    HashChangeEvent, InputEvent, KeyboardEvent, MouseEvent,
+    PageTransitionEvent, PointerEvent, PopStateEvent, ProgressEvent,
+    PromiseRejectionEvent, SecurityPolicyViolationEvent, StorageEvent,
+    SubmitEvent, TouchEvent, TransitionEvent, UiEvent, WheelEvent,
+};

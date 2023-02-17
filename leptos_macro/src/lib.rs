@@ -32,9 +32,11 @@ impl Default for Mode {
 
 mod params;
 mod view;
+use template::render_template;
 use view::render_view;
 mod component;
 mod server;
+mod template;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
@@ -341,6 +343,43 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                  <div>...</div> }}"
             )
         }
+    }
+}
+
+/// An optimized, cached template for client-side rendering. Follows the same
+/// syntax as the [view](crate::macro) macro. In hydration or server-side rendering mode,
+/// behaves exactly as the `view` macro. In client-side rendering mode, uses a `<template>`
+/// node to efficiently render the element. Should only be used with a single root element.
+#[proc_macro_error::proc_macro_error]
+#[proc_macro]
+pub fn template(tokens: TokenStream) -> TokenStream {
+    if cfg!(feature = "csr") {
+        let tokens: proc_macro2::TokenStream = tokens.into();
+        let mut tokens = tokens.into_iter();
+        let (cx, comma) = (tokens.next(), tokens.next());
+        match (cx, comma) {
+            (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
+                if punct.as_char() == ',' =>
+            {
+                match parse(tokens.collect::<proc_macro2::TokenStream>().into())
+                {
+                    Ok(nodes) => render_template(
+                        &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
+                        &nodes,
+                    ),
+                    Err(error) => error.to_compile_error(),
+                }
+                .into()
+            }
+            _ => {
+                panic!(
+                    "view! macro needs a context and RSX: e.g., view! {{ cx, \
+                     <div>...</div> }}"
+                )
+            }
+        }
+    } else {
+        view(tokens)
     }
 }
 

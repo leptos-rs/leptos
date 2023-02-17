@@ -152,7 +152,7 @@ pub(crate) fn render_view(
             0 => {
                 let span = Span::call_site();
                 quote_spanned! {
-                    span => leptos::Unit
+                    span => leptos::leptos_dom::Unit
                 }
             }
             1 => root_node_to_tokens_ssr(cx, &nodes[0], global_class),
@@ -168,7 +168,7 @@ pub(crate) fn render_view(
             0 => {
                 let span = Span::call_site();
                 quote_spanned! {
-                    span => leptos::Unit
+                    span => leptos::leptos_dom::Unit
                 }
             }
             1 => node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class),
@@ -287,7 +287,7 @@ fn root_element_to_tokens_ssr(
         } else if is_math_ml_element(&tag_name) {
             quote! { math::#typed_element_name }
         } else {
-            quote! { #typed_element_name }
+            quote! { html::#typed_element_name }
         };
         let full_name = if is_custom_element {
             quote! {
@@ -295,7 +295,7 @@ fn root_element_to_tokens_ssr(
             }
         } else {
             quote! {
-                leptos::leptos_dom::html::#typed_element_name::default()
+                leptos::leptos_dom::#typed_element_name::default()
             }
         };
         quote! {
@@ -832,7 +832,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .expect("couldn't parse event name");
 
         let event_type = if is_custom {
-            quote! { leptos::leptos_dom::leptos_dom::events::Custom::new(#name) }
+            quote! { leptos::ev::Custom::new(#name) }
         } else {
             event_type
         };
@@ -887,9 +887,9 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             } else {
                 quote! { undelegated }
             };
-            quote! { ::leptos::leptos_dom::ev::#undelegated(::leptos::leptos_dom::ev::#event_type) }
+            quote! { ::leptos::ev::#undelegated(::leptos::ev::#event_type) }
         } else {
-            quote! { ::leptos::leptos_dom::ev::#event_type }
+            quote! { ::leptos::ev::#event_type }
         };
 
         quote! {
@@ -969,7 +969,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
     }
 }
 
-fn component_to_tokens(
+pub(crate) fn component_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     global_class: Option<&TokenTree>,
@@ -1081,7 +1081,7 @@ fn component_to_tokens(
     }
 }
 
-fn event_from_attribute_node(
+pub(crate) fn event_from_attribute_node(
     attr: &NodeAttribute,
     force_undelegated: bool,
 ) -> (TokenStream, &Expr) {

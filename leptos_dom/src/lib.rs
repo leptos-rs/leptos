@@ -24,6 +24,8 @@ pub mod svg;
 mod transparent;
 use cfg_if::cfg_if;
 pub use components::*;
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+pub use events::add_event_helper;
 pub use events::typed as ev;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use events::{add_event_listener, add_event_listener_undelegated};
@@ -61,7 +63,8 @@ pub trait IntoView {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-trait Mountable {
+#[doc(hidden)]
+pub trait Mountable {
     /// Gets the [`web_sys::Node`] that can be directly inserted as
     /// a child of another node. Typically, this is a [`web_sys::DocumentFragment`]
     /// for components, and [`web_sys::HtmlElement`] for elements.
@@ -139,9 +142,11 @@ cfg_if! {
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
+      #[doc(hidden)]
       #[cfg(debug_assertions)]
-      name: Cow<'static, str>,
-      element: web_sys::HtmlElement,
+      pub name: Cow<'static, str>,
+      #[doc(hidden)]
+      pub element: web_sys::HtmlElement,
     }
 
     impl fmt::Debug for Element {
@@ -616,7 +621,11 @@ impl View {
 #[cfg_attr(debug_assertions, instrument)]
 #[track_caller]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-fn mount_child<GWSN: Mountable + fmt::Debug>(kind: MountKind, child: &GWSN) {
+#[doc(hidden)]
+pub fn mount_child<GWSN: Mountable + fmt::Debug>(
+    kind: MountKind,
+    child: &GWSN,
+) {
     let child = child.get_mountable_node();
 
     match kind {
@@ -679,7 +688,8 @@ fn prepare_to_move(
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug)]
-enum MountKind<'a> {
+#[doc(hidden)]
+pub enum MountKind<'a> {
     Before(
         // The closing node
         &'a web_sys::Node,
