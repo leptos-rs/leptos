@@ -14,7 +14,7 @@ use std::borrow::Cow;
 /// ```
 /// # cfg_if::cfg_if! { if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
 /// # use leptos::*;
-/// let html = render_to_string(|cx| view! { cx,
+/// let html = leptos::ssr::render_to_string(|cx| view! { cx,
 ///   <p>"Hello, world!"</p>
 /// });
 /// // static HTML includes some hydration info
