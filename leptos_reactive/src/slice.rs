@@ -1,5 +1,6 @@
 use crate::{
-    create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter, SignalUpdate, SignalWith,
+    create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter,
+    SignalUpdate, SignalWith,
 };
 
 /// Derives a reactive slice of an [RwSignal](crate::RwSignal).
@@ -23,36 +24,36 @@ use crate::{
 ///
 /// // this could be serialized to and from localstorage with miniserde
 /// pub struct State {
-///   token: String,
-///   dark_mode: bool,
+///     token: String,
+///     dark_mode: bool,
 /// }
 ///
 /// let state = create_rw_signal(
-///   cx,
-///   State {
-///     token: "".into(),
-///     // this would cause flickering on reload,
-///     // use a cookie for the initial value in real projects
-///     dark_mode: false,
-///   },
+///     cx,
+///     State {
+///         token: "".into(),
+///         // this would cause flickering on reload,
+///         // use a cookie for the initial value in real projects
+///         dark_mode: false,
+///     },
 /// );
 /// let (token, set_token) = create_slice(
-///   cx,
-///   state,
-///   |state| state.token.clone(),
-///   |state, value| state.token = value,
+///     cx,
+///     state,
+///     |state| state.token.clone(),
+///     |state, value| state.token = value,
 /// );
 /// let (dark_mode, set_dark_mode) = create_slice(
-///   cx,
-///   state,
-///   |state| state.dark_mode,
-///   |state, value| state.dark_mode = value,
+///     cx,
+///     state,
+///     |state| state.dark_mode,
+///     |state, value| state.dark_mode = value,
 /// );
 /// let count_token_updates = create_rw_signal(cx, 0);
 /// count_token_updates.with(|counter| assert_eq!(counter, &0));
 /// create_isomorphic_effect(cx, move |_| {
-///   _ = token.with(|_| {});
-///   count_token_updates.update(|counter| *counter += 1)
+///     _ = token.with(|_| {});
+///     count_token_updates.update(|counter| *counter += 1)
 /// });
 /// count_token_updates.with(|counter| assert_eq!(counter, &1));
 /// set_token.set("this is not a token!".into());

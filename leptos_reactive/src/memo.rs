@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, on_cleanup, ReadSignal, Scope, SignalGet, SignalGetUntracked, SignalStream,
-    SignalWith, SignalWithUntracked,
+    create_effect, on_cleanup, ReadSignal, Scope, SignalGet,
+    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
 };
 use std::fmt::Debug;
 
@@ -318,7 +318,10 @@ impl<T> SignalWith<T> for Memo<T> {
 }
 
 impl<T: Clone> SignalStream<T> for Memo<T> {
-    fn to_stream(&self, cx: Scope) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+    fn to_stream(
+        &self,
+        cx: Scope,
+    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
 
         let close_channel = tx.clone();

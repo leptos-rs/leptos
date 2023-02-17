@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, on_cleanup, store_value, Memo, ReadSignal, RwSignal, Scope, SignalGet,
-    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked, StoredValue,
+    create_effect, on_cleanup, store_value, Memo, ReadSignal, RwSignal, Scope,
+    SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    SignalWithUntracked, StoredValue,
 };
 
 /// Helper trait for converting `Fn() -> T` closures into
@@ -88,7 +89,9 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.get_untracked(),
             SignalTypes::Memo(m) => m.get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.with_value(|f| f())),
+            SignalTypes::DerivedSignal(cx, f) => {
+                cx.untrack(|| f.with_value(|f| f()))
+            }
         }
     }
 
@@ -108,7 +111,9 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
         match &self.inner {
             SignalTypes::ReadSignal(s) => s.try_get_untracked(),
             SignalTypes::Memo(m) => m.try_get_untracked(),
-            SignalTypes::DerivedSignal(cx, f) => cx.untrack(|| f.try_with_value(|f| f())),
+            SignalTypes::DerivedSignal(cx, f) => {
+                cx.untrack(|| f.try_with_value(|f| f()))
+            }
         }
     }
 }
@@ -244,7 +249,7 @@ impl<T> SignalWith<T> for Signal<T> {
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
-///   arg.get() > 3
+///     arg.get() > 3
 /// }
 ///
 /// assert_eq!(above_3(&count.into()), false);
@@ -271,7 +276,10 @@ impl<T: Clone> SignalGet<T> for Signal<T> {
 }
 
 impl<T: Clone> SignalStream<T> for Signal<T> {
-    fn to_stream(&self, cx: Scope) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+    fn to_stream(
+        &self,
+        cx: Scope,
+    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         match self.inner {
             SignalTypes::ReadSignal(r) => r.to_stream(cx),
             SignalTypes::Memo(m) => m.to_stream(cx),
@@ -333,7 +341,10 @@ where
         };
 
         Self {
-            inner: SignalTypes::DerivedSignal(cx, store_value(cx, Box::new(derived_signal))),
+            inner: SignalTypes::DerivedSignal(
+                cx,
+                store_value(cx, Box::new(derived_signal)),
+            ),
             #[cfg(debug_assertions)]
             defined_at: std::panic::Location::caller(),
         }
@@ -495,7 +506,7 @@ impl<T: Default> Default for MaybeSignal<T> {
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
-///   arg.get() > 3
+///     arg.get() > 3
 /// }
 ///
 /// assert_eq!(above_3(&count.into()), false);
@@ -619,7 +630,10 @@ impl<T: Clone> SignalGetUntracked<T> for MaybeSignal<T> {
 }
 
 impl<T: Clone> SignalStream<T> for MaybeSignal<T> {
-    fn to_stream(&self, cx: Scope) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+    fn to_stream(
+        &self,
+        cx: Scope,
+    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
         match self {
             Self::Static(t) => {
                 let t = t.clone();

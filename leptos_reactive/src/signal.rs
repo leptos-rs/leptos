@@ -88,7 +88,9 @@ impl_set_fn_traits![WriteSignal];
 /// traits needed to use those types.
 pub mod prelude {
     pub use super::*;
-    pub use crate::{memo::*, selector::*, signal_wrappers_read::*, signal_wrappers_write::*};
+    pub use crate::{
+        memo::*, selector::*, signal_wrappers_read::*, signal_wrappers_write::*,
+    };
 }
 
 /// This trait allows getting an owned value of the signals
@@ -151,8 +153,8 @@ pub trait SignalUpdate<T> {
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
-    #[deprecated = "Please use `try_update` instead. This method will be removed \
-                  in a future version of this crate"]
+    #[deprecated = "Please use `try_update` instead. This method will be \
+                    removed in a future version of this crate"]
     fn update_returning<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.try_update(f)
     }
@@ -224,16 +226,20 @@ pub trait SignalUpdateUntracked<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
     /// the value the closure returned.
-    #[deprecated = "Please use `try_update_untracked` instead. This method will \
-                  be removed in a future version of `leptos`"]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    #[deprecated = "Please use `try_update_untracked` instead. This method \
+                    will be removed in a future version of `leptos`"]
+    fn update_returning_untracked<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.try_update_untracked(f)
     }
 
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
     /// the value the closure returned.
-    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
+    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O)
+        -> Option<O>;
 }
 
 /// This trait allows converting a signal into a async [`Stream`].
@@ -584,8 +590,10 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
         )
     )]
     fn get(&self) -> T {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, T::clone))
-            .expect("runtime to be alive")
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, T::clone)
+        })
+        .expect("runtime to be alive")
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
@@ -814,7 +822,10 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 
-    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    fn try_update_untracked<O>(
+        &self,
+        f: impl FnOnce(&mut T) -> O,
+    ) -> Option<O> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -1191,7 +1202,10 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    fn update_returning_untracked<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 
@@ -1208,7 +1222,10 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
             )
         )
     )]
-    fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
+    fn try_update_untracked<O>(
+        &self,
+        f: impl FnOnce(&mut T) -> O,
+    ) -> Option<O> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 }
@@ -1310,8 +1327,10 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
     where
         T: Clone,
     {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, T::clone))
-            .expect("runtime to be alive")
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, T::clone)
+        })
+        .expect("runtime to be alive")
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
@@ -1357,9 +1376,9 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
 /// count.update(|n| {
-///   if *n > 3 {
-///     *n += 1
-///   }
+///     if *n > 3 {
+///         *n += 1
+///     }
 /// });
 /// assert_eq!(count(), 1);
 /// # }).dispose();
@@ -1698,7 +1717,11 @@ impl SignalId {
         .expect("tried to access a signal in a runtime that has been disposed")
     }
 
-    fn update_value<T, U>(&self, runtime: RuntimeId, f: impl FnOnce(&mut T) -> U) -> Option<U>
+    fn update_value<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U>
     where
         T: 'static,
     {

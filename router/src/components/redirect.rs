@@ -1,5 +1,7 @@
 use crate::{use_navigate, use_resolved_path, NavigateOptions};
-use leptos::{component, provide_context, signal_prelude::*, use_context, IntoView, Scope};
+use leptos::{
+    component, provide_context, signal_prelude::*, use_context, IntoView, Scope,
+};
 use std::rc::Rc;
 
 /// Redirects the user to a new URL, whether on the client side or on the server

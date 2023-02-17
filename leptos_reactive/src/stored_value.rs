@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntrack, SignalUpdateUntracked,
-    SignalWithUntracked,
+    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntrack,
+    SignalUpdateUntracked, SignalWithUntracked,
 };
 
 /// A **non-reactive** wrapper for any value, which can be created with [store_value].
@@ -138,8 +138,8 @@ impl<T> StoredValue<T> {
     /// to this signal.
     #[track_caller]
     #[deprecated = "Please use `get_value` instead, as this method does not \
-                  track the stored value. This method will also be removed in \
-                  a future version of `leptos`"]
+                    track the stored value. This method will also be removed \
+                    in a future version of `leptos`"]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -159,9 +159,9 @@ impl<T> StoredValue<T> {
 
     /// Same as [`StoredValue::get`] but will not panic by default.
     #[track_caller]
-    #[deprecated = "Please use `try_get_value` instead, as this method does not \
-                  track the stored value. This method will also be removed in \
-                  a future version of `leptos`"]
+    #[deprecated = "Please use `try_get_value` instead, as this method does \
+                    not track the stored value. This method will also be \
+                    removed in a future version of `leptos`"]
     pub fn try_get(&self) -> Option<T>
     where
         T: Clone,
@@ -194,8 +194,8 @@ impl<T> StoredValue<T> {
     /// ```
     #[track_caller]
     #[deprecated = "Please use `with_value` instead, as this method does not \
-                  track the stored value. This method will also be removed in \
-                  a future version of `leptos`"]
+                    track the stored value. This method will also be removed \
+                    in a future version of `leptos`"]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.with_value(f)
     }
@@ -223,9 +223,9 @@ impl<T> StoredValue<T> {
 
     /// Same as [`StoredValue::with`] but returns [`Some(O)]` only if
     /// the signal is still valid. [`None`] otherwise.
-    #[deprecated = "Please use `try_with_value` instead, as this method does not \
-                  track the stored value. This method will also be removed in \
-                  a future version of `leptos`"]
+    #[deprecated = "Please use `try_with_value` instead, as this method does \
+                    not track the stored value. This method will also be \
+                    removed in a future version of `leptos`"]
     pub fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         self.try_with_value(f)
     }
@@ -238,9 +238,9 @@ impl<T> StoredValue<T> {
 
     /// Updates the stored value.
     #[track_caller]
-    #[deprecated = "Please use `update_value` instead, as this method does \
-                  not track the stored value. This method will also be removed \
-                  in a future version of `leptos`"]
+    #[deprecated = "Please use `update_value` instead, as this method does not \
+                    track the stored value. This method will also be removed \
+                    in a future version of `leptos`"]
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.update_value(f);
     }
@@ -253,10 +253,13 @@ impl<T> StoredValue<T> {
 
     /// Updates the stored value.
     #[track_caller]
-    #[deprecated = "Please use `try_update_value` instead, as this method \
-                  does not track the stored value. This method will also be \
-                  removed in a future version of `leptos`"]
-    pub fn update_returning<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
+    #[deprecated = "Please use `try_update_value` instead, as this method does \
+                    not track the stored value. This method will also be \
+                    removed in a future version of `leptos`"]
+    pub fn update_returning<U>(
+        &self,
+        f: impl FnOnce(&mut T) -> U,
+    ) -> Option<U> {
         self.try_update_value(f)
     }
 
@@ -281,8 +284,8 @@ impl<T> StoredValue<T> {
     /// ```
     #[track_caller]
     #[deprecated = "Please use `set_value` instead, as this method does not \
-                  track the stored value. This method will also be removed in \
-                  a future version of `leptos`"]
+                    track the stored value. This method will also be removed \
+                    in a future version of `leptos`"]
     pub fn set(&self, value: T) {
         self.set_value(value);
     }

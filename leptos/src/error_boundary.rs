@@ -1,7 +1,9 @@
 use crate::Children;
 use leptos_dom::{Errors, IntoView};
 use leptos_macro::{component, view};
-use leptos_reactive::{create_rw_signal, provide_context, signal_prelude::*, RwSignal, Scope};
+use leptos_reactive::{
+    create_rw_signal, provide_context, signal_prelude::*, RwSignal, Scope,
+};
 
 /// When you render a `Result<_, _>` in your view, in the `Err` case it will
 /// render nothing, and search up through the view tree for an `<ErrorBoundary/>`.

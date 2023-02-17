@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
-use crate::{store_value, RwSignal, Scope, SignalSet, StoredValue, WriteSignal};
+use crate::{
+    store_value, RwSignal, Scope, SignalSet, StoredValue, WriteSignal,
+};
 
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
 pub trait IntoSignalSetter<T>: Sized {
@@ -81,7 +83,9 @@ impl<T> SignalSet<T> for SignalSetter<T> {
         match self.inner {
             SignalSetterTypes::Default => {}
             SignalSetterTypes::Write(w) => w.set(new_value),
-            SignalSetterTypes::Mapped(_, s) => s.with_value(|setter| setter(new_value)),
+            SignalSetterTypes::Mapped(_, s) => {
+                s.with_value(|setter| setter(new_value))
+            }
         }
     }
 
@@ -92,7 +96,8 @@ impl<T> SignalSet<T> for SignalSetter<T> {
             SignalSetterTypes::Mapped(_, s) => {
                 let mut new_value = Some(new_value);
 
-                let _ = s.try_with_value(|setter| setter(new_value.take().unwrap()));
+                let _ = s
+                    .try_with_value(|setter| setter(new_value.take().unwrap()));
 
                 new_value
             }
