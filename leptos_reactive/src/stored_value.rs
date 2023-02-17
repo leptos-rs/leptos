@@ -44,7 +44,7 @@ impl<T> Copy for StoredValue<T> {}
 /// assert_eq!(data.get().value, "a");
 /// // there's a short-hand getter form
 /// assert_eq!(data().value, "a");
-/// });
+/// # });
 /// ```
 impl<T: Clone> SignalGetUntracked<T> for StoredValue<T> {
     fn get_untracked(&self) -> T
@@ -116,7 +116,7 @@ impl<T> SignalWith<T> for StoredValue<T> {
 ///
 ///     assert_eq!(data.with(|data| data.value.clone()), "b");
 ///     assert_eq!(updated, Some(String::from("b")));
-/// });
+/// # });
 /// ```
 impl<T> SignalUpdateUntracked<T> for StoredValue<T> {
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
@@ -206,13 +206,13 @@ impl<T> StoredValue<T> {
     /// # create_scope(create_runtime(), |cx| {
     ///
     /// pub struct MyUncloneableData {
-    ///   pub value: String
+    ///     pub value: String,
     /// }
     /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
     ///
     /// // calling .with() to extract the value
     /// assert_eq!(data.with(|data| data.value.clone()), "a");
-    /// });
+    /// # });
     /// ```
     #[track_caller]
     //               track the stored value. This method will also be removed in \
@@ -296,12 +296,12 @@ impl<T> StoredValue<T> {
     /// # create_scope(create_runtime(), |cx| {
     ///
     /// pub struct MyUncloneableData {
-    ///   pub value: String
+    ///     pub value: String,
     /// }
     /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
     /// data.set(MyUncloneableData { value: "b".into() });
     /// assert_eq!(data.with(|data| data.value.clone()), "b");
-    /// });
+    /// # });
     /// ```
     #[track_caller]
     pub fn set_value(&self, value: T) {

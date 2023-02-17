@@ -172,18 +172,20 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-/// let name_upper = Signal::derive(cx, move || name.with(|n| n.to_uppercase()));
-/// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
+/// let name_upper =
+///     Signal::derive(cx, move || name.with(|n| n.to_uppercase()));
+/// let memoized_lower =
+///     create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
 ///
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: Signal<String>) -> usize {
-///  // ❌ unnecessarily clones the string
-///   arg().len()
+///     // ❌ unnecessarily clones the string
+///     arg().len()
 /// }
 ///
 /// fn current_len(arg: &Signal<String>) -> usize {
-///  // ✅ gets the length without cloning the `String`
-///   arg.with(|value| value.len())
+///     // ✅ gets the length without cloning the `String`
+///     arg.with(|value| value.len())
 /// }
 ///
 /// assert_eq!(current_len(&name.into()), 5);
@@ -193,7 +195,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// assert_eq!(name(), "Alice");
 /// assert_eq!(name_upper(), "ALICE");
 /// assert_eq!(memoized_lower(), "alice");
-/// });
+/// # });
 /// ```
 impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
@@ -537,19 +539,21 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-/// let name_upper = MaybeSignal::derive(cx, move || name.with(|n| n.to_uppercase()));
-/// let memoized_lower = create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
+/// let name_upper =
+///     MaybeSignal::derive(cx, move || name.with(|n| n.to_uppercase()));
+/// let memoized_lower =
+///     create_memo(cx, move |_| name.with(|n| n.to_lowercase()));
 /// let static_value: MaybeSignal<String> = "Bob".to_string().into();
 ///
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: &MaybeSignal<String>) -> usize {
-///  // ❌ unnecessarily clones the string
-///   arg().len()
+///     // ❌ unnecessarily clones the string
+///     arg().len()
 /// }
 ///
 /// fn current_len(arg: &MaybeSignal<String>) -> usize {
-///  // ✅ gets the length without cloning the `String`
-///   arg.with(|value| value.len())
+///     // ✅ gets the length without cloning the `String`
+///     arg.with(|value| value.len())
 /// }
 ///
 /// assert_eq!(current_len(&name.into()), 5);
@@ -561,7 +565,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// assert_eq!(name_upper(), "ALICE");
 /// assert_eq!(memoized_lower(), "alice");
 /// assert_eq!(static_value(), "Bob");
-/// });
+/// # });
 /// ```
 impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(

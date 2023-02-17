@@ -516,7 +516,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// assert_eq!(first_char(), 'A');
 /// set_name("Bob".to_string());
 /// assert_eq!(first_char(), 'B');
-/// });
+/// # });
 /// ```
 impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
@@ -573,7 +573,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 ///
 /// // calling the getter clones and returns the value
 /// assert_eq!(count(), 0);
-/// });
+/// # });
 /// ```
 impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
