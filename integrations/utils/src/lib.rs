@@ -30,14 +30,15 @@ pub fn html_parts(
                         let msg = JSON.parse(ev.data);
                         if (msg.all) window.location.reload();
                         if (msg.css) {{
-                            const link = document.querySelector("link#leptos");
-                            if (link) {{
-                                let href = link.getAttribute('href').split('?')[0];
-                                let newHref = href + '?version=' + new Date().getMilliseconds();
-                                link.setAttribute('href', newHref);
-                            }} else {{
-                                console.warn("Could not find link#leptos");
-                            }}
+                            let found = false;
+                            document.querySelectorAll("link").forEach((link) => {{
+                                if (link.getAttribute('href').includes(msg.css)) {{
+                                    let newHref = '/' + msg.css + '?version=' + new Date().getMilliseconds();
+                                    link.setAttribute('href', newHref);
+                                    found = true;
+                                }}
+                            }});
+                            if (!found) console.warn(`CSS hot-reload: Could not find a <link href=/\"${{msg.css}}\"> element`);
                         }};
                     }};
                     ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');

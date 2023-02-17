@@ -582,6 +582,36 @@ where
     }
 }
 
+async fn generate_response(
+    res_options: ResponseOptions,
+    rx: Receiver<String>,
+) -> Response<StreamBody<PinnedHtmlStream>> {
+    let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
+
+    // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
+    let first_chunk = stream.next().await;
+    let second_chunk = stream.next().await;
+
+    // Extract the resources now that they've been rendered
+    let res_options = res_options.0.read();
+
+    let complete_stream =
+        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
+            .chain(stream);
+
+    let mut res = Response::new(StreamBody::new(
+        Box::pin(complete_stream) as PinnedHtmlStream
+    ));
+
+    if let Some(status) = res_options.status {
+        *res.status_mut() = status
+    }
+    let mut res_headers = res_options.headers.clone();
+    res.headers_mut().extend(res_headers.drain());
+
+    res
+}
+
 async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
@@ -612,36 +642,6 @@ async fn forward_stream(
     runtime.dispose();
 
     tx.close_channel();
-}
-
-async fn generate_response(
-    res_options: ResponseOptions,
-    rx: Receiver<String>,
-) -> Response<StreamBody<PinnedHtmlStream>> {
-    let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
-
-    // Get the first and second chunks in the stream, which renders the app shell, and thus allows Resources to run
-    let first_chunk = stream.next().await;
-    let second_chunk = stream.next().await;
-
-    // Extract the resources now that they've been rendered
-    let res_options = res_options.0.read();
-
-    let complete_stream =
-        futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-            .chain(stream);
-
-    let mut res = Response::new(StreamBody::new(
-        Box::pin(complete_stream) as PinnedHtmlStream
-    ));
-
-    if let Some(status) = res_options.status {
-        *res.status_mut() = status
-    }
-    let mut res_headers = res_options.headers.clone();
-    res.headers_mut().extend(res_headers.drain());
-
-    res
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -1004,7 +1004,7 @@ pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1013,45 +1013,7 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_in_order_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_in_order_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_async_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_async_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1060,7 +1022,7 @@ pub trait LeptosRoutes {
 
     fn leptos_routes_with_handler<H, T>(
         self,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         handler: H,
     ) -> Self
     where
@@ -1073,26 +1035,19 @@ impl LeptosRoutes for axum::Router {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                get(render_app_to_stream(options.clone(), app_fn.clone())),
-            );
-        }
-        router
+        self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
     }
 
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1100,60 +1055,30 @@ impl LeptosRoutes for axum::Router {
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for path in paths.iter() {
+        for (path, mode) in paths.iter() {
             router = router.route(
                 path,
-                get(render_app_to_stream_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                )),
-            );
-        }
-        router
-    }
-
-    fn leptos_in_order_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                get(render_app_to_stream_in_order(
-                    options.clone(),
-                    app_fn.clone(),
-                )),
-            );
-        }
-        router
-    }
-
-    fn leptos_in_order_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                get(render_app_to_stream_in_order_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                )),
+                match mode {
+                    SsrMode::OutOfOrder => {
+                        get(render_app_to_stream_with_context(
+                            options.clone(),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                        ))
+                    }
+                    SsrMode::InOrder => {
+                        get(render_app_to_stream_in_order_with_context(
+                            options.clone(),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                        ))
+                    }
+                    SsrMode::Async => get(render_app_async_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    )),
+                },
             );
         }
         router
@@ -1161,7 +1086,7 @@ impl LeptosRoutes for axum::Router {
 
     fn leptos_routes_with_handler<H, T>(
         self,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         handler: H,
     ) -> Self
     where
@@ -1169,51 +1094,8 @@ impl LeptosRoutes for axum::Router {
         T: 'static,
     {
         let mut router = self;
-        for path in paths.iter() {
+        for (path, _) in paths.iter() {
             router = router.route(path, get(handler.clone()));
-        }
-        router
-    }
-
-    fn leptos_async_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                get(render_app_async(options.clone(), app_fn.clone())),
-            );
-        }
-        router
-    }
-
-    fn leptos_async_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                get(render_app_async_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                )),
-            );
         }
         router
     }

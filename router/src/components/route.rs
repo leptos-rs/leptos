@@ -1,6 +1,6 @@
 use crate::{
     matching::{resolve_path, PathMatch, RouteDefinition, RouteMatch},
-    ParamsMap, RouterContext,
+    ParamsMap, RouterContext, SsrMode,
 };
 use leptos::{leptos_dom::Transparent, *};
 use std::{
@@ -25,6 +25,9 @@ pub fn Route<E, F, P>(
     /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
+    /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -39,6 +42,7 @@ where
         children: Option<Children>,
         path: String,
         view: Rc<dyn Fn(Scope) -> View>,
+        ssr_mode: SsrMode,
     ) -> RouteDefinition {
         let children = children
             .map(|children| {
@@ -66,6 +70,7 @@ where
             path,
             children,
             view,
+            ssr_mode,
         }
     }
 
@@ -74,6 +79,7 @@ where
         children,
         path.to_string(),
         Rc::new(move |cx| view(cx).into_view(cx)),
+        ssr,
     )
 }
 

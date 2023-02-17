@@ -843,7 +843,7 @@ async fn render_app_async_helper(
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list<IV>(
     app_fn: impl FnOnce(leptos::Scope) -> IV + 'static,
-) -> Vec<String>
+) -> Vec<(String, SsrMode)>
 where
     IV: IntoView + 'static,
 {
@@ -851,12 +851,12 @@ where
 
     // Empty strings screw with Actix pathing, they need to be "/"
     routes = routes
-        .iter()
-        .map(|s| {
+        .into_iter()
+        .map(|(s, mode)| {
             if s.is_empty() {
-                return "/".to_string();
+                return ("/".to_string(), mode);
             }
-            s.to_string()
+            (s, mode)
         })
         .collect();
 
@@ -866,14 +866,14 @@ where
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
 
-    let routes: Vec<String> = routes
-        .iter()
-        .map(|s| wildcard_re.replace_all(s, "{tail:.*}").to_string())
-        .map(|s| capture_re.replace_all(&s, "{$1}").to_string())
+    let routes: Vec<(String, SsrMode)> = routes
+        .into_iter()
+        .map(|(s, m)| (wildcard_re.replace_all(&s, "{tail:.*}").to_string(), m))
+        .map(|(s, m)| (capture_re.replace_all(&s, "{$1}").to_string(), m))
         .collect();
 
     if routes.is_empty() {
-        vec!["/".to_string()]
+        vec![("/".to_string(), Default::default())]
     } else {
         routes
     }
@@ -884,39 +884,22 @@ pub enum DataResponse<T> {
     Response(actix_web::dev::Response<BoxBody>),
 }
 
-/// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
+/// This trait allows one to pass a list of routes and a render function to Actix's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
 pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
 
-    fn leptos_in_order_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_async_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    #[deprecated = "You can now use `leptos_async_routes` with \
-                    `create_resource` and `<Suspense/>` to achieve async \
-                    rendering without manually preloading data."]
+    #[deprecated = "You can now use `leptos_routes` and a `<Route \
+                    mode=SsrMode::Async/>`
+                    to achieve async rendering without manually preloading \
+                    data."]
     fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
         options: LeptosOptions,
@@ -932,27 +915,7 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_in_order_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static;
-
-    fn leptos_async_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -974,56 +937,13 @@ where
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                render_app_to_stream(options.clone(), app_fn.clone()),
-            );
-        }
-        router
-    }
-
-    fn leptos_in_order_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                render_app_to_stream_in_order(options.clone(), app_fn.clone()),
-            );
-        }
-        router
-    }
-
-    fn leptos_async_routes<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router
-                .route(path, render_app_async(options.clone(), app_fn.clone()));
-        }
-        router
+        self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
     }
 
     fn leptos_preloaded_data_routes<Data, Fut, IV>(
@@ -1057,7 +977,7 @@ where
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<String>,
+        paths: Vec<(String, SsrMode)>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1065,62 +985,28 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for path in paths.iter() {
+        for (path, mode) in paths.iter() {
             router = router.route(
                 path,
-                render_app_to_stream_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                ),
-            );
-        }
-        router
-    }
-
-    fn leptos_in_order_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                render_app_to_stream_in_order_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                ),
-            );
-        }
-        router
-    }
-
-    fn leptos_async_routes_with_context<IV>(
-        self,
-        options: LeptosOptions,
-        paths: Vec<String>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-    {
-        let mut router = self;
-        for path in paths.iter() {
-            router = router.route(
-                path,
-                render_app_async_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                ),
+                match mode {
+                    SsrMode::OutOfOrder => render_app_to_stream_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    ),
+                    SsrMode::InOrder => {
+                        render_app_to_stream_in_order_with_context(
+                            options.clone(),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                        )
+                    }
+                    SsrMode::Async => render_app_async_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    ),
+                },
             );
         }
         router
