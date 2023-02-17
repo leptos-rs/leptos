@@ -281,6 +281,7 @@ impl MetaContext {
 /// Extracts the metadata that should be used to close the `<head>` tag
 /// and open the `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
+#[cfg(feature = "ssr")]
 pub fn generate_head_metadata(cx: Scope) -> String {
     let meta = use_context::<MetaContext>(cx);
     let head = meta
