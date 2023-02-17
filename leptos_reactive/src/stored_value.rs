@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntrack,
+    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntracked,
     SignalUpdateUntracked, SignalWithUntracked,
 };
 
