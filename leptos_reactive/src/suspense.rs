@@ -1,5 +1,9 @@
+//! Types that handle asynchronous data loading via `<Suspense/>`.
+
 #![forbid(unsafe_code)]
 use crate::{create_signal, queue_microtask, ReadSignal, Scope, WriteSignal};
+use futures::Future;
+use std::{borrow::Cow, pin::Pin};
 
 /// Tracks [Resource](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
@@ -59,5 +63,22 @@ impl SuspenseContext {
         self.pending_resources
             .try_with(|n| *n == 0)
             .unwrap_or(false)
+    }
+}
+
+/// Represents a chunk in a stream of HTML.
+pub enum StreamChunk {
+    /// A chunk of synchronous HTML.
+    Sync(Cow<'static, str>),
+    /// A future that resolves to be a list of additional chunks.
+    Async(Pin<Box<dyn Future<Output = Vec<StreamChunk>>>>),
+}
+
+impl std::fmt::Debug for StreamChunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StreamChunk::Sync(data) => write!(f, "StreamChunk::Sync({data:?})"),
+            StreamChunk::Async(_) => write!(f, "StreamChunk::Async(_)"),
+        }
     }
 }
