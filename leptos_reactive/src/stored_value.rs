@@ -26,116 +26,30 @@ impl<T> Clone for StoredValue<T> {
 
 impl<T> Copy for StoredValue<T> {}
 
-// For when we're ready to migrate these over to the untracked traits ;)
-/*
-/// # Examples
-///
-/// ```
-/// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-///
-/// #[derive(Clone)]
-/// pub struct MyCloneableData {
-///   pub value: String
-/// }
-/// let data = store_value(cx, MyCloneableData { value: "a".into() });
-///
-/// // calling .get() clones and returns the value
-/// assert_eq!(data.get().value, "a");
-/// // there's a short-hand getter form
-/// assert_eq!(data().value, "a");
-/// # });
-/// ```
-impl<T: Clone> SignalGetUntracked<T> for StoredValue<T> {
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        self.0.get_untracked()
-    }
-}
-
-impl<T> SignalWithUntracked<T> for StoredValue<T> {
-    fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.0.with_untracked(f)
-    }
-
-    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with_untracked(f)
-    }
-}
-
-impl<T> SignalSetUntrack<T> for StoredValue<T> {
-    fn set_untracked(&self, new_value: T) {
-        self.0.set_untracked(new_value)
-    }
-
-    fn try_set_untracked(&self, new_value: T) -> Option<T> {
-        self.0.try_set_untracked(new_value)
-    }
-}
-
-impl<T> SignalWith<T> for StoredValue<T> {
-    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.0.with(f)
-    }
-
-    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with(f)
-    }
-}
-
-/// # Examples
-///
-/// ```
-/// # use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-///
-/// pub struct MyUncloneableData {
-///   pub value: String
-/// }
-/// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-/// data.update(|data| data.value = "b".into());
-/// assert_eq!(data.with(|data| data.value.clone()), "b");
-/// });
-/// ```
-///
-/// ```
-/// use leptos_reactive::*;
-/// # create_scope(create_runtime(), |cx| {
-///
-///     pub struct MyUncloneableData {
-///         pub value: String
-///     }
-///
-///     let data = store_value(cx, MyUncloneableData { value: "a".into() });
-///     let updated = data.update_returning(|data| {
-///         data.value = "b".into();
-///         data.value.clone()
-///     });
-///
-///     assert_eq!(data.with(|data| data.value.clone()), "b");
-///     assert_eq!(updated, Some(String::from("b")));
-/// # });
-/// ```
-impl<T> SignalUpdateUntracked<T> for StoredValue<T> {
-    fn update_untracked(&self, f: impl FnOnce(&mut T)) {
-        self.0.update_untracked(f)
-    }
-
-    fn update_returning_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.0.try_update_untracked(f)
-    }
-
-    fn try_update_untracked<U>(&self, f: impl FnOnce(&mut T) -> U) -> Option<U> {
-        self.0.try_update_untracked(f)
-    }
-}
-*/
-
 impl<T> StoredValue<T> {
     /// Returns a clone of the signals current value, subscribing the effect
     /// to this signal.
+    ///
+    /// # Panics
+    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    ///
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    /// #[derive(Clone)]
+    /// pub struct MyCloneableData {
+    ///     pub value: String,
+    /// }
+    /// let data = store_value(cx, MyCloneableData { value: "a".into() });
+    ///
+    /// // calling .get() clones and returns the value
+    /// assert_eq!(data.get().value, "a");
+    /// // there's a short-hand getter form
+    /// assert_eq!(data().value, "a");
+    /// # });
+    /// ```
     #[track_caller]
     #[deprecated = "Please use `get_value` instead, as this method does not \
                     track the stored value. This method will also be removed \
@@ -149,6 +63,27 @@ impl<T> StoredValue<T> {
 
     /// Returns a clone of the signals current value, subscribing the effect
     /// to this signal.
+    ///
+    /// # Panics
+    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    ///
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    /// #[derive(Clone)]
+    /// pub struct MyCloneableData {
+    ///     pub value: String,
+    /// }
+    /// let data = store_value(cx, MyCloneableData { value: "a".into() });
+    ///
+    /// // calling .get() clones and returns the value
+    /// assert_eq!(data.get().value, "a");
+    /// // there's a short-hand getter form
+    /// assert_eq!(data().value, "a");
+    /// # });
+    /// ```
     #[track_caller]
     pub fn get_value(&self) -> T
     where
@@ -179,6 +114,11 @@ impl<T> StoredValue<T> {
     }
 
     /// Applies a function to the current stored value.
+    ///
+    /// # Panics
+    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    ///
+    /// # Examples
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
@@ -201,6 +141,11 @@ impl<T> StoredValue<T> {
     }
 
     /// Applies a function to the current stored value.
+    ///
+    /// # Panics
+    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    ///
+    /// # Examples
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
@@ -237,6 +182,39 @@ impl<T> StoredValue<T> {
     }
 
     /// Updates the stored value.
+    ///
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    /// pub struct MyUncloneableData {
+    ///   pub value: String
+    /// }
+    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// data.update(|data| data.value = "b".into());
+    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// });
+    /// ```
+    ///
+    /// ```
+    /// use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    /// pub struct MyUncloneableData {
+    ///     pub value: String,
+    /// }
+    ///
+    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// let updated = data.update_returning(|data| {
+    ///     data.value = "b".into();
+    ///     data.value.clone()
+    /// });
+    ///
+    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// assert_eq!(updated, Some(String::from("b")));
+    /// # });
+    /// ```
     #[track_caller]
     #[deprecated = "Please use `update_value` instead, as this method does not \
                     track the stored value. This method will also be removed \
@@ -246,6 +224,39 @@ impl<T> StoredValue<T> {
     }
 
     /// Updates the stored value.
+    ///
+    /// # Examples
+    /// ```
+    /// # use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    /// pub struct MyUncloneableData {
+    ///   pub value: String
+    /// }
+    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// data.update(|data| data.value = "b".into());
+    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// });
+    /// ```
+    ///
+    /// ```
+    /// use leptos_reactive::*;
+    /// # create_scope(create_runtime(), |cx| {
+    ///
+    /// pub struct MyUncloneableData {
+    ///     pub value: String,
+    /// }
+    ///
+    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// let updated = data.update_returning(|data| {
+    ///     data.value = "b".into();
+    ///     data.value.clone()
+    /// });
+    ///
+    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// assert_eq!(updated, Some(String::from("b")));
+    /// # });
+    /// ```
     #[track_caller]
     pub fn update_value(&self, f: impl FnOnce(&mut T)) {
         self.0.update_untracked(f);
@@ -270,6 +281,8 @@ impl<T> StoredValue<T> {
     }
 
     /// Sets the stored value.
+    ///
+    /// # Examples
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
@@ -291,6 +304,8 @@ impl<T> StoredValue<T> {
     }
 
     /// Sets the stored value.
+    ///
+    /// # Examples
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
