@@ -28,6 +28,18 @@ where
 /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same
 /// function call, `with()`, and `get()` APIs as other signals.
 ///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-Signal<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Signal<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-Signal<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Signal<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+///
+/// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
@@ -458,6 +470,18 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// This allows you to create APIs that take either a reactive or a non-reactive value
 /// of the same type. This is especially useful for component properties.
 ///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-MaybeSignal<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-MaybeSignal<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-MaybeSignal<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeSignal<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+///
+/// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {

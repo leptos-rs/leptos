@@ -216,7 +216,7 @@ pub trait SignalWithUntracked<T> {
 /// value, such as [`WriteSignal`] and [`RwSignal`], which allows setting
 /// the inner value without causing effects which depend on the signal
 /// from being run.
-pub trait SignalSetUntrack<T> {
+pub trait SignalSetUntracked<T> {
     /// Sets the signal's value without notifying dependents.
     #[track_caller]
     fn set_untracked(&self, new_value: T);
@@ -375,15 +375,21 @@ pub fn create_signal_from_stream<T>(
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// Calling [ReadSignal::get] within an effect will cause that effect
-/// to subscribe to the signal, and to re-run whenever the value of
-/// the signal changes.
-///
-/// `ReadSignal` implements [Fn], so that `value()` and `value.get()` are identical.
-///
 /// `ReadSignal` is also [Copy] and `'static`, so it can very easily moved into closures
 /// or copied structs.
 ///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-ReadSignal<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-ReadSignal<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-ReadSignal<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-ReadSignal<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+///
+/// # Examples
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
@@ -585,7 +591,9 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
-/// // calling the getter clones and returns the value
+/// assert_eq!(count.get(), 0);
+///
+/// // count() is shorthand for count.get()
 /// assert_eq!(count(), 0);
 /// # });
 /// ```
@@ -723,6 +731,18 @@ impl<T> Copy for ReadSignal<T> {}
 /// `WriteSignal` is [Copy] and `'static`, so it can very easily moved into closures
 /// or copied structs.
 ///
+/// ## Core Trait Implementations
+/// - [`.set()`](#impl-SignalSet<T>-for-WriteSignal<T>) sets the signal’s value,
+///   and notifies all subscribers that the signal’s value has changed.
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-WriteSignal<T>) sets the signal’s value
+///   without notifying its subscribers.
+/// - [`.update()`](#impl-SignalUpdate<T>-for-WriteSignal<T>) mutates the signal’s value in place
+///   and notifies all subscribers that the signal’s value has changed.
+///   - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-WriteSignal<T>) mutates the signal’s value
+///   in place without notifying its subscribers.
+///
+/// ## Examples
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
@@ -753,7 +773,7 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-impl<T> SignalSetUntrack<T> for WriteSignal<T>
+impl<T> SignalSetUntracked<T> for WriteSignal<T>
 where
     T: 'static,
 {
@@ -1013,6 +1033,27 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// A signal that combines the getter and setter into one value, rather than
 /// separating them into a [ReadSignal] and a [WriteSignal]. You may prefer this
 /// its style, or it may be easier to pass around in a context or as a function argument.
+///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-RwSignal<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-RwSignal<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-RwSignal<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-RwSignal<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+/// - [`.set()`](#impl-SignalSet<T>-for-RwSignal<T>) sets the signal’s value,
+///   and notifies all subscribers that the signal’s value has changed.
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-RwSignal<T>) sets the signal’s value
+///   without notifying its subscribers.
+/// - [`.update()`](#impl-SignalUpdate<T>-for-RwSignal<T>) mutates the signal’s value in place
+///   and notifies all subscribers that the signal’s value has changed.
+///   - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-RwSignal<T>) mutates the signal’s value
+///   in place without notifying its subscribers.
+///
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
@@ -1143,7 +1184,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     }
 }
 
-impl<T> SignalSetUntrack<T> for RwSignal<T> {
+impl<T> SignalSetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(

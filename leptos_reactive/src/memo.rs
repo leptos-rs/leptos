@@ -94,6 +94,18 @@ where
 /// As with [create_effect](crate::create_effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
 ///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-Memo<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Memo<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-Memo<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Memo<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+///
+/// ## Examples
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
