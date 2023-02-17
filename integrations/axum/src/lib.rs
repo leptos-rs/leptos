@@ -337,8 +337,8 @@ pub type PinnedHtmlStream =
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
 ///
-/// The HTML stream is rendered using [render_to_stream], and includes everything described in
-/// the documentation for that function.
+/// The HTML stream is rendered using [render_to_stream](leptos::ssr::render_to_stream), and
+/// includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```

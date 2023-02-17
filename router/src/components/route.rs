@@ -22,7 +22,7 @@ pub fn Route<E, F, P>(
     /// wildcard (`user/*any`).
     path: P,
     /// The view that should be shown when this route is matched. This can be any function
-    /// that takes a [Scope] and returns an [Element] (like `|cx| view! { cx, <p>"Show this"</p> })`
+    /// that takes a [Scope] and returns a type that implements [IntoView] (like `|cx| view! { cx, <p>"Show this"</p> })`
     /// or `|cx| view! { cx, <MyComponent/>` } or even, for a component with no props, `MyComponent`).
     view: F,
     /// `children` may be empty or include nested routes.
