@@ -960,12 +960,12 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
-) -> Vec<String>
+) -> Vec<(String, SsrMode)>
 where
     IV: IntoView + 'static,
 {
     #[derive(Default, Clone, Debug)]
-    pub struct Routes(pub Arc<RwLock<Vec<String>>>);
+    pub struct Routes(pub Arc<RwLock<Vec<(String, SsrMode)>>>);
 
     let routes = Routes::default();
     let routes_inner = routes.clone();
@@ -987,13 +987,19 @@ where
 
     let routes = routes.0.read().to_owned();
     // Axum's Router defines Root routes as "/" not ""
-    let routes: Vec<String> = routes
+    let routes = routes
         .into_iter()
-        .map(|s| if s.is_empty() { "/".to_string() } else { s })
-        .collect();
+        .map(|(s, m)| {
+            if s.is_empty() {
+                ("/".to_string(), m)
+            } else {
+                (s, m)
+            }
+        })
+        .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec!["/".to_string()]
+        vec![("/".to_string(), Default::default())]
     } else {
         routes
     }
