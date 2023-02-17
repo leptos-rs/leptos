@@ -16,5 +16,6 @@ leptos = { workspace = true, features = ["ssr"] }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
+leptos_integration_utils = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12.1"

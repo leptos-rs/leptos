@@ -1,3 +1,4 @@
+use crate::SsrMode;
 use leptos::{leptos_dom::View, *};
 use std::rc::Rc;
 
@@ -14,6 +15,8 @@ pub struct RouteDefinition {
     pub children: Vec<RouteDefinition>,
     /// The view that should be displayed when this route is matched.
     pub view: Rc<dyn Fn(Scope) -> View>,
+    /// The mode this route prefers during server-side rendering.
+    pub ssr_mode: SsrMode,
 }
 
 impl std::fmt::Debug for RouteDefinition {
@@ -21,6 +24,7 @@ impl std::fmt::Debug for RouteDefinition {
         f.debug_struct("RouteDefinition")
             .field("path", &self.path)
             .field("children", &self.children)
+            .field("ssr_mode", &self.ssr_mode)
             .finish()
     }
 }
