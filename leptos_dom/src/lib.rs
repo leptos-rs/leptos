@@ -123,6 +123,7 @@ where
         debug_assertions,
         instrument(level = "trace", name = "Fn() -> impl IntoView", skip_all)
     )]
+    #[track_caller]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(self).into_view(cx)
     }

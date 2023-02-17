@@ -138,11 +138,13 @@ where
 {
     /// Creates a new dynamic child which will re-render whenever it's
     /// signal dependencies change.
+    #[track_caller]
     pub fn new(child_fn: CF) -> Self {
         Self::new_with_id(HydrationCtx::id(), child_fn)
     }
 
     #[doc(hidden)]
+    #[track_caller]
     pub fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
         Self { id, child_fn }
     }
