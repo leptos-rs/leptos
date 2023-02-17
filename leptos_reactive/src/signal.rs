@@ -98,6 +98,9 @@ pub mod prelude {
 pub trait SignalGet<T> {
     /// Clones and returns the current value of the signal, and subscribes
     /// the running effect to this signal.
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
     #[track_caller]
     fn get(&self) -> T;
 
@@ -111,6 +114,9 @@ pub trait SignalGet<T> {
 pub trait SignalWith<T> {
     /// Applies a function to the current value of the signal, and subscribes
     /// the running effect to this signal.
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
     #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -175,6 +181,9 @@ pub trait SignalUpdate<T> {
 pub trait SignalGetUntracked<T> {
     /// Gets the signal's value without creating a dependency on the
     /// current scope.
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
     #[track_caller]
     fn get_untracked(&self) -> T;
 
@@ -189,6 +198,9 @@ pub trait SignalGetUntracked<T> {
 pub trait SignalWithUntracked<T> {
     /// Runs the provided closure with a reference to the current
     /// value without creating a dependency on the current scope.
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
     #[track_caller]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -246,7 +258,9 @@ pub trait SignalUpdateUntracked<T> {
 pub trait SignalStream<T> {
     /// Generates a [`Stream`] that emits the new value of the signal
     /// whenever it changes.
-
+    ///
+    /// # Panics
+    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
     // We're returning an opaque type until impl trait in trait
     // positions are stabilized, and also so any underlying
     // changes are non-breaking
