@@ -1937,6 +1937,7 @@ pub(crate) fn panic_getting_dead_signal(
         "{}",
         format_signal_warning(
             "Attempted to get a signal after it was disposed.",
+            #[cfg(debug_assertions)]
             defined_at,
         )
     )
@@ -1948,6 +1949,7 @@ pub(crate) fn warn_updating_dead_signal(
 ) {
     console_warn(&format_signal_warning(
         "Attempted to update a signal after it was disposed.",
+        #[cfg(debug_assertions)]
         defined_at,
     ));
 }
