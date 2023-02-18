@@ -38,6 +38,7 @@ where
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Signal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-Signal<T>) converts the signal to an `async` stream of values.
 ///
 /// ## Examples
 /// ```rust
@@ -480,6 +481,7 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-MaybeSignal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-MaybeSignal<T>) converts the signal to an `async` stream of values.
 ///
 /// ## Examples
 /// ```rust

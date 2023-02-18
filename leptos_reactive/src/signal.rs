@@ -432,6 +432,7 @@ pub fn create_signal_from_stream<T>(
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-ReadSignal<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-ReadSignal<T>) converts the signal to an `async` stream of values.
 ///
 /// # Examples
 /// ```
@@ -1097,6 +1098,7 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 ///   and notifies all subscribers that the signal’s value has changed.
 ///   - [`.update_untracked()`](#impl-SignalUpdateUntracked<T>-for-RwSignal<T>) mutates the signal’s value
 ///   in place without notifying its subscribers.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-RwSignal<T>) converts the signal to an `async` stream of values.
 ///
 /// ```
 /// # use leptos_reactive::*;

@@ -104,6 +104,7 @@ where
 ///   cloning by applying a callback function.
 ///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Memo<T>) allows you to access the signal’s
 ///   value without reactively tracking it.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-Memo<T>) converts the signal to an `async` stream of values.
 ///
 /// ## Examples
 /// ```
