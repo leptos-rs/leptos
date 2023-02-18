@@ -676,7 +676,7 @@ fn apply_cmds<T, EF, N>(
     for DiffOpAdd { at, mode } in cmds.added {
         let item = items[at].take().unwrap();
 
-        let (each_item, _) = cx.run_child_scope(|cx| {
+        let (each_item, disposer) = cx.run_child_scope(|cx| {
             let child = each_fn(cx, item).into_view(cx);
             EachItem::new(cx, child)
         });

@@ -18,14 +18,14 @@ fn main() {
 
 #[instrument]
 fn app(cx: Scope) -> impl IntoView {
-    let (data, set_data) = create_signal(cx, vec![1]);
+    let (data, set_data) = create_signal(cx, vec![1, 3, 5]);
 
     let handle_change = move |_| {
         set_data.update(|data| {
-            if [1] == data[..] {
-                *data = vec![0, 1, 2];
+            if [1, 3, 5] == data[..] {
+                *data = vec![0, 1, 2, 3, 4, 5, 6];
             } else {
-                *data = vec![1];
+                *data = vec![1, 3, 5];
             }
         })
     };
