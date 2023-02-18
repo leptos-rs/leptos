@@ -144,7 +144,7 @@ features = [
 ]
 
 [features]
-default = ["web"]
+default = []
 web = ["leptos_reactive/csr"]
 ssr = ["leptos_reactive/ssr"]
 stable = ["leptos_reactive/stable"]
