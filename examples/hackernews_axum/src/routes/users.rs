@@ -19,7 +19,7 @@ pub fn User(cx: Scope) -> impl IntoView {
     view! { cx,
         <div class="user-view">
             <Suspense fallback=|| view! { cx, "Loading..." }>
-                {move || user.read().map(|user| match user {
+                {move || user.read(cx).map(|user| match user {
                     None => view! { cx,  <h1>"User not found."</h1> }.into_any(),
                     Some(user) => view! { cx,
                         <div>

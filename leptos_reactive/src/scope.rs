@@ -353,8 +353,10 @@ impl Scope {
     pub fn serialization_resolvers(
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers())
-            .unwrap_or_default()
+        with_runtime(self.runtime, |runtime| {
+            runtime.serialization_resolvers(*self)
+        })
+        .unwrap_or_default()
     }
 
     /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,

@@ -421,11 +421,12 @@ impl Runtime {
 
     pub(crate) fn serialization_resolvers(
         &self,
+        cx: Scope,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
         let f = FuturesUnordered::new();
         for (id, resource) in self.resources.borrow().iter() {
             if let AnyResource::Serializable(resource) = resource {
-                f.push(resource.to_serialization_resolver(id));
+                f.push(resource.to_serialization_resolver(cx, id));
             }
         }
         f

@@ -121,7 +121,6 @@ where
     let source = create_memo(cx, move |_| source());
 
     let r = Rc::new(ResourceState {
-        scope: cx,
         value,
         set_value,
         loading,
@@ -245,7 +244,6 @@ where
     let source = create_memo(cx, move |_| source());
 
     let r = Rc::new(ResourceState {
-        scope: cx,
         value,
         set_value,
         loading,
@@ -372,13 +370,13 @@ where
     ///
     /// If you want to get the value without cloning it, use [Resource::with].
     /// (`value.read()` is equivalent to `value.with(T::clone)`.)
-    pub fn read(&self) -> Option<T>
+    pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
     {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read()
+                resource.read(cx)
             })
         })
         .ok()
@@ -392,10 +390,10 @@ where
     ///
     /// If you want to get the value by cloning it, you can use
     /// [Resource::read].
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(f)
+                resource.with(cx, f)
             })
         })
         .ok()
@@ -427,13 +425,16 @@ where
     /// Returns a [std::future::Future] that will resolve when the resource has loaded,
     /// yield its [ResourceId] and a JSON string.
     #[cfg(any(feature = "ssr", doc))]
-    pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
+    pub async fn to_serialization_resolver(
+        &self,
+        cx: Scope,
+    ) -> (ResourceId, String)
     where
         T: Serializable,
     {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.to_serialization_resolver(self.id)
+                resource.to_serialization_resolver(cx, self.id)
             })
         })
         .expect(
@@ -531,48 +532,12 @@ where
 {
 }
 
-#[cfg(not(feature = "stable"))]
-impl<S, T> FnOnce<()> for Resource<S, T>
-where
-    S: Clone + 'static,
-    T: Clone + 'static,
-{
-    type Output = Option<T>;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.read()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<S, T> FnMut<()> for Resource<S, T>
-where
-    S: Clone + 'static,
-    T: Clone + 'static,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.read()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<S, T> Fn<()> for Resource<S, T>
-where
-    S: Clone + 'static,
-    T: Clone + 'static,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.read()
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
     T: 'static,
 {
-    scope: Scope,
     value: ReadSignal<Option<T>>,
     set_value: WriteSignal<Option<T>>,
     pub loading: ReadSignal<bool>,
@@ -590,15 +555,15 @@ where
     S: Clone + 'static,
     T: 'static,
 {
-    pub fn read(&self) -> Option<T>
+    pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
     {
-        self.with(T::clone)
+        self.with(cx, T::clone)
     }
 
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
-        let suspense_cx = use_context::<SuspenseContext>(self.scope);
+    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+        let suspense_cx = use_context::<SuspenseContext>(cx);
 
         let v = self
             .value
@@ -611,21 +576,23 @@ where
 
         let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
-                let mut contexts = suspense_contexts.borrow_mut();
-                if !contexts.contains(s) {
-                    contexts.insert(*s);
+                if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
+                {
+                    if !contexts.contains(s) {
+                        contexts.insert(*s);
 
-                    // on subsequent reads, increment will be triggered in load()
-                    // because the context has been tracked here
-                    // on the first read, resource is already loading without having incremented
-                    if !has_value {
-                        s.increment();
+                        // on subsequent reads, increment will be triggered in load()
+                        // because the context has been tracked here
+                        // on the first read, resource is already loading without having incremented
+                        if !has_value {
+                            s.increment();
+                        }
                     }
                 }
             }
         };
 
-        create_isomorphic_effect(self.scope, increment);
+        create_isomorphic_effect(cx, increment);
         v
     }
 
@@ -685,6 +652,7 @@ where
 
     pub fn resource_to_serialization_resolver(
         &self,
+        cx: Scope,
         id: ResourceId,
     ) -> std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>
     where
@@ -694,7 +662,7 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(self.scope, move |_| {
+        create_isomorphic_effect(cx, move |_| {
             value.with({
                 let mut tx = tx.clone();
                 move |value| {
@@ -731,6 +699,7 @@ pub(crate) trait SerializableResource {
 
     fn to_serialization_resolver(
         &self,
+        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
 }
@@ -746,9 +715,10 @@ where
 
     fn to_serialization_resolver(
         &self,
+        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
-        let fut = self.resource_to_serialization_resolver(id);
+        let fut = self.resource_to_serialization_resolver(cx, id);
         Box::pin(fut)
     }
 }
