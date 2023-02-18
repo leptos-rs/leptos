@@ -732,8 +732,8 @@ impl<T> Copy for ReadSignal<T> {}
 /// or copied structs.
 ///
 /// ## Core Trait Implementations
-/// - [`.set()`](#impl-SignalSet<T>-for-WriteSignal<T>) sets the signal’s value,
-///   and notifies all subscribers that the signal’s value has changed.
+/// - [`.set()`](#impl-SignalSet<T>-for-WriteSignal<T>) (or calling the setter as a function)
+///   sets the signal’s value, and notifies all subscribers that the signal’s value has changed.
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///   - [`.set_untracked()`](#impl-SignalSetUntracked<T>-for-WriteSignal<T>) sets the signal’s value
 ///   without notifying its subscribers.
@@ -1035,7 +1035,7 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// its style, or it may be easier to pass around in a context or as a function argument.
 ///
 /// ## Core Trait Implementations
-/// - [`.get()`](#impl-SignalGet<T>-for-RwSignal<T>) (or calling the signal as a function) clones the current
+/// - [`.get()`](#impl-SignalGet<T>-for-RwSignal<T>) clones the current
 ///   value of the signal. If you call it within an effect, it will cause that effect
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-RwSignal<T>) clones the value of the signal

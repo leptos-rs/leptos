@@ -27,8 +27,8 @@ where
 /// function call or `set()`, API as other signals.
 ///
 /// ## Core Trait Implementations
-/// - [`.set()`](#impl-SignalSet<T>-for-SignalSetter<T>) sets the signal’s value,
-///   and notifies all subscribers that the signal’s value has changed.
+/// - [`.set()`](#impl-SignalSet<T>-for-SignalSetter<T>) (or calling the setter as a function)
+///   sets the signal’s value, and notifies all subscribers that the signal’s value has changed.
 ///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
 ///
 /// ## Examples
