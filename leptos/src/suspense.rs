@@ -28,7 +28,7 @@ use std::rc::Rc;
 ///   <div>
 ///     <Suspense fallback=move || view! { cx, <p>"Loading (Suspense Fallback)..."</p> }>
 ///       {move || {
-///           cats.read().map(|data| match data {
+///           cats.read(cx).map(|data| match data {
 ///             None => view! { cx,  <pre>"Error"</pre> }.into_any(),
 ///             Some(cats) => view! { cx,
 ///               <div>{
