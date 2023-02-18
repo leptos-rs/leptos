@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
-use crate::{store_value, RwSignal, Scope, StoredValue, WriteSignal};
+use crate::{
+    store_value, RwSignal, Scope, SignalSet, StoredValue, WriteSignal,
+};
 
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
 pub trait IntoSignalSetter<T>: Sized {
@@ -24,6 +26,12 @@ where
 /// rather than adding a generic `F: Fn(T)`. Values can be set with the same
 /// function call or `set()`, API as other signals.
 ///
+/// ## Core Trait Implementations
+/// - [`.set()`](#impl-SignalSet<T>-for-SignalSetter<T>) (or calling the setter as a function)
+///   sets the signal’s value, and notifies all subscribers that the signal’s value has changed.
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///
+/// ## Examples
 /// ```rust
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
@@ -75,6 +83,33 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
 }
 
 impl<T> Copy for SignalSetter<T> {}
+
+impl<T> SignalSet<T> for SignalSetter<T> {
+    fn set(&self, new_value: T) {
+        match self.inner {
+            SignalSetterTypes::Default => {}
+            SignalSetterTypes::Write(w) => w.set(new_value),
+            SignalSetterTypes::Mapped(_, s) => {
+                s.with_value(|setter| setter(new_value))
+            }
+        }
+    }
+
+    fn try_set(&self, new_value: T) -> Option<T> {
+        match self.inner {
+            SignalSetterTypes::Default => Some(new_value),
+            SignalSetterTypes::Write(w) => w.try_set(new_value),
+            SignalSetterTypes::Mapped(_, s) => {
+                let mut new_value = Some(new_value);
+
+                let _ = s
+                    .try_with_value(|setter| setter(new_value.take().unwrap()));
+
+                new_value
+            }
+        }
+    }
+}
 
 impl<T> SignalSetter<T>
 where
@@ -157,7 +192,7 @@ where
     pub fn set(&self, value: T) {
         match &self.inner {
             SignalSetterTypes::Write(s) => s.set(value),
-            SignalSetterTypes::Mapped(_, s) => s.with(|s| s(value)),
+            SignalSetterTypes::Mapped(_, s) => s.with_value(|s| s(value)),
             SignalSetterTypes::Default => {}
         }
     }
@@ -236,34 +271,4 @@ where
 
 impl<T> Eq for SignalSetterTypes<T> where T: PartialEq {}
 
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<(T,)> for SignalSetter<T>
-where
-    T: 'static,
-{
-    type Output = ();
-
-    extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
-        self.set(args.0)
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<(T,)> for SignalSetter<T>
-where
-    T: 'static,
-{
-    extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
-        self.set(args.0)
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<(T,)> for SignalSetter<T>
-where
-    T: 'static,
-{
-    extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
-        self.set(args.0)
-    }
-}
+impl_set_fn_traits![SignalSetter];

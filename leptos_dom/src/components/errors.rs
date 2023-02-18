@@ -1,6 +1,6 @@
 use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
-use leptos_reactive::{use_context, RwSignal};
+use leptos_reactive::{signal_prelude::*, use_context, RwSignal};
 use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views

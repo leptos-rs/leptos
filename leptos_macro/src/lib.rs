@@ -347,7 +347,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 }
 
 /// An optimized, cached template for client-side rendering. Follows the same
-/// syntax as the [view](crate::macro) macro. In hydration or server-side rendering mode,
+/// syntax as the [view!] macro. In hydration or server-side rendering mode,
 /// behaves exactly as the `view` macro. In client-side rendering mode, uses a `<template>`
 /// node to efficiently render the element. Should only be used with a single root element.
 #[proc_macro_error::proc_macro_error]

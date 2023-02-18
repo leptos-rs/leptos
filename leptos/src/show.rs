@@ -1,6 +1,6 @@
 use leptos::component;
 use leptos_dom::{Fragment, IntoView};
-use leptos_reactive::{create_memo, Scope};
+use leptos_reactive::{create_memo, signal_prelude::*, Scope};
 
 /// A component that will show its children when the `when` condition is `true`,
 /// and show the fallback when it is `false`, without rerendering every time

@@ -83,6 +83,8 @@ where
                         fallback().into_view(cx)
                     }
                 } else {
+                    use leptos_reactive::signal_prelude::*;
+
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let child = orig_child(cx).into_view(cx);
                     let after_original_child = HydrationCtx::id();

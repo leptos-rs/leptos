@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
-use crate::{ReadSignal, Scope, SignalError, UntrackedGettableSignal};
+use crate::{
+    create_effect, on_cleanup, ReadSignal, Scope, SignalGet,
+    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
+};
 use std::fmt::Debug;
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -91,6 +94,19 @@ where
 /// As with [create_effect](crate::create_effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
 ///
+/// ## Core Trait Implementations
+/// - [`.get()`](#impl-SignalGet<T>-for-Memo<T>) (or calling the signal as a function) clones the current
+///   value of the signal. If you call it within an effect, it will cause that effect
+///   to subscribe to the signal, and to re-run whenever the value of the signal changes.
+///   - [`.get_untracked()`](#impl-SignalGetUntracked<T>-for-Memo<T>) clones the value of the signal
+///   without reactively tracking it.
+/// - [`.with()`](#impl-SignalWith<T>-for-Memo<T>) allows you to reactively access the signal’s value without
+///   cloning by applying a callback function.
+///   - [`.with_untracked()`](#impl-SignalWithUntracked<T>-for-Memo<T>) allows you to access the signal’s
+///   value without reactively tracking it.
+/// - [`.to_stream()`](#impl-SignalStream<T>-for-Memo<T>) converts the signal to an `async` stream of values.
+///
+/// ## Examples
 /// ```
 /// # use leptos_reactive::*;
 /// # fn really_expensive_computation(value: i32) -> i32 { value };
@@ -151,7 +167,7 @@ where
 
 impl<T> Copy for Memo<T> {}
 
-impl<T> UntrackedGettableSignal<T> for Memo<T> {
+impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -165,15 +181,31 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
             )
         )
     )]
-    fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
+    fn get_untracked(&self) -> T {
         // Unwrapping is fine because `T` will already be `Some(T)` by
         // the time this method can be called
         self.0.get_untracked().unwrap()
     }
 
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::try_get_untracked()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_get_untracked(&self) -> Option<T> {
+        self.0.try_get_untracked().flatten()
+    }
+}
+
+impl<T> SignalWithUntracked<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -192,28 +224,42 @@ impl<T> UntrackedGettableSignal<T> for Memo<T> {
         // UntrackedSignal>::get_untracked
         self.0.with_untracked(|v| f(v.as_ref().unwrap()))
     }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::try_with_untracked()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.try_with_untracked(|t| f(t.as_ref().unwrap()))
+    }
 }
 
-impl<T> Memo<T>
-where
-    T: 'static,
-{
-    /// Clones and returns the current value of the memo, and subscribes
-    /// the running effect to the memo.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 0);
-    /// let double_count = create_memo(cx, move |_| count() * 2);
-    ///
-    /// assert_eq!(double_count.get(), 0);
-    /// set_count(1);
-    ///
-    /// // double_count() is shorthand for double_count.get()
-    /// assert_eq!(double_count(), 2);
-    /// # }).dispose();
-    /// #
-    /// ```
+/// # Examples
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// let (count, set_count) = create_signal(cx, 0);
+/// let double_count = create_memo(cx, move |_| count() * 2);
+///
+/// assert_eq!(double_count.get(), 0);
+/// set_count(1);
+///
+/// // double_count() is shorthand for double_count.get()
+/// assert_eq!(double_count(), 2);
+/// # }).dispose();
+/// #
+/// ```
+impl<T: Clone> SignalGet<T> for Memo<T> {
     #[cfg_attr(
         debug_assertions,
         instrument(
@@ -226,38 +272,15 @@ where
             )
         )
     )]
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.with(T::clone)
+    fn get(&self) -> T {
+        self.0.get().unwrap()
     }
 
-    /// Applies a function to the current value of the memo, and subscribes
-    /// the running effect to this memo.
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    /// let (name, set_name) = create_signal(cx, "Alice".to_string());
-    /// let name_upper = create_memo(cx, move |_| name().to_uppercase());
-    ///
-    /// // ❌ unnecessarily clones the string
-    /// let first_char = move || name_upper().chars().next().unwrap();
-    /// assert_eq!(first_char(), 'A');
-    ///
-    /// // ✅ gets the first char without cloning the `String`
-    /// let first_char = move || name_upper.with(|n| n.chars().next().unwrap());
-    /// assert_eq!(first_char(), 'A');
-    /// set_name("Bob".to_string());
-    /// assert_eq!(first_char(), 'B');
-    /// # }).dispose();
-    /// #
-    /// ```
     #[cfg_attr(
         debug_assertions,
         instrument(
-            name = "Memo::with()",
             level = "trace",
+            name = "Memo::try_get()",
             skip_all,
             fields(
                 id = ?self.0.id,
@@ -266,56 +289,76 @@ where
             )
         )
     )]
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        // okay to unwrap here, because the value will *always* have initially
-        // been set by the effect, synchronously
-        self.0
-            .with(|n| f(n.as_ref().expect("Memo is missing its initial value")))
+    fn try_get(&self) -> Option<T> {
+        self.0.try_get().flatten()
+    }
+}
+
+impl<T> SignalWith<T> for Memo<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::with()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
+        self.0.with(|t| f(t.as_ref().unwrap()))
     }
 
-    pub(crate) fn try_with<U>(
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::try_with()",
+            skip_all,
+            fields(
+                id = ?self.0.id,
+                defined_at = %self.1,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        self.0.try_with(|t| f(t.as_ref().unwrap())).ok()
+    }
+}
+
+impl<T: Clone> SignalStream<T> for Memo<T> {
+    fn to_stream(
         &self,
-        f: impl Fn(&T) -> U,
-    ) -> Result<U, SignalError> {
-        self.0.try_with(|n| {
-            f(n.as_ref().expect("Memo is missing its initial value"))
-        })
-    }
+        cx: Scope,
+    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = T>>> {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
 
+        let close_channel = tx.clone();
+
+        on_cleanup(cx, move || close_channel.close_channel());
+
+        let this = *self;
+
+        create_effect(cx, move |_| {
+            let _ = tx.unbounded_send(this.get());
+        });
+
+        Box::pin(rx)
+    }
+}
+
+impl<T> Memo<T>
+where
+    T: 'static,
+{
     #[cfg(feature = "hydrate")]
     pub(crate) fn subscribe(&self) {
         self.0.subscribe()
     }
 }
 
-#[cfg(not(feature = "stable"))]
-impl<T> FnOnce<()> for Memo<T>
-where
-    T: Clone,
-{
-    type Output = T;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> FnMut<()> for Memo<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<T> Fn<()> for Memo<T>
-where
-    T: Clone,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.get()
-    }
-}
+impl_get_fn_traits![Memo];
