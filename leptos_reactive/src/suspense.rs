@@ -1,7 +1,10 @@
 //! Types that handle asynchronous data loading via `<Suspense/>`.
 
 #![forbid(unsafe_code)]
-use crate::{create_signal, queue_microtask, ReadSignal, Scope, SignalUpdate, WriteSignal};
+use crate::{
+    create_signal, queue_microtask, ReadSignal, Scope, SignalUpdate,
+    WriteSignal,
+};
 use futures::Future;
 use std::{borrow::Cow, pin::Pin};
 
