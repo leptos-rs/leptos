@@ -327,6 +327,50 @@ pub fn create_signal<T>(
     s
 }
 
+/// Works exactly as [create_signal], but creates multiple signals at once.
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
+pub fn create_many_signals<T>(
+    cx: Scope,
+    values: impl IntoIterator<Item = T>,
+) -> Vec<(ReadSignal<T>, WriteSignal<T>)> {
+    cx.runtime.create_many_signals_with_map(cx, values, |x| x)
+}
+
+/// Works exactly as [create_many_signals], but applies the map function to each signal pair.
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>()
+        )
+    )
+)]
+#[track_caller]
+pub fn create_many_signals_mapped<T, U>(
+    cx: Scope,
+    values: impl IntoIterator<Item = T>,
+    map_fn: impl Fn((ReadSignal<T>, WriteSignal<T>)) -> U + 'static,
+) -> Vec<U>
+where
+    T: 'static,
+{
+    cx.runtime.create_many_signals_with_map(cx, values, map_fn)
+}
+
 /// Creates a signal that always contains the most recent value emitted by a
 /// [Stream](futures::stream::Stream).
 /// If the stream has not yet emitted a value since the signal was created, the signal's

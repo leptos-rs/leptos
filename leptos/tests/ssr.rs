@@ -54,8 +54,8 @@ fn ssr_test_with_components() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" \
-             class=\"counters\"><!--hk=_0-1-0o|leptos-counter-start--><div \
+            "<div class=\"counters\" \
+             id=\"_0-1\"><!--hk=_0-1-0o|leptos-counter-start--><div \
              id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span \
              id=\"_0-1-3\">Value: \
              <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!\
@@ -102,8 +102,8 @@ fn ssr_test_with_snake_case_components() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" \
-             class=\"counters\"><!\
+            "<div class=\"counters\" \
+             id=\"_0-1\"><!\
              --hk=_0-1-0o|leptos-snake-case-counter-start--><div \
              id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span \
              id=\"_0-1-3\">Value: \
@@ -136,7 +136,7 @@ fn test_classes() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" class=\"my big  red car\"></div>"
+            "<div class=\"my big red car\" id=\"_0-1\"></div>"
         );
     });
 }
@@ -158,8 +158,8 @@ fn ssr_with_styles() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" class=\" myclass\"><button id=\"_0-2\" \
-             class=\"btn myclass\">-1</button></div>"
+            "<div class=\"myclass\" id=\"_0-1\"><button class=\"btn myclass\" \
+             id=\"_0-2\">-1</button></div>"
         );
     });
 }

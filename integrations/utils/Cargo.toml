@@ -1,0 +1,11 @@
+[package]
+name = "leptos_integration_utils"
+version = { workspace = true }
+edition = "2021"
+
+[dependencies]
+futures = "0.3"
+leptos = { workspace = true, features = ["ssr"] }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_router = { workspace = true, features = ["ssr"] }
+leptos_config = { workspace = true }

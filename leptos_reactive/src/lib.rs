@@ -86,7 +86,7 @@ mod slice;
 mod spawn;
 mod spawn_microtask;
 mod stored_value;
-mod suspense;
+pub mod suspense;
 
 pub use context::*;
 pub use effect::*;
@@ -104,7 +104,7 @@ pub use slice::*;
 pub use spawn::*;
 pub use spawn_microtask::*;
 pub use stored_value::*;
-pub use suspense::*;
+pub use suspense::SuspenseContext;
 
 mod macros {
     macro_rules! debug_warn {

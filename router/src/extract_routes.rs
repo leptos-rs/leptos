@@ -1,4 +1,4 @@
-use crate::{Branch, RouterIntegrationContext, ServerIntegration};
+use crate::{Branch, RouterIntegrationContext, ServerIntegration, SsrMode};
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
 
@@ -11,7 +11,7 @@ pub struct PossibleBranchContext(pub(crate) Rc<RefCell<Vec<Branch>>>);
 /// to work with their router
 pub fn generate_route_list_inner<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
-) -> Vec<String>
+) -> Vec<(String, SsrMode)>
 where
     IV: IntoView + 'static,
 {
@@ -31,7 +31,15 @@ where
         branches
             .iter()
             .flat_map(|branch| {
-                branch.routes.last().map(|route| route.pattern.clone())
+                let mode = branch
+                    .routes
+                    .iter()
+                    .map(|route| route.key.ssr_mode)
+                    .max()
+                    .unwrap_or_default();
+                let pattern =
+                    branch.routes.last().map(|route| route.pattern.clone());
+                pattern.map(|pattern| (pattern, mode))
             })
             .collect()
     })

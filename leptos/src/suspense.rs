@@ -62,8 +62,6 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-    let id_before_suspense = HydrationCtx::peek();
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
@@ -102,16 +100,27 @@ where
 
                             cx.register_suspense(
                                 context,
-                                &id_before_suspense.to_string(),
                                 &current_id.to_string(),
+                                // out-of-order streaming
                                 {
                                     let current_id = current_id.clone();
+                                    let orig_child = Rc::clone(&orig_child);
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
                                         DynChild::new(move || orig_child(cx))
                                             .into_view(cx)
                                             .render_to_string(cx)
                                             .to_string()
+                                    }
+                                },
+                                // in-order streaming
+                                {
+                                    let current_id = current_id.clone();
+                                    move || {
+                                        HydrationCtx::continue_from(current_id.clone());
+                                        DynChild::new(move || orig_child(cx))
+                                            .into_view(cx)
+                                            .into_stream_chunks(cx)
                                     }
                                 }
                             );
