@@ -39,7 +39,7 @@ fn HomePage(cx: Scope) -> impl IntoView {
     let posts =
         create_resource(cx, || (), |_| async { list_post_metadata().await });
     let posts_view = move || {
-        posts.with(|posts| posts
+        posts.with(cx, |posts| posts
             .clone()
             .map(|posts| {
                 posts.iter()
@@ -82,7 +82,7 @@ fn Post(cx: Scope) -> impl IntoView {
     });
 
     let post_view = move || {
-        post.with(|post| {
+        post.with(cx, |post| {
             post.clone().map(|post| {
                 view! { cx,
                     // render content
