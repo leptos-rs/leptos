@@ -369,7 +369,7 @@ where
     /// resource.
     ///
     /// If you want to get the value without cloning it, use [Resource::with].
-    /// (`value.read()` is equivalent to `value.with(T::clone)`.)
+    /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
     pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
