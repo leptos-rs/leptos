@@ -147,7 +147,7 @@ fn ssr_with_styles() {
     use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 0);
+        let (_, set_value) = create_signal(cx, 0);
         let styles = "myclass";
         let rendered = view! {
             cx, class = styles,
@@ -170,7 +170,7 @@ fn ssr_option() {
     use leptos::*;
 
     _ = create_scope(create_runtime(), |cx| {
-        let (value, set_value) = create_signal(cx, 0);
+        let (_, _) = create_signal(cx, 0);
         let rendered = view! {
             cx,
             <option/>

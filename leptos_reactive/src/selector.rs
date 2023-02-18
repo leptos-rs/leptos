@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_isomorphic_effect, create_signal, ReadSignal, Scope, WriteSignal,
+    create_isomorphic_effect, create_signal, ReadSignal, Scope, SignalUpdate,
+    WriteSignal,
 };
 use std::{
     cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc,

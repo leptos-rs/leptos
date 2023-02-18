@@ -2,7 +2,7 @@ use crate::{
     Location, NavigateOptions, NavigationError, Params, ParamsError, ParamsMap,
     RouteContext, RouterContext,
 };
-use leptos::{create_memo, use_context, Memo, Scope};
+use leptos::{create_memo, signal_prelude::*, use_context, Memo, Scope};
 use std::rc::Rc;
 
 /// Returns the current [RouterContext], containing information about the router's state.
