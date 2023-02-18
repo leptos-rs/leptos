@@ -436,77 +436,73 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     }
 
     // Get removed items
-    let mut removed = from.difference(to);
+    let mut removed =
+        from.difference(to).map(|k| from.get_index_of(k).unwrap());
 
-    let removed_cmds = removed
-        .clone()
-        .map(|k| from.get_full(k).unwrap().0)
-        .map(|idx| DiffOpRemove { at: idx });
+    let removed_cmds = removed.clone().map(|idx| DiffOpRemove { at: idx });
 
     // Get added items
-    let mut added = to.difference(from);
+    let mut added = to.difference(from).map(|k| to.get_index_of(k).unwrap());
 
-    let added_cmds =
-        added
-            .clone()
-            .map(|k| to.get_full(k).unwrap().0)
-            .map(|idx| DiffOpAdd {
-                at: idx,
-                mode: Default::default(),
-            });
+    let added_cmds = added.clone().map(|idx| DiffOpAdd {
+        at: idx,
+        mode: Default::default(),
+    });
 
-    // Get moved items
-    //
-    // This index is "normalized", which means, in this context,
-    // that when we see an item that has been removed, we will add
-    // 1 to it, and if we see and item which has been added, we will
-    // subtract 1 from it
-    let mut normalized_idx = 0;
-    let mut move_cmds = SmallVec::<[_; 8]>::with_capacity(to.len());
-    let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
-    let mut removed_idx = removed.next().map(|k| from.get_full(k).unwrap().0);
+    let mut normalized_idx = 0i64;
+    let mut next_added_idx = added.next();
+    let mut next_removed_idx = removed.next();
 
-    for (idx, k) in to.iter().enumerate() {
-        if let Some(added_idx) = added_idx.as_mut().filter(|r_i| **r_i == idx) {
-            if let Some(next_added) =
-                added.next().map(|k| to.get_full(k).unwrap().0)
-            {
-                *added_idx = next_added;
+    let move_cmds = to
+        .iter()
+        .enumerate()
+        .filter_map(|(i, k)| {
+            let is_added = if let Some(idx) = next_added_idx {
+                if i == idx {
+                    next_added_idx = added.next();
+                    normalized_idx -= 1;
 
-                normalized_idx = usize::wrapping_sub(normalized_idx, 1);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            let is_removed = if let Some(idx) = next_removed_idx {
+                if i == idx {
+                    next_removed_idx = removed.next();
+                    normalized_idx += 1;
+
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            normalized_idx += 1;
+
+            if !is_added && !is_removed {
+                Some((
+                    from.get_index_of(k).unwrap(),
+                    i,
+                    // We need to `-1` because otherwise, we'd be accounting for
+                    // the NEXT iteration, not this current one
+                    normalized_idx - 1,
+                ))
+            } else {
+                None
             }
-        }
-
-        if let Some(removed_idx) =
-            removed_idx.as_mut().filter(|r_i| **r_i == idx)
-        {
-            normalized_idx = normalized_idx.wrapping_add(1);
-
-            if let Some(next_removed) =
-                removed.next().map(|k| from.get_full(k).unwrap().0)
-            {
-                *removed_idx = next_removed;
-            }
-        }
-
-        if let Some((from_idx, _)) = from.get_full(k) {
-            if from_idx != normalized_idx {
-                move_cmds.push(DiffOpMove {
-                    from: from_idx,
-                    to: idx,
-                    move_in_dom: true,
-                });
-            } else if from_idx != idx {
-                move_cmds.push(DiffOpMove {
-                    from: from_idx,
-                    to: idx,
-                    move_in_dom: false,
-                });
-            }
-        }
-
-        normalized_idx = normalized_idx.wrapping_add(1);
-    }
+        })
+        .map(|(from, to, normalized_idx)| DiffOpMove {
+            from,
+            to,
+            move_in_dom: to != normalized_idx as usize,
+        })
+        .collect();
 
     let mut diffs = Diff {
         removed: removed_cmds.collect(),
