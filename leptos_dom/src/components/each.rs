@@ -347,60 +347,72 @@ where
         let (children, closing) =
             (component.children.clone(), component.closing.node.clone());
 
-        cfg_if::cfg_if! {
-          if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
             create_effect(cx, move |prev_hash_run| {
-              let mut children_borrow = children.borrow_mut();
+                let mut children_borrow = children.borrow_mut();
 
-              #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              let opening = if let Some(Some(child)) = children_borrow.get(0) {
-                child.get_opening_node()
-              } else {
-                closing.clone()
-              };
+                let opening = if let Some(Some(child)) = children_borrow.get(0)
+                {
+                    child.get_opening_node()
+                } else {
+                    closing.clone()
+                };
 
-              let items = items_fn();
+                let items = items_fn();
 
-              let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
+                let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
 
-              let hashed_items =
-                items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
+                let hashed_items =
+                    items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
 
-              if let Some(HashRun(prev_hash_run)) = prev_hash_run {
-                let cmds = diff(&prev_hash_run, &hashed_items);
+                if let Some(HashRun(prev_hash_run)) = prev_hash_run {
+                    let cmds = diff(&prev_hash_run, &hashed_items);
 
-                apply_cmds(
-                  cx,
-                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  &opening,
-                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  &closing,
-                  cmds,
-                  &mut children_borrow,
-                  items.into_iter().map(|t| Some(t)).collect(),
-                  &each_fn
-                );
-              } else {
-                *children_borrow = Vec::with_capacity(items.len());
+                    tracing::debug!("cmds:\n{cmds:#?}");
 
-                for item in items {
-                  let (each_item, _) = cx.run_child_scope(|cx| EachItem::new(cx, each_fn(cx, item).into_view(cx)));
+                    apply_cmds(
+                        cx,
+                        &opening,
+                        &closing,
+                        cmds,
+                        &mut children_borrow,
+                        items.into_iter().map(|t| Some(t)).collect(),
+                        &each_fn,
+                    );
+                } else {
+                    children_borrow.clear();
+                    children_borrow.reserve(items.len());
 
-                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  mount_child(MountKind::Before(&closing), &each_item);
+                    for item in items {
+                        let (each_item, disposer) = cx.run_child_scope(|cx| {
+                            EachItem::new(cx, each_fn(cx, item).into_view(cx))
+                        });
 
-                  children_borrow.push(Some(each_item));
+                        mount_child(MountKind::Before(&closing), &each_item);
+
+                        children_borrow.push(Some(each_item));
+                    }
                 }
-              }
 
-              HashRun(hashed_items)
+                HashRun(hashed_items)
             });
-          } else {
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
             *component.children.borrow_mut() = (items_fn)()
-              .into_iter()
-              .map(|child| cx.run_child_scope(|cx| Some(EachItem::new(cx, (each_fn)(cx, child).into_view(cx)))).0)
-              .collect();
-          }
+                .into_iter()
+                .map(|child| {
+                    cx.run_child_scope(|cx| {
+                        Some(EachItem::new(
+                            cx,
+                            (each_fn)(cx, child).into_view(cx),
+                        ))
+                    })
+                    .0
+                })
+                .collect();
         }
 
         View::CoreComponent(CoreComponent::Each(component))
@@ -411,7 +423,7 @@ where
 #[educe(Debug)]
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
-/// Calculates the operations need to get from `a` to `b`.
+/// Calculates the operations needed to get from `a` to `b`.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     if from.is_empty() && to.is_empty() {
@@ -444,6 +456,11 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
             });
 
     // Get moved items
+    //
+    // This index is "normalized", which means, in this context,
+    // that when we see an item that has been removed, we will add
+    // 1 to it, and if we see and item which has been added, we will
+    // subtract 1 from it
     let mut normalized_idx = 0;
     let mut move_cmds = SmallVec::<[_; 8]>::with_capacity(to.len());
     let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
@@ -621,17 +638,16 @@ fn apply_cmds<T, EF, N>(
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
         {
-            let parent = closing
+            if let Some(parent) = closing
                 .parent_node()
-                .expect("could not get closing node")
-                .unchecked_into::<web_sys::Element>();
-            parent.set_text_content(Some(""));
+                .map(JsCast::unchecked_into::<web_sys::Element>)
+            {
+                #[cfg(debug_assertions)]
+                parent.append_with_node_2(opening, closing).unwrap();
 
-            #[cfg(debug_assertions)]
-            parent.append_with_node_2(opening, closing).unwrap();
-
-            #[cfg(not(debug_assertions))]
-            parent.append_with_node_1(closing).unwrap();
+                #[cfg(not(debug_assertions))]
+                parent.append_with_node_1(closing).unwrap();
+            }
         } else {
             range.set_start_before(opening).unwrap();
             range.set_end_before(closing).unwrap();
