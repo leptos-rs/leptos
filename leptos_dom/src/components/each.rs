@@ -347,72 +347,60 @@ where
         let (children, closing) =
             (component.children.clone(), component.closing.node.clone());
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
+        cfg_if::cfg_if! {
+          if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             create_effect(cx, move |prev_hash_run| {
-                let mut children_borrow = children.borrow_mut();
+              let mut children_borrow = children.borrow_mut();
 
-                let opening = if let Some(Some(child)) = children_borrow.get(0)
-                {
-                    child.get_opening_node()
-                } else {
-                    closing.clone()
-                };
+              #[cfg(all(target_arch = "wasm32", feature = "web"))]
+              let opening = if let Some(Some(child)) = children_borrow.get(0) {
+                child.get_opening_node()
+              } else {
+                closing.clone()
+              };
 
-                let items = items_fn();
+              let items = items_fn();
 
-                let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
+              let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
 
-                let hashed_items =
-                    items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
+              let hashed_items =
+                items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
 
-                if let Some(HashRun(prev_hash_run)) = prev_hash_run {
-                    let cmds = diff(&prev_hash_run, &hashed_items);
+              if let Some(HashRun(prev_hash_run)) = prev_hash_run {
+                let cmds = diff(&prev_hash_run, &hashed_items);
 
-                    tracing::debug!("cmds:\n{cmds:#?}");
+                apply_cmds(
+                  cx,
+                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                  &opening,
+                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                  &closing,
+                  cmds,
+                  &mut children_borrow,
+                  items.into_iter().map(|t| Some(t)).collect(),
+                  &each_fn
+                );
+              } else {
+                *children_borrow = Vec::with_capacity(items.len());
 
-                    apply_cmds(
-                        cx,
-                        &opening,
-                        &closing,
-                        cmds,
-                        &mut children_borrow,
-                        items.into_iter().map(|t| Some(t)).collect(),
-                        &each_fn,
-                    );
-                } else {
-                    children_borrow.clear();
-                    children_borrow.reserve(items.len());
+                for item in items {
+                  let (each_item, _) = cx.run_child_scope(|cx| EachItem::new(cx, each_fn(cx, item).into_view(cx)));
 
-                    for item in items {
-                        let (each_item, disposer) = cx.run_child_scope(|cx| {
-                            EachItem::new(cx, each_fn(cx, item).into_view(cx))
-                        });
+                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                  mount_child(MountKind::Before(&closing), &each_item);
 
-                        mount_child(MountKind::Before(&closing), &each_item);
-
-                        children_borrow.push(Some(each_item));
-                    }
+                  children_borrow.push(Some(each_item));
                 }
+              }
 
-                HashRun(hashed_items)
+              HashRun(hashed_items)
             });
-        }
-
-        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-        {
+          } else {
             *component.children.borrow_mut() = (items_fn)()
-                .into_iter()
-                .map(|child| {
-                    cx.run_child_scope(|cx| {
-                        Some(EachItem::new(
-                            cx,
-                            (each_fn)(cx, child).into_view(cx),
-                        ))
-                    })
-                    .0
-                })
-                .collect();
+              .into_iter()
+              .map(|child| cx.run_child_scope(|cx| Some(EachItem::new(cx, (each_fn)(cx, child).into_view(cx)))).0)
+              .collect();
+          }
         }
 
         View::CoreComponent(CoreComponent::Each(component))
@@ -423,7 +411,7 @@ where
 #[educe(Debug)]
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
-/// Calculates the operations needed to get from `a` to `b`.
+/// Calculates the operations need to get from `a` to `b`.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     if from.is_empty() && to.is_empty() {
@@ -436,73 +424,72 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     }
 
     // Get removed items
-    let mut removed =
-        from.difference(to).map(|k| from.get_index_of(k).unwrap());
+    let mut removed = from.difference(to);
 
-    let removed_cmds = removed.clone().map(|idx| DiffOpRemove { at: idx });
+    let removed_cmds = removed
+        .clone()
+        .map(|k| from.get_full(k).unwrap().0)
+        .map(|idx| DiffOpRemove { at: idx });
 
     // Get added items
-    let mut added = to.difference(from).map(|k| to.get_index_of(k).unwrap());
+    let mut added = to.difference(from);
 
-    let added_cmds = added.clone().map(|idx| DiffOpAdd {
-        at: idx,
-        mode: Default::default(),
-    });
+    let added_cmds =
+        added
+            .clone()
+            .map(|k| to.get_full(k).unwrap().0)
+            .map(|idx| DiffOpAdd {
+                at: idx,
+                mode: Default::default(),
+            });
 
-    let mut normalized_idx = 0i64;
-    let mut next_added_idx = added.next();
-    let mut next_removed_idx = removed.next();
+    // Get moved items
+    let mut normalized_idx = 0;
+    let mut move_cmds = SmallVec::<[_; 8]>::with_capacity(to.len());
+    let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
+    let mut removed_idx = removed.next().map(|k| from.get_full(k).unwrap().0);
 
-    let move_cmds = to
-        .iter()
-        .enumerate()
-        .filter_map(|(i, k)| {
-            let is_added = if let Some(idx) = next_added_idx {
-                if i == idx {
-                    next_added_idx = added.next();
-                    normalized_idx -= 1;
+    for (idx, k) in to.iter().enumerate() {
+        if let Some(added_idx) = added_idx.as_mut().filter(|r_i| **r_i == idx) {
+            if let Some(next_added) =
+                added.next().map(|k| to.get_full(k).unwrap().0)
+            {
+                *added_idx = next_added;
 
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            let is_removed = if let Some(idx) = next_removed_idx {
-                if i == idx {
-                    next_removed_idx = removed.next();
-                    normalized_idx += 1;
-
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            normalized_idx += 1;
-
-            if !is_added && !is_removed {
-                Some((
-                    from.get_index_of(k).unwrap(),
-                    i,
-                    // We need to `-1` because otherwise, we'd be accounting for
-                    // the NEXT iteration, not this current one
-                    normalized_idx - 1,
-                ))
-            } else {
-                None
+                normalized_idx = usize::wrapping_sub(normalized_idx, 1);
             }
-        })
-        .map(|(from, to, normalized_idx)| DiffOpMove {
-            from,
-            to,
-            move_in_dom: to != normalized_idx as usize,
-        })
-        .collect();
+        }
+
+        if let Some(removed_idx) =
+            removed_idx.as_mut().filter(|r_i| **r_i == idx)
+        {
+            normalized_idx = normalized_idx.wrapping_add(1);
+
+            if let Some(next_removed) =
+                removed.next().map(|k| from.get_full(k).unwrap().0)
+            {
+                *removed_idx = next_removed;
+            }
+        }
+
+        if let Some((from_idx, _)) = from.get_full(k) {
+            if from_idx != normalized_idx {
+                move_cmds.push(DiffOpMove {
+                    from: from_idx,
+                    to: idx,
+                    move_in_dom: true,
+                });
+            } else if from_idx != idx {
+                move_cmds.push(DiffOpMove {
+                    from: from_idx,
+                    to: idx,
+                    move_in_dom: false,
+                });
+            }
+        }
+
+        normalized_idx = normalized_idx.wrapping_add(1);
+    }
 
     let mut diffs = Diff {
         removed: removed_cmds.collect(),
@@ -634,16 +621,17 @@ fn apply_cmds<T, EF, N>(
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
         {
-            if let Some(parent) = closing
+            let parent = closing
                 .parent_node()
-                .map(JsCast::unchecked_into::<web_sys::Element>)
-            {
-                #[cfg(debug_assertions)]
-                parent.append_with_node_2(opening, closing).unwrap();
+                .expect("could not get closing node")
+                .unchecked_into::<web_sys::Element>();
+            parent.set_text_content(Some(""));
 
-                #[cfg(not(debug_assertions))]
-                parent.append_with_node_1(closing).unwrap();
-            }
+            #[cfg(debug_assertions)]
+            parent.append_with_node_2(opening, closing).unwrap();
+
+            #[cfg(not(debug_assertions))]
+            parent.append_with_node_1(closing).unwrap();
         } else {
             range.set_start_before(opening).unwrap();
             range.set_end_before(closing).unwrap();
@@ -676,7 +664,7 @@ fn apply_cmds<T, EF, N>(
     for DiffOpAdd { at, mode } in cmds.added {
         let item = items[at].take().unwrap();
 
-        let (each_item, disposer) = cx.run_child_scope(|cx| {
+        let (each_item, _) = cx.run_child_scope(|cx| {
             let child = each_fn(cx, item).into_view(cx);
             EachItem::new(cx, child)
         });
