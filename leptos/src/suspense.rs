@@ -69,7 +69,8 @@ where
 
     let orig_child = Rc::new(children);
 
-    let current_id = HydrationCtx::peek();
+    let before_me = HydrationCtx::peek();
+    let current_id = HydrationCtx::next_component();
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -141,6 +142,8 @@ where
         leptos_dom::View::CoreComponent(repr) => repr,
         _ => unreachable!(),
     };
+
+    HydrationCtx::continue_from(before_me);
 
     leptos_dom::View::Suspense(current_id, core_component)
 }
