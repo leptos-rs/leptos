@@ -146,6 +146,7 @@ pub(crate) fn render_view(
     nodes: &[Node],
     mode: Mode,
     global_class: Option<&TokenTree>,
+    call_site: Option<String>,
 ) -> TokenStream {
     if mode == Mode::Ssr {
         match nodes.len() {
@@ -155,7 +156,9 @@ pub(crate) fn render_view(
                     span => leptos::leptos_dom::Unit
                 }
             }
-            1 => root_node_to_tokens_ssr(cx, &nodes[0], global_class),
+            1 => {
+                root_node_to_tokens_ssr(cx, &nodes[0], global_class, call_site)
+            }
             _ => fragment_to_tokens_ssr(
                 cx,
                 Span::call_site(),
@@ -171,7 +174,13 @@ pub(crate) fn render_view(
                     span => leptos::leptos_dom::Unit
                 }
             }
-            1 => node_to_tokens(cx, &nodes[0], TagType::Unknown, global_class),
+            1 => node_to_tokens(
+                cx,
+                &nodes[0],
+                TagType::Unknown,
+                global_class,
+                call_site,
+            ),
             _ => fragment_to_tokens(
                 cx,
                 Span::call_site(),
@@ -188,6 +197,7 @@ fn root_node_to_tokens_ssr(
     cx: &Ident,
     node: &Node,
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>,
 ) -> TokenStream {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens_ssr(
@@ -211,7 +221,7 @@ fn root_node_to_tokens_ssr(
             }
         }
         Node::Element(node) => {
-            root_element_to_tokens_ssr(cx, node, global_class)
+            root_element_to_tokens_ssr(cx, node, global_class, view_marker)
         }
     }
 }
@@ -223,7 +233,7 @@ fn fragment_to_tokens_ssr(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
-        let node = root_node_to_tokens_ssr(cx, node, global_class);
+        let node = root_node_to_tokens_ssr(cx, node, global_class, None);
         quote! {
             #node.into_view(#cx)
         }
@@ -241,6 +251,7 @@ fn root_element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>,
 ) -> TokenStream {
     if is_component_node(node) {
         component_to_tokens(cx, node, global_class)
@@ -265,10 +276,10 @@ fn root_element_to_tokens_ssr(
             }
         } else {
             quote! {
-            format!(
-                #template,
-                #(#holes)*
-            )
+                format!(
+                    #template,
+                    #(#holes)*
+                )
             }
         };
 
@@ -298,10 +309,15 @@ fn root_element_to_tokens_ssr(
                 leptos::leptos_dom::#typed_element_name::default()
             }
         };
+        let view_marker = if let Some(marker) = view_marker {
+            quote! { .with_view_marker(#marker) }
+        } else {
+            quote! {}
+        };
         quote! {
         {
             #(#exprs_for_compiler)*
-            ::leptos::HtmlElement::from_html(cx, #full_name, #template)
+            ::leptos::HtmlElement::from_html(cx, #full_name, #template)#view_marker
         }
         }
     }
@@ -638,7 +654,7 @@ fn fragment_to_tokens(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
-        let node = node_to_tokens(cx, node, parent_type, global_class);
+        let node = node_to_tokens(cx, node, parent_type, global_class, None);
 
         quote! {
             #node.into_view(#cx)
@@ -668,6 +684,7 @@ fn node_to_tokens(
     node: &Node,
     parent_type: TagType,
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>,
 ) -> TokenStream {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
@@ -691,7 +708,7 @@ fn node_to_tokens(
         }
         Node::Attribute(node) => attribute_to_tokens(cx, node),
         Node::Element(node) => {
-            element_to_tokens(cx, node, parent_type, global_class)
+            element_to_tokens(cx, node, parent_type, global_class, view_marker)
         }
     }
 }
@@ -701,6 +718,7 @@ fn element_to_tokens(
     node: &NodeElement,
     mut parent_type: TagType,
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>,
 ) -> TokenStream {
     if is_component_node(node) {
         component_to_tokens(cx, node, global_class)
@@ -779,7 +797,7 @@ fn element_to_tokens(
                     }
                 }
                 Node::Element(node) => {
-                    element_to_tokens(cx, node, parent_type, global_class)
+                    element_to_tokens(cx, node, parent_type, global_class, None)
                 }
                 Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
                     quote! {}
@@ -789,11 +807,17 @@ fn element_to_tokens(
                 .child((#cx, #child))
             }
         });
+        let view_marker = if let Some(marker) = view_marker {
+            quote! { .with_view_marker(#marker) }
+        } else {
+            quote! {}
+        };
         quote! {
             #name
                 #(#attrs)*
                 #global_class_expr
                 #(#children)*
+                #view_marker
         }
     }
 }

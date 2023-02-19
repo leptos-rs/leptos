@@ -83,6 +83,8 @@ where
                 name: "".into(),
                 is_void: false,
                 element: el,
+                #[cfg(debug_assertions)]
+                view_marker: None,
             };
 
             HtmlElement {
@@ -90,6 +92,8 @@ where
                 element,
                 #[cfg(debug_assertions)]
                 span: ::tracing::Span::current(),
+                #[cfg(debug_assertions)]
+                view_marker: None,
             }
         }
 
@@ -111,6 +115,8 @@ pub struct AnyElement {
     pub(crate) is_void: bool,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub(crate) id: HydrationKey,
+    #[cfg(debug_assertions)]
+    pub(crate) view_marker: Option<String>,
 }
 
 impl std::ops::Deref for AnyElement {
@@ -259,6 +265,8 @@ cfg_if! {
       pub(crate) span: ::tracing::Span,
       pub(crate) cx: Scope,
       pub(crate) element: El,
+      #[cfg(debug_assertions)]
+      pub(crate) view_marker: Option<String>
     }
   // Server needs to build a virtualized DOM tree
   } else {
@@ -274,7 +282,9 @@ cfg_if! {
       #[allow(clippy::type_complexity)]
       pub(crate) children: SmallVec<[View; 4]>,
       #[educe(Debug(ignore))]
-      pub(crate) prerendered: Option<Cow<'static, str>>
+      pub(crate) prerendered: Option<Cow<'static, str>>,
+      #[cfg(debug_assertions)]
+      pub(crate) view_marker: Option<String>
     }
   }
 }
@@ -302,7 +312,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               cx,
               element,
               #[cfg(debug_assertions)]
-              span: ::tracing::Span::current()
+              span: ::tracing::Span::current(),
+              #[cfg(debug_assertions)]
+              view_marker: None
             }
           } else {
             Self {
@@ -310,7 +322,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               attrs: smallvec![],
               children: smallvec![],
               element,
-              prerendered: None
+              prerendered: None,
+              #[cfg(debug_assertions)]
+              view_marker: None
             }
           }
         }
@@ -329,7 +343,16 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             children: smallvec![],
             element,
             prerendered: Some(html.into()),
+            #[cfg(debug_assertions)]
+            view_marker: None,
         }
+    }
+
+    #[cfg(debug_assertions)]
+    /// Adds an optional marker indicating the view macro source.
+    pub fn with_view_marker(mut self, marker: impl Into<String>) -> Self {
+        self.view_marker = Some(marker.into());
+        self
     }
 
     /// Converts this element into [`HtmlElement<AnyElement>`].
@@ -340,7 +363,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               cx,
               element,
               #[cfg(debug_assertions)]
-              span
+              span,
+              #[cfg(debug_assertions)]
+              view_marker
             } = self;
 
             HtmlElement {
@@ -349,9 +374,13 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 name: element.name(),
                 element: element.as_ref().clone(),
                 is_void: element.is_void(),
+                #[cfg(debug_assertions)]
+                view_marker: view_marker.clone()
               },
               #[cfg(debug_assertions)]
-              span
+              span,
+              #[cfg(debug_assertions)]
+              view_marker
             }
           } else {
             let Self {
@@ -359,7 +388,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               attrs,
               children,
               element,
-              prerendered
+              prerendered,
+              #[cfg(debug_assertions)]
+              view_marker
             } = self;
 
             HtmlElement {
@@ -371,7 +402,11 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 name: element.name(),
                 is_void: element.is_void(),
                 id: element.hydration_id().clone(),
+                #[cfg(debug_assertions)]
+                view_marker: view_marker.clone()
               },
+              #[cfg(debug_assertions)]
+              view_marker
             }
           }
         }
@@ -728,6 +763,8 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
                 mut attrs,
                 children,
                 prerendered,
+                #[cfg(debug_assertions)]
+                view_marker,
                 ..
             } = self;
 
@@ -745,6 +782,11 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
             element.attrs = attrs;
             element.children.extend(children);
             element.prerendered = prerendered;
+
+            #[cfg(debug_assertions)]
+            {
+                element.view_marker = view_marker;
+            }
 
             View::Element(element)
         }

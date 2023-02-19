@@ -30,6 +30,24 @@ cfg_if! {
         map
       });
 
+      #[cfg(debug_assertions)]
+      pub(crate) static VIEW_MARKERS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
+        let document = crate::document();
+        let body = document.body().unwrap();
+        let walker = document
+          .create_tree_walker_with_what_to_show(&body, 128)
+          .unwrap();
+        let mut map = HashMap::new();
+        while let Ok(Some(node)) = walker.next_node() {
+          if let Some(content) = node.text_content() {
+            if let Some(id) = content.strip_prefix("leptos-view|") {
+              map.insert(id.into(), node.unchecked_into());
+            }
+          }
+        }
+        map
+      });
+
       static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
         #[cfg(debug_assertions)]
         return crate::document().get_element_by_id("_0-0-0").is_some()

@@ -285,6 +285,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
     let (cx, comma) = (tokens.next(), tokens.next());
+
     match (cx, comma) {
         (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
             if punct.as_char() == ',' =>
@@ -332,6 +333,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     &nodes,
                     Mode::Client, //Mode::default(),
                     global_class.as_ref(),
+                    normalized_call_site(proc_macro::Span::call_site()),
                 ),
                 Err(error) => error.to_compile_error(),
             }
@@ -342,6 +344,28 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 "view! macro needs a context and RSX: e.g., view! {{ cx, \
                  <div>...</div> }}"
             )
+        }
+    }
+}
+
+fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
+    cfg_if::cfg_if! {
+        if #[cfg(all(debug_assertions, not(feature = "stable")))] {
+            let file = site.source_file();
+            let start = site.start();
+            Some(format!(
+                "{}-{:?}-{:?}",
+                file.path()
+                    .display()
+                    .to_string()
+                    .replace("/", "-")
+                    .replace("\\", "-"),
+                start.line,
+                start.column
+            ))
+        } else {
+            _ = site;
+            None
         }
     }
 }
