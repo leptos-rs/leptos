@@ -54,11 +54,11 @@ use std::{
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats(), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats(2);
-/// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
 /// ```
@@ -480,11 +480,11 @@ where
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats(), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats(2);
-/// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
 /// ```

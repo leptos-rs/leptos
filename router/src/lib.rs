@@ -104,7 +104,7 @@
 //!     <div>
 //!       // show the contacts
 //!       <ul>
-//!         {move || contacts.read().map(|contacts| view! { cx, <li>"todo contact info"</li> } )}
+//!         {move || contacts.read(cx).map(|contacts| view! { cx, <li>"todo contact info"</li> } )}
 //!       </ul>
 //!
 //!       // insert the nested child route here
