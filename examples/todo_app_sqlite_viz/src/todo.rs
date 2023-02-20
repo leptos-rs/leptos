@@ -51,8 +51,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut conn = db().await?;
 
     let mut todos = Vec::new();
-    let mut rows =
-        sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
+    let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
     while let Some(row) = rows
         .try_next()
         .await
@@ -160,7 +159,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 {move || {
                     let existing_todos = {
                         move || {
-                            todos.read()
+                            todos.read(cx)
                                 .map(move |todos| match todos {
                                     Err(e) => {
                                         vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]

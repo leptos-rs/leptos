@@ -773,7 +773,7 @@ fn provide_contexts(
 ///     // run our app with hyper
 ///     // `viz::Server` is a re-export of `hyper::Server`
 ///     viz::Server::bind(&addr)
-///         .serve(ServiceMaker(app))
+///         .serve(ServiceMaker::from(app))
 ///         .await
 ///         .unwrap();
 /// }
