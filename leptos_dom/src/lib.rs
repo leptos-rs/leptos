@@ -760,7 +760,7 @@ pub fn window() -> web_sys::Window {
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
 ///
-/// This is cached as a thread-local variable, so calling `window()` multiple times
+/// This is cached as a thread-local variable, so calling `document()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
     DOCUMENT.with(|document| document.clone())
