@@ -112,7 +112,7 @@ where
                             }
                             // Check all the logical 3xx responses that might
                             // get returned from a server function
-                            if [301, 302, 303, 307, 308].contains(resp.status())
+                            if [301, 302, 303, 307, 308].contains(&resp.status())
                             {
                                 if let Some(redirect_url) =
                                     resp.headers().get("Location")
