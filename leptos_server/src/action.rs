@@ -100,7 +100,7 @@ where
 
     /// Updates whether the action is currently pending.
     pub fn set_pending(&self, pending: bool) {
-        self.0.with_value(|a| a.pending.set(pending))
+        self.0.try_with_value(|a| a.pending.set(pending));
     }
 
     /// The URL associated with the action (typically as part of a server function.)
