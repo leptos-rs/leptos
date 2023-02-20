@@ -35,7 +35,7 @@ use std::{cell::RefCell, rc::Rc};
 ///       set_pending=set_pending.into()
 ///     >
 ///       {move || {
-///           cats.read().map(|data| match data {
+///           cats.read(cx).map(|data| match data {
 ///             None => view! { cx,  <pre>"Error"</pre> }.into_any(),
 ///             Some(cats) => view! { cx,
 ///               <div>{

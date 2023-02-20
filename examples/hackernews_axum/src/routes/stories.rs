@@ -38,7 +38,7 @@ pub fn Stories(cx: Scope) -> impl IntoView {
     let (pending, set_pending) = create_signal(cx, false);
 
     let hide_more_link =
-        move || pending() || stories.read().unwrap_or(None).unwrap_or_default().len() < 28;
+        move || pending() || stories.read(cx).unwrap_or(None).unwrap_or_default().len() < 28;
 
     view! {
         cx,
@@ -82,7 +82,7 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                         fallback=move || view! { cx,  <p>"Loading..."</p> }
                         set_pending=set_pending.into()
                     >
-                        {move || match stories.read() {
+                        {move || match stories.read(cx) {
                             None => None,
                             Some(None) => Some(view! { cx,  <p>"Error loading stories."</p> }.into_any()),
                             Some(Some(stories)) => {

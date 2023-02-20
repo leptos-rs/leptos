@@ -97,10 +97,10 @@ pub fn Counter(cx: Scope) -> impl IntoView {
         |_| get_server_count(),
     );
 
-    let value = move || counter.read().map(|count| count.unwrap_or(0)).unwrap_or(0);
+    let value = move || counter.read(cx).map(|count| count.unwrap_or(0)).unwrap_or(0);
     let error_msg = move || {
         counter
-            .read()
+            .read(cx)
             .map(|res| match res {
                 Ok(_) => None,
                 Err(e) => Some(e),
@@ -143,7 +143,7 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
     let value = move || {
         log::debug!("FormCounter looking for value");
         counter
-            .read()
+            .read(cx)
             .map(|n| n.ok())
             .flatten()
             .map(|n| n)
