@@ -7,7 +7,7 @@ use web_sys::MouseEvent;
 //    for the child component to write into and the parent to read
 // 2) <ButtonB/>: passing a closure as one of the child component props, for
 //    the child component to call
-// 4) <ButtonC/>: providing a context that is used in the component (rather than prop drilling)
+// 3) <ButtonC/>: providing a context that is used in the component (rather than prop drilling)
 
 #[derive(Copy, Clone)]
 struct SmallcapsContext(WriteSignal<bool>);
@@ -42,7 +42,7 @@ pub fn App(cx: Scope) -> impl IntoView {
             // Button B: pass a closure
             <ButtonB on_click=move |_| set_right.update(|value| *value = !*value)/>
 
-            // Button D gets its setter from context rather than props
+            // Button C: get its setter from context rather than props
             <ButtonC/>
         </main>
     }
@@ -97,7 +97,7 @@ where
     // if Rust ever had named function arguments we could drop this requirement
 }
 
-/// Button D is very similar to Button A, but instead of passing the setter as a prop
+/// Button C is very similar to Button A, but instead of passing the setter as a prop
 /// we get it from the context
 #[component]
 pub fn ButtonC(cx: Scope) -> impl IntoView {
