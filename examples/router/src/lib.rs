@@ -71,9 +71,10 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
     });
 
     let location = use_location(cx);
-    let contacts = create_resource(cx, move || location.search.get(), get_contacts);
+    let contacts =
+        create_resource(cx, move || location.search.get(), get_contacts);
     let contacts = move || {
-        contacts.read().map(|contacts| {
+        contacts.read(cx).map(|contacts| {
             // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
             contacts
                 .into_iter()
@@ -126,12 +127,15 @@ pub fn Contact(cx: Scope) -> impl IntoView {
         get_contact,
     );
 
-    let contact_display = move || match contact.read() {
+    let contact_display = move || match contact.read(cx) {
         // None => loading, but will be caught by Suspense fallback
         // I'm only doing this explicitly for the example
         None => None,
         // Some(None) => has loaded and found no contact
-        Some(None) => Some(view! { cx, <p>"No contact with this ID was found."</p> }.into_any()),
+        Some(None) => Some(
+            view! { cx, <p>"No contact with this ID was found."</p> }
+                .into_any(),
+        ),
         // Some(Some) => has loaded and found a contact
         Some(Some(contact)) => Some(
             view! { cx,

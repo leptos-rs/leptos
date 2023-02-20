@@ -159,7 +159,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 {move || {
                     let existing_todos = {
                         move || {
-                            todos.read()
+                            todos.read(cx)
                                 .map(move |todos| match todos {
                                     Err(e) => {
                                         vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
