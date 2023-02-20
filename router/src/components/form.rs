@@ -1,8 +1,10 @@
 use crate::{use_navigate, use_resolved_path, ToHref};
 use leptos::*;
 use std::{error::Error, rc::Rc};
+use url::Url;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
+use web_sys::RequestRedirect;
 
 type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
 type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
@@ -90,6 +92,7 @@ where
                     let res = gloo_net::http::Request::post(&action)
                         .header("Accept", "application/json")
                         .header("Content-Type", &enctype)
+                        .redirect(RequestRedirect::Follow)
                         .body(params)
                         .send()
                         .await;
@@ -112,17 +115,15 @@ where
                             }
                             // Check all the logical 3xx responses that might
                             // get returned from a server function
-                            if [301, 302, 303, 307, 308]
-                                .contains(&resp.status())
-                            {
-                                if let Some(redirect_url) =
-                                    resp.headers().get("Location")
-                                {
-                                    _ = navigate(
-                                        &redirect_url,
-                                        Default::default(),
-                                    );
-                                }
+                            if resp.redirected() {
+                                let resp_url = &resp.url();
+                                let redirect_url =
+                                    Url::parse(&resp_url).unwrap();
+                                let redirect_path = redirect_url.path();
+                                _ = navigate(
+                                    &redirect_path,
+                                    Default::default(),
+                                );
                             }
                         }
                     }

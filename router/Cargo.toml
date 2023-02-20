@@ -12,7 +12,7 @@ description = "Router for the Leptos web framework."
 leptos = { workspace = true }
 cfg-if = "1"
 common_macros = "0.1"
-gloo-net = "0.2"
+gloo-net = {version="0.2", features=["http"]}
 lazy_static = "1"
 linear-map = "1"
 log = "0.4"
@@ -55,7 +55,7 @@ features = [
 [features]
 default = []
 csr = ["leptos/csr"]
-hydrate = ["leptos/hydrate"]
+hydrate = ["leptos/hydrate", "dep:url"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
 stable = ["leptos/stable"]
 
