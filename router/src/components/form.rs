@@ -1,8 +1,9 @@
-use crate::{use_navigate, use_resolved_path, ToHref};
+use crate::{use_navigate, use_resolved_path, ToHref, Url};
 use leptos::*;
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
+use web_sys::RequestRedirect;
 
 type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
 type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
@@ -90,12 +91,13 @@ where
                     let res = gloo_net::http::Request::post(&action)
                         .header("Accept", "application/json")
                         .header("Content-Type", &enctype)
+                        .redirect(RequestRedirect::Follow)
                         .body(params)
                         .send()
                         .await;
                     match res {
                         Err(e) => {
-                            log::error!("<Form/> error while POSTing: {e:#?}");
+                            error!("<Form/> error while POSTing: {e:#?}");
                             if let Some(error) = error {
                                 error.set(Some(Box::new(e)));
                             }
@@ -110,15 +112,22 @@ where
                             if let Some(on_response) = on_response.clone() {
                                 on_response(resp.as_raw());
                             }
-
-                            if resp.status() == 303 {
-                                if let Some(redirect_url) =
-                                    resp.headers().get("Location")
-                                {
-                                    _ = navigate(
-                                        &redirect_url,
-                                        Default::default(),
-                                    );
+                            // Check all the logical 3xx responses that might
+                            // get returned from a server function
+                            if resp.redirected() {
+                                let resp_url = &resp.url();
+                                match Url::try_from(resp_url.as_str()) {
+                                    Ok(url) => {
+                                        request_animation_frame(move || {
+                                            if let Err(e) = navigate(
+                                                &url.pathname,
+                                                Default::default(),
+                                            ) {
+                                                warn!("{}", e);
+                                            }
+                                        });
+                                    }
+                                    Err(e) => warn!("{}", e),
                                 }
                             }
                         }
@@ -207,7 +216,7 @@ where
                 input.set(Some(data));
                 action.set_pending(true);
             }
-            Err(e) => log::error!("{e}"),
+            Err(e) => error!("{e}"),
         }
     });
 
@@ -225,15 +234,19 @@ where
                             .as_string()
                             .expect("couldn't get String from JsString"),
                     ) {
-                        Ok(res) => value.set(Some(Ok(res))),
-                        Err(e) => value.set(Some(Err(
-                            ServerFnError::Deserialization(e.to_string()),
-                        ))),
+                        Ok(res) => {
+                            value.try_set(Some(Ok(res)));
+                        }
+                        Err(e) => {
+                            value.try_set(Some(Err(
+                                ServerFnError::Deserialization(e.to_string()),
+                            )));
+                        }
                     }
                 }
-                Err(e) => log::error!("{e:?}"),
+                Err(e) => error!("{e:?}"),
             };
-            input.set(None);
+            input.try_set(None);
             action.set_pending(false);
         });
     });
@@ -293,7 +306,7 @@ where
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
         let data = action_input_from_form_data(&form_data);
         match data {
-            Err(e) => log::error!("{e}"),
+            Err(e) => error!("{e}"),
             Ok(input) => {
                 ev.prevent_default();
                 multi_action.dispatch(input);
