@@ -17,13 +17,13 @@ pub fn Story(cx: Scope) -> impl IntoView {
             }
         },
     );
-    let meta_description = move || story.read().and_then(|story| story.map(|story| story.title)).unwrap_or_else(|| "Loading story...".to_string());
+    let meta_description = move || story.read(cx).and_then(|story| story.map(|story| story.title)).unwrap_or_else(|| "Loading story...".to_string());
 
     view! { cx,
         <>
             <Meta name="description" content=meta_description/>
                 <Suspense fallback=|| view! { cx, "Loading..." }>
-                    {move || story.read().map(|story| match story {
+                    {move || story.read(cx).map(|story| match story {
                         None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
                         Some(story) => view! { cx,
                             <div class="item-view">
