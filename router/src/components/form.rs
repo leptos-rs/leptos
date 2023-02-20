@@ -110,8 +110,9 @@ where
                             if let Some(on_response) = on_response.clone() {
                                 on_response(resp.as_raw());
                             }
-
-                            if resp.status() == 303 {
+                            // Check all the logical 3xx responses that might
+                            // get returned from a server function
+                            if [301, 302, 303, 307, 308].contains(resp.status()) {
                                 if let Some(redirect_url) =
                                     resp.headers().get("Location")
                                 {
