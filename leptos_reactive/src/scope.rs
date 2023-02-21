@@ -415,9 +415,7 @@ impl Scope {
     {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
-            let f = std::mem::take(&mut shared_context.pending_fragments);
-            println!("pending_fragments = {}", f.len());
-            f
+            std::mem::take(&mut shared_context.pending_fragments)
         })
         .unwrap_or_default()
     }
