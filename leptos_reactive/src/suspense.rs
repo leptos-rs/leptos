@@ -2,8 +2,8 @@
 
 #![forbid(unsafe_code)]
 use crate::{
-    create_signal, queue_microtask, ReadSignal, Scope, SignalUpdate,
-    WriteSignal,
+    create_rw_signal, create_signal, queue_microtask, ReadSignal, RwSignal,
+    Scope, SignalUpdate, WriteSignal,
 };
 use futures::Future;
 use std::{borrow::Cow, pin::Pin};
@@ -15,6 +15,7 @@ pub struct SuspenseContext {
     /// The number of resources that are currently pending.
     pub pending_resources: ReadSignal<usize>,
     set_pending_resources: WriteSignal<usize>,
+    pub(crate) pending_serializable_resources: RwSignal<usize>,
 }
 
 impl std::hash::Hash for SuspenseContext {
@@ -35,29 +36,43 @@ impl SuspenseContext {
     /// Creates an empty suspense context.
     pub fn new(cx: Scope) -> Self {
         let (pending_resources, set_pending_resources) = create_signal(cx, 0);
+        let pending_serializable_resources = create_rw_signal(cx, 0);
         Self {
             pending_resources,
             set_pending_resources,
+            pending_serializable_resources,
         }
     }
 
     /// Notifies the suspense context that a new resource is now pending.
-    pub fn increment(&self) {
+    pub fn increment(&self, serializable: bool) {
         let setter = self.set_pending_resources;
+        let serializable_resources = self.pending_serializable_resources;
         queue_microtask(move || {
             setter.update(|n| *n += 1);
+            if serializable {
+                serializable_resources.update(|n| *n += 1);
+            }
         });
     }
 
     /// Notifies the suspense context that a resource has resolved.
-    pub fn decrement(&self) {
+    pub fn decrement(&self, serializable: bool) {
         let setter = self.set_pending_resources;
+        let serializable_resources = self.pending_serializable_resources;
         queue_microtask(move || {
             setter.update(|n| {
                 if *n > 0 {
                     *n -= 1
                 }
             });
+            if serializable {
+                serializable_resources.update(|n| {
+                    if *n > 0 {
+                        *n -= 1;
+                    }
+                });
+            }
         });
     }
 
