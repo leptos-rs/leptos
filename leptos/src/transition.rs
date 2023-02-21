@@ -75,6 +75,14 @@ where
     E: IntoView,
 {
     let prev_children = std::rc::Rc::new(RefCell::new(None::<Vec<View>>));
+
+    #[cfg(not(feature = "hydrate"))]
+    let first_run = std::cell::Cell::new(true);
+
+    // in hydration mode, "first" run is on the server
+    #[cfg(feature = "hydrate")]
+    let first_run = std::cell::Cell::new(false);
+
     crate::Suspense(
         cx,
         crate::SuspenseProps::builder()
@@ -93,7 +101,12 @@ where
             })
             .children(Box::new(move |cx| {
                 let frag = children(cx);
-                *prev_children.borrow_mut() = Some(frag.nodes.clone());
+
+                if !first_run.get() {
+                    *prev_children.borrow_mut() = Some(frag.nodes.clone());
+                }
+                first_run.set(false);
+
                 if let Some(set_pending) = &set_pending {
                     set_pending.set(false);
                 }
