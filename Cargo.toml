@@ -11,6 +11,7 @@ members = [
   # integrations
   "integrations/actix",
   "integrations/axum",
+  "integrations/viz",
   "integrations/utils",
 
   # libraries
