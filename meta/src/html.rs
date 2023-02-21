@@ -14,12 +14,28 @@ pub struct HtmlContext {
 impl HtmlContext {
     /// Converts the `<html>` metadata into an HTML string.
     pub fn as_string(&self) -> Option<String> {
-        let lang = self.lang.borrow().as_ref().map(|val| format!("lang=\"{}\"", val.get()));
-        let dir = self.dir.borrow().as_ref().map(|val| format!("dir=\"{}\"", val.get()));
-        let class = self.class.borrow().as_ref().map(|val| format!("class=\"{}\"", val.get()));
-        let mut val = [lang, dir, class].into_iter().flatten().collect::<Vec<_>>().join(" ");
+        let lang = self
+            .lang
+            .borrow()
+            .as_ref()
+            .map(|val| format!("lang=\"{}\"", val.get()));
+        let dir = self
+            .dir
+            .borrow()
+            .as_ref()
+            .map(|val| format!("dir=\"{}\"", val.get()));
+        let class = self
+            .class
+            .borrow()
+            .as_ref()
+            .map(|val| format!("class=\"{}\"", val.get()));
+        let mut val = [lang, dir, class]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" ");
         if val.is_empty() {
-            None 
+            None
         } else {
             val.insert(0, ' ');
             Some(val)
