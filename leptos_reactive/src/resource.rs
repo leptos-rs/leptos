@@ -130,6 +130,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
+        serializable: true,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -253,6 +254,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
+        serializable: false,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -548,6 +550,7 @@ where
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
+    serializable: bool,
 }
 
 impl<S, T> ResourceState<S, T>
@@ -574,6 +577,7 @@ where
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
+        let serializable = self.serializable;
         let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
@@ -585,7 +589,7 @@ where
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
                         if !has_value {
-                            s.increment();
+                            s.increment(serializable);
                         }
                     }
                 }
@@ -626,10 +630,11 @@ where
             let suspense_contexts = self.suspense_contexts.clone();
 
             for suspense_context in suspense_contexts.borrow().iter() {
-                suspense_context.increment();
+                suspense_context.increment(self.serializable);
             }
 
             // run the Future
+            let serializable = self.serializable;
             spawn_local({
                 let resolved = self.resolved.clone();
                 let set_value = self.set_value;
@@ -643,7 +648,7 @@ where
                     set_loading.update(|n| *n = false);
 
                     for suspense_context in suspense_contexts.borrow().iter() {
-                        suspense_context.decrement();
+                        suspense_context.decrement(serializable);
                     }
                 }
             })

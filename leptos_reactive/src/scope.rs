@@ -381,8 +381,11 @@ impl Scope {
             let (tx2, mut rx2) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
-                let pending =
-                    context.pending_resources.try_with(|n| *n).unwrap_or(0);
+                let pending = context
+                    .pending_serializable_resources
+                    .read_only()
+                    .try_with(|n| *n)
+                    .unwrap_or(0);
                 if pending == 0 {
                     _ = tx1.unbounded_send(());
                     _ = tx2.unbounded_send(());
