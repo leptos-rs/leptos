@@ -226,6 +226,7 @@ generate_event_types! {
   submit: SubmitEvent,
   suspend: Event,
   timeupdate: Event,
+  #[does_not_bubble]
   toggle: Event,
   touchcancel: TouchEvent,
   touchend: TouchEvent,
