@@ -348,31 +348,30 @@ impl Docs {
             .iter()
             .enumerate()
             .map(|(idx, attr)| {
-                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) =
-                    attr.parse_meta().unwrap()
-                {
-                    let doc_str = quote!(#doc);
+                match attr.parse_meta() {
+                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
+                        let doc_str = quote!(#doc);
 
-                    // We need to remove the leading and trailing `"`"
-                    let mut doc_str = doc_str.to_string();
-                    doc_str.pop();
-                    doc_str.remove(0);
+                        // We need to remove the leading and trailing `"`"
+                        let mut doc_str = doc_str.to_string();
+                        doc_str.pop();
+                        doc_str.remove(0);
 
-                    let doc_str = if idx == 0 {
-                        format!("    - {doc_str}")
-                    } else {
-                        format!("      {doc_str}")
-                    };
+                        let doc_str = if idx == 0 {
+                            format!("    - {doc_str}")
+                        } else {
+                            format!("      {doc_str}")
+                        };
 
-                    let docs = LitStr::new(&doc_str, doc.span());
+                        let docs = LitStr::new(&doc_str, doc.span());
 
-                    if !doc_str.is_empty() {
-                        quote! { #[doc = #docs] }
-                    } else {
-                        quote! {}
+                        if !doc_str.is_empty() {
+                            quote! { #[doc = #docs] }
+                        } else {
+                            quote! {}
+                        }
                     }
-                } else {
-                    unreachable!()
+                    _ => abort!(attr, "could not parse attributes"),
                 }
             })
             .collect()
@@ -384,18 +383,17 @@ impl Docs {
             .0
             .iter()
             .map(|attr| {
-                if let Meta::NameValue(MetaNameValue { lit: doc, .. }) =
-                    attr.parse_meta().unwrap()
-                {
-                    let mut doc_str = quote!(#doc).to_string();
+                match attr.parse_meta() {
+                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
+                        let mut doc_str = quote!(#doc).to_string();
 
-                    // Remove the leading and trailing `"`
-                    doc_str.pop();
-                    doc_str.remove(0);
+                        // Remove the leading and trailing `"`
+                        doc_str.pop();
+                        doc_str.remove(0);
 
-                    doc_str
-                } else {
-                    unreachable!()
+                        doc_str
+                    }
+                    _ => abort!(attr, "could not parse attributes"),
                 }
             })
             .intersperse("\n".to_string())
@@ -703,7 +701,7 @@ fn prop_to_doc(
         || prop_opts.contains(&PropOpt::StripOption))
         && is_option(ty)
     {
-        unwrap_option(ty).unwrap()
+        unwrap_option(ty)
     } else {
         ty.to_owned()
     };
