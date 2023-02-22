@@ -1,4 +1,4 @@
-use crate::{is_component_node, attribute_value};
+use crate::{attribute_value, is_component_node};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;

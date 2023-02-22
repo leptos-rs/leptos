@@ -899,7 +899,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             #prop(#name, (#cx, #[allow(unused_braces)] #value))
         }
     } else if let Some(name) = name.strip_prefix("class:") {
-        let value = attribute_value(node); 
+        let value = attribute_value(node);
         let class = match &node.key {
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),

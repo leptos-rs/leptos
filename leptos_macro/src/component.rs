@@ -631,7 +631,7 @@ fn is_option(ty: &Type) -> bool {
     }
 }
 
-fn unwrap_option(ty: &Type) -> Option<Type> {
+fn unwrap_option(ty: &Type) -> Type {
     const STD_OPTION_MSG: &str =
         "make sure you're not shadowing the `std::option::Option` type that \
          is automatically imported from the standard prelude";
@@ -649,37 +649,19 @@ fn unwrap_option(ty: &Type) -> Option<Type> {
                 {
                     if let [first] = &args.iter().collect::<Vec<_>>()[..] {
                         if let GenericArgument::Type(ty) = first {
-                            Some(ty.clone())
-                        } else {
-                            abort!(
-                                first,
-                                "`Option` must be `std::option::Option`";
-                                help = STD_OPTION_MSG
-                            );
+                            return ty.clone();
                         }
-                    } else {
-                        abort!(
-                            first,
-                            "`Option` must be `std::option::Option`";
-                            help = STD_OPTION_MSG
-                        );
                     }
-                } else {
-                    abort!(
-                        first,
-                        "`Option` must be `std::option::Option`";
-                        help = STD_OPTION_MSG
-                    );
                 }
-            } else {
-                None
             }
-        } else {
-            None
         }
-    } else {
-        None
     }
+
+    abort!(
+        ty,
+        "`Option` must be `std::option::Option`";
+        help = STD_OPTION_MSG
+    );
 }
 
 #[derive(Clone, Copy)]
