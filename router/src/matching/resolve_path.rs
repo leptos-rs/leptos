@@ -54,15 +54,11 @@ fn has_scheme(path: &str) -> bool {
 
 #[doc(hidden)]
 pub fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
-    let s = replace_trim_path(path, "");
-    if !s.is_empty() {
-        if omit_slash || begins_with_query_or_hash(&s) {
-            s
-        } else {
-            format!("/{s}").into()
-        }
+    let s = path.trim_start_matches('/').trim_end_matches('/');
+    if s.is_empty() || omit_slash || begins_with_query_or_hash(&s) {
+        s.into()
     } else {
-        "".into()
+        format!("/{s}").into()
     }
 }
 
@@ -72,25 +68,11 @@ pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
     from + &normalize(to, false)
 }
 
-const TRIM_PATH: &str = r#"^/+|/+$"#;
-const BEGINS_WITH_QUERY_OR_HASH: &str = r#"^[?#]"#;
 const HAS_SCHEME: &str = r#"^(?:[a-z0-9]+:)?//"#;
 const QUERY: &str = r#"/*(\*.*)?$"#;
 
-#[cfg(not(feature = "ssr"))]
-fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
-    let re = js_sys::RegExp::new(TRIM_PATH, "g");
-    js_sys::JsString::from(text)
-        .replace_by_pattern(&re, replace)
-        .as_string()
-        .unwrap()
-        .into()
-}
-
-#[cfg(not(feature = "ssr"))]
 fn begins_with_query_or_hash(text: &str) -> bool {
-    let re = js_sys::RegExp::new(BEGINS_WITH_QUERY_OR_HASH, "");
-    re.test(text)
+    matches!(text.chars().next(), Some('#') | Some('?'))
 }
 
 #[cfg(not(feature = "ssr"))]
@@ -98,29 +80,7 @@ fn replace_query(text: &str) -> String {
     let re = js_sys::RegExp::new(QUERY, "g");
     js_sys::JsString::from(text)
         .replace_by_pattern(&re, "")
-        .as_string()
-        .unwrap()
-}
-
-#[cfg(feature = "ssr")]
-fn replace_trim_path<'a>(text: &'a str, replace: &str) -> Cow<'a, str> {
-    use regex::Regex;
-    lazy_static::lazy_static! {
-        pub static ref TRIM_PATH_RE: Regex =
-            Regex::new(TRIM_PATH).expect("couldn't compile TRIM_PATH_RE");
-    }
-
-    TRIM_PATH_RE.replace(text, replace)
-}
-
-#[cfg(feature = "ssr")]
-fn begins_with_query_or_hash(text: &str) -> bool {
-    use regex::Regex;
-    lazy_static::lazy_static! {
-        pub static ref BEGINS_WITH_QUERY_OR_HASH_RE: Regex =
-            Regex::new(BEGINS_WITH_QUERY_OR_HASH).expect("couldn't compile BEGINS_WITH_HASH_RE");
-    }
-    BEGINS_WITH_QUERY_OR_HASH_RE.is_match(text)
+        .into()
 }
 
 #[cfg(feature = "ssr")]
