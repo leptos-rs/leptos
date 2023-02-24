@@ -87,7 +87,7 @@ pub fn Link(
 
     let builder_el = leptos::leptos_dom::html::link(cx)
         .attr("id", &id)
-        .attr("as_", as_)
+        .attr("as", as_)
         .attr("crossorigin", crossorigin)
         .attr("disabled", disabled.unwrap_or(false))
         .attr("fetchpriority", fetchpriority)
