@@ -1,4 +1,4 @@
-use crate::{is_component_node, Mode};
+use crate::{attribute_value, is_component_node, Mode};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
@@ -576,11 +576,7 @@ fn set_class_attribute_ssr(
                     } else {
                         name
                     };
-                    let value = node
-                        .value
-                        .as_ref()
-                        .expect("class: attributes need values")
-                        .as_ref();
+                    let value = attribute_value(node);
                     let span = node.key.span();
                     Some((span, name, value))
                 } else {
@@ -802,23 +798,14 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
     let span = node.key.span();
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
-        let value = node
-            .value
-            .as_ref()
-            .and_then(|expr| expr_to_ident(expr))
-            .expect("'_ref' needs to be passed a variable name");
+        let value = expr_to_ident(attribute_value(node));
         let node_ref = quote_spanned! { span => node_ref };
 
         quote! {
             .#node_ref(#value)
         }
     } else if let Some(name) = name.strip_prefix("on:") {
-        let handler = node
-            .value
-            .as_ref()
-            .expect("event listener attributes need a value")
-            .as_ref();
-
+        let handler = attribute_value(node);
         let (name, is_force_undelegated) = parse_event(name);
 
         let event_type = TYPED_EVENTS
@@ -827,9 +814,10 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             .copied()
             .unwrap_or("Custom");
         let is_custom = event_type == "Custom";
-        let event_type = event_type
-            .parse::<TokenStream>()
-            .expect("couldn't parse event name");
+
+        let Ok(event_type) = event_type.parse::<TokenStream>() else {
+            abort!(event_type, "couldn't parse event name");
+        };
 
         let event_type = if is_custom {
             quote! { leptos::ev::Custom::new(#name) }
@@ -896,11 +884,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             #on(#event_type, #handler)
         }
     } else if let Some(name) = name.strip_prefix("prop:") {
-        let value = node
-            .value
-            .as_ref()
-            .expect("prop: attributes need a value")
-            .as_ref();
+        let value = attribute_value(node);
         let prop = match &node.key {
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),
@@ -915,11 +899,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             #prop(#name, (#cx, #[allow(unused_braces)] #value))
         }
     } else if let Some(name) = name.strip_prefix("class:") {
-        let value = node
-            .value
-            .as_ref()
-            .expect("class: attributes need a value")
-            .as_ref();
+        let value = attribute_value(node);
         let class = match &node.key {
             NodeName::Punctuated(parts) => &parts[0],
             _ => unreachable!(),
@@ -1012,16 +992,11 @@ pub(crate) fn component_to_tokens(
 
     let items_to_clone = attrs
         .clone()
-        .filter(|attr| attr.key.to_string().starts_with("clone:"))
-        .map(|attr| {
-            let ident = attr
-                .key
+        .filter_map(|attr| {
+            attr.key
                 .to_string()
                 .strip_prefix("clone:")
-                .unwrap()
-                .to_owned();
-
-            format_ident!("{ident}", span = attr.key.span())
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
         })
         .collect::<Vec<_>>();
 
@@ -1085,14 +1060,14 @@ pub(crate) fn event_from_attribute_node(
     attr: &NodeAttribute,
     force_undelegated: bool,
 ) -> (TokenStream, &Expr) {
-    let event_name =
-        attr.key.to_string().strip_prefix("on:").unwrap().to_owned();
+    let event_name = attr
+        .key
+        .to_string()
+        .strip_prefix("on:")
+        .expect("expected `on:` directive")
+        .to_owned();
 
-    let handler = attr
-        .value
-        .as_ref()
-        .expect("event listener attributes need a value")
-        .as_ref();
+    let handler = attribute_value(attr);
 
     #[allow(unused_variables)]
     let (name, name_undelegated) = parse_event(&event_name);
@@ -1102,9 +1077,10 @@ pub(crate) fn event_from_attribute_node(
         .find(|e| **e == name)
         .copied()
         .unwrap_or("Custom");
-    let event_type = event_type
-        .parse::<TokenStream>()
-        .expect("couldn't parse event name");
+
+    let Ok(event_type) = event_type.parse::<TokenStream>() else {
+        abort!(attr.key, "couldn't parse event name");
+    };
 
     let event_type = if force_undelegated || name_undelegated {
         quote! { ::leptos::leptos_dom::ev::undelegated(::leptos::leptos_dom::ev::#event_type) }
