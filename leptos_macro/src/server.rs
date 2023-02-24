@@ -46,7 +46,7 @@ pub fn server_macro_impl(
     let block = body.block;
 
     cfg_if! {
-        if #[cfg(all(not(feature = "stable"), debug_assertions))] {
+        if #[cfg(all(feature = "nightly", debug_assertions))] {
             use proc_macro::Span;
             let span = Span::call_site();
             #[cfg(not(target_os = "windows"))]

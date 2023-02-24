@@ -19,12 +19,11 @@ version = "0.3"
 features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 
 [features]
-default = []
+default = ["nightly"]
 csr = ["leptos/csr", "leptos/tracing"]
 hydrate = ["leptos/hydrate", "leptos/tracing"]
 ssr = ["leptos/ssr", "leptos/tracing"]
-stable = ["leptos/stable", "leptos/tracing"]
+nightly = ["leptos/nightly", "leptos/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

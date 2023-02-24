@@ -42,11 +42,10 @@ ssr = [
   #"leptos/ssr",
   "leptos_reactive/ssr",
 ]
-stable = [
+nightly = [
   #"leptos/stable",
-  "leptos_dom/stable",
-  "leptos_reactive/stable",
+  "leptos_dom/nightly",
+  "leptos_reactive/nightly",
 ]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]

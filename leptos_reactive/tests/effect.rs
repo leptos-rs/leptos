@@ -1,10 +1,10 @@
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 use leptos_reactive::{
     create_isomorphic_effect, create_memo, create_runtime, create_scope,
     create_signal,
 };
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 #[test]
 fn effect_runs() {
     use std::{cell::RefCell, rc::Rc};
@@ -32,7 +32,7 @@ fn effect_runs() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 #[test]
 fn effect_tracks_memo() {
     use std::{cell::RefCell, rc::Rc};
@@ -62,7 +62,7 @@ fn effect_tracks_memo() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 #[test]
 fn untrack_mutes_effect() {
     use std::{cell::RefCell, rc::Rc};

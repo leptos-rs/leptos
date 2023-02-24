@@ -148,8 +148,7 @@ features = [
 default = []
 web = ["leptos_reactive/csr"]
 ssr = ["leptos_reactive/ssr"]
-stable = ["leptos_reactive/stable"]
+nightly = ["leptos_reactive/nightly"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
 skip_feature_sets = [["web", "ssr"]]

@@ -37,17 +37,16 @@ tokio-test = "0.4"
 leptos = { path = "../leptos" }
 
 [features]
-default = []
+default = ["nightly"]
 csr = []
 hydrate = []
 ssr = ["dep:tokio"]
-stable = []
+nightly = []
 serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable"]
 skip_feature_sets = [
   [
     "csr",

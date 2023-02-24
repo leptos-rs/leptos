@@ -12,13 +12,11 @@ console_log = "0.2.0"
 console_error_panic_hook = "0.1.7"
 futures = "0.3.25"
 cfg-if = "1.0.0"
-leptos = { path = "../../../leptos/leptos", default-features = false, features = [
-	"serde",
-] }
-leptos_axum = { path = "../../../leptos/integrations/axum", default-features = false, optional = true }
-leptos_meta = { path = "../../../leptos/meta", default-features = false }
-leptos_router = { path = "../../../leptos/router", default-features = false }
-leptos_reactive = { path = "../../../leptos/leptos_reactive", default-features = false }
+leptos = { path = "../../../leptos/leptos", features = ["serde"] }
+leptos_axum = { path = "../../../leptos/integrations/axum", optional = true }
+leptos_meta = { path = "../../../leptos/meta" }
+leptos_router = { path = "../../../leptos/router" }
+leptos_reactive = { path = "../../../leptos/leptos_reactive" }
 log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1.0.148", features = ["derive"] }

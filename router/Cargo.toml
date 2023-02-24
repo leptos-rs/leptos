@@ -53,11 +53,11 @@ features = [
 ]
 
 [features]
-default = []
+default = ["nightly"]
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
 ssr = ["leptos/ssr", "dep:url", "dep:regex"]
-stable = ["leptos/stable"]
+nightly = ["leptos/nightly"]
 
 [package.metadata.cargo-all-features]
 # No need to test optional dependencies as they are enabled by the ssr feature

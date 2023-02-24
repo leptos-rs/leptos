@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.58"
-leptos = { path = "../../leptos" }
+leptos = { path = "../../leptos", features = ["csr"] }
 reqwasm = "0.5.0"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
@@ -14,4 +14,3 @@ console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
-
