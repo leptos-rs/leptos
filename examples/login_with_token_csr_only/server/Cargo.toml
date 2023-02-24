@@ -1,0 +1,18 @@
+[package]
+name = "server"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+api-boundary = "*"
+axum = { version = "0.6", features = ["headers"] }
+env_logger = "0.10"
+log = "0.4"
+mailparse = "0.14"
+pwhash = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.25", features = ["macros", "rt-multi-thread"] }
+tower-http = { version = "0.3", features = ["cors"] }
+uuid = { version = "1.3", features = ["v4"] }
