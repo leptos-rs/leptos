@@ -331,7 +331,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 Ok(nodes) => render_view(
                     &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
                     &nodes,
-                    Mode::Client, //Mode::default(),
+                    Mode::default(),
                     global_class.as_ref(),
                     normalized_call_site(proc_macro::Span::call_site()),
                 ),
@@ -354,14 +354,13 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
             let file = site.source_file();
             let start = site.start();
             Some(format!(
-                "{}-{:?}-{:?}",
+                "{}-{:?}",
                 file.path()
                     .display()
                     .to_string()
                     .replace("/", "-")
                     .replace("\\", "-"),
                 start.line,
-                start.column
             ))
         } else {
             _ = site;
