@@ -27,6 +27,11 @@ pub fn App(cx: Scope) -> impl IntoView {
                         view=|cx| view! { cx, <Post/> }
                         ssr=SsrMode::Async
                     />
+                    <Route
+                        path="/post_in_order/:id"
+                        view=|cx| view! { cx, <Post/> }
+                        ssr=SsrMode::InOrder
+                    />
                 </Routes>
             </main>
         </Router>
@@ -43,7 +48,7 @@ fn HomePage(cx: Scope) -> impl IntoView {
             .clone()
             .map(|posts| {
                 posts.iter()
-                .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a></li>})
+                .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
                 .collect::<Vec<_>>()
             })
         )
