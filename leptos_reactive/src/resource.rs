@@ -578,6 +578,12 @@ where
         let has_value = v.is_some();
 
         let serializable = self.serializable;
+        if let Some(suspense_cx) = &suspense_cx {
+            if serializable {
+                suspense_cx.has_local_only.set_value(false);
+            }
+        }
+
         let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
