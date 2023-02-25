@@ -680,9 +680,7 @@ where
                     if let Some(value) = value.as_ref() {
                         tx.try_send((
                             id,
-                            value
-                                .ser()
-                                .expect("could not serialize Resource"),
+                            value.ser().expect("could not serialize Resource"),
                         ))
                         .expect(
                             "failed while trying to write to Resource \
