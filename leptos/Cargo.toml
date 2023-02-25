@@ -50,6 +50,7 @@ stable = [
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
+rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 
 [package.metadata.cargo-all-features]
