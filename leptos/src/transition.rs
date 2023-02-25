@@ -1,7 +1,10 @@
 use leptos_dom::{Fragment, IntoView, View};
 use leptos_macro::component;
-use leptos_reactive::{Scope, SignalSetter};
-use std::{cell::RefCell, rc::Rc};
+use leptos_reactive::{use_context, Scope, SignalSetter, SuspenseContext};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 /// If any [Resource](leptos_reactive::Resource)s are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -74,26 +77,34 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    let prev_children = std::rc::Rc::new(RefCell::new(None::<Vec<View>>));
+    let prev_children = Rc::new(RefCell::new(None::<Vec<View>>));
 
-    #[cfg(not(feature = "hydrate"))]
-    let first_run = std::cell::Cell::new(true);
-
-    // in hydration mode, "first" run is on the server
-    #[cfg(feature = "hydrate")]
-    let first_run = std::cell::Cell::new(false);
+    let first_run = Rc::new(std::cell::Cell::new(true));
+    let child_runs = Cell::new(0);
 
     crate::Suspense(
         cx,
         crate::SuspenseProps::builder()
             .fallback({
                 let prev_child = Rc::clone(&prev_children);
+                let first_run = Rc::clone(&first_run);
                 move || {
+                    let suspense_context = use_context::<SuspenseContext>(cx)
+                        .expect("there to be a SuspenseContext");
+
+                    let is_first_run =
+                        is_first_run(&first_run, &suspense_context);
+                    first_run.set(is_first_run);
+
                     if let Some(set_pending) = &set_pending {
                         set_pending.set(true);
                     }
                     if let Some(prev_children) = &*prev_child.borrow() {
-                        prev_children.clone().into_view(cx)
+                        if is_first_run {
+                            fallback().into_view(cx)
+                        } else {
+                            prev_children.clone().into_view(cx)
+                        }
                     } else {
                         fallback().into_view(cx)
                     }
@@ -102,10 +113,19 @@ where
             .children(Box::new(move |cx| {
                 let frag = children(cx);
 
-                if !first_run.get() {
+                let suspense_context = use_context::<SuspenseContext>(cx)
+                    .expect("there to be a SuspenseContext");
+
+                if is_first_run(&first_run, &suspense_context) {
+                    let has_local_only = suspense_context.has_local_only();
                     *prev_children.borrow_mut() = Some(frag.nodes.clone());
+                    if (has_local_only && child_runs.get() > 0)
+                        || !has_local_only
+                    {
+                        first_run.set(false);
+                    }
                 }
-                first_run.set(false);
+                child_runs.set(child_runs.get() + 1);
 
                 if let Some(set_pending) = &set_pending {
                     set_pending.set(false);
@@ -114,4 +134,23 @@ where
             }))
             .build(),
     )
+}
+
+fn is_first_run(
+    first_run: &Rc<Cell<bool>>,
+    suspense_context: &SuspenseContext,
+) -> bool {
+    match (
+        first_run.get(),
+        cfg!(feature = "hydrate"),
+        suspense_context.has_local_only(),
+    ) {
+        (false, _, _) => false,
+        // is in hydrate mode, and has non-local resources (so, has streamed)
+        (_, false, false) => false,
+        // is in hydrate mode, but with only local resources (so, has not streamed)
+        (_, false, true) => true,
+        // either SSR or client mode: it's the first run
+        (_, true, _) => true,
+    }
 }
