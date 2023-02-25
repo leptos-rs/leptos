@@ -35,25 +35,22 @@ pub fn resolve_path<'a>(
     }
 }
 
-#[cfg(feature = "ssr")]
 fn has_scheme(path: &str) -> bool {
-    use regex::Regex;
-    lazy_static::lazy_static! {
-        pub static ref HAS_SCHEME_RE: Regex =
-            Regex::new(HAS_SCHEME).expect("couldn't compile HAS_SCHEME_RE");
-    }
-
-    HAS_SCHEME_RE.is_match(path)
-}
-
-#[cfg(not(feature = "ssr"))]
-fn has_scheme(path: &str) -> bool {
-    let re = js_sys::RegExp::new(HAS_SCHEME, "");
-    re.test(path)
+    path.starts_with("//")
+        || path.starts_with("tel:")
+        || path.starts_with("mailto:")
+        || path
+            .split_once("://")
+            .map(|(prefix, _)| {
+                prefix.chars().all(
+                    |c: char| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9'),
+                )
+            })
+            .unwrap_or(false)
 }
 
 #[doc(hidden)]
-pub fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
+fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
     let s = path.trim_start_matches('/').trim_end_matches('/');
     if s.is_empty() || omit_slash || begins_with_query_or_hash(&s) {
         s.into()
@@ -64,31 +61,26 @@ pub fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
 
 #[doc(hidden)]
 pub fn join_paths<'a>(from: &'a str, to: &'a str) -> String {
-    let from = replace_query(&normalize(from, false));
+    let from = remove_wildcard(&normalize(from, false));
     from + &normalize(to, false)
 }
-
-const HAS_SCHEME: &str = r#"^(?:[a-z0-9]+:)?//"#;
-const QUERY: &str = r#"/*(\*.*)?$"#;
 
 fn begins_with_query_or_hash(text: &str) -> bool {
     matches!(text.chars().next(), Some('#') | Some('?'))
 }
 
-#[cfg(not(feature = "ssr"))]
-fn replace_query(text: &str) -> String {
-    let re = js_sys::RegExp::new(QUERY, "g");
-    js_sys::JsString::from(text)
-        .replace_by_pattern(&re, "")
-        .into()
+fn remove_wildcard(text: &str) -> String {
+    text.split_once('*')
+        .map(|(prefix, _)| prefix.trim_end_matches('/'))
+        .unwrap_or(text)
+        .to_string()
 }
 
-#[cfg(feature = "ssr")]
-fn replace_query(text: &str) -> String {
-    use regex::Regex;
-    lazy_static::lazy_static! {
-        pub static ref QUERY_RE: Regex =
-            Regex::new(QUERY).expect("couldn't compile QUERY_RE");
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn normalize_query_string_with_opening_slash() {
+        assert_eq!(normalize("/?foo=bar", false), "?foo=bar");
     }
-    QUERY_RE.replace(text, "").into_owned()
 }
