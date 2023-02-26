@@ -909,7 +909,9 @@ fn create_leptos_element(
     clone_element: fn() -> web_sys::HtmlElement,
 ) -> web_sys::HtmlElement {
     #[cfg(not(debug_assertions))]
-    _ = tag;
+    {
+        _ = tag;
+    }
 
     if HydrationCtx::is_hydrating() {
         if let Some(el) = crate::document().get_element_by_id(&format!("_{id}"))
