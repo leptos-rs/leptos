@@ -623,9 +623,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
             let event_name = event.name();
 
+            let key = event.event_delegation_key();
+
             if event.bubbles() {
                 add_event_listener(
                     self.element.as_ref(),
+                    key,
                     event_name,
                     event_handler,
                 );
