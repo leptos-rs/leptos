@@ -67,7 +67,8 @@ pub fn add_event_listener<E>(
 pub(crate) fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &str,
-    mut cb: impl FnMut(E) + 'static,
+    #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
+    #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
 ) where
     E: FromWasmAbi + 'static,
 {

@@ -422,8 +422,7 @@ where
                   hashed_items.insert(key_fn(&item));
                   let (each_item, _) = cx.run_child_scope(|cx| EachItem::new(cx, each_fn(cx, item).into_view(cx)));
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  fragment.append_child(&each_item.get_mountable_node());
-
+                  _ = fragment.append_child(&each_item.get_mountable_node());
 
                   children_borrow.push(Some(each_item));
                 }
