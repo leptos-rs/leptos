@@ -229,7 +229,7 @@ where
             .await;
             match body {
                 Ok(json) => {
-                    match O::from_json(
+                    match O::de(
                         &json
                             .as_string()
                             .expect("couldn't get String from JsString"),

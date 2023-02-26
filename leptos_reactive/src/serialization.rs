@@ -30,27 +30,50 @@ pub trait Serializable
 where
     Self: Sized,
 {
-    /// Serializes the object to JSON.
-    fn to_json(&self) -> Result<String, SerializationError>;
+    /// Serializes the object to a string.
+    fn ser(&self) -> Result<String, SerializationError>;
 
-    /// Deserializes the object from JSON.
-    fn from_json(json: &str) -> Result<Self, SerializationError>;
+    /// Deserializes the object from some bytes.
+    fn de(bytes: &str) -> Result<Self, SerializationError>;
 }
 
 cfg_if! {
+    if #[cfg(feature = "rkyv")] {
+        use rkyv::{Archive, Deserialize, Serialize, ser::serializers::AllocSerializer, de::deserializers::SharedDeserializeMap, validation::validators::DefaultValidator};
+        use bytecheck::CheckBytes;
+        use base64::Engine as _;
+        use base64::engine::general_purpose::STANDARD_NO_PAD;
+
+        impl<T> Serializable for T
+        where
+        T: Serialize<AllocSerializer<1024>>,
+        T: Archive,
+        T::Archived: for<'b> CheckBytes<DefaultValidator<'b>> + Deserialize<T, SharedDeserializeMap>,
+        {
+            fn ser(&self) -> Result<String, SerializationError> {
+                let bytes = rkyv::to_bytes::<T, 1024>(&self).map_err(|e| SerializationError::Serialize(Rc::new(e)))?;
+                Ok(STANDARD_NO_PAD.encode(bytes))
+            }
+
+            fn de(serialized: &str) -> Result<Self, SerializationError> {
+                let bytes = STANDARD_NO_PAD.decode(serialized.as_bytes()).map_err(|e| SerializationError::Deserialize(Rc::new(e)))?;
+                rkyv::from_bytes::<T>(&bytes).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
+            }
+        }
+    }
     // prefer miniserde if it's chosen
-    if #[cfg(feature = "miniserde")] {
+    else if #[cfg(feature = "miniserde")] {
         use miniserde::{json, Deserialize, Serialize};
 
         impl<T> Serializable for T
         where
             T: Serialize + Deserialize,
         {
-            fn to_json(&self) -> Result<String, SerializationError> {
+            fn ser(&self) -> Result<String, SerializationError> {
                 Ok(json::to_string(&self))
             }
 
-            fn from_json(json: &str) -> Result<Self, SerializationError> {
+            fn de(json: &str) -> Result<Self, SerializationError> {
                 json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
             }
         }
@@ -64,14 +87,14 @@ cfg_if! {
         where
             T: Serialize + Deserialize,
         {
-            fn to_json(&self) -> Result<String, SerializationError> {
+            fn ser(&self) -> Result<String, SerializationError> {
                 let intermediate = self
                     .serialize()
                     .map_err(|e| SerializationError::Serialize(Rc::new(e)))?;
                 serde_json::to_string(&intermediate).map_err(|e| SerializationError::Serialize(Rc::new(e)))
             }
 
-            fn from_json(json: &str) -> Result<Self, SerializationError> {
+            fn de(json: &str) -> Result<Self, SerializationError> {
                 let intermediate =
                     serde_json::from_str(&json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))?;
                 Self::deserialize(&intermediate).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
@@ -87,11 +110,11 @@ cfg_if! {
         where
             T: DeserializeOwned + Serialize,
         {
-            fn to_json(&self) -> Result<String, SerializationError> {
+            fn ser(&self) -> Result<String, SerializationError> {
                 serde_json::to_string(&self).map_err(|e| SerializationError::Serialize(Rc::new(e)))
             }
 
-            fn from_json(json: &str) -> Result<Self, SerializationError> {
+            fn de(json: &str) -> Result<Self, SerializationError> {
                 serde_json::from_str(json).map_err(|e| SerializationError::Deserialize(Rc::new(e)))
             }
 
