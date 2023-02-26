@@ -11,6 +11,9 @@ pub trait EventDescriptor: Clone {
     /// The name of the event, such as `click` or `mouseover`.
     fn name(&self) -> Cow<'static, str>;
 
+    /// The key used for event delegation.
+    fn event_delegation_key(&self) -> Cow<'static, str>;
+
     /// Indicates if this event bubbles. For example, `click` bubbles,
     /// but `focus` does not.
     ///
@@ -32,6 +35,10 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
 
     fn name(&self) -> Cow<'static, str> {
         self.0.name()
+    }
+
+    fn event_delegation_key(&self) -> Cow<'static, str> {
+        self.0.event_delegation_key()
     }
 
     fn bubbles(&self) -> bool {
@@ -59,6 +66,10 @@ impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
+    }
+
+    fn event_delegation_key(&self) -> Cow<'static, str> {
+        format!("$$${}", self.name).into()
     }
 
     fn bubbles(&self) -> bool {
@@ -95,6 +106,10 @@ macro_rules! generate_event_types {
 
           fn name(&self) -> Cow<'static, str> {
             stringify!($event).into()
+          }
+
+          fn event_delegation_key(&self) -> Cow<'static, str> {
+            concat!("$$$", stringify!($event)).into()
           }
 
           $(
