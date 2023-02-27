@@ -61,5 +61,5 @@ nightly = ["leptos/nightly"]
 
 [package.metadata.cargo-all-features]
 # No need to test optional dependencies as they are enabled by the ssr feature
-denylist = ["url", "regex", "stable"]
+denylist = ["url", "regex"]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]

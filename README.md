@@ -70,6 +70,8 @@ Most of the examples assume you’re using `nightly` Rust.
 
 To set up your Rust toolchain using `nightly` (and add the ability to compile Rust to WebAssembly, if you haven’t already)
 
+If you are using Leptos with `default-features = false` and still want to use nightly, make sure you include the `"nightly"` feature flag.
+
 ```
 rustup toolchain install nightly
 rustup default nightly
@@ -78,7 +80,7 @@ rustup target add wasm32-unknown-unknown
 
 If you’re on `stable`, note the following:
 
-1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0", features = ["stable"] }`
+1. You need to disable the default `"nightly"` flag in `Cargo.toml`: `leptos = { version = "0.1.0", default-features = false }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
    [`counters_stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters_stable/src/main.rs)
