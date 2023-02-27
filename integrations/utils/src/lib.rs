@@ -61,19 +61,19 @@ pub fn html_parts(
         <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
         <script>
 function reset_html_visibility() {{
-var css = 'html{{visibility: visible;opacity: 1;}}',
-head = document.head || document.getElementsByTagName('head')[0],
-style = document.createElement('style');
+    var css = 'html{{visibility: visible;opacity: 1;}}',
+    head = document.head || document.getElementsByTagName('head')[0],
+    style = document.createElement('style');
 
-head.appendChild(style);
+    head.appendChild(style);
 
-style.type = 'text/css';
-if (style.styleSheet){{
-// This is required for IE8 and below.
-style.styleSheet.cssText = css;
-}} else {{
-style.appendChild(document.createTextNode(css));
-}}
+    style.type = 'text/css';
+    if (style.styleSheet){{
+        // This is required for IE8 and below.
+        style.styleSheet.cssText = css;
+    }} else {{
+        style.appendChild(document.createTextNode(css));
+    }}
 }}
         </script>
         <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate).then(reset_html_visibility);</script>
