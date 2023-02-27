@@ -48,6 +48,7 @@ miniserde = ["dep:miniserde"]
 
 [package.metadata.cargo-all-features]
 skip_feature_sets = [
+  [],
   [
     "csr",
     "ssr",

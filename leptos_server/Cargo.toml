@@ -43,9 +43,9 @@ ssr = [
   "leptos_reactive/ssr",
 ]
 nightly = [
-  #"leptos/stable",
   "leptos_dom/nightly",
   "leptos_reactive/nightly",
 ]
 
 [package.metadata.cargo-all-features]
+skip_feature_sets = [[]]

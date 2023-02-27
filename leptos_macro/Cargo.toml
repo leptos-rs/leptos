@@ -41,5 +41,10 @@ nightly = ["leptos_dom/nightly", "leptos_reactive/nightly"]
 tracing = []
 
 [package.metadata.cargo-all-features]
-denylist = ["stable", "tracing"]
-skip_feature_sets = [["csr", "hydrate"], ["hydrate", "csr"], ["hydrate", "ssr"]]
+denylist = ["tracing"]
+skip_feature_sets = [
+    [], 
+    ["csr", "hydrate"], 
+    ["hydrate", "csr"], 
+    ["hydrate", "ssr"]
+]

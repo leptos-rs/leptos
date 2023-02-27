@@ -53,7 +53,7 @@ miniserde = ["leptos_reactive/miniserde"]
 tracing = ["leptos_macro/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable", "tracing"]
+denylist = ["tracing"]
 skip_feature_sets = [
   [],
   [
