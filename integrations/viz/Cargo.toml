@@ -7,6 +7,15 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Viz integrations for the Leptos web framework."
 
+[features]
+default = ["nightly"]
+nightly = [
+    "leptos/nightly", 
+    "leptos_meta/nightly", 
+    "leptos_router/nightly",
+    "leptos_integration_utils/nightly"
+]
+
 [dependencies]
 viz = { version = "0.4.8" }
 futures = "0.3"

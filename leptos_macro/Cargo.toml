@@ -30,7 +30,7 @@ uuid = { version = "1", features = ["v4"] }
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.12"
-leptos = { path = "../leptos" }
+leptos = { path = "../leptos", default-features = false }
 
 [features]
 default = ["ssr"]

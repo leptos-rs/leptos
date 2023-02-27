@@ -12,7 +12,7 @@ readme = "../README.md"
 cfg-if = "1"
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
-leptos_reactive = { workspace = true, default-features = false }
+leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 leptos_config = { workspace = true }
 tracing = "0.1"

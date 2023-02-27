@@ -7,6 +7,14 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Utilities to help build server integrations for the Leptos web framework."
 
+[features]
+default = ["nightly"]
+nightly = [
+    "leptos/nightly", 
+    "leptos_meta/nightly", 
+    "leptos_router/nightly",
+]
+
 [dependencies]
 futures = "0.3"
 leptos = { workspace = true, features = ["ssr"] }

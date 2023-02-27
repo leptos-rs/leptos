@@ -34,7 +34,7 @@ cfg-if = "1.0.0"
 [dev-dependencies]
 log = "0.4"
 tokio-test = "0.4"
-leptos = { path = "../leptos" }
+leptos = { path = "../leptos", default-features = false }
 
 [features]
 default = ["nightly"]

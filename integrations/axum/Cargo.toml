@@ -7,6 +7,16 @@ license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
 
+[features]
+default = ["nightly"]
+nightly = [
+    "leptos/nightly", 
+    "leptos_meta/nightly", 
+    "leptos_router/nightly",
+    "leptos_integration_utils/nightly"
+]
+
+
 [dependencies]
 axum = { version = "0.6", features = ["macros"] }
 futures = "0.3"
