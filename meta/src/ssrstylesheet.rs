@@ -1,26 +1,24 @@
 use crate::{Script, ScriptProps};
 use leptos::*;
 
-static SCRIPT_CONTENT_HEAD: &'static str = "
-(function() {
-    var head = document.head || document.getElementsByTagName('head')[0];
-    var hide_style = document.createElement('style');
-    hide_style.textContent = 'html{visibility: hidden;opacity:0;}';
-    head.appendChild(hide_style);
-    var style = document.createElement('style');
-    style.textContent = '@import \"";
-
-static SCRIPT_CONTENT_TAIL: &'static str = "\"';
-    var fi = setInterval(function() {
-    try {
-        style.sheet.cssRules;
-        head.removeChild(hide_style);
-        clearInterval(fi);
-    } catch (e){}
-    }, 10);
-    head.appendChild(style);
-})();
-";
+fn script_content(href: String) -> String {
+    format!("(function() {{
+        var head = document.head || document.getElementsByTagName('head')[0];
+        var hide_style = document.createElement('style');
+        hide_style.textContent = 'html{{visibility: hidden;opacity:0;}}';
+        head.appendChild(hide_style);
+        var style = document.createElement('style');
+        style.textContent = '@import \"{href}\"';
+        var fi = setInterval(function() {{
+            try {{
+                style.sheet.cssRules;
+                head.removeChild(hide_style);
+                clearInterval(fi);
+            }} catch (e){{}}
+        }}, 10);
+        head.appendChild(style);
+    }})();")
+}
 
 /// Injects an [HTMLStyleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLStyleElement) into the document
 /// head that loads a stylesheet from the URL given by the `href` property.
@@ -59,11 +57,11 @@ pub fn SsrStylesheet(
 ) -> impl IntoView {
     if let Some(id) = id {
         view! { cx,
-            <Script id>{SCRIPT_CONTENT_HEAD}{href}{SCRIPT_CONTENT_TAIL}</Script>
+            <Script id>{script_content(href)}</Script>
         }
     } else {
         view! { cx,
-            <Script>{SCRIPT_CONTENT_HEAD}{href}{SCRIPT_CONTENT_TAIL}</Script>
+            <Script>{script_content(href)}</Script>
         }
     }
 }
