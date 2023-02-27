@@ -1,5 +1,5 @@
 [package]
-name = "todo_app_sqlite_axum"
+name = "session_auth_axum"
 version = "0.1.0"
 edition = "2021"
 
@@ -70,7 +70,7 @@ skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
-output-name = "todo_app_sqlite_axum"
+output-name = "session_auth_axum"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
