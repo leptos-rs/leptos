@@ -57,27 +57,9 @@ pub fn html_parts(
                 <head>
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <style>html{{visibility: hidden;opacity:0;}}</style>
                     <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
                     <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
                     <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                    <script>
-                        function reset_html_visibility() {{
-                            var css = 'html{{visibility: visible;opacity: 1;}}',
-                            head = document.head || document.getElementsByTagName('head')[0],
-                            style = document.createElement('style');
-
-                            head.appendChild(style);
-
-                            style.type = 'text/css';
-                            if (style.styleSheet){{
-                                // This is required for IE8 and below.
-                                style.styleSheet.cssText = css;
-                            }} else {{
-                                style.appendChild(document.createTextNode(css));
-                            }}
-                        }}
-                    </script>
                     {leptos_autoreload}
                     "#
     );
