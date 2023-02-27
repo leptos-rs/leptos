@@ -55,6 +55,7 @@ tracing = ["leptos_macro/tracing"]
 [package.metadata.cargo-all-features]
 denylist = ["stable", "tracing"]
 skip_feature_sets = [
+  [],
   [
     "csr",
     "ssr",

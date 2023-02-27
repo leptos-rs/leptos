@@ -26,4 +26,9 @@ ssr = ["leptos/ssr", "leptos/tracing"]
 nightly = ["leptos/nightly", "leptos/tracing"]
 
 [package.metadata.cargo-all-features]
-skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
+skip_feature_sets = [
+    [], 
+    ["csr", "ssr"], 
+    ["csr", "hydrate"], 
+    ["ssr", "hydrate"]
+]
