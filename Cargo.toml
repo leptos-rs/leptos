@@ -31,7 +31,7 @@ leptos_reactive = { path = "./leptos_reactive", default-features = false, versio
 leptos_server = { path = "./leptos_server", default-features = false, version = "0.2.0-beta" }
 leptos_config = { path = "./leptos_config", default-features = false, version = "0.2.0-beta" }
 leptos_router = { path = "./router", version = "0.2.0-beta" }
-leptos_meta = { path = "./meta", default-feature = false, version = "0.2.0-beta" }
+leptos_meta = { path = "./meta", default-features = false, version = "0.2.0-beta" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.2.0-beta" }
 
 [profile.release]
