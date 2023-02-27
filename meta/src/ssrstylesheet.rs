@@ -63,7 +63,7 @@ pub fn SsrStylesheet(
         }
     } else {
         view! { cx,
-            <Script>{SCRIPT_CONTENT_HEAD}{SCRIPT_CONTENT_TAIL}</Script>
+            <Script>{SCRIPT_CONTENT_HEAD}{href}{SCRIPT_CONTENT_TAIL}</Script>
         }
     }
 }
