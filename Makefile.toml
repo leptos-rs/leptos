@@ -46,7 +46,20 @@ dependencies = [
 
 [tasks.test]
 clear = true
-dependencies = ["test-all"]
+dependencies = ["test-all", "test-stable"]
+
+[tasks.test-stable]
+# Tests that all nightly features are gated and functioning.
+# This currently skips doc-tests as they are written for `nightly` 
+command = "cargo"
+args = [
+    "+stable", 
+    "test", 
+    "--all", 
+    "--no-default-features",
+    "--all-targets"
+]
+install_crate = false
 
 [tasks.test-all]
 command = "cargo"
