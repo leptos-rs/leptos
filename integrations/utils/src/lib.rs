@@ -23,27 +23,26 @@ pub fn html_parts(
 
     let leptos_autoreload = match std::env::var("LEPTOS_WATCH").is_ok() {
         true => format!(
-            r#"
-                <script crossorigin="">(function () {{
-                    var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                    ws.onmessage = (ev) => {{
-                        let msg = JSON.parse(ev.data);
-                        if (msg.all) window.location.reload();
-                        if (msg.css) {{
-                            let found = false;
-                            document.querySelectorAll("link").forEach((link) => {{
-                                if (link.getAttribute('href').includes(msg.css)) {{
-                                    let newHref = '/' + msg.css + '?version=' + new Date().getMilliseconds();
-                                    link.setAttribute('href', newHref);
-                                    found = true;
-                                }}
-                            }});
-                            if (!found) console.warn(`CSS hot-reload: Could not find a <link href=/\"${{msg.css}}\"> element`);
-                        }};
-                    }};
-                    ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
-                }})()
-                </script>
+            r#"<script crossorigin="">(function () {{
+    var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
+    ws.onmessage = (ev) => {{
+        let msg = JSON.parse(ev.data);
+        if (msg.all) window.location.reload();
+        if (msg.css) {{
+            let found = false;
+            document.querySelectorAll("link").forEach((link) => {{
+                if (link.getAttribute('href').includes(msg.css)) {{
+                    let newHref = '/' + msg.css + '?version=' + new Date().getMilliseconds();
+                    link.setAttribute('href', newHref);
+                    found = true;
+                }}
+            }});
+            if (!found) console.warn(`CSS hot-reload: Could not find a <link href=/\"${{msg.css}}\"> element`);
+        }};
+    }};
+    ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
+}})()
+</script>
                 "#
         ),
         false => "".to_string(),
@@ -53,15 +52,33 @@ pub fn html_parts(
         meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
     let head = format!(
         r#"<!DOCTYPE html>
-            <html{html_metadata}>
-                <head>
-                    <meta charset="utf-8"/>
-                    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                    <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
-                    {leptos_autoreload}
-                    "#
+<html{html_metadata}>
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <style>html{{visibility: hidden;opacity:0;}}</style>
+        <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
+        <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+        <script>
+function reset_html_visibility() {{
+var css = 'html{{visibility: visible;opacity: 1;}}',
+head = document.head || document.getElementsByTagName('head')[0],
+style = document.createElement('style');
+
+head.appendChild(style);
+
+style.type = 'text/css';
+if (style.styleSheet){{
+// This is required for IE8 and below.
+style.styleSheet.cssText = css;
+}} else {{
+style.appendChild(document.createTextNode(css));
+}}
+}}
+        </script>
+        <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate).then(reset_html_visibility);</script>
+        {leptos_autoreload}
+        "#
     );
     let tail = "</body></html>";
     (head, tail)
