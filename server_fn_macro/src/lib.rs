@@ -79,8 +79,8 @@ pub fn server_macro_impl(
     } = syn::parse2::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = match &*encoding.to_string() {
-        "Cbor" => quote! { server_fn::Encoding::Cbor },
-        "Url" => quote! { server_fn::Encoding::Url },
+        "Cbor" => quote! { #server_fn_path::Encoding::Cbor },
+        "Url" => quote! { #server_fn_path::Encoding::Url },
         _ => abort!(encoding, "invalid encoding"),
     };
 
