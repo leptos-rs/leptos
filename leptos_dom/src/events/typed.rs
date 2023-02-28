@@ -206,7 +206,9 @@ generate_event_types! {
   loadstart: Event,
   lostpointercapture: PointerEvent,
   mousedown: MouseEvent,
+  #[does_not_bubble]
   mouseenter: MouseEvent,
+  #[does_not_bubble]
   mouseleave: MouseEvent,
   mousemove: MouseEvent,
   mouseout: MouseEvent,
