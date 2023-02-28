@@ -1,9 +1,9 @@
+use counter::*;
+use leptos::*;
+use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
-use counter::*;
-use leptos::*;
-use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]
 fn clear() {
@@ -84,22 +84,22 @@ fn inc() {
     let clear = div
         .first_child()
         .unwrap()
-        .dyn_into::<HtmlElement>()
+        .dyn_into::<web_sys::HtmlElement>()
         .unwrap();
     let dec = clear
         .next_sibling()
         .unwrap()
-        .dyn_into::<HtmlElement>()
+        .dyn_into::<web_sys::HtmlElement>()
         .unwrap();
     let text = dec
         .next_sibling()
         .unwrap()
-        .dyn_into::<HtmlElement>()
+        .dyn_into::<web_sys::HtmlElement>()
         .unwrap();
     let inc = text
         .next_sibling()
         .unwrap()
-        .dyn_into::<HtmlElement>()
+        .dyn_into::<web_sys::HtmlElement>()
         .unwrap();
 
     inc.click();
