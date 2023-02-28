@@ -84,7 +84,9 @@ pub use const_format;
 use proc_macro2::{Literal, TokenStream};
 use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{future::Future, pin::Pin, str::FromStr, sync::Arc};
+#[cfg(any(feature = "ssr", doc))]
+use std::sync::Arc;
+use std::{future::Future, pin::Pin, str::FromStr};
 use syn::{
     parse::{Parse, ParseStream},
     parse_quote,
@@ -93,10 +95,6 @@ use thiserror::Error;
 // used by the macro
 #[doc(hidden)]
 pub use xxhash_rust;
-
-#[cfg(not(any(feature = "ssr", doc)))]
-/// Something that can register a server function.
-pub trait ServerFunctionRegistry<T> {}
 
 #[cfg(any(feature = "ssr", doc))]
 /// Something that can register a server function.
@@ -247,7 +245,7 @@ impl Parse for Encoding {
 /// can be queried on the server for routing purposes by calling [server_fn_by_path].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
-pub trait ServerFn<T: 'static, R: ServerFunctionRegistry<T>>
+pub trait ServerFn<T: 'static>
 where
     Self: Serialize + DeserializeOwned + Sized + 'static,
 {
@@ -279,7 +277,8 @@ where
 
     /// Registers the server function, allowing the server to query it by URL.
     #[cfg(any(feature = "ssr", doc))]
-    fn register() -> Result<(), ServerFnError> {
+    fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
+    {
         // create the handler for this server function
         // takes a String -> returns its async value
 
@@ -363,9 +362,9 @@ pub enum ServerFnError {
 
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
 #[cfg(not(feature = "ssr"))]
-pub async fn call_server_fn<T, C: 'static, R: ServerFunctionRegistry<C>>(
+pub async fn call_server_fn<T, C: 'static>(
     url: &str,
-    args: impl ServerFn<C, R>,
+    args: impl ServerFn<C>,
     enc: Encoding,
 ) -> Result<T, ServerFnError>
 where

@@ -168,7 +168,7 @@ pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
     create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
 };
-pub use server_fn;
+pub use server_fn::{self, ServerFn as _};
 pub use typed_builder;
 mod error_boundary;
 pub use error_boundary::*;

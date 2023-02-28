@@ -43,8 +43,8 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
-    registry: Path,
     server_context: Option<ServerContext>,
+    server_fn_path: Option<Path>,
 ) -> Result<TokenStream2> {
     let ServerFnName {
         struct_name,
@@ -180,13 +180,17 @@ pub fn server_macro_impl(
         quote!(())
     };
 
+    let server_fn_path = server_fn_path
+        .map(|path| quote!(#path))
+        .unwrap_or_else(|| quote! { server_fn });
+
     Ok(quote::quote! {
         #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
 
-        impl server_fn::ServerFn<#server_ctx_path, #registry> for #struct_name {
+        impl #server_fn_path::ServerFn<#server_ctx_path> for #struct_name {
             type Output = #output_ty;
 
             fn prefix() -> &'static str {
@@ -194,10 +198,10 @@ pub fn server_macro_impl(
             }
 
             fn url() -> &'static str {
-                server_fn::const_format::concatcp!(#fn_name_as_str, server_fn::xxhash_rust::const_xxh64::xxh64(concat!(env!("CARGO_MANIFEST_DIR"), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
+                #server_fn_path::const_format::concatcp!(#fn_name_as_str, #server_fn_path::xxhash_rust::const_xxh64::xxh64(concat!(env!("CARGO_MANIFEST_DIR"), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
             }
 
-            fn encoding() -> server_fn::Encoding {
+            fn encoding() -> #server_fn_path::Encoding {
                 #encoding
             }
 
@@ -224,7 +228,7 @@ pub fn server_macro_impl(
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
-            server_fn::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
+            #server_fn_path::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
         }
     })
 }
@@ -255,6 +259,7 @@ impl Parse for ServerFnName {
     }
 }
 
+#[allow(unused)]
 struct ServerFnBody {
     pub attrs: Vec<Attribute>,
     pub vis: syn::Visibility,

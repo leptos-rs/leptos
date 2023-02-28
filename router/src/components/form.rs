@@ -1,5 +1,5 @@
 use crate::{use_navigate, use_resolved_path, ToHref, Url};
-use leptos::{leptos_server::LeptosServerFnRegistry, *};
+use leptos::*;
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -193,7 +193,7 @@ pub fn ActionForm<I, O>(
     children: Children,
 ) -> impl IntoView
 where
-    I: Clone + ServerFn<Scope, LeptosServerFnRegistry> + 'static,
+    I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
 {
     let action_url = if let Some(url) = action.url() {
@@ -282,7 +282,7 @@ pub fn MultiActionForm<I, O>(
     children: Children,
 ) -> impl IntoView
 where
-    I: Clone + ServerFn<Scope, LeptosServerFnRegistry> + 'static,
+    I: Clone + ServerFn + 'static,
     O: Clone + Serializable + 'static,
 {
     let multi_action = action;

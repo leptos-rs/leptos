@@ -79,10 +79,7 @@
 //!   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 
 use leptos_reactive::*;
-use serde::{Deserialize, Serialize};
-use server_fn::ServerFunctionRegistry;
-pub use server_fn::{Payload, ServerFn, ServerFnError};
-use thiserror::Error;
+pub use server_fn::{Encoding, Payload, ServerFnError};
 
 mod action;
 mod multi_action;
@@ -102,14 +99,12 @@ lazy_static::lazy_static! {
     static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
 }
 
+#[cfg(any(feature = "ssr", doc))]
 /// The registry of all Leptos server functions.
 pub struct LeptosServerFnRegistry;
 
-#[cfg(not(any(feature = "ssr", doc)))]
-impl ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {}
-
-#[cfg(any(feature = "ssr", doc))]
-impl ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
+#[cfg(any(feature = "ssr"))]
+impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     type Error = ServerRegistrationFnError;
 
     fn register(
@@ -158,7 +153,9 @@ impl ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
 
 #[cfg(any(feature = "ssr", doc))]
 /// Errors that can occur when registering a server function.
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    thiserror::Error, Debug, Clone, serde::Serialize, serde::Deserialize,
+)]
 pub enum ServerRegistrationFnError {
     /// The server function is already registered.
     #[error("The server function {0} is already registered")]
@@ -221,3 +218,25 @@ pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
 pub fn server_fns_by_path() -> Vec<&'static str> {
     server_fn::server_fns_by_path::<Scope, LeptosServerFnRegistry>()
 }
+
+/// Defines a "server function." A server function can be called from the server or the client,
+/// but the body of its code will only be run on the server, i.e., if a crate feature `ssr` is enabled.
+///
+/// (This follows the same convention as the Leptos framework's distinction between `ssr` for server-side rendering,
+/// and `csr` and `hydrate` for client-side rendering and hydration, respectively.)
+///
+/// Server functions are created using the `server` macro.
+///
+/// The function should be registered by calling `ServerFn::register()`. The set of server functions
+/// can be queried on the server for routing purposes by calling [server_fn_by_path].
+///
+/// Technically, the trait is implemented on a type that describes the server function's arguments.
+pub trait ServerFn: server_fn::ServerFn<Scope> {
+    /// Registers the server function, allowing the server to query it by URL.
+    #[cfg(any(feature = "ssr", doc))]
+    fn register() -> Result<(), ServerFnError> {
+        Self::register_in::<LeptosServerFnRegistry>()
+    }
+}
+
+impl<T> ServerFn for T where T: server_fn::ServerFn<Scope> {}

@@ -684,8 +684,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
-        syn::parse_quote!(::leptos::leptos_server::LeptosServerFnRegistry),
         Some(context),
+        Some(syn::parse_quote!(::leptos::server_fn)),
     ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),
