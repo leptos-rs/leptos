@@ -24,7 +24,6 @@ pub fn App(cx: Scope) -> impl IntoView {
                         // as strings, if we'd like
                         <ul>
                             {move || errors.get()
-                                .0
                                 .into_iter()
                                 .map(|(_, e)| view! { cx, <li>{e.to_string()}</li>})
                                 .collect::<Vec<_>>()

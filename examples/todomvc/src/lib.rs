@@ -143,7 +143,7 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
     });
 
     // Callback to add a todo on pressing the `Enter` key, if the field isn't empty
-    let input_ref = NodeRef::<Input>::new(cx);
+    let input_ref = create_node_ref::<Input>(cx);
     let add_todo = move |ev: web_sys::KeyboardEvent| {
         let input = input_ref.get().unwrap();
         ev.stop_propagation();
@@ -273,8 +273,8 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     let (editing, set_editing) = create_signal(cx, false);
     let set_todos = use_context::<WriteSignal<Todos>>(cx).unwrap();
 
-    // this will be filled by _ref=input below
-    let todo_input = NodeRef::<Input>::new(cx);
+    // this will be filled by node_ref=input below
+    let todo_input = create_node_ref::<Input>(cx);
 
     let save = move |value: &str| {
         let value = value.trim();
@@ -294,7 +294,7 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
         >
             <div class="view">
                 <input
-                    _ref=todo_input
+                    node_ref=todo_input
                     class="toggle"
                     type="checkbox"
                     prop:checked={move || (todo.completed)()}
