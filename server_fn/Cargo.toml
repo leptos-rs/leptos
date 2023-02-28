@@ -24,6 +24,7 @@ cfg-if = "1"
 ciborium = "0.2.0"
 xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
 const_format = "0.2.30"
+server_fn_macro_default = { path = "./server_fn_macro_default" }
 
 [features]
 ssr = []

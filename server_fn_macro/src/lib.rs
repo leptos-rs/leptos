@@ -2,11 +2,12 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 //! Implementation of the server_fn macro.
+//!
+//! This crate contains the implementation of the server_fn macro. [server_macro_impl] can be used to implement custom versions of the macro for different frameworks that allow users to pass a custom context from the server to the server function.
 
 use proc_macro2::{Literal, TokenStream as TokenStream2};
 use proc_macro_error::abort;
 use quote::quote;
-use server_fn::Encoding;
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -38,8 +39,32 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 }
 
 /// The implementation of the server_fn macro.
-/// The registry argument is the path a type that implements the [ServerFunctionRegistry](crate::ServerFunctionRegistry) trait.
 /// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
+/// **The Context comes from the server.** Optionally, the first argument of a server function
+/// can be a custom context. This context can be used to inject dependencies like the HTTP request
+/// or response or other server-only dependencies, but it does *not* have access to state that exists in the client.
+///
+/// The paths passed into this function are used in the generated code, so they must be in scope when the macro is called.
+///
+/// ```ignore
+/// #[proc_macro_attribute]
+/// pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+///     let server_context = Some(ServerContext {
+///         ty: syn::parse_quote!(MyContext),
+///         path: syn::parse_quote!(my_crate::prelude::MyContext),
+///     });
+///     match server_macro_impl(
+///         args.into(),
+///         s.into(),
+///         Some(server_context),
+///         Some(syn::parse_quote!(my_crate::exports::server_fn)),
+///     ) {
+///         Err(e) => e.to_compile_error().into(),
+///         Ok(s) => s.to_token_stream().into(),
+///     }
+/// }
+/// ```
+
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
@@ -53,9 +78,10 @@ pub fn server_macro_impl(
         ..
     } = syn::parse2::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
-    let encoding = match encoding {
-        Encoding::Cbor => quote! { server_fn::Encoding::Cbor },
-        Encoding::Url => quote! { server_fn::Encoding::Url },
+    let encoding = match &*encoding.to_string() {
+        "Cbor" => quote! { server_fn::Encoding::Cbor },
+        "Url" => quote! { server_fn::Encoding::Url },
+        _ => abort!(encoding, "invalid encoding"),
     };
 
     let body = syn::parse::<ServerFnBody>(body.into())?;
@@ -238,7 +264,7 @@ struct ServerFnName {
     _comma: Option<Token![,]>,
     prefix: Option<Literal>,
     _comma2: Option<Token![,]>,
-    encoding: Encoding,
+    encoding: Ident,
 }
 
 impl Parse for ServerFnName {
@@ -247,7 +273,7 @@ impl Parse for ServerFnName {
         let _comma = input.parse()?;
         let prefix = input.parse()?;
         let _comma2 = input.parse()?;
-        let encoding = input.parse().unwrap_or(Encoding::Url);
+        let encoding = input.parse().unwrap_or(parse_quote!(Url));
 
         Ok(Self {
             struct_name,

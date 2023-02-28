@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-//! # Leptos Server Functions
+//! # Server Functions
 //!
 //! This package is based on a simple idea: sometimes it’s useful to write functions
 //! that will only run on the server, and call them from the client.
@@ -28,11 +28,11 @@
 //!
 //! ### `#[server]`
 //!
-//! The [`#[server]`](https://docs.rs/leptos/latest/leptos/attr.server.html) macro allows you to annotate a function to
+//! The [`#[server]`](https://docs.rs/server_fn/latest/server_fn/attr.server.html) macro allows you to annotate a function to
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
-//! **Important**: All server functions must be registered by calling [ServerFn::register]
+//! **Important**: All server functions must be registered by calling [ServerFn::register_in]
 //! somewhere within your `main` function.
 //!
 //! ```rust,ignore
@@ -68,29 +68,24 @@
 //! - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 //!   inside the function body can’t fail, the processes of serialization/deserialization and the
 //!   network call are fallible.
-//! - **Return types must be [Serializable](leptos_reactive::Serializable).**
+//! - **Return types must implement [Serialize](serde::Serialize).**
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
 //! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
 //!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
 //!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
-//! - **The Ctx comes from the server.** Optionally, the first argument of a server function
-//!   can be a custom context. This context can be used to inject dependencies like the HTTP request
-//!   or response or other server-only dependencies, but it does *not* have access to state that exists in the client.
 
 // used by the macro
 #[doc(hidden)]
 pub use const_format;
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::TokenStream;
 use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+pub use server_fn_macro_default::server;
 #[cfg(any(feature = "ssr", doc))]
 use std::sync::Arc;
 use std::{future::Future, pin::Pin, str::FromStr};
-use syn::{
-    parse::{Parse, ParseStream},
-    parse_quote,
-};
+use syn::parse_quote;
 use thiserror::Error;
 // used by the macro
 #[doc(hidden)]
@@ -220,19 +215,6 @@ impl quote::ToTokens for Encoding {
           Encoding::#option
         };
         tokens.append(expansion);
-    }
-}
-
-impl Parse for Encoding {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let variant_name: String = input.parse::<Literal>()?.to_string();
-
-        // Need doubled quotes because variant_name doubles it
-        match variant_name.as_ref() {
-            "\"Url\"" => Ok(Self::Url),
-            "\"Cbor\"" => Ok(Self::Cbor),
-            _ => panic!("Encoding Not Found"),
-        }
     }
 }
 
