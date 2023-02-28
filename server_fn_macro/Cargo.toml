@@ -1,0 +1,21 @@
+[package]
+name = "server_fn_macro"
+version = { workspace = true }
+edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+description = "RPC for any web framework."
+readme = "../README.md"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_urlencoded = "0.7"
+serde_json = "1.0.89"
+quote = "1"
+syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
+proc-macro2 = "1"
+proc-macro-error = "1"
+xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
+const_format = "0.2.30"
+server_fn = { workspace = true }

@@ -1,20 +1,34 @@
-use cfg_if::cfg_if;
-use leptos_server::Encoding;
+#![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+//! Implementation of the server_fn macro.
+
 use proc_macro2::{Literal, TokenStream as TokenStream2};
+use proc_macro_error::abort;
 use quote::quote;
+use server_fn::Encoding;
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     *,
 };
 
-fn fn_arg_is_cx(f: &syn::FnArg) -> bool {
+/// Discribes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
+/// can be a custom context of this type. This context can be used to access the server's state within the server function.
+pub struct ServerContext {
+    /// The type of the context.
+    pub ty: Ident,
+    /// The path to the context type. Used to reference the context type in the generated code.
+    pub path: Path,
+}
+
+fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
     if let FnArg::Typed(t) = f {
         if let Type::Path(path) = &*t.ty {
             path.path
                 .segments
                 .iter()
-                .any(|segment| segment.ident == "Scope")
+                .any(|segment| segment.ident == server_context.ty)
         } else {
             false
         }
@@ -23,57 +37,60 @@ fn fn_arg_is_cx(f: &syn::FnArg) -> bool {
     }
 }
 
+/// The implementation of the server_fn macro.
+/// The registry argument is the path a type that implements the [ServerFunctionRegistry](crate::ServerFunctionRegistry) trait.
+/// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
 pub fn server_macro_impl(
-    args: proc_macro::TokenStream,
-    s: TokenStream2,
+    args: TokenStream2,
+    body: TokenStream2,
+    registry: Path,
+    server_context: Option<ServerContext>,
 ) -> Result<TokenStream2> {
     let ServerFnName {
         struct_name,
         prefix,
         encoding,
         ..
-    } = syn::parse::<ServerFnName>(args)?;
+    } = syn::parse2::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = match encoding {
-        Encoding::Cbor => quote! { ::leptos::leptos_server::Encoding::Cbor },
-        Encoding::Url => quote! { ::leptos::leptos_server::Encoding::Url },
+        Encoding::Cbor => quote! { server_fn::Encoding::Cbor },
+        Encoding::Url => quote! { server_fn::Encoding::Url },
     };
 
-    let body = syn::parse::<ServerFnBody>(s.into())?;
+    let body = syn::parse::<ServerFnBody>(body.into())?;
     let fn_name = &body.ident;
     let fn_name_as_str = body.ident.to_string();
     let vis = body.vis;
     let block = body.block;
 
-    cfg_if! {
-        if #[cfg(all(not(feature = "stable"), debug_assertions))] {
-            use proc_macro::Span;
-            let span = Span::call_site();
-            #[cfg(not(target_os = "windows"))]
-            let url = format!("{}/{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace('/', "-");
-            #[cfg(target_os = "windows")]
-            let url = format!("{}\\{}", span.source_file().path().to_string_lossy(), fn_name_as_str).replace("\\", "-");
-        } else {
-            let url = fn_name_as_str;
-        }
-    }
-
-    let fields = body.inputs.iter().filter(|f| !fn_arg_is_cx(f)).map(|f| {
-        let typed_arg = match f {
-            FnArg::Receiver(_) => {
-                abort!(f, "cannot use receiver types in server function macro")
+    let fields = body
+        .inputs
+        .iter()
+        .filter(|f| {
+            if let Some(ctx) = &server_context {
+                !fn_arg_is_cx(f, ctx)
+            } else {
+                true
             }
-            FnArg::Typed(t) => t,
-        };
-        quote! { pub #typed_arg }
-    });
+        })
+        .map(|f| {
+            let typed_arg = match f {
+                FnArg::Receiver(_) => {
+                    abort!(
+                        f,
+                        "cannot use receiver types in server function macro"
+                    )
+                }
+                FnArg::Typed(t) => t,
+            };
+            quote! { pub #typed_arg }
+        });
 
     let cx_arg = body.inputs.iter().next().and_then(|f| {
-        if fn_arg_is_cx(f) {
-            Some(f)
-        } else {
-            None
-        }
+        server_context
+            .as_ref()
+            .and_then(|ctx| fn_arg_is_cx(f, ctx).then_some(f))
     });
     let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
         if let Pat::Ident(id) = &*arg.pat {
@@ -100,7 +117,11 @@ pub fn server_macro_impl(
             }
             FnArg::Typed(t) => t,
         };
-        let is_cx = fn_arg_is_cx(f);
+        let is_cx = if let Some(ctx) = &server_context {
+            !fn_arg_is_cx(f, ctx)
+        } else {
+            true
+        };
         if is_cx {
             quote! {
                 #[allow(unused)]
@@ -115,8 +136,12 @@ pub fn server_macro_impl(
     let field_names = body.inputs.iter().filter_map(|f| match f {
         FnArg::Receiver(_) => todo!(),
         FnArg::Typed(t) => {
-            if fn_arg_is_cx(f) {
-                None
+            if let Some(ctx) = &server_context {
+                if fn_arg_is_cx(f, ctx) {
+                    None
+                } else {
+                    Some(&t.pat)
+                }
             } else {
                 Some(&t.pat)
             }
@@ -148,13 +173,20 @@ pub fn server_macro_impl(
         );
     };
 
+    let server_ctx_path = if let Some(ctx) = &server_context {
+        let path = &ctx.path;
+        quote!(#path)
+    } else {
+        quote!(())
+    };
+
     Ok(quote::quote! {
         #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
 
-        impl leptos::ServerFn for #struct_name {
+        impl server_fn::ServerFn<#server_ctx_path, #registry> for #struct_name {
             type Output = #output_ty;
 
             fn prefix() -> &'static str {
@@ -162,22 +194,22 @@ pub fn server_macro_impl(
             }
 
             fn url() -> &'static str {
-                #url
+                server_fn::const_format::concatcp!(#fn_name_as_str, server_fn::xxhash_rust::const_xxh64::xxh64(concat!(env!("CARGO_MANIFEST_DIR"), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
             }
 
-            fn encoding() -> ::leptos::leptos_server::Encoding {
+            fn encoding() -> server_fn::Encoding {
                 #encoding
             }
 
             #[cfg(feature = "ssr")]
-            fn call_fn(self, cx: ::leptos::Scope) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
+            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;
                 #cx_assign_statement;
                 Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
             }
 
             #[cfg(not(feature = "ssr"))]
-            fn call_fn_client(self, cx: ::leptos::Scope) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, ::leptos::ServerFnError>>>> {
+            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
                 let #struct_name { #(#field_names_3),* } = self;
                 Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_4),*).await })
             }
@@ -187,16 +219,17 @@ pub fn server_macro_impl(
         #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
             #block
         }
+
         #[cfg(not(feature = "ssr"))]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
-            ::leptos::leptos_server::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
+            server_fn::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
         }
     })
 }
 
-pub struct ServerFnName {
+struct ServerFnName {
     struct_name: Ident,
     _comma: Option<Token![,]>,
     prefix: Option<Literal>,
@@ -222,7 +255,7 @@ impl Parse for ServerFnName {
     }
 }
 
-pub struct ServerFnBody {
+struct ServerFnBody {
     pub attrs: Vec<Attribute>,
     pub vis: syn::Visibility,
     pub async_token: Token![async],

@@ -1,8 +1,9 @@
-use crate::{ServerFn, ServerFnError};
+use crate::{LeptosServerFnRegistry, ServerFnError};
 use leptos_reactive::{
     create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal,
     RwSignal, Scope, StoredValue,
 };
+use server_fn::ServerFn;
 use std::{future::Future, pin::Pin, rc::Rc};
 
 /// An action that synchronizes multiple imperative `async` calls to the reactive system,
@@ -116,7 +117,9 @@ where
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
-    pub fn using_server_fn<T: ServerFn>(self) -> Self {
+    pub fn using_server_fn<T: ServerFn<Scope, LeptosServerFnRegistry>>(
+        self,
+    ) -> Self {
         let prefix = T::prefix();
         self.0.update_value(|a| {
             a.url = if prefix.is_empty() {
@@ -330,7 +333,7 @@ pub fn create_server_multi_action<S>(
     cx: Scope,
 ) -> MultiAction<S, Result<S::Output, ServerFnError>>
 where
-    S: Clone + ServerFn,
+    S: Clone + ServerFn<Scope, LeptosServerFnRegistry>,
 {
     #[cfg(feature = "ssr")]
     let c = move |args: &S| S::call_fn(args.clone(), cx);
