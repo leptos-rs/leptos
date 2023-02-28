@@ -327,7 +327,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 Ok(nodes) => render_view(
                     &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
                     &nodes,
-                    Mode::Client, //Mode::default(),
+                    Mode::default(),
                     global_class.as_ref(),
                 ),
                 Err(error) => error.to_compile_error(),
