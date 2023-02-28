@@ -9,7 +9,7 @@ use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
 use syn::parse_macro_input;
-use syn_rsx::{parse, NodeElement};
+use syn_rsx::parse;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -351,16 +351,9 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     cfg_if::cfg_if! {
         if #[cfg(all(debug_assertions, not(feature = "stable")))] {
-            let file = site.source_file();
-            let start = site.start();
-            Some(format!(
-                "{}-{:?}",
-                file.path()
-                    .display()
-                    .to_string()
-                    .replace("/", "-")
-                    .replace("\\", "-"),
-                start.line,
+            Some(leptos_hot_reload::span_to_stable_id(
+                site.source_file().path(),
+                site.into()
             ))
         } else {
             _ = site;
@@ -718,10 +711,4 @@ pub fn params_derive(
 ) -> proc_macro::TokenStream {
     let ast = syn::parse(input).unwrap();
     params::impl_params(&ast)
-}
-
-pub(crate) fn is_component_node(node: &NodeElement) -> bool {
-    node.name
-        .to_string()
-        .starts_with(|c: char| c.is_ascii_uppercase())
 }

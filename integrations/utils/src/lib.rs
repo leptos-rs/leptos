@@ -49,7 +49,7 @@ pub fn html_parts(
                 }})()
                 </script>
                 "#,
-            include_str!("patch.js"),
+            leptos_hot_reload::HOT_RELOAD_JS
         ),
         false => "".to_string(),
     };

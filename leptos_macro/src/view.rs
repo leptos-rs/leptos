@@ -1,4 +1,5 @@
-use crate::{is_component_node, Mode};
+use crate::Mode;
+use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
@@ -442,19 +443,6 @@ fn element_to_tokens_ssr(
             template.push_str(&node.name.to_string());
             template.push('>');
         }
-    }
-}
-
-fn value_to_string(value: &syn_rsx::NodeValueExpr) -> Option<String> {
-    match &value.as_ref() {
-        syn::Expr::Lit(lit) => match &lit.lit {
-            syn::Lit::Str(s) => Some(s.value()),
-            syn::Lit::Char(c) => Some(c.value().to_string()),
-            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
-            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
-            _ => None,
-        },
-        _ => None,
     }
 }
 
