@@ -2,7 +2,8 @@ use crate::{Script, ScriptProps};
 use leptos::*;
 
 fn script_content(href: String) -> String {
-    format!("(function() {{
+    format!(
+        "(function() {{
         var head = document.head || document.getElementsByTagName('head')[0];
         var hide_style = document.createElement('style');
         hide_style.textContent = 'html{{visibility: hidden;opacity:0;}}';
@@ -17,7 +18,8 @@ fn script_content(href: String) -> String {
             }} catch (e){{}}
         }}, 10);
         head.appendChild(style);
-    }})();")
+    }})();"
+    )
 }
 
 /// Injects an [HTMLStyleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLStyleElement) into the document
@@ -25,11 +27,11 @@ fn script_content(href: String) -> String {
 ///
 /// Additionally, this component first injects a temporary stylesheet to hide the rendered content until the target
 /// stylesheet is confirmed to be loaded.
-/// 
+///
 /// This is done to avoid the visible Flash of Unstyled Content (FOUC).
 /// [Detecting CSS Load](https://www.phpied.com/when-is-a-stylesheet-really-loaded/)
 /// [Eliminate Flash of Unstyled Content](https://stackoverflow.com/questions/3221561/eliminate-flash-of-unstyled-content/43823506)
-/// 
+///
 /// ```
 /// use leptos::*;
 /// use leptos_meta::*;
