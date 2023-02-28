@@ -39,7 +39,6 @@ cfg_if! {
   }
 }
 use leptos_reactive::Scope;
-use smallvec::SmallVec;
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 
 /// The internal representation of the [`Each`] core-component.
