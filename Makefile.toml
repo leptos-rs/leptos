@@ -34,7 +34,6 @@ dependencies = [
 	{ name = "check", path = "examples/error_boundary" },
 	{ name = "check", path = "examples/errors_axum" },
 	{ name = "check", path = "examples/fetch" },
-	{ name = "check", path = "examples/gtk" },
 	{ name = "check", path = "examples/hackernews" },
 	{ name = "check", path = "examples/hackernews_axum" },
 	{ name = "check", path = "examples/login_with_token_csr_only" },
