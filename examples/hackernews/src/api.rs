@@ -34,7 +34,7 @@ where
             abort_controller.abort()
         }
     });
-    T::from_json(&json).ok()
+    T::de(&json).ok()
 }
 
 #[cfg(feature = "ssr")]
@@ -49,7 +49,7 @@ where
         .text()
         .await
         .ok()?;
-    T::from_json(&json).map_err(|e| log::error!("{e}")).ok()
+    T::de(&json).map_err(|e| log::error!("{e}")).ok()
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]

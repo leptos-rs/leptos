@@ -307,7 +307,7 @@ where
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
 
-            let res = T::from_json(&data)
+            let res = T::de(&data)
                 .expect_throw("could not deserialize Resource JSON");
 
             r.set_value.update(|n| *n = Some(res));
@@ -326,7 +326,7 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = T::from_json(&res)
+                    let res = T::de(&res)
                         .expect_throw("could not deserialize Resource JSON");
                     resolved.set(true);
                     set_value.update(|n| *n = Some(res));
@@ -578,6 +578,12 @@ where
         let has_value = v.is_some();
 
         let serializable = self.serializable;
+        if let Some(suspense_cx) = &suspense_cx {
+            if serializable {
+                suspense_cx.has_local_only.set_value(false);
+            }
+        }
+
         let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
@@ -674,9 +680,7 @@ where
                     if let Some(value) = value.as_ref() {
                         tx.try_send((
                             id,
-                            value
-                                .to_json()
-                                .expect("could not serialize Resource"),
+                            value.ser().expect("could not serialize Resource"),
                         ))
                         .expect(
                             "failed while trying to write to Resource \

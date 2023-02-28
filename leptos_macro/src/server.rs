@@ -61,7 +61,7 @@ pub fn server_macro_impl(
     let fields = body.inputs.iter().filter(|f| !fn_arg_is_cx(f)).map(|f| {
         let typed_arg = match f {
             FnArg::Receiver(_) => {
-                panic!("cannot use receiver types in server function macro")
+                abort!(f, "cannot use receiver types in server function macro")
             }
             FnArg::Typed(t) => t,
         };
@@ -96,7 +96,7 @@ pub fn server_macro_impl(
     let fn_args = body.inputs.iter().map(|f| {
         let typed_arg = match f {
             FnArg::Receiver(_) => {
-                panic!("cannot use receiver types in server function macro")
+                abort!(f, "cannot use receiver types in server function macro")
             }
             FnArg::Typed(t) => t,
         };
@@ -131,22 +131,21 @@ pub fn server_macro_impl(
     let output_arrow = body.output_arrow;
     let return_ty = body.return_ty;
 
-    let output_ty = if let syn::Type::Path(pat) = &return_ty {
-        if pat.path.segments[0].ident == "Result" {
-            if let PathArguments::AngleBracketed(args) =
-                &pat.path.segments[0].arguments
-            {
-                &args.args[0]
-            } else {
-                panic!(
-                    "server functions should return Result<T, ServerFnError>"
-                );
+    let output_ty = 'output_ty: {
+        if let syn::Type::Path(pat) = &return_ty {
+            if pat.path.segments[0].ident == "Result" {
+                if let PathArguments::AngleBracketed(args) =
+                    &pat.path.segments[0].arguments
+                {
+                    break 'output_ty &args.args[0];
+                }
             }
-        } else {
-            panic!("server functions should return Result<T, ServerFnError>");
         }
-    } else {
-        panic!("server functions should return Result<T, ServerFnError>");
+
+        abort!(
+            return_ty,
+            "server functions should return Result<T, ServerFnError>"
+        );
     };
 
     Ok(quote::quote! {

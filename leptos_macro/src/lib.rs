@@ -9,7 +9,7 @@ use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
 use syn::parse_macro_input;
-use syn_rsx::{parse, NodeElement};
+use syn_rsx::{parse, NodeAttribute, NodeElement};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -304,13 +304,10 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                             third.clone()
                         }
                         _ => {
-                            let error_msg = concat!(
-                                "To create a scope class with the view! macro \
-                                 you must put a comma `,` after the value.\n",
-                                "e.g., view!{cx, class=\"my-class\", \
-                                 <div>...</div>}"
-                            );
-                            panic!("{error_msg}")
+                            abort!(
+                                punct, "To create a scope class with the view! macro you must put a comma `,` after the value";
+                                help = r#"e.g., view!{cx, class="my-class", <div>...</div>}"#
+                            )
                         }
                     }
                 }
@@ -338,7 +335,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
             .into()
         }
         _ => {
-            panic!(
+            abort_call_site!(
                 "view! macro needs a context and RSX: e.g., view! {{ cx, \
                  <div>...</div> }}"
             )
@@ -372,7 +369,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
                 .into()
             }
             _ => {
-                panic!(
+                abort_call_site!(
                     "view! macro needs a context and RSX: e.g., view! {{ cx, \
                      <div>...</div> }}"
                 )
@@ -693,12 +690,21 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 pub fn params_derive(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let ast = syn::parse(input).unwrap();
-    params::impl_params(&ast)
+    match syn::parse(input) {
+        Ok(ast) => params::impl_params(&ast),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
 
 pub(crate) fn is_component_node(node: &NodeElement) -> bool {
     node.name
         .to_string()
         .starts_with(|c: char| c.is_ascii_uppercase())
+}
+
+pub(crate) fn attribute_value(attr: &NodeAttribute) -> &syn::Expr {
+    match &attr.value {
+        Some(value) => value.as_ref(),
+        None => abort!(attr.key, "attribute should have value"),
+    }
 }

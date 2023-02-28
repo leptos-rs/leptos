@@ -1,0 +1,19 @@
+[package]
+name = "client"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+api-boundary = "*"
+
+leptos = { version = "0.2.0-alpha2", features = ["stable"] }
+leptos_router = { version = "0.2.0-alpha2", features = ["stable", "csr"] }
+
+log = "0.4"
+console_error_panic_hook = "0.1"
+console_log = "0.2"
+gloo-net = "0.2"
+gloo-storage = "0.2"
+serde = "1.0"
+thiserror = "1.0"

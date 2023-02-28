@@ -912,7 +912,7 @@ where
                                             };
 
                                             let (stream, runtime, scope) =
-                                                render_to_stream_with_prefix_undisposed_with_context(
+                                                render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
                                                     |_| "".into(),
                                                     add_context,

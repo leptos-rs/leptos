@@ -2,8 +2,8 @@
 
 #![forbid(unsafe_code)]
 use crate::{
-    create_rw_signal, create_signal, queue_microtask, ReadSignal, RwSignal,
-    Scope, SignalUpdate, WriteSignal,
+    create_rw_signal, create_signal, queue_microtask, store_value, ReadSignal,
+    RwSignal, Scope, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
 use std::{borrow::Cow, pin::Pin};
@@ -16,6 +16,14 @@ pub struct SuspenseContext {
     pub pending_resources: ReadSignal<usize>,
     set_pending_resources: WriteSignal<usize>,
     pub(crate) pending_serializable_resources: RwSignal<usize>,
+    pub(crate) has_local_only: StoredValue<bool>,
+}
+
+impl SuspenseContext {
+    /// Whether the suspense contains local resources at this moment, and therefore can't be
+    pub fn has_local_only(&self) -> bool {
+        self.has_local_only.get_value()
+    }
 }
 
 impl std::hash::Hash for SuspenseContext {
@@ -37,10 +45,12 @@ impl SuspenseContext {
     pub fn new(cx: Scope) -> Self {
         let (pending_resources, set_pending_resources) = create_signal(cx, 0);
         let pending_serializable_resources = create_rw_signal(cx, 0);
+        let has_local_only = store_value(cx, true);
         Self {
             pending_resources,
             set_pending_resources,
             pending_serializable_resources,
+            has_local_only,
         }
     }
 
@@ -48,10 +58,12 @@ impl SuspenseContext {
     pub fn increment(&self, serializable: bool) {
         let setter = self.set_pending_resources;
         let serializable_resources = self.pending_serializable_resources;
+        let has_local_only = self.has_local_only;
         queue_microtask(move || {
             setter.update(|n| *n += 1);
             if serializable {
                 serializable_resources.update(|n| *n += 1);
+                has_local_only.set_value(false);
             }
         });
     }
