@@ -37,6 +37,7 @@ dependencies = [
 	{ name = "check", path = "examples/hackernews_axum" },
 	{ name = "check", path = "examples/parent_child" },
 	{ name = "check", path = "examples/router" },
+	{ name = "check", path = "examples/session_auth_axum" },
 	{ name = "check", path = "examples/tailwind" },
 	{ name = "check", path = "examples/todo_app_sqlite" },
 	{ name = "check", path = "examples/todo_app_sqlite_axum" },

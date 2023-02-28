@@ -11,10 +11,9 @@ if #[cfg(feature = "ssr")] {
         body::Body as AxumBody,
         Router,
     };
-    use crate::todo::*;
-    use crate::auth::*;
-    use todo_app_sqlite_axum::*;
-    use crate::fallback::file_and_error_handler;
+    use session_auth_axum::todo::*;
+    use session_auth_axum::auth::*;
+    use session_auth_axum::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
     use leptos::{log, view, provide_context, LeptosOptions, get_configuration, ServerFnError};
     use std::sync::Arc;
@@ -64,7 +63,7 @@ if #[cfg(feature = "ssr")] {
             .await
             .expect("could not run SQLx migrations");
 
-        crate::todo::register_server_functions();
+        session_auth_axum::todo::register_server_functions();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
