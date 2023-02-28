@@ -1,6 +1,6 @@
 # Leptos Todo App Sqlite 
 
-This example creates a basic todo app with an Axum backend that uses Leptos' server functions to call sqlx from the client and seamlessly run it on the server.
+This example creates a basic todo app with an Actix backend that uses Leptos' server functions to call sqlx from the client and seamlessly run it on the server.
 
 ## Client Side Rendering
 To run it as a Client Side App, you can issue  `trunk serve --open` in the root. This will build the entire
