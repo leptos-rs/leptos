@@ -40,13 +40,13 @@ fn script_content(href: String) -> String {
 ///
 ///     view! { cx,
 ///       <main>
-///         <SsrStylesheet href="/style.css"/>
+///         <BlockingStylesheet href="/style.css"/>
 ///       </main>
 ///     }
 /// }
 /// ```
 #[component(transparent)]
-pub fn SsrStylesheet(
+pub fn BlockingStylesheet(
     cx: Scope,
     /// The URL at which the stylesheet is located.
     #[prop(into)]

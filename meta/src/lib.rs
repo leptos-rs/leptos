@@ -58,21 +58,21 @@ use std::{
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
+mod blockingstylesheet;
 mod body;
 mod html;
 mod link;
 mod meta_tags;
 mod script;
-mod ssrstylesheet;
 mod style;
 mod stylesheet;
 mod title;
+pub use blockingstylesheet::*;
 pub use body::*;
 pub use html::*;
 pub use link::*;
 pub use meta_tags::*;
 pub use script::*;
-pub use ssrstylesheet::*;
 pub use style::*;
 pub use stylesheet::*;
 pub use title::*;
