@@ -3,20 +3,22 @@ use leptos::*;
 
 fn script_content(href: String) -> String {
     format!(
-        "(function() {{
+    "(function() {{
         var head = document.head || document.getElementsByTagName('head')[0];
         var hide_style = document.createElement('style');
-        hide_style.textContent = 'html{{visibility: hidden;opacity:0;}}';
+        hide_style.textContent = 'html{{visibility:hidden;opacity:0;}}';
         head.appendChild(hide_style);
-        var style = document.createElement('style');
-        style.textContent = '@import \"{href}\"';
-        var fi = setInterval(function() {{
+        var style = document.createElement('link');
+        style.rel = 'stylesheet';
+        style.type = 'text/css';
+        style.href = \"{href}\";
+        var _ = setInterval(function() {{
             try {{
                 style.sheet.cssRules;
                 head.removeChild(hide_style);
-                clearInterval(fi);
+                clearInterval(_);
             }} catch (e){{}}
-        }}, 10);
+        }}, 20);
         head.appendChild(style);
     }})();"
     )
