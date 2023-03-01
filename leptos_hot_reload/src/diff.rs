@@ -221,8 +221,8 @@ impl LNode {
                     (None, None) => {}
                     (None, Some(new)) => patches.push(Patch {
                         path: path.to_owned(),
-                        action: PatchAction::InsertChild {
-                            before: b,
+                        action: PatchAction::InsertChildAfter {
+                            after: b - 1,
                             child: new.to_replacement_node(old_children),
                         },
                     }),
@@ -241,7 +241,7 @@ impl LNode {
             }
 
             // diffing in middle
-            if b > a {
+            if b >= a {
                 let old_slice_end =
                     if b >= old.len() { old.len() - 1 } else { b };
                 let new_slice_end =
@@ -252,14 +252,19 @@ impl LNode {
                 for (new_idx, new_node) in new.iter().enumerate() {
                     match old.get(new_idx) {
                         Some(old_node) => {
-                            let diffs =
-                                old_node.diff_at(new_node, path, old_children);
+                            let mut new_path = path.to_vec();
+                            new_path.push(new_idx + a);
+                            let diffs = old_node.diff_at(
+                                new_node,
+                                &new_path,
+                                old_children,
+                            );
                             patches.extend(&mut diffs.into_iter());
                         }
                         None => patches.push(Patch {
                             path: path.to_owned(),
                             action: PatchAction::InsertChild {
-                                before: new_idx + 1,
+                                before: new_idx,
                                 child: new_node
                                     .to_replacement_node(old_children),
                             },
@@ -296,6 +301,10 @@ pub enum PatchAction {
     },
     InsertChild {
         before: usize,
+        child: ReplacementNode,
+    },
+    InsertChildAfter {
+        after: usize,
         child: ReplacementNode,
     },
 }
@@ -377,19 +386,25 @@ mod tests {
         let a = LNode::Element {
             name: "button".into(),
             attrs: vec![],
-            children: vec![LNode::Text("foo".into())],
+            children: vec![
+                LNode::Text("foo".into()),
+                LNode::Text("bar".into()),
+            ],
         };
         let b = LNode::Element {
             name: "button".into(),
             attrs: vec![],
-            children: vec![LNode::Text("bar".into())],
+            children: vec![
+                LNode::Text("foo".into()),
+                LNode::Text("baz".into()),
+            ],
         };
         let delta = a.diff(&b);
         assert_eq!(
             delta,
             vec![Patch {
-                path: vec![0],
-                action: PatchAction::SetText("bar".into())
+                path: vec![1],
+                action: PatchAction::SetText("baz".into())
             },]
         );
     }
@@ -424,15 +439,21 @@ mod tests {
         let delta = a.diff(&b);
         assert_eq!(
             delta,
-            vec![Patch {
-                path: vec![],
-                action: PatchAction::InsertChild {
-                    before: 1,
-                    child: ReplacementNode::Html(
-                        "<button >foo</button>".to_string()
-                    )
+            vec![
+                Patch {
+                    path: vec![],
+                    action: PatchAction::InsertChild {
+                        before: 0,
+                        child: ReplacementNode::Html(
+                            "<button >bar</button>".to_string()
+                        )
+                    }
+                },
+                Patch {
+                    path: vec![0, 0],
+                    action: PatchAction::SetText("foo".into())
                 }
-            },]
+            ]
         );
     }
 
