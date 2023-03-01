@@ -1,5 +1,5 @@
-use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use crate::{attribute_value, Mode};
+use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};

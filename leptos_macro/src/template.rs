@@ -1,5 +1,5 @@
-use leptos_hot_reload::parsing::is_component_node;
 use crate::attribute_value;
+use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
