@@ -1,27 +1,74 @@
 use crate::node::{LAttributeValue, LNode};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 // TODO: insertion and removal code are still somewhat broken
 // namely, it will tend to remove and move or mutate nodes,
 // which causes a bit of a problem for DynChild etc.
 
+#[derive(Debug, Default)]
+struct OldChildren(IndexMap<LNode, Vec<usize>>);
+
 impl LNode {
     pub fn diff(&self, other: &LNode) -> Vec<Patch> {
-        self.diff_at(other, &[])
+        let mut old_children = OldChildren::default();
+        self.add_old_children(vec![], &mut old_children);
+        self.diff_at(other, &[], &old_children)
     }
 
-    pub fn diff_at(&self, other: &LNode, path: &[usize]) -> Vec<Patch> {
+    fn to_replacement_node(
+        &self,
+        old_children: &OldChildren,
+    ) -> ReplacementNode {
+        match old_children.0.get(self) {
+            None => ReplacementNode::Html(self.to_html()),
+            Some(path) => ReplacementNode::Path(path.to_owned()),
+        }
+    }
+
+    fn add_old_children(&self, path: Vec<usize>, positions: &mut OldChildren) {
+        match self {
+            LNode::Fragment(frag) => {
+                for (idx, child) in frag.iter().enumerate() {
+                    let mut new_path = path.clone();
+                    new_path.push(idx);
+                    child.add_old_children(new_path, positions);
+                }
+            }
+            LNode::Element { children, .. } => {
+                for (idx, child) in children.iter().enumerate() {
+                    let mut new_path = path.clone();
+                    new_path.push(idx);
+                    child.add_old_children(new_path, positions);
+                }
+            }
+            // only need to insert dynamic content, as these might change
+            LNode::Component(_, _) | LNode::DynChild(_) => {
+                positions.0.insert(self.clone(), path);
+            }
+            // can just create text nodes, whatever
+            LNode::Text(_) => {}
+        }
+    }
+
+    fn diff_at(
+        &self,
+        other: &LNode,
+        path: &[usize],
+        orig_children: &OldChildren,
+    ) -> Vec<Patch> {
         if std::mem::discriminant(self) != std::mem::discriminant(other) {
             return vec![Patch {
                 path: path.to_owned(),
-                action: PatchAction::ReplaceWith(other.to_html()),
+                action: PatchAction::ReplaceWith(ReplacementNode::Html(
+                    other.to_html(),
+                )),
             }];
         }
         match (self, other) {
             // fragment: diff children
             (LNode::Fragment(old), LNode::Fragment(new)) => {
-                LNode::diff_children(path, old, new)
+                LNode::diff_children(path, old, new, orig_children)
             }
             // text node: replace text
             (LNode::Text(_), LNode::Text(new)) => vec![Patch {
@@ -46,8 +93,12 @@ impl LNode {
                     action: PatchAction::ChangeTagName(new_name.to_owned()),
                 });
                 let attrs_patch = LNode::diff_attrs(path, old_attrs, new_attrs);
-                let children_patch =
-                    LNode::diff_children(path, old_children, new_children);
+                let children_patch = LNode::diff_children(
+                    path,
+                    old_children,
+                    new_children,
+                    orig_children,
+                );
                 tag_patch
                     .into_iter()
                     .chain(attrs_patch)
@@ -110,6 +161,7 @@ impl LNode {
         path: &[usize],
         old: &[LNode],
         new: &[LNode],
+        old_children: &OldChildren,
     ) -> Vec<Patch> {
         if old.is_empty() && new.is_empty() {
             vec![]
@@ -117,7 +169,10 @@ impl LNode {
             vec![Patch {
                 path: path.to_owned(),
                 action: PatchAction::AppendChildren(
-                    new.iter().map(LNode::to_html).collect(),
+                    new.iter()
+                        .map(LNode::to_html)
+                        .map(ReplacementNode::Html)
+                        .collect(),
                 ),
             }]
         } else if new.is_empty() {
@@ -140,7 +195,7 @@ impl LNode {
                         path: path.to_owned(),
                         action: PatchAction::InsertChild {
                             before: a,
-                            child: new.to_html(),
+                            child: new.to_replacement_node(old_children),
                         },
                     }),
                     (Some(_), None) => patches.push(Patch {
@@ -164,14 +219,13 @@ impl LNode {
 
                 match (old, new) {
                     (None, None) => {}
-                    (None, Some(new)) => { /*panic!("point B"); patches.push(Patch {
-                             path: path.to_owned(),
-                             action: PatchAction::AppendChild {
-                                 at: b,
-                                 child: new.to_owned(),
-                             },
-                         })*/
-                    }
+                    (None, Some(new)) => patches.push(Patch {
+                        path: path.to_owned(),
+                        action: PatchAction::InsertChild {
+                            before: b,
+                            child: new.to_replacement_node(old_children),
+                        },
+                    }),
                     (Some(_), None) => patches.push(Patch {
                         path: path.to_owned(),
                         action: PatchAction::RemoveChild { at: b },
@@ -195,37 +249,21 @@ impl LNode {
                 let old = &old[a..=old_slice_end];
                 let new = &new[a..=new_slice_end];
 
-                let old_locations = old
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, node)| (node, idx))
-                    .collect::<HashMap<_, _>>();
                 for (new_idx, new_node) in new.iter().enumerate() {
-                    match old_locations.get(new_node) {
-                        Some(old_idx) if *old_idx == new_idx => {}
-                        Some(old_idx) => patches.push(Patch {
+                    match old.get(new_idx) {
+                        Some(old_node) => {
+                            let diffs =
+                                old_node.diff_at(new_node, path, old_children);
+                            patches.extend(&mut diffs.into_iter());
+                        }
+                        None => patches.push(Patch {
                             path: path.to_owned(),
-                            action: PatchAction::MoveChild {
-                                from: *old_idx,
-                                to: new_idx,
+                            action: PatchAction::InsertChild {
+                                before: new_idx + 1,
+                                child: new_node
+                                    .to_replacement_node(old_children),
                             },
                         }),
-                        None => match old.get(new_idx) {
-                            None => patches.push(Patch {
-                                path: path.to_owned(),
-                                action: PatchAction::InsertChild {
-                                    before: new_idx + 1,
-                                    child: new_node.to_html(),
-                                },
-                            }),
-                            Some(old_node) => {
-                                let mut new_path = path.to_owned();
-                                new_path.push(new_idx + a);
-                                patches.extend(
-                                    old_node.diff_at(new_node, &new_path),
-                                );
-                            }
-                        },
                     }
                 }
             }
@@ -246,22 +284,32 @@ pub struct Patch {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PatchAction {
-    ReplaceWith(String),
+    ReplaceWith(ReplacementNode),
     ChangeTagName(String),
     RemoveAttribute(String),
     SetAttribute(String, String),
     SetText(String),
     ClearChildren,
-    AppendChildren(String),
-    RemoveChild { at: usize },
-    InsertChild { before: usize, child: String },
-    MoveChild { from: usize, to: usize },
+    AppendChildren(Vec<ReplacementNode>),
+    RemoveChild {
+        at: usize,
+    },
+    InsertChild {
+        before: usize,
+        child: ReplacementNode,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ReplacementNode {
+    Html(String),
+    Path(Vec<usize>),
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        diff::{Patch, PatchAction},
+        diff::{Patch, PatchAction, ReplacementNode},
         node::LAttributeValue,
         LNode,
     };
@@ -380,7 +428,9 @@ mod tests {
                 path: vec![],
                 action: PatchAction::InsertChild {
                     before: 1,
-                    child: "<button>foo</button>".to_string()
+                    child: ReplacementNode::Html(
+                        "<button >foo</button>".to_string()
+                    )
                 }
             },]
         );

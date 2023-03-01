@@ -19,8 +19,8 @@ pub enum LNode {
     },
     // don't need anything; skipped during patching because it should
     // contain its own view macros
-    Component(String),
-    DynChild,
+    Component(String, Vec<(String, String)>),
+    DynChild(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -56,15 +56,27 @@ impl LNode {
                 if let Some(value) = value_to_string(&text.value) {
                     views.push(LNode::Text(value));
                 } else {
-                    views.push(LNode::DynChild);
+                    views.push(LNode::DynChild(format!("{:#?}", text.value)));
                 }
             }
-            Node::Block(_) => {
-                views.push(LNode::DynChild);
+            Node::Block(block) => {
+                views.push(LNode::DynChild(format!("{:#?}", block.value)));
             }
             Node::Element(el) => {
                 if is_component_node(&el) {
-                    views.push(LNode::Component(el.name.to_string()));
+                    views.push(LNode::Component(
+                        el.name.to_string(),
+                        el.attributes
+                            .into_iter()
+                            .filter_map(|attr| match attr {
+                                Node::Attribute(attr) => Some((
+                                    attr.key.to_string(),
+                                    format!("{:#?}", attr.value),
+                                )),
+                                _ => None,
+                            })
+                            .collect(),
+                    ));
                 } else {
                     let name = el.name.to_string();
                     let mut attrs = Vec::new();
@@ -106,13 +118,13 @@ impl LNode {
         match self {
             LNode::Fragment(frag) => frag.iter().map(LNode::to_html).collect(),
             LNode::Text(text) => text.to_owned(),
-            LNode::Component(name) => format!(
+            LNode::Component(name, _) => format!(
                 "<!--<{name}>--><pre>&lt;{name}/&gt; will load once Rust code \
                  has been compiled.</pre><!--</{name}>-->"
             ),
-            LNode::DynChild => "<!--<DynChild>--><pre>Dynamic content will \
-                                load once Rust code has been \
-                                compiled.</pre><!--</DynChild>-->"
+            LNode::DynChild(_) => "<!--<DynChild>--><pre>Dynamic content will \
+                                   load once Rust code has been \
+                                   compiled.</pre><!--</DynChild>-->"
                 .to_string(),
             LNode::Element {
                 name,
