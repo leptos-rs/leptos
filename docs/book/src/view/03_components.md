@@ -18,7 +18,7 @@ let double_count = move || count() * 2;
 view! { 
     <progress
         max="50"
-        value=progress
+        value=count
     />
     <progress
         max="50"
