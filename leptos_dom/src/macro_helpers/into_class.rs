@@ -85,12 +85,14 @@ pub fn class_helper(
             create_render_effect(cx, move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) && (old.is_some() || new) {
-                    class_expression(&class_list, &name, new)
+                    class_expression(&class_list, &name, new, true)
                 }
                 new
             });
         }
-        Class::Value(value) => class_expression(&class_list, &name, value),
+        Class::Value(value) => {
+            class_expression(&class_list, &name, value, false)
+        }
     };
 }
 
@@ -99,11 +101,16 @@ pub(crate) fn class_expression(
     class_list: &web_sys::DomTokenList,
     class_name: &str,
     value: bool,
+    force: bool,
 ) {
-    let class_name = wasm_bindgen::intern(class_name);
-    if value {
-        class_list.add_1(class_name).unwrap_throw();
-    } else {
-        class_list.remove_1(class_name).unwrap_throw();
+    use crate::HydrationCtx;
+
+    if force || !HydrationCtx::is_hydrating() {
+        let class_name = wasm_bindgen::intern(class_name);
+        if value {
+            class_list.add_1(class_name).unwrap_throw();
+        } else {
+            class_list.remove_1(class_name).unwrap_throw();
+        }
     }
 }
