@@ -78,11 +78,7 @@ pub fn server_macro_impl(
         ..
     } = syn::parse2::<ServerFnName>(args)?;
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
-    let encoding = match &*encoding.to_string() {
-        "Cbor" => quote! { #server_fn_path::Encoding::Cbor },
-        "Url" => quote! { #server_fn_path::Encoding::Url },
-        _ => abort!(encoding, "invalid encoding"),
-    };
+    let encoding = quote!(#server_fn_path::#encoding);
 
     let body = syn::parse::<ServerFnBody>(body.into())?;
     let fn_name = &body.ident;
@@ -264,7 +260,7 @@ struct ServerFnName {
     _comma: Option<Token![,]>,
     prefix: Option<Literal>,
     _comma2: Option<Token![,]>,
-    encoding: Ident,
+    encoding: Path,
 }
 
 impl Parse for ServerFnName {
@@ -273,7 +269,14 @@ impl Parse for ServerFnName {
         let _comma = input.parse()?;
         let prefix = input.parse()?;
         let _comma2 = input.parse()?;
-        let encoding = input.parse().unwrap_or(parse_quote!(Url));
+        let encoding = input
+            .parse::<Literal>()
+            .map(|encoding| match encoding.to_string().as_str() {
+                "\"Url\"" => syn::parse_quote!(Encoding::Url),
+                "\"Cbor\"" => syn::parse_quote!(Encoding::Cbor),
+                _ => abort!(encoding, "Encoding Not Found"),
+            })
+            .unwrap_or(syn::parse_quote!(Encoding::Url));
 
         Ok(Self {
             struct_name,
