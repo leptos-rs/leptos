@@ -12,6 +12,7 @@ members = [
   # integrations
   "integrations/actix",
   "integrations/axum",
+  "integrations/viz",
   "integrations/utils",
 
   # libraries
@@ -21,19 +22,19 @@ members = [
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.2.0-alpha2"
+version = "0.2.0"
 
 [workspace.dependencies]
-leptos = { path = "./leptos", default-features = false, version = "0.2.0-alpha2" }
-leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.2.0-alpha2" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.2.0-alpha2" }
-leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.2.0-alpha2" }
-leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.2.0-alpha2" }
-leptos_server = { path = "./leptos_server", default-features = false, version = "0.2.0-alpha2" }
-leptos_config = { path = "./leptos_config", default-features = false, version = "0.2.0-alpha2" }
-leptos_router = { path = "./router", version = "0.2.0-alpha2" }
-leptos_meta = { path = "./meta", default-feature = false, version = "0.2.0-alpha2" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.2.0-alpha2" }
+leptos = { path = "./leptos", default-features = false, version = "0.2.0" }
+leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.2.0" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.2.0" }
+leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.2.0" }
+leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.2.0" }
+leptos_server = { path = "./leptos_server", default-features = false, version = "0.2.0" }
+leptos_config = { path = "./leptos_config", default-features = false, version = "0.2.0" }
+leptos_router = { path = "./router", version = "0.2.0" }
+leptos_meta = { path = "./meta", default-feature = false, version = "0.2.0" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.2.0" }
 
 [profile.release]
 codegen-units = 1

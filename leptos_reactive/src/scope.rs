@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{
+    console_warn,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
     EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
@@ -266,10 +267,13 @@ impl Scope {
     ) {
         _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
-            let scope = scopes.get(self.id).expect(
-                "tried to add property to a scope that has been disposed",
-            );
-            f(&mut scope.borrow_mut());
+            if let Some(scope) = scopes.get(self.id) {
+                f(&mut scope.borrow_mut());
+            } else {
+                console_warn(
+                    "tried to add property to a scope that has been disposed",
+                )
+            }
         })
     }
 
@@ -353,8 +357,10 @@ impl Scope {
     pub fn serialization_resolvers(
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(self.runtime, |runtime| runtime.serialization_resolvers())
-            .unwrap_or_default()
+        with_runtime(self.runtime, |runtime| {
+            runtime.serialization_resolvers(*self)
+        })
+        .unwrap_or_default()
     }
 
     /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,
@@ -375,8 +381,11 @@ impl Scope {
             let (tx2, mut rx2) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
-                let pending =
-                    context.pending_resources.try_with(|n| *n).unwrap_or(0);
+                let pending = context
+                    .pending_serializable_resources
+                    .read_only()
+                    .try_with(|n| *n)
+                    .unwrap_or(0);
                 if pending == 0 {
                     _ = tx1.unbounded_send(());
                     _ = tx2.unbounded_send(());

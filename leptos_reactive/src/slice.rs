@@ -71,7 +71,7 @@ pub fn create_slice<T, O>(
     setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
 ) -> (Signal<O>, SignalSetter<O>)
 where
-    O: Eq,
+    O: PartialEq,
 {
     let getter = create_memo(cx, move |_| signal.with(getter));
     let setter = move |value| signal.update(|x| setter(x, value));

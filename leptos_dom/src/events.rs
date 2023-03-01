@@ -23,7 +23,12 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
     let event_name = event.name();
 
     if event.bubbles() {
-        add_event_listener(target, event_name, event_handler);
+        add_event_listener(
+            target,
+            event.event_delegation_key(),
+            event_name,
+            event_handler,
+        );
     } else {
         add_event_listener_undelegated(target, &event_name, event_handler);
     }
@@ -34,6 +39,7 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 pub fn add_event_listener<E>(
     target: &web_sys::Element,
+    key: Cow<'static, str>,
     event_name: Cow<'static, str>,
     #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
     #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
@@ -51,9 +57,9 @@ pub fn add_event_listener<E>(
     }
 
     let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
-    let key = event_delegation_key(&event_name);
+    let key = intern(&key);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
-    add_delegated_event_listener(event_name);
+    add_delegated_event_listener(&key, event_name);
 }
 
 #[doc(hidden)]
@@ -61,7 +67,8 @@ pub fn add_event_listener<E>(
 pub(crate) fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &str,
-    mut cb: impl FnMut(E) + 'static,
+    #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
+    #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
 ) where
     E: FromWasmAbi + 'static,
 {
@@ -82,12 +89,15 @@ pub(crate) fn add_event_listener_undelegated<E>(
 
 // cf eventHandler in ryansolid/dom-expressions
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
+pub(crate) fn add_delegated_event_listener(
+    key: &str,
+    event_name: Cow<'static, str>,
+) {
     GLOBAL_EVENTS.with(|global_events| {
         let mut events = global_events.borrow_mut();
         if !events.contains(&event_name) {
             // create global handler
-            let key = JsValue::from_str(&event_delegation_key(&event_name));
+            let key = JsValue::from_str(&key);
             let handler = move |ev: web_sys::Event| {
                 let target = ev.target();
                 let node = ev.composed_path().get(0);
@@ -162,12 +172,4 @@ pub(crate) fn add_delegated_event_listener(event_name: Cow<'static, str>) {
             events.insert(event_name);
         }
     })
-}
-
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-pub(crate) fn event_delegation_key(event_name: &str) -> String {
-    let event_name = intern(event_name);
-    let mut n = String::from("$$$");
-    n.push_str(event_name);
-    n
 }

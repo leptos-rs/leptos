@@ -267,12 +267,12 @@ pub fn attribute_helper(
             create_render_effect(cx, move |old| {
                 let new = f();
                 if old.as_ref() != Some(&new) {
-                    attribute_expression(&el, &name, new.clone());
+                    attribute_expression(&el, &name, new.clone(), true);
                 }
                 new
             });
         }
-        _ => attribute_expression(el, &name, value),
+        _ => attribute_expression(el, &name, value, false),
     };
 }
 
@@ -281,39 +281,44 @@ pub(crate) fn attribute_expression(
     el: &web_sys::Element,
     attr_name: &str,
     value: Attribute,
+    force: bool,
 ) {
-    match value {
-        Attribute::String(value) => {
-            let value = wasm_bindgen::intern(&value);
-            if attr_name == "inner_html" {
-                el.set_inner_html(value);
-            } else {
-                let attr_name = wasm_bindgen::intern(attr_name);
-                el.set_attribute(attr_name, value).unwrap_throw();
-            }
-        }
-        Attribute::Option(_, value) => {
-            if attr_name == "inner_html" {
-                el.set_inner_html(&value.unwrap_or_default());
-            } else {
-                let attr_name = wasm_bindgen::intern(attr_name);
-                match value {
-                    Some(value) => {
-                        let value = wasm_bindgen::intern(&value);
-                        el.set_attribute(attr_name, value).unwrap_throw();
-                    }
-                    None => el.remove_attribute(attr_name).unwrap_throw(),
+    use crate::HydrationCtx;
+
+    if force || !HydrationCtx::is_hydrating() {
+        match value {
+            Attribute::String(value) => {
+                let value = wasm_bindgen::intern(&value);
+                if attr_name == "inner_html" {
+                    el.set_inner_html(value);
+                } else {
+                    let attr_name = wasm_bindgen::intern(attr_name);
+                    el.set_attribute(attr_name, value).unwrap_throw();
                 }
             }
-        }
-        Attribute::Bool(value) => {
-            let attr_name = wasm_bindgen::intern(attr_name);
-            if value {
-                el.set_attribute(attr_name, attr_name).unwrap_throw();
-            } else {
-                el.remove_attribute(attr_name).unwrap_throw();
+            Attribute::Option(_, value) => {
+                if attr_name == "inner_html" {
+                    el.set_inner_html(&value.unwrap_or_default());
+                } else {
+                    let attr_name = wasm_bindgen::intern(attr_name);
+                    match value {
+                        Some(value) => {
+                            let value = wasm_bindgen::intern(&value);
+                            el.set_attribute(attr_name, value).unwrap_throw();
+                        }
+                        None => el.remove_attribute(attr_name).unwrap_throw(),
+                    }
+                }
             }
+            Attribute::Bool(value) => {
+                let attr_name = wasm_bindgen::intern(attr_name);
+                if value {
+                    el.set_attribute(attr_name, attr_name).unwrap_throw();
+                } else {
+                    el.remove_attribute(attr_name).unwrap_throw();
+                }
+            }
+            _ => panic!("Remove nested Fn in Attribute"),
         }
-        _ => panic!("Remove nested Fn in Attribute"),
     }
 }

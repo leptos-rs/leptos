@@ -66,7 +66,7 @@ cfg_if! {
   }
 }
 
-/// A stable identifer within the server-rendering or hydration process.
+/// A stable identifier within the server-rendering or hydration process.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
     /// The key of the previous component.

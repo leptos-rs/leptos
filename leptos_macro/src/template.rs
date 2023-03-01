@@ -1,4 +1,5 @@
 use leptos_hot_reload::parsing::is_component_node;
+use crate::attribute_value;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
@@ -11,21 +12,11 @@ pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
         Span::call_site(),
     );
 
-    if nodes.len() == 1 {
-        first_node_to_tokens(cx, &template_uid, &nodes[0])
-    } else {
-        panic!("template! takes a single root element.")
-    }
-}
-
-fn first_node_to_tokens(
-    cx: &Ident,
-    template_uid: &Ident,
-    node: &Node,
-) -> TokenStream {
-    match node {
-        Node::Element(node) => root_element_to_tokens(cx, template_uid, node),
-        _ => panic!("template! takes a single root element."),
+    match nodes.first() {
+        Some(Node::Element(node)) => {
+            root_element_to_tokens(cx, &template_uid, node)
+        }
+        _ => abort!(cx, "template! takes a single root element."),
     }
 }
 
@@ -205,7 +196,11 @@ fn element_to_tokens(
     let mut prev_sib = prev_sib;
     for (idx, child) in node.children.iter().enumerate() {
         // set next sib (for any insertions)
-        let next_sib = next_sibling_node(&node.children, idx + 1, next_el_id);
+        let next_sib =
+            match next_sibling_node(&node.children, idx + 1, next_el_id) {
+                Ok(next_sib) => next_sib,
+                Err(err) => abort!(span, "{}", err),
+            };
 
         let curr_id = child_to_tokens(
             cx,
@@ -239,9 +234,9 @@ fn next_sibling_node(
     children: &[Node],
     idx: usize,
     next_el_id: &mut usize,
-) -> Option<Ident> {
+) -> Result<Option<Ident>, String> {
     if children.len() <= idx {
-        None
+        Ok(None)
     } else {
         let sibling = &children[idx];
 
@@ -250,16 +245,16 @@ fn next_sibling_node(
                 if is_component_node(sibling) {
                     next_sibling_node(children, idx + 1, next_el_id)
                 } else {
-                    Some(child_ident(*next_el_id + 1, sibling.name.span()))
+                    Ok(Some(child_ident(*next_el_id + 1, sibling.name.span())))
                 }
             }
             Node::Block(sibling) => {
-                Some(child_ident(*next_el_id + 1, sibling.value.span()))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
             }
             Node::Text(sibling) => {
-                Some(child_ident(*next_el_id + 1, sibling.value.span()))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
             }
-            _ => panic!("expected either an element or a block"),
+            _ => Err("expected either an element or a block".to_string()),
         }
     }
 }
@@ -272,16 +267,9 @@ fn attr_to_tokens(
     expressions: &mut Vec<TokenStream>,
 ) {
     let name = node.key.to_string();
-    let name = if name.starts_with('_') {
-        name.replacen('_', "", 1)
-    } else {
-        name
-    };
-    let name = if name.starts_with("attr:") {
-        name.replacen("attr:", "", 1)
-    } else {
-        name
-    };
+    let name = name.strip_prefix("_").unwrap_or(&name);
+    let name = name.strip_prefix("attr:").unwrap_or(&name);
+
     let value = match &node.value {
         Some(expr) => match expr.as_ref() {
             syn::Expr::Lit(expr_lit) => {
@@ -300,7 +288,7 @@ fn attr_to_tokens(
 
     // refs
     if name == "ref" {
-        panic!("node_ref not yet supported in template! macro")
+        abort!(span, "node_ref not yet supported in template! macro")
     }
     // Event Handlers
     else if name.starts_with("on:") {
@@ -311,28 +299,20 @@ fn attr_to_tokens(
         })
     }
     // Properties
-    else if name.starts_with("prop:") {
-        let name = name.replacen("prop:", "", 1);
-        let value = node
-            .value
-            .as_ref()
-            .expect("prop: blocks need values")
-            .as_ref();
+    else if let Some(name) = name.strip_prefix("prop:") {
+        let value = attribute_value(&node);
+
         expressions.push(quote_spanned! {
-                span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
-            });
+            span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
+        });
     }
     // Classes
-    else if name.starts_with("class:") {
-        let name = name.replacen("class:", "", 1);
-        let value = node
-            .value
-            .as_ref()
-            .expect("class: attributes need values")
-            .as_ref();
+    else if let Some(name) = name.strip_prefix("class:") {
+        let value = attribute_value(&node);
+
         expressions.push(quote_spanned! {
-                span => leptos::leptos_dom::class_helper(#el_id.unchecked_ref(), #name.into(), #value.into_class(#cx))
-            });
+            span => leptos::leptos_dom::class_helper(#el_id.unchecked_ref(), #name.into(), #value.into_class(#cx))
+        });
     }
     // Attributes
     else {
@@ -429,7 +409,7 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        _ => panic!("unexpected child node type"),
+        _ => abort!(cx, "unexpected child node type"),
     }
 }
 

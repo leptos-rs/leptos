@@ -1,0 +1,7 @@
+[workspace]
+members = ["client", "api-boundary", "server"]
+
+[patch.crates-io]
+leptos = { path = "../../leptos" }
+leptos_router = { path = "../../router" }
+api-boundary = { path = "api-boundary" }

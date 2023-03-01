@@ -613,7 +613,7 @@ impl View {
             match &self {
               Self::Element(el) => {
                 if event.bubbles() {
-                  add_event_listener(&el.element, event.name(), event_handler);
+                  add_event_listener(&el.element, event.event_delegation_key(), event.name(), event_handler);
                 } else {
                   add_event_listener_undelegated(
                     &el.element,
@@ -789,7 +789,7 @@ pub fn window() -> web_sys::Window {
 
 /// Returns the [`Document`](https://developer.mozilla.org/en-US/docs/Web/API/Document).
 ///
-/// This is cached as a thread-local variable, so calling `window()` multiple times
+/// This is cached as a thread-local variable, so calling `document()` multiple times
 /// requires only one call out to JavaScript.
 pub fn document() -> web_sys::Document {
     DOCUMENT.with(|document| document.clone())

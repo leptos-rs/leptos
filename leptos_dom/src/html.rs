@@ -658,9 +658,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
             let event_name = event.name();
 
+            let key = event.event_delegation_key();
+
             if event.bubbles() {
                 add_event_listener(
                     self.element.as_ref(),
+                    key,
                     event_name,
                     event_handler,
                 );
@@ -947,6 +950,11 @@ fn create_leptos_element(
     id: crate::HydrationKey,
     clone_element: fn() -> web_sys::HtmlElement,
 ) -> web_sys::HtmlElement {
+    #[cfg(not(debug_assertions))]
+    {
+        _ = tag;
+    }
+
     if HydrationCtx::is_hydrating() {
         if let Some(el) = crate::document().get_element_by_id(&format!("_{id}"))
         {

@@ -251,11 +251,6 @@ async fn handle_server_fns_inner(
                                         res_options_inner.headers.clone(),
                                     );
 
-                                    if let Some(header_ref) = res.headers_mut()
-                                    {
-                                        header_ref.extend(res_headers.drain());
-                                    };
-
                                     if accept_header == Some("application/json")
                                         || accept_header
                                             == Some(
@@ -284,6 +279,12 @@ async fn handle_server_fns_inner(
                                     res = match status {
                                         Some(status) => res.status(status),
                                         None => res,
+                                    };
+                                    // This must be after the default referrer
+                                    // redirect so that it overwrites the one above
+                                    if let Some(header_ref) = res.headers_mut()
+                                    {
+                                        header_ref.extend(res_headers.drain());
                                     };
                                     match serialized {
                                         Payload::Binary(data) => res
@@ -911,7 +912,7 @@ where
                                             };
 
                                             let (stream, runtime, scope) =
-                                                render_to_stream_with_prefix_undisposed_with_context(
+                                                render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
                                                     |_| "".into(),
                                                     add_context,

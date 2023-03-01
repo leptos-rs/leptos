@@ -54,11 +54,11 @@ use std::{
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats(), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats(2);
-/// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
 /// ```
@@ -121,7 +121,6 @@ where
     let source = create_memo(cx, move |_| source());
 
     let r = Rc::new(ResourceState {
-        scope: cx,
         value,
         set_value,
         loading,
@@ -131,6 +130,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
+        serializable: true,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -245,7 +245,6 @@ where
     let source = create_memo(cx, move |_| source());
 
     let r = Rc::new(ResourceState {
-        scope: cx,
         value,
         set_value,
         loading,
@@ -255,6 +254,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
+        serializable: false,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -307,7 +307,7 @@ where
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
 
-            let res = T::from_json(&data)
+            let res = T::de(&data)
                 .expect_throw("could not deserialize Resource JSON");
 
             r.set_value.update(|n| *n = Some(res));
@@ -326,7 +326,7 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = T::from_json(&res)
+                    let res = T::de(&res)
                         .expect_throw("could not deserialize Resource JSON");
                     resolved.set(true);
                     set_value.update(|n| *n = Some(res));
@@ -371,14 +371,14 @@ where
     /// resource.
     ///
     /// If you want to get the value without cloning it, use [Resource::with].
-    /// (`value.read()` is equivalent to `value.with(T::clone)`.)
-    pub fn read(&self) -> Option<T>
+    /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
+    pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
     {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read()
+                resource.read(cx)
             })
         })
         .ok()
@@ -392,10 +392,10 @@ where
     ///
     /// If you want to get the value by cloning it, you can use
     /// [Resource::read].
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
+    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(f)
+                resource.with(cx, f)
             })
         })
         .ok()
@@ -427,13 +427,16 @@ where
     /// Returns a [std::future::Future] that will resolve when the resource has loaded,
     /// yield its [ResourceId] and a JSON string.
     #[cfg(any(feature = "ssr", doc))]
-    pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
+    pub async fn to_serialization_resolver(
+        &self,
+        cx: Scope,
+    ) -> (ResourceId, String)
     where
         T: Serializable,
     {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.to_serialization_resolver(self.id)
+                resource.to_serialization_resolver(cx, self.id)
             })
         })
         .expect(
@@ -479,11 +482,11 @@ where
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats(), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats(2);
-/// assert_eq!(cats(), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
 /// ```
@@ -531,48 +534,12 @@ where
 {
 }
 
-#[cfg(not(feature = "stable"))]
-impl<S, T> FnOnce<()> for Resource<S, T>
-where
-    S: Clone + 'static,
-    T: Clone + 'static,
-{
-    type Output = Option<T>;
-
-    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
-        self.read()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<S, T> FnMut<()> for Resource<S, T>
-where
-    S: Clone + 'static,
-    T: Clone + 'static,
-{
-    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
-        self.read()
-    }
-}
-
-#[cfg(not(feature = "stable"))]
-impl<S, T> Fn<()> for Resource<S, T>
-where
-    S: Clone + 'static,
-    T: Clone + 'static,
-{
-    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
-        self.read()
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct ResourceState<S, T>
 where
     S: 'static,
     T: 'static,
 {
-    scope: Scope,
     value: ReadSignal<Option<T>>,
     set_value: WriteSignal<Option<T>>,
     pub loading: ReadSignal<bool>,
@@ -583,6 +550,7 @@ where
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
+    serializable: bool,
 }
 
 impl<S, T> ResourceState<S, T>
@@ -590,15 +558,15 @@ where
     S: Clone + 'static,
     T: 'static,
 {
-    pub fn read(&self) -> Option<T>
+    pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
     {
-        self.with(T::clone)
+        self.with(cx, T::clone)
     }
 
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
-        let suspense_cx = use_context::<SuspenseContext>(self.scope);
+    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+        let suspense_cx = use_context::<SuspenseContext>(cx);
 
         let v = self
             .value
@@ -609,23 +577,32 @@ where
         let suspense_contexts = self.suspense_contexts.clone();
         let has_value = v.is_some();
 
+        let serializable = self.serializable;
+        if let Some(suspense_cx) = &suspense_cx {
+            if serializable {
+                suspense_cx.has_local_only.set_value(false);
+            }
+        }
+
         let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
-                let mut contexts = suspense_contexts.borrow_mut();
-                if !contexts.contains(s) {
-                    contexts.insert(*s);
+                if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
+                {
+                    if !contexts.contains(s) {
+                        contexts.insert(*s);
 
-                    // on subsequent reads, increment will be triggered in load()
-                    // because the context has been tracked here
-                    // on the first read, resource is already loading without having incremented
-                    if !has_value {
-                        s.increment();
+                        // on subsequent reads, increment will be triggered in load()
+                        // because the context has been tracked here
+                        // on the first read, resource is already loading without having incremented
+                        if !has_value {
+                            s.increment(serializable);
+                        }
                     }
                 }
             }
         };
 
-        create_isomorphic_effect(self.scope, increment);
+        create_isomorphic_effect(cx, increment);
         v
     }
 
@@ -659,10 +636,11 @@ where
             let suspense_contexts = self.suspense_contexts.clone();
 
             for suspense_context in suspense_contexts.borrow().iter() {
-                suspense_context.increment();
+                suspense_context.increment(self.serializable);
             }
 
             // run the Future
+            let serializable = self.serializable;
             spawn_local({
                 let resolved = self.resolved.clone();
                 let set_value = self.set_value;
@@ -676,7 +654,7 @@ where
                     set_loading.update(|n| *n = false);
 
                     for suspense_context in suspense_contexts.borrow().iter() {
-                        suspense_context.decrement();
+                        suspense_context.decrement(serializable);
                     }
                 }
             })
@@ -685,6 +663,7 @@ where
 
     pub fn resource_to_serialization_resolver(
         &self,
+        cx: Scope,
         id: ResourceId,
     ) -> std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>
     where
@@ -694,16 +673,14 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(self.scope, move |_| {
+        create_isomorphic_effect(cx, move |_| {
             value.with({
                 let mut tx = tx.clone();
                 move |value| {
                     if let Some(value) = value.as_ref() {
                         tx.try_send((
                             id,
-                            value
-                                .to_json()
-                                .expect("could not serialize Resource"),
+                            value.ser().expect("could not serialize Resource"),
                         ))
                         .expect(
                             "failed while trying to write to Resource \
@@ -731,6 +708,7 @@ pub(crate) trait SerializableResource {
 
     fn to_serialization_resolver(
         &self,
+        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
 }
@@ -746,9 +724,10 @@ where
 
     fn to_serialization_resolver(
         &self,
+        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
-        let fut = self.resource_to_serialization_resolver(id);
+        let fut = self.resource_to_serialization_resolver(cx, id);
         Box::pin(fut)
     }
 }

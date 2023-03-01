@@ -39,7 +39,6 @@ cfg_if! {
   }
 }
 use leptos_reactive::Scope;
-use smallvec::SmallVec;
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
 
 /// The internal representation of the [`Each`] core-component.
@@ -166,11 +165,11 @@ impl Mountable for EachRepr {
 pub(crate) struct EachItem {
     cx: Scope,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    document_fragment: web_sys::DocumentFragment,
+    document_fragment: Option<web_sys::DocumentFragment>,
     #[cfg(debug_assertions)]
     opening: Comment,
     pub(crate) child: View,
-    closing: Comment,
+    closing: Option<Comment>,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub(crate) id: HydrationKey,
 }
@@ -192,16 +191,22 @@ impl fmt::Debug for EachItem {
 impl EachItem {
     fn new(cx: Scope, child: View) -> Self {
         let id = HydrationCtx::id();
+        let needs_closing = !matches!(child, View::Element(_));
 
         let markers = (
-            Comment::new(Cow::Borrowed("</EachItem>"), &id, true),
+            if needs_closing {
+                Some(Comment::new(Cow::Borrowed("</EachItem>"), &id, true))
+            } else {
+                None
+            },
             #[cfg(debug_assertions)]
             Comment::new(Cow::Borrowed("<EachItem>"), &id, false),
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        let document_fragment = {
+        let document_fragment = if needs_closing {
             let fragment = crate::document().create_document_fragment();
+            let closing = markers.0.as_ref().unwrap();
 
             // Insert the comments into the document fragment
             // so they can serve as our references when inserting
@@ -209,14 +214,16 @@ impl EachItem {
             if !HydrationCtx::is_hydrating() {
                 #[cfg(debug_assertions)]
                 fragment
-                    .append_with_node_2(&markers.1.node, &markers.0.node)
+                    .append_with_node_2(&markers.1.node, &closing.node)
                     .unwrap();
-                fragment.append_with_node_1(&markers.0.node).unwrap();
+                fragment.append_with_node_1(&closing.node).unwrap();
             }
 
-            mount_child(MountKind::Before(&markers.0.node), &child);
+            mount_child(MountKind::Before(&closing.node), &child);
 
-            fragment
+            Some(fragment)
+        } else {
+            None
         };
 
         Self {
@@ -243,7 +250,11 @@ impl Drop for EachItem {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for EachItem {
     fn get_mountable_node(&self) -> web_sys::Node {
-        self.document_fragment.clone().unchecked_into()
+        if let Some(fragment) = &self.document_fragment {
+            fragment.clone().unchecked_into()
+        } else {
+            self.child.get_mountable_node()
+        }
     }
 
     fn get_opening_node(&self) -> web_sys::Node {
@@ -255,7 +266,11 @@ impl Mountable for EachItem {
     }
 
     fn get_closing_node(&self) -> web_sys::Node {
-        self.closing.node.clone()
+        if let Some(closing) = &self.closing {
+            closing.node.clone().unchecked_into()
+        } else {
+            self.child.get_mountable_node().clone()
+        }
     }
 }
 
@@ -264,20 +279,25 @@ impl EachItem {
     /// order to be reinserted somewhere else.
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     fn prepare_for_move(&self) {
-        let start = self.get_opening_node();
-        let end = &self.closing.node;
+        if let Some(fragment) = &self.document_fragment {
+            let start = self.get_opening_node();
+            let end = &self.get_closing_node();
 
-        let mut sibling = start;
+            let mut sibling = start;
 
-        while sibling != *end {
-            let next_sibling = sibling.next_sibling().unwrap();
+            while sibling != *end {
+                let next_sibling = sibling.next_sibling().unwrap();
 
-            self.document_fragment.append_child(&sibling).unwrap();
+                fragment.append_child(&sibling).unwrap();
 
-            sibling = next_sibling;
+                sibling = next_sibling;
+            }
+
+            fragment.append_with_node_1(end).unwrap();
+        } else {
+            let node = self.child.get_mountable_node();
+            node.unchecked_into::<web_sys::Element>().remove();
         }
-
-        self.document_fragment.append_with_node_1(end).unwrap();
     }
 }
 
@@ -349,7 +369,7 @@ where
 
         cfg_if::cfg_if! {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-            create_effect(cx, move |prev_hash_run| {
+            create_effect(cx, move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
               let mut children_borrow = children.borrow_mut();
 
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -359,39 +379,60 @@ where
                 closing.clone()
               };
 
-              let items = items_fn();
+                let items_iter = items_fn().into_iter();
 
-              let items = items.into_iter().collect::<SmallVec<[_; 128]>>();
-
-              let hashed_items =
-                items.iter().map(&key_fn).collect::<FxIndexSet<_>>();
+                let (capacity, _) = items_iter.size_hint();
+                let mut hashed_items = FxIndexSet::with_capacity_and_hasher(
+                    capacity,
+                    BuildHasherDefault::<FxHasher>::default()
+                );
 
               if let Some(HashRun(prev_hash_run)) = prev_hash_run {
-                let cmds = diff(&prev_hash_run, &hashed_items);
+                if !prev_hash_run.is_empty() {
+                    let mut items = Vec::with_capacity(capacity);
+                    for item in items_iter {
+                        hashed_items.insert(key_fn(&item));
+                        items.push(Some(item));
+                    }
 
-                apply_cmds(
-                  cx,
-                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  &opening,
-                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  &closing,
-                  cmds,
-                  &mut children_borrow,
-                  items.into_iter().map(|t| Some(t)).collect(),
-                  &each_fn
-                );
-              } else {
-                *children_borrow = Vec::with_capacity(items.len());
+                    let cmds = diff(&prev_hash_run, &hashed_items);
 
-                for item in items {
+                    apply_cmds(
+                        cx,
+                        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                        &opening,
+                        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                        &closing,
+                        cmds,
+                        &mut children_borrow,
+                        items,
+                        &each_fn
+                    );
+                    return HashRun(hashed_items);
+                }
+            }
+
+                // if previous run is empty
+                *children_borrow = Vec::with_capacity(capacity);
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                let fragment = crate::document().create_document_fragment();
+
+                for item in items_iter {
+                  hashed_items.insert(key_fn(&item));
                   let (each_item, _) = cx.run_child_scope(|cx| EachItem::new(cx, each_fn(cx, item).into_view(cx)));
-
-                  #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                  mount_child(MountKind::Before(&closing), &each_item);
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                {
+                  _ = fragment.append_child(&each_item.get_mountable_node());
+                }
 
                   children_borrow.push(Some(each_item));
                 }
-              }
+
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                closing
+                .unchecked_ref::<web_sys::Element>()
+                .before_with_node_1(&fragment)
+                .expect("before to not err");
 
               HashRun(hashed_items)
             });
@@ -421,6 +462,18 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
             clear: true,
             ..Default::default()
         };
+    } else if from.is_empty() {
+        return Diff {
+            added: to
+                .iter()
+                .enumerate()
+                .map(|(at, _)| DiffOpAdd {
+                    at,
+                    mode: DiffOpAddMode::Append,
+                })
+                .collect(),
+            ..Default::default()
+        };
     }
 
     // Get removed items
@@ -445,7 +498,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
 
     // Get moved items
     let mut normalized_idx = 0;
-    let mut move_cmds = SmallVec::<[_; 8]>::with_capacity(to.len());
+    let mut move_cmds = Vec::new();
     let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
     let mut removed_idx = removed.next().map(|k| from.get_full(k).unwrap().0);
 
@@ -539,9 +592,9 @@ fn apply_opts<K: Eq + Hash>(
 #[derive(Debug, Default)]
 #[allow(unused)]
 struct Diff {
-    removed: SmallVec<[DiffOpRemove; 8]>,
-    moved: SmallVec<[DiffOpMove; 8]>,
-    added: SmallVec<[DiffOpAdd; 8]>,
+    removed: Vec<DiffOpRemove>,
+    moved: Vec<DiffOpMove>,
+    added: Vec<DiffOpAdd>,
     clear: bool,
 }
 
@@ -588,7 +641,7 @@ fn apply_cmds<T, EF, N>(
     closing: &web_sys::Node,
     mut cmds: Diff,
     children: &mut Vec<Option<EachItem>>,
-    mut items: SmallVec<[Option<T>; 128]>,
+    mut items: Vec<Option<T>>,
     each_fn: &EF,
 ) where
     EF: Fn(Scope, T) -> N,
