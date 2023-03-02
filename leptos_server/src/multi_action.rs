@@ -217,11 +217,11 @@ where
         spawn_local(async move {
             let new_value = fut.await;
             let canceled = cx.untrack(move || canceled.get());
-            input.set(None);
-            pending.set(false);
             if !canceled {
                 value.set(Some(new_value));
             }
+            input.set(None);
+            pending.set(false);
             version.update(|n| *n += 1);
         })
     }

@@ -191,9 +191,9 @@ where
         pending.set(true);
         spawn_local(async move {
             let new_value = fut.await;
+            value.set(Some(new_value));
             input.set(None);
             pending.set(false);
-            value.set(Some(new_value));
             version.update(|n| *n += 1);
         })
     }
