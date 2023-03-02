@@ -8,6 +8,8 @@ members = [
   "leptos_reactive",
   "leptos_server",
   "server_fn",
+  "server_fn_macro",
+  "server_fn/server_fn_macro_default",
 
   # integrations
   "integrations/actix",
@@ -32,6 +34,7 @@ leptos_reactive = { path = "./leptos_reactive", default-features = false, versio
 leptos_server = { path = "./leptos_server", default-features = false, version = "0.2.0" }
 server_fn = { path = "./server_fn", default-features = false, version = "0.2.0" }
 server_fn_macro = { path = "./server_fn_macro", default-features = false, version = "0.2.0" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", default-features = false, version = "0.2.0" }
 leptos_config = { path = "./leptos_config", default-features = false, version = "0.2.0" }
 leptos_router = { path = "./router", version = "0.2.0" }
 leptos_meta = { path = "./meta", default-feature = false, version = "0.2.0" }
