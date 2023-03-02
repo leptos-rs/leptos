@@ -54,7 +54,7 @@ event.
 ```rust
 let (name, set_name) = create_signal(cx, "Uncontrolled".to_string());
 
-let input_element: NodeRef<HtmlElement<Input>> = NodeRef::new(cx);
+let input_element: NodeRef<Input> = create_node_ref(cx);
 ```
 `NodeRef` is a kind of reactive smart pointer: we can use it to access the 
 underlying DOM node. Its value will be set when the element is rendered.
