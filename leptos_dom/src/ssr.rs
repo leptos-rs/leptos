@@ -132,7 +132,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     let (
         (shell, prefix, pending_resources, pending_fragments, serializers),
         scope,
-        _,
+        disposer,
     ) = run_scope_undisposed(runtime, {
         move |cx| {
             // Add additional context items
@@ -164,31 +164,31 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     // stream HTML for each <Suspense/> as it resolves
     // TODO can remove id_before_suspense entirely now
     let fragments = fragments.map(|(fragment_id, html)| {
-    format!(
-      r#"
-              <template id="{fragment_id}f">{html}</template>
-              <script>
-                  var id = "{fragment_id}";
-                  var open;
-                  var close;
-                  var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
-                  while(walker.nextNode()) {{
-                       if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
-                         open = walker.currentNode;
-                       }} else if(walker.currentNode.textContent == `suspense-close-${{id}}`) {{
-                         close = walker.currentNode;
-                       }}
-                    }}
-                  var range = new Range();
-                  range.setStartAfter(open);
-                  range.setEndBefore(close);
-                  range.deleteContents();
-                  var tpl = document.getElementById("{fragment_id}f");
-                  close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
-              </script>
-              "#
-    )
-  });
+      format!(
+        r#"
+                <template id="{fragment_id}f">{html}</template>
+                <script>
+                    var id = "{fragment_id}";
+                    var open;
+                    var close;
+                    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
+                    while(walker.nextNode()) {{
+                         if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
+                           open = walker.currentNode;
+                         }} else if(walker.currentNode.textContent == `suspense-close-${{id}}`) {{
+                           close = walker.currentNode;
+                         }}
+                      }}
+                    var range = new Range();
+                    range.setStartAfter(open);
+                    range.setEndBefore(close);
+                    range.deleteContents();
+                    var tpl = document.getElementById("{fragment_id}f");
+                    close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
+                </script>
+                "#
+      )
+    });
     // stream data for each Resource as it resolves
     let resources = render_serializers(serializers);
 
@@ -196,20 +196,25 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     let stream = futures::stream::once(async move {
         format!(
             r#"
-              {prefix}
-              {shell}
-              <script>
-                  __LEPTOS_PENDING_RESOURCES = {pending_resources};
-                  __LEPTOS_RESOLVED_RESOURCES = new Map();
-                  __LEPTOS_RESOURCE_RESOLVERS = new Map();
-              </script>
-          "#
+                {prefix}
+                {shell}
+                <script>
+                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
+                    __LEPTOS_RESOLVED_RESOURCES = new Map();
+                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
+                </script>
+            "#
         )
     })
     // TODO these should be combined again in a way that chains them appropriately
     // such that individual resources can resolve before all fragments are done
     .chain(fragments)
-    .chain(resources);
+    .chain(resources)
+    // dispose of the root scope
+    .chain(futures::stream::once(async move {
+        disposer.dispose();
+        Default::default()
+    }));
 
     (stream, runtime, scope)
 }
