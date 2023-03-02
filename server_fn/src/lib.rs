@@ -70,7 +70,7 @@
 // used by the macro
 #[doc(hidden)]
 pub use const_format;
-#[cfg(any(feature = "ssr", doc))]
+#[cfg(any(feature = "ssr"))]
 // used by the macro
 #[doc(hidden)]
 pub use inventory;
@@ -333,7 +333,6 @@ where
     }
 }
 
-#[cfg(any(feature = "ssr", doc))]
 /// A server function that can be called from the client.
 pub type SerializedFnTraitObj<T> =
     fn(
@@ -341,7 +340,6 @@ pub type SerializedFnTraitObj<T> =
         &[u8],
     ) -> Pin<Box<dyn Future<Output = Result<Payload, ServerFnError>>>>;
 
-#[cfg(any(feature = "ssr", doc))]
 /// A concrete type for a registered server function
 pub struct ServerFnTraitObj<T> {
     prefix: &'static str,
@@ -350,7 +348,6 @@ pub struct ServerFnTraitObj<T> {
     run: SerializedFnTraitObj<T>,
 }
 
-#[cfg(any(feature = "ssr", doc))]
 impl<T> ServerFnTraitObj<T> {
     /// Creates a new server function with the given prefix, URL, encoding, and function.
     pub const fn new(

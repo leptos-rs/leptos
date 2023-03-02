@@ -124,7 +124,7 @@ lazy_static::lazy_static! {
     };
 }
 
-#[cfg(any(feature = "ssr", doc))]
+#[cfg(any(feature = "ssr"))]
 inventory::collect!(ServerFnTraitObj);
 
 /// Attempts to find a server function registered at the given path.
