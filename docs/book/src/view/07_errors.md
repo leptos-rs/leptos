@@ -63,7 +63,7 @@ Let’s add an `<ErrorBoundary/>` to this example.
 fn NumericInput(cx: Scope) -> impl IntoView {
     let (value, set_value) = create_signal(cx, Ok(0));
 
-let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
+    let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
 
     view! { cx,
         <h1>"Error Handling"</h1>
@@ -77,9 +77,7 @@ let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
                         <p>"Not a number! Errors: "</p>
                         // we can render a list of errors as strings, if we'd like
                         <ul>
-                            {move || errors.unwrap()
-                                .get()
-                                .0
+                            {move || errors.get()
                                 .into_iter()
                                 .map(|(_, e)| view! { cx, <li>{e.to_string()}</li>})
                                 .collect::<Vec<_>>()
