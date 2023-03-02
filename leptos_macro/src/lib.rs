@@ -7,7 +7,7 @@ extern crate proc_macro_error;
 use proc_macro::TokenStream;
 use proc_macro2::TokenTree;
 use quote::ToTokens;
-use server::server_macro_impl;
+use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
 use syn_rsx::{parse, NodeAttribute, NodeElement};
 
@@ -35,7 +35,6 @@ mod view;
 use template::render_template;
 use view::render_view;
 mod component;
-mod server;
 mod template;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -678,7 +677,16 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 #[proc_macro_attribute]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    match server_macro_impl(args, s.into()) {
+    let context = ServerContext {
+        ty: syn::parse_quote!(Scope),
+        path: syn::parse_quote!(::leptos::Scope),
+    };
+    match server_macro_impl(
+        args.into(),
+        s.into(),
+        Some(context),
+        Some(syn::parse_quote!(::leptos::server_fn)),
+    ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),
     }
