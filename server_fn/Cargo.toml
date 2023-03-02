@@ -9,6 +9,7 @@ description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
+server_fn_macro_default = { path = "./server_fn_macro_default", version = "0.2.0" }
 form_urlencoded = "1"
 gloo-net = "0.2"
 js-sys = "0.3"
@@ -24,7 +25,5 @@ cfg-if = "1"
 ciborium = "0.2.0"
 xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
 const_format = "0.2.30"
-server_fn_macro_default = { path = "./server_fn_macro_default" }
-
 [features]
 ssr = []
