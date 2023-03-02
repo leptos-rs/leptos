@@ -212,7 +212,7 @@ fn ProgressBar<F>(
     progress: F
 ) -> impl IntoView 
 where 
-    F: Fn() -> i32
+    F: Fn() -> i32 + 'static,
 {
     view! { cx,
         <progress
@@ -227,7 +227,7 @@ This is a perfectly reasonable way to write this component: `progress` now takes
 any value that implements this `Fn()` trait.
 
 > Note that generic component props _cannot_ be specified inline (as `<F: Fn() -> i32>`)
-or as `progress: impl Fn() -> i32`, in part because they’re actually used to generate 
+or as `progress: impl Fn() -> i32 + 'static,`, in part because they’re actually used to generate 
 a `struct ProgressBarProps`, and struct fields cannot be `impl` types.
 
 ### `into` Props 
