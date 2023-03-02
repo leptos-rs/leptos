@@ -1,3 +1,4 @@
+use attribute_derive::Attribute as AttributeDerive;
 use convert_case::{
     Case::{Pascal, Snake},
     Casing,
@@ -6,12 +7,10 @@ use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::ResultExt;
 use quote::{format_ident, ToTokens, TokenStreamExt};
-use std::collections::HashSet;
 use syn::{
     parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
-    FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaList, MetaNameValue,
-    NestedMeta, Pat, PatIdent, Path, PathArguments, ReturnType, Type, TypePath,
-    Visibility,
+    FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaNameValue, Pat, PatIdent,
+    Path, PathArguments, ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -238,7 +237,7 @@ impl Model {
 
 struct Prop {
     docs: Docs,
-    prop_opts: HashSet<PropOpt>,
+    prop_opts: PropOpt,
     name: PatIdent,
     ty: Type,
 }
@@ -251,52 +250,11 @@ impl Prop {
             abort!(arg, "receiver not allowed in `fn`");
         };
 
-        let prop_opts = typed
-            .attrs
-            .iter()
-            .enumerate()
-            .filter_map(|(i, attr)| {
-                PropOpt::from_attribute(attr).map(|opt| (i, opt))
-            })
-            .fold(HashSet::new(), |mut acc, cur| {
-                // Make sure opts aren't repeated
-                if acc.intersection(&cur.1).next().is_some() {
-                    abort!(
-                        typed.attrs[cur.0],
-                        "`#[prop]` options are repeated"
-                    );
-                }
-
-                acc.extend(cur.1);
-
-                acc
+        let prop_opts =
+            PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {
+                // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
+                abort!(e.span(), e.to_string());
             });
-
-        // Make sure conflicting options are not present
-        if prop_opts.contains(&PropOpt::Optional)
-            && prop_opts.contains(&PropOpt::OptionalNoStrip)
-        {
-            abort!(
-                typed,
-                "`optional` and `optional_no_strip` options are mutually \
-                 exclusive"
-            );
-        } else if prop_opts.contains(&PropOpt::Optional)
-            && prop_opts.contains(&PropOpt::StripOption)
-        {
-            abort!(
-                typed,
-                "`optional` and `strip_option` options are mutually exclusive"
-            );
-        } else if prop_opts.contains(&PropOpt::OptionalNoStrip)
-            && prop_opts.contains(&PropOpt::StripOption)
-        {
-            abort!(
-                typed,
-                "`optional_no_strip` and `strip_option` options are mutually \
-                 exclusive"
-            );
-        }
 
         let name = if let Pat::Ident(i) = *typed.pat {
             i
@@ -407,98 +365,34 @@ impl Docs {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-enum PropOpt {
-    Optional,
-    OptionalNoStrip,
-    OptionalWithDefault(syn::Lit),
-    StripOption,
-    Into,
-}
-
-impl PropOpt {
-    fn from_attribute(attr: &Attribute) -> Option<HashSet<Self>> {
-        const ABORT_OPT_MESSAGE: &str =
-            "only `optional`, `optional_no_strip`, `strip_option`, `default` \
-             and `into` are allowed as arguments to `#[prop()]`";
-
-        if attr.path != parse_quote!(prop) {
-            return None;
-        }
-
-        if let Meta::List(MetaList { nested, .. }) =
-            attr.parse_meta().unwrap_or_abort()
-        {
-            Some(
-                nested
-                    .iter()
-                    .map(|opt| match opt {
-                        NestedMeta::Meta(Meta::Path(opt)) => {
-                            if *opt == parse_quote!(optional) {
-                                PropOpt::Optional
-                            } else if *opt == parse_quote!(optional_no_strip) {
-                                PropOpt::OptionalNoStrip
-                            } else if *opt == parse_quote!(strip_option) {
-                                PropOpt::StripOption
-                            } else if *opt == parse_quote!(into) {
-                                PropOpt::Into
-                            } else {
-                                abort!(
-                                    opt,
-                                    "invalid prop option";
-                                    help = ABORT_OPT_MESSAGE
-                                );
-                            }
-                        }
-                        NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-                            path,
-                            eq_token: _,
-                            lit,
-                        })) => {
-                            if *path == parse_quote!(default) {
-                                PropOpt::OptionalWithDefault(lit.to_owned())
-                            } else {
-                                abort!(
-                                    opt,
-                                    "invalid prop option";
-                                    help = ABORT_OPT_MESSAGE
-                                );
-                            }
-                        }
-                        _ => abort!(opt, ABORT_OPT_MESSAGE,),
-                    })
-                    .collect(),
-            )
-        } else {
-            abort!(
-                attr,
-                "the syntax for `#[prop]` is incorrect";
-                help = "try `#[prop(optional)]`";
-                help = ABORT_OPT_MESSAGE
-            );
-        }
-    }
+#[derive(Clone, Debug, AttributeDerive)]
+#[attribute(ident = prop)]
+struct PropOpt {
+    #[attribute(conflicts = [optional_no_strip, strip_option])]
+    optional: bool,
+    #[attribute(conflicts = [optional, strip_option])]
+    optional_no_strip: bool,
+    #[attribute(conflicts = [optional, optional_no_strip])]
+    strip_option: bool,
+    #[attribute(example = "5 * 10")]
+    default: Option<syn::Expr>,
+    into: bool,
 }
 
 struct TypedBuilderOpts {
     default: bool,
-    default_with_value: Option<syn::Lit>,
+    default_with_value: Option<syn::Expr>,
     strip_option: bool,
     into: bool,
 }
 
 impl TypedBuilderOpts {
-    fn from_opts(opts: &HashSet<PropOpt>, is_ty_option: bool) -> Self {
+    fn from_opts(opts: &PropOpt, is_ty_option: bool) -> Self {
         Self {
-            default: opts.contains(&PropOpt::Optional)
-                || opts.contains(&PropOpt::OptionalNoStrip),
-            default_with_value: opts.iter().find_map(|p| match p {
-                PropOpt::OptionalWithDefault(v) => Some(v.to_owned()),
-                _ => None,
-            }),
-            strip_option: opts.contains(&PropOpt::StripOption)
-                || (opts.contains(&PropOpt::Optional) && is_ty_option),
-            into: opts.contains(&PropOpt::Into),
+            default: opts.optional || opts.optional_no_strip,
+            default_with_value: opts.default.clone(),
+            strip_option: opts.strip_option || opts.optional && is_ty_option,
+            into: opts.into,
         }
     }
 }
@@ -506,7 +400,8 @@ impl TypedBuilderOpts {
 impl ToTokens for TypedBuilderOpts {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let default = if let Some(v) = &self.default_with_value {
-            quote! { default=#v, }
+            let v = v.to_token_stream().to_string();
+            quote! { default_code=#v, }
         } else if self.default {
             quote! { default, }
         } else {
@@ -576,8 +471,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     let required_prop_docs = props
         .iter()
         .filter(|Prop { prop_opts, .. }| {
-            !(prop_opts.contains(&PropOpt::Optional)
-                || prop_opts.contains(&PropOpt::OptionalNoStrip))
+            !(prop_opts.optional || prop_opts.optional_no_strip)
         })
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
@@ -585,8 +479,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     let optional_prop_docs = props
         .iter()
         .filter(|Prop { prop_opts, .. }| {
-            prop_opts.contains(&PropOpt::Optional)
-                || prop_opts.contains(&PropOpt::OptionalNoStrip)
+            prop_opts.optional || prop_opts.optional_no_strip
         })
         .map(|p| prop_to_doc(p, PropDocStyle::List))
         .collect::<TokenStream>();
@@ -647,10 +540,10 @@ fn unwrap_option(ty: &Type) -> Type {
                     AngleBracketedGenericArguments { args, .. },
                 ) = &first.arguments
                 {
-                    if let [first] = &args.iter().collect::<Vec<_>>()[..] {
-                        if let GenericArgument::Type(ty) = first {
-                            return ty.clone();
-                        }
+                    if let [GenericArgument::Type(ty)] =
+                        &args.iter().collect::<Vec<_>>()[..]
+                    {
+                        return ty.clone();
                     }
                 }
             }
@@ -679,9 +572,7 @@ fn prop_to_doc(
     }: &Prop,
     style: PropDocStyle,
 ) -> TokenStream {
-    let ty = if (prop_opts.contains(&PropOpt::Optional)
-        || prop_opts.contains(&PropOpt::StripOption))
-        && is_option(ty)
+    let ty = if (prop_opts.optional || prop_opts.strip_option) && is_option(ty)
     {
         unwrap_option(ty)
     } else {
@@ -705,7 +596,7 @@ fn prop_to_doc(
     match style {
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
-                &if !prop_opts.contains(&PropOpt::Into) {
+                &if !prop_opts.into {
                     format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
                 } else {
                     format!(
@@ -726,7 +617,7 @@ fn prop_to_doc(
         }
         PropDocStyle::Inline => {
             let arg_ty_doc = LitStr::new(
-                &if !prop_opts.contains(&PropOpt::Into) {
+                &if !prop_opts.into {
                     format!(
                         "**{}**: [`{}`]{}",
                         quote!(#name),
