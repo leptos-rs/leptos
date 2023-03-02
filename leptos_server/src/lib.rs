@@ -32,9 +32,6 @@
 //! indicate that it should only run on the server (i.e., when you have an `ssr` feature in your
 //! crate that is enabled).
 //!
-//! **Important**: All server functions must be registered by calling [ServerFn::register]
-//! somewhere within your `main` function.
-//!
 //! ```rust,ignore
 //! # use leptos::*;
 //! #[server(ReadFromDB)]
@@ -51,11 +48,6 @@
 //!   log::debug!("posts = {posts{:#?}");
 //! })
 //! # });
-//!
-//! // make sure you've registered it somewhere in main
-//! fn main() {
-//!   _ = ReadFromDB::register();
-//! }
 //! ```
 //!
 //! If you call this function from the client, it will serialize the function arguments and `POST`
@@ -92,78 +84,48 @@ use std::{
 };
 
 #[cfg(any(feature = "ssr", doc))]
-type ServerFnTraitObj = server_fn::ServerFnTraitObj<Scope>;
+/// A concrete type for a server function.
+pub struct ServerFnTraitObj(pub server_fn::ServerFnTraitObj<Scope>);
+
+#[cfg(any(feature = "ssr", doc))]
+impl std::ops::Deref for ServerFnTraitObj {
+    type Target = server_fn::ServerFnTraitObj<Scope>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[cfg(any(feature = "ssr", doc))]
+impl std::ops::DerefMut for ServerFnTraitObj {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[cfg(any(feature = "ssr", doc))]
+impl ServerFnTraitObj {
+    /// Create a new `ServerFnTraitObj` from a `server_fn::ServerFnTraitObj`.
+    pub const fn from_generic_server_fn(
+        server_fn: server_fn::ServerFnTraitObj<Scope>,
+    ) -> Self {
+        Self(server_fn)
+    }
+}
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
-    static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
-}
-
-#[cfg(any(feature = "ssr", doc))]
-/// The registry of all Leptos server functions.
-pub struct LeptosServerFnRegistry;
-
-#[cfg(any(feature = "ssr"))]
-impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
-    type Error = ServerRegistrationFnError;
-
-    fn register(
-        url: &'static str,
-        server_function: Arc<ServerFnTraitObj>,
-    ) -> Result<(), Self::Error> {
-        // store it in the hashmap
-        let mut write = REGISTERED_SERVER_FUNCTIONS
-            .write()
-            .map_err(|e| ServerRegistrationFnError::Poisoned(e.to_string()))?;
-        let prev = write.insert(url, server_function);
-
-        // if there was already a server function with this key,
-        // return Err
-        match prev {
-            Some(_) => {
-                Err(ServerRegistrationFnError::AlreadyRegistered(format!(
-                    "There was already a server function registered at {:?}. \
-                     This can happen if you use the same server function name \
-                     in two different modules
-                on `stable` or in `release` mode.",
-                    url
-                )))
-            }
-            None => Ok(()),
+    static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, &'static ServerFnTraitObj>>> = {
+        let mut map = HashMap::new();
+        for server_fn in inventory::iter::<ServerFnTraitObj> {
+            map.insert(server_fn.0.url(), server_fn);
         }
-    }
-
-    /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
-    fn get(url: &str) -> Option<Arc<ServerFnTraitObj>> {
-        REGISTERED_SERVER_FUNCTIONS
-            .read()
-            .ok()
-            .and_then(|fns| fns.get(url).cloned())
-    }
-
-    /// Returns a list of all registered server functions.
-    fn paths_registered() -> Vec<&'static str> {
-        REGISTERED_SERVER_FUNCTIONS
-            .read()
-            .ok()
-            .map(|fns| fns.keys().cloned().collect())
-            .unwrap_or_default()
-    }
+        Arc::new(RwLock::new(map))
+    };
 }
 
 #[cfg(any(feature = "ssr", doc))]
-/// Errors that can occur when registering a server function.
-#[derive(
-    thiserror::Error, Debug, Clone, serde::Serialize, serde::Deserialize,
-)]
-pub enum ServerRegistrationFnError {
-    /// The server function is already registered.
-    #[error("The server function {0} is already registered")]
-    AlreadyRegistered(String),
-    /// The server function registry is poisoned.
-    #[error("The server function registry is poisoned: {0}")]
-    Poisoned(String),
-}
+inventory::collect!(ServerFnTraitObj);
 
 /// Attempts to find a server function registered at the given path.
 ///
@@ -209,14 +171,23 @@ pub enum ServerRegistrationFnError {
 /// }
 /// ```
 #[cfg(any(feature = "ssr", doc))]
-pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
-    server_fn::server_fn_by_path::<Scope, LeptosServerFnRegistry>(path)
+pub fn server_fn_by_path(path: &str) -> Option<&'static ServerFnTraitObj> {
+    REGISTERED_SERVER_FUNCTIONS
+        .read()
+        .expect("Server function registry is poisoned")
+        .get(path)
+        .copied()
 }
 
 /// Returns the set of currently-registered server function paths, for debugging purposes.
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fns_by_path() -> Vec<&'static str> {
-    server_fn::server_fns_by_path::<Scope, LeptosServerFnRegistry>()
+    REGISTERED_SERVER_FUNCTIONS
+        .read()
+        .expect("Server function registry is poisoned")
+        .keys()
+        .copied()
+        .collect()
 }
 
 /// Defines a "server function." A server function can be called from the server or the client,
@@ -227,16 +198,9 @@ pub fn server_fns_by_path() -> Vec<&'static str> {
 ///
 /// Server functions are created using the `server` macro.
 ///
-/// The function should be registered by calling `ServerFn::register()`. The set of server functions
-/// can be queried on the server for routing purposes by calling [server_fn_by_path].
+/// The set of server functions can be queried on the server for routing purposes by calling [server_fn_by_path].
 ///
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
-pub trait ServerFn: server_fn::ServerFn<Scope> {
-    /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(any(feature = "ssr", doc))]
-    fn register() -> Result<(), ServerFnError> {
-        Self::register_in::<LeptosServerFnRegistry>()
-    }
-}
+pub trait ServerFn: server_fn::ServerFn<Scope> {}
 
 impl<T> ServerFn for T where T: server_fn::ServerFn<Scope> {}

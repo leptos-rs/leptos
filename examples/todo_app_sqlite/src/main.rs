@@ -24,8 +24,6 @@ cfg_if! {
                 .await
                 .expect("could not run SQLx migrations");
 
-            crate::todo::register_server_functions();
-
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             let conf = get_configuration(None).await.unwrap();
 

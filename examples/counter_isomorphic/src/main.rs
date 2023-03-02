@@ -30,9 +30,6 @@ cfg_if! {
 
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
-
-            crate::counters::register_server_functions();
-
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
             let conf = get_configuration(None).await.unwrap();
@@ -55,7 +52,7 @@ cfg_if! {
             .run()
             .await
         }
-        }
+    }
 
     // client-only main for Trunk
     else {

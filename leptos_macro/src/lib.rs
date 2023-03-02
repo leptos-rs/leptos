@@ -657,7 +657,6 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Note the following:
-/// - You must **register** the server function by calling `T::register()` somewhere in your main function.
 /// - **Server functions must be `async`.** Even if the work being done inside the function body
 ///   can run synchronously on the server, from the client’s perspective it involves an asynchronous
 ///   function call.
@@ -684,6 +683,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
+        syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
         Some(context),
         Some(syn::parse_quote!(::leptos::server_fn)),
     ) {

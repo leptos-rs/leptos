@@ -207,7 +207,7 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            match server_fn(cx, &req_parts.body).await {
+                            match server_fn.call(cx, &req_parts.body).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -299,10 +299,7 @@ async fn handle_server_fns_inner(
                                 .status(StatusCode::BAD_REQUEST)
                                 .body(Body::from(format!(
                                     "Could not find a server function at the \
-                                     route {fn_name}. \n\nIt's likely that \
-                                     you need to call ServerFn::register() on \
-                                     the server function type, somewhere in \
-                                     your `main` function."
+                                     route {fn_name}"
                                 )))
                         }
                         .expect("could not build Response");

@@ -119,16 +119,9 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 /// ```
 /// use actix_web::*;
 ///
-/// fn register_server_functions() {
-///   // call ServerFn::register() for each of the server functions you've defined
-/// }
-///
 /// # if false { // don't actually try to run a server in a doctest...
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     // make sure you actually register your server functions
-///     register_server_functions();
-///
 ///     HttpServer::new(|| {
 ///         App::new()
 ///             // "/api" should match the prefix, if any, declared when defining server functions
@@ -194,7 +187,7 @@ pub fn handle_server_fns_with_context(
                     provide_context(cx, req.clone());
                     provide_context(cx, res_options.clone());
 
-                    match server_fn(cx, body).await {
+                    match server_fn.call(cx, body).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
@@ -262,10 +255,7 @@ pub fn handle_server_fns_with_context(
                     }
                 } else {
                     HttpResponse::BadRequest().body(format!(
-                        "Could not find a server function at the route {:?}. \
-                         \n\nIt's likely that you need to call \
-                         ServerFn::register() on the server function type, \
-                         somewhere in your `main` function.",
+                        "Could not find a server function at the route {:?}",
                         req.path()
                     ))
                 }

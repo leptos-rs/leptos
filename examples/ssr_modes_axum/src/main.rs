@@ -14,9 +14,6 @@ async fn main(){
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
-    GetPost::register();
-    ListPostMetadata::register();
-
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> })

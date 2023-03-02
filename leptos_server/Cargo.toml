@@ -24,6 +24,7 @@ quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1.0.47"
 ciborium = "0.2.0"
+inventory = { version = "0.3.3", optional = true }
 
 [dev-dependencies]
 leptos = { path = "../leptos" }
@@ -43,6 +44,7 @@ ssr = [
   #"leptos/ssr",
   "leptos_reactive/ssr",
   "server_fn/ssr",
+  "inventory"
 ]
 stable = [
   #"leptos/stable",
