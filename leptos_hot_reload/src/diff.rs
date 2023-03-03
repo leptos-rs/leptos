@@ -494,11 +494,13 @@ mod tests {
             vec![
                 Patch {
                     path: vec![],
-                    action: PatchAction::InsertChild {
-                        before: 0,
-                        child: ReplacementNode::Html(
-                            "<button >bar</button>".to_string()
-                        )
+                    action: PatchAction::InsertChildAfter {
+                        after: 0,
+                        child: ReplacementNode::Element {
+                            name: "button".into(),
+                            attrs: vec![],
+                            children: vec![ReplacementNode::Html("bar".into())]
+                        }
                     }
                 },
                 Patch {
