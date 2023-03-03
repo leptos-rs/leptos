@@ -1,20 +1,20 @@
-[tasks.build-wasm]
+[tasks.check-wasm]
 clear = true
-dependencies = ["build-hydrate", "build-csr"]
+dependencies = ["check-hydrate", "check-csr"]
 
-[tasks.build-hydrate]
+[tasks.check-hydrate]
 command = "cargo"
 args = [
-	"build",
+	"check",
 	"--no-default-features",
 	"--features=hydrate",
 	"--target=wasm32-unknown-unknown",
 ]
 
-[tasks.build-csr]
+[tasks.check-csr]
 command = "cargo"
 args = [
-	"build",
+	"check",
 	"--no-default-features",
 	"--features=csr",
 	"--target=wasm32-unknown-unknown",
