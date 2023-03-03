@@ -115,8 +115,6 @@ pub struct AnyElement {
     pub(crate) is_void: bool,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub(crate) id: HydrationKey,
-    #[cfg(debug_assertions)]
-    pub(crate) view_marker: Option<String>,
 }
 
 impl std::ops::Deref for AnyElement {
@@ -401,9 +399,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               element: AnyElement {
                 name: element.name(),
                 is_void: element.is_void(),
-                id: element.hydration_id().clone(),
-                #[cfg(debug_assertions)]
-                view_marker: view_marker.clone()
+                id: element.hydration_id().clone()
               },
               #[cfg(debug_assertions)]
               view_marker

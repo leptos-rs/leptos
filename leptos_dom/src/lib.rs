@@ -246,13 +246,7 @@ impl Element {
                 view_marker,
             } = self;
 
-            let element = AnyElement {
-                name,
-                is_void,
-                id,
-                #[cfg(debug_assertions)]
-                view_marker: view_marker.clone(),
-            };
+            let element = AnyElement { name, is_void, id };
 
             HtmlElement {
                 cx,
