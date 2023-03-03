@@ -12,6 +12,7 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
+attribute-derive = { version = "0.5", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.10"
@@ -31,6 +32,7 @@ uuid = { version = "1", features = ["v4"] }
 [dev-dependencies]
 log = "0.4"
 typed-builder = "0.12"
+trybuild = "1"
 leptos = { path = "../leptos" }
 
 [features]
