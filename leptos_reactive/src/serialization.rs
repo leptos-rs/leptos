@@ -51,7 +51,7 @@ cfg_if! {
         T::Archived: for<'b> CheckBytes<DefaultValidator<'b>> + Deserialize<T, SharedDeserializeMap>,
         {
             fn ser(&self) -> Result<String, SerializationError> {
-                let bytes = rkyv::to_bytes::<T, 1024>(&self).map_err(|e| SerializationError::Serialize(Rc::new(e)))?;
+                let bytes = rkyv::to_bytes::<T, 1024>(self).map_err(|e| SerializationError::Serialize(Rc::new(e)))?;
                 Ok(STANDARD_NO_PAD.encode(bytes))
             }
 

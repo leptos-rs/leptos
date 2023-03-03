@@ -81,4 +81,16 @@ skip_feature_sets = [
     "serde",
     "miniserde",
   ],
+  [
+    "serde",
+    "rkyv",
+  ],
+  [
+    "miniserde",
+    "rkyv",
+  ],
+  [
+    "serde-lite",
+    "rkyv",
+  ],
 ]
