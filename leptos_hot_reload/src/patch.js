@@ -1,3 +1,4 @@
+console.log("[HOT RELOADING] Connected to server.");
 function patch(json) {
 	try {
 		const views = JSON.parse(json);
@@ -48,14 +49,15 @@ function patch(json) {
 						}
 					});
 				} else if (action.ChangeTagName) {
+					const oldNode = child.node;
 					actions.push(() => {
 						console.log("[HOT RELOAD] > ChangeTagName", child.node, action.ChangeTagName);
 						const newElement = document.createElement(action.ChangeTagName);
-						for (const attr of child.node.attributes) {
+						for (const attr of oldNode.attributes) {
 							newElement.setAttribute(attr.name, attr.value);
 						}
-						for (const child of child.node.childNodes) {
-							newElement.appendChild(child);
+						for (const childNode of child.node.childNodes) {
+							newElement.appendChild(childNode);
 						}
 						
 						child.node.replaceWith(newElement)
@@ -113,7 +115,8 @@ function patch(json) {
 						after = child.children[action.InsertChildAfter.after];
 					actions.push(() => {
 						console.log("[HOT RELOAD] > InsertChildAfter", child, child.node, action.InsertChildAfter, " after ", after);
-						if (!after) {
+						console.log("newChild is ", newChild);
+						if (!after || !(after.node || after.start).nextSibling) {
 							child.node.appendChild(newChild);
 						} else {
 							child.node.insertBefore(newChild, (after.node || after.start).nextSibling);
@@ -135,19 +138,50 @@ function patch(json) {
 	}
 
 	function fromReplacementNode(node, actualChildren) {
+		console.log("fromReplacementNode", node, actualChildren);
 		if (node.Html) {
 			return fromHTML(node.Html);
-		} else {
+		}
+		else if (node.Fragment) {
+			const frag = document.createDocumentFragment();
+			for (const child of node.Fragment) {
+				frag.appendChild(fromReplacementNode(child, actualChildren));
+			}
+			return frag;
+		}
+		else if (node.Element) {
+			const element = document.createElement(node.Element.name);
+			for (const [name, value] of node.Element.attrs) {
+				element.setAttribute(name, value);
+			}
+			for (const child of node.Element.children) {
+				element.appendChild(fromReplacementNode(child, actualChildren));
+			}
+			return element;
+		}
+		else {
 			const child = childAtPath(
 				actualChildren.length > 1 ? { children: actualChildren } : actualChildren[0],
 				node.Path
 			);
+			console.log("fromReplacementNode", child, "\n", node, actualChildren);
 			if (child) {
 				let childNode = child.node;
 				if (!childNode) {
 					const range = new Range();
 					range.setStartBefore(child.start);
 					range.setEndAfter(child.end);
+					// okay this is somewhat silly 
+					// if we do cloneContents() here to return it,
+					// we strip away the event listeners
+					// if we're moving just one object, this is less than ideal
+					// so I'm actually going to *extract* them, then clone and reinsert
+					/* const toReinsert = range.cloneContents();
+					if (child.end.nextSibling) {
+						child.end.parentNode.insertBefore(toReinsert, child.end.nextSibling);
+					} else {
+						child.end.parentNode.appendChild(toReinsert);
+					} */
 					childNode = range.cloneContents();
 				}
 				return childNode;

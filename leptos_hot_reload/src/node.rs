@@ -1,5 +1,6 @@
 use crate::parsing::{is_component_node, value_to_string};
 use anyhow::Result;
+use quote::quote;
 use serde::{Deserialize, Serialize};
 use syn_rsx::Node;
 
@@ -56,11 +57,17 @@ impl LNode {
                 if let Some(value) = value_to_string(&text.value) {
                     views.push(LNode::Text(value));
                 } else {
-                    views.push(LNode::DynChild(format!("{:#?}", text.value)));
+                    let value = text.value.as_ref();
+                    let code = quote! { #value };
+                    let code = code.to_string();
+                    views.push(LNode::DynChild(code));
                 }
             }
             Node::Block(block) => {
-                views.push(LNode::DynChild(format!("{:#?}", block.value)));
+                let value = block.value.as_ref();
+                let code = quote! { #value };
+                let code = code.to_string();
+                views.push(LNode::DynChild(code));
             }
             Node::Element(el) => {
                 if is_component_node(&el) {

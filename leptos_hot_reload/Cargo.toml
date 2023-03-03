@@ -18,6 +18,7 @@ syn = { version = "1", features = [
 	"visit",
 	"printing",
 ] }
+quote = "1"
 syn-rsx = "0.9"
 proc-macro2 = { version = "1", features = ["span-locations", "nightly"] }
 parking_lot = "0.12"

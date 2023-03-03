@@ -13,7 +13,10 @@ impl LNode {
     pub fn diff(&self, other: &LNode) -> Vec<Patch> {
         let mut old_children = OldChildren::default();
         self.add_old_children(vec![], &mut old_children);
-        self.diff_at(other, &[], &old_children)
+        eprintln!("point 1");
+        let diffs = self.diff_at(other, &[], &old_children);
+        eprintln!("point 2");
+        diffs
     }
 
     fn to_replacement_node(
@@ -21,8 +24,46 @@ impl LNode {
         old_children: &OldChildren,
     ) -> ReplacementNode {
         match old_children.0.get(self) {
-            None => ReplacementNode::Html(self.to_html()),
+            // if the child already exists in the DOM, we can pluck it out
+            // and move it around
             Some(path) => ReplacementNode::Path(path.to_owned()),
+            // otherwise, we should generate some HTML
+            // but we need to do this recursively in case we're replacing an element
+            // with children who need to be plucked out
+            None => match self {
+                LNode::Fragment(fragment) => ReplacementNode::Fragment(
+                    fragment
+                        .iter()
+                        .map(|node| node.to_replacement_node(old_children))
+                        .collect(),
+                ),
+                LNode::Element {
+                    name,
+                    attrs,
+                    children,
+                } => ReplacementNode::Element {
+                    name: name.to_owned(),
+                    attrs: attrs
+                        .iter()
+                        .filter_map(|(name, value)| match value {
+                            LAttributeValue::Boolean => {
+                                Some((name.to_owned(), name.to_owned()))
+                            }
+                            LAttributeValue::Static(value) => {
+                                Some((name.to_owned(), value.to_owned()))
+                            }
+                            _ => None,
+                        })
+                        .collect(),
+                    children: children
+                        .iter()
+                        .map(|node| node.to_replacement_node(old_children))
+                        .collect(),
+                },
+                LNode::Text(_)
+                | LNode::Component(_, _)
+                | LNode::DynChild(_) => ReplacementNode::Html(self.to_html()),
+            },
         }
     }
 
@@ -60,9 +101,9 @@ impl LNode {
         if std::mem::discriminant(self) != std::mem::discriminant(other) {
             return vec![Patch {
                 path: path.to_owned(),
-                action: PatchAction::ReplaceWith(ReplacementNode::Html(
-                    other.to_html(),
-                )),
+                action: PatchAction::ReplaceWith(
+                    other.to_replacement_node(orig_children),
+                ),
             }];
         }
         match (self, other) {
@@ -92,16 +133,20 @@ impl LNode {
                     path: path.to_owned(),
                     action: PatchAction::ChangeTagName(new_name.to_owned()),
                 });
+
                 let attrs_patch = LNode::diff_attrs(path, old_attrs, new_attrs);
+
                 let children_patch = LNode::diff_children(
                     path,
                     old_children,
                     new_children,
                     orig_children,
                 );
-                tag_patch
+
+                attrs_patch
                     .into_iter()
-                    .chain(attrs_patch)
+                    // tag patch comes second so we remove old attrs before copying them over
+                    .chain(tag_patch)
                     .chain(children_patch)
                     .collect()
             }
@@ -237,7 +282,11 @@ impl LNode {
                     }
                 }
 
-                b = b.saturating_sub(1);
+                if b == 0 {
+                    break;
+                } else {
+                    b -= 1;
+                }
             }
 
             // diffing in middle
@@ -313,6 +362,12 @@ pub enum PatchAction {
 pub enum ReplacementNode {
     Html(String),
     Path(Vec<usize>),
+    Fragment(Vec<ReplacementNode>),
+    Element {
+        name: String,
+        attrs: Vec<(String, String)>,
+        children: Vec<ReplacementNode>,
+    },
 }
 
 #[cfg(test)]
