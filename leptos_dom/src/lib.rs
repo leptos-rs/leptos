@@ -219,8 +219,6 @@ impl Element {
                 name: name.into(),
                 element,
                 is_void: false,
-                #[cfg(debug_assertions)]
-                view_marker: view_marker.clone(),
             };
 
             HtmlElement {

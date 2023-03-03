@@ -83,8 +83,6 @@ where
                 name: "".into(),
                 is_void: false,
                 element: el,
-                #[cfg(debug_assertions)]
-                view_marker: None,
             };
 
             HtmlElement {
@@ -372,8 +370,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 name: element.name(),
                 element: element.as_ref().clone(),
                 is_void: element.is_void(),
-                #[cfg(debug_assertions)]
-                view_marker: view_marker.clone()
               },
               #[cfg(debug_assertions)]
               span,
