@@ -107,10 +107,15 @@ pub(crate) fn class_expression(
 
     if force || !HydrationCtx::is_hydrating() {
         let class_name = wasm_bindgen::intern(class_name);
+
         if value {
-            class_list.add_1(class_name).unwrap_throw();
+            if let Err(e) = class_list.add_1(class_name) {
+                crate::error!("[HtmlElement::class()] {e:?}");
+            }
         } else {
-            class_list.remove_1(class_name).unwrap_throw();
+            if let Err(e) = class_list.remove_1(class_name) {
+                crate::error!("[HtmlElement::class()] {e:?}");
+            }
         }
     }
 }
