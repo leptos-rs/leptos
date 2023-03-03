@@ -9,7 +9,7 @@ use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server::server_macro_impl;
 use syn::parse_macro_input;
-use syn_rsx::{parse, NodeAttribute, NodeElement};
+use syn_rsx::{parse, NodeAttribute};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {

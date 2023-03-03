@@ -13,10 +13,7 @@ impl LNode {
     pub fn diff(&self, other: &LNode) -> Vec<Patch> {
         let mut old_children = OldChildren::default();
         self.add_old_children(vec![], &mut old_children);
-        eprintln!("point 1");
-        let diffs = self.diff_at(other, &[], &old_children);
-        eprintln!("point 2");
-        diffs
+        self.diff_at(other, &[], &old_children)
     }
 
     fn to_replacement_node(
