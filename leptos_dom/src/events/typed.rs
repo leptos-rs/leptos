@@ -128,22 +128,36 @@ generate_event_types! {
   // =========================================================
   // WindowEventHandlersEventMap
   // =========================================================
+  #[does_not_bubble]
   afterprint: Event,
+  #[does_not_bubble]
   beforeprint: Event,
+  #[does_not_bubble]
   beforeunload: BeforeUnloadEvent,
+  #[does_not_bubble]
   gamepadconnected: GamepadEvent,
+  #[does_not_bubble]
   gamepaddisconnected: GamepadEvent,
   hashchange: HashChangeEvent,
+  #[does_not_bubble]
   languagechange: Event,
+  #[does_not_bubble]
   message: MessageEvent,
+  #[does_not_bubble]
   messageerror: MessageEvent,
+  #[does_not_bubble]
   offline: Event,
+  #[does_not_bubble]
   online: Event,
+  #[does_not_bubble]
   pagehide: PageTransitionEvent,
+  #[does_not_bubble]
   pageshow: PageTransitionEvent,
   popstate: PopStateEvent,
   rejectionhandled: PromiseRejectionEvent,
+  #[does_not_bubble]
   storage: StorageEvent,
+  #[does_not_bubble]
   unhandledrejection: PromiseRejectionEvent,
   #[does_not_bubble]
   unload: Event,
@@ -161,7 +175,9 @@ generate_event_types! {
   beforeinput: InputEvent,
   #[does_not_bubble]
   blur: FocusEvent,
+  #[does_not_bubble]
   canplay: Event,
+  #[does_not_bubble]
   canplaythrough: Event,
   change: Event,
   click: MouseEvent,
@@ -171,6 +187,7 @@ generate_event_types! {
   compositionstart: CompositionEvent,
   compositionupdate: CompositionEvent,
   contextmenu: MouseEvent,
+  #[does_not_bubble]
   cuechange: Event,
   dblclick: MouseEvent,
   drag: DragEvent,
@@ -180,8 +197,11 @@ generate_event_types! {
   dragover: DragEvent,
   dragstart: DragEvent,
   drop: DragEvent,
+  #[does_not_bubble]
   durationchange: Event,
+  #[does_not_bubble]
   emptied: Event,
+  #[does_not_bubble]
   ended: Event,
   #[does_not_bubble]
   error: ErrorEvent,
@@ -192,15 +212,19 @@ generate_event_types! {
   #[does_not_bubble]
   focusout: FocusEvent,
   formdata: Event, // web_sys does not include `FormDataEvent`
+  #[does_not_bubble]
   gotpointercapture: PointerEvent,
   input: Event,
+  #[does_not_bubble]
   invalid: Event,
   keydown: KeyboardEvent,
   keypress: KeyboardEvent,
   keyup: KeyboardEvent,
   #[does_not_bubble]
   load: Event,
+  #[does_not_bubble]
   loadeddata: Event,
+  #[does_not_bubble]
   loadedmetadata: Event,
   #[does_not_bubble]
   loadstart: Event,
@@ -214,12 +238,17 @@ generate_event_types! {
   mouseout: MouseEvent,
   mouseover: MouseEvent,
   mouseup: MouseEvent,
+  #[does_not_bubble]
   pause: Event,
+  #[does_not_bubble]
   play: Event,
+  #[does_not_bubble]
   playing: Event,
   pointercancel: PointerEvent,
   pointerdown: PointerEvent,
+  #[does_not_bubble]
   pointerenter: PointerEvent,
+  #[does_not_bubble]
   pointerleave: PointerEvent,
   pointermove: PointerEvent,
   pointerout: PointerEvent,
@@ -227,21 +256,29 @@ generate_event_types! {
   pointerup: PointerEvent,
   #[does_not_bubble]
   progress: ProgressEvent,
+  #[does_not_bubble]
   ratechange: Event,
   reset: Event,
+  #[does_not_bubble]
   resize: UiEvent,
   #[does_not_bubble]
   scroll: Event,
   securitypolicyviolation: SecurityPolicyViolationEvent,
+  #[does_not_bubble]
   seeked: Event,
+  #[does_not_bubble]
   seeking: Event,
   select: Event,
+  #[does_not_bubble]
   selectionchange: Event,
   selectstart: Event,
   slotchange: Event,
+  #[does_not_bubble]
   stalled: Event,
   submit: SubmitEvent,
+  #[does_not_bubble]
   suspend: Event,
+  #[does_not_bubble]
   timeupdate: Event,
   #[does_not_bubble]
   toggle: Event,
@@ -253,7 +290,9 @@ generate_event_types! {
   transitionend: TransitionEvent,
   transitionrun: TransitionEvent,
   transitionstart: TransitionEvent,
+  #[does_not_bubble]
   volumechange: Event,
+  #[does_not_bubble]
   waiting: Event,
   webkitanimationend: Event,
   webkitanimationiteration: Event,
@@ -265,8 +304,11 @@ generate_event_types! {
   // WindowEventMap
   // =========================================================
   DOMContentLoaded: Event,
+  #[does_not_bubble]
   devicemotion: DeviceMotionEvent,
+  #[does_not_bubble]
   deviceorientation: DeviceOrientationEvent,
+  #[does_not_bubble]
   orientationchange: Event,
 
   // =========================================================
@@ -283,6 +325,7 @@ generate_event_types! {
   fullscreenerror: Event,
   pointerlockchange: Event,
   pointerlockerror: Event,
+  #[does_not_bubble]
   readystatechange: Event,
   visibilitychange: Event,
 }
