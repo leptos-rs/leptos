@@ -210,7 +210,7 @@ where
     let input = action.input();
 
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
-        let data = action_input_from_form_data(form_data);
+        let data = I::from_form_data(form_data);
         match data {
             Ok(data) => {
                 input.set(Some(data));
@@ -301,11 +301,7 @@ where
             return;
         }
 
-        let (form, _, _, _) = extract_form_attributes(&ev);
-
-        let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
-        let data = action_input_from_form_data(&form_data);
-        match data {
+        match I::from_event(&ev) {
             Err(e) => error!("{e}"),
             Ok(input) => {
                 ev.prevent_default();
@@ -433,12 +429,44 @@ fn extract_form_attributes(
     }
 }
 
-fn action_input_from_form_data<I: serde::de::DeserializeOwned>(
-    form_data: &web_sys::FormData,
-) -> Result<I, serde_urlencoded::de::Error> {
-    let data =
-        web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
-            .unwrap_throw();
-    let data = data.to_string().as_string().unwrap_or_default();
-    serde_urlencoded::from_str::<I>(&data)
+/// Tries to deserialize a type from form data. This can be used for client-side
+/// validation during form submission.
+pub trait FromFormData
+where
+    Self: Sized + serde::de::DeserializeOwned,
+{
+    /// Tries to deserialize the data, given only the `submit` event.
+    fn from_event(
+        ev: &web_sys::Event,
+    ) -> Result<Self, serde_urlencoded::de::Error>;
+
+    /// Tries to deserialize the data, given the actual form data.
+    fn from_form_data(
+        form_data: &web_sys::FormData,
+    ) -> Result<Self, serde_urlencoded::de::Error>;
+}
+
+impl<T> FromFormData for T
+where
+    T: serde::de::DeserializeOwned,
+{
+    fn from_event(
+        ev: &web_sys::Event,
+    ) -> Result<Self, serde_urlencoded::de::Error> {
+        let (form, method, action, enctype) = extract_form_attributes(&ev);
+
+        let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
+
+        Self::from_form_data(&form_data)
+    }
+
+    fn from_form_data(
+        form_data: &web_sys::FormData,
+    ) -> Result<Self, serde_urlencoded::de::Error> {
+        let data =
+            web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
+                .unwrap_throw();
+        let data = data.to_string().as_string().unwrap_or_default();
+        serde_urlencoded::from_str::<Self>(&data)
+    }
 }
