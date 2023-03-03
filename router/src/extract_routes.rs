@@ -25,7 +25,9 @@ where
         let branches = PossibleBranchContext::default();
         provide_context(cx, branches.clone());
 
-        let _ = app_fn(cx).into_view(cx);
+        leptos::suppress_resource_load(true);
+        _ = app_fn(cx).into_view(cx);
+        leptos::suppress_resource_load(false);
 
         let branches = branches.0.borrow();
         branches

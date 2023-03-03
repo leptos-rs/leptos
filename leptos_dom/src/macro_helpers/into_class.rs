@@ -1,6 +1,4 @@
 use leptos_reactive::Scope;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use wasm_bindgen::UnwrapThrowExt;
 
 /// Represents the different possible values a single class on an element could have,
 /// allowing you to do fine-grained updates to single items
