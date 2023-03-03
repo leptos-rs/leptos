@@ -64,6 +64,7 @@ leptos_tutorial
 ├── index.html
 ```
 
-Now run `trunk serve --open`. Trunk should automatically compile your app and
-open it in your default browser. If you make edits to `main.rs`, Trunk will
-recompile your source code and live-reload the page.
+Now run `trunk serve --open` from the root of the `leptos-tutorial` directory.
+Trunk should automatically compile your app and open it in your default browser.
+If you make edits to `main.rs`, Trunk will recompile your source code and
+live-reload the page.
