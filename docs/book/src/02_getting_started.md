@@ -20,6 +20,14 @@ Create a basic Rust binary project
 cargo init leptos-tutorial
 ```
 
+> We recommend using `nightly` Rust, as it enables [a few nice features](https://github.com/leptos-rs/leptos#nightly-note). To use `nightly` Rust with WebAssembly, you can run
+>
+> ```bash
+> rustup toolchain install nightly
+> rustup default nightly
+> rustup target add wasm32-unknown-unknown
+> ```
+
 `cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
 
 ```bash
@@ -44,6 +52,16 @@ use leptos::*;
 fn main() {
     mount_to_body(|cx| view! { cx,  <p>"Hello, world!"</p> })
 }
+```
+
+Your directory structure should now look something like this
+
+```
+leptos_tutorial
+├── src
+│   └── main.rs
+├── Cargo.html
+├── index.html
 ```
 
 Now run `trunk serve --open` from the root of the `leptos-tutorial` directory.
