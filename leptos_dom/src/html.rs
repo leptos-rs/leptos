@@ -576,6 +576,17 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
+    /// Adds a list of classes separated by ASCII whitespace to an element.
+    #[track_caller]
+    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
+        let classes = classes.into();
+        let mut this = self;
+        for class in classes.split_ascii_whitespace() {
+            this = this.class(class.to_string(), true);
+        }
+        this
+    }
+
     /// Sets a property on an element.
     #[track_caller]
     pub fn prop(

@@ -748,7 +748,10 @@ fn element_to_tokens(
             None => quote! {},
             Some(class) => {
                 quote! {
-                    .class(#class, true)
+                    .classes(
+                        #[allow(unused_braces)]
+                        #class
+                    )
                 }
             }
         };
