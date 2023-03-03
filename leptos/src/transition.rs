@@ -119,9 +119,7 @@ where
                 if is_first_run(&first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only();
                     *prev_children.borrow_mut() = Some(frag.nodes.clone());
-                    if (has_local_only && child_runs.get() > 0)
-                        || !has_local_only
-                    {
+                    if !has_local_only || child_runs.get() > 0 {
                         first_run.set(false);
                     }
                 }
