@@ -2,10 +2,10 @@
 use crate::{
     macros::debug_warn,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty,
+    Runtime, Scope, ScopeProperty, node::{NodeId, ReactiveNodeType},
 };
 use cfg_if::cfg_if;
-use std::{cell::RefCell, fmt::Debug};
+use std::{cell::RefCell, fmt::Debug, rc::Rc, any::Any};
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 /// `create_effect` immediately runs the given function once, tracks its dependence
@@ -162,7 +162,9 @@ where
 }
 
 pub(crate) trait AnyEffect {
-    fn run(&self, id: EffectId, runtime: RuntimeId);
+    fn run(&self, id: NodeId, runtime: RuntimeId);
+
+    fn default_value(&self) -> Rc<RefCell<dyn Any>>;
 }
 
 impl<T, F> AnyEffect for Effect<T, F>
@@ -183,7 +185,7 @@ where
             )
         )
     )]
-    fn run(&self, id: EffectId, runtime: RuntimeId) {
+    fn run(&self, id: NodeId, runtime: RuntimeId) {
         _ = with_runtime(runtime, |runtime| {
             // clear previous dependencies
             id.cleanup(runtime);
@@ -201,17 +203,23 @@ where
             runtime.observer.set(prev_observer);
         })
     }
+
+    fn default_value(&self) -> Rc<RefCell<dyn Any>> {
+        Rc::new(RefCell::new(None::<T>))
+    }
 }
 
-impl EffectId {
-    pub(crate) fn run(&self, runtime_id: RuntimeId) {
+impl NodeId {
+    pub(crate) fn run_effect(&self, runtime_id: RuntimeId) {
         _ = with_runtime(runtime_id, |runtime| {
             let effect = {
-                let effects = runtime.effects.borrow();
+                let effects = runtime.nodes.borrow();
                 effects.get(*self).cloned()
             };
             if let Some(effect) = effect {
-                effect.run(*self, runtime_id);
+                if let ReactiveNodeType::Effect(effect) = effect.node_type {
+                    effect.run(*self, runtime_id);
+                }
             } else {
                 debug_warn!(
                     "[Effect] Trying to run an Effect that has been disposed. \
@@ -236,9 +244,9 @@ impl EffectId {
         )
     )]
     pub(crate) fn cleanup(&self, runtime: &Runtime) {
-        let sources = runtime.effect_sources.borrow();
+        let sources = runtime.node_sources.borrow();
         if let Some(sources) = sources.get(*self) {
-            let subs = runtime.signal_subscribers.borrow();
+            let subs = runtime.node_subscribers.borrow();
             for source in sources.borrow().iter() {
                 if let Some(source) = subs.get(*source) {
                     source.borrow_mut().remove(self);

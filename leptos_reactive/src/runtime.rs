@@ -3,7 +3,7 @@ use crate::{
     hydration::SharedContext, AnyEffect, AnyResource, Effect, EffectId, Memo,
     ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer,
     ScopeId, ScopeProperty, SerializableResource, SignalId, SignalUpdate,
-    UnserializableResource, WriteSignal,
+    UnserializableResource, WriteSignal, node::{NodeId, ReactiveNode, ReactiveNodeType},
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -130,8 +130,11 @@ impl RuntimeId {
     pub(crate) fn create_concrete_signal(
         self,
         value: Rc<RefCell<dyn Any>>,
-    ) -> SignalId {
-        with_runtime(self, |runtime| runtime.signals.borrow_mut().insert(value))
+    ) -> NodeId {
+        with_runtime(self, |runtime| runtime.nodes.borrow_mut().insert(ReactiveNode {
+            value,
+            node_type: ReactiveNodeType::Signal
+        }))
             .expect(
                 "tried to create a signal in a runtime that has been disposed",
             )
@@ -178,7 +181,7 @@ impl RuntimeId {
         T: Any + 'static,
     {
         with_runtime(self, move |runtime| {
-            let mut signals = runtime.signals.borrow_mut();
+            let mut signals = runtime.nodes.borrow_mut();
             let properties = runtime.scopes.borrow();
             let mut properties = properties
                 .get(cx.id)
@@ -191,7 +194,10 @@ impl RuntimeId {
             signals.reserve(size);
             properties.reserve(size);
             values
-                .map(|value| signals.insert(Rc::new(RefCell::new(value))))
+                .map(|value| signals.insert(ReactiveNode {
+                    value: Rc::new(RefCell::new(value)),
+                    node_type: ReactiveNodeType::Signal
+                }))
                 .map(|id| {
                     properties.push(ScopeProperty::Signal(id));
                     (
@@ -238,9 +244,12 @@ impl RuntimeId {
     pub(crate) fn create_concrete_effect(
         self,
         effect: Rc<dyn AnyEffect>,
-    ) -> EffectId {
+    ) -> NodeId {
         with_runtime(self, |runtime| {
-            runtime.effects.borrow_mut().insert(effect)
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value: effect.default_value(),
+                node_type: ReactiveNodeType::Effect(effect)
+            })
         })
         .expect("tried to create an effect in a runtime that has been disposed")
     }
@@ -249,7 +258,7 @@ impl RuntimeId {
     pub(crate) fn create_effect<T>(
         self,
         f: impl Fn(Option<T>) -> T + 'static,
-    ) -> EffectId
+    ) -> NodeId
     where
         T: Any + 'static,
     {
@@ -264,7 +273,7 @@ impl RuntimeId {
         };
 
         let id = self.create_concrete_effect(Rc::new(effect));
-        id.run(self);
+        id.run_effect(self);
         id
     }
 
@@ -304,7 +313,7 @@ impl RuntimeId {
 #[derive(Default)]
 pub(crate) struct Runtime {
     pub shared_context: RefCell<SharedContext>,
-    pub observer: Cell<Option<EffectId>>,
+    pub observer: Cell<Option<NodeId>>,
     pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
     pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
     pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
@@ -314,12 +323,11 @@ pub(crate) struct Runtime {
     #[allow(clippy::type_complexity)]
     pub scope_cleanups:
         RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
-    pub signals: RefCell<SlotMap<SignalId, Rc<RefCell<dyn Any>>>>,
-    pub signal_subscribers:
-        RefCell<SecondaryMap<SignalId, RefCell<HashSet<EffectId>>>>,
-    pub effects: RefCell<SlotMap<EffectId, Rc<dyn AnyEffect>>>,
-    pub effect_sources:
-        RefCell<SecondaryMap<EffectId, RefCell<HashSet<SignalId>>>>,
+    pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
+    pub node_subscribers:
+        RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
+    pub node_sources:
+        RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
 
@@ -331,10 +339,6 @@ impl Debug for Runtime {
             .field("scopes", &self.scopes)
             .field("scope_parents", &self.scope_parents)
             .field("scope_children", &self.scope_children)
-            .field("signals", &self.signals)
-            .field("signal_subscribers", &self.signal_subscribers)
-            .field("effects", &self.effects.borrow().len())
-            .field("effect_sources", &self.effect_sources)
             .finish()
     }
 }

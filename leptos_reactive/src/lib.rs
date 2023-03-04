@@ -75,6 +75,7 @@ mod context;
 mod effect;
 mod hydration;
 mod memo;
+mod node;
 mod resource;
 mod runtime;
 mod scope;

@@ -4,11 +4,11 @@ use crate::{
     macros::debug_warn,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty,
+    Runtime, Scope, ScopeProperty, node::{NodeId, ReactiveNodeType},
 };
 use cfg_if::cfg_if;
 use futures::Stream;
-use std::{fmt::Debug, marker::PhantomData, pin::Pin};
+use std::{fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc};
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
@@ -469,7 +469,7 @@ where
     T: 'static,
 {
     pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
+    pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
@@ -812,7 +812,7 @@ where
     T: 'static,
 {
     pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
+    pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
@@ -1124,7 +1124,7 @@ where
     T: 'static,
 {
     pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
+    pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
@@ -1738,18 +1738,18 @@ pub(crate) enum SignalError {
     Type(&'static str),
 }
 
-impl SignalId {
+impl NodeId {
     pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
             // add this observer to the signal's dependencies (to allow notification)
-            let mut subs = runtime.signal_subscribers.borrow_mut();
+            let mut subs = runtime.node_subscribers.borrow_mut();
             if let Some(subs) = subs.entry(*self) {
                 subs.or_default().borrow_mut().insert(observer);
             }
 
             // add this signal to the effect's sources (to allow cleanup)
-            let mut effect_sources = runtime.effect_sources.borrow_mut();
+            let mut effect_sources = runtime.node_sources.borrow_mut();
             if let Some(effect_sources) = effect_sources.entry(observer) {
                 let sources = effect_sources.or_default();
                 sources.borrow_mut().insert(*self);
@@ -1766,8 +1766,8 @@ impl SignalId {
         T: 'static,
     {
         // get the value
-        let value = {
-            let signals = runtime.signals.borrow();
+        let node = {
+            let signals = runtime.nodes.borrow();
             match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
                 Ok(s) => Ok(s),
                 Err(e) => {
@@ -1776,7 +1776,7 @@ impl SignalId {
                 }
             }
         }?;
-        let value = value.try_borrow().unwrap_or_else(|e| {
+        let value = node.value.try_borrow().unwrap_or_else(|e| {
             debug_warn!(
                 "Signal::try_with_no_subscription failed on Signal<{}>. It \
                  seems you're trying to read the value of a signal within an \
@@ -1828,8 +1828,8 @@ impl SignalId {
     {
         with_runtime(runtime, |runtime| {
             let value = {
-                let signals = runtime.signals.borrow();
-                signals.get(*self).cloned()
+                let signals = runtime.nodes.borrow();
+                signals.get(*self).map(|node| Rc::clone(&node.value))
             };
             if let Some(value) = value {
                 let mut value = value.borrow_mut();
@@ -1873,18 +1873,20 @@ impl SignalId {
             // notify subscribers
             if updated.is_some() {
                 let subs = {
-                    let subs = runtime.signal_subscribers.borrow();
+                    let subs = runtime.node_subscribers.borrow();
                     let subs = subs.get(*self);
                     subs.map(|subs| subs.borrow().clone())
                 };
                 if let Some(subs) = subs {
                     for sub in subs {
                         let effect = {
-                            let effects = runtime.effects.borrow();
+                            let effects = runtime.nodes.borrow();
                             effects.get(sub).cloned()
                         };
-                        if let Some(effect) = effect {
-                            effect.run(sub, runtime_id);
+                        if let Some(node) = effect {
+                            if let ReactiveNodeType::Effect(effect) = node.node_type {
+                                effect.run(sub, runtime_id);
+                            }
                         }
                     }
                 }

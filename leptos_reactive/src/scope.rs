@@ -3,7 +3,7 @@ use crate::{
     console_warn,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext,
+    EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext, node::NodeId,
 };
 use futures::stream::FuturesUnordered;
 use std::{collections::HashMap, fmt};
@@ -228,9 +228,9 @@ impl Scope {
                     match property {
                         ScopeProperty::Signal(id) => {
                             // remove the signal
-                            runtime.signals.borrow_mut().remove(id);
+                            runtime.nodes.borrow_mut().remove(id);
                             let subs = runtime
-                                .signal_subscribers
+                                .node_subscribers
                                 .borrow_mut()
                                 .remove(id);
 
@@ -238,7 +238,7 @@ impl Scope {
                             // so that it doesn't try to read the (now disposed) signal
                             if let Some(subs) = subs {
                                 let source_map =
-                                    runtime.effect_sources.borrow();
+                                    runtime.node_sources.borrow();
                                 for effect in subs.borrow().iter() {
                                     if let Some(effect_sources) =
                                         source_map.get(*effect)
@@ -249,8 +249,8 @@ impl Scope {
                             }
                         }
                         ScopeProperty::Effect(id) => {
-                            runtime.effects.borrow_mut().remove(id);
-                            runtime.effect_sources.borrow_mut().remove(id);
+                            runtime.nodes.borrow_mut().remove(id);
+                            runtime.node_sources.borrow_mut().remove(id);
                         }
                         ScopeProperty::Resource(id) => {
                             runtime.resources.borrow_mut().remove(id);
@@ -313,8 +313,8 @@ slotmap::new_key_type! {
 
 #[derive(Debug)]
 pub(crate) enum ScopeProperty {
-    Signal(SignalId),
-    Effect(EffectId),
+    Signal(NodeId),
+    Effect(NodeId),
     Resource(ResourceId),
 }
 
