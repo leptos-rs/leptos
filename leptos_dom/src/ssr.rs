@@ -19,8 +19,8 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 /// let html = leptos::ssr::render_to_string(|cx| view! { cx,
 ///   <p>"Hello, world!"</p>
 /// });
-/// // static HTML includes some hydration info
-/// assert_eq!(html, "<p id=\"_0-1\">Hello, world!</p>");
+/// // trim off the beginning, which has a bunch of hydration info, for comparison
+/// assert!(html.contains("Hello, world!</p>"));
 /// # }}
 /// ```
 pub fn render_to_string<F, N>(f: F) -> String
@@ -380,7 +380,7 @@ impl View {
                 }
             }
             View::Element(el) => {
-                if let Some(prerendered) = el.prerendered {
+                let el_html = if let Some(prerendered) = el.prerendered {
                     prerendered
                 } else {
                     let tag_name = el.name;
@@ -424,6 +424,17 @@ impl View {
 
                         format!("<{tag_name}{attrs}>{children}</{tag_name}>")
                             .into()
+                    }
+                };
+                cfg_if! {
+                    if #[cfg(debug_assertions)] {
+                        if let Some(id) = el.view_marker {
+                            format!("<!--leptos-view|{id}|open-->{el_html}<!--leptos-view|{id}|close-->").into()
+                        } else {
+                            el_html
+                        }
+                    } else {
+                        el_html
                     }
                 }
             }
