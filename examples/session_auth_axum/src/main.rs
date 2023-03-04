@@ -13,6 +13,7 @@ if #[cfg(feature = "ssr")] {
     };
     use session_auth_axum::todo::*;
     use session_auth_axum::auth::*;
+    use session_auth_axum::*;
     use session_auth_axum::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
     use leptos::{log, view, provide_context, LeptosOptions, get_configuration, ServerFnError};
@@ -31,7 +32,7 @@ if #[cfg(feature = "ssr")] {
         }, request).await
     }
 
-    async fn leptos_routes_handler(pool: Extension<SqlitePool>, auth_session: AuthSession, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
+    async fn leptos_routes_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
             let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
             move |cx| {
                 provide_context(cx, auth_session.clone());
@@ -49,7 +50,6 @@ if #[cfg(feature = "ssr")] {
         let pool = SqlitePoolOptions::new()
             .connect("sqlite:Todos.db")
             .await
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))
             .expect("Could not make pool.");
 
         // Auth section
@@ -63,7 +63,7 @@ if #[cfg(feature = "ssr")] {
             .await
             .expect("could not run SQLx migrations");
 
-        session_auth_axum::todo::register_server_functions();
+        crate::todo::register_server_functions();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();

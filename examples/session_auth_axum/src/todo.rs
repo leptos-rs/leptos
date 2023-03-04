@@ -156,7 +156,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-        <Stylesheet id="leptos" href="/pkg/todo_app_sqlite_axum.css"/>
+        <Stylesheet id="leptos" href="/pkg/session_auth_axum.css"/>
         <Router>
             <header>
                 <A href="/"><h1>"My Tasks"</h1></A>
