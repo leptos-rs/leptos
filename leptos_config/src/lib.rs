@@ -5,7 +5,10 @@ pub mod errors;
 use crate::errors::LeptosConfigError;
 use config::{Config, File, FileFormat};
 use regex::Regex;
-use std::{convert::TryFrom, env::VarError, fs, net::SocketAddr, str::FromStr};
+use std::{
+    convert::TryFrom, env::VarError, fs, net::SocketAddr, path::Path,
+    str::FromStr,
+};
 use typed_builder::TypedBuilder;
 
 /// A Struct to allow us to parse LeptosOptions from the file. Not really needed, most interactions should
@@ -117,6 +120,7 @@ impl From<&str> for Env {
         from_str(str).unwrap_or_else(|err| panic!("{}", err))
     }
 }
+
 impl From<&Result<String, VarError>> for Env {
     fn from(input: &Result<String, VarError>) -> Self {
         match input {
@@ -134,48 +138,67 @@ impl TryFrom<String> for Env {
     }
 }
 
+/// Loads [LeptosOptions] from a Cargo.toml text content with layered overrides.
+/// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
+pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
+    let re: Regex = Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
+    let start = match re.find(text) {
+        Some(found) => found.start(),
+        None => return Err(LeptosConfigError::ConfigSectionNotFound),
+    };
+
+    // so that serde error messages have right line number
+    let newlines = text[..start].matches('\n').count();
+    let input = "\n".repeat(newlines) + &text[start..];
+    let toml = input
+        .replace("[package.metadata.leptos]", "[leptos_options]")
+        .replace('-', "_");
+    let settings = Config::builder()
+        // Read the "default" configuration file
+        .add_source(File::from_str(&toml, FileFormat::Toml))
+        // Layer on the environment-specific values.
+        // Add in settings from environment variables (with a prefix of LEPTOS and '_' as separator)
+        // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
+        .add_source(config::Environment::with_prefix("LEPTOS").separator("_"))
+        .build()?;
+
+    settings
+        .try_deserialize()
+        .map_err(|e| LeptosConfigError::ConfigError(e.to_string()))
+}
+
 /// Loads [LeptosOptions] from a Cargo.toml with layered overrides. If an env var is specified, like `LEPTOS_ENV`,
 /// it will override a setting in the file. It takes in an optional path to a Cargo.toml file. If None is provided,
 /// you'll need to set the options as environment variables or rely on the defaults. This is the preferred
 /// approach for cargo-leptos. If Some("./Cargo.toml") is provided, Leptos will read in the settings itself. This
-/// option currently does not allow dashes in file or foldernames, as all dashes become underscores
+/// option currently does not allow dashes in file or folder names, as all dashes become underscores
 pub async fn get_configuration(
     path: Option<&str>,
 ) -> Result<ConfFile, LeptosConfigError> {
     if let Some(path) = path {
-        let text = fs::read_to_string(path)
-            .map_err(|_| LeptosConfigError::ConfigNotFound)?;
-
-        let re: Regex =
-            Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
-        let start = match re.find(&text) {
-            Some(found) => found.start(),
-            None => return Err(LeptosConfigError::ConfigSectionNotFound),
-        };
-
-        // so that serde error messages have right line number
-        let newlines = text[..start].matches('\n').count();
-        let input = "\n".repeat(newlines) + &text[start..];
-        let toml = input
-            .replace("[package.metadata.leptos]", "[leptos_options]")
-            .replace('-', "_");
-        let settings = Config::builder()
-            // Read the "default" configuration file
-            .add_source(File::from_str(&toml, FileFormat::Toml))
-            // Layer on the environment-specific values.
-            // Add in settings from environment variables (with a prefix of LEPTOS and '_' as separator)
-            // E.g. `LEPTOS_RELOAD_PORT=5001 would set `LeptosOptions.reload_port`
-            .add_source(
-                config::Environment::with_prefix("LEPTOS").separator("_"),
-            )
-            .build()?;
-
-        settings
-            .try_deserialize()
-            .map_err(|e| LeptosConfigError::ConfigError(e.to_string()))
+        get_config_from_file(&path).await
     } else {
-        Ok(ConfFile {
-            leptos_options: LeptosOptions::try_from_env()?,
-        })
+        get_config_from_env()
     }
 }
+
+/// Loads [LeptosOptions] from a Cargo.toml with layered overrides. Leptos will read in the settings itself. This
+/// option currently does not allow dashes in file or folder names, as all dashes become underscores
+pub async fn get_config_from_file<P: AsRef<Path>>(
+    path: P,
+) -> Result<ConfFile, LeptosConfigError> {
+    let text = fs::read_to_string(path)
+        .map_err(|_| LeptosConfigError::ConfigNotFound)?;
+    get_config_from_str(&text)
+}
+
+/// Loads [LeptosOptions] from environment variables or rely on the defaults
+pub fn get_config_from_env() -> Result<ConfFile, LeptosConfigError> {
+    Ok(ConfFile {
+        leptos_options: LeptosOptions::try_from_env()?,
+    })
+}
+
+#[path = "tests.rs"]
+#[cfg(test)]
+mod tests;
