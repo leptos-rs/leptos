@@ -25,6 +25,7 @@ pub fn html_parts(
         true => format!(
             r#"
                 <script crossorigin="">(function () {{
+                    {}
                     var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
@@ -40,11 +41,15 @@ pub fn html_parts(
                             }});
                             if (!found) console.warn(`CSS hot-reload: Could not find a <link href=/\"${{msg.css}}\"> element`);
                         }};
+                        if(msg.view) {{
+                            patch(msg.view);
+                        }}
                     }};
                     ws.onclose = () => console.warn('Live-reload stopped. Manual reload necessary.');
                 }})()
                 </script>
-                "#
+                "#,
+            leptos_hot_reload::HOT_RELOAD_JS
         ),
         false => "".to_string(),
     };

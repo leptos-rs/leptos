@@ -1,0 +1,27 @@
+[package]
+name = "leptos_hot_reload"
+version = { workspace = true }
+edition = "2021"
+authors = ["Greg Johnston"]
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Utility types used for dev mode and hot-reloading for the Leptos web framework."
+readme = "../README.md"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+syn = { version = "1", features = [
+	"full",
+	"parsing",
+	"extra-traits",
+	"visit",
+	"printing",
+] }
+quote = "1"
+syn-rsx = "0.9"
+proc-macro2 = { version = "1", features = ["span-locations", "nightly"] }
+parking_lot = "0.12"
+walkdir = "2"
+camino = "1.1.3"
+indexmap = "1.9.2"

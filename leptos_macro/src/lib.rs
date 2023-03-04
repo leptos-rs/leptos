@@ -9,7 +9,7 @@ use proc_macro2::TokenTree;
 use quote::ToTokens;
 use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
-use syn_rsx::{parse, NodeAttribute, NodeElement};
+use syn_rsx::{parse, NodeAttribute};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -284,6 +284,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
     let (cx, comma) = (tokens.next(), tokens.next());
+
     match (cx, comma) {
         (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
             if punct.as_char() == ',' =>
@@ -328,6 +329,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     &nodes,
                     Mode::default(),
                     global_class.as_ref(),
+                    normalized_call_site(proc_macro::Span::call_site()),
                 ),
                 Err(error) => error.to_compile_error(),
             }
@@ -338,6 +340,20 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                 "view! macro needs a context and RSX: e.g., view! {{ cx, \
                  <div>...</div> }}"
             )
+        }
+    }
+}
+
+fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
+    cfg_if::cfg_if! {
+        if #[cfg(all(debug_assertions, not(feature = "stable")))] {
+            Some(leptos_hot_reload::span_to_stable_id(
+                site.source_file().path(),
+                site.into()
+            ))
+        } else {
+            _ = site;
+            None
         }
     }
 }
@@ -702,12 +718,6 @@ pub fn params_derive(
         Ok(ast) => params::impl_params(&ast),
         Err(err) => err.to_compile_error().into(),
     }
-}
-
-pub(crate) fn is_component_node(node: &NodeElement) -> bool {
-    node.name
-        .to_string()
-        .starts_with(|c: char| c.is_ascii_uppercase())
 }
 
 pub(crate) fn attribute_value(attr: &NodeAttribute) -> &syn::Expr {
