@@ -16,11 +16,13 @@ fn simple_ssr_test() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\"><button id=\"_0-2\">-1</button><span \
+            "<!--leptos-view|leptos-tests-ssr.rs-8|open--><div \
+             id=\"_0-1\"><button id=\"_0-2\">-1</button><span \
              id=\"_0-3\">Value: \
              <!--hk=_0-4o|leptos-dyn-child-start-->0<!\
              --hk=_0-4c|leptos-dyn-child-end-->!</span><button \
-             id=\"_0-5\">+1</button></div>"
+             id=\"_0-5\">+1</button></div><!--leptos-view|leptos-tests-ssr.\
+             rs-8|close-->"
         );
     });
 }
@@ -54,21 +56,25 @@ fn ssr_test_with_components() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" \
-             class=\"counters\"><!--hk=_0-1-0o|leptos-counter-start--><div \
+            "<!--leptos-view|leptos-tests-ssr.rs-49|open--><div id=\"_0-1\" \
+             class=\"counters\"><!--hk=_0-1-0o|leptos-counter-start--><!\
+             --leptos-view|leptos-tests-ssr.rs-38|open--><div \
              id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span \
              id=\"_0-1-3\">Value: \
              <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!\
              --hk=_0-1-4c|leptos-dyn-child-end-->!</span><button \
-             id=\"_0-1-5\">+1</button></div><!\
-             --hk=_0-1-0c|leptos-counter-end--><!\
-             --hk=_0-1-5-0o|leptos-counter-start--><div \
+             id=\"_0-1-5\">+1</button></div><!--leptos-view|leptos-tests-ssr.\
+             rs-38|close--><!--hk=_0-1-0c|leptos-counter-end--><!\
+             --hk=_0-1-5-0o|leptos-counter-start--><!\
+             --leptos-view|leptos-tests-ssr.rs-38|open--><div \
              id=\"_0-1-5-1\"><button id=\"_0-1-5-2\">-1</button><span \
              id=\"_0-1-5-3\">Value: \
              <!--hk=_0-1-5-4o|leptos-dyn-child-start-->2<!\
              --hk=_0-1-5-4c|leptos-dyn-child-end-->!</span><button \
              id=\"_0-1-5-5\">+1</button></div><!\
-             --hk=_0-1-5-0c|leptos-counter-end--></div>"
+             --leptos-view|leptos-tests-ssr.rs-38|close--><!\
+             --hk=_0-1-5-0c|leptos-counter-end--></div><!\
+             --leptos-view|leptos-tests-ssr.rs-49|close-->"
         );
     });
 }
@@ -102,22 +108,26 @@ fn ssr_test_with_snake_case_components() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" \
+            "<!--leptos-view|leptos-tests-ssr.rs-101|open--><div id=\"_0-1\" \
              class=\"counters\"><!\
-             --hk=_0-1-0o|leptos-snake-case-counter-start--><div \
+             --hk=_0-1-0o|leptos-snake-case-counter-start--><!\
+             --leptos-view|leptos-tests-ssr.rs-90|open--><div \
              id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span \
              id=\"_0-1-3\">Value: \
              <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!\
              --hk=_0-1-4c|leptos-dyn-child-end-->!</span><button \
-             id=\"_0-1-5\">+1</button></div><!\
-             --hk=_0-1-0c|leptos-snake-case-counter-end--><!\
-             --hk=_0-1-5-0o|leptos-snake-case-counter-start--><div \
+             id=\"_0-1-5\">+1</button></div><!--leptos-view|leptos-tests-ssr.\
+             rs-90|close--><!--hk=_0-1-0c|leptos-snake-case-counter-end--><!\
+             --hk=_0-1-5-0o|leptos-snake-case-counter-start--><!\
+             --leptos-view|leptos-tests-ssr.rs-90|open--><div \
              id=\"_0-1-5-1\"><button id=\"_0-1-5-2\">-1</button><span \
              id=\"_0-1-5-3\">Value: \
              <!--hk=_0-1-5-4o|leptos-dyn-child-start-->2<!\
              --hk=_0-1-5-4c|leptos-dyn-child-end-->!</span><button \
              id=\"_0-1-5-5\">+1</button></div><!\
-             --hk=_0-1-5-0c|leptos-snake-case-counter-end--></div>"
+             --leptos-view|leptos-tests-ssr.rs-90|close--><!\
+             --hk=_0-1-5-0c|leptos-snake-case-counter-end--></div><!\
+             --leptos-view|leptos-tests-ssr.rs-101|close-->"
         );
     });
 }
@@ -136,7 +146,9 @@ fn test_classes() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" class=\"my big  red car\"></div>"
+            "<!--leptos-view|leptos-tests-ssr.rs-142|open--><div id=\"_0-1\" \
+             class=\"my big  red \
+             car\"></div><!--leptos-view|leptos-tests-ssr.rs-142|close-->"
         );
     });
 }
@@ -158,8 +170,10 @@ fn ssr_with_styles() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<div id=\"_0-1\" class=\" myclass\"><button id=\"_0-2\" \
-             class=\"btn myclass\">-1</button></div>"
+            "<!--leptos-view|leptos-tests-ssr.rs-164|open--><div id=\"_0-1\" \
+             class=\" myclass\"><button id=\"_0-2\" class=\"btn \
+             myclass\">-1</button></div><!--leptos-view|leptos-tests-ssr.\
+             rs-164|close-->"
         );
     });
 }
@@ -178,7 +192,9 @@ fn ssr_option() {
 
         assert_eq!(
             rendered.into_view(cx).render_to_string(cx),
-            "<option id=\"_0-1\"></option>"
+            "<!--leptos-view|leptos-tests-ssr.rs-188|open--><option \
+             id=\"_0-1\"></option><!--leptos-view|leptos-tests-ssr.\
+             rs-188|close-->"
         );
     });
 }

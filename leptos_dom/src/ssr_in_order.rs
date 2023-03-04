@@ -180,6 +180,12 @@ impl View {
                 }
             }
             View::Element(el) => {
+                #[cfg(debug_assertions)]
+                if let Some(id) = &el.view_marker {
+                    chunks.push(StreamChunk::Sync(
+                        format!("<!--leptos-view|{id}|open-->").into(),
+                    ));
+                }
                 if let Some(prerendered) = el.prerendered {
                     chunks.push(StreamChunk::Sync(prerendered))
                 } else {
@@ -233,6 +239,12 @@ impl View {
                             format!("</{tag_name}>").into(),
                         ));
                     }
+                }
+                #[cfg(debug_assertions)]
+                if let Some(id) = &el.view_marker {
+                    chunks.push(StreamChunk::Sync(
+                        format!("<!--leptos-view|{id}|close-->").into(),
+                    ));
                 }
             }
             View::Transparent(_) => {}
