@@ -19,8 +19,8 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 /// let html = leptos::ssr::render_to_string(|cx| view! { cx,
 ///   <p>"Hello, world!"</p>
 /// });
-/// // static HTML includes some hydration info
-/// assert_eq!(html, "<p id=\"_0-1\">Hello, world!</p>");
+/// // trim off the beginning, which has a bunch of hydration info, for comparison
+/// assert!(html.contains("Hello, world!</p>"));
 /// # }}
 /// ```
 pub fn render_to_string<F, N>(f: F) -> String
