@@ -1,1 +1,1 @@
-pub mod paragraf;
+pub mod content_paragraph;
