@@ -491,6 +491,8 @@ fn attribute_to_tokens_ssr<'a>(
                             .unwrap_or_default(),
                     })
                 }
+            } else {
+                template.push_str(&name);
             }
         }
     };
