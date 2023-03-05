@@ -3,7 +3,7 @@ use crate::{
     console_warn,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    EffectId, PinnedFuture, ResourceId, SignalId, SuspenseContext, node::NodeId,
+    PinnedFuture, ResourceId, SuspenseContext, node::NodeId,
 };
 use futures::stream::FuturesUnordered;
 use std::{collections::HashMap, fmt};

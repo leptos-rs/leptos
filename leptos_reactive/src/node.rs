@@ -20,3 +20,10 @@ pub(crate) enum ReactiveNodeType {
     Memo,
     Effect(Rc<dyn AnyEffect>)
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ReactiveNodeState {
+    Clean,
+    Dirty,
+    Check
+}

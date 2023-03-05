@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, on_cleanup, ReadSignal, Scope, SignalGet,
-    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
+    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked, RuntimeId, node::NodeId, with_runtime,
 };
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Creates an efficient derived reactive value based on other reactive values.
 ///
@@ -145,23 +145,28 @@ where
 /// # }).dispose();
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub struct Memo<T>(
-    pub(crate) ReadSignal<Option<T>>,
-    #[cfg(debug_assertions)] pub(crate) &'static std::panic::Location<'static>,
-)
+pub struct Memo<T> 
 where
-    T: 'static;
+    T: 'static {
+    pub(crate) runtime: RuntimeId,
+    pub(crate) id: NodeId,
+    pub(crate) ty: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
+}
 
 impl<T> Clone for Memo<T>
 where
     T: 'static,
 {
     fn clone(&self) -> Self {
-        Self(
-            self.0,
+        Self {
+            runtime: self.runtime,
+            id: self.id,
+            ty: PhantomData,
             #[cfg(debug_assertions)]
-            self.1,
-        )
+            defined_at: self.defined_at
+        }
     }
 }
 
@@ -175,16 +180,16 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
             name = "Memo::get_untracked()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
     fn get_untracked(&self) -> T {
-        // Unwrapping is fine because `T` will already be `Some(T)` by
-        // the time this method can be called
-        self.0.get_untracked().unwrap()
+        with_runtime(self.runtime, move |runtime| {
+            self.id.try_with_no_subscription(runtime, T::clone).unwrap()
+        }).unwrap()
     }
 
     #[cfg_attr(
@@ -194,14 +199,16 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
             name = "Memo::try_get_untracked()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
     fn try_get_untracked(&self) -> Option<T> {
-        self.0.try_get_untracked().flatten()
+        with_runtime(self.runtime, move |runtime| {
+            self.id.try_with_no_subscription(runtime, T::clone).ok()
+        }).ok().flatten()
     }
 }
 
@@ -213,8 +220,8 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             name = "Memo::with_untracked()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
@@ -222,7 +229,9 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         // Unwrapping here is fine for the same reasons as <Memo as
         // UntrackedSignal>::get_untracked
-        self.0.with_untracked(|v| f(v.as_ref().unwrap()))
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with_no_subscription(runtime, |v: &T| f(v)).unwrap()
+        }).unwrap()
     }
 
     #[cfg_attr(
@@ -232,14 +241,16 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             name = "Memo::try_with_untracked()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with_untracked(|t| f(t.as_ref().unwrap()))
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
+        }).ok().flatten()
     }
 }
 
@@ -267,13 +278,13 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             level = "trace",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1
+                id = ?self.id,
+                defined_at = %self.defined_at
             )
         )
     )]
     fn get(&self) -> T {
-        self.0.get().unwrap()
+        self.with(T::clone)
     }
 
     #[cfg_attr(
@@ -283,14 +294,14 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             name = "Memo::try_get()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
     fn try_get(&self) -> Option<T> {
-        self.0.try_get().flatten()
+        self.try_with(T::clone)
     }
 }
 
@@ -302,14 +313,14 @@ impl<T> SignalWith<T> for Memo<T> {
             name = "Memo::with()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.0.with(|t| f(t.as_ref().unwrap()))
+        self.try_with(f).unwrap()
     }
 
     #[cfg_attr(
@@ -319,14 +330,17 @@ impl<T> SignalWith<T> for Memo<T> {
             name = "Memo::try_with()",
             skip_all,
             fields(
-                id = ?self.0.id,
-                defined_at = %self.1,
+                id = ?self.id,
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )
     )]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with(|t| f(t.as_ref().unwrap())).ok()
+        with_runtime(self.runtime, |runtime| {
+        self.id.subscribe(runtime);
+        self.id.try_with_no_subscription(runtime, f).ok()
+        }).ok().flatten()
     }
 }
 

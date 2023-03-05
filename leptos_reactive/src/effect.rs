@@ -145,11 +145,6 @@ where
     create_effect(cx, f);
 }
 
-slotmap::new_key_type! {
-    /// Unique ID assigned to an [Effect](crate::Effect).
-    pub(crate) struct EffectId;
-}
-
 pub(crate) struct Effect<T, F>
 where
     T: 'static,

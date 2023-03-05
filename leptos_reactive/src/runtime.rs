@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 use crate::{
-    hydration::SharedContext, AnyEffect, AnyResource, Effect, EffectId, Memo,
+    hydration::SharedContext, AnyEffect, AnyResource, Effect, 
     ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer,
-    ScopeId, ScopeProperty, SerializableResource, SignalId, SignalUpdate,
-    UnserializableResource, WriteSignal, node::{NodeId, ReactiveNode, ReactiveNodeType},
+    ScopeId, ScopeProperty, SerializableResource, SignalUpdate,
+    UnserializableResource, WriteSignal, node::{NodeId, ReactiveNode, ReactiveNodeType, ReactiveNodeState}, Memo,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -16,7 +16,7 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    rc::Rc,
+    rc::Rc
 };
 
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -288,25 +288,20 @@ impl RuntimeId {
         #[cfg(debug_assertions)]
         let defined_at = std::panic::Location::caller();
 
-        let (read, write) = self.create_signal(None);
+        let id = with_runtime(self, |runtime| {
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value: Rc::new(RefCell::new(None::<T>)),
+                node_type: ReactiveNodeType::Memo,
+            })
+        })
+        .expect("tried to create an effect in a runtime that has been disposed");
 
-        self.create_effect(move |_| {
-            let (new, changed) = read.with_no_subscription(|p| {
-                let new = f(p.as_ref());
-                let changed = Some(&new) != p.as_ref();
-                (new, changed)
-            });
-
-            if changed {
-                write.update(|n| *n = Some(new));
-            }
-        });
-
-        Memo(
-            read,
-            #[cfg(debug_assertions)]
+        Memo {
+            runtime: self,
+            id,
+            ty: PhantomData,
             defined_at,
-        )
+        }
     }
 }
 
@@ -324,11 +319,87 @@ pub(crate) struct Runtime {
     pub scope_cleanups:
         RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
+    pub node_states: RefCell<SecondaryMap<NodeId, ReactiveNodeState>>,
     pub node_subscribers:
         RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
     pub node_sources:
         RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
+    pub pending_effects: RefCell<Vec<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
+}
+
+impl Runtime {
+    pub(crate) fn mark_dirty(&self, node: NodeId) {
+        let nodes = self.nodes.borrow();
+        let mut pending_effects = self.pending_effects.borrow_mut();
+        let mut states = self.node_states.borrow_mut();
+        let subscribers = self.node_subscribers.borrow();
+        let children = subscribers.get(node);
+        if let Some(children) = children {
+            // collect descendants to mark as Check
+            let mut descendants = Vec::new();
+
+            // mark immediate children dirty
+            for child in children.borrow().iter() {
+                states.insert(*child, ReactiveNodeState::Dirty);
+                Runtime::gather_descendants(&subscribers, *child, &mut descendants);
+                match nodes.get(*child) {
+                    Some(ReactiveNode { node_type: ReactiveNodeType::Effect(_), ..}) => {
+                       pending_effects.push(*child); 
+                    }
+                    _ => {}
+                }
+            }
+
+            // mark descendants check
+            for descendant in descendants {
+                match states.get_mut(descendant) {
+                    // if already dirty or check, noop
+                    Some(ReactiveNodeState::Dirty) | Some(ReactiveNodeState::Check) => {}
+                    // if clean, mark dirty 
+                    Some(state) => {
+                        *state = ReactiveNodeState::Dirty;
+                    }
+                    None => {
+                        states.insert(descendant, ReactiveNodeState::Check);
+                    }
+                };
+
+                match nodes.get(descendant) {
+                    Some(ReactiveNode { node_type: ReactiveNodeType::Effect(_), ..}) => {
+                       pending_effects.push(descendant); 
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    fn gather_descendants(subscribers: &SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>, node: NodeId, descendants: &mut Vec<NodeId>) {
+        if let Some(children) = subscribers.get(node) {
+            for child in children.borrow().iter() {
+                descendants.push(*child);
+                Runtime::gather_descendants(subscribers, *child, descendants);
+            }
+        }
+    }
+
+    pub(crate) fn run_effects(runtime_id: RuntimeId) {
+        with_runtime(runtime_id, |runtime| {
+            let effects = runtime.pending_effects.take();
+            for effect in effects {
+                let should_run = {
+                    matches!(
+                        runtime.nodes.borrow().get(effect),
+                        Some(ReactiveNode { node_type: ReactiveNodeType::Effect(_), ..})
+                    )
+                };
+                if should_run {
+                    effect.run_effect(runtime_id);
+                }
+            }
+        });
+    }
 }
 
 impl Debug for Runtime {

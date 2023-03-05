@@ -4,7 +4,7 @@ use crate::{
     macros::debug_warn,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, node::{NodeId, ReactiveNodeType},
+    Runtime, Scope, ScopeProperty, node::{NodeId, ReactiveNodeType}, queue_microtask,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
@@ -1722,12 +1722,6 @@ impl<T> RwSignal<T> {
     }
 }
 
-// Internals
-slotmap::new_key_type! {
-    /// Unique ID assigned to a signal.
-    pub struct SignalId;
-}
-
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
     #[error("tried to access a signal in a runtime that had been disposed")]
@@ -1742,16 +1736,16 @@ impl NodeId {
     pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
-            // add this observer to the signal's dependencies (to allow notification)
+            // add this observer to this node's dependencies (to allow notification)
             let mut subs = runtime.node_subscribers.borrow_mut();
             if let Some(subs) = subs.entry(*self) {
                 subs.or_default().borrow_mut().insert(observer);
             }
 
-            // add this signal to the effect's sources (to allow cleanup)
-            let mut effect_sources = runtime.node_sources.borrow_mut();
-            if let Some(effect_sources) = effect_sources.entry(observer) {
-                let sources = effect_sources.or_default();
+            // add this node to the observer's sources (to allow cleanup)
+            let mut sources = runtime.node_sources.borrow_mut();
+            if let Some(sources) = sources.entry(observer) {
+                let sources = sources.or_default();
                 sources.borrow_mut().insert(*self);
             }
         }
@@ -1870,9 +1864,15 @@ impl NodeId {
             // update the value
             let updated = self.update_value(runtime_id, f);
 
+            // mark descendants dirty
+            runtime.mark_dirty(*self);
+
             // notify subscribers
             if updated.is_some() {
-                let subs = {
+                //queue_microtask(move || {
+                    Runtime::run_effects(runtime_id);
+                //});
+                /*let subs = {
                     let subs = runtime.node_subscribers.borrow();
                     let subs = subs.get(*self);
                     subs.map(|subs| subs.borrow().clone())
@@ -1889,7 +1889,7 @@ impl NodeId {
                             }
                         }
                     }
-                }
+                }*/
             };
             updated
         })
