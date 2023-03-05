@@ -110,18 +110,24 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 }
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
-/// and other data without consuming the body.
-pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
+/// and other data without consuming the body. Creates a new Request from the
+/// original parts for further processsing
+pub async fn generate_request_parts(
+    req: Request<Body>,
+) -> (Request<Body>, RequestParts) {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
     let body = body::to_bytes(body).await.unwrap_or_default();
-    RequestParts {
-        method: parts.method,
-        uri: parts.uri,
-        headers: parts.headers,
+    let request_parts = RequestParts {
+        method: parts.method.clone(),
+        uri: parts.uri.clone(),
+        headers: parts.headers.clone(),
         version: parts.version,
-        body,
-    }
+        body: body.clone(),
+    };
+    let request = Request::from_parts(parts, body.into());
+
+    (request, request_parts)
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
@@ -218,9 +224,11 @@ async fn handle_server_fns_inner(
 
                             additional_context(cx);
 
-                            let req_parts = generate_request_parts(req).await;
+                            let (req, req_parts) =
+                                generate_request_parts(req).await;
                             // Add this so we can get details about the Request
                             provide_context(cx, req_parts.clone());
+                            provide_context(cx, Arc::new(req));
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
@@ -556,9 +564,9 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_parts(req).await;
                                                 move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                    provide_contexts(cx, full_path, req_parts,req, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -724,9 +732,9 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_parts(req).await;
                                                 move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                    provide_contexts(cx, full_path, req_parts,req, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -752,16 +760,18 @@ where
     }
 }
 
-fn provide_contexts(
+fn provide_contexts<B: 'static>(
     cx: Scope,
     path: String,
     req_parts: RequestParts,
+    req: Request<B>,
     default_res_options: ResponseOptions,
 ) {
     let integration = ServerIntegration { path };
     provide_context(cx, RouterIntegrationContext::new(integration));
     provide_context(cx, MetaContext::new());
     provide_context(cx, req_parts);
+    provide_context(cx, Arc::new(req));
     provide_context(cx, default_res_options);
     provide_server_redirect(cx, move |path| redirect(cx, path));
 }
@@ -904,9 +914,9 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_parts(req).await;
                                                 move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                    provide_contexts(cx, full_path, req_parts,req, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
