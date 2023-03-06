@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 use crate::{
-    hydration::SharedContext, AnyEffect, AnyResource, Effect, 
-    ReadSignal, ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer,
-    ScopeId, ScopeProperty, SerializableResource, SignalUpdate,
-    UnserializableResource, WriteSignal, node::{NodeId, ReactiveNode, ReactiveNodeType, ReactiveNodeState}, Memo,
+    hydration::SharedContext,
+    node::{NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
+    AnyEffect, AnyMemo, AnyResource, Effect, Memo, MemoState, ReadSignal,
+    ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
+    ScopeProperty, SerializableResource, SignalError, SignalUpdate,
+    UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -16,7 +18,7 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    rc::Rc
+    rc::Rc,
 };
 
 pub(crate) type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
@@ -131,13 +133,13 @@ impl RuntimeId {
         self,
         value: Rc<RefCell<dyn Any>>,
     ) -> NodeId {
-        with_runtime(self, |runtime| runtime.nodes.borrow_mut().insert(ReactiveNode {
-            value,
-            node_type: ReactiveNodeType::Signal
-        }))
-            .expect(
-                "tried to create a signal in a runtime that has been disposed",
-            )
+        with_runtime(self, |runtime| {
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value,
+                node_type: ReactiveNodeType::Signal,
+            })
+        })
+        .expect("tried to create a signal in a runtime that has been disposed")
     }
 
     #[track_caller]
@@ -194,10 +196,12 @@ impl RuntimeId {
             signals.reserve(size);
             properties.reserve(size);
             values
-                .map(|value| signals.insert(ReactiveNode {
-                    value: Rc::new(RefCell::new(value)),
-                    node_type: ReactiveNodeType::Signal
-                }))
+                .map(|value| {
+                    signals.insert(ReactiveNode {
+                        value: Rc::new(RefCell::new(value)),
+                        node_type: ReactiveNodeType::Signal,
+                    })
+                })
                 .map(|id| {
                     properties.push(ScopeProperty::Signal(id));
                     (
@@ -243,13 +247,24 @@ impl RuntimeId {
     #[track_caller]
     pub(crate) fn create_concrete_effect(
         self,
+        value: Rc<RefCell<dyn Any>>,
         effect: Rc<dyn AnyEffect>,
     ) -> NodeId {
         with_runtime(self, |runtime| {
-            runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: effect.default_value(),
-                node_type: ReactiveNodeType::Effect(effect)
-            })
+            let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value: Rc::clone(&value),
+                node_type: ReactiveNodeType::Effect(Rc::clone(&effect)),
+            });
+
+            // run the effect for the first time
+            let prev_observer = runtime.observer.take();
+            runtime.observer.set(Some(id));
+
+            effect.run(value);
+
+            runtime.observer.set(prev_observer);
+
+            id
         })
         .expect("tried to create an effect in a runtime that has been disposed")
     }
@@ -267,13 +282,14 @@ impl RuntimeId {
 
         let effect = Effect {
             f,
-            value: RefCell::new(None),
+            ty: PhantomData,
             #[cfg(debug_assertions)]
             defined_at,
         };
 
-        let id = self.create_concrete_effect(Rc::new(effect));
-        id.run_effect(self);
+        let value = Rc::new(RefCell::new(None::<T>));
+        let id = self.create_concrete_effect(value, Rc::new(effect));
+
         id
     }
 
@@ -291,15 +307,22 @@ impl RuntimeId {
         let id = with_runtime(self, |runtime| {
             runtime.nodes.borrow_mut().insert(ReactiveNode {
                 value: Rc::new(RefCell::new(None::<T>)),
-                node_type: ReactiveNodeType::Memo,
+                // starts at dirty because memos are lazy
+                // when created, this has never run
+                node_type: ReactiveNodeType::Memo {
+                    state: ReactiveNodeState::Dirty,
+                    f: Rc::new(MemoState { f, t: PhantomData }),
+                },
             })
         })
-        .expect("tried to create an effect in a runtime that has been disposed");
+        .expect("tried to create a memo in a runtime that has been disposed");
+        eprintln!("created memo {id:?}");
 
         Memo {
             runtime: self,
             id,
             ty: PhantomData,
+            #[cfg(debug_assertions)]
             defined_at,
         }
     }
@@ -319,20 +342,157 @@ pub(crate) struct Runtime {
     pub scope_cleanups:
         RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
-    pub node_states: RefCell<SecondaryMap<NodeId, ReactiveNodeState>>,
     pub node_subscribers:
         RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
-    pub node_sources:
-        RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
+    pub node_sources: RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
     pub pending_effects: RefCell<Vec<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
 
 impl Runtime {
-    pub(crate) fn mark_dirty(&self, node: NodeId) {
-        let nodes = self.nodes.borrow();
+    pub(crate) fn latest_value(
+        &self,
+        node_id: NodeId,
+    ) -> Result<Rc<RefCell<dyn Any>>, SignalError> {
+        eprintln!("getting latest value for {node_id:?}");
+        let node = { self.nodes.borrow().get(node_id).cloned() };
+        match node {
+            None => Err(SignalError::Disposed),
+            Some(ReactiveNode { value, node_type }) => {
+                Ok(match node_type {
+                    ReactiveNodeType::Signal | ReactiveNodeType::Effect(_) => {
+                        eprintln!("  is signal, returning value");
+                        Rc::clone(&value)
+                    }
+                    ReactiveNodeType::Memo { state, f } => {
+                        match state {
+                            ReactiveNodeState::Clean => {
+                                eprintln!("  clean, returning value");
+                                Rc::clone(&value)
+                            }
+                            ReactiveNodeState::Dirty => {
+                                eprintln!("  dirty, rerunning");
+                                let changed = self.with_observer(node_id, || {
+                                    f.update(Rc::clone(&value))
+                                });
+                                self.mark_clean(node_id);
+                                if changed {
+                                    self.mark_children_dirty(node_id);
+                                }
+
+                                value
+                            }
+                            ReactiveNodeState::Check => {
+                                eprintln!("  checking parents");
+                                let parents = self.node_sources.borrow().get(node_id)
+                                    .map(|parents| parents.borrow().clone().into_iter()).into_iter().flatten();
+                                // check each parent
+                                for parent in parents {
+                                    eprintln!("    checking {parent:?}");
+                                    _ = self.latest_value(parent);
+                                }
+
+                                let state = self.current_state(node_id);
+                                eprintln!("current state of {node_id:?} is {state:?}");
+                                let value = if state == ReactiveNodeState::Dirty {
+                                    let changed = self.with_observer(node_id, || {
+                                        f.update(Rc::clone(&value))
+                                    });
+                                    if changed {
+                                        self.mark_children_dirty(node_id);
+                                    }
+
+                                    value
+                                } else {
+                                    Rc::clone(&value)
+                                };
+                                self.mark_clean(node_id);
+                                value
+
+                                // check if we're marked dirty
+                                // check to see if any of the parents are dirty
+                                /*let parents = self
+                                    .node_sources
+                                    .borrow()
+                                    .get(node_id)
+                                    .cloned()
+                                    .map(|n| n.borrow().clone())
+                                    .into_iter()
+                                    .flatten();
+                                let mut possibly_dirty_parents = parents.flat_map(|node_id| {
+                                    let f = Rc::clone(&f);
+                                    self.nodes.borrow().get(node_id).cloned().into_iter().filter_map(move |node| match &node.node_type {
+                                        ReactiveNodeType::Signal | ReactiveNodeType::Effect(_) => None,
+                                        ReactiveNodeType::Memo { state, .. } => {
+                                            match state {
+                                                ReactiveNodeState::Clean => None,
+                                                _ => Some((node_id, Rc::clone(&node.value), f.clone()))
+                                        }
+                                    }
+                                    })
+                                })
+                                .filter(|(parent_id, parent_value, parent)| {
+                                        let changed = self.with_observer(*parent_id, || {
+                                            eprintln!("updating {parent_id:?}");
+                                            parent.update(Rc::clone(&parent_value))
+                                        });
+                                        self.mark_clean(*parent_id);
+                                        changed
+                                });
+                                if possibly_dirty_parents.next().is_some() {
+                                    self.with_observer(node_id, || {
+                                        f.update(Rc::clone(&value))
+                                    });
+                                    self.mark_clean(node_id);
+                                    Rc::clone(&value)
+                                } else {
+                                    eprintln!("    no dirty parents");
+                                    Rc::clone(&value)
+                                }*/
+                            }
+                        }
+                    }
+                })
+            }
+        }
+    }
+
+    fn current_state(&self, node: NodeId) -> ReactiveNodeState {
+        match self.nodes.borrow().get(node) {
+            None => ReactiveNodeState::Clean,
+            Some(node) => match &node.node_type {
+                ReactiveNodeType::Signal => ReactiveNodeState::Clean,
+                ReactiveNodeType::Memo { state, f } => *state,
+                ReactiveNodeType::Effect(_) => ReactiveNodeState::Clean,
+            },
+        }
+    }
+
+    fn with_observer<T>(&self, observer: NodeId, f: impl FnOnce() -> T) -> T {
+        let prev_observer = self.observer.take();
+        self.observer.set(Some(observer));
+        let v = f();
+        self.observer.set(prev_observer);
+        v
+    }
+
+    fn mark_clean(&self, node: NodeId) {
+        eprintln!("marking {node:?} clean");
+        let mut nodes = self.nodes.borrow_mut();
+        let node = nodes.get_mut(node);
+        if let Some(ReactiveNode {
+            node_type: ReactiveNodeType::Memo { state, .. },
+            ..
+        }) = node
+        {
+            *state = ReactiveNodeState::Clean
+        }
+    }
+
+    pub(crate) fn mark_children_dirty(&self, node: NodeId) {
+        eprintln!("marking {node:?} dirty");
+        let mut nodes = self.nodes.borrow_mut();
         let mut pending_effects = self.pending_effects.borrow_mut();
-        let mut states = self.node_states.borrow_mut();
         let subscribers = self.node_subscribers.borrow();
         let children = subscribers.get(node);
         if let Some(children) = children {
@@ -341,41 +501,62 @@ impl Runtime {
 
             // mark immediate children dirty
             for child in children.borrow().iter() {
-                states.insert(*child, ReactiveNodeState::Dirty);
-                Runtime::gather_descendants(&subscribers, *child, &mut descendants);
-                match nodes.get(*child) {
-                    Some(ReactiveNode { node_type: ReactiveNodeType::Effect(_), ..}) => {
-                       pending_effects.push(*child); 
-                    }
-                    _ => {}
-                }
+                Runtime::mark(
+                    &mut *nodes,
+                    *child,
+                    ReactiveNodeState::Dirty,
+                    &mut *pending_effects,
+                );
+                Runtime::gather_descendants(
+                    &subscribers,
+                    *child,
+                    &mut descendants,
+                );
             }
 
             // mark descendants check
             for descendant in descendants {
-                match states.get_mut(descendant) {
-                    // if already dirty or check, noop
-                    Some(ReactiveNodeState::Dirty) | Some(ReactiveNodeState::Check) => {}
-                    // if clean, mark dirty 
-                    Some(state) => {
-                        *state = ReactiveNodeState::Dirty;
-                    }
-                    None => {
-                        states.insert(descendant, ReactiveNodeState::Check);
-                    }
-                };
-
-                match nodes.get(descendant) {
-                    Some(ReactiveNode { node_type: ReactiveNodeType::Effect(_), ..}) => {
-                       pending_effects.push(descendant); 
-                    }
-                    _ => {}
-                }
+                Runtime::mark(
+                    &mut *nodes,
+                    descendant,
+                    ReactiveNodeState::Check,
+                    &mut *pending_effects,
+                );
             }
         }
     }
 
-    fn gather_descendants(subscribers: &SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>, node: NodeId, descendants: &mut Vec<NodeId>) {
+    fn mark(
+        nodes: &mut SlotMap<NodeId, ReactiveNode>,
+        node: NodeId,
+        level: ReactiveNodeState,
+        pending_effects: &mut Vec<NodeId>,
+    ) {
+        eprintln!("marking {node:?} {level:?}");
+        match nodes.get_mut(node) {
+            Some(ReactiveNode {
+                node_type: ReactiveNodeType::Memo { state, .. },
+                ..
+            }) => {
+                if level > *state {
+                    *state = level;
+                }
+            }
+            Some(ReactiveNode {
+                node_type: ReactiveNodeType::Effect(_),
+                ..
+            }) => {
+                pending_effects.push(node);
+            }
+            _ => {}
+        }
+    }
+
+    fn gather_descendants(
+        subscribers: &SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>,
+        node: NodeId,
+        descendants: &mut Vec<NodeId>,
+    ) {
         if let Some(children) = subscribers.get(node) {
             for child in children.borrow().iter() {
                 descendants.push(*child);
@@ -387,15 +568,25 @@ impl Runtime {
     pub(crate) fn run_effects(runtime_id: RuntimeId) {
         with_runtime(runtime_id, |runtime| {
             let effects = runtime.pending_effects.take();
-            for effect in effects {
-                let should_run = {
-                    matches!(
-                        runtime.nodes.borrow().get(effect),
-                        Some(ReactiveNode { node_type: ReactiveNodeType::Effect(_), ..})
-                    )
-                };
-                if should_run {
-                    effect.run_effect(runtime_id);
+            for effect_id in effects {
+                let node = { runtime.nodes.borrow().get(effect_id).cloned() };
+                if let Some(ReactiveNode {
+                    value,
+                    node_type: ReactiveNodeType::Effect(effect),
+                }) = node
+                {
+                    // clear previous dependencies
+                    effect_id.cleanup(runtime);
+
+                    // set this as the current observer
+                    let prev_observer = runtime.observer.take();
+                    runtime.observer.set(Some(effect_id));
+
+                    // run the effect
+                    effect.run(value);
+
+                    // restore the previous observer
+                    runtime.observer.set(prev_observer);
                 }
             }
         });

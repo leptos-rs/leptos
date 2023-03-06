@@ -1,12 +1,11 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
-    queue_microtask,
     runtime::{with_runtime, RuntimeId},
     serialization::Serializable,
     spawn::spawn_local,
     use_context, Memo, ReadSignal, Scope, ScopeProperty, SignalUpdate,
-    SignalWith, SuspenseContext, WriteSignal,
+    SignalWith, SuspenseContext, WriteSignal, queue_microtask,
 };
 use std::{
     any::Any,

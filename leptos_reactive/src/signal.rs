@@ -323,6 +323,7 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
+    eprintln!("created signal {:?}", s.0.id);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }
@@ -1759,29 +1760,13 @@ impl NodeId {
     where
         T: 'static,
     {
-        // get the value
-        let node = {
-            let signals = runtime.nodes.borrow();
-            match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
-                Ok(s) => Ok(s),
-                Err(e) => {
-                    debug_warn!("[Signal::try_with] {e}");
-                    Err(e)
-                }
-            }
-        }?;
-        let value = node.value.try_borrow().unwrap_or_else(|e| {
-            debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It \
-                 seems you're trying to read the value of a signal within an \
-                 effect caused by updating the signal.",
-                std::any::type_name::<T>()
-            );
-            panic!("{e}");
-        });
+        let value = runtime.latest_value(*self).expect("latest value unwrap");
+
+        let value = value.borrow();
         let value = value
             .downcast_ref::<T>()
-            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
+            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))
+            .expect("downcast issue");
         Ok(f(value))
     }
 
@@ -1861,17 +1846,18 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
+            eprintln!("updating signal");
             // update the value
             let updated = self.update_value(runtime_id, f);
 
             // mark descendants dirty
-            runtime.mark_dirty(*self);
+            runtime.mark_children_dirty(*self);
 
             // notify subscribers
             if updated.is_some() {
-                //queue_microtask(move || {
+                queue_microtask(move || {
                     Runtime::run_effects(runtime_id);
-                //});
+                });
                 /*let subs = {
                     let subs = runtime.node_subscribers.borrow();
                     let subs = subs.get(*self);

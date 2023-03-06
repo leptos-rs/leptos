@@ -3,7 +3,7 @@ use crate::{
     create_effect, on_cleanup, ReadSignal, Scope, SignalGet,
     SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked, RuntimeId, node::NodeId, with_runtime,
 };
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, rc::Rc, cell::RefCell, any::Any};
 
 /// Creates an efficient derived reactive value based on other reactive values.
 ///
@@ -155,6 +155,7 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
+
 impl<T> Clone for Memo<T>
 where
     T: 'static,
@@ -188,8 +189,8 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     )]
     fn get_untracked(&self) -> T {
         with_runtime(self.runtime, move |runtime| {
-            self.id.try_with_no_subscription(runtime, T::clone).unwrap()
-        }).unwrap()
+            self.id.try_with_no_subscription(runtime, T::clone).expect("no value found for memo")
+        }).expect("runtime has been disposed")
     }
 
     #[cfg_attr(
@@ -230,8 +231,8 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
         // Unwrapping here is fine for the same reasons as <Memo as
         // UntrackedSignal>::get_untracked
         with_runtime(self.runtime, |runtime| {
-            self.id.try_with_no_subscription(runtime, |v: &T| f(v)).unwrap()
-        }).unwrap()
+            self.id.try_with_no_subscription(runtime, |v: &T| f(v)).expect("with_untracked memo value not found")
+        }).expect("runtime has been disposed")
     }
 
     #[cfg_attr(
@@ -320,7 +321,7 @@ impl<T> SignalWith<T> for Memo<T> {
         )
     )]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.try_with(f).unwrap()
+        self.try_with(f).expect("with unwrapped")
     }
 
     #[cfg_attr(
@@ -337,9 +338,15 @@ impl<T> SignalWith<T> for Memo<T> {
         )
     )]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        // memo is stored as Option<T>, but will always have T available
+        // after latest_value() called, so we can unwrap safely 
+        let f = move |maybe_value: &Option<T>| {
+            f(&maybe_value.as_ref().unwrap())
+        };
+
         with_runtime(self.runtime, |runtime| {
-        self.id.subscribe(runtime);
-        self.id.try_with_no_subscription(runtime, f).ok()
+            self.id.subscribe(runtime);
+            self.id.try_with_no_subscription(runtime, f).ok()
         }).ok().flatten()
     }
 }
@@ -365,14 +372,38 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
     }
 }
 
-impl<T> Memo<T>
-where
-    T: 'static,
-{
-    #[cfg(feature = "hydrate")]
-    pub(crate) fn subscribe(&self) {
-        self.0.subscribe()
+impl_get_fn_traits![Memo];
+
+pub(crate) struct MemoState<T, F> where T: PartialEq + 'static, F: Fn(Option<&T>) -> T {
+    pub f: F,
+    pub t: PhantomData<T>
+}
+
+pub(crate) trait AnyMemo {
+    /// Reruns the memo function, returning whether the value has actually changed
+    fn update(&self, value: Rc<RefCell<dyn Any>>) -> bool;
+}
+
+impl<T, F> AnyMemo for MemoState<T, F> where T: PartialEq + 'static, F: Fn(Option<&T>) -> T {
+    fn update(&self, value: Rc<RefCell<dyn Any>>) -> bool {
+        let (new_value, is_different) = {
+            let value = value.borrow();
+            let curr_value = value.downcast_ref::<Option<T>>()
+                .expect("to downcast effect value");
+
+            // run the effect
+            let new_value = (self.f)(curr_value.as_ref());
+            let is_different = curr_value.as_ref() != Some(&new_value);
+            (new_value, is_different)
+        };
+        if is_different {
+            let mut value = value.borrow_mut();
+            let mut curr_value = value.downcast_mut::<Option<T>>()
+                .expect("to downcast effect value");
+            *curr_value = Some(new_value);
+        }
+
+        is_different
     }
 }
 
-impl_get_fn_traits![Memo];

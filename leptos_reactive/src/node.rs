@@ -1,6 +1,6 @@
 use std::{rc::Rc, cell::RefCell, any::Any};
 
-use crate::AnyEffect;
+use crate::{AnyEffect, AnyMemo};
 
 
 slotmap::new_key_type! {
@@ -17,13 +17,16 @@ pub(crate) struct ReactiveNode {
 #[derive(Clone)]
 pub(crate) enum ReactiveNodeType {
     Signal,
-    Memo,
+    Memo {
+        state: ReactiveNodeState,
+        f: Rc<dyn AnyMemo>
+    },
     Effect(Rc<dyn AnyEffect>)
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum ReactiveNodeState {
     Clean,
-    Dirty,
-    Check
+    Check,
+    Dirty
 }
