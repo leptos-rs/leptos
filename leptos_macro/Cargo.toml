@@ -32,7 +32,7 @@ uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = "0.12"
+typed-builder = "0.13"
 trybuild = "1"
 leptos = { path = "../leptos" }
 
