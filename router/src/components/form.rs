@@ -453,7 +453,7 @@ where
     fn from_event(
         ev: &web_sys::Event,
     ) -> Result<Self, serde_urlencoded::de::Error> {
-        let (form, method, action, enctype) = extract_form_attributes(&ev);
+        let (form, _, _, _) = extract_form_attributes(ev);
 
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
 
