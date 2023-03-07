@@ -332,10 +332,11 @@ generate_event_types! {
 
 // Export `web_sys` event types
 pub use web_sys::{
-    AnimationEvent, BeforeUnloadEvent, CompositionEvent, DeviceMotionEvent,
-    DeviceOrientationEvent, DragEvent, ErrorEvent, FocusEvent, GamepadEvent,
-    HashChangeEvent, InputEvent, KeyboardEvent, MouseEvent,
-    PageTransitionEvent, PointerEvent, PopStateEvent, ProgressEvent,
-    PromiseRejectionEvent, SecurityPolicyViolationEvent, StorageEvent,
-    SubmitEvent, TouchEvent, TransitionEvent, UiEvent, WheelEvent,
+    AnimationEvent, BeforeUnloadEvent, CompositionEvent, CustomEvent,
+    DeviceMotionEvent, DeviceOrientationEvent, DragEvent, ErrorEvent, Event,
+    FocusEvent, GamepadEvent, HashChangeEvent, InputEvent, KeyboardEvent,
+    MouseEvent, PageTransitionEvent, PointerEvent, PopStateEvent,
+    ProgressEvent, PromiseRejectionEvent, SecurityPolicyViolationEvent,
+    StorageEvent, SubmitEvent, TouchEvent, TransitionEvent, UiEvent,
+    WheelEvent,
 };
