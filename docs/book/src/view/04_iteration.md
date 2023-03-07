@@ -13,7 +13,7 @@ Leptos supports to two different patterns for iterating over items:
 
 Sometimes you need to show an item repeatedly, but the list you’re drawing from 
 does not often change. In this case, it’s important to know that you can insert 
-any `Vec<IV> where IV: IntoView` into your view. In other views, if you can render
+any `Vec<IV> where IV: IntoView` into your view. In other words, if you can render
 `T`, you can render `Vec<T>`.
 
 ```rust
@@ -85,4 +85,4 @@ it is generated, and using that as an ID for the key function.
 
 Check out the `<DynamicList/>` component below for an example.
 
-<iframe src="https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D" width="100%" height="100px"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D" width="100%" height="1000px"></iframe>
