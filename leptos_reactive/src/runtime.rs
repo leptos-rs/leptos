@@ -349,6 +349,8 @@ pub(crate) struct Runtime {
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
 
+// In terms of concept and algorithm, this reactive-system implementation
+// is significantly inspired by Reactively (https://github.com/modderme123/reactively)
 impl Runtime {
     pub(crate) fn latest_value(
         &self,
