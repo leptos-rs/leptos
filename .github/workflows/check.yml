@@ -44,5 +44,5 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run tests with all features
+      - name: Run cargo check on all libraries
         run: cargo make check
