@@ -2,9 +2,10 @@
 use crate::{
     console_warn, create_effect,
     macros::debug_warn,
-    on_cleanup,
+    node::{NodeId, ReactiveNodeType},
+    on_cleanup, queue_microtask,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, node::{NodeId, ReactiveNodeType}, queue_microtask,
+    Runtime, Scope, ScopeProperty,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
@@ -323,7 +324,7 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    eprintln!("created signal {:?}", s.0.id);
+    //eprintln!("created signal {:?}", s.0.id);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }
@@ -1846,7 +1847,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            eprintln!("updating signal");
+            //eprintln!("updating signal");
             // update the value
             let updated = self.update_value(runtime_id, f);
 
@@ -1855,9 +1856,9 @@ impl NodeId {
 
             // notify subscribers
             if updated.is_some() {
-                queue_microtask(move || {
+                //queue_microtask(move || {
                     Runtime::run_effects(runtime_id);
-                });
+                //});
                 /*let subs = {
                     let subs = runtime.node_subscribers.borrow();
                     let subs = subs.get(*self);

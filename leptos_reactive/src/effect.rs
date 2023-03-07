@@ -1,11 +1,12 @@
 #![forbid(unsafe_code)]
 use crate::{
     macros::debug_warn,
+    node::{NodeId, ReactiveNodeType},
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, node::{NodeId, ReactiveNodeType},
+    Runtime, Scope, ScopeProperty,
 };
 use cfg_if::cfg_if;
-use std::{cell::RefCell, fmt::Debug, rc::Rc, any::Any, marker::PhantomData};
+use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 /// `create_effect` immediately runs the given function once, tracks its dependence
@@ -69,7 +70,7 @@ where
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
             let e = cx.runtime.create_effect(f);
-            eprintln!("created effect {e:?}");
+            //eprintln!("created effect {e:?}");
             cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
         } else {
             // clear warnings
@@ -124,7 +125,7 @@ pub fn create_isomorphic_effect<T>(
     T: 'static,
 {
     let e = cx.runtime.create_effect(f);
-    eprintln!("created effect {e:?}");
+    //eprintln!("created effect {e:?}");
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
 }
 
@@ -180,9 +181,10 @@ where
         )
     )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) {
-        // downcast value 
+        // downcast value
         let mut value = value.borrow_mut();
-        let value = value.downcast_mut::<Option<T>>()
+        let value = value
+            .downcast_mut::<Option<T>>()
             .expect("to downcast effect value");
         let curr_value = value.take();
 
