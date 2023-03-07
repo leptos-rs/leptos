@@ -34,6 +34,7 @@
 //!
 //! **Important**: All server functions must be registered by calling [ServerFn::register_in]
 //! somewhere within your `main` function.
+//! **Important**: Before calling a server function on a non-web platform, you must set the server URL by calling [`set_server_url`].
 //!
 //! ```rust,ignore
 //! #[server(ReadFromDB)]
@@ -54,6 +55,8 @@
 //!
 //! // make sure you've registered it somewhere in main
 //! fn main() {
+//!   // for non-web apps, you must set the server URL manually
+//!   server_fn::set_server_url("http://localhost:3000");
 //!   _ = ReadFromDB::register();
 //! }
 //! ```
@@ -353,8 +356,8 @@ where
     T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
     use ciborium::ser::into_writer;
-    use js_sys::Uint8Array;
     use serde_json::Deserializer as JSONDeserializer;
+    let url = format!("{}{}", get_server_url(), url);
 
     #[derive(Debug)]
     enum Payload {
@@ -385,18 +388,16 @@ where
     };
 
     let resp = match args_encoded {
-        Payload::Binary(b) => {
-            let slice_ref: &[u8] = &b;
-            let js_array = Uint8Array::from(slice_ref).buffer();
-            gloo_net::http::Request::post(url)
-                .header("Content-Type", content_type_header)
-                .header("Accept", accept_header)
-                .body(js_array)
-                .send()
-                .await
-                .map_err(|e| ServerFnError::Request(e.to_string()))?
-        }
-        Payload::Url(s) => gloo_net::http::Request::post(url)
+        Payload::Binary(b) => CLIENT
+            .post(url)
+            .header("Content-Type", content_type_header)
+            .header("Accept", accept_header)
+            .body(b)
+            .send()
+            .await
+            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+        Payload::Url(s) => CLIENT
+            .post(url)
             .header("Content-Type", content_type_header)
             .header("Accept", accept_header)
             .body(s)
@@ -407,17 +408,17 @@ where
 
     // check for error status
     let status = resp.status();
-    if (500..=599).contains(&status) {
-        return Err(ServerFnError::ServerError(resp.status_text()));
+    if (500..=599).contains(&status.as_u16()) {
+        return Err(ServerFnError::ServerError(status.to_string()));
     }
 
     if enc == Encoding::Cbor {
         let binary = resp
-            .binary()
+            .bytes()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
 
-        ciborium::de::from_reader(binary.as_slice())
+        ciborium::de::from_reader(binary.as_ref())
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
         let text = resp
@@ -429,4 +430,51 @@ where
         T::deserialize(&mut deserializer)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
+}
+
+// Lazily initialize the client to be reused for all server function calls.
+#[cfg(not(feature = "ssr"))]
+static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
+    once_cell::sync::Lazy::new(|| reqwest::Client::new());
+
+#[cfg(any(not(feature = "ssr"), doc))]
+static ROOT_URL: once_cell::sync::OnceCell<&'static str> =
+    once_cell::sync::OnceCell::new();
+
+#[cfg(any(not(feature = "ssr"), doc))]
+/// Set the root server url that all server function paths are relative to for the client. On WASM this will default to the origin.
+pub fn set_server_url(url: &'static str) {
+    ROOT_URL.set(url).unwrap();
+}
+
+#[cfg(not(feature = "ssr"))]
+#[cfg(not(target_arch = "wasm32"))]
+fn get_server_url() -> &'static str {
+    ROOT_URL
+        .get()
+        .expect("Call set_root_url before calling a server function.")
+}
+
+#[cfg(not(feature = "ssr"))]
+#[cfg(target_arch = "wasm32")]
+fn get_server_url() -> &'static str {
+    use once_cell::sync::Lazy;
+    // On WASM we can try to get the URL from the window location if it's not set.
+    static BACKUP_ROOT_URL: Lazy<Option<&'static str>> = Lazy::new(|| {
+        use web_sys::window;
+        Some(Box::leak(
+            window()?
+                .location()
+                .origin()
+                .ok()?
+                .trim_end_matches('/')
+                .to_string()
+                .into_boxed_str(),
+        ))
+    });
+    ROOT_URL
+        .get()
+        .copied()
+        .or(*BACKUP_ROOT_URL)
+        .expect("Call set_root_url before calling a server function.")
 }
