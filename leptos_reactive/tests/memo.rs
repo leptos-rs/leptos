@@ -34,7 +34,7 @@ fn memo_with_computed_value() {
 fn nested_memos() {
     create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, 0); // 1
-        let (b, set_b) = create_signal(cx, 0); // 2 
+        let (b, set_b) = create_signal(cx, 0); // 2
         let c = create_memo(cx, move |_| a() + b()); // 3
         let d = create_memo(cx, move |_| c() * 2); // 4
         let e = create_memo(cx, move |_| d() + 1); // 5
@@ -101,8 +101,12 @@ fn diamond_problem() {
 
     create_scope(create_runtime(), |cx| {
         let (name, set_name) = create_signal(cx, "Greg Johnston".to_string());
-        let first = create_memo(cx, move |_| name().split_whitespace().next().unwrap().to_string());
-        let last = create_memo(cx, move |_| name().split_whitespace().nth(1).unwrap().to_string());
+        let first = create_memo(cx, move |_| {
+            name().split_whitespace().next().unwrap().to_string()
+        });
+        let last = create_memo(cx, move |_| {
+            name().split_whitespace().nth(1).unwrap().to_string()
+        });
 
         let combined_count = Rc::new(Cell::new(0));
         let combined = create_memo(cx, {
@@ -120,8 +124,9 @@ fn diamond_problem() {
         assert_eq!(first(), "Will");
         assert_eq!(last(), "Smith");
         assert_eq!(combined(), "Will Smith");
-        // should not have run the memo logic twice, even 
+        // should not have run the memo logic twice, even
         // though both paths have been updated
         assert_eq!(combined_count.get(), 1);
-    }).dispose()
+    })
+    .dispose()
 }

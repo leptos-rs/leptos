@@ -324,7 +324,7 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    //eprintln!("created signal {:?}", s.0.id);
+    eprintln!("created signal {:?}", s.0.id);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }
@@ -1071,6 +1071,7 @@ impl<T> Copy for WriteSignal<T> {}
         )
     )
 )]
+#[track_caller]
 pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
     let s = cx.runtime.create_rw_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
@@ -1761,7 +1762,10 @@ impl NodeId {
     where
         T: 'static,
     {
-        let value = runtime.latest_value(*self).expect("latest value unwrap");
+        runtime.update_if_necessary(*self);
+        let nodes = runtime.nodes.borrow();
+        let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
+        let value = Rc::clone(&node.value);
 
         let value = value.borrow();
         let value = value
@@ -1847,36 +1851,46 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            //eprintln!("updating signal");
+            eprintln!("\nupdating signal");
             // update the value
-            let updated = self.update_value(runtime_id, f);
+            // let updated = self.update_value(runtime_id, f);
 
+            let value = {
+                let signals = runtime.nodes.borrow();
+                signals.get(*self).map(|node| Rc::clone(&node.value))
+            };
+            let updated = if let Some(value) = value {
+                let mut value = value.borrow_mut();
+                if let Some(value) = value.downcast_mut::<T>() {
+                    Some(f(value))
+                } else {
+                    debug_warn!(
+                        "[Signal::update] failed when downcasting to \
+                         Signal<{}>",
+                        std::any::type_name::<T>()
+                    );
+                    None
+                }
+            } else {
+                debug_warn!(
+                    "[Signal::update] You’re trying to update a Signal<{}> \
+                     that has already been disposed of. This is probably \
+                     either a logic error in a component that creates and \
+                     disposes of scopes, or a Resource resolving after its \
+                     scope has been dropped without having been cleaned up.",
+                    std::any::type_name::<T>()
+                );
+                None
+            };
             // mark descendants dirty
-            runtime.mark_children_dirty(*self);
+            eprintln!("marking children of {self:?}");
+            runtime.mark_dirty(*self);
 
             // notify subscribers
             if updated.is_some() {
                 //queue_microtask(move || {
-                    Runtime::run_effects(runtime_id);
+                Runtime::run_effects(runtime_id);
                 //});
-                /*let subs = {
-                    let subs = runtime.node_subscribers.borrow();
-                    let subs = subs.get(*self);
-                    subs.map(|subs| subs.borrow().clone())
-                };
-                if let Some(subs) = subs {
-                    for sub in subs {
-                        let effect = {
-                            let effects = runtime.nodes.borrow();
-                            effects.get(sub).cloned()
-                        };
-                        if let Some(node) = effect {
-                            if let ReactiveNodeType::Effect(effect) = node.node_type {
-                                effect.run(sub, runtime_id);
-                            }
-                        }
-                    }
-                }*/
             };
             updated
         })

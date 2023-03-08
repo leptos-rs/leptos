@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 use crate::{
     console_warn,
+    node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, SuspenseContext, node::NodeId,
+    PinnedFuture, ResourceId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
 use std::{collections::HashMap, fmt};
@@ -237,8 +238,7 @@ impl Scope {
                             // each of the subs needs to remove the signal from its dependencies
                             // so that it doesn't try to read the (now disposed) signal
                             if let Some(subs) = subs {
-                                let source_map =
-                                    runtime.node_sources.borrow();
+                                let source_map = runtime.node_sources.borrow();
                                 for effect in subs.borrow().iter() {
                                     if let Some(effect_sources) =
                                         source_map.get(*effect)

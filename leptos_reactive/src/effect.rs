@@ -159,11 +159,11 @@ where
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-pub(crate) trait AnyEffect {
-    fn run(&self, value: Rc<RefCell<dyn Any>>);
+pub(crate) trait AnyComputation {
+    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool;
 }
 
-impl<T, F> AnyEffect for Effect<T, F>
+impl<T, F> AnyComputation for Effect<T, F>
 where
     T: 'static,
     F: Fn(Option<T>) -> T,
@@ -180,41 +180,34 @@ where
             )
         )
     )]
-    fn run(&self, value: Rc<RefCell<dyn Any>>) {
-        // downcast value
+    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
+        #[cfg(debug_assertions)]
+        eprintln!("run() effect {:?}", self.defined_at);
+        // we defensively take and release the BorrowMut twice here
+        // in case a change during the effect running schedules a rerun
+        // ideally this should never happen, but this guards against panic
+        let curr_value = {
+            // downcast value
+            let mut value = value.borrow_mut();
+            let value = value
+                .downcast_mut::<Option<T>>()
+                .expect("to downcast effect value");
+            value.take()
+        };
+
+        // run the effect
+        let new_value = (self.f)(curr_value);
+        eprintln!("  ran effect");
+
+        // set new value
         let mut value = value.borrow_mut();
         let value = value
             .downcast_mut::<Option<T>>()
             .expect("to downcast effect value");
-        let curr_value = value.take();
-
-        // run the effect
-        let new_value = (self.f)(curr_value);
         *value = Some(new_value);
-    }
-}
 
-impl NodeId {
-    #[cfg_attr(
-        debug_assertions,
-        instrument(
-            name = "Effect::cleanup()",
-            level = "debug",
-            skip_all,
-            fields(
-              id = ?self,
-            )
-        )
-    )]
-    pub(crate) fn cleanup(&self, runtime: &Runtime) {
-        let sources = runtime.node_sources.borrow();
-        if let Some(sources) = sources.get(*self) {
-            let subs = runtime.node_subscribers.borrow();
-            for source in sources.borrow().iter() {
-                if let Some(source) = subs.get(*source) {
-                    source.borrow_mut().remove(self);
-                }
-            }
-        }
+        eprintln!("  set new value\neffect over \n\n");
+
+        true
     }
 }
