@@ -5,7 +5,7 @@ use crate::{
     AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
     ScopeProperty, SerializableResource, SignalError, SignalUpdate,
-    UnserializableResource, WriteSignal,
+    UnserializableResource, WriteSignal, StoredValueId,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -355,6 +355,7 @@ pub(crate) struct Runtime {
     #[allow(clippy::type_complexity)]
     pub scope_cleanups:
         RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
+    pub stored_values: RefCell<SlotMap<StoredValueId, Rc<RefCell<dyn Any>>>>,
     pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
     pub node_states: RefCell<SecondaryMap<NodeId, ReactiveNodeState>>,
     pub node_subscribers:
