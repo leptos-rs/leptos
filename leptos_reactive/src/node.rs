@@ -9,7 +9,6 @@ slotmap::new_key_type! {
 #[derive(Clone)]
 pub(crate) struct ReactiveNode {
     pub value: Rc<RefCell<dyn Any>>,
-    pub state: ReactiveNodeState,
     pub node_type: ReactiveNodeType,
 }
 
