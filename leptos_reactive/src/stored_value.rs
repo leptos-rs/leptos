@@ -351,7 +351,7 @@ impl<T> StoredValue<T> {
     /// ```
     #[track_caller]
     pub fn set_value(&self, value: T) {
-        self.try_set_value(value).expect("could not set stored value");
+        self.try_set_value(value);
     }
 
     /// Same as [`Self::set`], but returns [`None`] if the signal is

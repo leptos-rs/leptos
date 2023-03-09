@@ -130,3 +130,62 @@ fn diamond_problem() {
     })
     .dispose()
 }
+
+#[cfg(not(feature = "stable"))]
+#[test]
+fn dynamic_dependencies() {
+    use std::{cell::Cell, rc::Rc};
+
+    use leptos_reactive::{create_effect, create_isomorphic_effect};
+
+    create_scope(create_runtime(), |cx| {
+        let (first, set_first) = create_signal(cx, "Greg");
+        let (last, set_last) = create_signal(cx, "Johnston");
+        let (use_last, set_use_last) = create_signal(cx, true);
+        let name = create_memo(cx, move |_| if use_last() {
+            format!("{} {}", first(), last())
+        } else {
+            first().to_string()
+        });
+
+        let combined_count = Rc::new(Cell::new(0));
+
+        create_isomorphic_effect(cx, {
+            let combined_count = Rc::clone(&combined_count);
+            move |_| {
+                _ = name();
+                combined_count.set(combined_count.get() + 1);
+            }
+        });
+
+        assert_eq!(combined_count.get(), 1);
+
+        set_first("Bob");
+        assert_eq!(name(), "Bob Johnston");
+
+        assert_eq!(combined_count.get(), 2);
+
+        set_last("Thompson");
+        
+        assert_eq!(combined_count.get(), 3);
+
+        set_use_last(false);
+
+        assert_eq!(name(), "Bob");
+        assert_eq!(combined_count.get(), 4);
+
+        assert_eq!(combined_count.get(), 4);
+        set_last("Jones");
+        assert_eq!(combined_count.get(), 4);
+        set_last("Smith");
+        assert_eq!(combined_count.get(), 4);
+        set_last("Stevens");
+        assert_eq!(combined_count.get(), 4);
+
+        set_use_last(true);
+        assert_eq!(name(), "Bob Stevens");
+        assert_eq!(combined_count.get(), 5);
+
+    })
+    .dispose()
+}
