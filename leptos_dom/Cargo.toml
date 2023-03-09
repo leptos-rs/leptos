@@ -60,6 +60,7 @@ features = [
   "HashChangeEvent",
   "InputEvent",
   "KeyboardEvent",
+  "MessageEvent",
   "MouseEvent",
   "PageTransitionEvent",
   "PointerEvent",
