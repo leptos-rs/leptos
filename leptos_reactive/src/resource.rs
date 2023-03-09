@@ -288,7 +288,11 @@ where
     S: PartialEq + Debug + Clone + 'static,
     T: 'static,
 {
-    r.load(false)
+    SUPPRESS_RESOURCE_LOAD.with(|s| {
+        if !s.get() {
+            r.load(false)
+        }
+    });
 }
 
 #[cfg(feature = "hydrate")]
@@ -740,4 +744,13 @@ impl<S, T> UnserializableResource for ResourceState<S, T> {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+thread_local! {
+    static SUPPRESS_RESOURCE_LOAD: Cell<bool> = Cell::new(false);
+}
+
+#[doc(hidden)]
+pub fn suppress_resource_load(suppress: bool) {
+    SUPPRESS_RESOURCE_LOAD.with(|w| w.set(suppress));
 }

@@ -1,4 +1,5 @@
-use crate::{attribute_value, is_component_node};
+use crate::attribute_value;
+use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
@@ -266,8 +267,8 @@ fn attr_to_tokens(
     expressions: &mut Vec<TokenStream>,
 ) {
     let name = node.key.to_string();
-    let name = name.strip_prefix("_").unwrap_or(&name);
-    let name = name.strip_prefix("attr:").unwrap_or(&name);
+    let name = name.strip_prefix('_').unwrap_or(&name);
+    let name = name.strip_prefix("attr:").unwrap_or(name);
 
     let value = match &node.value {
         Some(expr) => match expr.as_ref() {
@@ -299,7 +300,7 @@ fn attr_to_tokens(
     }
     // Properties
     else if let Some(name) = name.strip_prefix("prop:") {
-        let value = attribute_value(&node);
+        let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
             span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
@@ -307,7 +308,7 @@ fn attr_to_tokens(
     }
     // Classes
     else if let Some(name) = name.strip_prefix("class:") {
-        let value = attribute_value(&node);
+        let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
             span => leptos::leptos_dom::class_helper(#el_id.unchecked_ref(), #name.into(), #value.into_class(#cx))
@@ -318,14 +319,14 @@ fn attr_to_tokens(
         match value {
             AttributeValue::Empty => {
                 template.push(' ');
-                template.push_str(&name);
+                template.push_str(name);
             }
 
             // Static attributes (i.e., just a literal given as value, not an expression)
             // are just set in the template — again, nothing programmatic
             AttributeValue::Static(value) => {
                 template.push(' ');
-                template.push_str(&name);
+                template.push_str(name);
                 template.push_str("=\"");
                 template.push_str(&value);
                 template.push('"');

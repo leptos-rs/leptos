@@ -129,7 +129,20 @@ pub fn Todos(cx: Scope) -> impl IntoView {
     view! {
         cx,
         <div>
-            <MultiActionForm action=add_todo>
+            <MultiActionForm
+                // we can handle client-side validation in the on:submit event 
+                // leptos_router implements a `FromFormData` trait that lets you
+                // parse deserializable types from form data and check them
+                on:submit=move |ev| {
+                    let data = AddTodo::from_event(&ev).expect("to parse form data");
+                    // silly example of validation: if the todo is "nope!", nope it
+                    if data.title == "nope!" {
+                        // ev.prevent_default() will prevent form submission
+                        ev.prevent_default();
+                    }
+                }
+                action=add_todo
+            >
                 <label>
                     "Add a Todo"
                     <input type="text" name="title"/>

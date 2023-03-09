@@ -12,18 +12,10 @@ readme = "../README.md"
 leptos_dom = { workspace = true }
 leptos_reactive = { workspace = true }
 server_fn = { workspace = true }
-form_urlencoded = "1"
-gloo-net = "0.2"
-js-sys = "0.3"
 lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 serde_urlencoded = "0.7"
 thiserror = "1"
-serde_json = "1.0.89"
-quote = "1"
-syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
-proc-macro2 = "1.0.47"
-ciborium = "0.2.0"
 
 [dev-dependencies]
 leptos = { path = "../leptos" }

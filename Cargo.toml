@@ -4,6 +4,7 @@ members = [
   "leptos",
   "leptos_dom",
   "leptos_config",
+  "leptos_hot_reload",
   "leptos_macro",
   "leptos_reactive",
   "leptos_server",
@@ -29,6 +30,7 @@ version = "0.2.0"
 [workspace.dependencies]
 leptos = { path = "./leptos", default-features = false, version = "0.2.0" }
 leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.2.0" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.2.0" }
 leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.2.0" }
 leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.2.0" }
 leptos_server = { path = "./leptos_server", default-features = false, version = "0.2.0" }

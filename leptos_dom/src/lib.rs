@@ -148,6 +148,9 @@ cfg_if! {
       pub name: Cow<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
+      #[cfg(debug_assertions)]
+      /// Optional marker for the view macro source of the element.
+      pub view_marker: Option<String>
     }
 
     impl fmt::Debug for Element {
@@ -167,6 +170,9 @@ cfg_if! {
       children: Vec<View>,
       prerendered: Option<Cow<'static, str>>,
       id: HydrationKey,
+      #[cfg(debug_assertions)]
+      /// Optional marker for the view macro source, in debug mode.
+      pub view_marker: Option<String>
     }
 
     impl fmt::Debug for Element {
@@ -200,7 +206,12 @@ impl Element {
     pub fn into_html_element(self, cx: Scope) -> HtmlElement<AnyElement> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-            let Self { element, .. } = self;
+            let Self {
+                element,
+                #[cfg(debug_assertions)]
+                view_marker,
+                ..
+            } = self;
 
             let name = element.node_name().to_ascii_lowercase();
 
@@ -215,6 +226,8 @@ impl Element {
                 element,
                 #[cfg(debug_assertions)]
                 span: ::tracing::Span::current(),
+                #[cfg(debug_assertions)]
+                view_marker,
             }
         }
 
@@ -227,6 +240,8 @@ impl Element {
                 children,
                 id,
                 prerendered,
+                #[cfg(debug_assertions)]
+                view_marker,
             } = self;
 
             let element = AnyElement { name, is_void, id };
@@ -237,6 +252,8 @@ impl Element {
                 attrs,
                 children: children.into_iter().collect(),
                 prerendered,
+                #[cfg(debug_assertions)]
+                view_marker,
             }
         }
     }
@@ -258,6 +275,8 @@ impl Element {
                 #[cfg(debug_assertions)]
                 name: el.name(),
                 element: el.as_ref().clone(),
+                #[cfg(debug_assertions)]
+                view_marker: None
               }
           }
           else {
@@ -267,7 +286,9 @@ impl Element {
               attrs: Default::default(),
               children: Default::default(),
               id: el.hydration_id().clone(),
-              prerendered: None
+              prerendered: None,
+              #[cfg(debug_assertions)]
+              view_marker: None
             }
           }
         }

@@ -8,20 +8,20 @@
 default_to_workspace = false
 
 [tasks.ci]
-dependencies = ["build", "check-examples", "test"]
+dependencies = ["check", "check-examples", "test"]
 
-[tasks.build]
+[tasks.check]
 clear = true
-dependencies = ["build-all", "build-wasm"]
+dependencies = ["check-all", "check-wasm"]
 
-[tasks.build-all]
+[tasks.check-all]
 command = "cargo"
-args = ["+nightly", "build-all-features"]
+args = ["+nightly", "check-all-features"]
 install_crate = "cargo-all-features"
 
-[tasks.build-wasm]
+[tasks.check-wasm]
 clear = true
-dependencies = [{ name = "build-wasm", path = "leptos" }]
+dependencies = [{ name = "check-wasm", path = "leptos" }]
 
 [tasks.check-examples]
 clear = true
@@ -39,6 +39,7 @@ dependencies = [
 	{ name = "check", path = "examples/login_with_token_csr_only" },
 	{ name = "check", path = "examples/parent_child" },
 	{ name = "check", path = "examples/router" },
+	{ name = "check", path = "examples/session_auth_axum" },
 	{ name = "check", path = "examples/ssr_modes" },
 	{ name = "check", path = "examples/ssr_modes_axum" },
 	{ name = "check", path = "examples/tailwind" },

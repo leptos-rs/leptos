@@ -1,6 +1,4 @@
 use leptos_reactive::Scope;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
-use wasm_bindgen::UnwrapThrowExt;
 
 /// Represents the different possible values a single class on an element could have,
 /// allowing you to do fine-grained updates to single items
@@ -107,10 +105,15 @@ pub(crate) fn class_expression(
 
     if force || !HydrationCtx::is_hydrating() {
         let class_name = wasm_bindgen::intern(class_name);
+
         if value {
-            class_list.add_1(class_name).unwrap_throw();
+            if let Err(e) = class_list.add_1(class_name) {
+                crate::error!("[HtmlElement::class()] {e:?}");
+            }
         } else {
-            class_list.remove_1(class_name).unwrap_throw();
+            if let Err(e) = class_list.remove_1(class_name) {
+                crate::error!("[HtmlElement::class()] {e:?}");
+            }
         }
     }
 }

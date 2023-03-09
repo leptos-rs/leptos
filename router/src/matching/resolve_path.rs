@@ -52,7 +52,7 @@ fn has_scheme(path: &str) -> bool {
 #[doc(hidden)]
 fn normalize(path: &str, omit_slash: bool) -> Cow<'_, str> {
     let s = path.trim_start_matches('/').trim_end_matches('/');
-    if s.is_empty() || omit_slash || begins_with_query_or_hash(&s) {
+    if s.is_empty() || omit_slash || begins_with_query_or_hash(s) {
         s.into()
     } else {
         format!("/{s}").into()

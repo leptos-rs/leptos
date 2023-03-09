@@ -77,6 +77,12 @@ where
         class: Option<AttributeValue>,
         children: Children,
     ) -> HtmlElement<leptos::html::A> {
+        #[cfg(not(any(feature = "hydrate", feature = "csr")))]
+        _ = state;
+
+        #[cfg(not(any(feature = "hydrate", feature = "csr")))]
+        _ = replace;
+
         let location = use_location(cx);
         let is_active = create_memo(cx, move |_| match href.get() {
             None => false,

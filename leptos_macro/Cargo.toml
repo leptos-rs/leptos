@@ -12,6 +12,7 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
+attribute-derive = { version = "0.5", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.10"
@@ -22,6 +23,7 @@ quote = "1"
 syn = { version = "1", features = ["full"] }
 syn-rsx = "0.9"
 leptos_dom = { workspace = true }
+leptos_hot_reload = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true }
 server_fn_macro = { workspace = true }
@@ -30,7 +32,8 @@ uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 log = "0.4"
-typed-builder = "0.12"
+typed-builder = "0.13"
+trybuild = "1"
 leptos = { path = "../leptos" }
 
 [features]
