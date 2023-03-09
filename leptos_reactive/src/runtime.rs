@@ -5,7 +5,7 @@ use crate::{
     AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
     ScopeProperty, SerializableResource, SignalError, SignalUpdate,
-    UnserializableResource, WriteSignal, StoredValueId,
+    StoredValueId, UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
@@ -139,7 +139,10 @@ impl RuntimeId {
                 value,
                 node_type: ReactiveNodeType::Signal,
             });
-            runtime.node_states.borrow_mut().insert(id, ReactiveNodeState::Clean);
+            runtime
+                .node_states
+                .borrow_mut()
+                .insert(id, ReactiveNodeState::Clean);
             id
         })
         .expect("tried to create a signal in a runtime that has been disposed")
@@ -267,7 +270,10 @@ impl RuntimeId {
                     f: Rc::clone(&effect),
                 },
             });
-            runtime.node_states.borrow_mut().insert(id, ReactiveNodeState::Clean);
+            runtime
+                .node_states
+                .borrow_mut()
+                .insert(id, ReactiveNodeState::Clean);
 
             // run the effect for the first time
             let prev_observer = runtime.observer.take();
@@ -326,7 +332,10 @@ impl RuntimeId {
             });
             // memos are lazy, so are dirty when created
             // will be run the first time we ask for it
-            runtime.node_states.borrow_mut().insert(id, ReactiveNodeState::Dirty);
+            runtime
+                .node_states
+                .borrow_mut()
+                .insert(id, ReactiveNodeState::Dirty);
             id
         })
         .expect("tried to create a memo in a runtime that has been disposed");
@@ -428,7 +437,7 @@ impl Runtime {
                     for sub_id in subs.borrow().iter() {
                         if let Some(sub) = node_states.get_mut(*sub_id) {
                             eprintln!("update is marking {sub_id:?} dirty");
-                            *sub= ReactiveNodeState::Dirty;
+                            *sub = ReactiveNodeState::Dirty;
                         }
                     }
                 }
@@ -452,7 +461,11 @@ impl Runtime {
     }
 
     fn current_state(&self, node: NodeId) -> ReactiveNodeState {
-        self.node_states.borrow().get(node).copied().unwrap_or(ReactiveNodeState::Clean)
+        self.node_states
+            .borrow()
+            .get(node)
+            .copied()
+            .unwrap_or(ReactiveNodeState::Clean)
     }
 
     fn with_observer<T>(&self, observer: NodeId, f: impl FnOnce() -> T) -> T {
@@ -489,15 +502,21 @@ impl Runtime {
                     ReactiveNodeState::Dirty,
                     &mut *pending_effects,
                     current_observer,
-                    );
+                );
 
                 // mark all children check
                 // this can probably be done in a better way
                 let mut descendants = HashSet::new();
-                Runtime::gather_descendants(&subscribers, node, &mut descendants);
+                Runtime::gather_descendants(
+                    &subscribers,
+                    node,
+                    &mut descendants,
+                );
                 for descendant in descendants {
                     if let Some(mut node) = nodes.get_mut(descendant) {
-                        if let Some(mut node_state) = node_states.get_mut(descendant) {
+                        if let Some(mut node_state) =
+                            node_states.get_mut(descendant)
+                        {
                             Runtime::mark(
                                 descendant,
                                 &mut node,

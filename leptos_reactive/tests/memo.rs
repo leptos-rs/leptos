@@ -134,18 +134,19 @@ fn diamond_problem() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn dynamic_dependencies() {
-    use std::{cell::Cell, rc::Rc};
-
     use leptos_reactive::{create_effect, create_isomorphic_effect};
+    use std::{cell::Cell, rc::Rc};
 
     create_scope(create_runtime(), |cx| {
         let (first, set_first) = create_signal(cx, "Greg");
         let (last, set_last) = create_signal(cx, "Johnston");
         let (use_last, set_use_last) = create_signal(cx, true);
-        let name = create_memo(cx, move |_| if use_last() {
-            format!("{} {}", first(), last())
-        } else {
-            first().to_string()
+        let name = create_memo(cx, move |_| {
+            if use_last() {
+                format!("{} {}", first(), last())
+            } else {
+                first().to_string()
+            }
         });
 
         let combined_count = Rc::new(Cell::new(0));
@@ -166,7 +167,7 @@ fn dynamic_dependencies() {
         assert_eq!(combined_count.get(), 2);
 
         set_last("Thompson");
-        
+
         assert_eq!(combined_count.get(), 3);
 
         set_use_last(false);
@@ -185,7 +186,6 @@ fn dynamic_dependencies() {
         set_use_last(true);
         assert_eq!(name(), "Bob Stevens");
         assert_eq!(combined_count.get(), 5);
-
     })
     .dispose()
 }

@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
-use std::{marker::PhantomData, rc::Rc, cell::RefCell};
-
 use crate::{
-    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntracked,
-    SignalUpdateUntracked, SignalWithUntracked, RuntimeId, with_runtime,
+    create_rw_signal, with_runtime, RuntimeId, RwSignal, Scope,
+    SignalGetUntracked, SignalSetUntracked, SignalUpdateUntracked,
+    SignalWithUntracked,
 };
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 slotmap::new_key_type! {
     /// Unique ID assigned to a [StoredValue].
@@ -23,18 +23,19 @@ slotmap::new_key_type! {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StoredValue<T>
 where
-    T: 'static {
-        runtime: RuntimeId,
-        id: StoredValueId,
-        ty: PhantomData<T>
-    }
+    T: 'static,
+{
+    runtime: RuntimeId,
+    id: StoredValueId,
+    ty: PhantomData<T>,
+}
 
 impl<T> Clone for StoredValue<T> {
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime,
             id: self.id,
-            ty: self.ty 
+            ty: self.ty,
         }
     }
 }
@@ -282,7 +283,8 @@ impl<T> StoredValue<T> {
     /// ```
     #[track_caller]
     pub fn update_value(&self, f: impl FnOnce(&mut T)) {
-        self.try_update_value(f).expect("could not set stored value");
+        self.try_update_value(f)
+            .expect("could not set stored value");
     }
 
     /// Updates the stored value.
@@ -357,7 +359,6 @@ impl<T> StoredValue<T> {
     /// Same as [`Self::set`], but returns [`None`] if the signal is
     /// still valid, [`Some(T)`] otherwise.
     pub fn try_set_value(&self, value: T) -> Option<T> {
-
         with_runtime(self.runtime, |runtime| {
             let values = runtime.stored_values.borrow();
             let n = values.get(self.id);
@@ -365,7 +366,7 @@ impl<T> StoredValue<T> {
             let mut n = n.as_mut().and_then(|n| n.downcast_mut::<T>());
             if let Some(mut n) = n {
                 *n = value;
-                None 
+                None
             } else {
                 Some(value)
             }
@@ -415,13 +416,16 @@ where
     T: 'static,
 {
     let id = with_runtime(cx.runtime, |runtime| {
-        runtime.stored_values.borrow_mut().insert(Rc::new(RefCell::new(value)))
+        runtime
+            .stored_values
+            .borrow_mut()
+            .insert(Rc::new(RefCell::new(value)))
     })
     .unwrap_or_default();
     StoredValue {
         runtime: cx.runtime,
         id,
-        ty: PhantomData
+        ty: PhantomData,
     }
 }
 

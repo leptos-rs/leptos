@@ -15,12 +15,8 @@ pub(crate) struct ReactiveNode {
 #[derive(Clone)]
 pub(crate) enum ReactiveNodeType {
     Signal,
-    Memo {
-        f: Rc<dyn AnyComputation>,
-    },
-    Effect {
-        f: Rc<dyn AnyComputation>
-    }
+    Memo { f: Rc<dyn AnyComputation> },
+    Effect { f: Rc<dyn AnyComputation> },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
