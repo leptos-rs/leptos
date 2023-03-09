@@ -357,6 +357,7 @@ where
 {
     use ciborium::ser::into_writer;
     use serde_json::Deserializer as JSONDeserializer;
+    #[cfg(not(target_arch = "wasm32"))]
     let url = format!("{}{}", get_server_url(), url);
 
     #[derive(Debug)]
@@ -387,6 +388,28 @@ where
         Encoding::Cbor => "application/cbor",
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let resp = match args_encoded {
+        Payload::Binary(b) => {
+            let slice_ref: &[u8] = &b;
+            let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
+            gloo_net::http::Request::post(url)
+                .header("Content-Type", content_type_header)
+                .header("Accept", accept_header)
+                .body(js_array)
+                .send()
+                .await
+                .map_err(|e| ServerFnError::Request(e.to_string()))?
+        }
+        Payload::Url(s) => gloo_net::http::Request::post(url)
+            .header("Content-Type", content_type_header)
+            .header("Accept", accept_header)
+            .body(s)
+            .send()
+            .await
+            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+    };
+    #[cfg(not(target_arch = "wasm32"))]
     let resp = match args_encoded {
         Payload::Binary(b) => CLIENT
             .post(url)
@@ -408,17 +431,33 @@ where
 
     // check for error status
     let status = resp.status();
-    if (500..=599).contains(&status.as_u16()) {
-        return Err(ServerFnError::ServerError(status.to_string()));
+    #[cfg(not(target_arch = "wasm32"))]
+    let status = status.as_u16();
+    if (500..=599).contains(&status) {
+        #[cfg(target_arch = "wasm32")]
+        let status_text = resp.status_text();
+        #[cfg(not(target_arch = "wasm32"))]
+        let status_text = status.to_string();
+        return Err(ServerFnError::ServerError(status_text));
     }
 
     if enc == Encoding::Cbor {
+        #[cfg(target_arch = "wasm32")]
+        let binary = resp
+            .binary()
+            .await
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        #[cfg(target_arch = "wasm32")]
+        let binary = binary.as_slice();
+        #[cfg(not(target_arch = "wasm32"))]
         let binary = resp
             .bytes()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let binary = binary.as_ref();
 
-        ciborium::de::from_reader(binary.as_ref())
+        ciborium::de::from_reader(binary)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
         let text = resp
@@ -433,48 +472,23 @@ where
 }
 
 // Lazily initialize the client to be reused for all server function calls.
-#[cfg(not(feature = "ssr"))]
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
     once_cell::sync::Lazy::new(|| reqwest::Client::new());
 
-#[cfg(any(not(feature = "ssr"), doc))]
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static ROOT_URL: once_cell::sync::OnceCell<&'static str> =
     once_cell::sync::OnceCell::new();
 
-#[cfg(any(not(feature = "ssr"), doc))]
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 /// Set the root server url that all server function paths are relative to for the client. On WASM this will default to the origin.
 pub fn set_server_url(url: &'static str) {
     ROOT_URL.set(url).unwrap();
 }
 
-#[cfg(not(feature = "ssr"))]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(feature = "ssr"), not(target_arch = "wasm32")))]
 fn get_server_url() -> &'static str {
     ROOT_URL
         .get()
-        .expect("Call set_root_url before calling a server function.")
-}
-
-#[cfg(not(feature = "ssr"))]
-#[cfg(target_arch = "wasm32")]
-fn get_server_url() -> &'static str {
-    use once_cell::sync::Lazy;
-    // On WASM we can try to get the URL from the window location if it's not set.
-    static BACKUP_ROOT_URL: Lazy<Option<&'static str>> = Lazy::new(|| {
-        use web_sys::window;
-        Some(Box::leak(
-            window()?
-                .location()
-                .origin()
-                .ok()?
-                .trim_end_matches('/')
-                .to_string()
-                .into_boxed_str(),
-        ))
-    });
-    ROOT_URL
-        .get()
-        .copied()
-        .or(*BACKUP_ROOT_URL)
         .expect("Call set_root_url before calling a server function.")
 }
