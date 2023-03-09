@@ -1,9 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{
-    create_rw_signal, with_runtime, RuntimeId, RwSignal, Scope,
-    SignalGetUntracked, SignalSetUntracked, SignalUpdateUntracked,
-    SignalWithUntracked,
-};
+use crate::{with_runtime, RuntimeId, Scope};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 slotmap::new_key_type! {
@@ -363,8 +359,8 @@ impl<T> StoredValue<T> {
             let values = runtime.stored_values.borrow();
             let n = values.get(self.id);
             let mut n = n.map(|n| n.borrow_mut());
-            let mut n = n.as_mut().and_then(|n| n.downcast_mut::<T>());
-            if let Some(mut n) = n {
+            let n = n.as_mut().and_then(|n| n.downcast_mut::<T>());
+            if let Some(n) = n {
                 *n = value;
                 None
             } else {

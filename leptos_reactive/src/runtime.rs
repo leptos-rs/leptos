@@ -4,15 +4,14 @@ use crate::{
     node::{NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
     AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SerializableResource, SignalError, SignalUpdate,
-    StoredValueId, UnserializableResource, WriteSignal,
+    ScopeProperty, SerializableResource, StoredValueId, UnserializableResource,
+    WriteSignal,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
-    borrow::Borrow,
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -307,9 +306,7 @@ impl RuntimeId {
         };
 
         let value = Rc::new(RefCell::new(None::<T>));
-        let id = self.create_concrete_effect(value, Rc::new(effect));
-
-        id
+        self.create_concrete_effect(value, Rc::new(effect))
     }
 
     #[track_caller]
@@ -493,14 +490,14 @@ impl Runtime {
         let current_observer = self.observer.get();
 
         // mark self dirty
-        if let Some(mut current_node) = nodes.get_mut(node) {
-            if let Some(mut node_state) = node_states.get_mut(node) {
+        if let Some(current_node) = nodes.get_mut(node) {
+            if let Some(node_state) = node_states.get_mut(node) {
                 Runtime::mark(
                     node,
-                    &mut current_node,
-                    &mut node_state,
+                    current_node,
+                    node_state,
                     ReactiveNodeState::Dirty,
-                    &mut *pending_effects,
+                    &mut pending_effects,
                     current_observer,
                 );
 
@@ -513,14 +510,14 @@ impl Runtime {
                     &mut descendants,
                 );
                 for descendant in descendants {
-                    if let Some(mut node) = nodes.get_mut(descendant) {
-                        if let Some(mut node_state) =
+                    if let Some(node) = nodes.get_mut(descendant) {
+                        if let Some(node_state) =
                             node_states.get_mut(descendant)
                         {
                             Runtime::mark(
                                 descendant,
-                                &mut node,
-                                &mut node_state,
+                                node,
+                                node_state,
                                 ReactiveNodeState::Check,
                                 &mut pending_effects,
                                 current_observer,
@@ -567,7 +564,7 @@ impl Runtime {
     }
 
     pub(crate) fn run_effects(runtime_id: RuntimeId) {
-        with_runtime(runtime_id, |runtime| {
+        _ = with_runtime(runtime_id, |runtime| {
             let effects = runtime.pending_effects.take();
             for effect_id in effects {
                 runtime.update_if_necessary(effect_id);

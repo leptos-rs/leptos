@@ -2,8 +2,8 @@
 use crate::{
     console_warn, create_effect,
     macros::debug_warn,
-    node::{NodeId, ReactiveNodeType},
-    on_cleanup, queue_microtask,
+    node::NodeId,
+    on_cleanup,
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty,
 };
@@ -727,11 +727,6 @@ where
 {
     pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with_no_subscription(self.runtime, f)
-    }
-
-    #[cfg(feature = "hydrate")]
-    pub(crate) fn subscribe(&self) {
-        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
     }
 
     /// Applies the function to the current Signal, if it exists, and subscribes

@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, node::NodeId, on_cleanup, with_runtime, AnyComputation,
-    ReadSignal, RuntimeId, Scope, SignalGet, SignalGetUntracked, SignalStream,
-    SignalWith, SignalWithUntracked,
+    RuntimeId, Scope, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    SignalWithUntracked,
 };
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
@@ -351,8 +351,7 @@ impl<T> SignalWith<T> for Memo<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         // memo is stored as Option<T>, but will always have T available
         // after latest_value() called, so we can unwrap safely
-        let f =
-            move |maybe_value: &Option<T>| f(&maybe_value.as_ref().unwrap());
+        let f = move |maybe_value: &Option<T>| f(maybe_value.as_ref().unwrap());
 
         with_runtime(self.runtime, |runtime| {
             self.id.subscribe(runtime);
@@ -381,6 +380,17 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
         });
 
         Box::pin(rx)
+    }
+}
+
+impl<T> Memo<T>
+where
+    T: 'static,
+{
+    pub(crate) fn subscribe(&self) {
+        _ = with_runtime(self.runtime, |runtime| {
+            self.id.subscribe(runtime);
+        });
     }
 }
 
@@ -414,7 +424,7 @@ where
         };
         if is_different {
             let mut value = value.borrow_mut();
-            let mut curr_value = value
+            let curr_value = value
                 .downcast_mut::<Option<T>>()
                 .expect("to downcast effect value");
             *curr_value = Some(new_value);
