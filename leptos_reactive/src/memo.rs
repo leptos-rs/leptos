@@ -383,17 +383,6 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
     }
 }
 
-impl<T> Memo<T>
-where
-    T: 'static,
-{
-    pub(crate) fn subscribe(&self) {
-        _ = with_runtime(self.runtime, |runtime| {
-            self.id.subscribe(runtime);
-        });
-    }
-}
-
 impl_get_fn_traits![Memo];
 
 pub(crate) struct MemoState<T, F>

@@ -9,7 +9,7 @@ fn slice() {
         token: String,
         dark_mode: bool,
     }
-    // 1
+
     let state = create_rw_signal(
         cx,
         State {
@@ -20,7 +20,6 @@ fn slice() {
         },
     );
 
-    // 2 (3)
     let (token, set_token) = create_slice(
         cx,
         state,
@@ -28,20 +27,20 @@ fn slice() {
         |state, value| state.token = value,
     );
 
-    // 4 (5)
-    let (dark_mode, set_dark_mode) = create_slice(
+    let (_, set_dark_mode) = create_slice(
         cx,
         state,
         |state| state.dark_mode,
         |state, value| state.dark_mode = value,
     );
 
-    let count_token_updates = Rc::new(std::cell::Cell::new(0)); //create_rw_signal(cx, 0);
+    let count_token_updates = Rc::new(std::cell::Cell::new(0));
+
     assert_eq!(count_token_updates.get(), 0);
     create_isomorphic_effect(cx, {
         let count_token_updates = Rc::clone(&count_token_updates);
         move |_| {
-            _ = token.with(|_| {});
+            token.track();
             count_token_updates.set(count_token_updates.get() + 1);
         }
     });
@@ -53,4 +52,6 @@ fn slice() {
     set_dark_mode.set(true);
     // since token didn't change, there was also no update emitted
     assert_eq!(count_token_updates.get(), 2);
+
+    disposer.dispose();
 }

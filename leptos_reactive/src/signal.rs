@@ -125,6 +125,11 @@ pub trait SignalWith<T> {
     /// the running effect to this signal. Returns [`Some`] if the signal is
     /// valid and the function ran, otherwise returns [`None`].
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+
+    /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+    fn track(&self) {
+        _ = self.try_with(|_| {});
+    }
 }
 
 /// This trait allows setting the value of a signal.

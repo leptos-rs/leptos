@@ -22,54 +22,57 @@ use crate::{
 /// # use leptos_reactive::*;
 /// # let (cx, disposer) = raw_scope_and_disposer(create_runtime());
 ///
-/// // this could be serialized to and from localstorage with miniserde
-/// pub struct State {
-///     token: String,
-///     dark_mode: bool,
+/// // some global state with independent fields
+/// #[derive(Default, Clone, Debug)]
+/// struct GlobalState {
+///     count: u32,
+///     name: String,
 /// }
 ///
-/// let state = create_rw_signal(
+/// let state = create_rw_signal(cx, GlobalState::default());
+///
+/// // `create_slice` lets us create a "lens" into the data
+/// let (count, set_count) = create_slice(
 ///     cx,
-///     State {
-///         token: "".into(),
-///         // this would cause flickering on reload,
-///         // use a cookie for the initial value in real projects
-///         dark_mode: false,
-///     },
-/// );
-/// let (token, set_token) = create_slice(
-///     cx,
+///     // we take a slice *from* `state`
 ///     state,
-///     |state| state.token.clone(),
-///     |state, value| state.token = value,
+///     // our getter returns a "slice" of the data
+///     |state| state.count,
+///     // our setter describes how to mutate that slice, given a new value
+///     |state, n| state.count = n,
 /// );
-/// let (dark_mode, set_dark_mode) = create_slice(
+///
+/// // this slice is completely independent of the `count` slice
+/// // neither of them will cause the other to rerun
+/// let (name, set_name) = create_slice(
 ///     cx,
+///     // we take a slice *from* `state`
 ///     state,
-///     |state| state.dark_mode,
-///     |state, value| state.dark_mode = value,
+///     // our getter returns a "slice" of the data
+///     |state| state.name.clone(),
+///     // our setter describes how to mutate that slice, given a new value
+///     |state, n| state.name = n,
 /// );
-/// let count_token_updates = create_rw_signal(cx, 0);
-/// count_token_updates.with(|counter| assert_eq!(counter, &0));
-/// create_isomorphic_effect(cx, move |_| {
-///     _ = token.with(|_| {});
-///     count_token_updates.update(|counter| *counter += 1)
+///
+/// create_effect(cx, move |_| {
+///     log!("name is {}", name());
 /// });
-/// count_token_updates.with(|counter| assert_eq!(counter, &1));
-/// set_token.set("this is not a token!".into());
-/// // token was updated with the new token
-/// token.with(|token| assert_eq!(token, "this is not a token!"));
-/// count_token_updates.with(|counter| assert_eq!(counter, &2));
-/// set_dark_mode.set(true);
-/// // since token didn't change, there was also no update emitted
-/// count_token_updates.with(|counter| assert_eq!(counter, &2));
+/// create_effect(cx, move |_| {
+///     log!("count is {}", count());
+/// });
+///
+/// // setting count only causes count to log, not name
+/// set_count(42);
+///
+/// // setting name only causes name to log, not count
+/// set_name("Bob".into());
 /// ```
-pub fn create_slice<T, O>(
+pub fn create_slice<T, M, O>(
     cx: Scope,
     signal: RwSignal<T>,
     getter: impl Fn(&T) -> O + Clone + Copy + 'static,
-    setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
-) -> (Signal<O>, SignalSetter<O>)
+    setter: impl Fn(&mut T, M) + Clone + Copy + 'static,
+) -> (Signal<O>, SignalSetter<M>)
 where
     O: PartialEq,
 {
