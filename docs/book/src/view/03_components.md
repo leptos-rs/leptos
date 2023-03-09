@@ -233,8 +233,8 @@ a `struct ProgressBarProps`, and struct fields cannot be `impl` types.
 ### `into` Props 
 
 There’s one more way we could implement this, and it would be to use `#[prop(into)]`. 
-This attribute automatically calls `.into()` on the values you pass as proprs,
-which allows you to pass props of different values easily.
+This attribute automatically calls `.into()` on the values you pass as props,
+which allows you to easily pass props with different values.
 
 In this case, it’s helpful to know about the 
 [`Signal`](https://docs.rs/leptos/latest/leptos/struct.Signal.html) type. `Signal`
