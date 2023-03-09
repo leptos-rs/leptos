@@ -34,6 +34,7 @@
 //!
 //! **Important**: All server functions must be registered by calling [ServerFn::register_in]
 //! somewhere within your `main` function.
+//! **Important**: Before calling a server function on a non-web platform, you must set the server URL by calling [`set_server_url`].
 //!
 //! ```rust,ignore
 //! #[server(ReadFromDB)]
@@ -54,6 +55,8 @@
 //!
 //! // make sure you've registered it somewhere in main
 //! fn main() {
+//!   // for non-web apps, you must set the server URL manually
+//!   server_fn::set_server_url("http://localhost:3000");
 //!   _ = ReadFromDB::register();
 //! }
 //! ```
@@ -353,8 +356,9 @@ where
     T: serde::Serialize + serde::de::DeserializeOwned + Sized,
 {
     use ciborium::ser::into_writer;
-    use js_sys::Uint8Array;
     use serde_json::Deserializer as JSONDeserializer;
+    #[cfg(not(target_arch = "wasm32"))]
+    let url = format!("{}{}", get_server_url(), url);
 
     #[derive(Debug)]
     enum Payload {
@@ -384,10 +388,11 @@ where
         Encoding::Cbor => "application/cbor",
     };
 
+    #[cfg(target_arch = "wasm32")]
     let resp = match args_encoded {
         Payload::Binary(b) => {
             let slice_ref: &[u8] = &b;
-            let js_array = Uint8Array::from(slice_ref).buffer();
+            let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
             gloo_net::http::Request::post(url)
                 .header("Content-Type", content_type_header)
                 .header("Accept", accept_header)
@@ -404,20 +409,55 @@ where
             .await
             .map_err(|e| ServerFnError::Request(e.to_string()))?,
     };
+    #[cfg(not(target_arch = "wasm32"))]
+    let resp = match args_encoded {
+        Payload::Binary(b) => CLIENT
+            .post(url)
+            .header("Content-Type", content_type_header)
+            .header("Accept", accept_header)
+            .body(b)
+            .send()
+            .await
+            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+        Payload::Url(s) => CLIENT
+            .post(url)
+            .header("Content-Type", content_type_header)
+            .header("Accept", accept_header)
+            .body(s)
+            .send()
+            .await
+            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+    };
 
     // check for error status
     let status = resp.status();
+    #[cfg(not(target_arch = "wasm32"))]
+    let status = status.as_u16();
     if (500..=599).contains(&status) {
-        return Err(ServerFnError::ServerError(resp.status_text()));
+        #[cfg(target_arch = "wasm32")]
+        let status_text = resp.status_text();
+        #[cfg(not(target_arch = "wasm32"))]
+        let status_text = status.to_string();
+        return Err(ServerFnError::ServerError(status_text));
     }
 
     if enc == Encoding::Cbor {
+        #[cfg(target_arch = "wasm32")]
         let binary = resp
             .binary()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        #[cfg(target_arch = "wasm32")]
+        let binary = binary.as_slice();
+        #[cfg(not(target_arch = "wasm32"))]
+        let binary = resp
+            .bytes()
+            .await
+            .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let binary = binary.as_ref();
 
-        ciborium::de::from_reader(binary.as_slice())
+        ciborium::de::from_reader(binary)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
         let text = resp
@@ -429,4 +469,26 @@ where
         T::deserialize(&mut deserializer)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     }
+}
+
+// Lazily initialize the client to be reused for all server function calls.
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
+static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
+    once_cell::sync::Lazy::new(|| reqwest::Client::new());
+
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
+static ROOT_URL: once_cell::sync::OnceCell<&'static str> =
+    once_cell::sync::OnceCell::new();
+
+#[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
+/// Set the root server url that all server function paths are relative to for the client. On WASM this will default to the origin.
+pub fn set_server_url(url: &'static str) {
+    ROOT_URL.set(url).unwrap();
+}
+
+#[cfg(all(not(feature = "ssr"), not(target_arch = "wasm32")))]
+fn get_server_url() -> &'static str {
+    ROOT_URL
+        .get()
+        .expect("Call set_root_url before calling a server function.")
 }
