@@ -20,9 +20,8 @@ rkyv = { version = "0.7.39", features = [
   "copy",
   "strict",
 ], optional = true }
-bytecheck = { version = "0.6.9", features = [
+bytecheck = { version = "0.7", features = [
   "uuid",
-  "simdutf8_std",
   "simdutf8",
 ], optional = true }
 serde-wasm-bindgen = "0.5"
