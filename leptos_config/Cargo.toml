@@ -15,3 +15,7 @@ regex = "1.7.0"
 serde = { version = "1.0.151", features = ["derive"] }
 thiserror = "1.0.38"
 typed-builder = "0.13"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+tempfile = "3"
