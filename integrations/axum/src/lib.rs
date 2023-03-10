@@ -164,6 +164,22 @@ impl<B> LeptosRequest<B> {
         *writable = req
     }
     /// Consume the inner Request<B> inside the LeptosRequest and return it
+    ///```rust, ignore
+    /// use axum::{
+    /// RequestPartsExt,
+    /// headers::Host
+    /// };
+    /// #[server(GetHost, "/api")]
+    /// pub async fn get_host(cx: Scope) -> Result((), ServerFnError){
+    ///  let req = use_context::<leptos_axum::LeptosRequest<axum::body::Body>>(cx);
+    ///  if let Some(req) = req{
+    ///     let owned_req = req.take_request().unwrap();
+    ///     let (mut parts, _body) = owned_req.into_parts();
+    ///     let host: TypedHeader<Host> = parts.extract().await().unwrap();
+    ///     println!("Host: {host:#?}");
+    ///  }
+    /// }
+    /// ```
     pub fn take_request(&self) -> Option<Request<B>> {
         let mut writable = self.0.write();
         writable.take()
