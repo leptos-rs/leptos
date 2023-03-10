@@ -5,7 +5,7 @@ use crate::{
     node::NodeId,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty,
+    Runtime, Scope, ScopeProperty, queue_microtask,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
@@ -329,7 +329,7 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    eprintln!("created signal {:?}", s.0.id);
+    crate::macros::debug_warn!("created signal {:?} at {}", s.0.id, std::panic::Location::caller());
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }
@@ -1763,9 +1763,11 @@ impl NodeId {
         T: 'static,
     {
         runtime.update_if_necessary(*self);
-        let nodes = runtime.nodes.borrow();
-        let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
-        let value = Rc::clone(&node.value);
+        let value = {
+            let nodes = runtime.nodes.borrow();
+            let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
+            Rc::clone(&node.value)
+        };
 
         let value = value.borrow();
         let value = value
@@ -1851,7 +1853,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            eprintln!("\nupdating signal");
+            crate::macros::debug_warn!("\nupdating signal {:?}", self);
             // update the value
             // let updated = self.update_value(runtime_id, f);
 
@@ -1883,14 +1885,14 @@ impl NodeId {
                 None
             };
             // mark descendants dirty
-            eprintln!("marking children of {self:?}");
+            crate::macros::debug_warn!("marking children of {self:?}");
             runtime.mark_dirty(*self);
 
             // notify subscribers
             if updated.is_some() {
-                //queue_microtask(move || {
+                queue_microtask(move || {
                 Runtime::run_effects(runtime_id);
-                //});
+                });
             };
             updated
         })
