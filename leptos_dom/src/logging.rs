@@ -67,7 +67,7 @@ pub fn console_error(s: &str) {
     if is_server() {
         eprintln!("{s}");
     } else {
-        web_sys::console::warn_1(&JsValue::from_str(s));
+        web_sys::console::error_1(&JsValue::from_str(s));
     }
 }
 
