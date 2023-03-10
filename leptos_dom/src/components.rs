@@ -63,6 +63,8 @@ pub struct ComponentRepr {
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub(crate) id: HydrationKey,
+    #[cfg(debug_assertions)]
+    pub(crate) view_marker: Option<String>
 }
 
 impl fmt::Debug for ComponentRepr {
@@ -205,6 +207,8 @@ impl ComponentRepr {
             children: Vec::with_capacity(1),
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             id,
+            #[cfg(debug_assertions)]
+            view_marker: None
         }
     }
 }
