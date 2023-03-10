@@ -111,7 +111,8 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body.
-#[deprecated( note = "Replaced with generate_request_and_parts() to allow for putting LeptosRequest in the Context")]
+#[deprecated(note = "Replaced with generate_request_and_parts() to allow for \
+                     putting LeptosRequest in the Context")]
 pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
