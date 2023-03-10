@@ -55,10 +55,11 @@ use crate::{
 /// );
 ///
 /// create_effect(cx, move |_| {
-///     log!("name is {}", name());
+///     // note: in the browser, use leptos::log! instead
+///     println!("name is {}", name());
 /// });
 /// create_effect(cx, move |_| {
-///     log!("count is {}", count());
+///     println!("count is {}", count());
 /// });
 ///
 /// // setting count only causes count to log, not name
