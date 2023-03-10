@@ -148,7 +148,7 @@ impl<B> LeptosRequest<B> {
     }
 }
 /// Generate a wrapper for the http::Request::Request type that allows one to
-/// processs it, access the body, and use axum Extractors on it. 
+/// processs it, access the body, and use axum Extractors on it.
 /// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
 pub async fn generate_leptos_request<B>(req: Request<B>) -> LeptosRequest<B>
 where
@@ -593,7 +593,7 @@ where
                                             let app = {
                                                 let full_path = full_path.clone();
                                                 let (req, req_parts) = generate_request_parts(req).await;
-                                                let leptos_req = generate_leptos_request(req).await;                                         
+                                                let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
                                                     provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
                                                     app_fn(cx).into_view(cx)
