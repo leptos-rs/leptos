@@ -64,7 +64,7 @@ pub struct ComponentRepr {
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub(crate) id: HydrationKey,
     #[cfg(debug_assertions)]
-    pub(crate) view_marker: Option<String>
+    pub(crate) view_marker: Option<String>,
 }
 
 impl fmt::Debug for ComponentRepr {
@@ -208,7 +208,7 @@ impl ComponentRepr {
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             id,
             #[cfg(debug_assertions)]
-            view_marker: None
+            view_marker: None,
         }
     }
 }

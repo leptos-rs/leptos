@@ -26,7 +26,7 @@ pub struct Fragment {
     /// The nodes contained in the fragment.
     pub nodes: Vec<View>,
     #[cfg(debug_assertions)]
-    pub(crate) view_marker: Option<String>
+    pub(crate) view_marker: Option<String>,
 }
 
 impl FromIterator<View> for Fragment {
@@ -58,7 +58,7 @@ impl Fragment {
             id,
             nodes,
             #[cfg(debug_assertions)]
-            view_marker: None
+            view_marker: None,
         }
     }
 
@@ -71,7 +71,7 @@ impl Fragment {
     pub fn id(&self) -> &HydrationKey {
         &self.id
     }
-    
+
     #[cfg(debug_assertions)]
     /// Adds an optional marker indicating the view macro source.
     pub fn with_view_marker(mut self, marker: impl Into<String>) -> Self {
@@ -79,7 +79,6 @@ impl Fragment {
         self
     }
 }
-
 
 impl IntoView for Fragment {
     #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]

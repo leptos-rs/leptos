@@ -189,7 +189,7 @@ pub(crate) fn render_view(
                 true,
                 TagType::Unknown,
                 global_class,
-                call_site
+                call_site,
             ),
         }
     }
@@ -639,7 +639,7 @@ fn fragment_to_tokens(
     lazy: bool,
     parent_type: TagType,
     global_class: Option<&TokenTree>,
-    view_marker: Option<String>
+    view_marker: Option<String>,
 ) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
         let node = node_to_tokens(cx, node, parent_type, global_class, None);
@@ -691,7 +691,7 @@ fn node_to_tokens(
             true,
             parent_type,
             global_class,
-            view_marker
+            view_marker,
         ),
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
@@ -784,7 +784,7 @@ fn element_to_tokens(
                     true,
                     parent_type,
                     global_class,
-                    None
+                    None,
                 ),
                 Node::Text(node) => {
                     let value = node.value.as_ref();
@@ -1051,7 +1051,7 @@ pub(crate) fn component_to_tokens(
             true,
             TagType::Unknown,
             global_class,
-            None
+            None,
         );
 
         let clonables = items_to_clone
