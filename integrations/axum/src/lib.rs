@@ -141,10 +141,27 @@ impl<B> Clone for LeptosRequest<B> {
     }
 }
 impl<B> LeptosRequest<B> {
-    /// A less boilerplatey way to overwrite the contents of `ResponseOptions` with a new `ResponseParts`
+    /// Overwrite the contents of a LeptosRequest with a new Request<B>
     pub fn overwrite(&self, req: Option<Request<B>>) {
         let mut writable = self.0.write();
         *writable = req
+    }
+    /// Consume the inner Request<B> inside the LeptosRequest and return it
+    pub fn take_request(&self) -> Option<Request<B>> {
+        let mut writable = self.0.write();
+        writable.take()
+    }
+    /// Can be used to get immutable access to the interior fields of Request
+    /// and do something with them
+    pub fn with(&self, with_fn: impl Fn(Option<&Request<B>>)) {
+        let readable = self.0.read();
+        with_fn(readable.as_ref());
+    }
+
+    /// Can be used to mutate the fields of the Request
+    pub fn update(&self, update_fn: impl Fn(Option<&mut Request<B>>)) {
+        let mut writable = self.0.write();
+        update_fn(writable.as_mut());
     }
 }
 /// Generate a wrapper for the http::Request::Request type that allows one to
