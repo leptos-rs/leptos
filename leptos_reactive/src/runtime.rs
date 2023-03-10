@@ -9,11 +9,11 @@ use crate::{
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
+use rustc_hash::{FxHashMap, FxHashSet};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
     cell::{Cell, RefCell},
-    collections::{HashMap, HashSet},
     fmt::Debug,
     future::Future,
     marker::PhantomData,
@@ -344,15 +344,15 @@ pub(crate) struct Runtime {
     pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
     #[allow(clippy::type_complexity)]
     pub scope_contexts:
-        RefCell<SparseSecondaryMap<ScopeId, HashMap<TypeId, Box<dyn Any>>>>,
+        RefCell<SparseSecondaryMap<ScopeId, FxHashMap<TypeId, Box<dyn Any>>>>,
     #[allow(clippy::type_complexity)]
     pub scope_cleanups:
         RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
     pub stored_values: RefCell<SlotMap<StoredValueId, Rc<RefCell<dyn Any>>>>,
     pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
     pub node_subscribers:
-        RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
-    pub node_sources: RefCell<SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>>,
+        RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
+    pub node_sources: RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
     pub pending_effects: RefCell<Vec<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
@@ -487,7 +487,7 @@ impl Runtime {
 
             // mark all children check
             // this can probably be done in a better way
-            let mut descendants = HashSet::new();
+            let mut descendants = Default::default();
             Runtime::gather_descendants(&subscribers, node, &mut descendants);
             for descendant in descendants {
                 if let Some(mut node) = nodes.get_mut(descendant) {
@@ -524,9 +524,9 @@ impl Runtime {
     }
 
     fn gather_descendants(
-        subscribers: &SecondaryMap<NodeId, RefCell<HashSet<NodeId>>>,
+        subscribers: &SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>,
         node: NodeId,
-        descendants: &mut HashSet<NodeId>,
+        descendants: &mut FxHashSet<NodeId>,
     ) {
         if let Some(children) = subscribers.get(node) {
             for child in children.borrow().iter() {

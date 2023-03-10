@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+use rustc_hash::FxHashMap;
+
 use crate::{runtime::with_runtime, Scope};
 use std::{
     any::{Any, TypeId},
@@ -58,7 +60,7 @@ where
     _ = with_runtime(cx.runtime, |runtime| {
         let mut contexts = runtime.scope_contexts.borrow_mut();
         let context =
-            contexts.entry(cx.id).unwrap().or_insert_with(HashMap::new);
+            contexts.entry(cx.id).unwrap().or_default();
         context.insert(id, Box::new(value) as Box<dyn Any>);
     });
 }
