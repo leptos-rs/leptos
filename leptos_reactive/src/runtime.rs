@@ -237,10 +237,10 @@ impl RuntimeId {
         let id = self.create_concrete_signal(
             Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>
         );
-        crate::macros::debug_warn!(
-            "created RwSignal {id:?} at {:?}",
-            std::panic::Location::caller()
-        );
+        //crate::macros::debug_warn!(
+        //    "created RwSignal {id:?} at {:?}",
+        //    std::panic::Location::caller()
+        //);
         RwSignal {
             runtime: self,
             id,
@@ -323,7 +323,7 @@ impl RuntimeId {
             })
         })
         .expect("tried to create a memo in a runtime that has been disposed");
-        crate::macros::debug_warn!("created memo {id:?}");
+        //crate::macros::debug_warn!("created memo {id:?}");
 
         Memo {
             runtime: self,
@@ -361,7 +361,7 @@ pub(crate) struct Runtime {
 // is significantly inspired by Reactively (https://github.com/modderme123/reactively)
 impl Runtime {
     pub(crate) fn update_if_necessary(&self, node_id: NodeId) {
-        crate::macros::debug_warn!("update_if_necessary {node_id:?}");
+        //crate::macros::debug_warn!("update_if_necessary {node_id:?}");
         if self.current_state(node_id) == ReactiveNodeState::Check {
             let sources = {
                 let sources = self.node_sources.borrow();
@@ -387,7 +387,7 @@ impl Runtime {
     }
 
     pub(crate) fn update(&self, node_id: NodeId) {
-        crate::macros::debug_warn!("updating {node_id:?}");
+        //crate::macros::debug_warn!("updating {node_id:?}");
         let node = {
             let nodes = self.nodes.borrow();
             nodes.get(node_id).cloned()
@@ -419,9 +419,9 @@ impl Runtime {
                     let mut nodes = self.nodes.borrow_mut();
                     for sub_id in subs.borrow().iter() {
                         if let Some(sub) = nodes.get_mut(*sub_id) {
-                            crate::macros::debug_warn!(
-                                "update is marking {sub_id:?} dirty"
-                            );
+                            //crate::macros::debug_warn!(
+                            //    "update is marking {sub_id:?} dirty"
+                            //);
                             sub.state = ReactiveNodeState::Dirty;
                         }
                     }
@@ -461,7 +461,7 @@ impl Runtime {
     }
 
     fn mark_clean(&self, node: NodeId) {
-        crate::macros::debug_warn!("marking {node:?} clean");
+        //crate::macros::debug_warn!("marking {node:?} clean");
         let mut nodes = self.nodes.borrow_mut();
         if let Some(node) = nodes.get_mut(node) {
             node.state = ReactiveNodeState::Clean;
@@ -469,7 +469,7 @@ impl Runtime {
     }
 
     pub(crate) fn mark_dirty(&self, node: NodeId) {
-        crate::macros::debug_warn!("marking {node:?} dirty");
+        //crate::macros::debug_warn!("marking {node:?} dirty");
         let mut nodes = self.nodes.borrow_mut();
         let mut pending_effects = self.pending_effects.borrow_mut();
         let subscribers = self.node_subscribers.borrow();
@@ -511,14 +511,14 @@ impl Runtime {
         pending_effects: &mut Vec<NodeId>,
         current_observer: Option<NodeId>,
     ) {
-        crate::macros::debug_warn!("marking {node_id:?} {level:?}");
+        //crate::macros::debug_warn!("marking {node_id:?} {level:?}");
         if level > node.state {
             node.state = level;
         }
         if matches!(node.node_type, ReactiveNodeType::Effect { .. })
             && current_observer != Some(node_id)
         {
-            crate::macros::debug_warn!("pushing effect {node_id:?}");
+            //crate::macros::debug_warn!("pushing effect {node_id:?}");
             pending_effects.push(node_id);
         }
     }

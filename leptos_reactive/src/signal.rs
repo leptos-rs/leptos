@@ -3,9 +3,9 @@ use crate::{
     console_warn, create_effect,
     macros::debug_warn,
     node::NodeId,
-    on_cleanup,
+    on_cleanup, queue_microtask,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, queue_microtask,
+    Runtime, Scope, ScopeProperty,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
@@ -329,7 +329,7 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    crate::macros::debug_warn!("created signal {:?} at {}", s.0.id, std::panic::Location::caller());
+    //crate::macros::debug_warn!("created signal {:?} at {}", s.0.id, std::panic::Location::caller());
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }
@@ -1853,7 +1853,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            crate::macros::debug_warn!("\nupdating signal {:?}", self);
+            //crate::macros::debug_warn!("\nupdating signal {:?}", self);
             // update the value
             // let updated = self.update_value(runtime_id, f);
 
@@ -1885,14 +1885,14 @@ impl NodeId {
                 None
             };
             // mark descendants dirty
-            crate::macros::debug_warn!("marking children of {self:?}");
+            //crate::macros::debug_warn!("marking children of {self:?}");
             runtime.mark_dirty(*self);
 
             // notify subscribers
             if updated.is_some() {
-                queue_microtask(move || {
+                //queue_microtask(move || {
                 Runtime::run_effects(runtime_id);
-                });
+                //});
             };
             updated
         })
