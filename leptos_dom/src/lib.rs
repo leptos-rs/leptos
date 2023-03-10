@@ -451,6 +451,12 @@ impl<const N: usize> IntoView for [View; N] {
     }
 }
 
+impl IntoView for &Fragment {
+    fn into_view(self, cx: Scope) -> View {
+        self.to_owned().into_view(cx)
+    }
+}
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for View {
     fn get_mountable_node(&self) -> web_sys::Node {
