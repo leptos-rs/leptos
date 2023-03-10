@@ -39,8 +39,7 @@ where
 
 cfg_if! {
     if #[cfg(feature = "rkyv")] {
-        use rkyv::{Archive, Deserialize, Serialize, ser::serializers::AllocSerializer, de::deserializers::SharedDeserializeMap, validation::validators::DefaultValidator};
-        use bytecheck::CheckBytes;
+        use rkyv::{Archive, CheckBytes, Deserialize, Serialize, ser::serializers::AllocSerializer, de::deserializers::SharedDeserializeMap, validation::validators::DefaultValidator};
         use base64::Engine as _;
         use base64::engine::general_purpose::STANDARD_NO_PAD;
 

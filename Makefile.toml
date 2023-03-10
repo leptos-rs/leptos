@@ -39,6 +39,7 @@ dependencies = [
 	{ name = "check", path = "examples/login_with_token_csr_only" },
 	{ name = "check", path = "examples/parent_child" },
 	{ name = "check", path = "examples/router" },
+	{ name = "check", path = "examples/session_auth_axum" },
 	{ name = "check", path = "examples/ssr_modes" },
 	{ name = "check", path = "examples/ssr_modes_axum" },
 	{ name = "check", path = "examples/tailwind" },

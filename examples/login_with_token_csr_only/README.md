@@ -1,7 +1,7 @@
 # Leptos Login Example
 
 This example demonstrates a scenario of a client-side rendered application
-that uses uses an existing API that you cannot or do not want to change.
+that uses an existing API that you cannot or do not want to change.
 The authentications of this example are done using an API token.
 
 ## Run

@@ -491,6 +491,8 @@ fn attribute_to_tokens_ssr<'a>(
                             .unwrap_or_default(),
                     })
                 }
+            } else {
+                template.push_str(&name);
             }
         }
     };
@@ -835,7 +837,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
         };
 
         let event_type = if is_custom {
-            quote! { leptos::ev::Custom::new(#name) }
+            quote! { Custom::new(#name) }
         } else {
             event_type
         };

@@ -11,7 +11,7 @@ description = "Tools to set HTML metadata in the Leptos web framework."
 cfg-if = "1"
 leptos = { workspace = true }
 tracing = "0.1"
-typed-builder = "0.12"
+typed-builder = "0.14"
 wasm-bindgen = "0.2"
 
 [dependencies.web-sys]
