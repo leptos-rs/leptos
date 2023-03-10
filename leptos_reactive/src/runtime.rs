@@ -35,6 +35,233 @@ cfg_if! {
     }
 }
 
+// The data structure that owns all the signals, memos, effects,
+// and other data included in the reactive system.
+#[derive(Default)]
+pub(crate) struct Runtime {
+    pub shared_context: RefCell<SharedContext>,
+    pub observer: Cell<Option<NodeId>>,
+    pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
+    pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
+    pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
+    #[allow(clippy::type_complexity)]
+    pub scope_contexts:
+        RefCell<SparseSecondaryMap<ScopeId, FxHashMap<TypeId, Box<dyn Any>>>>,
+    #[allow(clippy::type_complexity)]
+    pub scope_cleanups:
+        RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
+    pub stored_values: RefCell<SlotMap<StoredValueId, Rc<RefCell<dyn Any>>>>,
+    pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
+    pub node_subscribers:
+        RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
+    pub node_sources: RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
+    pub pending_effects: RefCell<Vec<NodeId>>,
+    pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
+}
+
+// This core Runtime impl block handles all the work of marking and updating
+// the reactive graph.
+//
+// In terms of concept and algorithm, this reactive-system implementation
+// is significantly inspired by Reactively (https://github.com/modderme123/reactively)
+impl Runtime {
+    pub(crate) fn update_if_necessary(&self, node_id: NodeId) {
+        //crate::macros::debug_warn!("update_if_necessary {node_id:?}");
+        if self.current_state(node_id) == ReactiveNodeState::Check {
+            let sources = {
+                let sources = self.node_sources.borrow();
+                sources.get(node_id).map(|n| n.borrow().clone())
+            };
+            for source in sources.into_iter().flatten() {
+                self.update_if_necessary(source);
+                if self.current_state(node_id) == ReactiveNodeState::Dirty {
+                    // as soon as a single parent has marked us dirty, we can
+                    // stop checking them to avoid over-re-running
+                    break;
+                }
+            }
+        }
+
+        // if we're dirty at this point, update
+        if self.current_state(node_id) == ReactiveNodeState::Dirty {
+            self.update(node_id);
+        }
+
+        // now we're clean
+        self.mark_clean(node_id);
+    }
+
+    pub(crate) fn update(&self, node_id: NodeId) {
+        //crate::macros::debug_warn!("updating {node_id:?}");
+        let node = {
+            let nodes = self.nodes.borrow();
+            nodes.get(node_id).cloned()
+        };
+        let subs = {
+            let subs = self.node_subscribers.borrow();
+            subs.get(node_id).cloned()
+        };
+        if let Some(node) = node {
+            // memos and effects rerun
+            // signals simply have their value
+            let changed = match node.node_type {
+                ReactiveNodeType::Signal => true,
+                ReactiveNodeType::Memo { f }
+                | ReactiveNodeType::Effect { f } => {
+                    // set this node as the observer
+                    self.with_observer(node_id, move || {
+                        // clean up sources of this memo/effect
+                        self.cleanup(node_id);
+
+                        f.run(Rc::clone(&node.value))
+                    })
+                }
+            };
+
+            // mark children dirty
+            if changed {
+                if let Some(subs) = subs {
+                    let mut nodes = self.nodes.borrow_mut();
+                    for sub_id in subs.borrow().iter() {
+                        if let Some(sub) = nodes.get_mut(*sub_id) {
+                            //crate::macros::debug_warn!(
+                            //    "update is marking {sub_id:?} dirty"
+                            //);
+                            sub.state = ReactiveNodeState::Dirty;
+                        }
+                    }
+                }
+            }
+
+            // mark clean
+            self.mark_clean(node_id);
+        }
+    }
+
+    pub(crate) fn cleanup(&self, node_id: NodeId) {
+        let sources = self.node_sources.borrow();
+        if let Some(sources) = sources.get(node_id) {
+            let subs = self.node_subscribers.borrow();
+            for source in sources.borrow().iter() {
+                if let Some(source) = subs.get(*source) {
+                    source.borrow_mut().remove(&node_id);
+                }
+            }
+        }
+    }
+
+    fn current_state(&self, node: NodeId) -> ReactiveNodeState {
+        match self.nodes.borrow().get(node) {
+            None => ReactiveNodeState::Clean,
+            Some(node) => node.state,
+        }
+    }
+
+    fn with_observer<T>(&self, observer: NodeId, f: impl FnOnce() -> T) -> T {
+        let prev_observer = self.observer.take();
+        self.observer.set(Some(observer));
+        let v = f();
+        self.observer.set(prev_observer);
+        v
+    }
+
+    fn mark_clean(&self, node: NodeId) {
+        //crate::macros::debug_warn!("marking {node:?} clean");
+        let mut nodes = self.nodes.borrow_mut();
+        if let Some(node) = nodes.get_mut(node) {
+            node.state = ReactiveNodeState::Clean;
+        }
+    }
+
+    pub(crate) fn mark_dirty(&self, node: NodeId) {
+        //crate::macros::debug_warn!("marking {node:?} dirty");
+        let mut nodes = self.nodes.borrow_mut();
+        let mut pending_effects = self.pending_effects.borrow_mut();
+        let subscribers = self.node_subscribers.borrow();
+        let current_observer = self.observer.get();
+
+        // mark self dirty
+        if let Some(mut current_node) = nodes.get_mut(node) {
+            Runtime::mark(
+                node,
+                &mut current_node,
+                ReactiveNodeState::Dirty,
+                &mut *pending_effects,
+                current_observer,
+            );
+
+            // mark all children check
+            // this can probably be done in a better way
+            let mut descendants = Default::default();
+            Runtime::gather_descendants(&subscribers, node, &mut descendants);
+            for descendant in descendants {
+                if let Some(mut node) = nodes.get_mut(descendant) {
+                    Runtime::mark(
+                        descendant,
+                        &mut node,
+                        ReactiveNodeState::Check,
+                        &mut pending_effects,
+                        current_observer,
+                    );
+                }
+            }
+        }
+    }
+
+    fn mark(
+        //nodes: &mut SlotMap<NodeId, ReactiveNode>,
+        node_id: NodeId,
+        node: &mut ReactiveNode,
+        level: ReactiveNodeState,
+        pending_effects: &mut Vec<NodeId>,
+        current_observer: Option<NodeId>,
+    ) {
+        //crate::macros::debug_warn!("marking {node_id:?} {level:?}");
+        if level > node.state {
+            node.state = level;
+        }
+        if matches!(node.node_type, ReactiveNodeType::Effect { .. })
+            && current_observer != Some(node_id)
+        {
+            //crate::macros::debug_warn!("pushing effect {node_id:?}");
+            pending_effects.push(node_id);
+        }
+    }
+
+    fn gather_descendants(
+        subscribers: &SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>,
+        node: NodeId,
+        descendants: &mut FxHashSet<NodeId>,
+    ) {
+        if let Some(children) = subscribers.get(node) {
+            for child in children.borrow().iter() {
+                descendants.insert(*child);
+                Runtime::gather_descendants(subscribers, *child, descendants);
+            }
+        }
+    }
+
+    pub(crate) fn run_effects(runtime_id: RuntimeId) {
+        _ = with_runtime(runtime_id, |runtime| {
+            let effects = runtime.pending_effects.take();
+            for effect_id in effects {
+                runtime.update_if_necessary(effect_id);
+            }
+        });
+    }
+}
+
+impl Debug for Runtime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Runtime")
+            .field("shared_context", &self.shared_context)
+            .field("observer", &self.observer)
+            .field("scopes", &self.scopes)
+            .field("scope_parents", &self.scope_parents)
+            .field("scope_children", &self.scope_children)
+            .finish()
+    }
+}
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
 pub(crate) fn with_runtime<T>(
@@ -332,229 +559,6 @@ impl RuntimeId {
             #[cfg(debug_assertions)]
             defined_at,
         }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct Runtime {
-    pub shared_context: RefCell<SharedContext>,
-    pub observer: Cell<Option<NodeId>>,
-    pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
-    pub scope_parents: RefCell<SparseSecondaryMap<ScopeId, ScopeId>>,
-    pub scope_children: RefCell<SparseSecondaryMap<ScopeId, Vec<ScopeId>>>,
-    #[allow(clippy::type_complexity)]
-    pub scope_contexts:
-        RefCell<SparseSecondaryMap<ScopeId, FxHashMap<TypeId, Box<dyn Any>>>>,
-    #[allow(clippy::type_complexity)]
-    pub scope_cleanups:
-        RefCell<SparseSecondaryMap<ScopeId, Vec<Box<dyn FnOnce()>>>>,
-    pub stored_values: RefCell<SlotMap<StoredValueId, Rc<RefCell<dyn Any>>>>,
-    pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
-    pub node_subscribers:
-        RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
-    pub node_sources: RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
-    pub pending_effects: RefCell<Vec<NodeId>>,
-    pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
-}
-
-// In terms of concept and algorithm, this reactive-system implementation
-// is significantly inspired by Reactively (https://github.com/modderme123/reactively)
-impl Runtime {
-    pub(crate) fn update_if_necessary(&self, node_id: NodeId) {
-        //crate::macros::debug_warn!("update_if_necessary {node_id:?}");
-        if self.current_state(node_id) == ReactiveNodeState::Check {
-            let sources = {
-                let sources = self.node_sources.borrow();
-                sources.get(node_id).map(|n| n.borrow().clone())
-            };
-            for source in sources.into_iter().flatten() {
-                self.update_if_necessary(source);
-                if self.current_state(node_id) == ReactiveNodeState::Dirty {
-                    // as soon as a single parent has marked us dirty, we can
-                    // stop checking them to avoid over-re-running
-                    break;
-                }
-            }
-        }
-
-        // if we're dirty at this point, update
-        if self.current_state(node_id) == ReactiveNodeState::Dirty {
-            self.update(node_id);
-        }
-
-        // now we're clean
-        self.mark_clean(node_id);
-    }
-
-    pub(crate) fn update(&self, node_id: NodeId) {
-        //crate::macros::debug_warn!("updating {node_id:?}");
-        let node = {
-            let nodes = self.nodes.borrow();
-            nodes.get(node_id).cloned()
-        };
-        let subs = {
-            let subs = self.node_subscribers.borrow();
-            subs.get(node_id).cloned()
-        };
-        if let Some(node) = node {
-            // memos and effects rerun
-            // signals simply have their value
-            let changed = match node.node_type {
-                ReactiveNodeType::Signal => true,
-                ReactiveNodeType::Memo { f }
-                | ReactiveNodeType::Effect { f } => {
-                    // set this node as the observer
-                    self.with_observer(node_id, move || {
-                        // clean up sources of this memo/effect
-                        self.cleanup(node_id);
-
-                        f.run(Rc::clone(&node.value))
-                    })
-                }
-            };
-
-            // mark children dirty
-            if changed {
-                if let Some(subs) = subs {
-                    let mut nodes = self.nodes.borrow_mut();
-                    for sub_id in subs.borrow().iter() {
-                        if let Some(sub) = nodes.get_mut(*sub_id) {
-                            //crate::macros::debug_warn!(
-                            //    "update is marking {sub_id:?} dirty"
-                            //);
-                            sub.state = ReactiveNodeState::Dirty;
-                        }
-                    }
-                }
-            }
-
-            // mark clean
-            self.mark_clean(node_id);
-        }
-    }
-
-    pub(crate) fn cleanup(&self, node_id: NodeId) {
-        let sources = self.node_sources.borrow();
-        if let Some(sources) = sources.get(node_id) {
-            let subs = self.node_subscribers.borrow();
-            for source in sources.borrow().iter() {
-                if let Some(source) = subs.get(*source) {
-                    source.borrow_mut().remove(&node_id);
-                }
-            }
-        }
-    }
-
-    fn current_state(&self, node: NodeId) -> ReactiveNodeState {
-        match self.nodes.borrow().get(node) {
-            None => ReactiveNodeState::Clean,
-            Some(node) => node.state,
-        }
-    }
-
-    fn with_observer<T>(&self, observer: NodeId, f: impl FnOnce() -> T) -> T {
-        let prev_observer = self.observer.take();
-        self.observer.set(Some(observer));
-        let v = f();
-        self.observer.set(prev_observer);
-        v
-    }
-
-    fn mark_clean(&self, node: NodeId) {
-        //crate::macros::debug_warn!("marking {node:?} clean");
-        let mut nodes = self.nodes.borrow_mut();
-        if let Some(node) = nodes.get_mut(node) {
-            node.state = ReactiveNodeState::Clean;
-        }
-    }
-
-    pub(crate) fn mark_dirty(&self, node: NodeId) {
-        //crate::macros::debug_warn!("marking {node:?} dirty");
-        let mut nodes = self.nodes.borrow_mut();
-        let mut pending_effects = self.pending_effects.borrow_mut();
-        let subscribers = self.node_subscribers.borrow();
-        let current_observer = self.observer.get();
-
-        // mark self dirty
-        if let Some(mut current_node) = nodes.get_mut(node) {
-            Runtime::mark(
-                node,
-                &mut current_node,
-                ReactiveNodeState::Dirty,
-                &mut *pending_effects,
-                current_observer,
-            );
-
-            // mark all children check
-            // this can probably be done in a better way
-            let mut descendants = Default::default();
-            Runtime::gather_descendants(&subscribers, node, &mut descendants);
-            for descendant in descendants {
-                if let Some(mut node) = nodes.get_mut(descendant) {
-                    Runtime::mark(
-                        descendant,
-                        &mut node,
-                        ReactiveNodeState::Check,
-                        &mut pending_effects,
-                        current_observer,
-                    );
-                }
-            }
-        }
-    }
-
-    fn mark(
-        //nodes: &mut SlotMap<NodeId, ReactiveNode>,
-        node_id: NodeId,
-        node: &mut ReactiveNode,
-        level: ReactiveNodeState,
-        pending_effects: &mut Vec<NodeId>,
-        current_observer: Option<NodeId>,
-    ) {
-        //crate::macros::debug_warn!("marking {node_id:?} {level:?}");
-        if level > node.state {
-            node.state = level;
-        }
-        if matches!(node.node_type, ReactiveNodeType::Effect { .. })
-            && current_observer != Some(node_id)
-        {
-            //crate::macros::debug_warn!("pushing effect {node_id:?}");
-            pending_effects.push(node_id);
-        }
-    }
-
-    fn gather_descendants(
-        subscribers: &SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>,
-        node: NodeId,
-        descendants: &mut FxHashSet<NodeId>,
-    ) {
-        if let Some(children) = subscribers.get(node) {
-            for child in children.borrow().iter() {
-                descendants.insert(*child);
-                Runtime::gather_descendants(subscribers, *child, descendants);
-            }
-        }
-    }
-
-    pub(crate) fn run_effects(runtime_id: RuntimeId) {
-        _ = with_runtime(runtime_id, |runtime| {
-            let effects = runtime.pending_effects.take();
-            for effect_id in effects {
-                runtime.update_if_necessary(effect_id);
-            }
-        });
-    }
-}
-
-impl Debug for Runtime {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Runtime")
-            .field("shared_context", &self.shared_context)
-            .field("observer", &self.observer)
-            .field("scopes", &self.scopes)
-            .field("scope_parents", &self.scope_parents)
-            .field("scope_children", &self.scope_children)
-            .finish()
     }
 }
 

@@ -177,7 +177,6 @@ where
     )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
         #[cfg(debug_assertions)]
-        eprintln!("run() effect {:?}", self.defined_at);
         // we defensively take and release the BorrowMut twice here
         // in case a change during the effect running schedules a rerun
         // ideally this should never happen, but this guards against panic
@@ -192,7 +191,6 @@ where
 
         // run the effect
         let new_value = (self.f)(curr_value);
-        eprintln!("  ran effect");
 
         // set new value
         let mut value = value.borrow_mut();
@@ -200,8 +198,6 @@ where
             .downcast_mut::<Option<T>>()
             .expect("to downcast effect value");
         *value = Some(new_value);
-
-        eprintln!("  set new value\neffect over \n\n");
 
         true
     }

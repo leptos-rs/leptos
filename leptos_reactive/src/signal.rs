@@ -3,7 +3,7 @@ use crate::{
     console_warn, create_effect,
     macros::debug_warn,
     node::NodeId,
-    on_cleanup, queue_microtask,
+    on_cleanup,
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty,
 };
@@ -1773,7 +1773,7 @@ impl NodeId {
         let value = value
             .downcast_ref::<T>()
             .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))
-            .expect("downcast issue");
+            .expect("to downcast signal type");
         Ok(f(value))
     }
 
@@ -1801,7 +1801,7 @@ impl NodeId {
         with_runtime(runtime, |runtime| {
             self.try_with_no_subscription(runtime, f).unwrap()
         })
-        .expect("tried to access a signal in a runtime that has been disposed")
+        .expect("runtime to be alive")
     }
 
     fn update_value<T, U>(
@@ -1853,10 +1853,6 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            //crate::macros::debug_warn!("\nupdating signal {:?}", self);
-            // update the value
-            // let updated = self.update_value(runtime_id, f);
-
             let value = {
                 let signals = runtime.nodes.borrow();
                 signals.get(*self).map(|node| Rc::clone(&node.value))
@@ -1884,15 +1880,13 @@ impl NodeId {
                 );
                 None
             };
+
             // mark descendants dirty
-            //crate::macros::debug_warn!("marking children of {self:?}");
             runtime.mark_dirty(*self);
 
             // notify subscribers
             if updated.is_some() {
-                //queue_microtask(move || {
                 Runtime::run_effects(runtime_id);
-                //});
             };
             updated
         })

@@ -65,7 +65,8 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
         level = "trace",
         skip_all,
         fields(
-            cx = ?cx.id,
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>()
         )
     )
 )]
@@ -190,11 +191,12 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     )]
     fn get_untracked(&self) -> T {
         with_runtime(self.runtime, move |runtime| {
-            self.id
-                .try_with_no_subscription(runtime, T::clone)
-                .expect("no value found for memo")
+            match self.id.try_with_no_subscription(runtime, T::clone) {
+                Ok(t) => t,
+                Err(_) => panic_getting_dead_memo(self.defined_at),
+            }
         })
-        .expect("runtime has been disposed")
+        .expect("runtime to be alive")
     }
 
     #[cfg_attr(
@@ -237,11 +239,12 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
         // Unwrapping here is fine for the same reasons as <Memo as
         // UntrackedSignal>::get_untracked
         with_runtime(self.runtime, |runtime| {
-            self.id
-                .try_with_no_subscription(runtime, |v: &T| f(v))
-                .expect("with_untracked memo value not found")
+            match self.id.try_with_no_subscription(runtime, |v: &T| f(v)) {
+                Ok(t) => t,
+                Err(_) => panic_getting_dead_memo(self.defined_at),
+            }
         })
-        .expect("runtime has been disposed")
+        .expect("runtime to be alive")
     }
 
     #[cfg_attr(
@@ -292,6 +295,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             fields(
                 id = ?self.id,
                 defined_at = %self.defined_at
+                ty = %std::any::type_name::<T>()
             )
         )
     )]
@@ -332,7 +336,13 @@ impl<T> SignalWith<T> for Memo<T> {
         )
     )]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.try_with(f).expect("with unwrapped")
+        match self.try_with(f) {
+            Some(t) => t,
+            None => panic_getting_dead_memo(
+                #[cfg(debug_assertions)]
+                self.defined_at,
+            ),
+        }
     }
 
     #[cfg_attr(
@@ -363,6 +373,19 @@ impl<T> SignalWith<T> for Memo<T> {
 }
 
 impl<T: Clone> SignalStream<T> for Memo<T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Memo::to_stream()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn to_stream(
         &self,
         cx: Scope,
@@ -404,7 +427,7 @@ where
             let value = value.borrow();
             let curr_value = value
                 .downcast_ref::<Option<T>>()
-                .expect("to downcast effect value");
+                .expect("to downcast memo value");
 
             // run the effect
             let new_value = (self.f)(curr_value.as_ref());
@@ -415,10 +438,46 @@ where
             let mut value = value.borrow_mut();
             let curr_value = value
                 .downcast_mut::<Option<T>>()
-                .expect("to downcast effect value");
+                .expect("to downcast memo value");
             *curr_value = Some(new_value);
         }
 
         is_different
     }
+}
+
+#[track_caller]
+fn format_memo_warning(
+    msg: &str,
+    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+) -> String {
+    let location = std::panic::Location::caller();
+
+    let defined_at_msg = {
+        #[cfg(debug_assertions)]
+        {
+            format!("signal created here: {defined_at}\n")
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            String::default()
+        }
+    };
+
+    format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
+}
+
+#[track_caller]
+pub(crate) fn panic_getting_dead_memo(
+    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+) -> ! {
+    panic!(
+        "{}",
+        format_memo_warning(
+            "Attempted to get a memo after it was disposed.",
+            #[cfg(debug_assertions)]
+            defined_at,
+        )
+    )
 }
