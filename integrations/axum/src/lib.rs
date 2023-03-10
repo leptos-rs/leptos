@@ -110,9 +110,25 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 }
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
+/// and other data without consuming the body.
+#[deprecated( note = "Replaced with generate_request_and_parts() to allow for putting LeptosRequest in the Context")]
+pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
+    // provide request headers as context in server scope
+    let (parts, body) = req.into_parts();
+    let body = body::to_bytes(body).await.unwrap_or_default();
+    RequestParts {
+        method: parts.method,
+        uri: parts.uri,
+        headers: parts.headers,
+        version: parts.version,
+        body,
+    }
+}
+
+/// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body. Creates a new Request from the
 /// original parts for further processsing
-pub async fn generate_request_parts(
+pub async fn generate_request_and_parts(
     req: Request<Body>,
 ) -> (Request<Body>, RequestParts) {
     // provide request headers as context in server scope
@@ -270,7 +286,7 @@ async fn handle_server_fns_inner(
                             additional_context(cx);
 
                             let (req, req_parts) =
-                                generate_request_parts(req).await;
+                                generate_request_and_parts(req).await;
                             let leptos_req = generate_leptos_request(req).await; // Add this so we can get details about the Request
                             provide_context(cx, req_parts.clone());
                             provide_context(cx, leptos_req);
@@ -609,7 +625,7 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let (req, req_parts) = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_and_parts(req).await;
                                                 let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
                                                     provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
@@ -778,7 +794,7 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let (req, req_parts) = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_and_parts(req).await;
                                                 let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
                                                     provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
@@ -961,7 +977,7 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let (req, req_parts) = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_and_parts(req).await;
                                                 let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
                                                     provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
