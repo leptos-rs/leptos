@@ -165,6 +165,7 @@ pub(crate) fn render_view(
                 Span::call_site(),
                 nodes,
                 global_class,
+                call_site
             ),
         }
     } else {
@@ -207,6 +208,7 @@ fn root_node_to_tokens_ssr(
             Span::call_site(),
             &fragment.children,
             global_class,
+            view_marker
         ),
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
         Node::Text(node) => {
@@ -233,7 +235,13 @@ fn fragment_to_tokens_ssr(
     _span: Span,
     nodes: &[Node],
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>
 ) -> TokenStream {
+    let view_marker = if let Some(marker) = view_marker {
+        quote! { .with_view_marker(#marker) }
+    } else {
+        quote! {}
+    };
     let nodes = nodes.iter().map(|node| {
         let node = root_node_to_tokens_ssr(cx, node, global_class, None);
         quote! {
@@ -245,6 +253,7 @@ fn fragment_to_tokens_ssr(
             leptos::Fragment::lazy(|| vec![
                 #(#nodes),*
             ])
+            #view_marker
         }
     }
 }
