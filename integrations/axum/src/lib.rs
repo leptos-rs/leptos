@@ -111,6 +111,8 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body.
+#[deprecated(note = "Replaced with generate_request_and_parts() to allow for \
+                     putting LeptosRequest in the Context")]
 pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
     // provide request headers as context in server scope
     let (parts, body) = req.into_parts();
@@ -124,6 +126,88 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
     }
 }
 
+/// Decomposes an HTTP request into its parts, allowing you to read its headers
+/// and other data without consuming the body. Creates a new Request from the
+/// original parts for further processsing
+pub async fn generate_request_and_parts(
+    req: Request<Body>,
+) -> (Request<Body>, RequestParts) {
+    // provide request headers as context in server scope
+    let (parts, body) = req.into_parts();
+    let body = body::to_bytes(body).await.unwrap_or_default();
+    let request_parts = RequestParts {
+        method: parts.method.clone(),
+        uri: parts.uri.clone(),
+        headers: parts.headers.clone(),
+        version: parts.version,
+        body: body.clone(),
+    };
+    let request = Request::from_parts(parts, body.into());
+
+    (request, request_parts)
+}
+
+/// A struct to hold the http::request::Request and allow users to take ownership of it
+/// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+#[derive(Debug, Default)]
+pub struct LeptosRequest<B>(Arc<RwLock<Option<Request<B>>>>);
+
+impl<B> Clone for LeptosRequest<B> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<B> LeptosRequest<B> {
+    /// Overwrite the contents of a LeptosRequest with a new Request<B>
+    pub fn overwrite(&self, req: Option<Request<B>>) {
+        let mut writable = self.0.write();
+        *writable = req
+    }
+    /// Consume the inner Request<B> inside the LeptosRequest and return it
+    ///```rust, ignore
+    /// use axum::{
+    /// RequestPartsExt,
+    /// headers::Host
+    /// };
+    /// #[server(GetHost, "/api")]
+    /// pub async fn get_host(cx: Scope) -> Result((), ServerFnError){
+    ///  let req = use_context::<leptos_axum::LeptosRequest<axum::body::Body>>(cx);
+    ///  if let Some(req) = req{
+    ///     let owned_req = req.take_request().unwrap();
+    ///     let (mut parts, _body) = owned_req.into_parts();
+    ///     let host: TypedHeader<Host> = parts.extract().await().unwrap();
+    ///     println!("Host: {host:#?}");
+    ///  }
+    /// }
+    /// ```
+    pub fn take_request(&self) -> Option<Request<B>> {
+        let mut writable = self.0.write();
+        writable.take()
+    }
+    /// Can be used to get immutable access to the interior fields of Request
+    /// and do something with them
+    pub fn with(&self, with_fn: impl Fn(Option<&Request<B>>)) {
+        let readable = self.0.read();
+        with_fn(readable.as_ref());
+    }
+
+    /// Can be used to mutate the fields of the Request
+    pub fn update(&self, update_fn: impl Fn(Option<&mut Request<B>>)) {
+        let mut writable = self.0.write();
+        update_fn(writable.as_mut());
+    }
+}
+/// Generate a wrapper for the http::Request::Request type that allows one to
+/// processs it, access the body, and use axum Extractors on it.
+/// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+pub async fn generate_leptos_request<B>(req: Request<B>) -> LeptosRequest<B>
+where
+    B: Default + std::fmt::Debug,
+{
+    let leptos_request = LeptosRequest::default();
+    leptos_request.overwrite(Some(req));
+    leptos_request
+}
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
 /// run the server function if found, and return the resulting [Response].
 ///
@@ -218,9 +302,11 @@ async fn handle_server_fns_inner(
 
                             additional_context(cx);
 
-                            let req_parts = generate_request_parts(req).await;
-                            // Add this so we can get details about the Request
+                            let (req, req_parts) =
+                                generate_request_and_parts(req).await;
+                            let leptos_req = generate_leptos_request(req).await; // Add this so we can get details about the Request
                             provide_context(cx, req_parts.clone());
+                            provide_context(cx, leptos_req);
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
@@ -556,9 +642,10 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_and_parts(req).await;
+                                                let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                    provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -724,9 +811,10 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_and_parts(req).await;
+                                                let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                    provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -752,16 +840,18 @@ where
     }
 }
 
-fn provide_contexts(
+fn provide_contexts<B: 'static + std::fmt::Debug + std::default::Default>(
     cx: Scope,
     path: String,
     req_parts: RequestParts,
+    leptos_req: LeptosRequest<B>,
     default_res_options: ResponseOptions,
 ) {
     let integration = ServerIntegration { path };
     provide_context(cx, RouterIntegrationContext::new(integration));
     provide_context(cx, MetaContext::new());
     provide_context(cx, req_parts);
+    provide_context(cx, leptos_req);
     provide_context(cx, default_res_options);
     provide_server_redirect(cx, move |path| redirect(cx, path));
 }
@@ -904,9 +994,10 @@ where
                                         .run_until(async {
                                             let app = {
                                                 let full_path = full_path.clone();
-                                                let req_parts = generate_request_parts(req).await;
+                                                let (req, req_parts) = generate_request_and_parts(req).await;
+                                                let leptos_req = generate_leptos_request(req).await;
                                                 move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                    provide_contexts(cx, full_path, req_parts,leptos_req, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
