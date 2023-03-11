@@ -31,7 +31,7 @@ fn App(cx: Scope) -> impl IntoView {
                 set_count.update(|n| *n += 1);
             }
         >
-            "Click me"
+            "Click me: "
             {move || count.get()}
         </button>
     }
@@ -61,7 +61,7 @@ Every component is a function with the following characteristics
 
 ## The Component Body
 The body of the component function is a set-up function that runs once, not a 
-render function that re-runs multiple times. You’ll typically use it to create a
+render function that reruns multiple times. You’ll typically use it to create a
 few reactive variables, define any side effects that run in response to those values
 changing, and describe the user interface.
 
@@ -110,7 +110,7 @@ than they’ve ever used in their lives. And fair enough. Basically, passing a f
 into the view tells the framework: “Hey, this is something that might change.”
 
 When we click the button and call `set_count`, the `count` signal is updated. This 
-`move || count.get()` closure, whose value depends on the value of `count`, re-runs, 
+`move || count.get()` closure, whose value depends on the value of `count`, reruns, 
 and the framework makes a targeted update to that one specific text node, touching 
 nothing else in your application. This is what allows for extremely efficient updates
 to the DOM.

@@ -2,7 +2,7 @@
 
 Believe it or not, we’ve made it this far without having mentioned half of the reactive system: effects.
 
-Leptos is built on a fine-grained reactive system, which means that individual reactive values (“signals,” sometimes known as observables) trigger the code that reacts to them (“effects,” sometimes known as observers) to re-run. These two halves of the reactive system are inter-dependent. Without effects, signals can change within the reactive system but never be observed in a way that interacts with the outside world. Without signals, effects run once but never again, as there’s no observable value to subscribe to.
+Leptos is built on a fine-grained reactive system, which means that individual reactive values (“signals,” sometimes known as observables) trigger rerunning the code that reacts to them (“effects,” sometimes known as observers). These two halves of the reactive system are inter-dependent. Without effects, signals can change within the reactive system but never be observed in a way that interacts with the outside world. Without signals, effects run once but never again, as there’s no observable value to subscribe to.
 
 [`create_effect`](https://docs.rs/leptos_reactive/latest/leptos_reactive/fn.create_effect.html) takes a function as its argument. It immediately runs the function. If you access any reactive signal inside that function, it registers the fact that the effect depends on that signal with the reactive runtime. Whenever one of the signals that the effect depends on changes, the effect runs again.
 
@@ -22,7 +22,7 @@ By default, effects **do not run on the server**. This means you can call browse
 
 ## Autotracking and Dynamic Dependencies
 
-If you’re familiar with a framework like React, you might notice one key difference. React and similar frameworks typically require you to pass a “dependency array,” an explicit set of variables that determine when the effect should re-run.
+If you’re familiar with a framework like React, you might notice one key difference. React and similar frameworks typically require you to pass a “dependency array,” an explicit set of variables that determine when the effect should rerun.
 
 Because Leptos comes from the tradition of synchronous reactive programming, we don’t need this explicit dependency list. Instead, we automatically track dependencies depending on which signals are accessed within the effect.
 
@@ -47,14 +47,14 @@ let (use_last, set_use_last) = create_signal(cx, true);
 // this will add the name to the log
 // any time one of the source signals changes
 create_effect(cx, move |_| {
-	log(
-		cx,
-		if use_last() {
-			format!("{} {}", first(), last())
-		} else {
-			first()
-		},
-	)
+    log(
+        cx,
+        if use_last() {
+            format!("{} {}", first(), last())
+        } else {
+            first()
+        },
+    )
 });
 ```
 
@@ -78,11 +78,11 @@ We’ve managed to get this far without mentioning effects because they’re bui
 let (count, set_count) = create_signal(cx, 0);
 
 view! { cx,
-	<p>{count}</p>
+    <p>{count}</p>
 }
 ```
 
-This works because the framework essentially creates an effect wrapping this update. You can imagine Leptos translating this view something like this:
+This works because the framework essentially creates an effect wrapping this update. You can imagine Leptos translating this view into something like this:
 
 ```rust
 let (count, set_count) = create_signal(cx, 0);
@@ -92,16 +92,16 @@ let p = create_element("p");
 
 // create an effect to reactively update the text
 create_effect(cx, move |prev_value| {
-	// first, access the signal’s value and convert it to a string
-	let text = count().to_string();
+    // first, access the signal’s value and convert it to a string
+    let text = count().to_string();
 
-	// if this is different from the previous value, update the node
-	if prev_value != Some(text) {
-		p.set_text_content(&text);
-	}
+    // if this is different from the previous value, update the node
+    if prev_value != Some(text) {
+        p.set_text_content(&text);
+    }
 
-	// return this value so we can memoize the next update
-	text
+    // return this value so we can memoize the next update
+    text
 });
 ```
 
