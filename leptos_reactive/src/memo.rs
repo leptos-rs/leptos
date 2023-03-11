@@ -294,7 +294,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             skip_all,
             fields(
                 id = ?self.id,
-                defined_at = %self.defined_at
+                defined_at = %self.defined_at,
                 ty = %std::any::type_name::<T>()
             )
         )

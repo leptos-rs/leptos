@@ -134,7 +134,7 @@ fn diamond_problem() {
 #[cfg(not(feature = "stable"))]
 #[test]
 fn dynamic_dependencies() {
-    use leptos_reactive::{create_effect, create_isomorphic_effect};
+    use leptos_reactive::create_isomorphic_effect;
     use std::{cell::Cell, rc::Rc};
 
     create_scope(create_runtime(), |cx| {

@@ -10,6 +10,11 @@ fn Component(
     #[prop(default = NonZeroUsize::new(10).unwrap())] default: NonZeroUsize,
     #[prop(into)] into: String,
 ) -> impl IntoView {
+    _ = optional;
+    _ = optional_no_strip;
+    _ = strip_option;
+    _ = default;
+    _ = into;
 }
 
 #[test]
