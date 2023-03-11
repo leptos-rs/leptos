@@ -15,11 +15,11 @@ fn leptos_deep_memo_creation(b: &mut Bencher) {
                 let prev = memos.get(i.saturating_sub(1)).copied();
                 if let Some(prev) = prev {
                     memos.push(create_memo(cx, move |_| {
-                        prev.get()
+                        prev.get() + 1
                     }));
                 } else {
                     memos.push(create_memo(cx, move |_| {
-                        signal.get()
+                        signal.get() + 1
                     }));
                 }
             }
@@ -42,16 +42,16 @@ fn leptos_deep_memo_update(b: &mut Bencher) {
                 let prev = memos.get(i.saturating_sub(1)).copied();
                 if let Some(prev) = prev {
                     memos.push(create_memo(cx, move |_| {
-                        prev.get()
+                        prev.get() + 1
                     }));
                 } else {
                     memos.push(create_memo(cx, move |_| {
-                        signal.get()
+                        signal.get() + 1
                     }));
                 }
             }
             signal.set(1);
-            assert_eq!(memos[999].get(), 1);
+            assert_eq!(memos[999].get(), 1001);
         })
         .dispose()
     });
@@ -172,11 +172,11 @@ fn sycamore_deep_memo_creation(b: &mut Bencher) {
                 let prev = memos.get(i.saturating_sub(1)).copied();
                 if let Some(prev) = prev {
                     memos.push(create_memo(cx, move || {
-                        *prev.get()
+                        *prev.get() + 1
                     }));
                 } else {
                     memos.push(create_memo(cx, move || {
-                        *signal.get()
+                        *signal.get() + 1
                     }));
                 }
             }
@@ -197,16 +197,16 @@ fn sycamore_deep_memo_update(b: &mut Bencher) {
                 let prev = memos.get(i.saturating_sub(1)).copied();
                 if let Some(prev) = prev {
                     memos.push(create_memo(cx, move || {
-                        *prev.get()
+                        *prev.get() + 1
                     }));
                 } else {
                     memos.push(create_memo(cx, move || {
-                        *signal.get()
+                        *signal.get() + 1
                     }));
                 }
             }
             signal.set(1);
-            assert_eq!(*memos[999].get(), 1);
+            assert_eq!(*memos[999].get(), 1001);
         });
         unsafe { d.dispose() };
     });
