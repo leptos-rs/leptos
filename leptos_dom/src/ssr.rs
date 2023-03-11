@@ -237,12 +237,17 @@ impl View {
                 };
                 cfg_if! {
                   if #[cfg(debug_assertions)] {
-                    format!(r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
+                    let content = format!(r#"<!--hk={}|leptos-{name}-start-->{}<!--hk={}|leptos-{name}-end-->"#,
                       HydrationCtx::to_string(&node.id, false),
                       content(),
                       HydrationCtx::to_string(&node.id, true),
                       name = to_kebab_case(&node.name)
-                    ).into()
+                    );
+                    if let Some(id) = node.view_marker {
+                        format!("<!--leptos-view|{id}|open-->{content}<!--leptos-view|{id}|close-->").into()
+                    } else {
+                        content.into()
+                    }
                   } else {
                     format!(
                       r#"{}<!--hk={}-->"#,

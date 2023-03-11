@@ -25,6 +25,8 @@ pub struct Fragment {
     id: HydrationKey,
     /// The nodes contained in the fragment.
     pub nodes: Vec<View>,
+    #[cfg(debug_assertions)]
+    pub(crate) view_marker: Option<String>,
 }
 
 impl FromIterator<View> for Fragment {
@@ -52,7 +54,12 @@ impl Fragment {
 
     /// Creates a new [`Fragment`] with the given hydration ID from a [`Vec<Node>`].
     pub fn new_with_id(id: HydrationKey, nodes: Vec<View>) -> Self {
-        Self { id, nodes }
+        Self {
+            id,
+            nodes,
+            #[cfg(debug_assertions)]
+            view_marker: None,
+        }
     }
 
     /// Gives access to the [View] children contained within the fragment.
@@ -64,12 +71,24 @@ impl Fragment {
     pub fn id(&self) -> &HydrationKey {
         &self.id
     }
+
+    #[cfg(debug_assertions)]
+    /// Adds an optional marker indicating the view macro source.
+    pub fn with_view_marker(mut self, marker: impl Into<String>) -> Self {
+        self.view_marker = Some(marker.into());
+        self
+    }
 }
 
 impl IntoView for Fragment {
     #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]
     fn into_view(self, cx: leptos_reactive::Scope) -> View {
         let mut frag = ComponentRepr::new_with_id("", self.id.clone());
+
+        #[cfg(debug_assertions)]
+        {
+            frag.view_marker = self.view_marker;
+        }
 
         frag.children = self.nodes;
 
