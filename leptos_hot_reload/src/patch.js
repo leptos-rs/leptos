@@ -2,7 +2,7 @@ console.log("[HOT RELOADING] Connected to server.");
 function patch(json) {
 	try {
 		const views = JSON.parse(json);
-		for ([id, patches] of views) {
+		for (const [id, patches] of views) {
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT),
 				open = `leptos-view|${id}|open`,
 				close = `leptos-view|${id}|close`;
@@ -16,10 +16,7 @@ function patch(json) {
 				}
 			}
 			// build tree of current actual children
-			const range = new Range();
-			range.setStartAfter(start);
-			range.setEndBefore(end);
-			const actualChildren = buildActualChildren(start.parentElement, range);
+            const actualChildren = childrenFromRange(start.parentElement, start, end);
 			const actions = [];
 
 			// build up the set of actions
@@ -100,26 +97,49 @@ function patch(json) {
 						}
 					})
 				} else if (action.InsertChild) {
-					const newChild = fromReplacementNode(action.InsertChild.child, actualChildren),
-						before = child.children[action.InsertChild.before];
+					const newChild = fromReplacementNode(action.InsertChild.child, actualChildren);
+                    let children = [];
+                    if(child.children) {
+                        children = child.children;
+                    } else if (child.start && child.end) {
+                        children = childrenFromRange(child.node || child.start.parentElement, start, end);
+                    } else {
+                        console.warn("InsertChildAfter could not build children.");
+                    }
+					const before = children[action.InsertChild.before];
 					actions.push(() => {
 						console.log("[HOT RELOAD] > InsertChild", child, child.node, action.InsertChild, " before ", before);
-						if (!before) {
+						if (!before && child.node) {
 							child.node.appendChild(newChild);
 						} else {
-							child.node.insertBefore(newChild, (before.node || before.start));
+                            let node = child.node || child.end.parentElement;
+                            const reference = before ? before.node || before.start : child.end;
+							node.insertBefore(newChild, reference);
 						}
 					})
 				} else if (action.InsertChildAfter) {
-					const newChild = fromReplacementNode(action.InsertChildAfter.child, actualChildren),
-						after = child.children[action.InsertChildAfter.after];
+					const newChild = fromReplacementNode(action.InsertChildAfter.child, actualChildren);
+                    let children = [];
+                    if(child.children) {
+                        children = child.children;
+                    } else if (child.start && child.end) {
+                        children = childrenFromRange(child.node || child.start.parentElement, start, end);
+                    } else {
+                        console.warn("InsertChildAfter could not build children.");
+                    }
+                    const after = children[action.InsertChildAfter.after];
 					actions.push(() => {
 						console.log("[HOT RELOAD] > InsertChildAfter", child, child.node, action.InsertChildAfter, " after ", after);
-						console.log("newChild is ", newChild);
-						if (!after || !(after.node || after.start).nextSibling) {
+						if (child.node && (!after || !(after.node || after.start).nextSibling)) {
 							child.node.appendChild(newChild);
-						} else {
-							child.node.insertBefore(newChild, (after.node || after.start).nextSibling);
+                        } else {
+                            const node = child.node || child.end;
+                            const parent = node.nodeType === Node.COMMENT_NODE ? node.parentNode : node;
+                            if(!after) {
+                                parent.appendChild(newChild);
+                            } else {
+                                parent.insertBefore(newChild, (after.node || after.start).nextSibling);
+                            }
 						}
 					})
 				} else {
@@ -138,7 +158,6 @@ function patch(json) {
 	}
 
 	function fromReplacementNode(node, actualChildren) {
-		console.log("fromReplacementNode", node, actualChildren);
 		if (node.Html) {
 			return fromHTML(node.Html);
 		}
@@ -164,7 +183,6 @@ function patch(json) {
 				actualChildren.length > 1 ? { children: actualChildren } : actualChildren[0],
 				node.Path
 			);
-			console.log("fromReplacementNode", child, "\n", node, actualChildren);
 			if (child) {
 				let childNode = child.node;
 				if (!childNode) {
@@ -192,13 +210,13 @@ function patch(json) {
 		}
 	}
 
-		function buildActualChildren(element, range) {
+    function buildActualChildren(element, range) {
 		const walker = document.createTreeWalker(
 			element,
 			NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT,
 			{
 				acceptNode(node) {
-					return node.parentNode == element && (!range || range.isPointInRange(node, 0))
+                    return node.parentNode == element && (!range || range.isPointInRange(node, 0));
 				}
 			}
 		);
@@ -234,22 +252,62 @@ function patch(json) {
 					});
 				} else if (walker.currentNode.textContent.trim() == "<DynChild>") {
 					let start = walker.currentNode;
-					while (walker.currentNode.textContent.trim() !== "</DynChild>") {
-						walker.nextNode();
-					}
-					let end = walker.currentNode;
+                    let depth = 1;
+
+                    while (walker.nextNode()) {
+                        if (walker.currentNode.textContent.trim() == "</DynChild>") {
+                            depth--;
+                        } else if (walker.currentNode.textContent.trim() == "<DynChild>") {
+                            depth++;
+                        }
+
+                        if(depth == 0) {
+                            break;
+                        }
+                    }
+                    let end = walker.currentNode;
 					actualChildren.push({
 						type: "dyn-child",
 						start, end
 					});
+				} else if (walker.currentNode.textContent.trim() == "<>") {
+					let start = walker.currentNode;
+                    let depth = 1;
+
+                    while (walker.nextNode()) {
+                        if (walker.currentNode.textContent.trim() == "</>") {
+                            depth--;
+                        } else if (walker.currentNode.textContent.trim() == "<>") {
+                            depth++;
+                        }
+
+                        if(depth == 0) {
+                            break;
+                        }
+                    }
+                    let end = walker.currentNode;
+                    actualChildren.push({
+                        type: "fragment",
+                        children: childrenFromRange(start.parentElement, start, end),
+                        start, end
+                    });
 				} else if (walker.currentNode.textContent.trim().startsWith("<")) {
 					let componentName = walker.currentNode.textContent.trim();
 					let endMarker = componentName.replace("<", "</");
+                    let depth = 1;
 					let start = walker.currentNode;
-					while (walker.currentNode.textContent.trim() !== endMarker) {
-						walker.nextSibling();
-					}
-					let end = walker.currentNode;
+                    while (walker.nextNode()) {
+                        if (walker.currentNode.textContent.trim() == endMarker) {
+                            depth--;
+                        } else if (walker.currentNode.textContent.trim() == componentName) {
+                            depth++;
+                        }
+
+                        if(depth == 0) {
+                            break;
+                        }
+                    }
+                    let end = walker.currentNode;
 					actualChildren.push({
 						type: "component",
 						start, end
@@ -271,11 +329,21 @@ function patch(json) {
 			return childAtPath(next, rest);
 		} else if (path == [0]) {
 			return element;
-		} else {
+		} else if (element.start && element.end) {
+            const actualChildren = childrenFromRange(element.node || element.start.parentElement, element.start, element.end);
+            return childAtPath({ children: actualChildren }, path);
+        } else {
 			console.warn("[HOT RELOADING] Child at ", path, "not found in ", element);
 			return element;
 		}
 	}
+
+    function childrenFromRange(parent, start, end) {
+        const range = new Range();
+        range.setStartAfter(start);
+        range.setEndBefore(end);
+        return buildActualChildren(parent, range);
+    }
 
 	function fromHTML(html) {
 		const template = document.createElement("template");

@@ -165,6 +165,7 @@ pub(crate) fn render_view(
                 Span::call_site(),
                 nodes,
                 global_class,
+                call_site,
             ),
         }
     } else {
@@ -189,6 +190,7 @@ pub(crate) fn render_view(
                 true,
                 TagType::Unknown,
                 global_class,
+                call_site,
             ),
         }
     }
@@ -206,6 +208,7 @@ fn root_node_to_tokens_ssr(
             Span::call_site(),
             &fragment.children,
             global_class,
+            view_marker,
         ),
         Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
         Node::Text(node) => {
@@ -232,7 +235,13 @@ fn fragment_to_tokens_ssr(
     _span: Span,
     nodes: &[Node],
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>,
 ) -> TokenStream {
+    let view_marker = if let Some(marker) = view_marker {
+        quote! { .with_view_marker(#marker) }
+    } else {
+        quote! {}
+    };
     let nodes = nodes.iter().map(|node| {
         let node = root_node_to_tokens_ssr(cx, node, global_class, None);
         quote! {
@@ -244,6 +253,7 @@ fn fragment_to_tokens_ssr(
             leptos::Fragment::lazy(|| vec![
                 #(#nodes),*
             ])
+            #view_marker
         }
     }
 }
@@ -638,6 +648,7 @@ fn fragment_to_tokens(
     lazy: bool,
     parent_type: TagType,
     global_class: Option<&TokenTree>,
+    view_marker: Option<String>,
 ) -> TokenStream {
     let nodes = nodes.iter().map(|node| {
         let node = node_to_tokens(cx, node, parent_type, global_class, None);
@@ -646,12 +657,20 @@ fn fragment_to_tokens(
             #node.into_view(#cx)
         }
     });
+
+    let view_marker = if let Some(marker) = view_marker {
+        quote! { .with_view_marker(#marker) }
+    } else {
+        quote! {}
+    };
+
     if lazy {
         quote! {
             {
                 leptos::Fragment::lazy(|| vec![
                     #(#nodes),*
                 ])
+                #view_marker
             }
         }
     } else {
@@ -660,6 +679,7 @@ fn fragment_to_tokens(
                 leptos::Fragment::new(vec![
                     #(#nodes),*
                 ])
+                #view_marker
             }
         }
     }
@@ -680,6 +700,7 @@ fn node_to_tokens(
             true,
             parent_type,
             global_class,
+            view_marker,
         ),
         Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
@@ -772,6 +793,7 @@ fn element_to_tokens(
                     true,
                     parent_type,
                     global_class,
+                    None,
                 ),
                 Node::Text(node) => {
                     let value = node.value.as_ref();
@@ -1038,6 +1060,7 @@ pub(crate) fn component_to_tokens(
             true,
             TagType::Unknown,
             global_class,
+            None,
         );
 
         let clonables = items_to_clone
