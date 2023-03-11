@@ -195,7 +195,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
                     #[cfg(debug_assertions)]
-                    self.defined_at
+                    self.defined_at,
                 ),
             }
         })
@@ -246,7 +246,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
                     #[cfg(debug_assertions)]
-                    self.defined_at
+                    self.defined_at,
                 ),
             }
         })
