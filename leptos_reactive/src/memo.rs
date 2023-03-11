@@ -193,7 +193,10 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
         with_runtime(self.runtime, move |runtime| {
             match self.id.try_with_no_subscription(runtime, T::clone) {
                 Ok(t) => t,
-                Err(_) => panic_getting_dead_memo(self.defined_at),
+                Err(_) => panic_getting_dead_memo(
+                    #[cfg(debug_assertions)]
+                    self.defined_at
+                ),
             }
         })
         .expect("runtime to be alive")
@@ -241,7 +244,10 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
         with_runtime(self.runtime, |runtime| {
             match self.id.try_with_no_subscription(runtime, |v: &T| f(v)) {
                 Ok(t) => t,
-                Err(_) => panic_getting_dead_memo(self.defined_at),
+                Err(_) => panic_getting_dead_memo(
+                    #[cfg(debug_assertions)]
+                    self.defined_at
+                ),
             }
         })
         .expect("runtime to be alive")

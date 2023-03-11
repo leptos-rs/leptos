@@ -176,7 +176,6 @@ where
         )
     )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
-        #[cfg(debug_assertions)]
         // we defensively take and release the BorrowMut twice here
         // in case a change during the effect running schedules a rerun
         // ideally this should never happen, but this guards against panic
