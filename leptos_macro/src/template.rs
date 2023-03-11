@@ -88,7 +88,9 @@ fn root_element_to_tokens(
                 leptos::leptos_dom::View::Element(leptos::leptos_dom::Element {
                     #[cfg(debug_assertions)]
                     name: #tag_name.into(),
-                    element: root.unchecked_into()
+                    element: root.unchecked_into(),
+                    #[cfg(debug_assertions)]
+                    view_marker: None
                 })
             }
         }
@@ -464,7 +466,7 @@ fn block_to_tokens(
 
     let mount_kind = match &next_sib {
         Some(child) => {
-            quote! { leptos::leptos_dom::MountKind::Before(#child.clone()) }
+            quote! { leptos::leptos_dom::MountKind::Before(&#child.clone()) }
         }
         None => {
             quote! { leptos::leptos_dom::MountKind::Append(&#parent) }
