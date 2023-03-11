@@ -1,13 +1,71 @@
 use test::Bencher;
 
 use std::{cell::Cell, rc::Rc};
+use leptos::*;
+
+#[bench]
+fn leptos_deep_memo_creation(b: &mut Bencher) {
+    let runtime = create_runtime();
+
+    b.iter(|| {
+        create_scope(runtime, |cx| {
+            let signal = create_rw_signal(cx, 0);
+            let mut memos = Vec::<Memo<usize>>::new();
+            for i in 0..1000usize {
+                let prev = memos.get(i.saturating_sub(1)).copied();
+                if let Some(prev) = prev {
+                    memos.push(create_memo(cx, move |_| {
+                        prev.get()
+                    }));
+                } else {
+                    memos.push(create_memo(cx, move |_| {
+                        signal.get()
+                    }));
+                }
+            }
+        })
+        .dispose()
+    });
+
+    runtime.dispose();
+}
+
+#[bench]
+fn leptos_deep_memo_update(b: &mut Bencher) {
+    let runtime = create_runtime();
+
+    b.iter(|| {
+        create_scope(runtime, |cx| {
+            let signal = create_rw_signal(cx, 0);
+            let mut memos = Vec::<Memo<usize>>::new();
+            for i in 0..1000usize {
+                let prev = memos.get(i.saturating_sub(1)).copied();
+                if let Some(prev) = prev {
+                    memos.push(create_memo(cx, move |_| {
+                        prev.get()
+                    }));
+                } else {
+                    memos.push(create_memo(cx, move |_| {
+                        signal.get()
+                    }));
+                }
+            }
+            signal.set(1);
+            assert_eq!(memos[999].get(), 1);
+        })
+        .dispose()
+    });
+
+    runtime.dispose();
+}
 
 #[bench]
 fn leptos_create_1000_signals(b: &mut Bencher) {
-    use leptos::{create_isomorphic_effect, create_memo, create_scope, create_signal};
+
+    let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(|cx| {
+        create_scope(runtime, |cx| {
             let acc = Rc::new(Cell::new(0));
             let sigs = (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
             let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
@@ -17,14 +75,16 @@ fn leptos_create_1000_signals(b: &mut Bencher) {
         })
         .dispose()
     });
+
+    runtime.dispose();
 }
 
 #[bench]
 fn leptos_create_and_update_1000_signals(b: &mut Bencher) {
-    use leptos::{create_isomorphic_effect, create_memo, create_scope, create_signal};
+    let runtime = create_runtime();
 
     b.iter(|| {
-        create_scope(|cx| {
+        create_scope(runtime, |cx| {
             let acc = Rc::new(Cell::new(0));
             let sigs = (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
             let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
@@ -48,17 +108,19 @@ fn leptos_create_and_update_1000_signals(b: &mut Bencher) {
         })
         .dispose()
     });
+
+    runtime.dispose();
 }
 
 #[bench]
 fn leptos_create_and_dispose_1000_scopes(b: &mut Bencher) {
-    use leptos::{create_isomorphic_effect, create_scope, create_signal};
+    let runtime = create_runtime();
 
     b.iter(|| {
         let acc = Rc::new(Cell::new(0));
         let disposers = (0..1000)
             .map(|_| {
-                create_scope({
+                create_scope(runtime, {
                     let acc = Rc::clone(&acc);
                     move |cx| {
                         let (r, w) = create_signal(cx, 0);
@@ -76,6 +138,8 @@ fn leptos_create_and_dispose_1000_scopes(b: &mut Bencher) {
             disposer.dispose();
         }
     });
+
+    runtime.dispose();
 }
 
 #[bench]
@@ -96,6 +160,57 @@ fn sycamore_create_1000_signals(b: &mut Bencher) {
     });
 }
 
+#[bench]
+fn sycamore_deep_memo_creation(b: &mut Bencher) {
+    use sycamore::reactive::*;
+
+    b.iter(|| {
+        let d = create_scope(|cx| {
+            let signal = create_signal(cx, 0);
+            let mut memos = Vec::<&ReadSignal<usize>>::new();
+            for i in 0..1000usize {
+                let prev = memos.get(i.saturating_sub(1)).copied();
+                if let Some(prev) = prev {
+                    memos.push(create_memo(cx, move || {
+                        *prev.get()
+                    }));
+                } else {
+                    memos.push(create_memo(cx, move || {
+                        *signal.get()
+                    }));
+                }
+            }
+        });
+        unsafe { d.dispose() };
+    });
+}
+
+#[bench]
+fn sycamore_deep_memo_update(b: &mut Bencher) {
+    use sycamore::reactive::*;
+
+    b.iter(|| {
+        let d = create_scope(|cx| {
+            let signal = create_signal(cx, 0);
+            let mut memos = Vec::<&ReadSignal<usize>>::new();
+            for i in 0..1000usize {
+                let prev = memos.get(i.saturating_sub(1)).copied();
+                if let Some(prev) = prev {
+                    memos.push(create_memo(cx, move || {
+                        *prev.get()
+                    }));
+                } else {
+                    memos.push(create_memo(cx, move || {
+                        *signal.get()
+                    }));
+                }
+            }
+            signal.set(1);
+            assert_eq!(*memos[999].get(), 1);
+        });
+        unsafe { d.dispose() };
+    });
+}
 #[bench]
 fn sycamore_create_and_update_1000_signals(b: &mut Bencher) {
     use sycamore::reactive::{create_effect, create_memo, create_scope, create_signal};
