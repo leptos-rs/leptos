@@ -545,12 +545,15 @@ impl RuntimeId {
                 // will be run the first time we ask for it
                 state: ReactiveNodeState::Dirty,
                 node_type: ReactiveNodeType::Memo {
-                    f: Rc::new(MemoState { f, t: PhantomData }),
+                    f: Rc::new(MemoState { 
+                        f, 
+                        t: PhantomData,
+                        defined_at
+                    }),
                 },
             })
         })
         .expect("tried to create a memo in a runtime that has been disposed");
-        //crate::macros::debug_warn!("created memo {id:?}");
 
         Memo {
             runtime: self,

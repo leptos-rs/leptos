@@ -421,6 +421,8 @@ where
 {
     pub f: F,
     pub t: PhantomData<T>,
+    #[cfg(debug_assertions)]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T, F> AnyComputation for MemoState<T, F>
@@ -428,6 +430,18 @@ where
     T: PartialEq + 'static,
     F: Fn(Option<&T>) -> T,
 {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            name = "Memo::run()",
+            level = "debug",
+            skip_all,
+            fields(
+              defined_at = %self.defined_at,
+              ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
     fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
         let (new_value, is_different) = {
             let value = value.borrow();
