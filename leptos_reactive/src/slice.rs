@@ -68,12 +68,12 @@ use crate::{
 /// // setting name only causes name to log, not count
 /// set_name("Bob".into());
 /// ```
-pub fn create_slice<T, M, O>(
+pub fn create_slice<T, O>(
     cx: Scope,
     signal: RwSignal<T>,
     getter: impl Fn(&T) -> O + Clone + Copy + 'static,
-    setter: impl Fn(&mut T, M) + Clone + Copy + 'static,
-) -> (Signal<O>, SignalSetter<M>)
+    setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
+) -> (Signal<O>, SignalSetter<O>)
 where
     O: PartialEq,
 {
