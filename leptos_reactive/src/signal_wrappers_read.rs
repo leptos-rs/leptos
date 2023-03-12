@@ -520,7 +520,7 @@ impl<T: Clone> Clone for MaybeSignal<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Static(item) => Self::Static(item.clone()),
-            Self::Dynamic(signal) => Self::Dynamic(signal.clone()),
+            Self::Dynamic(signal) => Self::Dynamic(*signal),
         }
     }
 }
