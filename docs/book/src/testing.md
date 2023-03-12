@@ -15,11 +15,11 @@ For example, instead of embedding logic in a component directly like this:
 ```rust
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
-	let (todos, set_todos) = create_signal(cx, vec![Todo { /* ... */ }]);
-	// ⚠️ this is hard to test because it's embedded in the component
-	let maximum = move || todos.with(|todos| {
-		todos.iter().filter(|todo| todo.completed).sum()
-	});
+    let (todos, set_todos) = create_signal(cx, vec![Todo { /* ... */ }]);
+    // ⚠️ this is hard to test because it's embedded in the component
+    let num_remaining = move || todos.with(|todos| {
+        todos.iter().filter(|todo| !todo.completed).sum()
+    });
 }
 ```
 
@@ -29,24 +29,24 @@ You could pull that logic out into a separate data structure and test it:
 pub struct Todos(Vec<Todo>);
 
 impl Todos {
-	pub fn remaining(&self) -> usize {
-		todos.iter().filter(|todo| todo.completed).sum()
-	}
+    pub fn num_remaining(&self) -> usize {
+        todos.iter().filter(|todo| !todo.completed).sum()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-	#[test]
-	fn test_remaining {
-		// ...
-	}
+    #[test]
+    fn test_remaining {
+        // ...
+    }
 }
 
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
-	let (todos, set_todos) = create_signal(cx, Todos(vec![Todo { /* ... */ }]));
-	// ✅ this has a test associated with it
-	let maximum = move || todos.with(Todos::remaining);
+    let (todos, set_todos) = create_signal(cx, Todos(vec![Todo { /* ... */ }]));
+    // ✅ this has a test associated with it
+    let num_remaining = move || todos.with(Todos::num_remaining);
 }
 ```
 

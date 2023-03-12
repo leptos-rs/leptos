@@ -42,8 +42,8 @@ So in this case, all we need to do to create an action is
 
 ```rust
 let add_todo = create_action(cx, |input: &String| {
-	let input = input.to_owned();
-	async move { add_todo(&input).await }
+    let input = input.to_owned();
+    async move { add_todo(&input).await }
 });
 ```
 
@@ -69,23 +69,23 @@ This makes it easy to track the current state of your request, show a loading in
 let input_ref = create_node_ref::<Input>(cx);
 
 view! { cx,
-	<form
-		on:submit=move |ev| {
-			ev.prevent_default(); // don't reload the page...
-			let input = input_ref.get().expect("input to exist");
-			add_todo.dispatch(input.value());
-		}
-	>
-		<label>
-			"What do you need to do?"
-			<input type="text"
-				node_ref=input_ref
-			/>
-		</label>
-		<button type="submit">"Add Todo"</button>
-	</form>
-	// use our loading state
-	<p>{move || pending().then("Loading...")}</p>
+    <form
+        on:submit=move |ev| {
+            ev.prevent_default(); // don't reload the page...
+            let input = input_ref.get().expect("input to exist");
+            add_todo.dispatch(input.value());
+        }
+    >
+        <label>
+            "What do you need to do?"
+            <input type="text"
+                node_ref=input_ref
+            />
+        </label>
+        <button type="submit">"Add Todo"</button>
+    </form>
+    // use our loading state
+    <p>{move || pending().then("Loading...")}</p>
 }
 ```
 

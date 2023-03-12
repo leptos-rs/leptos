@@ -30,11 +30,11 @@ it in the child. This lets you manipulate the state of the parent from the child
 ```rust
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-	let (toggled, set_toggled) = create_signal(cx, false);
-	view! { cx,
-		<p>"Toggled? " {toggled}</p>
-		<ButtonA setter=set_toggled/>
-	}
+    let (toggled, set_toggled) = create_signal(cx, false);
+    view! { cx,
+        <p>"Toggled? " {toggled}</p>
+        <ButtonA setter=set_toggled/>
+    }
 }
 
 #[component]
@@ -63,11 +63,11 @@ Another approach would be to pass a callback to the child: say, `on_click`.
 ```rust
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-	let (toggled, set_toggled) = create_signal(cx, false);
-	view! { cx,
-		<p>"Toggled? " {toggled}</p>
-		<ButtonB on_click=move |_| set_toggled.update(|value| *value = !*value)/>
-	}
+    let (toggled, set_toggled) = create_signal(cx, false);
+    view! { cx,
+        <p>"Toggled? " {toggled}</p>
+        <ButtonB on_click=move |_| set_toggled.update(|value| *value = !*value)/>
+    }
 }
 
 
@@ -106,13 +106,13 @@ in your `view` macro in `<App/>`.
 ```rust
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-	let (toggled, set_toggled) = create_signal(cx, false);
-	view! { cx,
-		<p>"Toggled? " {toggled}</p>
-		// note the on:click instead of on_click
-		// this is the same syntax as an HTML element event listener
-		<ButtonC on:click=move |_| set_toggled.update(|value| *value = !*value)/>
-	}
+    let (toggled, set_toggled) = create_signal(cx, false);
+    view! { cx,
+        <p>"Toggled? " {toggled}</p>
+        // note the on:click instead of on_click
+        // this is the same syntax as an HTML element event listener
+        <ButtonC on:click=move |_| set_toggled.update(|value| *value = !*value)/>
+    }
 }
 
 
@@ -142,31 +142,32 @@ tree:
 ```rust
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-	let (toggled, set_toggled) = create_signal(cx, false);
-	view! { cx,
-		<p>"Toggled? " {toggled}</p>
-		<Layout/>
-	}
+    let (toggled, set_toggled) = create_signal(cx, false);
+    view! { cx,
+        <p>"Toggled? " {toggled}</p>
+        <Layout/>
+    }
 }
 
 #[component]
 pub fn Layout(cx: Scope) -> impl IntoView {
-	view! { cx,
-		<header>
-			<h1>"My Page"</h1>
-		<main>
-			<Content/>
-		</main>
-	}
+    view! { cx,
+        <header>
+            <h1>"My Page"</h1>
+        </header>
+        <main>
+            <Content/>
+        </main>
+    }
 }
 
 #[component]
 pub fn Content(cx: Scope) -> impl IntoView {
-	view! { cx,
-		<div class="content">
-			<ButtonD/>
-		</div>
-	}
+    view! { cx,
+        <div class="content">
+            <ButtonD/>
+        </div>
+    }
 }
 
 #[component]
@@ -182,31 +183,32 @@ pass your `WriteSignal` to its props. You could do what’s sometimes called
 ```rust
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-	let (toggled, set_toggled) = create_signal(cx, false);
-	view! { cx,
-		<p>"Toggled? " {toggled}</p>
-		<Layout set_toggled/>
-	}
+    let (toggled, set_toggled) = create_signal(cx, false);
+    view! { cx,
+        <p>"Toggled? " {toggled}</p>
+        <Layout set_toggled/>
+    }
 }
 
 #[component]
 pub fn Layout(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
-	view! { cx,
-		<header>
-			<h1>"My Page"</h1>
-		<main>
-			<Content set_toggled/>
-		</main>
-	}
+    view! { cx,
+        <header>
+            <h1>"My Page"</h1>
+        </header>
+        <main>
+            <Content set_toggled/>
+        </main>
+    }
 }
 
 #[component]
 pub fn Content(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
-	view! { cx,
-		<div class="content">
-			<ButtonD set_toggled/>
-		</div>
-	}
+    view! { cx,
+        <div class="content">
+            <ButtonD set_toggled/>
+        </div>
+    }
 }
 
 #[component]
@@ -236,26 +238,26 @@ unnecessary prop drilling.
 ```rust
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-	let (toggled, set_toggled) = create_signal(cx, false);
+    let (toggled, set_toggled) = create_signal(cx, false);
 
-	// share `set_toggled` with all children of this component
-	provide_context(cx, set_toggled);
+    // share `set_toggled` with all children of this component
+    provide_context(cx, set_toggled);
 
-	view! { cx,
-		<p>"Toggled? " {toggled}</p>
-		<Layout/>
-	}
+    view! { cx,
+        <p>"Toggled? " {toggled}</p>
+        <Layout/>
+    }
 }
 
 // <Layout/> and <Content/> omitted
 
 #[component]
 pub fn ButtonD(cx: Scope) -> impl IntoView {
-	// use_context searches up the context tree, hoping to
-	// find a `WriteSignal<bool>`
-	// in this case, I .expect() because I know I provided it
-	let setter = use_context::<WriteSignal<bool>>(cx)
-		.expect("to have found the setter provided");
+    // use_context searches up the context tree, hoping to
+    // find a `WriteSignal<bool>`
+    // in this case, I .expect() because I know I provided it
+    let setter = use_context::<WriteSignal<bool>>(cx)
+        .expect("to have found the setter provided");
 
     view! { cx,
         <button

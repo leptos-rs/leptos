@@ -35,7 +35,7 @@ fn App(cx: Scope) -> impl IntoView {
     // here we create a signal in the root that can be consumed
     // anywhere in the app.
     let (count, set_count) = create_signal(cx, 0);
-	// we'll pass the setter to specific components,
+    // we'll pass the setter to specific components,
     // but provide the count itself to the whole app via context
     provide_context(cx, count);
 
@@ -44,8 +44,8 @@ fn App(cx: Scope) -> impl IntoView {
         <SetterButton set_count/>
         // These consumers can only read from it
         // But we could give them write access by passing `set_count` if we wanted
-		<FancyMath/>
-		<ListItems/>
+        <FancyMath/>
+        <ListItems/>
     }
 }
 ```
@@ -121,7 +121,7 @@ fn App(cx: Scope) -> impl IntoView {
     let state = create_rw_signal(cx, GlobalState::default());
     provide_context(cx, state);
 
-	// ...
+    // ...
 ```
 
 Then child components can access “slices” of that state with fine-grained
