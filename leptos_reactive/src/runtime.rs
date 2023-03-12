@@ -545,10 +545,10 @@ impl RuntimeId {
                 // will be run the first time we ask for it
                 state: ReactiveNodeState::Dirty,
                 node_type: ReactiveNodeType::Memo {
-                    f: Rc::new(MemoState { 
-                        f, 
+                    f: Rc::new(MemoState {
+                        f,
                         t: PhantomData,
-                        defined_at
+                        defined_at,
                     }),
                 },
             })
