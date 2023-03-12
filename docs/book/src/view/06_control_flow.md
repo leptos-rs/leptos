@@ -26,7 +26,7 @@ things:
    all of which can be rendered. Spending time in the `Option` and `Result` docs in particular
    is one of the best ways to level up your Rust game.
 4. And always remember: to be reactive, values must be functions. You’ll see me constantly
-   wrap things in a `move ||` closure, below. This is to ensure that they actually re-run
+   wrap things in a `move ||` closure, below. This is to ensure that they actually rerun
    when the signal they depend on changes, keeping the UI reactive.
 
 ## So What?
@@ -55,13 +55,13 @@ if it’s even. Well, how about this?
 
 ```rust
 view! { cx,
-	<p>
-	{move || if is_odd() {
-		"Odd"
-	} else {
-		"Even"
-	}}
-	</p>
+    <p>
+    {move || if is_odd() {
+        "Odd"
+    } else {
+        "Even"
+    }}
+    </p>
 }
 ```
 
@@ -74,15 +74,15 @@ Let’s say we want to render some text if it’s odd, and nothing if it’s eve
 
 ```rust
 let message = move || {
-	if is_odd() {
-		Some("Ding ding ding!")
-	} else {
-		None
-	}
+    if is_odd() {
+        Some("Ding ding ding!")
+    } else {
+        None
+    }
 };
 
 view! { cx,
-	<p>{message}</p>
+    <p>{message}</p>
 }
 ```
 
@@ -91,7 +91,7 @@ This works fine. We can make it a little shorter if we’d like, using `bool::th
 ```rust
 let message = move || is_odd().then(|| "Ding ding ding!");
 view! { cx,
-	<p>{message}</p>
+    <p>{message}</p>
 }
 ```
 
@@ -105,15 +105,15 @@ pattern matching at your disposal.
 
 ```rust
 let message = move || {
-	match value() {
-		0 => "Zero",
-		1 => "One",
-		n if is_odd() => "Odd",
-		_ => "Even"
-	}
+    match value() {
+        0 => "Zero",
+        1 => "One",
+        n if is_odd() => "Odd",
+        _ => "Even"
+    }
 };
 view! { cx,
-	<p>{message}</p>
+    <p>{message}</p>
 }
 ```
 
@@ -134,13 +134,13 @@ But consider the following example:
 let (value, set_value) = create_signal(cx, 0);
 
 let message = move || if value() > 5 {
-	"Big"
+    "Big"
 } else {
-	"Small"
+    "Small"
 };
 
 view! { cx,
-	<p>{message}</p>
+    <p>{message}</p>
 }
 ```
 
@@ -148,11 +148,11 @@ This _works_, for sure. But if you added a log, you might be surprised
 
 ```rust
 let message = move || if value() > 5 {
-	log!("{}: rendering Big", value());
-	"Big"
+    log!("{}: rendering Big", value());
+    "Big"
 } else {
-	log!("{}: rendering Small", value());
-	"Small"
+    log!("{}: rendering Small", value());
+    "Small"
 };
 ```
 
@@ -177,9 +177,9 @@ like this:
 
 ```rust
 let message = move || if value() > 5 {
-	<Big/>
+    <Big/>
 } else {
-	<Small/>
+    <Small/>
 };
 ```
 
@@ -228,20 +228,20 @@ different branches of a conditional:
 
 ```rust,compile_error
 view! { cx,
-	<main>
-		{move || match is_odd() {
-			true if value() == 1 => {
-				// returns HtmlElement<Pre>
-				view! { cx, <pre>"One"</pre> }
-			},
-			false if value() == 2 => {
-				// returns HtmlElement<P>
-				view! { cx, <p>"Two"</p> }
-			}
-			// returns HtmlElement<Textarea>
-			_ => view! { cx, <textarea>{value()}</textarea> }
-		}}
-	</main>
+    <main>
+        {move || match is_odd() {
+            true if value() == 1 => {
+                // returns HtmlElement<Pre>
+                view! { cx, <pre>"One"</pre> }
+            },
+            false if value() == 2 => {
+                // returns HtmlElement<P>
+                view! { cx, <p>"Two"</p> }
+            }
+            // returns HtmlElement<Textarea>
+            _ => view! { cx, <textarea>{value()}</textarea> }
+        }}
+    </main>
 }
 ```
 
@@ -265,20 +265,20 @@ Here’s the same example, with the conversion added:
 
 ```rust,compile_error
 view! { cx,
-	<main>
-		{move || match is_odd() {
-			true if value() == 1 => {
-				// returns HtmlElement<Pre>
-				view! { cx, <pre>"One"</pre> }.into_any()
-			},
-			false if value() == 2 => {
-				// returns HtmlElement<P>
-				view! { cx, <p>"Two"</p> }.into_any()
-			}
-			// returns HtmlElement<Textarea>
-			_ => view! { cx, <textarea>{value()}</textarea> }.into_any()
-		}}
-	</main>
+    <main>
+        {move || match is_odd() {
+            true if value() == 1 => {
+                // returns HtmlElement<Pre>
+                view! { cx, <pre>"One"</pre> }.into_any()
+            },
+            false if value() == 2 => {
+                // returns HtmlElement<P>
+                view! { cx, <p>"Two"</p> }.into_any()
+            }
+            // returns HtmlElement<Textarea>
+            _ => view! { cx, <textarea>{value()}</textarea> }.into_any()
+        }}
+    </main>
 }
 ```
 

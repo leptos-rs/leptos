@@ -7,11 +7,11 @@ let (count, set_count) = create_signal(cx, 0);
 let a = create_resource(cx, count, |count| async move { load_a(count).await });
 
 view! { cx,
-	<h1>"My Data"</h1>
-	{move || match once.read(cx) {
-		None => view! { cx, <p>"Loading..."</p> }.into_view(cx),
-		Some(data) => view! { cx, <ShowData data/> }.into_view(cx)
-	}}
+    <h1>"My Data"</h1>
+    {move || match once.read(cx) {
+        None => view! { cx, <p>"Loading..."</p> }.into_view(cx),
+        Some(data) => view! { cx, <ShowData data/> }.into_view(cx)
+    }}
 }
 ```
 
@@ -24,14 +24,14 @@ let a = create_resource(cx, count, |count| async move { load_a(count).await });
 let b = create_resource(cx, count2, |count| async move { load_b(count).await });
 
 view! { cx,
-	<h1>"My Data"</h1>
-	{move || match (a.read(cx), b.read(cx)) {
-		_ => view! { cx, <p>"Loading..."</p> }.into_view(cx),
-		(Some(a), Some(b)) => view! { cx,
-			<ShowA a/>
-			<ShowA b/>
-		}.into_view(cx)
-	}}
+    <h1>"My Data"</h1>
+    {move || match (a.read(cx), b.read(cx)) {
+        _ => view! { cx, <p>"Loading..."</p> }.into_view(cx),
+        (Some(a), Some(b)) => view! { cx,
+            <ShowA a/>
+            <ShowA b/>
+        }.into_view(cx)
+    }}
 }
 ```
 
@@ -46,22 +46,22 @@ let a = create_resource(cx, count, |count| async move { load_a(count).await });
 let b = create_resource(cx, count2, |count| async move { load_b(count).await });
 
 view! { cx,
-	<h1>"My Data"</h1>
-	<Suspense
-		fallback=move || view! { cx, <p>"Loading..."</p> }
-	>
-		<h2>"My Data"</h2>
-		<h3>"A"</h3>
-		{move || {
-			a.read(cx)
-				.map(|a| view! { cx, <ShowA a/> })
-		}}
-		<h3>"B"</h3>
-		{move || {
-			b.read(cx)
-				.map(|b| view! { cx, <ShowB b/> })
-		}}
-	</Suspense>
+    <h1>"My Data"</h1>
+    <Suspense
+        fallback=move || view! { cx, <p>"Loading..."</p> }
+    >
+        <h2>"My Data"</h2>
+        <h3>"A"</h3>
+        {move || {
+            a.read(cx)
+                .map(|a| view! { cx, <ShowA a/> })
+        }}
+        <h3>"B"</h3>
+        {move || {
+            b.read(cx)
+                .map(|b| view! { cx, <ShowB b/> })
+        }}
+    </Suspense>
 }
 ```
 

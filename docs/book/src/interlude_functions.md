@@ -12,19 +12,19 @@ let (count, set_count) = create_signal(cx, 0);
 let double_count = move || count() * 2;
 let count_is_odd = move || count() & 1 == 1;
 let text = move || if count_is_odd() {
-	"odd"
+    "odd"
 } else {
-	"even"
+    "even"
 };
 
 // an effect automatically tracks the signals it depends on
-// and re-runs when they change
+// and reruns when they change
 create_effect(cx, move |_| {
-	log!("text = {}", text());
+    log!("text = {}", text());
 });
 
 view! { cx,
-	<p>{move || text().to_uppercase()}</p>
+    <p>{move || text().to_uppercase()}</p>
 }
 ```
 
@@ -45,7 +45,7 @@ The key phrase here is “runs some kind of code.” The natural way to “run s
 
 1. virtual DOM (VDOM) frameworks like React, Yew, or Dioxus rerun a component or render function over and over, to generate a virtual DOM tree that can be reconciled with the previous result to patch the DOM
 2. compiled frameworks like Angular and Svelte divide your component templates into “create” and “update” functions, rerunning the update function when they detect a change to the component’s state
-3. in fine-grained reactive frameworks like SolidJS, Sycamore, or Leptos, _you_ define the functions that re-run
+3. in fine-grained reactive frameworks like SolidJS, Sycamore, or Leptos, _you_ define the functions that rerun
 
 That’s what all our components are doing.
 
@@ -59,16 +59,16 @@ pub fn SimpleCounter(cx: Scope) -> impl IntoView {
     let increment = move |_| set_value.update(|value| *value += 1);
 
     view! { cx,
-		<button on:click=increment>
-			{value}
-		</button>
+        <button on:click=increment>
+            {value}
+        </button>
     }
 }
 ```
 
 The `SimpleCounter` function itself runs once. The `value` signal is created once. The framework hands off the `increment` function to the browser as an event listener. When you click the button, the browser calls `increment`, which updates `value` via `set_value`. And that updates the single text node represented in our view by `{value}`.
 
-Closures are key to reactivity. They provide the framework with the ability to re-run the smallest possible unit of your application in responsive to a change.
+Closures are key to reactivity. They provide the framework with the ability to rerun the smallest possible unit of your application in responsive to a change.
 
 So remember two things:
 

@@ -6,15 +6,15 @@ that enhances an HTML `<form>`. I need some way to pass all its inputs.
 
 ```rust
 view! { cx,
-	<Form>
-		<fieldset>
-			<label>
-				"Some Input"
-				<input type="text" name="something"/>
-			</label>
-		</fieldset>
-		<button>"Submit"</button>
-	</Form>
+    <Form>
+        <fieldset>
+            <label>
+                "Some Input"
+                <input type="text" name="something"/>
+            </label>
+        </fieldset>
+        <button>"Submit"</button>
+    </Form>
 }
 ```
 
@@ -30,13 +30,13 @@ In fact, you’ve already seen these both in action in the [`<Show/>`](/view/06_
 ```rust
 view! { cx,
   <Show
-	// `when` is a normal prop
+    // `when` is a normal prop
     when=move || value() > 5
-	// `fallback` is a "render prop": a function that returns a view
+    // `fallback` is a "render prop": a function that returns a view
     fallback=|cx| view! { cx, <Small/> }
   >
-	// `<Big/>` (and anything else here)
-	// will be given to the `children` prop
+    // `<Big/>` (and anything else here)
+    // will be given to the `children` prop
     <Big/>
   </Show>
 }
@@ -62,7 +62,7 @@ where
         <h2>"Render Prop"</h2>
         {render_prop()}
 
-		<h2>"Children"</h2>
+        <h2>"Children"</h2>
         {children(cx)}
     }
 }
@@ -79,11 +79,11 @@ We can use the component like this:
 
 ```rust
 view! { cx,
-	<TakesChildren render_prop=|| view! { cx, <p>"Hi, there!"</p> }>
-		// these get passed to `children`
-		"Some text"
-		<span>"A span"</span>
-	</TakesChildren>
+    <TakesChildren render_prop=|| view! { cx, <p>"Hi, there!"</p> }>
+        // these get passed to `children`
+        "Some text"
+        <span>"A span"</span>
+    </TakesChildren>
 }
 ```
 
@@ -115,11 +115,11 @@ Calling it like this will create a list:
 
 ```rust
 view! { cx,
-	<WrappedChildren>
-		"A"
-		"B"
-		"C"
-	</WrappedChildren>
+    <WrappedChildren>
+        "A"
+        "B"
+        "C"
+    </WrappedChildren>
 }
 ```
 
