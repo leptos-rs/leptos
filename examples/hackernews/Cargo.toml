@@ -22,6 +22,7 @@ log = "0.4"
 serde = { version = "1", features = ["derive"] }
 gloo-net = { version = "0.2", features = ["http"] }
 reqwest = { version = "0.11", features = ["json"] }
+tracing = "0.1"
 # openssl = { version = "0.10", features = ["v110"] }
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }

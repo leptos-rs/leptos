@@ -19,6 +19,7 @@ leptos_router = { path = "../../router", default-features = false }
 log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1.0.148", features = ["derive"] }
+tracing = "0.1"
 gloo-net = { version = "0.2.5", features = ["http"] }
 reqwest = { version = "0.11.13", features = ["json"] }
 axum = { version = "0.6.1", optional = true }
