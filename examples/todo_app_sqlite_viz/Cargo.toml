@@ -7,13 +7,12 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0.66"
 console_log = "0.2.0"
 console_error_panic_hook = "0.1.7"
 futures = "0.3.25"
 cfg-if = "1.0.0"
 leptos = { path = "../../leptos", default-features = false, features = [
-	"serde",
+  "serde",
 ] }
 leptos_viz = { path = "../../integrations/viz", default-features = false, optional = true }
 leptos_meta = { path = "../../meta", default-features = false }
@@ -21,19 +20,15 @@ leptos_router = { path = "../../router", default-features = false }
 leptos_reactive = { path = "../../leptos_reactive", default-features = false }
 log = "0.4.17"
 simple_logger = "4.0.0"
-serde = { version = "1.0.148", features = ["derive"] }
-serde_json = "1.0.89"
-gloo-net = { version = "0.2.5", features = ["http"] }
-reqwest = { version = "0.11.13", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
 viz = { version = "0.4.8", features = ["serve"], optional = true }
 tokio = { version = "1.25.0", features = ["full"], optional = true }
 http = { version = "0.2.8" }
 sqlx = { version = "0.6.2", features = [
-	"runtime-tokio-rustls",
-	"sqlite",
+  "runtime-tokio-rustls",
+  "sqlite",
 ], optional = true }
 thiserror = "1.0.38"
-tracing = "0.1.37"
 wasm-bindgen = "0.2"
 
 [features]
@@ -47,7 +42,7 @@ ssr = [
   "leptos/ssr",
   "leptos_meta/ssr",
   "leptos_router/ssr",
-  "dep:leptos_viz"
+  "dep:leptos_viz",
 ]
 
 [package.metadata.cargo-all-features]
