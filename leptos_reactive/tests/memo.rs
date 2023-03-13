@@ -33,20 +33,20 @@ fn memo_with_computed_value() {
 #[test]
 fn nested_memos() {
     create_scope(create_runtime(), |cx| {
-        let (a, set_a) = create_signal(cx, 0);
-        let (b, set_b) = create_signal(cx, 0);
-        let c = create_memo(cx, move |_| a() + b());
-        let d = create_memo(cx, move |_| c() * 2);
-        let e = create_memo(cx, move |_| d() + 1);
+        let (a, set_a) = create_signal(cx, 0); // 1
+        let (b, set_b) = create_signal(cx, 0); // 2
+        let c = create_memo(cx, move |_| a() + b()); // 3
+        let d = create_memo(cx, move |_| c() * 2); // 4
+        let e = create_memo(cx, move |_| d() + 1); // 5
         assert_eq!(d(), 0);
         set_a(5);
-        assert_eq!(c(), 5);
-        assert_eq!(d(), 10);
         assert_eq!(e(), 11);
+        assert_eq!(d(), 10);
+        assert_eq!(c(), 5);
         set_b(1);
-        assert_eq!(c(), 6);
-        assert_eq!(d(), 12);
         assert_eq!(e(), 13);
+        assert_eq!(d(), 12);
+        assert_eq!(c(), 6);
     })
     .dispose()
 }
@@ -73,7 +73,8 @@ fn memo_runs_only_when_inputs_change() {
             }
         });
 
-        assert_eq!(call_count.get(), 1);
+        // initially the memo has not been called at all, because it's lazy
+        assert_eq!(call_count.get(), 0);
 
         // here we access the value a bunch of times
         assert_eq!(c(), 0);
@@ -89,6 +90,102 @@ fn memo_runs_only_when_inputs_change() {
         set_a(1);
         assert_eq!(c(), 1);
         assert_eq!(call_count.get(), 2);
+    })
+    .dispose()
+}
+
+#[cfg(not(feature = "stable"))]
+#[test]
+fn diamond_problem() {
+    use std::{cell::Cell, rc::Rc};
+
+    create_scope(create_runtime(), |cx| {
+        let (name, set_name) = create_signal(cx, "Greg Johnston".to_string());
+        let first = create_memo(cx, move |_| {
+            name().split_whitespace().next().unwrap().to_string()
+        });
+        let last = create_memo(cx, move |_| {
+            name().split_whitespace().nth(1).unwrap().to_string()
+        });
+
+        let combined_count = Rc::new(Cell::new(0));
+        let combined = create_memo(cx, {
+            let combined_count = Rc::clone(&combined_count);
+            move |_| {
+                combined_count.set(combined_count.get() + 1);
+                format!("{} {}", first(), last())
+            }
+        });
+
+        assert_eq!(first(), "Greg");
+        assert_eq!(last(), "Johnston");
+
+        set_name("Will Smith".to_string());
+        assert_eq!(first(), "Will");
+        assert_eq!(last(), "Smith");
+        assert_eq!(combined(), "Will Smith");
+        // should not have run the memo logic twice, even
+        // though both paths have been updated
+        assert_eq!(combined_count.get(), 1);
+    })
+    .dispose()
+}
+
+#[cfg(not(feature = "stable"))]
+#[test]
+fn dynamic_dependencies() {
+    use leptos_reactive::create_isomorphic_effect;
+    use std::{cell::Cell, rc::Rc};
+
+    create_scope(create_runtime(), |cx| {
+        let (first, set_first) = create_signal(cx, "Greg");
+        let (last, set_last) = create_signal(cx, "Johnston");
+        let (use_last, set_use_last) = create_signal(cx, true);
+        let name = create_memo(cx, move |_| {
+            if use_last() {
+                format!("{} {}", first(), last())
+            } else {
+                first().to_string()
+            }
+        });
+
+        let combined_count = Rc::new(Cell::new(0));
+
+        create_isomorphic_effect(cx, {
+            let combined_count = Rc::clone(&combined_count);
+            move |_| {
+                _ = name();
+                combined_count.set(combined_count.get() + 1);
+            }
+        });
+
+        assert_eq!(combined_count.get(), 1);
+
+        set_first("Bob");
+        assert_eq!(name(), "Bob Johnston");
+
+        assert_eq!(combined_count.get(), 2);
+
+        set_last("Thompson");
+
+        assert_eq!(combined_count.get(), 3);
+
+        set_use_last(false);
+
+        assert_eq!(name(), "Bob");
+        assert_eq!(combined_count.get(), 4);
+
+        assert_eq!(combined_count.get(), 4);
+        set_last("Jones");
+        assert_eq!(combined_count.get(), 4);
+        set_last("Smith");
+        assert_eq!(combined_count.get(), 4);
+        set_last("Stevens");
+        assert_eq!(combined_count.get(), 4);
+
+        set_use_last(true);
+        assert_eq!(name(), "Bob Stevens");
+        assert_eq!(combined_count.get(), 5);
     })
     .dispose()
 }

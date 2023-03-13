@@ -1,8 +1,11 @@
 #![forbid(unsafe_code)]
-use crate::{
-    create_rw_signal, RwSignal, Scope, SignalGetUntracked, SignalSetUntracked,
-    SignalUpdateUntracked, SignalWithUntracked,
-};
+use crate::{with_runtime, RuntimeId, Scope};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+
+slotmap::new_key_type! {
+    /// Unique ID assigned to a [StoredValue].
+    pub(crate) struct StoredValueId;
+}
 
 /// A **non-reactive** wrapper for any value, which can be created with [store_value].
 ///
@@ -14,13 +17,22 @@ use crate::{
 /// types, it is not reactive; accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub struct StoredValue<T>(RwSignal<T>)
+pub struct StoredValue<T>
 where
-    T: 'static;
+    T: 'static,
+{
+    runtime: RuntimeId,
+    id: StoredValueId,
+    ty: PhantomData<T>,
+}
 
 impl<T> Clone for StoredValue<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self {
+            runtime: self.runtime,
+            id: self.id,
+            ty: self.ty,
+        }
     }
 }
 
@@ -89,7 +101,7 @@ impl<T> StoredValue<T> {
     where
         T: Clone,
     {
-        self.0.get_untracked()
+        self.try_get_value().expect("could not get stored value")
     }
 
     /// Same as [`StoredValue::get`] but will not panic by default.
@@ -110,7 +122,7 @@ impl<T> StoredValue<T> {
     where
         T: Clone,
     {
-        self.0.try_get_untracked()
+        self.try_with_value(T::clone)
     }
 
     /// Applies a function to the current stored value.
@@ -163,7 +175,7 @@ impl<T> StoredValue<T> {
     //               track the stored value. This method will also be removed in \
     //               a future version of `leptos`"]
     pub fn with_value<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.0.with_untracked(f)
+        self.try_with_value(f).expect("could not get stored value")
     }
 
     /// Same as [`StoredValue::with`] but returns [`Some(O)]` only if
@@ -178,7 +190,15 @@ impl<T> StoredValue<T> {
     /// Same as [`StoredValue::with`] but returns [`Some(O)]` only if
     /// the signal is still valid. [`None`] otherwise.
     pub fn try_with_value<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.0.try_with_untracked(f)
+        with_runtime(self.runtime, |runtime| {
+            let values = runtime.stored_values.borrow();
+            let value = values.get(self.id)?;
+            let value = value.borrow();
+            let value = value.downcast_ref::<T>()?;
+            Some(f(value))
+        })
+        .ok()
+        .flatten()
     }
 
     /// Updates the stored value.
@@ -259,7 +279,8 @@ impl<T> StoredValue<T> {
     /// ```
     #[track_caller]
     pub fn update_value(&self, f: impl FnOnce(&mut T)) {
-        self.0.update_untracked(f);
+        self.try_update_value(f)
+            .expect("could not set stored value");
     }
 
     /// Updates the stored value.
@@ -277,7 +298,15 @@ impl<T> StoredValue<T> {
     /// Same as [`Self::update`], but returns [`Some(O)`] if the
     /// signal is still valid, [`None`] otherwise.
     pub fn try_update_value<O>(self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.0.try_update_untracked(f)
+        with_runtime(self.runtime, |runtime| {
+            let values = runtime.stored_values.borrow();
+            let value = values.get(self.id)?;
+            let mut value = value.borrow_mut();
+            let value = value.downcast_mut::<T>()?;
+            Some(f(value))
+        })
+        .ok()
+        .flatten()
     }
 
     /// Sets the stored value.
@@ -320,13 +349,26 @@ impl<T> StoredValue<T> {
     /// ```
     #[track_caller]
     pub fn set_value(&self, value: T) {
-        self.0.set_untracked(value);
+        self.try_set_value(value);
     }
 
     /// Same as [`Self::set`], but returns [`None`] if the signal is
     /// still valid, [`Some(T)`] otherwise.
     pub fn try_set_value(&self, value: T) -> Option<T> {
-        self.0.try_set_untracked(value)
+        with_runtime(self.runtime, |runtime| {
+            let values = runtime.stored_values.borrow();
+            let n = values.get(self.id);
+            let mut n = n.map(|n| n.borrow_mut());
+            let n = n.as_mut().and_then(|n| n.downcast_mut::<T>());
+            if let Some(n) = n {
+                *n = value;
+                None
+            } else {
+                Some(value)
+            }
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -369,7 +411,18 @@ pub fn store_value<T>(cx: Scope, value: T) -> StoredValue<T>
 where
     T: 'static,
 {
-    StoredValue(create_rw_signal(cx, value))
+    let id = with_runtime(cx.runtime, |runtime| {
+        runtime
+            .stored_values
+            .borrow_mut()
+            .insert(Rc::new(RefCell::new(value)))
+    })
+    .unwrap_or_default();
+    StoredValue {
+        runtime: cx.runtime,
+        id,
+        ty: PhantomData,
+    }
 }
 
 impl_get_fn_traits!(StoredValue(get_value));
