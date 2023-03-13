@@ -7,10 +7,8 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0.66"
 console_log = "0.2.0"
 console_error_panic_hook = "0.1.7"
-futures = "0.3.25"
 cfg-if = "1.0.0"
 leptos = { path = "../../leptos", default-features = false, features = [
   "serde",
@@ -21,7 +19,7 @@ leptos_router = { path = "../../router", default-features = false }
 log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1.0.148", features = ["derive"] }
-serde_json = "1.0.89"
+tracing = "0.1"
 gloo-net = { version = "0.2.5", features = ["http"] }
 reqwest = { version = "0.11.13", features = ["json"] }
 axum = { version = "0.6.1", optional = true }
@@ -31,7 +29,6 @@ tokio = { version = "1.22.0", features = ["full"], optional = true }
 http = { version = "0.2.8", optional = true }
 web-sys = { version = "0.3", features = ["AbortController", "AbortSignal"] }
 wasm-bindgen = "0.2"
-tracing = "0.1"
 
 [features]
 default = ["csr"]

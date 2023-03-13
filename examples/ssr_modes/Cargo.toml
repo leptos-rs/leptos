@@ -21,7 +21,6 @@ leptos_actix = { path = "../../integrations/actix", default-features = false, op
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
-simple_logger = "4"
 thiserror = "1"
 tokio = { version = "1", features = ["time"] }
 wasm-bindgen = "0.2"
