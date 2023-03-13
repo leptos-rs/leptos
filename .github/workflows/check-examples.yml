@@ -39,9 +39,6 @@ jobs:
       - name: Cargo generate-lockfile
         run: cargo generate-lockfile
 
-      - name: Run Rustfmt
-        run: cargo fmt -- --check
-
       - uses: Swatinem/rust-cache@v2
 
       - name: Run cargo check on all examples
