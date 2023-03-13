@@ -189,6 +189,9 @@ pub fn ActionForm<I, O>(
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
+    /// A signal that will be set if the form submission ends in an error.
+    #[prop(optional)]
+    error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -222,6 +225,7 @@ where
 
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
+        let status = resp.status();
         spawn_local(async move {
             let body = JsFuture::from(
                 resp.text().expect("couldn't get .text() from Response"),
@@ -229,40 +233,68 @@ where
             .await;
             match body {
                 Ok(json) => {
-                    match O::de(
-                        &json
-                            .as_string()
-                            .expect("couldn't get String from JsString"),
-                    ) {
-                        Ok(res) => {
-                            value.try_set(Some(Ok(res)));
+                    // 500 just returns text of error, not JSON
+                    if status == 500 {
+                        let err = ServerFnError::ServerError(
+                            json.as_string().unwrap_or_default(),
+                        );
+                        if let Some(error) = error {
+                            error.try_set(Some(Box::new(err.clone())));
                         }
-                        Err(e) => {
-                            value.try_set(Some(Err(
-                                ServerFnError::Deserialization(e.to_string()),
-                            )));
+                        value.try_set(Some(Err(err)));
+                    } else {
+                        match O::de(
+                            &json
+                                .as_string()
+                                .expect("couldn't get String from JsString"),
+                        ) {
+                            Ok(res) => {
+                                value.try_set(Some(Ok(res)));
+                                if let Some(error) = error {
+                                    error.try_set(None);
+                                }
+                            }
+                            Err(e) => {
+                                value.try_set(Some(Err(
+                                    ServerFnError::Deserialization(
+                                        e.to_string(),
+                                    ),
+                                )));
+                                if let Some(error) = error {
+                                    error.try_set(Some(Box::new(e)));
+                                }
+                            }
                         }
                     }
                 }
-                Err(e) => error!("{e:?}"),
+                Err(e) => {
+                    error!("{e:?}");
+                    if let Some(error) = error {
+                        error.try_set(Some(Box::new(ServerFnError::Request(
+                            e.as_string().unwrap_or_default(),
+                        ))));
+                    }
+                }
             };
             input.try_set(None);
             action.set_pending(false);
         });
     });
     let class = class.map(|bx| bx.into_attribute_boxed(cx));
-    Form(
-        cx,
-        FormProps::builder()
-            .action(action_url)
-            .version(version)
-            .on_form_data(on_form_data)
-            .on_response(on_response)
-            .method("post")
-            .class(class)
-            .children(children)
-            .build(),
-    )
+    let props = FormProps::builder()
+        .action(action_url)
+        .version(version)
+        .on_form_data(on_form_data)
+        .on_response(on_response)
+        .method("post")
+        .class(class)
+        .children(children);
+    let props = if let Some(error) = error {
+        props.error(error).build()
+    } else {
+        props.build()
+    };
+    Form(cx, props)
 }
 
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
@@ -278,6 +310,9 @@ pub fn MultiActionForm<I, O>(
     /// Sets the `class` attribute on the underlying `<form>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
+    /// A signal that will be set if the form submission ends in an error.
+    #[prop(optional)]
+    error: Option<RwSignal<Option<Box<dyn Error>>>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -302,10 +337,18 @@ where
         }
 
         match I::from_event(&ev) {
-            Err(e) => error!("{e}"),
+            Err(e) => {
+                error!("{e}");
+                if let Some(error) = error {
+                    error.set(Some(Box::new(e)));
+                }
+            }
             Ok(input) => {
                 ev.prevent_default();
                 multi_action.dispatch(input);
+                if let Some(error) = error {
+                    error.set(None);
+                }
             }
         }
     };
