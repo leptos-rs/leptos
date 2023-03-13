@@ -38,7 +38,7 @@ default = ["ssr"]
 csr = []
 hydrate = []
 ssr = []
-stable = []
+stable = ["server_fn_macro/stable"]
 tracing = []
 
 [package.metadata.cargo-all-features]

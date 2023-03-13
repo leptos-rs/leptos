@@ -7,9 +7,6 @@
 # make tasks run at the workspace root
 default_to_workspace = false
 
-[tasks.ci]
-dependencies = ["check", "check-examples", "test"]
-
 [tasks.check]
 clear = true
 dependencies = ["check-all", "check-wasm"]
@@ -28,9 +25,7 @@ clear = true
 dependencies = [
 	{ name = "check", path = "examples/counter" },
 	{ name = "check", path = "examples/counter_isomorphic" },
-	{ name = "check", path = "examples/counter_without_macros" },
 	{ name = "check", path = "examples/counters" },
-	{ name = "check", path = "examples/counters_stable" },
 	{ name = "check", path = "examples/error_boundary" },
 	{ name = "check", path = "examples/errors_axum" },
 	{ name = "check", path = "examples/fetch" },
@@ -47,6 +42,13 @@ dependencies = [
 	{ name = "check", path = "examples/todo_app_sqlite_axum" },
 	{ name = "check", path = "examples/todo_app_sqlite_viz" },
 	{ name = "check", path = "examples/todomvc" },
+]
+
+[tasks.check-stable]
+clear = true
+dependencies = [
+	{ name = "check", path = "examples/counter_without_macros" },
+	{ name = "check", path = "examples/counters_stable" },
 ]
 
 [tasks.test]

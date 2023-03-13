@@ -16,3 +16,6 @@ proc-macro2 = "1"
 proc-macro-error = "1"
 xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
 const_format = "0.2.30"
+
+[features]
+stable = []

@@ -9,7 +9,7 @@ description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
-server_fn_macro_default = { path = "./server_fn_macro_default", version = "0.2.0" }
+server_fn_macro_default = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_urlencoded = "0.7"
 thiserror = "1"
@@ -31,3 +31,4 @@ once_cell = "1.17.1"
 
 [features]
 ssr = []
+stable = ["server_fn_macro_default/stable"]
