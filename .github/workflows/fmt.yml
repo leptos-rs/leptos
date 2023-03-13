@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: Run tests ${{ matrix.os }} (using rustc ${{ matrix.rust }})
+    name: Run rustfmt
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,16 +30,5 @@ jobs:
           override: true
           components: rustfmt
 
-      - name: Add wasm32-unknown-unknown
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Setup cargo-make
-        uses: davidB/rust-cargo-make@v1
-
-      - name: Cargo generate-lockfile
-        run: cargo generate-lockfile
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Run tests with all features
-        run: cargo make test
+      - name: Run Rustfmt
+        run: cargo fmt -- --check
