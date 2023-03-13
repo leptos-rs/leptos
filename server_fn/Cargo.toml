@@ -33,3 +33,4 @@ once_cell = "1.17.1"
 
 [features]
 ssr = []
+stable = ["server_fn_macro_default/stable"]

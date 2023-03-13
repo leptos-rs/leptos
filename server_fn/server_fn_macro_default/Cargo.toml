@@ -18,3 +18,6 @@ server_fn_macro = { workspace = true }
 [dev-dependencies]
 server_fn = { workspace = true }
 serde = "1"
+
+[features]
+stable = []
