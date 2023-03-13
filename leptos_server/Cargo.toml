@@ -40,6 +40,7 @@ stable = [
   #"leptos/stable",
   "leptos_dom/stable",
   "leptos_reactive/stable",
+  "server_fn/stable",
 ]
 
 [package.metadata.cargo-all-features]
