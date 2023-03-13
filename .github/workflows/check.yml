@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }} (using rustc ${{ matrix.rust }})
+    name: Run `cargo check` ${{ matrix.os }} (using rustc ${{ matrix.rust }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
