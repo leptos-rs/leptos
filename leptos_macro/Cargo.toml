@@ -22,7 +22,6 @@ proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full"] }
 syn-rsx = "0.9"
-leptos_dom = { workspace = true }
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
@@ -36,10 +35,10 @@ leptos = { path = "../leptos" }
 
 [features]
 default = ["ssr"]
-csr = ["leptos_dom/web"]
-hydrate = ["leptos_dom/web"]
-ssr = ["leptos_dom/ssr"]
-stable = ["leptos_dom/stable"]
+csr = []
+hydrate = []
+ssr = []
+stable = []
 tracing = []
 
 [package.metadata.cargo-all-features]
