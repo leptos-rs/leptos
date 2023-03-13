@@ -34,7 +34,9 @@ use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
 use leptos_reactive::Scope;
 #[cfg(feature = "stable")]
-use leptos_reactive::{ReadSignal, RwSignal, SignalGet};
+use leptos_reactive::{
+    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 pub use logging::*;
 pub use macro_helpers::*;
 pub use node_ref::*;
@@ -150,7 +152,7 @@ where
         instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        self.get().into_view(cx)
+        DynChild::new(move || self.get()).into_view(cx)
     }
 }
 #[cfg(feature = "stable")]
@@ -160,10 +162,49 @@ where
 {
     #[cfg_attr(
         debug_assertions,
-        instrument(level = "trace", name = "ReadSignal<T>", skip_all)
+        instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        self.get().into_view(cx)
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for Memo<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "Memo<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for Signal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "Signal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for MaybeSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
     }
 }
 
