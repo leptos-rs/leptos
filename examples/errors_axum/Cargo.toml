@@ -17,6 +17,7 @@ leptos_axum = { path = "../../../leptos/integrations/axum", default-features = f
 leptos_meta = { path = "../../../leptos/meta", default-features = false }
 leptos_router = { path = "../../../leptos/router", default-features = false }
 log = "0.4.17"
+serde = { version = "1", features = ["derive"] }
 simple_logger = "4.0.0"
 axum = { version = "0.6.1", optional = true }
 tower = { version = "0.4.13", optional = true }
