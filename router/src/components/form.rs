@@ -222,6 +222,7 @@ where
 
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
+        let status = resp.status();
         spawn_local(async move {
             let body = JsFuture::from(
                 resp.text().expect("couldn't get .text() from Response"),
@@ -229,18 +230,27 @@ where
             .await;
             match body {
                 Ok(json) => {
-                    match O::de(
-                        &json
-                            .as_string()
-                            .expect("couldn't get String from JsString"),
-                    ) {
-                        Ok(res) => {
-                            value.try_set(Some(Ok(res)));
-                        }
-                        Err(e) => {
-                            value.try_set(Some(Err(
-                                ServerFnError::Deserialization(e.to_string()),
-                            )));
+                    // 500 just returns text of error, not JSON
+                    if status == 500 {
+                        value.try_set(Some(Err(ServerFnError::ServerError(
+                            json.as_string().unwrap_or_default(),
+                        ))));
+                    } else {
+                        match O::de(
+                            &json
+                                .as_string()
+                                .expect("couldn't get String from JsString"),
+                        ) {
+                            Ok(res) => {
+                                value.try_set(Some(Ok(res)));
+                            }
+                            Err(e) => {
+                                value.try_set(Some(Err(
+                                    ServerFnError::Deserialization(
+                                        e.to_string(),
+                                    ),
+                                )));
+                            }
                         }
                     }
                 }
