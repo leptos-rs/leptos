@@ -115,6 +115,7 @@ where
 
     let (loading, set_loading) = create_signal(cx, false);
 
+    //crate::macros::debug_warn!("creating fetcher");
     let fetcher = Rc::new(move |s| {
         Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
     });
@@ -139,6 +140,7 @@ where
     })
     .expect("tried to create a Resource in a Runtime that has been disposed.");
 
+    //crate::macros::debug_warn!("creating effect");
     create_isomorphic_effect(cx, {
         let r = Rc::clone(&r);
         move |_| {
@@ -222,7 +224,6 @@ where
         )
     )
 )]
-#[track_caller]
 pub fn create_local_resource_with_initial_value<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -318,7 +319,7 @@ where
             r.set_loading.update(|n| *n = false);
 
             // for reactivity
-            r.source.subscribe();
+            r.source.track();
         } else if context.pending_resources.remove(&id) {
             // We're still waiting for the resource, add a "resolver" closure so
             // that it will be set as soon as the server sends the serialized
@@ -356,7 +357,7 @@ where
             );
 
             // for reactivity
-            r.source.subscribe()
+            r.source.track()
         } else {
             // Server didn't mark the resource as pending, so load it on the
             // client
