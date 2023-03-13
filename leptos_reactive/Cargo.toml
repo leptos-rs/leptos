@@ -41,6 +41,7 @@ web-sys = { version = "0.3", features = [
   "Window",
 ] }
 cfg-if = "1.0.0"
+indexmap = "1.9.2"
 
 [dev-dependencies]
 log = "0.4"
