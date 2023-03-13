@@ -276,7 +276,7 @@ impl Parse for ServerFnName {
                 "\"Cbor\"" => syn::parse_quote!(Encoding::Cbor),
                 _ => abort!(encoding, "Encoding Not Found"),
             })
-            .unwrap_or(syn::parse_quote!(Encoding::Url));
+            .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));
 
         Ok(Self {
             struct_name,
