@@ -33,6 +33,8 @@ pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
 use leptos_reactive::Scope;
+#[cfg(feature = "stable")]
+use leptos_reactive::{ReadSignal, RwSignal, SignalGet};
 pub use logging::*;
 pub use macro_helpers::*;
 pub use node_ref::*;
@@ -135,6 +137,33 @@ where
 {
     fn into_view(self, _: Scope) -> View {
         self.1.into_view(self.0)
+    }
+}
+
+#[cfg(feature = "stable")]
+impl<T> IntoView for ReadSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "ReadSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        self.get().into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for RwSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "ReadSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        self.get().into_view(cx)
     }
 }
 
