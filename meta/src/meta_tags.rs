@@ -41,11 +41,13 @@ pub fn Meta(
     let next_id = meta.tags.get_next_id();
     let id = format!("leptos-link-{}", next_id.0);
 
-    let builder_el = leptos::leptos_dom::html::meta(cx)
-        .attr("charset", move || charset.as_ref().map(|v| v.get()))
-        .attr("name", move || name.as_ref().map(|v| v.get()))
-        .attr("http-equiv", move || http_equiv.as_ref().map(|v| v.get()))
-        .attr("content", move || content.as_ref().map(|v| v.get()));
+    let builder_el = leptos::leptos_dom::html::as_meta_tag(move || {
+        leptos::leptos_dom::html::meta(cx)
+            .attr("charset", move || charset.as_ref().map(|v| v.get()))
+            .attr("name", move || name.as_ref().map(|v| v.get()))
+            .attr("http-equiv", move || http_equiv.as_ref().map(|v| v.get()))
+            .attr("content", move || content.as_ref().map(|v| v.get()))
+    });
 
     meta.tags.register(cx, id, builder_el.into_any());
 }

@@ -46,12 +46,17 @@ pub fn Style(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::leptos_dom::html::style(cx)
-        .attr("id", &id)
-        .attr("media", media)
-        .attr("nonce", nonce)
-        .attr("title", title)
-        .attr("blocking", blocking);
+    let builder_el = leptos::leptos_dom::html::as_meta_tag({
+        let id = id.clone();
+        move || {
+            leptos::leptos_dom::html::style(cx)
+                .attr("id", &id)
+                .attr("media", media)
+                .attr("nonce", nonce)
+                .attr("title", title)
+                .attr("blocking", blocking)
+        }
+    });
     let builder_el = if let Some(children) = children {
         let frag = children(cx);
         let mut style = String::new();

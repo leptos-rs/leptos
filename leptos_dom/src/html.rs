@@ -8,6 +8,7 @@ cfg_if! {
     use crate::macro_helpers::*;
     use crate::{mount_child, MountKind};
     use once_cell::unsync::Lazy as LazyCell;
+    use std::cell::Cell;
     use wasm_bindgen::JsCast;
 
     /// Trait alias for the trait bounts on [`ElementDescriptor`].
@@ -19,6 +20,22 @@ cfg_if! {
     impl<El> ElementDescriptorBounds for El where
       El: fmt::Debug + AsRef<web_sys::HtmlElement> + Clone
     {
+    }
+
+    thread_local! {
+        static IS_META: Cell<bool> = Cell::new(false);
+    }
+
+    #[doc(hidden)]
+    pub fn as_meta_tag<T>(f: impl FnOnce() -> T) -> T {
+        IS_META.with(|m| m.set(true));
+        let v = f();
+        IS_META.with(|m| m.set(false));
+        v
+    }
+
+    fn is_meta_tag() -> bool {
+        IS_META.with(|m| m.get())
     }
   } else {
     use crate::hydration::HydrationKey;
@@ -35,6 +52,11 @@ cfg_if! {
     pub trait ElementDescriptorBounds: fmt::Debug {}
 
     impl<El> ElementDescriptorBounds for El where El: fmt::Debug {}
+
+    #[doc(hidden)]
+    pub fn as_meta_tag<T>(f: impl FnOnce() -> T) -> T {
+        f()
+    }
   }
 }
 
@@ -205,9 +227,12 @@ impl Custom {
 
                 el.unchecked_into()
             } else {
-                crate::warn!(
-                    "element with id {id} not found, ignoring it for hydration"
-                );
+                if !is_meta_tag() {
+                    crate::warn!(
+                        "element with id {id} not found, ignoring it for \
+                         hydration"
+                    );
+                }
 
                 crate::document().create_element(&name).unwrap()
             }
@@ -993,9 +1018,11 @@ fn create_leptos_element(
 
             el.unchecked_into()
         } else {
-            crate::warn!(
-                "element with id {id} not found, ignoring it for hydration"
-            );
+            if !is_meta_tag() {
+                crate::warn!(
+                    "element with id {id} not found, ignoring it for hydration"
+                );
+            }
 
             clone_element()
         }

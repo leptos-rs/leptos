@@ -67,19 +67,24 @@ pub fn Script(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::leptos_dom::html::script(cx)
-        .attr("id", &id)
-        .attr("async", async_)
-        .attr("crossorigin", crossorigin)
-        .attr("defer", defer)
-        .attr("fetchpriority ", fetchpriority)
-        .attr("integrity", integrity)
-        .attr("nomodule", nomodule)
-        .attr("nonce", nonce)
-        .attr("referrerpolicy", referrerpolicy)
-        .attr("src", src)
-        .attr("type", type_)
-        .attr("blocking", blocking);
+    let builder_el = leptos::leptos_dom::html::as_meta_tag({
+        let id = id.clone();
+        move || {
+            leptos::leptos_dom::html::script(cx)
+                .attr("id", &id)
+                .attr("async", async_)
+                .attr("crossorigin", crossorigin)
+                .attr("defer", defer)
+                .attr("fetchpriority ", fetchpriority)
+                .attr("integrity", integrity)
+                .attr("nomodule", nomodule)
+                .attr("nonce", nonce)
+                .attr("referrerpolicy", referrerpolicy)
+                .attr("src", src)
+                .attr("type", type_)
+                .attr("blocking", blocking)
+        }
+    });
     let builder_el = if let Some(children) = children {
         let frag = children(cx);
         let mut script = String::new();
