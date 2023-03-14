@@ -127,6 +127,10 @@ pub fn Contact(cx: Scope) -> impl IntoView {
         get_contact,
     );
 
+    create_effect(cx, move |_| {
+        log!("params = {:#?}", params.get());
+    });
+
     let contact_display = move || match contact.read(cx) {
         // None => loading, but will be caught by Suspense fallback
         // I'm only doing this explicitly for the example
