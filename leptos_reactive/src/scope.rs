@@ -4,7 +4,7 @@ use crate::{
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, SuspenseContext,
+    PinnedFuture, ResourceId, StoredValueId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
 use std::{collections::HashMap, fmt};
@@ -255,6 +255,9 @@ impl Scope {
                         ScopeProperty::Resource(id) => {
                             runtime.resources.borrow_mut().remove(id);
                         }
+                        ScopeProperty::StoredValue(id) => {
+                            runtime.stored_values.borrow_mut().remove(id);
+                        }
                     }
                 }
             }
@@ -316,6 +319,7 @@ pub(crate) enum ScopeProperty {
     Signal(NodeId),
     Effect(NodeId),
     Resource(ResourceId),
+    StoredValue(StoredValueId),
 }
 
 /// Creating a [Scope](crate::Scope) gives you a disposer, which can be called
