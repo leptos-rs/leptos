@@ -229,7 +229,8 @@ impl Custom {
             } else {
                 if !is_meta_tag() {
                     crate::warn!(
-                        "element with id {id} not found, ignoring it for hydration"
+                        "element with id {id} not found, ignoring it for \
+                         hydration"
                     );
                 }
 
@@ -1020,7 +1021,7 @@ fn create_leptos_element(
             if !is_meta_tag() {
                 crate::warn!(
                     "element with id {id} not found, ignoring it for hydration"
-                    );
+                );
             }
 
             clone_element()
