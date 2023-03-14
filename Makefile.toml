@@ -9,7 +9,12 @@ default_to_workspace = false
 
 [tasks.check]
 clear = true
-dependencies = ["check-all", "check-wasm"]
+dependencies = [
+	"check-all",
+	"check-wasm",
+	"check-all-release",
+	"check-wasm-release",
+]
 
 [tasks.check-all]
 command = "cargo"
@@ -19,6 +24,15 @@ install_crate = "cargo-all-features"
 [tasks.check-wasm]
 clear = true
 dependencies = [{ name = "check-wasm", path = "leptos" }]
+
+[tasks.check-all-release]
+command = "cargo"
+args = ["+nightly", "check-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.check-wasm-release]
+clear = true
+dependencies = [{ name = "check-wasm-release", path = "leptos" }]
 
 [tasks.check-examples]
 clear = true
