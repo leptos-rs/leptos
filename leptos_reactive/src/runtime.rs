@@ -548,6 +548,7 @@ impl RuntimeId {
                     f: Rc::new(MemoState {
                         f,
                         t: PhantomData,
+                        #[cfg(debug_assertions)]
                         defined_at,
                     }),
                 },
