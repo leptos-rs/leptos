@@ -8,8 +8,10 @@ use crate::{
     WriteSignal,
 };
 use cfg_if::cfg_if;
+use core::hash::BuildHasherDefault;
 use futures::stream::FuturesUnordered;
-use rustc_hash::{FxHashMap, FxHashSet};
+use indexmap::IndexSet;
+use rustc_hash::{FxHashMap, FxHasher};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::{
     any::{Any, TypeId},
@@ -35,6 +37,8 @@ cfg_if! {
     }
 }
 
+type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
+
 // The data structure that owns all the signals, memos, effects,
 // and other data included in the reactive system.
 #[derive(Default)]
@@ -53,8 +57,9 @@ pub(crate) struct Runtime {
     pub stored_values: RefCell<SlotMap<StoredValueId, Rc<RefCell<dyn Any>>>>,
     pub nodes: RefCell<SlotMap<NodeId, ReactiveNode>>,
     pub node_subscribers:
-        RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
-    pub node_sources: RefCell<SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>>,
+        RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
+    pub node_sources:
+        RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
     pub pending_effects: RefCell<Vec<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
 }
@@ -229,9 +234,9 @@ impl Runtime {
     }
 
     fn gather_descendants(
-        subscribers: &SecondaryMap<NodeId, RefCell<FxHashSet<NodeId>>>,
+        subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
         node: NodeId,
-        descendants: &mut FxHashSet<NodeId>,
+        descendants: &mut FxIndexSet<NodeId>,
     ) {
         if let Some(children) = subscribers.get(node) {
             for child in children.borrow().iter() {
