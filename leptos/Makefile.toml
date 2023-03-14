@@ -28,7 +28,7 @@ args = [
 command = "cargo"
 args = [
 	"check",
-	"release",
+	"--release",
 	"--no-default-features",
 	"--features=hydrate",
 	"--target=wasm32-unknown-unknown",
