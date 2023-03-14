@@ -329,7 +329,6 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    //crate::macros::debug_warn!("created signal {:?} at {}", s.0.id, std::panic::Location::caller());
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
     s
 }

@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{with_runtime, RuntimeId, Scope};
+use crate::{with_runtime, RuntimeId, Scope, ScopeProperty};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 slotmap::new_key_type! {
@@ -418,6 +418,7 @@ where
             .insert(Rc::new(RefCell::new(value)))
     })
     .unwrap_or_default();
+    cx.with_scope_property(|prop| prop.push(ScopeProperty::StoredValue(id)));
     StoredValue {
         runtime: cx.runtime,
         id,
