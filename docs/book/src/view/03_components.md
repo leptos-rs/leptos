@@ -238,7 +238,7 @@ which allows you to easily pass props with different values.
 
 In this case, it’s helpful to know about the 
 [`Signal`](https://docs.rs/leptos/latest/leptos/struct.Signal.html) type. `Signal`
-is a enumerated type that represents any kind of readable reactive signal. It can 
+is an enumerated type that represents any kind of readable reactive signal. It can 
 be useful when defining APIs for components you’ll want to reuse while passing 
 different sorts of signals. The [`MaybeSignal`](https://docs.rs/leptos/latest/leptos/enum.MaybeSignal.html) type is useful when you want to be able to take either a static or 
 reactive value.
