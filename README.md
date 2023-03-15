@@ -78,7 +78,7 @@ rustup target add wasm32-unknown-unknown
 
 If you’re on `stable`, note the following:
 
-1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.1.0", features = ["stable"] }`
+1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.2", features = ["stable"] }`
 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
    [`counters_stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters_stable/src/main.rs)
