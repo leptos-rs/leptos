@@ -60,7 +60,7 @@ Your directory structure should now look something like this
 leptos_tutorial
 ├── src
 │   └── main.rs
-├── Cargo.html
+├── Cargo.toml
 ├── index.html
 ```
 
