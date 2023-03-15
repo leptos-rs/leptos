@@ -164,3 +164,7 @@ In a fine-grained reactive library like Leptos, it’s always important to do th
 Imagine my contact list example. If I navigate from Greg to Alice to Bob and back to Greg, the contact information needs to change on each navigation. But the `<ContactList/>` should never be rerendered. Not only does this save on rendering performance, it also maintains state in the UI. For example, if I have a search bar at the top of `<ContactList/>`, navigating from Greg to Alice to Bob won’t clear the search.
 
 In fact, in this case, we don’t even need to rerender the `<Contact/>` component when moving between contacts. The router will just reactively update the `:id` parameter as we navigate, allowing us to make fine-grained updates. As we navigate between contacts, we’ll update single text nodes to change the contact’s name, address, and so on, without doing _any_ additional rerendering.
+
+> This sandbox includes a couple features (like nested routing) discussed in this section and the previous one, and a couple we’ll cover in the rest of this chapter. The router is such an integrated system that it makes sense to provide a single example, so don’t be surprised if there’s anything you don’t understand.
+
+<iframe src="https://codesandbox.io/p/sandbox/16-router-fy4tjv?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px"></iframe>
