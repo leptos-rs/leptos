@@ -2,7 +2,10 @@
 
 //! Server-side HTML rendering utilities.
 
-use crate::{CoreComponent, HydrationCtx, IntoView, View};
+use crate::{
+    html::{ElementChildren, StringOrView},
+    CoreComponent, HydrationCtx, IntoView, View,
+};
 use cfg_if::cfg_if;
 use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
 use itertools::Itertools;
@@ -385,8 +388,19 @@ impl View {
                 }
             }
             View::Element(el) => {
-                let el_html = if let Some(prerendered) = el.prerendered {
-                    prerendered
+                let el_html = if let ElementChildren::Chunks(chunks) =
+                    el.children
+                {
+                    chunks
+                        .into_iter()
+                        .map(|chunk| match chunk {
+                            StringOrView::String(string) => string,
+                            StringOrView::View(view) => {
+                                view().render_to_string_helper()
+                            }
+                        })
+                        .join("")
+                        .into()
                 } else {
                     let tag_name = el.name;
 
@@ -421,11 +435,17 @@ impl View {
                         format!("<{tag_name}{attrs}>{inner_html}</{tag_name}>")
                             .into()
                     } else {
-                        let children = el
-                            .children
-                            .into_iter()
-                            .map(|node| node.render_to_string_helper())
-                            .join("");
+                        let children = match el.children {
+                            ElementChildren::Empty => "".into(),
+                            ElementChildren::Children(c) => c
+                                .into_iter()
+                                .map(View::render_to_string_helper)
+                                .join("")
+                                .into(),
+                            ElementChildren::InnerHtml(h) => h,
+                            // already handled this case above
+                            ElementChildren::Chunks(_) => unreachable!(),
+                        };
 
                         format!("<{tag_name}{attrs}>{children}</{tag_name}>")
                             .into()
