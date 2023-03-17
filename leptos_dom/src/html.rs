@@ -291,8 +291,6 @@ cfg_if! {
     }
   // Server needs to build a virtualized DOM tree
   } else {
-    use std::rc::Rc;
-
     /// Represents an HTML element.
     #[derive(educe::Educe, Clone)]
     #[educe(Debug)]
@@ -320,14 +318,13 @@ cfg_if! {
     #[derive(Clone)]
     pub enum StringOrView {
         String(Cow<'static, str>),
-        View(Rc<dyn Fn() -> View>)
+        View(std::rc::Rc<dyn Fn() -> View>)
     }
 
     impl PartialEq for StringOrView {
         fn eq(&self, other: &Self) -> bool {
             match (self, other) {
                 (StringOrView::String(a), StringOrView::String(b)) => a == b,
-                (StringOrView::View(a), StringOrView::View(b)) => Rc::ptr_eq(&a, &b),
                 _ => false
             }
         }
