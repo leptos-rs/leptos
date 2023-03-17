@@ -844,7 +844,7 @@ async fn render_app_async_helper(
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list<IV>(
     app_fn: impl FnOnce(leptos::Scope) -> IV + 'static,
-) -> Vec<(String, SsrMode)>
+) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
@@ -853,11 +853,20 @@ where
     // Empty strings screw with Actix pathing, they need to be "/"
     routes = routes
         .into_iter()
-        .map(|(s, mode)| {
-            if s.is_empty() {
-                return ("/".to_string(), mode);
+        .map(|listing| {
+            let path = listing.path();
+            if path.is_empty() {
+                return RouteListing::new( 
+                    "/".to_string(),
+                    listing.mode(),
+                    listing.methods()
+                );
             }
-            (s, mode)
+            RouteListing::new(
+                listing.path(),
+                listing.mode(),
+                listing.methods()
+            )
         })
         .collect();
 
@@ -867,14 +876,23 @@ where
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
 
-    let routes: Vec<(String, SsrMode)> = routes
+    let routes = routes
         .into_iter()
-        .map(|(s, m)| (wildcard_re.replace_all(&s, "{tail:.*}").to_string(), m))
-        .map(|(s, m)| (capture_re.replace_all(&s, "{$1}").to_string(), m))
-        .collect();
+        .map(|listing| {
+            let path = wildcard_re.replace_all(&listing.path(), "{tail:.*}").to_string();
+            let path = capture_re.replace_all(&path, "{$1}").to_string();
+            RouteListing::new(path, listing.mode(), listing.methods())
+        })
+        .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![("/".to_string(), Default::default())]
+        vec![
+            RouteListing::new(
+                "/",
+                Default::default(),
+                [Method::Get]
+            )
+        ]
     } else {
         routes
     }
