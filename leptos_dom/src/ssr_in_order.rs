@@ -5,7 +5,7 @@
 use crate::{ssr::render_serializers, CoreComponent, HydrationCtx, View};
 use async_recursion::async_recursion;
 use cfg_if::cfg_if;
-use futures::{channel::mpsc::Sender, Stream, StreamExt};
+use futures::{channel::mpsc::UnboundedSender, Stream, StreamExt};
 use itertools::Itertools;
 use leptos_reactive::{
     create_runtime, run_scope_undisposed, suspense::StreamChunk, RuntimeId,
@@ -93,7 +93,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             )
         });
 
-    let (tx, rx) = futures::channel::mpsc::channel(1);
+    let (tx, rx) = futures::channel::mpsc::unbounded();
     leptos_reactive::spawn_local(async move {
         handle_chunks(tx, chunks).await;
     });
@@ -122,14 +122,17 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
 }
 
 #[async_recursion(?Send)]
-async fn handle_chunks(mut tx: Sender<String>, chunks: Vec<StreamChunk>) {
+async fn handle_chunks(
+    mut tx: UnboundedSender<String>,
+    chunks: Vec<StreamChunk>,
+) {
     let mut buffer = String::new();
     for chunk in chunks {
         match chunk {
             StreamChunk::Sync(sync) => buffer.push_str(&sync),
             StreamChunk::Async(suspended) => {
                 // add static HTML before the Suspense and stream it down
-                _ = tx.try_send(std::mem::take(&mut buffer));
+                tx.unbounded_send(std::mem::take(&mut buffer));
 
                 // send the inner stream
                 let suspended = suspended.await;
@@ -138,7 +141,7 @@ async fn handle_chunks(mut tx: Sender<String>, chunks: Vec<StreamChunk>) {
         }
     }
     // send final sync chunk
-    _ = tx.try_send(std::mem::take(&mut buffer));
+    tx.unbounded_send(std::mem::take(&mut buffer));
 }
 
 impl View {
