@@ -2,7 +2,8 @@ console.log("[HOT RELOADING] Connected to server.");
 function patch(json) {
 	try {
 		const views = JSON.parse(json);
-		for (const [id, patches] of views) {
+        for (const [id, patches] of views) {
+            console.log("[HOT RELOAD]", patches);
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT),
 				open = `leptos-view|${id}|open`,
 				close = `leptos-view|${id}|close`;
@@ -250,7 +251,33 @@ function patch(json) {
 					node: walker.currentNode
 				});
 			} else if (walker.currentNode.nodeType == Node.COMMENT_NODE) {
-				if (walker.currentNode.textContent.trim().startsWith("leptos-view")) {
+                if (walker.currentNode.textContent.trim().startsWith("leptos-view")) {
+                    if (walker.currentNode.textContent.trim().endsWith("-children|open")) {
+                        const startingName = walker.currentNode.textContent.trim();
+                        const componentName = startingName.replace("-children|open").replace("leptos-view|");
+                        const endingName = `leptos-view|${componentName}-children|close`;
+                        let start = walker.currentNode;
+                        let depth = 1;
+
+                        while (walker.nextNode()) {
+                            if (walker.currentNode.textContent.trim() == endingName) {
+                                depth--;
+                            } else if (walker.currentNode.textContent.trim() == startingName) {
+                                depth++;
+                            }
+
+                            if(depth == 0) {
+                                break;
+                            }
+                        }
+                        let end = walker.currentNode;
+                        actualChildren.push({
+                            type: "fragment",
+                            start: start.nextSibling,
+                            end: end.previousSibling,
+                            children: childrenFromRange(start.parentElement, start.nextSibling, end.previousSibling)
+                        });
+                    }
 				} else if (walker.currentNode.textContent.trim() == "<() />") {
 					actualChildren.push({
 						type: "unit",
@@ -326,7 +353,7 @@ function patch(json) {
 		return actualChildren;
 	}
 
-	function childAtPath(element, path) {
+    function childAtPath(element, path) {
 		if (path.length == 0) {
 			return element;
 		} else if (element.children) {

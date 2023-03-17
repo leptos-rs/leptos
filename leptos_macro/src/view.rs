@@ -1102,6 +1102,9 @@ pub(crate) fn component_to_tokens(
     let children = if node.children.is_empty() {
         quote! {}
     } else {
+        let marker = format!("<{component_name}/>-children");
+        let view_marker = quote! { .with_view_marker(#marker) };
+
         let children = fragment_to_tokens(
             cx,
             span,
@@ -1120,7 +1123,7 @@ pub(crate) fn component_to_tokens(
             .children({
                 #(#clonables)*
 
-                Box::new(move |#cx| #children)
+                Box::new(move |#cx| #children #view_marker)
             })
         }
     };
