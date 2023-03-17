@@ -20,7 +20,11 @@ pub enum LNode {
     },
     // don't need anything; skipped during patching because it should
     // contain its own view macros
-    Component(String, Vec<(String, String)>),
+    Component {
+        name: String,
+        props: Vec<(String, String)>,
+        children: Vec<LNode>,
+    },
     DynChild(String),
 }
 
@@ -71,9 +75,14 @@ impl LNode {
             }
             Node::Element(el) => {
                 if is_component_node(&el) {
-                    views.push(LNode::Component(
-                        el.name.to_string(),
-                        el.attributes
+                    let mut children = Vec::new();
+                    for child in el.children {
+                        LNode::parse_node(child, &mut children)?;
+                    }
+                    views.push(LNode::Component {
+                        name: el.name.to_string(),
+                        props: el
+                            .attributes
                             .into_iter()
                             .filter_map(|attr| match attr {
                                 Node::Attribute(attr) => Some((
@@ -83,7 +92,8 @@ impl LNode {
                                 _ => None,
                             })
                             .collect(),
-                    ));
+                        children,
+                    });
                 } else {
                     let name = el.name.to_string();
                     let mut attrs = Vec::new();
@@ -125,7 +135,7 @@ impl LNode {
         match self {
             LNode::Fragment(frag) => frag.iter().map(LNode::to_html).collect(),
             LNode::Text(text) => text.to_owned(),
-            LNode::Component(name, _) => format!(
+            LNode::Component { name, .. } => format!(
                 "<!--<{name}>--><pre>&lt;{name}/&gt; will load once Rust code \
                  has been compiled.</pre><!--</{name}>-->"
             ),
