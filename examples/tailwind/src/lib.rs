@@ -9,14 +9,14 @@ cfg_if! {
 
         #[wasm_bindgen]
         pub fn hydrate() {
-                console_error_panic_hook::set_once();
-                _ = console_log::init_with_level(log::Level::Debug);
+            _ = console_log::init_with_level(log::Level::Debug);
+            console_error_panic_hook::set_once();
 
-                log!("hydrate mode - hydrating");
+            log!("hydrate mode - hydrating");
 
-                leptos::mount_to_body(|cx| {
-                    view! { cx,  <App/> }
-                });
+            leptos::mount_to_body(|cx| {
+                view! { cx,  <App/> }
+            });
         }
     }
     else if #[cfg(feature = "csr")] {
@@ -35,5 +35,5 @@ cfg_if! {
                 view! { cx, <App /> }
             });
         }
-  }
+    }
 }
