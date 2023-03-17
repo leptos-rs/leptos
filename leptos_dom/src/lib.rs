@@ -231,14 +231,15 @@ cfg_if! {
       }
     }
   } else {
+    use crate::html::ElementChildren;
+
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
       name: Cow<'static, str>,
       is_void: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-      children: Vec<View>,
-      prerendered: Option<Cow<'static, str>>,
+      children: ElementChildren,
       id: HydrationKey,
       #[cfg(debug_assertions)]
       /// Optional marker for the view macro source, in debug mode.
@@ -259,8 +260,10 @@ cfg_if! {
 
           let mut pad_adapter = pad_adapter::PadAdapter::new(f);
 
-          for child in &self.children {
-            writeln!(pad_adapter, "{child:#?}")?;
+          if let ElementChildren::Children(children) = &self.children {
+            for child in children {
+                writeln!(pad_adapter, "{child:#?}")?;
+            }
           }
 
           write!(f, "</{}>", self.name)
@@ -309,7 +312,6 @@ impl Element {
                 attrs,
                 children,
                 id,
-                prerendered,
                 #[cfg(debug_assertions)]
                 view_marker,
             } = self;
@@ -320,8 +322,7 @@ impl Element {
                 cx,
                 element,
                 attrs,
-                children: children.into_iter().collect(),
-                prerendered,
+                children: children.clone(),
                 #[cfg(debug_assertions)]
                 view_marker,
             }
@@ -356,7 +357,6 @@ impl Element {
               attrs: Default::default(),
               children: Default::default(),
               id: el.hydration_id().clone(),
-              prerendered: None,
               #[cfg(debug_assertions)]
               view_marker: None
             }

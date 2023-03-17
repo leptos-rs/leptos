@@ -2,7 +2,11 @@
 
 //! Server-side HTML rendering utilities for in-order streaming and async rendering.
 
-use crate::{ssr::render_serializers, CoreComponent, HydrationCtx, View};
+use crate::{
+    html::{ElementChildren, StringOrView},
+    ssr::render_serializers,
+    CoreComponent, HydrationCtx, View,
+};
 use async_recursion::async_recursion;
 use cfg_if::cfg_if;
 use futures::{channel::mpsc::Sender, Stream, StreamExt};
@@ -186,8 +190,17 @@ impl View {
                         format!("<!--leptos-view|{id}|open-->").into(),
                     ));
                 }
-                if let Some(prerendered) = el.prerendered {
-                    chunks.push(StreamChunk::Sync(prerendered))
+                if let ElementChildren::Chunks(el_chunks) = el.children {
+                    for chunk in el_chunks {
+                        match chunk {
+                            StringOrView::String(string) => {
+                                chunks.push(StreamChunk::Sync(string))
+                            }
+                            StringOrView::View(view) => {
+                                view().into_stream_chunks_helper(cx, chunks);
+                            }
+                        }
+                    }
                 } else {
                     let tag_name = el.name;
 
@@ -231,8 +244,19 @@ impl View {
                         chunks.push(StreamChunk::Sync(
                             format!("<{tag_name}{attrs}>").into(),
                         ));
-                        for child in el.children {
-                            child.into_stream_chunks_helper(cx, chunks);
+
+                        match el.children {
+                            ElementChildren::Empty => {}
+                            ElementChildren::Children(children) => {
+                                for child in children {
+                                    child.into_stream_chunks_helper(cx, chunks);
+                                }
+                            }
+                            ElementChildren::InnerHtml(inner_html) => {
+                                chunks.push(StreamChunk::Sync(inner_html));
+                            }
+                            // handled above
+                            ElementChildren::Chunks(_) => unreachable!(),
                         }
 
                         chunks.push(StreamChunk::Sync(
