@@ -271,60 +271,6 @@ pub fn set_interval(
     Ok(IntervalHandle(handle))
 }
 
-/// "Debounces" a closure. If you call it multiple times within the given timeframe, it will only
-/// fire once, after a delay of that timeframe.
-/* pub fn debounce<I>(
-    cx: Scope,
-    delay: std::time::Duration,
-    cb: impl FnMut(I),
-) -> impl FnMut(I) {
-    struct TimeoutHandle(i32);
-
-    impl TimeoutHandle {
-        fn clear(&self) {
-            window().clear_timeout_with_handle(self.0);
-        }
-    }
-
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-          let _guard = span.enter();
-          cb();
-        };
-      }
-    }
-
-    let mut timeout_id = Rc::new(RefCell::new(None::<TimeoutHandle>));
-    let cb = {
-      let timeout_id = Rc::clone(&timeout_id);
-      move || {
-
-      }
-    };
-
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut()>);
-    cb.forget();
-
-    let set_timeout = move || {
-        TimeoutHandle(
-            window().set_timeout_with_callback_and_timeout_and_arguments_0(
-                cb.as_ref().unchecked_ref(),
-                delay.as_millis().try_into().unwrap_throw(),
-            ),
-        )
-    };
-
-    set_timeout
-
-    on_cleanup(cx, move || {
-        if let Some(id) = timeout_id.take() {
-            id.clear();
-        }
-    })
-} */
-
 /// Adds an event listener to the `Window`.
 #[cfg_attr(
   debug_assertions,
