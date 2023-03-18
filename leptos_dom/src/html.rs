@@ -785,10 +785,13 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 ElementChildren::Children(ref mut children) => {
                     children.push(child);
                 }
-                _ => crate::debug_warn!(
-                    "Don’t call .child() on an HtmlElement if you’ve already \
-                     called .inner_html() or HtmlElement::from_chunks()."
-                ),
+                _ => {
+                    crate::debug_warn!(
+                        "Don’t call .child() on an HtmlElement if you’ve \
+                         already called .inner_html() or \
+                         HtmlElement::from_chunks()."
+                    );
+                }
             }
 
             this
