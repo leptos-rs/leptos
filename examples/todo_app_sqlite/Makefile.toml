@@ -4,6 +4,20 @@ args = ["+nightly", "build-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check]
+clear = true
+dependencies = [
+	"check-all",
+	"check-wasm",
+	"check-all-release",
+	"check-wasm-release",
+]
+
+[tasks.check-debug]
 command = "cargo"
 args = ["+nightly", "check-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.check-release]
+command = "cargo"
+args = ["+nightly", "--release", "check-all-features"]
 install_crate = "cargo-all-features"
