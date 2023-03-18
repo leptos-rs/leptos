@@ -5,12 +5,7 @@ install_crate = "cargo-all-features"
 
 [tasks.check]
 clear = true
-dependencies = [
-	"check-all",
-	"check-wasm",
-	"check-all-release",
-	"check-wasm-release",
-]
+dependencies = ["check-debug", "check-release"]
 
 [tasks.check-debug]
 command = "cargo"
