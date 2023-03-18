@@ -207,7 +207,10 @@ where
 
                         // TODO check does this still detect moves correctly?
                         let was_child_moved = prev_t.is_none()
-                            && child.get_closing_node().next_sibling().as_ref()
+                            && child
+                                .get_closing_node()
+                                .next_non_view_marker_sibling()
+                                .as_ref()
                                 != Some(&closing);
 
                         // If the previous child was a text node, we would like to
@@ -241,7 +244,7 @@ where
                                 if !was_child_moved && child != new_child {
                                     // Remove the text
                                     closing
-                                        .previous_sibling()
+                                        .previous_non_view_marker_sibling()
                                         .unwrap()
                                         .unchecked_into::<web_sys::Element>()
                                         .remove();
@@ -300,7 +303,7 @@ where
                             && new_child.get_text().is_some()
                         {
                             let t = closing
-                                .previous_sibling()
+                                .previous_non_view_marker_sibling()
                                 .unwrap()
                                 .unchecked_into::<web_sys::Element>();
 
@@ -362,5 +365,51 @@ where
         );
 
         View::CoreComponent(crate::CoreComponent::DynChild(component))
+    }
+}
+
+cfg_if! {
+    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        use web_sys::Node;
+
+        trait NonViewMarkerSibling {
+            fn next_non_view_marker_sibling(&self) -> Option<Node>;
+
+            fn previous_non_view_marker_sibling(&self) -> Option<Node>;
+        }
+
+        impl NonViewMarkerSibling for web_sys::Node {
+            fn next_non_view_marker_sibling(&self) -> Option<Node> {
+                cfg_if! {
+                    if #[cfg(debug_assertions)] {
+                        self.next_sibling().and_then(|node| {
+                            if node.text_content().unwrap_or_default().trim().starts_with("leptos-view") {
+                                node.next_sibling()
+                            } else {
+                                Some(node)
+                            }
+                        })
+                    } else {
+                        self.next_sibling()
+                    }
+                }
+            }
+
+            fn previous_non_view_marker_sibling(&self) -> Option<Node> {
+                cfg_if! {
+                    if #[cfg(debug_assertions)] {
+                        self.previous_sibling().and_then(|node| {
+                            if node.text_content().unwrap_or_default().trim().starts_with("leptos-view") {
+                                node.previous_sibling()
+                            } else {
+                                Some(node)
+                            }
+                        })
+                    } else {
+                        self.previous_sibling()
+                    }
+                }
+            }
+        }
     }
 }
