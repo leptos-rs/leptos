@@ -7,12 +7,14 @@
 # make tasks run at the workspace root
 default_to_workspace = false
 
-[tasks.ci]
-dependencies = ["check", "check-examples", "test"]
-
 [tasks.check]
 clear = true
-dependencies = ["check-all", "check-wasm"]
+dependencies = [
+	"check-all",
+	"check-wasm",
+	"check-all-release",
+	"check-wasm-release",
+]
 
 [tasks.check-all]
 command = "cargo"
@@ -23,14 +25,21 @@ install_crate = "cargo-all-features"
 clear = true
 dependencies = [{ name = "check-wasm", path = "leptos" }]
 
+[tasks.check-all-release]
+command = "cargo"
+args = ["+nightly", "check-all-features"]
+install_crate = "cargo-all-features"
+
+[tasks.check-wasm-release]
+clear = true
+dependencies = [{ name = "check-wasm-release", path = "leptos" }]
+
 [tasks.check-examples]
 clear = true
 dependencies = [
 	{ name = "check", path = "examples/counter" },
 	{ name = "check", path = "examples/counter_isomorphic" },
-	{ name = "check", path = "examples/counter_without_macros" },
 	{ name = "check", path = "examples/counters" },
-	{ name = "check", path = "examples/counters_stable" },
 	{ name = "check", path = "examples/error_boundary" },
 	{ name = "check", path = "examples/errors_axum" },
 	{ name = "check", path = "examples/fetch" },
@@ -43,10 +52,18 @@ dependencies = [
 	{ name = "check", path = "examples/ssr_modes" },
 	{ name = "check", path = "examples/ssr_modes_axum" },
 	{ name = "check", path = "examples/tailwind" },
+	{ name = "check", path = "examples/tailwind_csr_trunk" },
 	{ name = "check", path = "examples/todo_app_sqlite" },
 	{ name = "check", path = "examples/todo_app_sqlite_axum" },
 	{ name = "check", path = "examples/todo_app_sqlite_viz" },
 	{ name = "check", path = "examples/todomvc" },
+]
+
+[tasks.check-stable]
+clear = true
+dependencies = [
+	{ name = "check", path = "examples/counter_without_macros" },
+	{ name = "check", path = "examples/counters_stable" },
 ]
 
 [tasks.test]

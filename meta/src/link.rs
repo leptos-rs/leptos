@@ -85,25 +85,30 @@ pub fn Link(
     let next_id = meta.tags.get_next_id();
     let id = id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0));
 
-    let builder_el = leptos::leptos_dom::html::link(cx)
-        .attr("id", &id)
-        .attr("as", as_)
-        .attr("crossorigin", crossorigin)
-        .attr("disabled", disabled.unwrap_or(false))
-        .attr("fetchpriority", fetchpriority)
-        .attr("href", href)
-        .attr("hreflang", hreflang)
-        .attr("imagesizes", imagesizes)
-        .attr("imagesrcset", imagesrcset)
-        .attr("integrity", integrity)
-        .attr("media", media)
-        .attr("prefetch", prefetch)
-        .attr("referrerpolicy", referrerpolicy)
-        .attr("rel", rel)
-        .attr("sizes", sizes)
-        .attr("title", title)
-        .attr("type", type_)
-        .attr("blocking", blocking);
+    let builder_el = leptos::leptos_dom::html::as_meta_tag({
+        let id = id.clone();
+        move || {
+            leptos::leptos_dom::html::link(cx)
+                .attr("id", &id)
+                .attr("as", as_)
+                .attr("crossorigin", crossorigin)
+                .attr("disabled", disabled.unwrap_or(false))
+                .attr("fetchpriority", fetchpriority)
+                .attr("href", href)
+                .attr("hreflang", hreflang)
+                .attr("imagesizes", imagesizes)
+                .attr("imagesrcset", imagesrcset)
+                .attr("integrity", integrity)
+                .attr("media", media)
+                .attr("prefetch", prefetch)
+                .attr("referrerpolicy", referrerpolicy)
+                .attr("rel", rel)
+                .attr("sizes", sizes)
+                .attr("title", title)
+                .attr("type", type_)
+                .attr("blocking", blocking)
+        }
+    });
 
     meta.tags.register(cx, id, builder_el.into_any());
 }

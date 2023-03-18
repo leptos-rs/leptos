@@ -516,6 +516,17 @@ where
     Dynamic(Signal<T>),
 }
 
+impl<T: Clone> Clone for MaybeSignal<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Static(item) => Self::Static(item.clone()),
+            Self::Dynamic(signal) => Self::Dynamic(*signal),
+        }
+    }
+}
+
+impl<T: Copy> Copy for MaybeSignal<T> {}
+
 impl<T: Default> Default for MaybeSignal<T> {
     fn default() -> Self {
         Self::Static(Default::default())

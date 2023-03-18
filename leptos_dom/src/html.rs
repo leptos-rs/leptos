@@ -8,6 +8,7 @@ cfg_if! {
     use crate::macro_helpers::*;
     use crate::{mount_child, MountKind};
     use once_cell::unsync::Lazy as LazyCell;
+    use std::cell::Cell;
     use wasm_bindgen::JsCast;
 
     /// Trait alias for the trait bounts on [`ElementDescriptor`].
@@ -19,6 +20,22 @@ cfg_if! {
     impl<El> ElementDescriptorBounds for El where
       El: fmt::Debug + AsRef<web_sys::HtmlElement> + Clone
     {
+    }
+
+    thread_local! {
+        static IS_META: Cell<bool> = Cell::new(false);
+    }
+
+    #[doc(hidden)]
+    pub fn as_meta_tag<T>(f: impl FnOnce() -> T) -> T {
+        IS_META.with(|m| m.set(true));
+        let v = f();
+        IS_META.with(|m| m.set(false));
+        v
+    }
+
+    fn is_meta_tag() -> bool {
+        IS_META.with(|m| m.get())
     }
   } else {
     use crate::hydration::HydrationKey;
@@ -35,6 +52,11 @@ cfg_if! {
     pub trait ElementDescriptorBounds: fmt::Debug {}
 
     impl<El> ElementDescriptorBounds for El where El: fmt::Debug {}
+
+    #[doc(hidden)]
+    pub fn as_meta_tag<T>(f: impl FnOnce() -> T) -> T {
+        f()
+    }
   }
 }
 
@@ -205,9 +227,12 @@ impl Custom {
 
                 el.unchecked_into()
             } else {
-                crate::warn!(
-                    "element with id {id} not found, ignoring it for hydration"
-                );
+                if !is_meta_tag() {
+                    crate::warn!(
+                        "element with id {id} not found, ignoring it for \
+                         hydration"
+                    );
+                }
 
                 crate::document().create_element(&name).unwrap()
             }
@@ -272,16 +297,40 @@ cfg_if! {
     pub struct HtmlElement<El: ElementDescriptor> {
       pub(crate) cx: Scope,
       pub(crate) element: El,
-      #[educe(Debug(ignore))]
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
-      #[allow(clippy::type_complexity)]
-      pub(crate) children: SmallVec<[View; 4]>,
-      #[educe(Debug(ignore))]
-      pub(crate) prerendered: Option<Cow<'static, str>>,
+      pub(crate) children: ElementChildren,
       #[cfg(debug_assertions)]
       pub(crate) view_marker: Option<String>
     }
+
+    #[derive(Clone, educe::Educe, PartialEq, Eq)]
+    #[educe(Default)]
+    pub(crate) enum ElementChildren {
+        #[educe(Default)]
+        Empty,
+        Children(Vec<View>),
+        InnerHtml(Cow<'static, str>),
+        Chunks(Vec<StringOrView>)
+    }
+
+    #[doc(hidden)]
+    #[derive(Clone)]
+    pub enum StringOrView {
+        String(Cow<'static, str>),
+        View(std::rc::Rc<dyn Fn() -> View>)
+    }
+
+    impl PartialEq for StringOrView {
+        fn eq(&self, other: &Self) -> bool {
+            match (self, other) {
+                (StringOrView::String(a), StringOrView::String(b)) => a == b,
+                _ => false
+            }
+        }
+    }
+
+    impl Eq for StringOrView {}
   }
 }
 
@@ -316,9 +365,8 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             Self {
               cx,
               attrs: smallvec![],
-              children: smallvec![],
+              children: Default::default(),
               element,
-              prerendered: None,
               #[cfg(debug_assertions)]
               view_marker: None
             }
@@ -328,6 +376,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     #[doc(hidden)]
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[deprecated = "Use HtmlElement::from_chunks() instead."]
     pub fn from_html(
         cx: Scope,
         element: El,
@@ -336,9 +385,27 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         Self {
             cx,
             attrs: smallvec![],
-            children: smallvec![],
+            children: ElementChildren::Chunks(vec![StringOrView::String(
+                html.into(),
+            )]),
             element,
-            prerendered: Some(html.into()),
+            #[cfg(debug_assertions)]
+            view_marker: None,
+        }
+    }
+
+    #[doc(hidden)]
+    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    pub fn from_chunks(
+        cx: Scope,
+        element: El,
+        chunks: impl IntoIterator<Item = StringOrView>,
+    ) -> Self {
+        Self {
+            cx,
+            attrs: smallvec![],
+            children: ElementChildren::Chunks(chunks.into_iter().collect()),
+            element,
             #[cfg(debug_assertions)]
             view_marker: None,
         }
@@ -382,7 +449,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               attrs,
               children,
               element,
-              prerendered,
               #[cfg(debug_assertions)]
               view_marker
             } = self;
@@ -391,7 +457,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               cx,
               attrs,
               children,
-              prerendered,
               element: AnyElement {
                 name: element.name(),
                 is_void: element.is_void(),
@@ -711,8 +776,23 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         {
             let mut this = self;
+            let children = &mut this.children;
 
-            this.children.push(child);
+            match children {
+                ElementChildren::Empty => {
+                    *children = ElementChildren::Children(vec![child]);
+                }
+                ElementChildren::Children(ref mut children) => {
+                    children.push(child);
+                }
+                _ => {
+                    crate::debug_warn!(
+                        "Don’t call .child() on an HtmlElement if you’ve \
+                         already called .inner_html() or \
+                         HtmlElement::from_chunks()."
+                    );
+                }
+            }
 
             this
         }
@@ -739,16 +819,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         {
             let mut this = self;
 
-            let child = HtmlElement::from_html(
-                this.cx,
-                Custom {
-                    name: "inner-html".into(),
-                    id: Default::default(),
-                },
-                html,
-            );
-
-            this.children = smallvec![child.into_view(this.cx)];
+            this.children = ElementChildren::InnerHtml(html);
 
             this
         }
@@ -768,7 +839,6 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
                 element,
                 mut attrs,
                 children,
-                prerendered,
                 #[cfg(debug_assertions)]
                 view_marker,
                 ..
@@ -786,8 +856,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
             }
 
             element.attrs = attrs;
-            element.children.extend(children);
-            element.prerendered = prerendered;
+            element.children = children;
 
             #[cfg(debug_assertions)]
             {
@@ -993,9 +1062,11 @@ fn create_leptos_element(
 
             el.unchecked_into()
         } else {
-            crate::warn!(
-                "element with id {id} not found, ignoring it for hydration"
-            );
+            if !is_meta_tag() {
+                crate::warn!(
+                    "element with id {id} not found, ignoring it for hydration"
+                );
+            }
 
             clone_element()
         }

@@ -1,11 +1,7 @@
 #![forbid(unsafe_code)]
-use crate::{
-    macros::debug_warn,
-    runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty,
-};
+use crate::{Scope, ScopeProperty};
 use cfg_if::cfg_if;
-use std::{cell::RefCell, fmt::Debug};
+use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// Effects run a certain chunk of code whenever the signals they depend on change.
 /// `create_effect` immediately runs the given function once, tracks its dependence
@@ -69,6 +65,7 @@ where
     cfg_if! {
         if #[cfg(not(feature = "ssr"))] {
             let e = cx.runtime.create_effect(f);
+            //eprintln!("created effect {e:?}");
             cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
         } else {
             // clear warnings
@@ -123,6 +120,7 @@ pub fn create_isomorphic_effect<T>(
     T: 'static,
 {
     let e = cx.runtime.create_effect(f);
+    //eprintln!("created effect {e:?}");
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
 }
 
@@ -145,27 +143,22 @@ where
     create_effect(cx, f);
 }
 
-slotmap::new_key_type! {
-    /// Unique ID assigned to an [Effect](crate::Effect).
-    pub(crate) struct EffectId;
-}
-
 pub(crate) struct Effect<T, F>
 where
     T: 'static,
     F: Fn(Option<T>) -> T,
 {
     pub(crate) f: F,
-    pub(crate) value: RefCell<Option<T>>,
+    pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-pub(crate) trait AnyEffect {
-    fn run(&self, id: EffectId, runtime: RuntimeId);
+pub(crate) trait AnyComputation {
+    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool;
 }
 
-impl<T, F> AnyEffect for Effect<T, F>
+impl<T, F> AnyComputation for Effect<T, F>
 where
     T: 'static,
     F: Fn(Option<T>) -> T,
@@ -177,73 +170,34 @@ where
             level = "debug",
             skip_all,
             fields(
-              id = ?id,
               defined_at = %self.defined_at,
               ty = %std::any::type_name::<T>()
             )
         )
     )]
-    fn run(&self, id: EffectId, runtime: RuntimeId) {
-        _ = with_runtime(runtime, |runtime| {
-            // clear previous dependencies
-            id.cleanup(runtime);
+    fn run(&self, value: Rc<RefCell<dyn Any>>) -> bool {
+        // we defensively take and release the BorrowMut twice here
+        // in case a change during the effect running schedules a rerun
+        // ideally this should never happen, but this guards against panic
+        let curr_value = {
+            // downcast value
+            let mut value = value.borrow_mut();
+            let value = value
+                .downcast_mut::<Option<T>>()
+                .expect("to downcast effect value");
+            value.take()
+        };
 
-            // set this as the current observer
-            let prev_observer = runtime.observer.take();
-            runtime.observer.set(Some(id));
+        // run the effect
+        let new_value = (self.f)(curr_value);
 
-            // run the effect
-            let value = self.value.take();
-            let new_value = (self.f)(value);
-            *self.value.borrow_mut() = Some(new_value);
+        // set new value
+        let mut value = value.borrow_mut();
+        let value = value
+            .downcast_mut::<Option<T>>()
+            .expect("to downcast effect value");
+        *value = Some(new_value);
 
-            // restore the previous observer
-            runtime.observer.set(prev_observer);
-        })
-    }
-}
-
-impl EffectId {
-    pub(crate) fn run(&self, runtime_id: RuntimeId) {
-        _ = with_runtime(runtime_id, |runtime| {
-            let effect = {
-                let effects = runtime.effects.borrow();
-                effects.get(*self).cloned()
-            };
-            if let Some(effect) = effect {
-                effect.run(*self, runtime_id);
-            } else {
-                debug_warn!(
-                    "[Effect] Trying to run an Effect that has been disposed. \
-                     This is probably either a logic error in a component \
-                     that creates and disposes of scopes, or a Resource \
-                     resolving after its scope has been dropped without \
-                     having been cleaned up."
-                );
-            }
-        })
-    }
-
-    #[cfg_attr(
-        debug_assertions,
-        instrument(
-            name = "Effect::cleanup()",
-            level = "debug",
-            skip_all,
-            fields(
-              id = ?self,
-            )
-        )
-    )]
-    pub(crate) fn cleanup(&self, runtime: &Runtime) {
-        let sources = runtime.effect_sources.borrow();
-        if let Some(sources) = sources.get(*self) {
-            let subs = runtime.signal_subscribers.borrow();
-            for source in sources.borrow().iter() {
-                if let Some(source) = subs.get(*source) {
-                    source.borrow_mut().remove(self);
-                }
-            }
-        }
+        true
     }
 }

@@ -2,13 +2,14 @@
 use crate::{
     console_warn, create_effect,
     macros::debug_warn,
+    node::NodeId,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty,
 };
 use cfg_if::cfg_if;
 use futures::Stream;
-use std::{fmt::Debug, marker::PhantomData, pin::Pin};
+use std::{fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc};
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
@@ -124,6 +125,11 @@ pub trait SignalWith<T> {
     /// the running effect to this signal. Returns [`Some`] if the signal is
     /// valid and the function ran, otherwise returns [`None`].
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O>;
+
+    /// Subscribes to this signal in the current reactive scope without doing anything with its value.
+    fn track(&self) {
+        _ = self.try_with(|_| {});
+    }
 }
 
 /// This trait allows setting the value of a signal.
@@ -469,7 +475,7 @@ where
     T: 'static,
 {
     pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
+    pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
@@ -727,11 +733,6 @@ where
         self.id.with_no_subscription(self.runtime, f)
     }
 
-    #[cfg(feature = "hydrate")]
-    pub(crate) fn subscribe(&self) {
-        _ = with_runtime(self.runtime, |runtime| self.id.subscribe(runtime))
-    }
-
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
     pub(crate) fn try_with<U>(
@@ -812,7 +813,7 @@ where
     T: 'static,
 {
     pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
+    pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
@@ -1069,6 +1070,7 @@ impl<T> Copy for WriteSignal<T> {}
         )
     )
 )]
+#[track_caller]
 pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
     let s = cx.runtime.create_rw_signal(value);
     cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
@@ -1124,7 +1126,7 @@ where
     T: 'static,
 {
     pub(crate) runtime: RuntimeId,
-    pub(crate) id: SignalId,
+    pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(debug_assertions)]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
@@ -1722,12 +1724,6 @@ impl<T> RwSignal<T> {
     }
 }
 
-// Internals
-slotmap::new_key_type! {
-    /// Unique ID assigned to a signal.
-    pub struct SignalId;
-}
-
 #[derive(Debug, Error)]
 pub(crate) enum SignalError {
     #[error("tried to access a signal in a runtime that had been disposed")]
@@ -1738,20 +1734,20 @@ pub(crate) enum SignalError {
     Type(&'static str),
 }
 
-impl SignalId {
+impl NodeId {
     pub(crate) fn subscribe(&self, runtime: &Runtime) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
-            // add this observer to the signal's dependencies (to allow notification)
-            let mut subs = runtime.signal_subscribers.borrow_mut();
+            // add this observer to this node's dependencies (to allow notification)
+            let mut subs = runtime.node_subscribers.borrow_mut();
             if let Some(subs) = subs.entry(*self) {
                 subs.or_default().borrow_mut().insert(observer);
             }
 
-            // add this signal to the effect's sources (to allow cleanup)
-            let mut effect_sources = runtime.effect_sources.borrow_mut();
-            if let Some(effect_sources) = effect_sources.entry(observer) {
-                let sources = effect_sources.or_default();
+            // add this node to the observer's sources (to allow cleanup)
+            let mut sources = runtime.node_sources.borrow_mut();
+            if let Some(sources) = sources.entry(observer) {
+                let sources = sources.or_default();
                 sources.borrow_mut().insert(*self);
             }
         }
@@ -1765,29 +1761,18 @@ impl SignalId {
     where
         T: 'static,
     {
-        // get the value
+        runtime.update_if_necessary(*self);
         let value = {
-            let signals = runtime.signals.borrow();
-            match signals.get(*self).cloned().ok_or(SignalError::Disposed) {
-                Ok(s) => Ok(s),
-                Err(e) => {
-                    debug_warn!("[Signal::try_with] {e}");
-                    Err(e)
-                }
-            }
-        }?;
-        let value = value.try_borrow().unwrap_or_else(|e| {
-            debug_warn!(
-                "Signal::try_with_no_subscription failed on Signal<{}>. It \
-                 seems you're trying to read the value of a signal within an \
-                 effect caused by updating the signal.",
-                std::any::type_name::<T>()
-            );
-            panic!("{e}");
-        });
+            let nodes = runtime.nodes.borrow();
+            let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
+            Rc::clone(&node.value)
+        };
+
+        let value = value.borrow();
         let value = value
             .downcast_ref::<T>()
-            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))?;
+            .ok_or_else(|| SignalError::Type(std::any::type_name::<T>()))
+            .expect("to downcast signal type");
         Ok(f(value))
     }
 
@@ -1815,7 +1800,7 @@ impl SignalId {
         with_runtime(runtime, |runtime| {
             self.try_with_no_subscription(runtime, f).unwrap()
         })
-        .expect("tried to access a signal in a runtime that has been disposed")
+        .expect("runtime to be alive")
     }
 
     fn update_value<T, U>(
@@ -1828,8 +1813,8 @@ impl SignalId {
     {
         with_runtime(runtime, |runtime| {
             let value = {
-                let signals = runtime.signals.borrow();
-                signals.get(*self).cloned()
+                let signals = runtime.nodes.borrow();
+                signals.get(*self).map(|node| Rc::clone(&node.value))
             };
             if let Some(value) = value {
                 let mut value = value.borrow_mut();
@@ -1867,27 +1852,40 @@ impl SignalId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            // update the value
-            let updated = self.update_value(runtime_id, f);
+            let value = {
+                let signals = runtime.nodes.borrow();
+                signals.get(*self).map(|node| Rc::clone(&node.value))
+            };
+            let updated = if let Some(value) = value {
+                let mut value = value.borrow_mut();
+                if let Some(value) = value.downcast_mut::<T>() {
+                    Some(f(value))
+                } else {
+                    debug_warn!(
+                        "[Signal::update] failed when downcasting to \
+                         Signal<{}>",
+                        std::any::type_name::<T>()
+                    );
+                    None
+                }
+            } else {
+                debug_warn!(
+                    "[Signal::update] You’re trying to update a Signal<{}> \
+                     that has already been disposed of. This is probably \
+                     either a logic error in a component that creates and \
+                     disposes of scopes, or a Resource resolving after its \
+                     scope has been dropped without having been cleaned up.",
+                    std::any::type_name::<T>()
+                );
+                None
+            };
+
+            // mark descendants dirty
+            runtime.mark_dirty(*self);
 
             // notify subscribers
             if updated.is_some() {
-                let subs = {
-                    let subs = runtime.signal_subscribers.borrow();
-                    let subs = subs.get(*self);
-                    subs.map(|subs| subs.borrow().clone())
-                };
-                if let Some(subs) = subs {
-                    for sub in subs {
-                        let effect = {
-                            let effects = runtime.effects.borrow();
-                            effects.get(sub).cloned()
-                        };
-                        if let Some(effect) = effect {
-                            effect.run(sub, runtime_id);
-                        }
-                    }
-                }
+                Runtime::run_effects(runtime_id);
             };
             updated
         })

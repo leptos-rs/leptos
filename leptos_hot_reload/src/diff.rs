@@ -2,10 +2,6 @@ use crate::node::{LAttributeValue, LNode};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-// TODO: insertion and removal code are still somewhat broken
-// namely, it will tend to remove and move or mutate nodes,
-// which causes a bit of a problem for DynChild etc.
-
 #[derive(Debug, Default)]
 struct OldChildren(IndexMap<LNode, Vec<usize>>);
 
@@ -58,7 +54,7 @@ impl LNode {
                         .collect(),
                 },
                 LNode::Text(_)
-                | LNode::Component(_, _)
+                | LNode::Component { .. }
                 | LNode::DynChild(_) => ReplacementNode::Html(self.to_html()),
             },
         }
@@ -80,9 +76,18 @@ impl LNode {
                     child.add_old_children(new_path, positions);
                 }
             }
-            // only need to insert dynamic content, as these might change
-            LNode::Component(_, _) | LNode::DynChild(_) => {
+            // need to insert dynamic content and children, as these might change
+            LNode::DynChild(_) => {
                 positions.0.insert(self.clone(), path);
+            }
+            LNode::Component { children, .. } => {
+                positions.0.insert(self.clone(), path.clone());
+
+                for (idx, child) in children.iter().enumerate() {
+                    let mut new_path = path.clone();
+                    new_path.push(idx);
+                    child.add_old_children(new_path, positions);
+                }
             }
             // can just create text nodes, whatever
             LNode::Text(_) => {}
@@ -148,6 +153,28 @@ impl LNode {
                     .collect()
             }
             // components + dynamic context: no patches
+            (
+                LNode::Component {
+                    name: old_name,
+                    children: old_children,
+                    ..
+                },
+                LNode::Component {
+                    name: new_name,
+                    children: new_children,
+                    ..
+                },
+            ) if old_name == new_name => {
+                let mut path = path.to_vec();
+                path.push(0);
+                path.push(0);
+                LNode::diff_children(
+                    &path,
+                    old_children,
+                    new_children,
+                    orig_children,
+                )
+            }
             _ => vec![],
         }
     }

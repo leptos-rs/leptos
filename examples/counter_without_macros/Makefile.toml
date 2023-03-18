@@ -1,9 +1,9 @@
 [tasks.build]
 command = "cargo"
-args = ["+nightly", "build-all-features"]
+args = ["+stable", "build-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check]
 command = "cargo"
-args = ["+nightly", "check-all-features"]
+args = ["+stable", "check-all-features"]
 install_crate = "cargo-all-features"

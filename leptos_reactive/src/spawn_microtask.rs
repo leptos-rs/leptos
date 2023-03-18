@@ -6,7 +6,7 @@
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+    if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
         /// Exposes the [queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
         /// in the browser, and simply runs the given function when on the server.
         pub fn queue_microtask(task: impl FnOnce() + 'static) {
@@ -23,8 +23,7 @@ cfg_if! {
     } else {
         /// Exposes the [queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
         /// in the browser, and simply runs the given function when on the server.
-        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-        pub fn queue_microtask(task: impl FnOnce()) {
+        pub fn queue_microtask(task: impl FnOnce() + 'static) {
             task();
         }
     }

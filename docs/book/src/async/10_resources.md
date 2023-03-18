@@ -15,12 +15,12 @@ let (count, set_count) = create_signal(cx, 0);
 
 // our resource
 let async_data = create_resource(cx,
-	count,
-	// every time `count` changes, this will run
-	|value| async move {
-		log!("loading data from API");
-		load_data(value).await
-	},
+    count,
+    // every time `count` changes, this will run
+    |value| async move {
+        log!("loading data from API");
+        load_data(value).await
+    },
 );
 ```
 
@@ -40,14 +40,14 @@ So, you can show the current state of a resource in your view:
 ```rust
 let once = create_resource(cx, || (), |_| async move { load_data().await });
 view! { cx,
-	<h1>"My Data"</h1>
-	{move || match once.read(cx) {
-		None => view! { cx, <p>"Loading..."</p> }.into_view(cx),
-		Some(data) => view! { cx, <ShowData data/> }.into_view(cx)
-	}}
+    <h1>"My Data"</h1>
+    {move || match once.read(cx) {
+        None => view! { cx, <p>"Loading..."</p> }.into_view(cx),
+        Some(data) => view! { cx, <ShowData data/> }.into_view(cx)
+    }}
 }
 ```
 
-Resources also provide a `refetch()` method that allow you to manually reload the data (for example, in response to a button click) and a `loading()` method that returns a `ReadSignal<bool>` indicating whether the resource is currently loading or not.
+Resources also provide a `refetch()` method that allows you to manually reload the data (for example, in response to a button click) and a `loading()` method that returns a `ReadSignal<bool>` indicating whether the resource is currently loading or not.
 
 <iframe src="https://codesandbox.io/p/sandbox/10-async-resources-4z0qt3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px"></iframe>

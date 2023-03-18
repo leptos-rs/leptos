@@ -33,6 +33,10 @@ pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
 use leptos_reactive::Scope;
+#[cfg(feature = "stable")]
+use leptos_reactive::{
+    MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
+};
 pub use logging::*;
 pub use macro_helpers::*;
 pub use node_ref::*;
@@ -138,6 +142,72 @@ where
     }
 }
 
+#[cfg(feature = "stable")]
+impl<T> IntoView for ReadSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "ReadSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for RwSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "RwSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for Memo<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "Memo<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for Signal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "Signal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+#[cfg(feature = "stable")]
+impl<T> IntoView for MaybeSignal<T>
+where
+    T: IntoView + Clone,
+{
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
+    )]
+    fn into_view(self, cx: Scope) -> View {
+        DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// HTML element.
@@ -161,14 +231,15 @@ cfg_if! {
       }
     }
   } else {
+    use crate::html::ElementChildren;
+
     /// HTML element.
     #[derive(Clone, PartialEq, Eq)]
     pub struct Element {
       name: Cow<'static, str>,
       is_void: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
-      children: Vec<View>,
-      prerendered: Option<Cow<'static, str>>,
+      children: ElementChildren,
       id: HydrationKey,
       #[cfg(debug_assertions)]
       /// Optional marker for the view macro source, in debug mode.
@@ -189,8 +260,10 @@ cfg_if! {
 
           let mut pad_adapter = pad_adapter::PadAdapter::new(f);
 
-          for child in &self.children {
-            writeln!(pad_adapter, "{child:#?}")?;
+          if let ElementChildren::Children(children) = &self.children {
+            for child in children {
+                writeln!(pad_adapter, "{child:#?}")?;
+            }
           }
 
           write!(f, "</{}>", self.name)
@@ -239,7 +312,6 @@ impl Element {
                 attrs,
                 children,
                 id,
-                prerendered,
                 #[cfg(debug_assertions)]
                 view_marker,
             } = self;
@@ -250,8 +322,7 @@ impl Element {
                 cx,
                 element,
                 attrs,
-                children: children.into_iter().collect(),
-                prerendered,
+                children: children.clone(),
                 #[cfg(debug_assertions)]
                 view_marker,
             }
@@ -286,7 +357,6 @@ impl Element {
               attrs: Default::default(),
               children: Default::default(),
               id: el.hydration_id().clone(),
-              prerendered: None,
               #[cfg(debug_assertions)]
               view_marker: None
             }

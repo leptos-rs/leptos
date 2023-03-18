@@ -2,156 +2,163 @@ console.log("[HOT RELOADING] Connected to server.");
 function patch(json) {
 	try {
 		const views = JSON.parse(json);
-		for (const [id, patches] of views) {
+        for (const [id, patches] of views) {
+            console.log("[HOT RELOAD]", patches);
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT),
 				open = `leptos-view|${id}|open`,
 				close = `leptos-view|${id}|close`;
 			let start, end;
+            const instances = [];
 			while (walker.nextNode()) {
 				if (walker.currentNode.textContent == open) {
 					start = walker.currentNode;
 				} else if (walker.currentNode.textContent == close) {
 					end = walker.currentNode;
-					break;
+                    instances.push([start, end]);
+                    start = undefined;
+                    end = undefined;
 				}
 			}
-			// build tree of current actual children
-            const actualChildren = childrenFromRange(start.parentElement, start, end);
-			const actions = [];
 
-			// build up the set of actions
-			for (const patch of patches) {
-				const child = childAtPath(
-					actualChildren.length > 1 ? { children: actualChildren } : actualChildren[0],
-					patch.path
-				);
-				const action = patch.action;
-				if (action == "ClearChildren") {
-					actions.push(() => {
-						console.log("[HOT RELOAD] > ClearChildren", child.node);
-						child.node.textContent = ""
-					});
-				} else if (action.ReplaceWith) {
-					actions.push(() => {
-						console.log("[HOT RELOAD] > ReplaceWith", child, action.ReplaceWith);
-						const replacement = fromReplacementNode(action.ReplaceWith, actualChildren);
-						if (child.node) {
-							child.node.replaceWith(replacement)
-						} else {
-							const range = new Range();
-							range.setStartAfter(child.start);
-							range.setEndAfter(child.end);
-							range.deleteContents();
-							child.start.replaceWith(replacement);
-						}
-					});
-				} else if (action.ChangeTagName) {
-					const oldNode = child.node;
-					actions.push(() => {
-						console.log("[HOT RELOAD] > ChangeTagName", child.node, action.ChangeTagName);
-						const newElement = document.createElement(action.ChangeTagName);
-						for (const attr of oldNode.attributes) {
-							newElement.setAttribute(attr.name, attr.value);
-						}
-						for (const childNode of child.node.childNodes) {
-							newElement.appendChild(childNode);
-						}
-						
-						child.node.replaceWith(newElement)
-					});
-				} else if (action.RemoveAttribute) {
-					actions.push(() => {
-						console.log("[HOT RELOAD] > RemoveAttribute", child.node, action.RemoveAttribute);
-						child.node.removeAttribute(action.RemoveAttribute);
-					});
-				} else if (action.SetAttribute) {
-					const [name, value] = action.SetAttribute;
-					actions.push(() => {
-						console.log("[HOT RELOAD] > SetAttribute", child.node, action.SetAttribute);
-						child.node.setAttribute(name, value);
-					});
-				} else if (action.SetText) {
-					const node = child.node;
-					actions.push(() => {
-						console.log("[HOT RELOAD] > SetText", child.node, action.SetText);
-						node.textContent = action.SetText
-					});
-				} else if (action.AppendChildren) {
-					actions.push(() => {
-						console.log("[HOT RELOAD] > AppendChildren", child.node, action.AppendChildren);
-						const newChildren = fromReplacementNode(action.AppendChildren, actualChildren);
-						child.node.append(newChildren);
-					});
-				} else if (action.RemoveChild) {
-					actions.push(() => {
-						console.log("[HOT RELOAD] > RemoveChild", child.node, child.children, action.RemoveChild);
-						const toRemove = child.children[action.RemoveChild.at];
-						let toRemoveNode = toRemove.node;
-						if (!toRemoveNode) {
-							const range = new Range();
-							range.setStartBefore(toRemove.start);
-							range.setEndAfter(toRemove.end);
-							toRemoveNode = range.deleteContents();
-						} else {
-							toRemoveNode.parentNode.removeChild(toRemoveNode);
-						}
-					})
-				} else if (action.InsertChild) {
-					const newChild = fromReplacementNode(action.InsertChild.child, actualChildren);
-                    let children = [];
-                    if(child.children) {
-                        children = child.children;
-                    } else if (child.start && child.end) {
-                        children = childrenFromRange(child.node || child.start.parentElement, start, end);
-                    } else {
-                        console.warn("InsertChildAfter could not build children.");
-                    }
-					const before = children[action.InsertChild.before];
-					actions.push(() => {
-						console.log("[HOT RELOAD] > InsertChild", child, child.node, action.InsertChild, " before ", before);
-						if (!before && child.node) {
-							child.node.appendChild(newChild);
-						} else {
-                            let node = child.node || child.end.parentElement;
-                            const reference = before ? before.node || before.start : child.end;
-							node.insertBefore(newChild, reference);
-						}
-					})
-				} else if (action.InsertChildAfter) {
-					const newChild = fromReplacementNode(action.InsertChildAfter.child, actualChildren);
-                    let children = [];
-                    if(child.children) {
-                        children = child.children;
-                    } else if (child.start && child.end) {
-                        children = childrenFromRange(child.node || child.start.parentElement, start, end);
-                    } else {
-                        console.warn("InsertChildAfter could not build children.");
-                    }
-                    const after = children[action.InsertChildAfter.after];
-					actions.push(() => {
-						console.log("[HOT RELOAD] > InsertChildAfter", child, child.node, action.InsertChildAfter, " after ", after);
-						if (child.node && (!after || !(after.node || after.start).nextSibling)) {
-							child.node.appendChild(newChild);
-                        } else {
-                            const node = child.node || child.end;
-                            const parent = node.nodeType === Node.COMMENT_NODE ? node.parentNode : node;
-                            if(!after) {
-                                parent.appendChild(newChild);
+            for(const [start, end] of instances) {
+                // build tree of current actual children
+                const actualChildren = childrenFromRange(start.parentElement, start, end);
+                const actions = [];
+
+                // build up the set of actions
+                for (const patch of patches) {
+                    const child = childAtPath(
+                        actualChildren.length > 1 ? { children: actualChildren } : actualChildren[0],
+                        patch.path
+                    );
+                    const action = patch.action;
+                    if (action == "ClearChildren") {
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > ClearChildren", child.node);
+                            child.node.textContent = ""
+                        });
+                    } else if (action.ReplaceWith) {
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > ReplaceWith", child, action.ReplaceWith);
+                            const replacement = fromReplacementNode(action.ReplaceWith, actualChildren);
+                            if (child.node) {
+                                child.node.replaceWith(replacement)
                             } else {
-                                parent.insertBefore(newChild, (after.node || after.start).nextSibling);
+                                const range = new Range();
+                                range.setStartAfter(child.start);
+                                range.setEndAfter(child.end);
+                                range.deleteContents();
+                                child.start.replaceWith(replacement);
                             }
-						}
-					})
-				} else {
-					console.warn("[HOT RELOADING] Unmatched action", action);
-				}
-			}
+                        });
+                    } else if (action.ChangeTagName) {
+                        const oldNode = child.node;
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > ChangeTagName", child.node, action.ChangeTagName);
+                            const newElement = document.createElement(action.ChangeTagName);
+                            for (const attr of oldNode.attributes) {
+                                newElement.setAttribute(attr.name, attr.value);
+                            }
+                            for (const childNode of child.node.childNodes) {
+                                newElement.appendChild(childNode);
+                            }
+                            
+                            child.node.replaceWith(newElement)
+                        });
+                    } else if (action.RemoveAttribute) {
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > RemoveAttribute", child.node, action.RemoveAttribute);
+                            child.node.removeAttribute(action.RemoveAttribute);
+                        });
+                    } else if (action.SetAttribute) {
+                        const [name, value] = action.SetAttribute;
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > SetAttribute", child.node, action.SetAttribute);
+                            child.node.setAttribute(name, value);
+                        });
+                    } else if (action.SetText) {
+                        const node = child.node;
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > SetText", child.node, action.SetText);
+                            node.textContent = action.SetText
+                        });
+                    } else if (action.AppendChildren) {
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > AppendChildren", child.node, action.AppendChildren);
+                            const newChildren = fromReplacementNode(action.AppendChildren, actualChildren);
+                            child.node.append(newChildren);
+                        });
+                    } else if (action.RemoveChild) {
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > RemoveChild", child.node, child.children, action.RemoveChild);
+                            const toRemove = child.children[action.RemoveChild.at];
+                            let toRemoveNode = toRemove.node;
+                            if (!toRemoveNode) {
+                                const range = new Range();
+                                range.setStartBefore(toRemove.start);
+                                range.setEndAfter(toRemove.end);
+                                toRemoveNode = range.deleteContents();
+                            } else {
+                                toRemoveNode.parentNode.removeChild(toRemoveNode);
+                            }
+                        })
+                    } else if (action.InsertChild) {
+                        const newChild = fromReplacementNode(action.InsertChild.child, actualChildren);
+                        let children = [];
+                        if(child.children) {
+                            children = child.children;
+                        } else if (child.start && child.end) {
+                            children = childrenFromRange(child.node || child.start.parentElement, start, end);
+                        } else {
+                            console.warn("InsertChildAfter could not build children.");
+                        }
+                        const before = children[action.InsertChild.before];
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > InsertChild", child, child.node, action.InsertChild, " before ", before);
+                            if (!before && child.node) {
+                                child.node.appendChild(newChild);
+                            } else {
+                                let node = child.node || child.end.parentElement;
+                                const reference = before ? before.node || before.start : child.end;
+                                node.insertBefore(newChild, reference);
+                            }
+                        })
+                    } else if (action.InsertChildAfter) {
+                        const newChild = fromReplacementNode(action.InsertChildAfter.child, actualChildren);
+                        let children = [];
+                        if(child.children) {
+                            children = child.children;
+                        } else if (child.start && child.end) {
+                            children = childrenFromRange(child.node || child.start.parentElement, start, end);
+                        } else {
+                            console.warn("InsertChildAfter could not build children.");
+                        }
+                        const after = children[action.InsertChildAfter.after];
+                        actions.push(() => {
+                            console.log("[HOT RELOAD] > InsertChildAfter", child, child.node, action.InsertChildAfter, " after ", after);
+                            if (child.node && (!after || !(after.node || after.start).nextSibling)) {
+                                child.node.appendChild(newChild);
+                            } else {
+                                const node = child.node || child.end;
+                                const parent = node.nodeType === Node.COMMENT_NODE ? node.parentNode : node;
+                                if(!after) {
+                                    parent.appendChild(newChild);
+                                } else {
+                                    parent.insertBefore(newChild, (after.node || after.start).nextSibling);
+                                }
+                            }
+                        })
+                    } else {
+                        console.warn("[HOT RELOADING] Unmatched action", action);
+                    }
+                }
 
-			// actually run the actions
-			// the reason we delay them is so that children aren't moved before other children are found, etc.
-			for (const action of actions) {
-				action();
-			}
+                // actually run the actions
+                // the reason we delay them is so that children aren't moved before other children are found, etc.
+                for (const action of actions) {
+                    action();
+                }
+            }
 		}
 	} catch (e) {
 		console.warn("[HOT RELOADING] Error: ", e);
@@ -244,7 +251,33 @@ function patch(json) {
 					node: walker.currentNode
 				});
 			} else if (walker.currentNode.nodeType == Node.COMMENT_NODE) {
-				if (walker.currentNode.textContent.trim().startsWith("leptos-view")) {
+                if (walker.currentNode.textContent.trim().startsWith("leptos-view")) {
+                    if (walker.currentNode.textContent.trim().endsWith("-children|open")) {
+                        const startingName = walker.currentNode.textContent.trim();
+                        const componentName = startingName.replace("-children|open").replace("leptos-view|");
+                        const endingName = `leptos-view|${componentName}-children|close`;
+                        let start = walker.currentNode;
+                        let depth = 1;
+
+                        while (walker.nextNode()) {
+                            if (walker.currentNode.textContent.trim() == endingName) {
+                                depth--;
+                            } else if (walker.currentNode.textContent.trim() == startingName) {
+                                depth++;
+                            }
+
+                            if(depth == 0) {
+                                break;
+                            }
+                        }
+                        let end = walker.currentNode;
+                        actualChildren.push({
+                            type: "fragment",
+                            start: start.nextSibling,
+                            end: end.previousSibling,
+                            children: childrenFromRange(start.parentElement, start.nextSibling, end.previousSibling)
+                        });
+                    }
 				} else if (walker.currentNode.textContent.trim() == "<() />") {
 					actualChildren.push({
 						type: "unit",
@@ -320,7 +353,7 @@ function patch(json) {
 		return actualChildren;
 	}
 
-	function childAtPath(element, path) {
+    function childAtPath(element, path) {
 		if (path.length == 0) {
 			return element;
 		} else if (element.children) {

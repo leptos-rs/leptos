@@ -9,8 +9,7 @@ description = "RPC for any web framework."
 readme = "../README.md"
 
 [dependencies]
-server_fn_macro_default = { path = "./server_fn_macro_default", version = "0.2.0" }
-form_urlencoded = "1"
+server_fn_macro_default = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_urlencoded = "0.7"
 thiserror = "1"
@@ -18,7 +17,6 @@ serde_json = "1.0.89"
 quote = "1"
 syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1"
-cfg-if = "1"
 ciborium = "0.2.0"
 xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }
 const_format = "0.2.30"
@@ -33,3 +31,4 @@ once_cell = "1.17.1"
 
 [features]
 ssr = []
+stable = ["server_fn_macro_default/stable"]
