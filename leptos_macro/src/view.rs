@@ -1102,8 +1102,14 @@ pub(crate) fn component_to_tokens(
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        let marker = format!("<{component_name}/>-children");
-        let view_marker = quote! { .with_view_marker(#marker) };
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let marker = format!("<{component_name}/>-children");
+                let view_marker = quote! { .with_view_marker(#marker) };
+            } else {
+                let view_marker = quote! {};
+            }
+        }
 
         let children = fragment_to_tokens(
             cx,
