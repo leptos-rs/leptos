@@ -14,5 +14,5 @@ install_crate = "cargo-all-features"
 
 [tasks.check-release]
 command = "cargo"
-args = ["+nightly", "--release", "check-all-features"]
+args = ["+nightly", "check-all-features", "--release"]
 install_crate = "cargo-all-features"
