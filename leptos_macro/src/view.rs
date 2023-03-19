@@ -351,7 +351,7 @@ fn root_element_to_tokens_ssr(
         quote! {
         {
             #(#exprs_for_compiler)*
-            ::leptos::HtmlElement::from_chunks(cx, #full_name, [#(#chunks),*])#view_marker
+            ::leptos::HtmlElement::from_chunks(#cx, #full_name, [#(#chunks),*])#view_marker
         }
         }
     }
@@ -384,7 +384,7 @@ fn element_to_tokens_ssr(
             })
         }
         chunks.push(SsrElementChunks::View(quote! {
-          {#component}.into_view(cx)
+          {#component}.into_view(#cx)
         }));
     } else {
         let tag_name = node
@@ -441,7 +441,7 @@ fn element_to_tokens_ssr(
                 let value = inner_html.as_ref();
 
                 holes.push(quote! {
-                  (#value).into_attribute(cx).as_nameless_value_string().unwrap_or_default()
+                  (#value).into_attribute(#cx).as_nameless_value_string().unwrap_or_default()
                 })
             } else {
                 for child in &node.children {
@@ -485,7 +485,7 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                  {#value}.into_view(cx)
+                                  {#value}.into_view(#cx)
                                 }));
                             }
                         }
@@ -667,7 +667,7 @@ fn set_class_attribute_ssr(
                 template.push_str(" {}");
                 let value = value.as_ref();
                 holes.push(quote! {
-                  &(cx, #value).into_attribute(#cx).as_nameless_value_string()
+                  &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
                     .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
                     .unwrap_or_default()
                 });
@@ -677,7 +677,7 @@ fn set_class_attribute_ssr(
         for (_span, name, value) in &class_attrs {
             template.push_str(" {}");
             holes.push(quote! {
-              (cx, #value).into_class(#cx).as_value_string(#name)
+              (#cx, #value).into_class(#cx).as_value_string(#name)
             });
         }
 
