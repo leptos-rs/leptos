@@ -301,13 +301,47 @@ impl IntervalHandle {
     }
 }
 
-/// Repeatedly calls the given function, with a delay of the given duration between calls.
+/// Repeatedly calls the given function, with a delay of the given duration between calls,
+/// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
+#[deprecated = "use set_interval_with_handle() instead. In the future, \
+                set_interval() will no longer return a handle, for consistency \
+                with other timer helper functions."]
 pub fn set_interval(
+    cb: impl Fn() + 'static,
+    duration: Duration,
+) -> Result<IntervalHandle, JsValue> {
+    cfg_if::cfg_if! {
+      if #[cfg(debug_assertions)] {
+        let span = ::tracing::Span::current();
+        let cb = move || {
+          let _guard = span.enter();
+          cb();
+        };
+      }
+    }
+
+    let cb = Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
+    let handle = window()
+        .set_interval_with_callback_and_timeout_and_arguments_0(
+            cb.as_ref().unchecked_ref(),
+            duration.as_millis().try_into().unwrap_throw(),
+        )?;
+    Ok(IntervalHandle(handle))
+}
+
+/// Repeatedly calls the given function, with a delay of the given duration between calls,
+/// returning a cancelable handle.
+/// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
+#[cfg_attr(
+  debug_assertions,
+  instrument(level = "trace", skip_all, fields(duration = ?duration))
+)]
+pub fn set_interval_with_handle(
     cb: impl Fn() + 'static,
     duration: Duration,
 ) -> Result<IntervalHandle, JsValue> {
