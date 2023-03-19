@@ -186,12 +186,12 @@ impl Runtime {
         let current_observer = self.observer.get();
 
         // mark self dirty
-        if let Some(mut current_node) = nodes.get_mut(node) {
+        if let Some(current_node) = nodes.get_mut(node) {
             Runtime::mark(
                 node,
-                &mut current_node,
+                current_node,
                 ReactiveNodeState::Dirty,
-                &mut *pending_effects,
+                &mut pending_effects,
                 current_observer,
             );
 
@@ -200,10 +200,10 @@ impl Runtime {
             let mut descendants = Default::default();
             Runtime::gather_descendants(&subscribers, node, &mut descendants);
             for descendant in descendants {
-                if let Some(mut node) = nodes.get_mut(descendant) {
+                if let Some(node) = nodes.get_mut(descendant) {
                     Runtime::mark(
                         descendant,
-                        &mut node,
+                        node,
                         ReactiveNodeState::Check,
                         &mut pending_effects,
                         current_observer,
