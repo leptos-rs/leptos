@@ -126,10 +126,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
 }
 
 #[async_recursion(?Send)]
-async fn handle_chunks(
-    mut tx: UnboundedSender<String>,
-    chunks: Vec<StreamChunk>,
-) {
+async fn handle_chunks(tx: UnboundedSender<String>, chunks: Vec<StreamChunk>) {
     let mut buffer = String::new();
     for chunk in chunks {
         match chunk {

@@ -322,7 +322,7 @@ impl Element {
                 cx,
                 element,
                 attrs,
-                children: children.clone(),
+                children,
                 #[cfg(debug_assertions)]
                 view_marker,
             }
