@@ -30,7 +30,7 @@ Now let’s say I’d like to update the list of CSS classes on this element dyn
 For example, let’s say I want to add the class `red` when the count is odd. I can
 do this using the `class:` syntax. 
 ```rust
-class:red=move || count() & 1 == 1
+class:red=move || count() % 2 == 1
 ```
 `class:` attributes take
 1. the class name, following the colon (`red`)
