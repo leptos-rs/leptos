@@ -133,7 +133,8 @@ async fn handle_chunks(tx: UnboundedSender<String>, chunks: Vec<StreamChunk>) {
             StreamChunk::Sync(sync) => buffer.push_str(&sync),
             StreamChunk::Async(suspended) => {
                 // add static HTML before the Suspense and stream it down
-                tx.unbounded_send(std::mem::take(&mut buffer));
+                tx.unbounded_send(std::mem::take(&mut buffer))
+                    .expect("failed to send async HTML chunk");
 
                 // send the inner stream
                 let suspended = suspended.await;
@@ -142,7 +143,8 @@ async fn handle_chunks(tx: UnboundedSender<String>, chunks: Vec<StreamChunk>) {
         }
     }
     // send final sync chunk
-    tx.unbounded_send(std::mem::take(&mut buffer));
+    tx.unbounded_send(std::mem::take(&mut buffer))
+        .expect("failed to send final HTML chunk");
 }
 
 impl View {
