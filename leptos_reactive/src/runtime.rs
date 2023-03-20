@@ -62,6 +62,7 @@ pub(crate) struct Runtime {
         RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
     pub pending_effects: RefCell<Vec<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
+    pub batching: Cell<bool>,
 }
 
 // This core Runtime impl block handles all the work of marking and updating
@@ -248,11 +249,15 @@ impl Runtime {
 
     pub(crate) fn run_effects(runtime_id: RuntimeId) {
         _ = with_runtime(runtime_id, |runtime| {
-            let effects = runtime.pending_effects.take();
-            for effect_id in effects {
-                runtime.update_if_necessary(effect_id);
-            }
+            runtime.run_your_effects();
         });
+    }
+
+    pub(crate) fn run_your_effects(&self) {
+        let effects = self.pending_effects.take();
+        for effect_id in effects {
+            self.update_if_necessary(effect_id);
+        }
     }
 
     pub(crate) fn dispose_node(&self, node: NodeId) {
