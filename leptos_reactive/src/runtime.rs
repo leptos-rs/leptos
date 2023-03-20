@@ -254,6 +254,12 @@ impl Runtime {
             }
         });
     }
+
+    pub(crate) fn dispose_node(&self, node: NodeId) {
+        self.node_sources.borrow_mut().remove(node);
+        self.node_subscribers.borrow_mut().remove(node);
+        self.nodes.borrow_mut().remove(node);
+    }
 }
 
 impl Debug for Runtime {

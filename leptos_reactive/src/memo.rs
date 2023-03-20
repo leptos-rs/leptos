@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, node::NodeId, on_cleanup, with_runtime, AnyComputation,
-    RuntimeId, Scope, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
-    SignalWithUntracked,
+    RuntimeId, Scope, SignalDispose, SignalGet, SignalGetUntracked,
+    SignalStream, SignalWith, SignalWithUntracked,
 };
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
@@ -409,6 +409,12 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
         });
 
         Box::pin(rx)
+    }
+}
+
+impl<T> SignalDispose for Memo<T> {
+    fn dispose(self) {
+        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
     }
 }
 

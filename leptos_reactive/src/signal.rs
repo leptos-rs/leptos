@@ -274,6 +274,16 @@ pub trait SignalStream<T> {
     fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
+/// This trait allows disposing a signal before its [Scope] has been disposed.
+pub trait SignalDispose {
+    /// Disposes of the signal. This:
+    /// 1. Detaches the signal from the reactive graph, preventing it from triggering
+    ///    further updates; and
+    /// 2. Drops the value contained in the signal.
+    #[track_caller]
+    fn dispose(self);
+}
+
 /// Creates a signal, the basic reactive primitive.
 ///
 /// A signal is a piece of data that may change over time,
@@ -725,6 +735,12 @@ impl<T: Clone> SignalStream<T> for ReadSignal<T> {
     }
 }
 
+impl<T> SignalDispose for ReadSignal<T> {
+    fn dispose(self) {
+        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
+    }
+}
+
 impl<T> ReadSignal<T>
 where
     T: 'static,
@@ -1022,6 +1038,12 @@ impl<T> SignalSet<T> for WriteSignal<T> {
             .update(self.runtime, |t| *t = new_value.take().unwrap());
 
         new_value
+    }
+}
+
+impl<T> SignalDispose for WriteSignal<T> {
+    fn dispose(self) {
+        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
     }
 }
 
@@ -1595,6 +1617,12 @@ impl<T: Clone> SignalStream<T> for RwSignal<T> {
         });
 
         Box::pin(rx)
+    }
+}
+
+impl<T> SignalDispose for RwSignal<T> {
+    fn dispose(self) {
+        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
     }
 }
 
