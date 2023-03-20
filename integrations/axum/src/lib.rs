@@ -14,7 +14,7 @@ use axum::{
         HeaderMap, Request, StatusCode,
     },
     response::IntoResponse,
-    routing::{get, post, delete, patch, put},
+    routing::{delete, get, patch, post, put},
 };
 use futures::{
     channel::mpsc::{Receiver, Sender},
@@ -1087,7 +1087,7 @@ where
                 RouteListing::new(
                     "/",
                     Default::default(),
-                    [leptos_router::Method::Get]
+                    [leptos_router::Method::Get],
                 )
             } else {
                 listing
@@ -1096,13 +1096,11 @@ where
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![
-            RouteListing::new(
-                "/",
-                Default::default(),
-                [leptos_router::Method::Get]
-            )
-        ]
+        vec![RouteListing::new(
+            "/",
+            Default::default(),
+            [leptos_router::Method::Get],
+        )]
     } else {
         routes
     }
@@ -1183,7 +1181,7 @@ impl LeptosRoutes for axum::Router {
                                 leptos_router::Method::Post => post(s),
                                 leptos_router::Method::Put => put(s),
                                 leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s)
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                         SsrMode::InOrder => {
@@ -1197,7 +1195,7 @@ impl LeptosRoutes for axum::Router {
                                 leptos_router::Method::Post => post(s),
                                 leptos_router::Method::Put => put(s),
                                 leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s)
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                         SsrMode::Async => {
@@ -1211,7 +1209,7 @@ impl LeptosRoutes for axum::Router {
                                 leptos_router::Method::Post => post(s),
                                 leptos_router::Method::Put => put(s),
                                 leptos_router::Method::Delete => delete(s),
-                                leptos_router::Method::Patch => patch(s)
+                                leptos_router::Method::Patch => patch(s),
                             }
                         }
                     },

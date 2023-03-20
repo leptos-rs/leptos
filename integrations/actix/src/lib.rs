@@ -331,7 +331,7 @@ pub fn handle_server_fns_with_context(
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
-    method: Method
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
@@ -396,12 +396,17 @@ where
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
-    method: Method
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    render_app_to_stream_in_order_with_context(options, |_cx| {}, app_fn, method)
+    render_app_to_stream_in_order_with_context(
+        options,
+        |_cx| {},
+        app_fn,
+        method,
+    )
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -460,7 +465,7 @@ where
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
-    method: Method
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
@@ -484,7 +489,7 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
-    method: Method
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
@@ -513,7 +518,7 @@ where
         Method::Post => web::post().to(handler),
         Method::Put => web::put().to(handler),
         Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler)
+        Method::Patch => web::patch().to(handler),
     }
 }
 
@@ -533,7 +538,7 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
-    method: Method
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
@@ -563,7 +568,7 @@ where
         Method::Post => web::post().to(handler),
         Method::Put => web::put().to(handler),
         Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler)
+        Method::Patch => web::patch().to(handler),
     }
 }
 
@@ -584,7 +589,7 @@ pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
-    method: Method
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
@@ -619,7 +624,7 @@ where
         Method::Post => web::post().to(handler),
         Method::Put => web::put().to(handler),
         Method::Delete => web::delete().to(handler),
-        Method::Patch => web::patch().to(handler)
+        Method::Patch => web::patch().to(handler),
     }
 }
 
@@ -883,17 +888,13 @@ where
         .map(|listing| {
             let path = listing.path();
             if path.is_empty() {
-                return RouteListing::new( 
+                return RouteListing::new(
                     "/".to_string(),
                     listing.mode(),
-                    listing.methods()
+                    listing.methods(),
                 );
             }
-            RouteListing::new(
-                listing.path(),
-                listing.mode(),
-                listing.methods()
-            )
+            RouteListing::new(listing.path(), listing.mode(), listing.methods())
         })
         .collect();
 
@@ -906,20 +907,16 @@ where
     let routes = routes
         .into_iter()
         .map(|listing| {
-            let path = wildcard_re.replace_all(&listing.path(), "{tail:.*}").to_string();
+            let path = wildcard_re
+                .replace_all(&listing.path(), "{tail:.*}")
+                .to_string();
             let path = capture_re.replace_all(&path, "{$1}").to_string();
             RouteListing::new(path, listing.mode(), listing.methods())
         })
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![
-            RouteListing::new(
-                "/",
-                Default::default(),
-                [Method::Get]
-            )
-        ]
+        vec![RouteListing::new("/", Default::default(), [Method::Get])]
     } else {
         routes
     }
@@ -1039,23 +1036,27 @@ where
                 router = router.route(
                     path,
                     match mode {
-                        SsrMode::OutOfOrder => render_app_to_stream_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                            method
-                        ),
-                        SsrMode::InOrder => render_app_to_stream_in_order_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                            method
-                        ),
+                        SsrMode::OutOfOrder => {
+                            render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                            )
+                        }
+                        SsrMode::InOrder => {
+                            render_app_to_stream_in_order_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                            )
+                        }
                         SsrMode::Async => render_app_async_with_context(
                             options.clone(),
                             additional_context.clone(),
                             app_fn.clone(),
-                            method
+                            method,
                         ),
                     },
                 );

@@ -1,4 +1,4 @@
-use crate::{SsrMode, Method};
+use crate::{Method, SsrMode};
 use leptos::{leptos_dom::View, *};
 use std::rc::Rc;
 
@@ -18,7 +18,7 @@ pub struct RouteDefinition {
     /// The mode this route prefers during server-side rendering.
     pub ssr_mode: SsrMode,
     /// The HTTP request methods this route is able to handle.
-    pub methods: &'static [Method]
+    pub methods: &'static [Method],
 }
 
 impl std::fmt::Debug for RouteDefinition {

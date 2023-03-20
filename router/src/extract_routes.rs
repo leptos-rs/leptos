@@ -1,6 +1,8 @@
-use crate::{Branch, RouterIntegrationContext, ServerIntegration, SsrMode, Method};
+use crate::{
+    Branch, Method, RouterIntegrationContext, ServerIntegration, SsrMode,
+};
 use leptos::*;
-use std::{cell::RefCell, rc::Rc, collections::HashSet};
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 /// Context to contain all possible routes.
 #[derive(Clone, Default, Debug)]
@@ -11,14 +13,20 @@ pub struct PossibleBranchContext(pub(crate) Rc<RefCell<Vec<Branch>>>);
 pub struct RouteListing {
     path: String,
     mode: SsrMode,
-    methods: HashSet<Method>
+    methods: HashSet<Method>,
 }
 
 impl RouteListing {
     /// Create a route listing from its parts.
-    pub fn new(path: impl ToString, mode: SsrMode, methods: impl IntoIterator<Item = Method>) -> Self {
+    pub fn new(
+        path: impl ToString,
+        mode: SsrMode,
+        methods: impl IntoIterator<Item = Method>,
+    ) -> Self {
         Self {
-            path: path.to_string(), mode, methods: methods.into_iter().collect()
+            path: path.to_string(),
+            mode,
+            methods: methods.into_iter().collect(),
         }
     }
 
@@ -29,7 +37,7 @@ impl RouteListing {
 
     /// The rendering mode for this path.
     pub fn mode(&self) -> SsrMode {
-        self.mode 
+        self.mode
     }
 
     /// The HTTP request methods this path can handle.
@@ -79,7 +87,11 @@ where
                     .collect::<HashSet<_>>();
                 let pattern =
                     branch.routes.last().map(|route| route.pattern.clone());
-                pattern.map(|path| RouteListing { path, mode, methods: methods.clone() })
+                pattern.map(|path| RouteListing {
+                    path,
+                    mode,
+                    methods: methods.clone(),
+                })
             })
             .collect()
     })

@@ -967,7 +967,7 @@ where
                 RouteListing::new(
                     "/",
                     Default::default(),
-                    [leptos_router::Method::Get]
+                    [leptos_router::Method::Get],
                 )
             } else {
                 listing
@@ -976,13 +976,11 @@ where
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![
-            RouteListing::new(
-                "/",
-                Default::default(),
-                [leptos_router::Method::Get]
-            )
-        ]
+        vec![RouteListing::new(
+            "/",
+            Default::default(),
+            [leptos_router::Method::Get],
+        )]
     } else {
         routes
     }
@@ -1048,49 +1046,47 @@ impl LeptosRoutes for Router {
             let path = listing.path();
             let mode = listing.mode();
 
-            listing.methods().fold(router, |router, method| {
-                match mode {
-                    SsrMode::OutOfOrder => {
-                        let s = render_app_to_stream_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        );
-                        match method {
-                            leptos_router::Method::Get => router.get(path, s),
-                            leptos_router::Method::Post => router.post(path, s),
-                            leptos_router::Method::Put => router.put(path, s),
-                            leptos_router::Method::Delete => router.delete(path, s),
-                            leptos_router::Method::Patch => router.patch(path, s)
-                        }
-                    },
-                    SsrMode::InOrder => {
-                        let s = render_app_to_stream_in_order_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        );
-                        match method {
-                            leptos_router::Method::Get => router.get(path, s),
-                            leptos_router::Method::Post => router.post(path, s),
-                            leptos_router::Method::Put => router.put(path, s),
-                            leptos_router::Method::Delete => router.delete(path, s),
-                            leptos_router::Method::Patch => router.patch(path, s)
-                        }
+            listing.methods().fold(router, |router, method| match mode {
+                SsrMode::OutOfOrder => {
+                    let s = render_app_to_stream_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
                     }
-                    SsrMode::Async => {
-                        let s = render_app_async_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        );
-                        match method {
-                            leptos_router::Method::Get => router.get(path, s),
-                            leptos_router::Method::Post => router.post(path, s),
-                            leptos_router::Method::Put => router.put(path, s),
-                            leptos_router::Method::Delete => router.delete(path, s),
-                            leptos_router::Method::Patch => router.patch(path, s)
-                        }
+                }
+                SsrMode::InOrder => {
+                    let s = render_app_to_stream_in_order_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
+                    }
+                }
+                SsrMode::Async => {
+                    let s = render_app_async_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
                     }
                 }
             })

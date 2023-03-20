@@ -15,22 +15,22 @@ thread_local! {
 /// Represents an HTTP method that can be handled by this route.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Method {
-    /// The [`GET`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/GET) method 
+    /// The [`GET`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/GET) method
     /// requests a representation of the specified resource.
     Get,
-    /// The [`POST`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST) method 
-    /// submits an entity to the specified resource, often causing a change in 
+    /// The [`POST`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST) method
+    /// submits an entity to the specified resource, often causing a change in
     /// state or side effects on the server.
     Post,
-    /// The [`PUT`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT) method 
+    /// The [`PUT`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT) method
     /// replaces all current representations of the target resource with the request payload.
     Put,
-    /// The [`DELETE`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE) method 
+    /// The [`DELETE`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE) method
     /// deletes the specified resource.
     Delete,
     /// The [`PATCH`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH) method
     /// applies partial modifications to a resource.
-    Patch
+    Patch,
 }
 
 impl Default for Method {
@@ -55,8 +55,7 @@ pub fn Route<E, F, P>(
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-    #[prop(default = &[Method::Get])]
-    methods: &'static [Method],
+    #[prop(default = &[Method::Get])] methods: &'static [Method],
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -72,7 +71,7 @@ where
         path: String,
         view: Rc<dyn Fn(Scope) -> View>,
         ssr_mode: SsrMode,
-        methods: &'static [Method]
+        methods: &'static [Method],
     ) -> RouteDefinition {
         let children = children
             .map(|children| {
@@ -101,7 +100,7 @@ where
             children,
             view,
             ssr_mode,
-            methods
+            methods,
         }
     }
 
@@ -111,7 +110,7 @@ where
         path.to_string(),
         Rc::new(move |cx| view(cx).into_view(cx)),
         ssr,
-        methods
+        methods,
     )
 }
 
