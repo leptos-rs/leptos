@@ -1912,7 +1912,7 @@ impl NodeId {
             runtime.mark_dirty(*self);
 
             // notify subscribers
-            if updated.is_some() {
+            if updated.is_some() && !runtime.batching.get() {
                 Runtime::run_effects(runtime_id);
             };
             updated
