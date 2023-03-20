@@ -33,6 +33,12 @@ pub enum Method {
     Patch
 }
 
+impl Default for Method {
+    fn default() -> Self {
+        Method::Get
+    }
+}
+
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
 #[component(transparent)]
