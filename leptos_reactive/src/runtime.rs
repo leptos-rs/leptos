@@ -258,6 +258,7 @@ impl Runtime {
         for effect_id in effects {
             self.update_if_necessary(effect_id);
         }
+    }
 
     pub(crate) fn dispose_node(&self, node: NodeId) {
         self.node_sources.borrow_mut().remove(node);
