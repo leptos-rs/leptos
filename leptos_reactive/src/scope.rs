@@ -442,6 +442,25 @@ impl Scope {
         .ok()
         .flatten()
     }
+
+    /// Batches any reactive updates, preventing effects from running until the whole
+    /// function has run. This allows you to prevent rerunning effects if multiple
+    /// signal updates might cause the same effect to run.
+    ///
+    /// # Panics
+    /// Panics if the runtime this scope belongs to has already been disposed.
+    pub fn batch<T>(&self, f: impl FnOnce() -> T) -> T {
+        with_runtime(self.runtime, move |runtime| {
+            runtime.batching.set(true);
+            let val = f();
+            runtime.batching.set(false);
+            runtime.run_your_effects();
+            val
+        })
+        .expect(
+            "tried to run a batched update in a runtime that has been disposed",
+        )
+    }
 }
 
 impl fmt::Debug for ScopeDisposer {
