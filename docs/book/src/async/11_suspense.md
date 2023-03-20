@@ -69,4 +69,4 @@ Every time one of the resources is reloading, the `"Loading..."` fallback will s
 
 This inversion of the flow of control makes it easier to add or remove individual resources, as you don’t need to handle the matching yourself. It also unlocks some massive performance improvements during server-side rendering, which we’ll talk about during a later chapter.
 
-<iframe src="https://codesandbox.io/p/sandbox/10-async-resources-4z0qt3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px"></iframe>
+<iframe src="https://codesandbox.io/p/sandbox/11-suspense-907niv?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px"></iframe>
