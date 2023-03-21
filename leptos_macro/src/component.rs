@@ -130,6 +130,7 @@ impl ToTokens for Model {
         let mut body = body.to_owned();
 
         body.sig.ident = format_ident!("__{}", body.sig.ident);
+        #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
         let (_, generics, where_clause) = body.sig.generics.split_for_impl();
@@ -153,6 +154,7 @@ impl ToTokens for Model {
             if cfg!(feature = "tracing") {
                 (
                     quote! {
+                        #[allow(clippy::let_with_type_underscore)]
                         #[cfg_attr(
                             debug_assertions,
                             ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
