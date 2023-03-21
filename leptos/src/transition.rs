@@ -116,9 +116,12 @@ where
                 let suspense_context = use_context::<SuspenseContext>(cx)
                     .expect("there to be a SuspenseContext");
 
-                if is_first_run(&first_run, &suspense_context) {
-                    let has_local_only = suspense_context.has_local_only();
+                if cfg!(feature = "hydrate") || !first_run.get() {
                     *prev_children.borrow_mut() = Some(frag.nodes.clone());
+                }
+                if is_first_run(&first_run, &suspense_context) {
+                    let has_local_only = suspense_context.has_local_only()
+                        || cfg!(feature = "csr");
                     if !has_local_only || child_runs.get() > 0 {
                         first_run.set(false);
                     }
@@ -138,17 +141,21 @@ fn is_first_run(
     first_run: &Rc<Cell<bool>>,
     suspense_context: &SuspenseContext,
 ) -> bool {
-    match (
-        first_run.get(),
-        cfg!(feature = "hydrate"),
-        suspense_context.has_local_only(),
-    ) {
-        (false, _, _) => false,
-        // is in hydrate mode, and has non-local resources (so, has streamed)
-        (_, false, false) => false,
-        // is in hydrate mode, but with only local resources (so, has not streamed)
-        (_, false, true) => true,
-        // either SSR or client mode: it's the first run
-        (_, true, _) => true,
+    if cfg!(feature = "csr") {
+        false
+    } else {
+        match (
+            first_run.get(),
+            cfg!(feature = "hydrate"),
+            suspense_context.has_local_only(),
+        ) {
+            (false, _, _) => false,
+            // SSR and has non-local resources (so, has streamed)
+            (_, false, false) => false,
+            // SSR but with only local resources (so, has not streamed)
+            (_, false, true) => true,
+            // hydrate: it's the first run
+            (_, true, _) => true,
+        }
     }
 }
