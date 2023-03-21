@@ -365,6 +365,7 @@ enum SsrElementChunks {
     View(TokenStream),
 }
 
+#[allow(clippy::too_many_arguments)]
 fn element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
