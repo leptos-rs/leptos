@@ -297,7 +297,7 @@ where
     let submissions = create_rw_signal(cx, Vec::new());
     let action_fn = Rc::new(move |input: &I| {
         let fut = action_fn(input);
-        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = O>>>
+        Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
     });
 
     MultiAction(store_value(
