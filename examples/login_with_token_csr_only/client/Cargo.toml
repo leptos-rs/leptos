@@ -12,7 +12,7 @@ leptos_router = { version = "0.2.0-alpha2", features = ["stable", "csr"] }
 
 log = "0.4"
 console_error_panic_hook = "0.1"
-console_log = "0.2"
+console_log = "1"
 gloo-net = "0.2"
 gloo-storage = "0.2"
 serde = "1.0"
