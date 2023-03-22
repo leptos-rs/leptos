@@ -221,55 +221,36 @@ impl RouterContextInner {
                     if resolved_to != this.reference.get()
                         || options.state != (this.state).get()
                     {
-                        if cfg!(feature = "server") {
-                            self.history.navigate(&LocationChange {
-                                value: resolved_to,
+                        {
+                            self.referrers.borrow_mut().push(LocationChange {
+                                value: self.reference.get(),
                                 replace: options.replace,
                                 scroll: options.scroll,
-                                state: options.state.clone(),
+                                state: self.state.get(),
                             });
-                        } else {
-                            {
-                                self.referrers.borrow_mut().push(
-                                    LocationChange {
-                                        value: self.reference.get(),
-                                        replace: options.replace,
-                                        scroll: options.scroll,
-                                        state: self.state.get(),
-                                    },
-                                );
-                            }
-                            let len = self.referrers.borrow().len();
+                        }
+                        let len = self.referrers.borrow().len();
 
-                            #[cfg(feature = "transition")]
-                            let transition = use_transition(self.cx);
-                            //transition.start({
-                            let set_reference = self.set_reference;
-                            let set_state = self.set_state;
-                            let referrers = self.referrers.clone();
-                            let this = Rc::clone(&self);
-                            //move || {
+                        let set_reference = self.set_reference;
+                        let set_state = self.set_state;
+                        let referrers = self.referrers.clone();
+                        let this = Rc::clone(&self);
 
-                            let resolved = resolved_to.to_string();
-                            let state = options.state.clone();
-                            queue_microtask(move || {
-                                set_reference.update(move |r| *r = resolved);
+                        let resolved = resolved_to.to_string();
+                        let state = options.state.clone();
+                        set_reference.update(move |r| *r = resolved);
 
-                                set_state.update({
-                                    let next_state = state.clone();
-                                    move |state| *state = next_state
-                                });
-                                if referrers.borrow().len() == len {
-                                    this.navigate_end(LocationChange {
-                                        value: resolved_to.to_string(),
-                                        replace: false,
-                                        scroll: true,
-                                        state,
-                                    })
-                                    //}
-                                }
-                            });
-                            //});
+                        set_state.update({
+                            let next_state = state.clone();
+                            move |state| *state = next_state
+                        });
+                        if referrers.borrow().len() == len {
+                            this.navigate_end(LocationChange {
+                                value: resolved_to,
+                                replace: false,
+                                scroll: true,
+                                state,
+                            })
                         }
                     }
 
