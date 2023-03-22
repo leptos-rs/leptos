@@ -120,7 +120,10 @@ where
                                     Ok(url) => {
                                         request_animation_frame(move || {
                                             if let Err(e) = navigate(
-                                                &url.pathname,
+                                                &format!(
+                                                    "{}{}",
+                                                    url.pathname, url.search,
+                                                ),
                                                 Default::default(),
                                             ) {
                                                 warn!("{}", e);
