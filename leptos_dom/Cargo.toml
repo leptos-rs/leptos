@@ -34,6 +34,11 @@ leptos = { path = "../leptos" }
 [dependencies.web-sys]
 version = "0.3"
 features = [
+  "DocumentFragment",
+  "Element",
+  "HtmlTemplateElement",
+  "NodeList",
+  "Window",
   "console",
   "Comment",
   "Document",
