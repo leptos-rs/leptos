@@ -12,7 +12,7 @@ slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde-lite = { version = "0.3", optional = true }
 futures = { version = "0.3" }
-js-sys = "0.3"
+js-sys = { version = "0.3", optional = true }
 miniserde = { version = "0.1", optional = true }
 rkyv = { version = "0.7.39", features = [
   "validation",
@@ -31,17 +31,17 @@ base64 = "0.21"
 thiserror = "1"
 tokio = { version = "1", features = ["rt"], optional = true }
 tracing = "0.1"
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3", features = [
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
   "DocumentFragment",
   "Element",
   "HtmlTemplateElement",
   "NodeList",
   "Window",
 ] }
-cfg-if = "1.0.0"
-indexmap = "1.9.2"
+cfg-if = "1"
+indexmap = "1"
 
 [dev-dependencies]
 log = "0.4"
@@ -50,8 +50,8 @@ leptos = { path = "../leptos" }
 
 [features]
 default = []
-csr = []
-hydrate = []
+csr = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
+hydrate = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 ssr = ["dep:tokio"]
 stable = []
 serde = []
