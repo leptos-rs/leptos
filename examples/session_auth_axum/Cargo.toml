@@ -8,7 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0.66"
-console_log = "0.2.0"
+console_log = "1.0.0"
 rand = { version = "0.8.5", features = ["min_const_gen"], optional = true }
 console_error_panic_hook = "0.1.7"
 futures = "0.3.25"

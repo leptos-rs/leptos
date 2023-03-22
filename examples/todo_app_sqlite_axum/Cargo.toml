@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-console_log = "0.2.0"
+console_log = "1.0.0"
 console_error_panic_hook = "0.1.7"
 futures = "0.3.25"
 cfg-if = "1.0.0"

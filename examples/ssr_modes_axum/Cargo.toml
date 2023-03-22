@@ -8,7 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 console_error_panic_hook = "0.1"
-console_log = "0.2"
+console_log = "1"
 cfg-if = "1"
 lazy_static = "1"
 leptos = { path = "../../leptos", default-features = false, features = [
