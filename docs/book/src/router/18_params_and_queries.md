@@ -58,8 +58,8 @@ let id = move || {
 The untyped versions return `Memo<ParamsMap>`. Again, it’s memo to react to changes in the URL. [`ParamsMap`](https://docs.rs/leptos_router/0.2.3/leptos_router/struct.ParamsMap.html) behaves a lot like any other map type, with a `.get()` method that returns `Option<&String>`.
 
 ```rust
-let params = use_params::<ContactParams>(cx);
-let query = use_query::<ContactSearch>(cx);
+let params = use_params_map(cx);
+let query = use_query_map(cx);
 
 // id: || -> Option<String>
 let id = move || {
