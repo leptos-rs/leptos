@@ -1,4 +1,4 @@
-use crate::TextProp;
+use crate::{additional_attributes::AdditionalAttributes, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
@@ -9,7 +9,7 @@ pub struct HtmlContext {
     lang: Rc<RefCell<Option<TextProp>>>,
     dir: Rc<RefCell<Option<TextProp>>>,
     class: Rc<RefCell<Option<TextProp>>>,
-    attributes: Rc<RefCell<Option<Vec<(String, TextProp)>>>>,
+    attributes: Rc<RefCell<AdditionalAttributes>>,
 }
 
 impl HtmlContext {
@@ -30,7 +30,7 @@ impl HtmlContext {
             .borrow()
             .as_ref()
             .map(|val| format!("class=\"{}\"", val.get()));
-        let attributes = self.attributes.borrow().as_ref().map(|val| {
+        let attributes = self.attributes.borrow().0.as_ref().map(|val| {
             val.iter()
                 .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
                 .collect::<Vec<_>>()
@@ -67,11 +67,9 @@ impl std::fmt::Debug for HtmlContext {
 /// fn MyApp(cx: Scope) -> impl IntoView {
 ///     provide_meta_context(cx);
 ///
-///     let attrs = vec![(String::from("data-theme"), TextProp::from("dark"))];
-///
 ///     view! { cx,
 ///       <main>
-///         <Html lang="he" dir="rtl" attributes=attrs/>
+///         <Html lang="he" dir="rtl" attributes=vec![("data-theme", "dark")]/>
 ///       </main>
 ///     }
 /// }
@@ -90,7 +88,7 @@ pub fn Html(
     class: Option<TextProp>,
     /// Arbitrary attributes to add to the `<html>`
     #[prop(optional, into)]
-    attributes: Option<Vec<(String, TextProp)>>,
+    attributes: AdditionalAttributes,
 ) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -120,9 +118,9 @@ pub fn Html(
                 });
             }
 
-            if let Some(attributes) = attributes {
-                for (attr_name, attr_value) in attributes.into_iter(){
-                    let el=el.clone();
+            if let Some(attributes) = attributes.0 {
+                for (attr_name, attr_value) in attributes.into_iter() {
+                    let el = el.clone();
                     create_render_effect(cx, move |_|{
                         let value = attr_value.get();
                             _ = el.set_attribute(&attr_name, &value);
