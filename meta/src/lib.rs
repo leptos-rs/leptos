@@ -282,6 +282,15 @@ impl MetaContext {
 /// server-side HTML rendering across crates.
 #[cfg(feature = "ssr")]
 pub fn generate_head_metadata(cx: Scope) -> String {
+    let (head, body) = generate_head_metadata_separated(cx);
+    format!("{head}</head><{body}>")
+}
+
+/// Extracts the metadata that should be inserted at the beginning of the `<head>` tag
+/// and on the opening `<body>` tag. This is a helper function used in implementing
+/// server-side HTML rendering across crates.
+#[cfg(feature = "ssr")]
+pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
     let meta = use_context::<MetaContext>(cx);
     let head = meta
         .as_ref()
@@ -291,7 +300,7 @@ pub fn generate_head_metadata(cx: Scope) -> String {
         .as_ref()
         .and_then(|meta| meta.body.as_string())
         .unwrap_or_default();
-    format!("{head}</head><body{body_meta}>")
+    (head, format!("<body{body_meta}>"))
 }
 
 /// Describes a value that is either a static or a reactive string, i.e.,

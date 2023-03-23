@@ -17,8 +17,8 @@ use leptos::{
     ssr::*,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts};
-use leptos_meta::{generate_head_metadata, MetaContext};
+use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{pin::Pin, sync::Arc};
@@ -536,7 +536,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata(cx).into(),
+                                                    |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 
@@ -593,7 +593,7 @@ async fn forward_stream(
 ) {
     let cx = Scope { runtime, id: scope };
     let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     _ = tx.send(head).await;
     let mut shell = Box::pin(bundle);
@@ -700,7 +700,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata(cx).into(),
+                                                    |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 

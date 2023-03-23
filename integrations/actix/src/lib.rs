@@ -20,7 +20,7 @@ use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts};
+use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -728,7 +728,7 @@ async fn stream_app(
     let (stream, runtime, scope) =
         render_to_stream_with_prefix_undisposed_with_context(
             app,
-            move |cx| generate_head_metadata(cx).into(),
+            move |cx| generate_head_metadata_separated(cx).1.into(),
             additional_context,
         );
 
@@ -745,7 +745,7 @@ async fn stream_app_in_order(
         leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
             app,
             move |cx| {
-                generate_head_metadata(cx).into()
+                generate_head_metadata_separated(cx).1.into()
             },
             additional_context,
         );
@@ -762,7 +762,7 @@ async fn build_stream_response(
 ) -> HttpResponse {
     let cx = leptos::Scope { runtime, id: scope };
     let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })
