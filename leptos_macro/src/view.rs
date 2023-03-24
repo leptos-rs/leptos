@@ -818,7 +818,22 @@ fn element_to_tokens(
         };
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
-                Some(attribute_to_tokens(cx, node))
+                if node.key.to_string().trim().starts_with("class:") {
+                    None
+                } else {
+                    Some(attribute_to_tokens(cx, node))
+                }
+            } else {
+                None
+            }
+        });
+        let class_attrs = node.attributes.iter().filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                if node.key.to_string().trim().starts_with("class:") {
+                    Some(attribute_to_tokens(cx, node))
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -876,6 +891,7 @@ fn element_to_tokens(
         quote! {
             #name
                 #(#attrs)*
+                #(#class_attrs)*
                 #global_class_expr
                 #(#children)*
                 #view_marker
