@@ -13,23 +13,23 @@ use std::{
     rc::Rc,
 };
 
-/// Configures what animation should be shown when transitioning 
+/// Configures what animation should be shown when transitioning
 /// between two root routes. Defaults to `None`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Animation {
-    /// No animation set up. 
+    /// No animation set up.
     None,
     /// Animated using CSS classes.
     Classes {
-        /// Class set when a route is first painted. 
+        /// Class set when a route is first painted.
         start: Option<&'static str>,
         /// Class set when a route is fading out.
         outro: Option<&'static str>,
         /// Class set when a route is fading in.
         intro: Option<&'static str>,
         /// Class set when all animations have finished.
-        finally: Option<&'static str>
-    }
+        finally: Option<&'static str>,
+    },
 }
 
 impl Animation {
@@ -37,42 +37,43 @@ impl Animation {
         leptos::log!("Animation::next_state() current is {current:?}");
         match self {
             Self::None => (AnimationState::Finally, true),
-            Self::Classes { start, outro, intro, finally } => {
-                match current {
-                    AnimationState::Outro => {
-                        let next = if start.is_some() {
-                            AnimationState::Start 
-                        } else if intro.is_some() {
-                            AnimationState::Intro
-                        } else {
-                            AnimationState::Finally 
-                        };
-                        (next, true)
-                    }
-                    AnimationState::Start => {
-                        let next = if intro.is_some() {
-                            AnimationState::Intro 
-                        } else {
-                            AnimationState::Finally 
-                        };
-                        (next, false)
-                    }
-                    AnimationState::Intro => {
-                        (AnimationState::Finally, false)
-                    }
-                    AnimationState::Finally => {
-                        if outro.is_some() {
-                            (AnimationState::Outro, false)
-                        } else if start.is_some() {
-                            (AnimationState::Start, true)
-                        } else if intro.is_some() {
-                            (AnimationState::Intro, true)
-                        } else {
-                            (AnimationState::Finally, true)
-                        }
+            Self::Classes {
+                start,
+                outro,
+                intro,
+                finally,
+            } => match current {
+                AnimationState::Outro => {
+                    let next = if start.is_some() {
+                        AnimationState::Start
+                    } else if intro.is_some() {
+                        AnimationState::Intro
+                    } else {
+                        AnimationState::Finally
+                    };
+                    (next, true)
+                }
+                AnimationState::Start => {
+                    let next = if intro.is_some() {
+                        AnimationState::Intro
+                    } else {
+                        AnimationState::Finally
+                    };
+                    (next, false)
+                }
+                AnimationState::Intro => (AnimationState::Finally, false),
+                AnimationState::Finally => {
+                    if outro.is_some() {
+                        (AnimationState::Outro, false)
+                    } else if start.is_some() {
+                        (AnimationState::Start, true)
+                    } else if intro.is_some() {
+                        (AnimationState::Intro, true)
+                    } else {
+                        (AnimationState::Finally, true)
                     }
                 }
-            }
+            },
         }
     }
 }
@@ -98,9 +99,11 @@ impl Default for Animation {
 pub fn Routes(
     cx: Scope,
     /// Base path relative at which the routes are mounted.
-    #[prop(optional)] base: Option<String>,
+    #[prop(optional)]
+    base: Option<String>,
     /// Configuration for router animations.
-    #[prop(optional)] animation: Animation,
+    #[prop(optional)]
+    animation: Animation,
     children: Children,
 ) -> impl IntoView {
     let router = use_context::<RouterContext>(cx)
@@ -132,7 +135,8 @@ pub fn Routes(
         *context.0.borrow_mut() = branches.clone();
     }
 
-    let (animation_state, set_animation_state) = create_signal(cx, AnimationState::Finally);
+    let (animation_state, set_animation_state) =
+        create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
     let animation_and_route = create_memo(cx, {
         let animation = animation.clone();
@@ -142,14 +146,15 @@ pub fn Routes(
             match prev {
                 None => (animation_state.get(), next_route),
                 Some((prev_state, prev_route)) => {
-                    let (next_state, can_advance) = animation.next_state(prev_state);
+                    let (next_state, can_advance) =
+                        animation.next_state(prev_state);
                     let animation_state = animation_state.get();
                     /*let next_state = if animation_state > next_state {
-                        animation_state 
+                        animation_state
                     } else {
-                        next_state 
+                        next_state
                     };*/
-                        
+
                     if can_advance {
                         (next_state, next_route)
                     } else {
@@ -159,17 +164,19 @@ pub fn Routes(
             }
         }
     });
-    let current_animation = create_memo(cx, move |_| {
-        animation_and_route.get().0
-    });
+    let current_animation =
+        create_memo(cx, move |_| animation_and_route.get().0);
     let current_route = match animation {
         Animation::None => next_route,
-        Animation::Classes { .. } => create_memo(cx, move |_| animation_and_route.get().1)
+        Animation::Classes { .. } => {
+            create_memo(cx, move |_| animation_and_route.get().1)
+        }
     };
 
     // whenever path changes, update matches
-    let matches = create_memo(cx, move |_| get_route_matches(branches.clone(), current_route.get())
-    );
+    let matches = create_memo(cx, move |_| {
+        get_route_matches(branches.clone(), current_route.get())
+    });
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
@@ -319,27 +326,35 @@ pub fn Routes(
 
     let anim_config = animation.clone();
     match animation {
-        Animation::None => leptos::leptos_dom::DynChild::new_with_id(id, move || root.get()).into_view(cx),
-        Animation::Classes { start, outro, intro, finally } => {
-            html::div(cx)
-                .attr("class", (cx, move || {
-                    match current_animation.get() {
-                        AnimationState::Outro => outro.unwrap_or_default(),
-                        AnimationState::Start => start.unwrap_or_default(),
-                        AnimationState::Intro => intro.unwrap_or_default(),
-                        AnimationState::Finally => finally.unwrap_or_default()
-                    }
-                }))
-                .on(leptos::ev::animationend, move |_| {
-                    let current = current_animation.get();
-                    set_animation_state.update(|current_state| {
-                        let (next, _) = anim_config.next_state(&current);
-                        *current_state = next;
-                        leptos::log!("animation updating to {next:?}");
-                    });
-                })
-                .child(move || root.get()).into_view(cx)
+        Animation::None => {
+            leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
+                .into_view(cx)
         }
+        Animation::Classes {
+            start,
+            outro,
+            intro,
+            finally,
+        } => html::div(cx)
+            .attr(
+                "class",
+                (cx, move || match current_animation.get() {
+                    AnimationState::Outro => outro.unwrap_or_default(),
+                    AnimationState::Start => start.unwrap_or_default(),
+                    AnimationState::Intro => intro.unwrap_or_default(),
+                    AnimationState::Finally => finally.unwrap_or_default(),
+                }),
+            )
+            .on(leptos::ev::animationend, move |_| {
+                let current = current_animation.get();
+                set_animation_state.update(|current_state| {
+                    let (next, _) = anim_config.next_state(&current);
+                    *current_state = next;
+                    leptos::log!("animation updating to {next:?}");
+                });
+            })
+            .child(move || root.get())
+            .into_view(cx),
     }
 }
 
