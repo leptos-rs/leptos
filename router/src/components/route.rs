@@ -238,3 +238,28 @@ impl std::fmt::Debug for RouteContextInner {
             .finish()
     }
 }
+
+#[component]
+pub fn ProtectedRoute<P, E, F, C>(
+    cx: Scope,
+    /// Path that will be exposed if the condition is resolved to true.
+    expose_path: P,
+    /// Path for the Redirect in case if the condition is resolved to false.
+    redirect_path: P,
+    /// Condition function that returns a boolean.
+    condition: C,
+    /// View that will be exposed if the condition is resolved to true.
+    view: F,
+) -> impl IntoView
+where
+    E: IntoView,
+    F: Fn(Scope) -> E + 'static,
+    P: std::fmt::Display + 'static,
+    C: Fn(Scope) -> bool + 'static,
+{
+    if condition {
+        return view! {cx, <Route path=expose_path view=view />}.into_view(cx);
+    } else {
+        return view! {cx, <Redirect path=redirect_path /> }.into_view(cx);
+    }
+}
