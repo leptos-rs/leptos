@@ -257,7 +257,7 @@ where
     P: std::fmt::Display + 'static,
     C: Fn(Scope) -> bool + 'static,
 {
-    if condition {
+    if condition(cx) {
         return view! {cx, <Route path=expose_path view=view />}.into_view(cx);
     } else {
         return view! {cx, <Redirect path=redirect_path /> }.into_view(cx);
