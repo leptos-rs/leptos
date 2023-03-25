@@ -15,6 +15,7 @@ use std::{
     fmt::Debug,
     future::Future,
     marker::PhantomData,
+    panic::Location,
     pin::Pin,
     rc::Rc,
 };
@@ -377,13 +378,15 @@ where
     ///
     /// If you want to get the value without cloning it, use [Resource::with].
     /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
+    #[track_caller]
     pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
     {
+        let location = std::panic::Location::caller();
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read(cx)
+                resource.read(cx, location)
             })
         })
         .ok()
@@ -397,10 +400,12 @@ where
     ///
     /// If you want to get the value by cloning it, you can use
     /// [Resource::read].
+    #[track_caller]
     pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+        let location = std::panic::Location::caller();
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(cx, f)
+                resource.with(cx, f, location)
             })
         })
         .ok()
@@ -563,14 +568,25 @@ where
     S: Clone + 'static,
     T: 'static,
 {
-    pub fn read(&self, cx: Scope) -> Option<T>
+    #[track_caller]
+    pub fn read(
+        &self,
+        cx: Scope,
+        location: &'static Location<'static>,
+    ) -> Option<T>
     where
         T: Clone,
     {
-        self.with(cx, T::clone)
+        self.with(cx, T::clone, location)
     }
 
-    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+    #[track_caller]
+    pub fn with<U>(
+        &self,
+        cx: Scope,
+        f: impl FnOnce(&T) -> U,
+        location: &'static Location<'static>,
+    ) -> Option<U> {
         let suspense_cx = use_context::<SuspenseContext>(cx);
 
         let v = self
@@ -587,6 +603,19 @@ where
             if serializable {
                 suspense_cx.has_local_only.set_value(false);
             }
+        } else {
+            #[cfg(all(feature = "hydrate", debug_assertions))]
+            crate::macros::debug_warn!(
+                "At {location}, you are reading a resource in `hydrate` mode \
+                 outside a <Suspense/> or <Transition/>. This can cause \
+                 hydration mismatch errors and loses out on a significant \
+                 performance optimization. To fix this issue, you can either: \
+                 \n1. Wrap the place where you read the resource in a \
+                 <Suspense/> or <Transition/> component, or \n2. Switch to \
+                 using create_local_resource(), which will wait to load the \
+                 resource until the app is hydrated on the client side. (This \
+                 will have worse performance in most cases.)",
+            );
         }
 
         let increment = move |_: Option<()>| {
