@@ -56,7 +56,7 @@
 //! - [`hackernews`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews)
 //!   and [`hackernews_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews_axum)
 //!   integrate calls to a real external REST API, routing, server-side rendering and hydration to create
-//!   a fully-functional that works as intended even before WASM has loaded and begun to run.
+//!   a fully-functional application that works as intended even before WASM has loaded and begun to run.
 //! - [`todo_app_sqlite`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite),
 //!   [`todo_app_sqlite_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_axum), and
 //!   [`todo_app_sqlite_viz`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_viz)
