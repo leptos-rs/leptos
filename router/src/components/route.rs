@@ -34,50 +34,98 @@ where
     F: Fn(Scope) -> E + 'static,
     P: std::fmt::Display,
 {
-    fn inner(
-        cx: Scope,
-        children: Option<Children>,
-        path: String,
-        view: Rc<dyn Fn(Scope) -> View>,
-        ssr_mode: SsrMode,
-    ) -> RouteDefinition {
-        let children = children
-            .map(|children| {
-                children(cx)
-                    .as_children()
-                    .iter()
-                    .filter_map(|child| {
-                        child
-                            .as_transparent()
-                            .and_then(|t| t.downcast_ref::<RouteDefinition>())
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        let id = ROUTE_ID.with(|id| {
-            let next = id.get() + 1;
-            id.set(next);
-            next
-        });
-
-        RouteDefinition {
-            id,
-            path,
-            children,
-            view,
-            ssr_mode,
-        }
-    }
-
-    inner(
+    define_route(
         cx,
         children,
         path.to_string(),
         Rc::new(move |cx| view(cx).into_view(cx)),
         ssr,
     )
+}
+
+/// Describes a route that is guarded by a certain condition. This works the same way as
+/// [`<Route/>`](Route), except that if the `condition` function evaluates to `false`, it
+/// redirects to `redirect_path` instead of displaying its `view`.
+#[component(transparent)]
+pub fn ProtectedRoute<P, E, F, C>(
+    cx: Scope,
+    /// The path fragment that this route should match. This can be static (`users`),
+    /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
+    /// wildcard (`user/*any`).
+    path: P,
+    /// The path that will be redirected to if the condition is `false`.
+    redirect_path: P,
+    /// Condition function that returns a boolean.
+    condition: C,
+    /// View that will be exposed if the condition is `true`.
+    view: F,
+    /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
+    /// `children` may be empty or include nested routes.
+    #[prop(optional)]
+    children: Option<Children>,
+) -> impl IntoView
+where
+    E: IntoView,
+    F: Fn(Scope) -> E + 'static,
+    P: std::fmt::Display + 'static,
+    C: Fn(Scope) -> bool + 'static,
+{
+    use crate::{Redirect, RedirectProps};
+    let redirect_path = redirect_path.to_string();
+
+    define_route(
+        cx,
+        children,
+        path.to_string(),
+        Rc::new(move |cx| {
+            if condition(cx) {
+                view(cx).into_view(cx)
+            } else {
+                view! { cx, <Redirect path=redirect_path.clone()/> }
+                    .into_view(cx)
+            }
+        }),
+        ssr,
+    )
+}
+
+pub(crate) fn define_route(
+    cx: Scope,
+    children: Option<Children>,
+    path: String,
+    view: Rc<dyn Fn(Scope) -> View>,
+    ssr_mode: SsrMode,
+) -> RouteDefinition {
+    let children = children
+        .map(|children| {
+            children(cx)
+                .as_children()
+                .iter()
+                .filter_map(|child| {
+                    child
+                        .as_transparent()
+                        .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let id = ROUTE_ID.with(|id| {
+        let next = id.get() + 1;
+        id.set(next);
+        next
+    });
+
+    RouteDefinition {
+        id,
+        path,
+        children,
+        view,
+        ssr_mode,
+    }
 }
 
 impl IntoView for RouteDefinition {
@@ -236,30 +284,5 @@ impl std::fmt::Debug for RouteContextInner {
             .field("path", &self.path)
             .field("ParamsMap", &self.params)
             .finish()
-    }
-}
-
-#[component]
-pub fn ProtectedRoute<P, E, F, C>(
-    cx: Scope,
-    /// Path that will be exposed if the condition is resolved to true.
-    expose_path: P,
-    /// Path for the Redirect in case if the condition is resolved to false.
-    redirect_path: P,
-    /// Condition function that returns a boolean.
-    condition: C,
-    /// View that will be exposed if the condition is resolved to true.
-    view: F,
-) -> impl IntoView
-where
-    E: IntoView,
-    F: Fn(Scope) -> E + 'static,
-    P: std::fmt::Display + 'static,
-    C: Fn(Scope) -> bool + 'static,
-{
-    if condition(cx) {
-        return view! {cx, <Route path=expose_path view=view />}.into_view(cx);
-    } else {
-        return view! {cx, <Redirect path=redirect_path /> }.into_view(cx);
     }
 }
