@@ -604,7 +604,7 @@ where
                 suspense_cx.has_local_only.set_value(false);
             }
         } else {
-            #[cfg(feature = "hydrate")]
+            #[cfg(all(feature = "hydrate", debug_assertions))]
             crate::macros::debug_warn!(
                 "At {location}, you are reading a resource in `hydrate` mode \
                  outside a <Suspense/> or <Transition/>. This can cause \
@@ -615,7 +615,7 @@ where
                  using create_local_resource(), which will wait to load the \
                  resource until the app is hydrated on the client side. (This \
                  will have worse performance in most cases.)",
-            )
+            );
         }
 
         let increment = move |_: Option<()>| {
