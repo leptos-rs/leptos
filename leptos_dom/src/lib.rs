@@ -681,12 +681,13 @@ impl View {
             match &self {
               Self::Element(el) => {
                 if event.bubbles() {
-                  add_event_listener(&el.element, event.event_delegation_key(), event.name(), event_handler);
+                  add_event_listener(&el.element, event.event_delegation_key(), event.name(), event_handler, &None);
                 } else {
                   add_event_listener_undelegated(
                     &el.element,
                     &event.name(),
                     event_handler,
+                    &None,
                   );
                 }
               }
