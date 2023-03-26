@@ -111,6 +111,27 @@ where
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
+    create_resource_helper(
+        cx,
+        source,
+        fetcher,
+        initial_value,
+        ResourceSerialization::Serializable,
+    )
+}
+
+fn create_resource_helper<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+    initial_value: Option<T>,
+    serializable: ResourceSerialization,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Serializable + 'static,
+    Fu: Future<Output = T> + 'static,
+{
     let resolved = initial_value.is_some();
     let (value, set_value) = create_signal(cx, initial_value);
 
@@ -132,7 +153,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
-        serializable: true,
+        serializable,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -256,7 +277,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
-        serializable: false,
+        serializable: ResourceSerialization::Local,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -560,7 +581,19 @@ where
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
-    serializable: bool,
+    serializable: ResourceSerialization,
+}
+
+/// Whether and how the resource can be serialized.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ResourceSerialization {
+    /// Not serializable.
+    Local,
+    /// Can be serialized.
+    Serializable,
+    /// Can be serialized, and cause the first chunk to be deferred until
+    /// their suspense has resolved.
+    Deferred,
 }
 
 impl<S, T> ResourceState<S, T>
@@ -600,7 +633,7 @@ where
 
         let serializable = self.serializable;
         if let Some(suspense_cx) = &suspense_cx {
-            if serializable {
+            if serializable != ResourceSerialization::Local {
                 suspense_cx.has_local_only.set_value(false);
             }
         } else {
@@ -629,7 +662,12 @@ where
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
                         if !has_value {
-                            s.increment(serializable);
+                            s.increment(
+                                serializable != ResourceSerialization::Local,
+                            );
+                            if serializable == ResourceSerialization::Deferred {
+                                s.should_defer.set_value(true);
+                            }
                         }
                     }
                 }
@@ -670,7 +708,12 @@ where
             let suspense_contexts = self.suspense_contexts.clone();
 
             for suspense_context in suspense_contexts.borrow().iter() {
-                suspense_context.increment(self.serializable);
+                suspense_context.increment(
+                    self.serializable != ResourceSerialization::Local,
+                );
+                if self.serializable == ResourceSerialization::Deferred {
+                    suspense_context.should_defer.set_value(true);
+                }
             }
 
             // run the Future
@@ -688,7 +731,9 @@ where
                     set_loading.update(|n| *n = false);
 
                     for suspense_context in suspense_contexts.borrow().iter() {
-                        suspense_context.decrement(serializable);
+                        suspense_context.decrement(
+                            serializable != ResourceSerialization::Local,
+                        );
                     }
                 }
             })
