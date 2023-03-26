@@ -43,7 +43,7 @@ impl Parse for Model {
                 "this method requires a `Scope` parameter";
                 help = "try `fn {}(cx: Scope, /* ... */)`", item.sig.ident
             );
-        } else if props[0].ty != parse_quote!(Scope) {
+        } else if props[0].ty != parse_quote!(Scope) && props[0].ty != parse_quote!(::leptos::Scope) {
             abort!(
                 item.sig.inputs,
                 "this method requires a `Scope` parameter";
@@ -68,7 +68,7 @@ impl Parse for Model {
         });
 
         // Make sure return type is correct
-        if item.sig.output != parse_quote!(-> impl IntoView) {
+        if item.sig.output != parse_quote!(-> impl IntoView) && item.sig.output != parse_quote!(-> impl ::leptos::IntoView) {
             abort!(
                 item.sig,
                 "return type is incorrect";
@@ -206,7 +206,7 @@ impl ToTokens for Model {
             #tracing_instrument_attr
             #vis fn #name #generics (
                 #[allow(unused_variables)]
-                #scope_name: Scope,
+                #scope_name: ::leptos::Scope,
                 props: #props_name #generics
             ) #ret #(+ #lifetimes)*
             #where_clause
@@ -437,6 +437,7 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
     props
         .iter()
         .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .filter(|Prop { ty, .. }| *ty != parse_quote!(::leptos::Scope))
         .map(|prop| {
             let Prop {
                 docs,
@@ -464,6 +465,7 @@ fn prop_names(props: &[Prop]) -> TokenStream {
     props
         .iter()
         .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .filter(|Prop { ty, .. }| *ty != parse_quote!(::leptos::Scope))
         .map(|Prop { name, .. }| quote! { #name, })
         .collect()
 }
