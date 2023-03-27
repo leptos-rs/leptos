@@ -29,7 +29,7 @@ cfg_if! {
         }
 
         #[test]
-        fn test_complext_query_string() {
+        fn test_complex_query_string() {
             let url = Url::try_from("http://leptos.com?data=Data%3A+%24+%26+%2B%2B+7").unwrap();
             assert_params_map!{
                 ["data" => "Data: $ & ++ 7"],

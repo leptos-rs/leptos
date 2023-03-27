@@ -74,13 +74,13 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
     /// The name of the element, i.e., `div`, `p`, `custom-element`.
     fn name(&self) -> Cow<'static, str>;
 
-    /// Determains if the tag is void, i.e., `<input>` and `<br>`.
+    /// Determines if the tag is void, i.e., `<input>` and `<br>`.
     fn is_void(&self) -> bool {
         false
     }
 
     /// A unique `id` that should be generated for each new instance of
-    /// this element, and be consistant for both SSR and CSR.
+    /// this element, and be consistent for both SSR and CSR.
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     fn hydration_id(&self) -> &HydrationKey;
 }
