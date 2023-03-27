@@ -16,6 +16,7 @@ attribute-derive = { version = "0.5", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.10"
+once_cell = "1"
 prettyplease = "0.1"
 proc-macro-error = "1"
 proc-macro2 = "1"
