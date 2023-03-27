@@ -163,8 +163,8 @@ impl View {
         match self {
             View::Suspense(id, _) => {
                 let id = id.to_string();
-                if let Some((_, fragment)) = cx.take_pending_fragment(&id) {
-                    chunks.push(StreamChunk::Async(fragment));
+                if let Some(data) = cx.take_pending_fragment(&id) {
+                    chunks.push(StreamChunk::Async(data.in_order));
                 }
             }
             View::Text(node) => chunks.push(StreamChunk::Sync(node.content)),

@@ -120,6 +120,49 @@ where
     )
 }
 
+/// Creates a deferred [Resource](crate::Resource). When server-side rendering is used,
+/// this resource will cause any `<Suspense/>` you read it under to block the initial
+/// chunk of HTML from being sent to the client. This means that if you set things like
+/// HTTP headers or `<head>` metadata in that `<Suspense/>`, that header material will
+/// be included in the server’s original response.
+///
+/// This causes a slow time to first byte (TTFB) but is very useful for loading data that
+/// is essential to the first load. For example, a blog post page that needs to include
+/// the title of the blog post in the page’s initial HTML `<title>` tag for SEO reasons
+/// might use a deferred resource to load blog post metadata, which will prevent the page from
+/// returning until that data has loaded.
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
+#[track_caller]
+pub fn create_deferred_resource<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Serializable + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    create_resource_helper(
+        cx,
+        source,
+        fetcher,
+        None,
+        ResourceSerialization::Deferred,
+    )
+}
+
 fn create_resource_helper<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,

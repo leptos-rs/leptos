@@ -133,7 +133,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     let runtime = create_runtime();
 
     let (
-        (shell, prefix, pending_resources, pending_fragments, serializers),
+        (shell, pending_resources, pending_fragments, serializers),
         scope,
         disposer,
     ) = run_scope_undisposed(runtime, {
@@ -146,27 +146,75 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 
             let resources = cx.pending_resources();
             let pending_resources = serde_json::to_string(&resources).unwrap();
-            let prefix = prefix(cx);
 
             (
                 shell,
-                prefix,
                 pending_resources,
                 cx.pending_fragments(),
                 cx.serialization_resolvers(),
             )
         }
     });
+    let cx = Scope { runtime, id: scope };
 
+    let deferred_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
-    for (fragment_id, (fut, _)) in pending_fragments {
-        fragments.push(async move { (fragment_id, fut.await) })
+
+    for (fragment_id, data) in pending_fragments {
+        if data.should_defer {
+            println!("deferred fragment");
+            deferred_fragments
+                .push(async move { (fragment_id, data.out_of_order.await) });
+        } else {
+            fragments
+                .push(async move { (fragment_id, data.out_of_order.await) });
+        }
     }
 
     // resources and fragments
     // stream HTML for each <Suspense/> as it resolves
-    // TODO can remove id_before_suspense entirely now
-    let fragments = fragments.map(|(fragment_id, html)| {
+    let fragments = fragments_to_chunks(fragments);
+    // stream data for each Resource as it resolves
+    let resources = render_serializers(serializers);
+
+    // HTML for the view function and script to store resources
+    let stream = futures::stream::once(async move {
+        let mut deferred = String::new();
+        let mut deferred_fragments = fragments_to_chunks(deferred_fragments);
+        while let Some(fragment) = deferred_fragments.next().await {
+            deferred.push_str(&fragment);
+        }
+        let prefix = prefix(cx);
+        format!(
+            r#"
+                {prefix}
+                {shell}
+                <script>
+                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
+                    __LEPTOS_RESOLVED_RESOURCES = new Map();
+                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
+                </script>
+                {deferred}
+            "#
+        )
+    })
+    // TODO these should be combined again in a way that chains them appropriately
+    // such that individual resources can resolve before all fragments are done
+    .chain(fragments)
+    .chain(resources)
+    // dispose of the root scope
+    .chain(futures::stream::once(async move {
+        disposer.dispose();
+        Default::default()
+    }));
+
+    (stream, runtime, scope)
+}
+
+fn fragments_to_chunks(
+    fragments: impl Stream<Item = (String, String)>,
+) -> impl Stream<Item = String> {
+    fragments.map(|(fragment_id, html)| {
       format!(
         r#"
                 <template id="{fragment_id}f">{html}</template>
@@ -191,35 +239,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
                 </script>
                 "#
       )
-    });
-    // stream data for each Resource as it resolves
-    let resources = render_serializers(serializers);
-
-    // HTML for the view function and script to store resources
-    let stream = futures::stream::once(async move {
-        format!(
-            r#"
-                {prefix}
-                {shell}
-                <script>
-                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
-                    __LEPTOS_RESOLVED_RESOURCES = new Map();
-                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
-                </script>
-            "#
-        )
     })
-    // TODO these should be combined again in a way that chains them appropriately
-    // such that individual resources can resolve before all fragments are done
-    .chain(fragments)
-    .chain(resources)
-    // dispose of the root scope
-    .chain(futures::stream::once(async move {
-        disposer.dispose();
-        Default::default()
-    }));
-
-    (stream, runtime, scope)
 }
 
 impl View {

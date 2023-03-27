@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
     console_warn,
+    hydration::FragmentData,
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
@@ -398,16 +399,17 @@ impl Scope {
 
             shared_context.pending_fragments.insert(
                 key.to_string(),
-                (
-                    Box::pin(async move {
+                FragmentData {
+                    out_of_order: Box::pin(async move {
                         rx1.next().await;
                         out_of_order_resolver()
                     }),
-                    Box::pin(async move {
+                    in_order: Box::pin(async move {
                         rx2.next().await;
                         in_order_resolver()
                     }),
-                ),
+                    should_defer: context.should_defer(),
+                },
             );
         })
     }
@@ -416,10 +418,7 @@ impl Scope {
     ///
     /// The keys are hydration IDs. Valeus are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
-    pub fn pending_fragments(
-        &self,
-    ) -> HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)>
-    {
+    pub fn pending_fragments(&self) -> HashMap<String, FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
@@ -431,10 +430,7 @@ impl Scope {
     ///
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
-    pub fn take_pending_fragment(
-        &self,
-        id: &str,
-    ) -> Option<(PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)> {
+    pub fn take_pending_fragment(&self, id: &str) -> Option<FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             shared_context.pending_fragments.remove(id)

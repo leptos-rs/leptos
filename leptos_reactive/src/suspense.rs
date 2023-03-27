@@ -54,7 +54,7 @@ impl SuspenseContext {
         let (pending_resources, set_pending_resources) = create_signal(cx, 0);
         let pending_serializable_resources = create_rw_signal(cx, 0);
         let has_local_only = store_value(cx, true);
-        let should_defer = store_value(cx, true);
+        let should_defer = store_value(cx, false);
         Self {
             pending_resources,
             set_pending_resources,
