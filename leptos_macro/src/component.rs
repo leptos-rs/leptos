@@ -4,7 +4,7 @@ use convert_case::{
     Casing,
 };
 use itertools::Itertools;
-use once_cell::sync::Lazy;
+use once_cell::unsync::Lazy;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
