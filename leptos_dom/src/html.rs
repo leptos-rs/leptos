@@ -710,7 +710,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         {
             use smallvec::SmallVec;
 
-            let el = self.element.as_ref().clone();
+            let class_list = self.element.as_ref().class_list();
 
             leptos_reactive::create_effect(
                 self.cx,
@@ -735,49 +735,67 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         // Remove old classes
                         for prev_class in old_classes.clone() {
                             if !new_classes.any(|c| c == prev_class) {
-                                el.class_list()
-                                    .remove_1(prev_class)
-                                    .unwrap_or_else(|err| {
+                                class_list.remove_1(prev_class).unwrap_or_else(
+                                    |err| {
                                         panic!(
                                             "failed to add class \
                                              `{prev_class}`, error: {err:#?}"
                                         )
-                                    });
+                                    },
+                                );
                             }
                         }
 
                         // Add new classes
                         for class in new_classes {
                             if !old_classes.any(|c| c == class) {
-                                el.class_list().add_1(class).unwrap_or_else(
-                                    |err| {
-                                        panic!(
-                                            "failed to remove class \
-                                             `{class}`, error: {err:#?}"
-                                        )
-                                    },
-                                );
+                                class_list.add_1(class).unwrap_or_else(|err| {
+                                    panic!(
+                                        "failed to remove class `{class}`, \
+                                         error: {err:#?}"
+                                    )
+                                });
                             }
                         }
                     } else {
-                        for class in new_classes {
-                            el.class_list().add_1(class).unwrap_or_else(
-                                |err| {
-                                    panic!(
-                                        "failed to add class `{class}`, \
-                                         error: {err:#?}"
-                                    )
-                                },
-                            );
+                        let new_classes = new_classes
+                            .map(ToOwned::to_owned)
+                            .collect::<SmallVec<[_; 4]>>();
+
+                        for class in &new_classes {
+                            class_list.add_1(class).unwrap_or_else(|err| {
+                                panic!(
+                                    "failed to add class `{class}`, error: \
+                                     {err:#?}"
+                                )
+                            });
                         }
                     }
 
                     classes
                 },
             );
+
+            self
         }
 
-        self
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let mut this = self;
+
+            let this = classes_signal()
+                .into_iter()
+                .map(Into::into)
+                .flat_map(|classes| {
+                    classes
+                        .split_whitespace()
+                        .map(ToString::to_string)
+                        .collect::<SmallVec<[_; 4]>>()
+                })
+                .fold(this, |this, class| this.class(class, true));
+
+            this
+        }
     }
 
     /// Sets a property on an element.
