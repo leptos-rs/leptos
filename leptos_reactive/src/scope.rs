@@ -414,7 +414,7 @@ impl Scope {
 
     /// The set of all HTML fragments currently pending.
     ///
-    /// The keys are hydration IDs. Valeus are tuples of two pinned
+    /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
     pub fn pending_fragments(
         &self,

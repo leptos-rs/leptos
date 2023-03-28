@@ -126,7 +126,7 @@ where
                                 }
                             );
 
-                            // return the fallback for now, wrapped in fragment identifer
+                            // return the fallback for now, wrapped in fragment identifier
                             fallback().into_view(cx)
                         }
                     };

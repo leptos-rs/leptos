@@ -84,7 +84,7 @@ fn FancyMath(cx: Scope) -> impl IntoView {
 This kind of “provide a signal in a parent, consume it in a child” should be familiar
 from the chapter on [parent-child interactions](./view/08_parent_child.md). The same
 pattern you use to communicate between parents and children works for grandparents and
-grandchildren, or any ancestors and descendents: in other words, between “global” state
+grandchildren, or any ancestors and descendants: in other words, between “global” state
 in the root component of your app and any other components anywhere else in the app.
 
 Because of the fine-grained nature of updates, this is usually all you need. However,

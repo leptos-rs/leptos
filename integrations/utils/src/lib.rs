@@ -10,7 +10,7 @@ pub fn html_parts(
     let pkg_path = &options.site_pkg_dir;
     let output_name = &options.output_name;
 
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to maintain compatibility with it's default options
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
     // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
     let mut wasm_output_name = output_name.clone();
