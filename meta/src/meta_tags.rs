@@ -30,6 +30,9 @@ pub fn Meta(
     /// The [`name`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-name) attribute.
     #[prop(optional, into)]
     name: Option<TextProp>,
+    /// The [`property`](https://ogp.me/) attribute.
+    #[prop(optional, into)]
+    property: Option<TextProp>,
     /// The [`http-equiv`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta#attr-http-equiv) attribute.
     #[prop(optional, into)]
     http_equiv: Option<TextProp>,
@@ -45,6 +48,7 @@ pub fn Meta(
         leptos::leptos_dom::html::meta(cx)
             .attr("charset", move || charset.as_ref().map(|v| v.get()))
             .attr("name", move || name.as_ref().map(|v| v.get()))
+            .attr("property", move || property.as_ref().map(|v| v.get()))
             .attr("http-equiv", move || http_equiv.as_ref().map(|v| v.get()))
             .attr("content", move || content.as_ref().map(|v| v.get()))
     });

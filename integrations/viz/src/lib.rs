@@ -90,7 +90,7 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(cx: leptos::Scope, path: &str) {
@@ -385,7 +385,7 @@ where
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
@@ -617,7 +617,7 @@ async fn forward_stream(
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// This version allows us to pass Viz State/Extractor or other infro from Viz or network
