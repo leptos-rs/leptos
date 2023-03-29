@@ -172,8 +172,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
                 <template id="{fragment_id}f">{html}</template>
                 <script>
                     var id = "{fragment_id}";
-                    var open;
-                    var close;
+                    var open = undefined;
+                    var close = undefined;
                     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
                     while(walker.nextNode()) {{
                          if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
