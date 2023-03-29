@@ -509,12 +509,14 @@ pub(crate) fn render_serializers(
 ) -> impl Stream<Item = String> {
     serializers.map(|(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
+        let json = json.replace('<', "\\u003c");
         format!(
             r#"<script>
+                  var val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                      __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
+                      __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)
                   }} else {{
-                      __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
+                      __LEPTOS_RESOLVED_RESOURCES.set({id}, val);
                   }}
               </script>"#,
         )
