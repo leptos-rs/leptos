@@ -34,10 +34,15 @@ where
     if let Some(redirect_fn) = use_context::<ServerRedirectFunction>(cx) {
         (redirect_fn.f)(&path);
     }
-
     // redirect on the client
-    let navigate = use_navigate(cx);
-    navigate(&path, options.unwrap_or_default())
+    else {
+        let navigate = use_navigate(cx);
+        leptos::request_animation_frame(move || {
+            if let Err(e) = navigate(&path, options.unwrap_or_default()) {
+                leptos::error!("<Redirect/> error: {e:?}");
+            }
+        });
+    }
 }
 
 /// Wrapping type for a function provided as context to allow for
