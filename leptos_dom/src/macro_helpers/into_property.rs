@@ -94,12 +94,7 @@ pub(crate) fn property_helper(
             create_render_effect(cx, move |old| {
                 let new = f();
                 let prop_name = wasm_bindgen::intern(&name);
-                if old.as_ref() != Some(&new)
-                    && !(old.is_none()
-                        && new == wasm_bindgen::JsValue::UNDEFINED)
-                {
-                    property_expression(&el, prop_name, new.clone())
-                }
+                property_expression(&el, prop_name, new.clone());
                 new
             });
         }
