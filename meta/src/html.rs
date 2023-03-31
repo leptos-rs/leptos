@@ -72,7 +72,12 @@ impl std::fmt::Debug for HtmlContext {
 ///
 ///     view! { cx,
 ///       <main>
-///         <Html lang="he" dir="rtl" attributes=vec![("data-theme", "dark")]/>
+///         <Html
+///           lang="he"
+///           dir="rtl"
+///           // arbitrary additional attributes can be passed via `attributes`
+///           attributes=AdditionalAttributes::from(vec![("data-theme", "dark")])
+///         />
 ///       </main>
 ///     }
 /// }
