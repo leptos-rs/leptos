@@ -120,7 +120,7 @@ where
                                     let current_id = current_id.clone();
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        DynChild::new(move || orig_child(cx))
+                                        Fragment::lazy(Box::new(move || vec![DynChild::new(move || orig_child(cx)).into_view(cx)]))
                                             .into_view(cx)
                                             .into_stream_chunks(cx)
                                     }
