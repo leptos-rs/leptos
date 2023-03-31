@@ -62,6 +62,9 @@ pub fn A<H>(
     /// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
     #[prop(optional, into)]
     class: Option<AttributeValue>,
+    /// Sets the `id` attribute on the underlying `<a>` tag, making it easier to target.
+    #[prop(optional, into)]
+    id: Option<String>,
     /// The nodes or elements to be shown inside the link.
     children: Children,
 ) -> impl IntoView
@@ -75,6 +78,7 @@ where
         state: Option<State>,
         replace: bool,
         class: Option<AttributeValue>,
+        id: Option<String>,
         children: Children,
     ) -> HtmlElement<leptos::html::A> {
         #[cfg(not(any(feature = "hydrate", feature = "csr")))]
@@ -109,6 +113,7 @@ where
                 prop:replace={replace}
                 aria-current=move || if is_active.get() { Some("page") } else { None }
                 class=class
+                id=id
             >
                 {children(cx)}
             </a>
@@ -116,5 +121,5 @@ where
     }
 
     let href = use_resolved_path(cx, move || href.to_href()());
-    inner(cx, href, exact, state, replace, class, children)
+    inner(cx, href, exact, state, replace, class, id, children)
 }

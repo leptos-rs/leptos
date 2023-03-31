@@ -14,7 +14,7 @@ use syn::{
     *,
 };
 
-/// Discribes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
+/// Describes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
 /// can be a custom context of this type. This context can be used to access the server's state within the server function.
 pub struct ServerContext {
     /// The type of the context.

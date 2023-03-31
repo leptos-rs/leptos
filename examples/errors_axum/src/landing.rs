@@ -70,8 +70,8 @@ pub fn ExampleErrors(cx: Scope) -> impl IntoView {
         </p>
         <p>"The following <div> will always contain an error and cause this page to produce status 500. Check browser dev tools. "</p>
         <div>
-        // note that the error boundries could be placed above in the Router or lower down
-        // in a particular route. The generated errors on the entire page contribue to the
+        // note that the error boundaries could be placed above in the Router or lower down
+        // in a particular route. The generated errors on the entire page contribute to the
         // final status code sent by the server when producing ssr pages.
         <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
             <ReturnsError/>

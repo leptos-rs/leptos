@@ -95,7 +95,7 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(cx: leptos::Scope, path: &str) {
@@ -128,7 +128,7 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body. Creates a new Request from the
-/// original parts for further processsing
+/// original parts for further processing
 pub async fn generate_request_and_parts(
     req: Request<Body>,
 ) -> (Request<Body>, RequestParts) {
@@ -148,7 +148,7 @@ pub async fn generate_request_and_parts(
 }
 
 /// A struct to hold the http::request::Request and allow users to take ownership of it
-/// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+/// Required by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
 #[derive(Debug, Default)]
 pub struct LeptosRequest<B>(Arc<RwLock<Option<Request<B>>>>);
 
@@ -198,8 +198,8 @@ impl<B> LeptosRequest<B> {
     }
 }
 /// Generate a wrapper for the http::Request::Request type that allows one to
-/// processs it, access the body, and use axum Extractors on it.
-/// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+/// process it, access the body, and use axum Extractors on it.
+/// Required by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
 pub async fn generate_leptos_request<B>(req: Request<B>) -> LeptosRequest<B>
 where
     B: Default + std::fmt::Debug,
@@ -495,7 +495,7 @@ where
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
@@ -735,7 +735,7 @@ async fn forward_stream(
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network

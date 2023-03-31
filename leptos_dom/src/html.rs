@@ -74,13 +74,13 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
     /// The name of the element, i.e., `div`, `p`, `custom-element`.
     fn name(&self) -> Cow<'static, str>;
 
-    /// Determains if the tag is void, i.e., `<input>` and `<br>`.
+    /// Determines if the tag is void, i.e., `<input>` and `<br>`.
     fn is_void(&self) -> bool {
         false
     }
 
     /// A unique `id` that should be generated for each new instance of
-    /// this element, and be consistant for both SSR and CSR.
+    /// this element, and be consistent for both SSR and CSR.
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     fn hydration_id(&self) -> &HydrationKey;
 }
@@ -573,6 +573,23 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         self
     }
 
+    /// Checks to see if this element is mounted to the DOM as a child
+    /// of `body`.
+    ///
+    /// This method will always return [`None`] on non-wasm CSR targets.
+    pub fn is_mounted(&self) -> bool {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            crate::document()
+                .body()
+                .unwrap()
+                .contains(Some(self.element.as_ref()))
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        false
+    }
+
     /// Adds an attribute to this element.
     #[track_caller]
     pub fn attr(
@@ -677,6 +694,108 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             this = this.class(class.to_string(), true);
         }
         this
+    }
+
+    /// Sets the class on the element as the class signal changes.
+    #[track_caller]
+    pub fn dyn_classes<I, C>(
+        self,
+        classes_signal: impl Fn() -> I + 'static,
+    ) -> Self
+    where
+        I: IntoIterator<Item = C>,
+        C: Into<Cow<'static, str>>,
+    {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            use smallvec::SmallVec;
+
+            let class_list = self.element.as_ref().class_list();
+
+            leptos_reactive::create_effect(
+                self.cx,
+                move |prev_classes: Option<
+                    SmallVec<[Cow<'static, str>; 4]>,
+                >| {
+                    let classes = classes_signal()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect::<SmallVec<[Cow<'static, str>; 4]>>(
+                    );
+
+                    let mut new_classes = classes
+                        .iter()
+                        .flat_map(|classes| classes.split_whitespace());
+
+                    if let Some(prev_classes) = prev_classes {
+                        let mut old_classes = prev_classes
+                            .iter()
+                            .flat_map(|classes| classes.split_whitespace());
+
+                        // Remove old classes
+                        for prev_class in old_classes.clone() {
+                            if !new_classes.any(|c| c == prev_class) {
+                                class_list.remove_1(prev_class).unwrap_or_else(
+                                    |err| {
+                                        panic!(
+                                            "failed to add class \
+                                             `{prev_class}`, error: {err:#?}"
+                                        )
+                                    },
+                                );
+                            }
+                        }
+
+                        // Add new classes
+                        for class in new_classes {
+                            if !old_classes.any(|c| c == class) {
+                                class_list.add_1(class).unwrap_or_else(|err| {
+                                    panic!(
+                                        "failed to remove class `{class}`, \
+                                         error: {err:#?}"
+                                    )
+                                });
+                            }
+                        }
+                    } else {
+                        let new_classes = new_classes
+                            .map(ToOwned::to_owned)
+                            .collect::<SmallVec<[_; 4]>>();
+
+                        for class in &new_classes {
+                            class_list.add_1(class).unwrap_or_else(|err| {
+                                panic!(
+                                    "failed to add class `{class}`, error: \
+                                     {err:#?}"
+                                )
+                            });
+                        }
+                    }
+
+                    classes
+                },
+            );
+
+            self
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            let mut this = self;
+
+            let this = classes_signal()
+                .into_iter()
+                .map(Into::into)
+                .flat_map(|classes| {
+                    classes
+                        .split_whitespace()
+                        .map(ToString::to_string)
+                        .collect::<SmallVec<[_; 4]>>()
+                })
+                .fold(this, |this, class| this.class(class, true));
+
+            this
+        }
     }
 
     /// Sets a property on an element.

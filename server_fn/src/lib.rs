@@ -49,7 +49,7 @@
 //! # async fn main() {
 //! async {
 //!   let posts = read_posts(3, "my search".to_string()).await;
-//!   log::debug!("posts = {posts{:#?}");
+//!   log::debug!("posts = {posts:#?}");
 //! }
 //! # }
 //!

@@ -191,7 +191,8 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     )]
     fn get_untracked(&self) -> T {
         with_runtime(self.runtime, move |runtime| {
-            match self.id.try_with_no_subscription(runtime, T::clone) {
+            let f = move |maybe_value: &Option<T>| maybe_value.clone().unwrap();
+            match self.id.try_with_no_subscription(runtime, f) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
                     #[cfg(debug_assertions)]
