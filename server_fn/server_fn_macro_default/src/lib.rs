@@ -6,8 +6,9 @@ use proc_macro::TokenStream;
 use server_fn_macro::server_macro_impl;
 use syn::__private::ToTokens;
 
-/// Declares that a function is a [server function](server_fn). This means that
-/// its body will only run on the server, i.e., when the `ssr` feature is enabled.
+/// Declares that a function is a [server function](https://docs.rs/server_fn/).
+/// This means that its body will only run on the server, i.e., when the `ssr`
+/// feature is enabled.
 ///
 /// You can specify one, two, or three arguments to the server function:
 /// 1. **Required**: A type name that will be used to identify and register the server function
@@ -41,7 +42,7 @@ use syn::__private::ToTokens;
 /// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 ///   inside the function body can’t fail, the processes of serialization/deserialization and the
 ///   network call are fallible.
-/// - **Return types must implement [Serialize](serde::Serialize).**
+/// - **Return types must implement [Serialize](https://docs.rs/serde/latest/serde/trait.Serialize.html).**
 ///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 ///   need to deserialize the result to return it to the client.
 /// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)

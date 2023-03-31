@@ -781,9 +781,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         {
-            let mut this = self;
-
-            let this = classes_signal()
+            classes_signal()
                 .into_iter()
                 .map(Into::into)
                 .flat_map(|classes| {
@@ -792,9 +790,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         .map(ToString::to_string)
                         .collect::<SmallVec<[_; 4]>>()
                 })
-                .fold(this, |this, class| this.class(class, true));
-
-            this
+                .fold(self, |this, class| this.class(class, true))
         }
     }
 

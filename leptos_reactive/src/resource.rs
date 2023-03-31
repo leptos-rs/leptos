@@ -604,6 +604,10 @@ where
                 suspense_cx.has_local_only.set_value(false);
             }
         } else {
+            #[cfg(not(all(feature = "hydrate", debug_assertions)))]
+            {
+                _ = location;
+            }
             #[cfg(all(feature = "hydrate", debug_assertions))]
             crate::macros::debug_warn!(
                 "At {location}, you are reading a resource in `hydrate` mode \

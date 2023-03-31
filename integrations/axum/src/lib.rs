@@ -147,8 +147,9 @@ pub async fn generate_request_and_parts(
     (request, request_parts)
 }
 
-/// A struct to hold the http::request::Request and allow users to take ownership of it
-/// Required by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+/// A struct to hold the [`http::request::Request`] and allow users to take ownership of it
+/// Required by `Request` not being `Clone`. See
+/// [this issue](https://github.com/hyperium/http/pull/574) for eventual resolution:
 #[derive(Debug, Default)]
 pub struct LeptosRequest<B>(Arc<RwLock<Option<Request<B>>>>);
 
@@ -158,12 +159,12 @@ impl<B> Clone for LeptosRequest<B> {
     }
 }
 impl<B> LeptosRequest<B> {
-    /// Overwrite the contents of a LeptosRequest with a new Request<B>
+    /// Overwrite the contents of a LeptosRequest with a new `Request<B>`
     pub fn overwrite(&self, req: Option<Request<B>>) {
         let mut writable = self.0.write();
         *writable = req
     }
-    /// Consume the inner Request<B> inside the LeptosRequest and return it
+    /// Consume the inner `Request<B>` inside the LeptosRequest and return it
     ///```rust, ignore
     /// use axum::{
     /// RequestPartsExt,
@@ -199,7 +200,8 @@ impl<B> LeptosRequest<B> {
 }
 /// Generate a wrapper for the http::Request::Request type that allows one to
 /// process it, access the body, and use axum Extractors on it.
-/// Required by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+/// Required by Request not being Clone. See
+/// [this issue](https://github.com/hyperium/http/pull/574) for eventual resolution:
 pub async fn generate_leptos_request<B>(req: Request<B>) -> LeptosRequest<B>
 where
     B: Default + std::fmt::Debug,
