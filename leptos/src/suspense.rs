@@ -108,11 +108,12 @@ where
                                     let orig_child = Rc::clone(&orig_child);
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        Fragment::lazy(Box::new(move || vec![DynChild::new(move || orig_child(cx)).into_view(cx)
-                                            ]))
-                                            .into_view(cx)
-                                            .render_to_string(cx)
-                                            .to_string()
+                                        Fragment::lazy(Box::new(move || {
+                                            vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
+                                        }))
+                                        .into_view(cx)
+                                        .render_to_string(cx)
+                                        .to_string()
                                     }
                                 },
                                 // in-order streaming
@@ -120,11 +121,13 @@ where
                                     let current_id = current_id.clone();
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        Fragment::lazy(Box::new(move || vec![DynChild::new(move || orig_child(cx)).into_view(cx)]))
-                                            .into_view(cx)
-                                            .into_stream_chunks(cx)
+                                        Fragment::lazy(Box::new(move || {
+                                            vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
+                                        }))
+                                        .into_view(cx)
+                                        .into_stream_chunks(cx)
                                     }
-                                }
+                                },
                             );
 
                             // return the fallback for now, wrapped in fragment identifier
