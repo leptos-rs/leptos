@@ -4,7 +4,6 @@ use convert_case::{
     Casing,
 };
 use itertools::Itertools;
-use once_cell::unsync::Lazy;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
@@ -644,26 +643,22 @@ fn prop_to_doc(
     }
 }
 
-const VALID_SCOPE_TYPES: Lazy<Vec<Type>> = Lazy::new(|| {
-    vec![
+fn is_valid_scope_type(ty: &Type) -> bool {
+    [
         parse_quote!(Scope),
         parse_quote!(leptos::Scope),
         parse_quote!(::leptos::Scope),
     ]
-});
-
-fn is_valid_scope_type(ty: &Type) -> bool {
-    VALID_SCOPE_TYPES.iter().any(|test| ty == test)
+    .iter()
+    .any(|test| ty == test)
 }
 
-const VALID_INTO_VIEW_RETURN_TYPES: Lazy<Vec<ReturnType>> = Lazy::new(|| {
-    vec![
+fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
+    [
         parse_quote!(-> impl IntoView),
         parse_quote!(-> impl leptos::IntoView),
         parse_quote!(-> impl ::leptos::IntoView),
     ]
-});
-
-fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
-    VALID_INTO_VIEW_RETURN_TYPES.iter().any(|test| ty == test)
+    .iter()
+    .any(|test| ty == test)
 }

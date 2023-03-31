@@ -201,13 +201,15 @@ mod template;
 /// ```
 ///
 /// 8. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
-///    [NodeRef](leptos_dom::NodeRef) to use later.
+///    [NodeRef](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to use later.
 /// ```rust
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// use leptos::html::Input;
+///
 /// let (value, set_value) = create_signal(cx, 0);
-/// let my_input = NodeRef::new(cx);
+/// let my_input = create_node_ref::<Input>(cx);
 /// view! { cx, <input type="text" _ref=my_input/> }
 /// // `my_input` now contains an `Element` that we can use anywhere
 /// # ;
@@ -399,9 +401,9 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 /// The `#[component]` macro allows you to annotate plain Rust functions as components
 /// and use them within your Leptos [view](crate::view!) as if they were custom HTML elements. The
-/// component function takes a [Scope](leptos_reactive::Scope) and any number of other arguments.
-/// When you use the component somewhere else, the names of its arguments are the names
-/// of the properties you use in the [view](crate::view!) macro.
+/// component function takes a [Scope](https://docs.rs/leptos/latest/leptos/struct.Scope.html)
+/// and any number of other arguments. When you use the component somewhere else,
+/// the names of its arguments are the names of the properties you use in the [view](crate::view!) macro.
 ///
 /// Every component function should have the return type `-> impl IntoView`.
 ///
@@ -576,8 +578,10 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 /// You can use the `#[prop]` attribute on individual component properties (function arguments) to
 /// customize the types that component property can receive. You can use the following attributes:
 /// * `#[prop(into)]`: This will call `.into()` on any value passed into the component prop. (For example,
-///   you could apply `#[prop(into)]` to a prop that takes [Signal](leptos_reactive::Signal), which would
-///   allow users to pass a [ReadSignal](leptos_reactive::ReadSignal) or [RwSignal](leptos_reactive::RwSignal)
+///   you could apply `#[prop(into)]` to a prop that takes
+///   [Signal](https://docs.rs/leptos/latest/leptos/struct.Signal.html), which would
+///   allow users to pass a [ReadSignal](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) or
+///   [RwSignal](https://docs.rs/leptos/latest/leptos/struct.RwSignal.html)
 ///   and automatically convert it.)
 /// * `#[prop(optional)]`: If the user does not specify this property when they use the component,
 ///   it will be set to its default value. If the property type is `Option<T>`, values should be passed
@@ -640,8 +644,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Declares that a function is a [server function](leptos_server). This means that
-/// its body will only run on the server, i.e., when the `ssr` feature is enabled.
+/// Declares that a function is a [server function](https://docs.rs/server_fn/latest/server_fn/index.html).
+/// This means that its body will only run on the server, i.e., when the `ssr` feature is enabled.
 ///
 /// If you call a server function from the client (i.e., when the `csr` or `hydrate` features
 /// are enabled), it will instead make a network request to the server.
@@ -657,7 +661,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   work without WebAssembly, the encoding must be `"Url"`.
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
-/// and deserializable with `serde`. Optionally, its first argument can be a Leptos [Scope](leptos_reactive::Scope),
+/// and deserializable with `serde`. Optionally, its first argument can be a Leptos
+/// [Scope](https://docs.rs/leptos/latest/leptos/struct.Scope.html),
 /// which will be injected *on the server side.* This can be used to inject the raw HTTP request or other
 /// server-side context into the server function.
 ///
@@ -680,7 +685,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 ///   inside the function body can’t fail, the processes of serialization/deserialization and the
 ///   network call are fallible.
-/// - **Return types must be [Serializable](leptos_reactive::Serializable).**
+/// - **Return types must be [Serializable](https://docs.rs/leptos/latest/leptos/trait.Serializable.html).**
 ///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 ///   need to deserialize the result to return it to the client.
 /// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
@@ -688,8 +693,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   They are serialized as an `application/x-www-form-urlencoded`
 ///   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
 ///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
-/// - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
-///   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
+/// - **The `Scope` comes from the server.** Optionally, the first argument of a server function
+///   can be a Leptos `Scope`. This scope can be used to inject dependencies like the HTTP request
 ///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 #[proc_macro_attribute]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
