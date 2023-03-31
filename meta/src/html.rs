@@ -1,4 +1,4 @@
-use crate::TextProp;
+use crate::{additional_attributes::AdditionalAttributes, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
@@ -9,6 +9,7 @@ pub struct HtmlContext {
     lang: Rc<RefCell<Option<TextProp>>>,
     dir: Rc<RefCell<Option<TextProp>>>,
     class: Rc<RefCell<Option<TextProp>>>,
+    attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
 impl HtmlContext {
@@ -29,7 +30,16 @@ impl HtmlContext {
             .borrow()
             .as_ref()
             .map(|val| format!("class=\"{}\"", val.get()));
-        let mut val = [lang, dir, class]
+        let attributes = self.attributes.borrow().as_ref().map(|val| {
+            val.with(|val| {
+                val.0
+                    .iter()
+                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+        });
+        let mut val = [lang, dir, class, attributes]
             .into_iter()
             .flatten()
             .collect::<Vec<_>>()
@@ -62,7 +72,12 @@ impl std::fmt::Debug for HtmlContext {
 ///
 ///     view! { cx,
 ///       <main>
-///         <Html lang="he" dir="rtl"/>
+///         <Html
+///           lang="he"
+///           dir="rtl"
+///           // arbitrary additional attributes can be passed via `attributes`
+///           attributes=AdditionalAttributes::from(vec![("data-theme", "dark")])
+///         />
 ///       </main>
 ///     }
 /// }
@@ -79,6 +94,9 @@ pub fn Html(
     /// The `class` attribute on the `<html>`.
     #[prop(optional, into)]
     class: Option<TextProp>,
+    /// Arbitrary attributes to add to the `<html>`
+    #[prop(optional, into)]
+    attributes: Option<MaybeSignal<AdditionalAttributes>>,
 ) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -101,16 +119,29 @@ pub fn Html(
             }
 
             if let Some(class) = class {
+                let el = el.clone();
                 create_render_effect(cx, move |_| {
                     let value = class.get();
                     _ = el.set_attribute("class", &value);
                 });
+            }
+
+            if let Some(attributes) = attributes {
+                let attributes = attributes.get();
+                for (attr_name, attr_value) in attributes.0.into_iter() {
+                    let el = el.clone();
+                    create_render_effect(cx, move |_|{
+                        let value = attr_value.get();
+                            _ = el.set_attribute(&attr_name, &value);
+                    });
+                }
             }
         } else {
             let meta = crate::use_head(cx);
             *meta.html.lang.borrow_mut() = lang;
             *meta.html.dir.borrow_mut() = dir;
             *meta.html.class.borrow_mut() = class;
+            *meta.html.attributes.borrow_mut() = attributes;
         }
     }
 }
