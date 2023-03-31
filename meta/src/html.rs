@@ -9,7 +9,7 @@ pub struct HtmlContext {
     lang: Rc<RefCell<Option<TextProp>>>,
     dir: Rc<RefCell<Option<TextProp>>>,
     class: Rc<RefCell<Option<TextProp>>>,
-    attributes: Rc<RefCell<AdditionalAttributes>>,
+    attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
 impl HtmlContext {
@@ -30,11 +30,14 @@ impl HtmlContext {
             .borrow()
             .as_ref()
             .map(|val| format!("class=\"{}\"", val.get()));
-        let attributes = self.attributes.borrow().0.as_ref().map(|val| {
-            val.iter()
-                .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
-                .collect::<Vec<_>>()
-                .join(" ")
+        let attributes = self.attributes.borrow().as_ref().map(|val| {
+            val.with(|val| {
+                val.0
+                    .iter()
+                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
         });
         let mut val = [lang, dir, class, attributes]
             .into_iter()
@@ -88,7 +91,7 @@ pub fn Html(
     class: Option<TextProp>,
     /// Arbitrary attributes to add to the `<html>`
     #[prop(optional, into)]
-    attributes: AdditionalAttributes,
+    attributes: Option<MaybeSignal<AdditionalAttributes>>,
 ) -> impl IntoView {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -118,14 +121,15 @@ pub fn Html(
                 });
             }
 
-            if let Some(attributes) = attributes.0 {
-                for (attr_name, attr_value) in attributes.into_iter() {
+            if let Some(attributes) = attributes {
+                let attributes = attributes.get();
+                for (attr_name, attr_value) in attributes.0.into_iter() {
                     let el = el.clone();
                     create_render_effect(cx, move |_|{
                         let value = attr_value.get();
                             _ = el.set_attribute(&attr_name, &value);
                     });
-                };
+                }
             }
         } else {
             let meta = crate::use_head(cx);

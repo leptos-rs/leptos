@@ -67,6 +67,7 @@ mod script;
 mod style;
 mod stylesheet;
 mod title;
+pub use additional_attributes::*;
 pub use body::*;
 pub use html::*;
 pub use link::*;
