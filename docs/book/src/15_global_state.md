@@ -122,6 +122,7 @@ fn App(cx: Scope) -> impl IntoView {
     provide_context(cx, state);
 
     // ...
+}
 ```
 
 Then child components can access “slices” of that state with fine-grained

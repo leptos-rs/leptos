@@ -107,27 +107,28 @@ fn clear() {
         test_wrapper.clone().unchecked_into(),
         |cx| view! { cx, <SimpleCounter initial_value=10 step=1/> },
     );
+}
 ```
 
 We’ll use some manual DOM operations to grab the `<div>` that wraps
 the whole component, as well as the `clear` button.
 
 ```rust
-    // now we extract the buttons by iterating over the DOM
-    // this would be easier if they had IDs
-    let div = test_wrapper.query_selector("div").unwrap().unwrap();
-    let clear = test_wrapper
-        .query_selector("button")
-        .unwrap()
-        .unwrap()
-        .unchecked_into::<web_sys::HtmlElement>();
+// now we extract the buttons by iterating over the DOM
+// this would be easier if they had IDs
+let div = test_wrapper.query_selector("div").unwrap().unwrap();
+let clear = test_wrapper
+    .query_selector("button")
+    .unwrap()
+    .unwrap()
+    .unchecked_into::<web_sys::HtmlElement>();
 ```
 
 Now we can use ordinary DOM APIs to simulate user interaction.
 
 ```rust
-    // now let's click the `clear` button
-    clear.click();
+// now let's click the `clear` button
+clear.click();
 ```
 
 You can test individual DOM element attributes or text node values. Sometimes
@@ -135,27 +136,27 @@ I like to test the whole view at once. We can do this by testing the element’s
 `outerHTML` against our expectations.
 
 ```rust
-    assert_eq!(
-        div.outer_html(),
-        // here we spawn a mini reactive system to render the test case
-        run_scope(create_runtime(), |cx| {
-            // it's as if we're creating it with a value of 0, right?
-            let (value, set_value) = create_signal(cx, 0);
+assert_eq!(
+    div.outer_html(),
+    // here we spawn a mini reactive system to render the test case
+    run_scope(create_runtime(), |cx| {
+        // it's as if we're creating it with a value of 0, right?
+        let (value, set_value) = create_signal(cx, 0);
 
-            // we can remove the event listeners because they're not rendered to HTML
-            view! { cx,
-                <div>
-                    <button>"Clear"</button>
-                    <button>"-1"</button>
-                    <span>"Value: " {value} "!"</span>
-                    <button>"+1"</button>
-                </div>
-            }
-            // the view returned an HtmlElement<Div>, which is a smart pointer for
-            // a DOM element. So we can still just call .outer_html()
-            .outer_html()
-        })
-    );
+        // we can remove the event listeners because they're not rendered to HTML
+        view! { cx,
+            <div>
+                <button>"Clear"</button>
+                <button>"-1"</button>
+                <span>"Value: " {value} "!"</span>
+                <button>"+1"</button>
+            </div>
+        }
+        // the view returned an HtmlElement<Div>, which is a smart pointer for
+        // a DOM element. So we can still just call .outer_html()
+        .outer_html()
+    })
+);
 ```
 
 That test involved us manually replicating the `view` that’s inside the component.
@@ -164,15 +165,14 @@ with the initial value `0`. This is where our wrapping element comes in: I’ll 
 the wrapper’s `innerHTML` against another comparison case.
 
 ```rust
-    assert_eq!(test_wrapper.inner_html(), {
-        let comparison_wrapper = document.create_element("section").unwrap();
-        leptos::mount_to(
-            comparison_wrapper.clone().unchecked_into(),
-            |cx| view! { cx, <SimpleCounter initial_value=0 step=1/>},
-        );
-        comparison_wrapper.inner_html()
-    });
-}
+assert_eq!(test_wrapper.inner_html(), {
+    let comparison_wrapper = document.create_element("section").unwrap();
+    leptos::mount_to(
+        comparison_wrapper.clone().unchecked_into(),
+        |cx| view! { cx, <SimpleCounter initial_value=0 step=1/>},
+    );
+    comparison_wrapper.inner_html()
+});
 ```
 
 This is only a very limited introduction to testing. But I hope it’s useful as you begin to build applications.

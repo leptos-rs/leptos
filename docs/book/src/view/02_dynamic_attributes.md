@@ -20,6 +20,12 @@ fn App(cx: Scope) -> impl IntoView {
             on:click=move |_| {
                 set_count.update(|n| *n += 1);
             }
+        >
+            "Click me: "
+            {move || count()}
+        </button>
+    }
+}
 ```
 
 So far, this is just the example from the last chapter.
