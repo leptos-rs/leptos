@@ -17,7 +17,7 @@ pub struct SuspenseContext {
     set_pending_resources: WriteSignal<usize>,
     pub(crate) pending_serializable_resources: RwSignal<usize>,
     pub(crate) has_local_only: StoredValue<bool>,
-    pub(crate) should_defer: StoredValue<bool>,
+    pub(crate) should_block: StoredValue<bool>,
 }
 
 impl SuspenseContext {
@@ -27,10 +27,10 @@ impl SuspenseContext {
         self.has_local_only.get_value()
     }
 
-    /// Whether any deferred resources are read under this suspense context,
+    /// Whether any blocking resources are read under this suspense context,
     /// meaning the HTML stream should not begin until it has resolved.
-    pub fn should_defer(&self) -> bool {
-        self.should_defer.get_value()
+    pub fn should_block(&self) -> bool {
+        self.should_block.get_value()
     }
 }
 
@@ -54,13 +54,13 @@ impl SuspenseContext {
         let (pending_resources, set_pending_resources) = create_signal(cx, 0);
         let pending_serializable_resources = create_rw_signal(cx, 0);
         let has_local_only = store_value(cx, true);
-        let should_defer = store_value(cx, false);
+        let should_block = store_value(cx, false);
         Self {
             pending_resources,
             set_pending_resources,
             pending_serializable_resources,
             has_local_only,
-            should_defer,
+            should_block,
         }
     }
 

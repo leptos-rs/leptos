@@ -408,7 +408,7 @@ impl Scope {
                         rx2.next().await;
                         in_order_resolver()
                     }),
-                    should_defer: context.should_defer(),
+                    should_block: context.should_block(),
                 },
             );
         })

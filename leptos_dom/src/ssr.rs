@@ -157,13 +157,12 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     });
     let cx = Scope { runtime, id: scope };
 
-    let deferred_fragments = FuturesUnordered::new();
+    let blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
 
     for (fragment_id, data) in pending_fragments {
-        if data.should_defer {
-            println!("deferred fragment");
-            deferred_fragments
+        if data.should_block {
+            blocking_fragments
                 .push(async move { (fragment_id, data.out_of_order.await) });
         } else {
             fragments
@@ -179,10 +178,10 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 
     // HTML for the view function and script to store resources
     let stream = futures::stream::once(async move {
-        let mut deferred = String::new();
-        let mut deferred_fragments = fragments_to_chunks(deferred_fragments);
-        while let Some(fragment) = deferred_fragments.next().await {
-            deferred.push_str(&fragment);
+        let mut blocking = String::new();
+        let mut blocking_fragments = fragments_to_chunks(blocking_fragments);
+        while let Some(fragment) = blocking_fragments.next().await {
+            blocking.push_str(&fragment);
         }
         let prefix = prefix(cx);
         format!(
@@ -194,7 +193,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
                     __LEPTOS_RESOLVED_RESOURCES = new Map();
                     __LEPTOS_RESOURCE_RESOLVERS = new Map();
                 </script>
-                {deferred}
+                {blocking}
             "#
         )
     })

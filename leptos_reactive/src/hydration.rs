@@ -8,12 +8,6 @@ pub struct SharedContext {
     pub pending_resources: HashSet<ResourceId>,
     pub resolved_resources: HashMap<ResourceId, String>,
     #[allow(clippy::type_complexity)]
-    // index String is the fragment ID: tuple is
-    // `(
-    //    Future of <Suspense/> HTML when resolved (out-of-order)
-    //    Future of additional stream chunks when resolved (in-order)
-    //    whether this suspense is "deferred"
-    // )`
     pub pending_fragments: HashMap<String, FragmentData>,
 }
 
@@ -24,7 +18,7 @@ pub struct FragmentData {
     /// Future that represents how it should be render for an in-order stream.
     pub in_order: PinnedFuture<Vec<StreamChunk>>,
     /// Whether the stream should wait for this fragment before sending any data.
-    pub should_defer: bool,
+    pub should_block: bool,
 }
 
 impl std::fmt::Debug for SharedContext {

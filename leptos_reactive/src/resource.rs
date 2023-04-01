@@ -120,7 +120,7 @@ where
     )
 }
 
-/// Creates a deferred [Resource](crate::Resource). When server-side rendering is used,
+/// Creates a “blocking” [Resource](crate::Resource). When server-side rendering is used,
 /// this resource will cause any `<Suspense/>` you read it under to block the initial
 /// chunk of HTML from being sent to the client. This means that if you set things like
 /// HTTP headers or `<head>` metadata in that `<Suspense/>`, that header material will
@@ -129,8 +129,11 @@ where
 /// This causes a slow time to first byte (TTFB) but is very useful for loading data that
 /// is essential to the first load. For example, a blog post page that needs to include
 /// the title of the blog post in the page’s initial HTML `<title>` tag for SEO reasons
-/// might use a deferred resource to load blog post metadata, which will prevent the page from
+/// might use a blocking resource to load blog post metadata, which will prevent the page from
 /// returning until that data has loaded.
+/// 
+/// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather, 
+/// it is blocking in the sense that it blocks the server from sending a response.
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -144,7 +147,7 @@ where
     )
 )]
 #[track_caller]
-pub fn create_deferred_resource<S, T, Fu>(
+pub fn create_blocking_resource<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
@@ -159,7 +162,7 @@ where
         source,
         fetcher,
         None,
-        ResourceSerialization::Deferred,
+        ResourceSerialization::Blocking,
     )
 }
 
@@ -634,9 +637,9 @@ pub(crate) enum ResourceSerialization {
     Local,
     /// Can be serialized.
     Serializable,
-    /// Can be serialized, and cause the first chunk to be deferred until
+    /// Can be serialized, and cause the first chunk to be blocked until
     /// their suspense has resolved.
-    Deferred,
+    Blocking,
 }
 
 impl<S, T> ResourceState<S, T>
@@ -708,8 +711,8 @@ where
                             s.increment(
                                 serializable != ResourceSerialization::Local,
                             );
-                            if serializable == ResourceSerialization::Deferred {
-                                s.should_defer.set_value(true);
+                            if serializable == ResourceSerialization::Blocking {
+                                s.should_block.set_value(true);
                             }
                         }
                     }
@@ -754,8 +757,8 @@ where
                 suspense_context.increment(
                     self.serializable != ResourceSerialization::Local,
                 );
-                if self.serializable == ResourceSerialization::Deferred {
-                    suspense_context.should_defer.set_value(true);
+                if self.serializable == ResourceSerialization::Blocking {
+                    suspense_context.should_block.set_value(true);
                 }
             }
 
