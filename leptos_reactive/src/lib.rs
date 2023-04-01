@@ -72,6 +72,8 @@ extern crate tracing;
 #[macro_use]
 mod signal;
 mod context;
+#[macro_use]
+mod diagnostics;
 mod effect;
 mod hydration;
 mod memo;
@@ -90,6 +92,7 @@ mod stored_value;
 pub mod suspense;
 
 pub use context::*;
+pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
 pub use memo::*;
 pub use resource::*;
