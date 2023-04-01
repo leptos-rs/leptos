@@ -6,7 +6,7 @@ use crate::{
     RwSignal, Scope, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
-use std::{borrow::Cow, pin::Pin};
+use std::{borrow::Cow, pin::Pin, collections::VecDeque};
 
 /// Tracks [Resource](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
@@ -111,14 +111,19 @@ pub enum StreamChunk {
     /// A chunk of synchronous HTML.
     Sync(Cow<'static, str>),
     /// A future that resolves to be a list of additional chunks.
-    Async(Pin<Box<dyn Future<Output = Vec<StreamChunk>>>>),
+    Async {
+        /// The HTML chunks this contains.
+        chunks: Pin<Box<dyn Future<Output = VecDeque<StreamChunk>>>>,
+        /// Whether this should block the stream.
+        should_block: bool
+    }
 }
 
 impl std::fmt::Debug for StreamChunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StreamChunk::Sync(data) => write!(f, "StreamChunk::Sync({data:?})"),
-            StreamChunk::Async(_) => write!(f, "StreamChunk::Async(_)"),
+            StreamChunk::Async { .. } => write!(f, "StreamChunk::Async(_)"),
         }
     }
 }
