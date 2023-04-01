@@ -131,8 +131,8 @@ where
 /// the title of the blog post in the page’s initial HTML `<title>` tag for SEO reasons
 /// might use a blocking resource to load blog post metadata, which will prevent the page from
 /// returning until that data has loaded.
-/// 
-/// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather, 
+///
+/// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather,
 /// it is blocking in the sense that it blocks the server from sending a response.
 #[cfg_attr(
     debug_assertions,

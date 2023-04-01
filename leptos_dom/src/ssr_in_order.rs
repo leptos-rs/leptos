@@ -9,9 +9,7 @@ use crate::{
 };
 use async_recursion::async_recursion;
 use cfg_if::cfg_if;
-use futures::{
-    channel::mpsc::UnboundedSender, Stream, StreamExt,
-};
+use futures::{channel::mpsc::UnboundedSender, Stream, StreamExt};
 use itertools::Itertools;
 use leptos_reactive::{
     create_runtime, run_scope_undisposed, suspense::StreamChunk, RuntimeId,
@@ -83,7 +81,13 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     let runtime = create_runtime();
 
     let (
-        (blocking_fragments_ready, chunks, prefix, pending_resources, serializers),
+        (
+            blocking_fragments_ready,
+            chunks,
+            prefix,
+            pending_resources,
+            serializers,
+        ),
         scope_id,
         disposer,
     ) = run_scope_undisposed(runtime, |cx| {
@@ -101,7 +105,10 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             cx.serialization_resolvers(),
         )
     });
-    let cx = Scope { runtime, id: scope_id };
+    let cx = Scope {
+        runtime,
+        id: scope_id,
+    };
 
     let (tx, rx) = futures::channel::mpsc::unbounded();
     let (prefix_tx, prefix_rx) = futures::channel::oneshot::channel();
@@ -138,12 +145,18 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
 }
 
 #[async_recursion(?Send)]
-async fn handle_blocking_chunks(tx: UnboundedSender<String>, mut queued_chunks: VecDeque<StreamChunk>) -> VecDeque<StreamChunk> {
+async fn handle_blocking_chunks(
+    tx: UnboundedSender<String>,
+    mut queued_chunks: VecDeque<StreamChunk>,
+) -> VecDeque<StreamChunk> {
     let mut buffer = String::new();
     while let Some(chunk) = queued_chunks.pop_front() {
         match chunk {
             StreamChunk::Sync(sync) => buffer.push_str(&sync),
-            StreamChunk::Async { chunks, should_block } => {
+            StreamChunk::Async {
+                chunks,
+                should_block,
+            } => {
                 if should_block {
                     // add static HTML before the Suspense and stream it down
                     tx.unbounded_send(std::mem::take(&mut buffer))
@@ -154,7 +167,10 @@ async fn handle_blocking_chunks(tx: UnboundedSender<String>, mut queued_chunks: 
                     handle_blocking_chunks(tx.clone(), suspended).await;
                 } else {
                     // TODO: should probably first check if there are any *other* blocking chunks
-                    queued_chunks.push_front(StreamChunk::Async { chunks, should_block: false });
+                    queued_chunks.push_front(StreamChunk::Async {
+                        chunks,
+                        should_block: false,
+                    });
                     break;
                 }
             }
@@ -169,7 +185,10 @@ async fn handle_blocking_chunks(tx: UnboundedSender<String>, mut queued_chunks: 
 }
 
 #[async_recursion(?Send)]
-async fn handle_chunks(tx: UnboundedSender<String>, chunks: VecDeque<StreamChunk>) {
+async fn handle_chunks(
+    tx: UnboundedSender<String>,
+    chunks: VecDeque<StreamChunk>,
+) {
     let mut buffer = String::new();
     for chunk in chunks {
         match chunk {
@@ -209,11 +228,13 @@ impl View {
                 if let Some(data) = cx.take_pending_fragment(&id) {
                     chunks.push_back(StreamChunk::Async {
                         chunks: data.in_order,
-                        should_block: data.should_block
+                        should_block: data.should_block,
                     });
                 }
             }
-            View::Text(node) => chunks.push_back(StreamChunk::Sync(node.content)),
+            View::Text(node) => {
+                chunks.push_back(StreamChunk::Sync(node.content))
+            }
             View::Component(node) => {
                 cfg_if! {
                   if #[cfg(debug_assertions)] {
@@ -355,33 +376,38 @@ impl View {
                             node.id,
                             "dyn-child",
                             true,
-                            Box::new(move |chunks: &mut VecDeque<StreamChunk>| {
-                                if let Some(child) = *child {
-                                    // On debug builds, `DynChild` has two marker nodes,
-                                    // so there is no way for the text to be merged with
-                                    // surrounding text when the browser parses the HTML,
-                                    // but in release, `DynChild` only has a trailing marker,
-                                    // and the browser automatically merges the dynamic text
-                                    // into one single node, so we need to artificially make the
-                                    // browser create the dynamic text as it's own text node
-                                    if let View::Text(t) = child {
-                                        chunks.push_back(
-                                            if !cfg!(debug_assertions) {
-                                                StreamChunk::Sync(
-                                                    format!("<!>{}", t.content)
+                            Box::new(
+                                move |chunks: &mut VecDeque<StreamChunk>| {
+                                    if let Some(child) = *child {
+                                        // On debug builds, `DynChild` has two marker nodes,
+                                        // so there is no way for the text to be merged with
+                                        // surrounding text when the browser parses the HTML,
+                                        // but in release, `DynChild` only has a trailing marker,
+                                        // and the browser automatically merges the dynamic text
+                                        // into one single node, so we need to artificially make the
+                                        // browser create the dynamic text as it's own text node
+                                        if let View::Text(t) = child {
+                                            chunks.push_back(
+                                                if !cfg!(debug_assertions) {
+                                                    StreamChunk::Sync(
+                                                        format!(
+                                                            "<!>{}",
+                                                            t.content
+                                                        )
                                                         .into(),
-                                                )
-                                            } else {
-                                                StreamChunk::Sync(t.content)
-                                            },
-                                        );
-                                    } else {
-                                        child.into_stream_chunks_helper(
-                                            cx, chunks,
-                                        );
+                                                    )
+                                                } else {
+                                                    StreamChunk::Sync(t.content)
+                                                },
+                                            );
+                                        } else {
+                                            child.into_stream_chunks_helper(
+                                                cx, chunks,
+                                            );
+                                        }
                                     }
-                                }
-                            })
+                                },
+                            )
                                 as Box<dyn FnOnce(&mut VecDeque<StreamChunk>)>,
                         )
                     }
@@ -391,32 +417,39 @@ impl View {
                             node.id,
                             "each",
                             true,
-                            Box::new(move |chunks: &mut VecDeque<StreamChunk>| {
-                                for node in children.into_iter().flatten() {
-                                    let id = node.id;
+                            Box::new(
+                                move |chunks: &mut VecDeque<StreamChunk>| {
+                                    for node in children.into_iter().flatten() {
+                                        let id = node.id;
 
-                                    #[cfg(debug_assertions)]
-                                    {
-                                        chunks.push_back(StreamChunk::Sync(
-                                            format!(
+                                        #[cfg(debug_assertions)]
+                                        {
+                                            chunks.push_back(
+                                                StreamChunk::Sync(
+                                                    format!(
                         "<!--hk={}|leptos-each-item-start-->",
                         HydrationCtx::to_string(&id, false)
                       )
-                                            .into(),
-                                        ));
-                                        node.child.into_stream_chunks_helper(
-                                            cx, chunks,
-                                        );
-                                        chunks.push_back(StreamChunk::Sync(
-                                            format!(
+                                                    .into(),
+                                                ),
+                                            );
+                                            node.child
+                                                .into_stream_chunks_helper(
+                                                    cx, chunks,
+                                                );
+                                            chunks.push_back(
+                                                StreamChunk::Sync(
+                                                    format!(
                         "<!--hk={}|leptos-each-item-end-->",
                         HydrationCtx::to_string(&id, true)
                       )
-                                            .into(),
-                                        ));
+                                                    .into(),
+                                                ),
+                                            );
+                                        }
                                     }
-                                }
-                            })
+                                },
+                            )
                                 as Box<dyn FnOnce(&mut VecDeque<StreamChunk>)>,
                         )
                     }

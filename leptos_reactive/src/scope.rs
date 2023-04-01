@@ -8,7 +8,10 @@ use crate::{
     PinnedFuture, ResourceId, StoredValueId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
-use std::{collections::{HashMap, VecDeque}, fmt};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -413,7 +416,7 @@ impl Scope {
                     should_block: context.should_block(),
                     is_ready: Some(Box::pin(async move {
                         rx3.next().await;
-                    }))
+                    })),
                 },
             );
         })
@@ -448,9 +451,7 @@ impl Scope {
             ready
         })
         .unwrap_or_default();
-        Box::pin(async move {
-            while ready.next().await.is_some() { }
-        })
+        Box::pin(async move { while ready.next().await.is_some() {} })
     }
 
     /// Takes the pending HTML for a single `<Suspense/>` node.

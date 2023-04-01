@@ -20,7 +20,7 @@ pub struct FragmentData {
     /// Whether the stream should wait for this fragment before sending any data.
     pub should_block: bool,
     /// Future that will resolve when the fragment is ready.
-    pub is_ready: Option<PinnedFuture<()>>
+    pub is_ready: Option<PinnedFuture<()>>,
 }
 
 impl std::fmt::Debug for SharedContext {
