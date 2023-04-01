@@ -132,6 +132,6 @@ mod macros {
 pub(crate) fn console_warn(s: &str) {
     #[cfg(not(any(feature = "csr", feature = "hydrate")))]
     eprintln!("{s}");
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))]
     web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
 }
