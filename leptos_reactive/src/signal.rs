@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    console_warn, create_effect,
+    console_warn, create_effect, diagnostics,
+    diagnostics::*,
     macros::debug_warn,
     node::NodeId,
     on_cleanup,
@@ -532,6 +533,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
         with_runtime(self.runtime, |runtime| {
             self.id.try_with_no_subscription(runtime, Clone::clone).ok()
@@ -572,12 +574,17 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .ok()
-            .transpose()
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        })
+        .ok()
+        .transpose()
+        .ok()
+        .flatten()
     }
 }
 
@@ -613,9 +620,14 @@ impl<T> SignalWith<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .expect("runtime to be alive ")
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        })
+        .expect("runtime to be alive ")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
@@ -638,10 +650,15 @@ impl<T> SignalWith<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics).ok()
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -672,9 +689,12 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn get(&self) -> T {
+        let diagnostics = diagnostics!(self);
+
         match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, T::clone)
+            self.id.try_with(runtime, T::clone, diagnostics)
         })
         .expect("runtime to be alive")
         {
@@ -755,8 +775,11 @@ where
         &self,
         f: impl FnOnce(&T) -> U,
     ) -> Result<U, SignalError> {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-        {
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        }) {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
@@ -1245,12 +1268,17 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .ok()
-            .transpose()
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        })
+        .ok()
+        .transpose()
+        .ok()
+        .flatten()
     }
 }
 
@@ -1388,9 +1416,14 @@ impl<T> SignalWith<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .expect("runtime to be alive")
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        })
+        .expect("runtime to be alive")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
@@ -1413,10 +1446,15 @@ impl<T> SignalWith<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics).ok()
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -1448,12 +1486,15 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn get(&self) -> T
     where
         T: Clone,
     {
+        let diagnostics = diagnostics!(self);
+
         match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, T::clone)
+            self.id.try_with(runtime, T::clone, diagnostics)
         })
         .expect("runtime to be alive")
         {
@@ -1478,9 +1519,12 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_get(&self) -> Option<T> {
+        let diagnostics = diagnostics!(self);
+
         with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, Clone::clone).ok()
+            self.id.try_with(runtime, Clone::clone, diagnostics).ok()
         })
         .ok()
         .flatten()
@@ -1763,7 +1807,12 @@ pub(crate) enum SignalError {
 }
 
 impl NodeId {
-    pub(crate) fn subscribe(&self, runtime: &Runtime) {
+    #[track_caller]
+    pub(crate) fn subscribe(
+        &self,
+        runtime: &Runtime,
+        diagnostics: AccessDiagnostics,
+    ) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
             // add this observer to this node's dependencies (to allow notification)
@@ -1778,9 +1827,36 @@ impl NodeId {
                 let sources = sources.or_default();
                 sources.borrow_mut().insert(*self);
             }
+        } else {
+            #[cfg(debug_assertions)]
+            {
+                if !SpecialNonReactiveZone::is_inside() {
+                    let AccessDiagnostics {
+                        called_at,
+                        defined_at,
+                    } = diagnostics;
+                    crate::macros::debug_warn!(
+                        "At {called_at}, you access a signal or memo (defined \
+                         at {defined_at}) outside a reactive tracking \
+                         context. This might mean your app is not responding \
+                         to changes in signal values in the way you \
+                         expect.\n\nHere’s how to fix it:\n\n1. If this is \
+                         inside a `view!` macro, make sure you are passing a \
+                         function, not a value.\n  ❌ NO  <p>{{x.get() * \
+                         2}}</p>\n  ✅ YES <p>{{move || x.get() * \
+                         2}}</p>\n\n2. If it’s in the body of a component, \
+                         try wrapping this access in a closure: \n  ❌ NO  \
+                         let y = x.get() * 2\n  ✅ YES let y = move || \
+                         x.get() * 2.\n\n3. If you’re *trying* to access the \
+                         value without tracking, use `.get_untracked()` or \
+                         `.with_untracked()` instead."
+                    );
+                }
+            }
         }
     }
 
+    #[track_caller]
     pub(crate) fn try_with_no_subscription<T, U>(
         &self,
         runtime: &Runtime,
@@ -1804,15 +1880,17 @@ impl NodeId {
         Ok(f(value))
     }
 
+    #[track_caller]
     pub(crate) fn try_with<T, U>(
         &self,
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
+        diagnostics: AccessDiagnostics,
     ) -> Result<U, SignalError>
     where
         T: 'static,
     {
-        self.subscribe(runtime);
+        self.subscribe(runtime, diagnostics);
 
         self.try_with_no_subscription(runtime, f)
     }
