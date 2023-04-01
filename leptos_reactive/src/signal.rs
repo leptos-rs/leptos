@@ -1836,17 +1836,17 @@ impl NodeId {
                         defined_at,
                     } = diagnostics;
                     crate::macros::debug_warn!(
-                        "At {called_at}, you’re trying to access a signal or \
-                         memo that was defined at {defined_at} outside a \
-                         reactive tracking context. This might mean your app \
-                         is not responding to changes in signal values in the \
-                         way you expect.\n\nHere’s how to fix it:\n\n1. If \
-                         this is inside a `view!` macro, make sure you are \
-                         passing a function, not a value.\n  ❌ NO  \
-                         <p>{{x.get() * 2}}</p>\n  ✅ YES <p>{{move || \
-                         x.get() * 2}}</p>\n\n2. If it’s in the body of a \
-                         component, try wrapping this access in a closure: \n  \
-                         ❌ NO  let y = x.get() * 2\n  ✅ YES let y = move || \
+                        "At {called_at}, you access a signal or memo (defined \
+                         at {defined_at}) outside a reactive tracking \
+                         context. This might mean your app is not responding \
+                         to changes in signal values in the way you \
+                         expect.\n\nHere’s how to fix it:\n\n1. If this is \
+                         inside a `view!` macro, make sure you are passing a \
+                         function, not a value.\n  ❌ NO  <p>{{x.get() * \
+                         2}}</p>\n  ✅ YES <p>{{move || x.get() * \
+                         2}}</p>\n\n2. If it’s in the body of a component, \
+                         try wrapping this access in a closure: \n  ❌ NO  \
+                         let y = x.get() * 2\n  ✅ YES let y = move || \
                          x.get() * 2.\n\n3. If you’re *trying* to access the \
                          value without tracking, use `.get_untracked()` or \
                          `.with_untracked()` instead."
