@@ -103,9 +103,13 @@ pub trait ServerFunctionRegistry<T> {
     fn register(
         url: &'static str,
         server_function: Arc<ServerFnTraitObj<T>>,
+        encoding: Encoding,
     ) -> Result<(), Self::Error>;
     /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
     fn get(url: &str) -> Option<Arc<ServerFnTraitObj<T>>>;
+    /// Returns the encoding of the server FN at the given URL, or `None` if no function is
+    /// registered at that URL
+    fn get_encoding(url: &str) -> Option<Encoding>;
     /// Returns a list of all registered server functions.
     fn paths_registered() -> Vec<&'static str>;
 }
@@ -179,6 +183,13 @@ pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     R::get(path)
 }
 
+/// Returns the Encoding of the server fn  at a particular path
+#[cfg(any(feature = "ssr", doc))]
+pub fn server_fn_encoding_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
+    path: &str,
+) -> Option<Encoding> {
+    R::get_encoding(path)
+}
 /// Returns the set of currently-registered server function paths, for debugging purposes.
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fns_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
@@ -188,12 +199,16 @@ pub fn server_fns_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 
 /// Holds the current options for encoding types.
 /// More could be added, but they need to be serde
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Encoding {
     /// A Binary Encoding Scheme Called Cbor
     Cbor,
     /// The Default URL-encoded encoding method
     Url,
+    /// Pass arguments to server fns as part of the query string. Cacheable. Returns JSON
+    GetJSON,
+    /// Pass arguments to server fns as part of the query string. Cacheable. Returns CBOR
+    GetCBOR,
 }
 
 impl FromStr for Encoding {
@@ -203,6 +218,8 @@ impl FromStr for Encoding {
         match input {
             "URL" => Ok(Encoding::Url),
             "Cbor" => Ok(Encoding::Cbor),
+            "GetCbor" => Ok(Encoding::GetCBOR),
+            "GetJson" => Ok(Encoding::GetJSON),
             _ => Err(()),
         }
     }
@@ -213,6 +230,8 @@ impl quote::ToTokens for Encoding {
         let option: syn::Ident = match *self {
             Encoding::Cbor => parse_quote!(Cbor),
             Encoding::Url => parse_quote!(Url),
+            Encoding::GetJSON => parse_quote!(GetJSON),
+            Encoding::GetCBOR => parse_quote!(GetCBOR),
         };
         let expansion: syn::Ident = syn::parse_quote! {
           Encoding::#option
@@ -270,10 +289,16 @@ where
         let run_server_fn = Arc::new(|cx: T, data: &[u8]| {
             // decode the args
             let value = match Self::encoding() {
-                Encoding::Url => serde_urlencoded::from_bytes(data)
-                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
-                Encoding::Cbor => ciborium::de::from_reader(data)
-                    .map_err(|e| ServerFnError::Deserialization(e.to_string())),
+                Encoding::Url | Encoding::GetJSON => {
+                    serde_urlencoded::from_bytes(data).map_err(|e| {
+                        ServerFnError::Deserialization(e.to_string())
+                    })
+                }
+                Encoding::Cbor | Encoding::GetCBOR => {
+                    ciborium::de::from_reader(data).map_err(|e| {
+                        ServerFnError::Deserialization(e.to_string())
+                    })
+                }
             };
             Box::pin(async move {
                 let value: Self = match value {
@@ -289,14 +314,15 @@ where
 
                 // serialize the output
                 let result = match Self::encoding() {
-                    Encoding::Url => match serde_json::to_string(&result)
-                        .map_err(|e| {
+                    Encoding::Url | Encoding::GetJSON => {
+                        match serde_json::to_string(&result).map_err(|e| {
                             ServerFnError::Serialization(e.to_string())
                         }) {
-                        Ok(r) => Payload::Url(r),
-                        Err(e) => return Err(e),
-                    },
-                    Encoding::Cbor => {
+                            Ok(r) => Payload::Url(r),
+                            Err(e) => return Err(e),
+                        }
+                    }
+                    Encoding::Cbor | Encoding::GetCBOR => {
                         let mut buffer: Vec<u8> = Vec::new();
                         match ciborium::ser::into_writer(&result, &mut buffer)
                             .map_err(|e| {
@@ -314,7 +340,7 @@ where
         });
 
         // store it in the hashmap
-        R::register(Self::url(), run_server_fn)
+        R::register(Self::url(), run_server_fn, Self::encoding())
             .map_err(|e| ServerFnError::Registration(e.to_string()))
     }
 }
@@ -366,11 +392,11 @@ where
         Url(String),
     }
     let args_encoded = match &enc {
-        Encoding::Url => Payload::Url(
+        Encoding::Url | Encoding::GetJSON => Payload::Url(
             serde_urlencoded::to_string(&args)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
         ),
-        Encoding::Cbor => {
+        Encoding::Cbor | Encoding::GetCBOR => {
             let mut buffer: Vec<u8> = Vec::new();
             into_writer(&args, &mut buffer)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
@@ -379,54 +405,94 @@ where
     };
 
     let content_type_header = match &enc {
-        Encoding::Url => "application/x-www-form-urlencoded",
+        Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
+            "application/x-www-form-urlencoded"
+        }
         Encoding::Cbor => "application/cbor",
     };
 
     let accept_header = match &enc {
-        Encoding::Url => "application/x-www-form-urlencoded",
-        Encoding::Cbor => "application/cbor",
+        Encoding::Url | Encoding::GetJSON => {
+            "application/x-www-form-urlencoded"
+        }
+        Encoding::Cbor | Encoding::GetCBOR => "application/cbor",
     };
 
     #[cfg(target_arch = "wasm32")]
-    let resp = match args_encoded {
-        Payload::Binary(b) => {
-            let slice_ref: &[u8] = &b;
-            let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
-            gloo_net::http::Request::post(url)
+    let resp = match &enc {
+        Encoding::Url | Encoding::Cbor => match args_encoded {
+            Payload::Binary(b) => {
+                let slice_ref: &[u8] = &b;
+                let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
+                gloo_net::http::Request::post(url)
+                    .header("Content-Type", content_type_header)
+                    .header("Accept", accept_header)
+                    .body(js_array)
+                    .send()
+                    .await
+                    .map_err(|e| ServerFnError::Request(e.to_string()))?
+            }
+            Payload::Url(s) => gloo_net::http::Request::post(url)
                 .header("Content-Type", content_type_header)
                 .header("Accept", accept_header)
-                .body(js_array)
+                .body(s)
                 .send()
                 .await
-                .map_err(|e| ServerFnError::Request(e.to_string()))?
-        }
-        Payload::Url(s) => gloo_net::http::Request::post(url)
-            .header("Content-Type", content_type_header)
-            .header("Accept", accept_header)
-            .body(s)
-            .send()
-            .await
-            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+        },
+        Encoding::GetCBOR | Encoding::GetJSON => match args_encoded {
+            Payload::Binary(b) => panic!(
+                "Binary data cannot be transferred via GET request in a query \
+                 string. Please try using the CBOR encoding."
+            ),
+            Payload::Url(s) => {
+                let full_url = format!("{url}?{s}");
+                gloo_net::http::Request::get(&full_url)
+                    .header("Content-Type", content_type_header)
+                    .header("Accept", accept_header)
+                    .send()
+                    .await
+                    .map_err(|e| ServerFnError::Request(e.to_string()))?
+            }
+        },
     };
     #[cfg(not(target_arch = "wasm32"))]
-    let resp = match args_encoded {
-        Payload::Binary(b) => CLIENT
-            .post(url)
-            .header("Content-Type", content_type_header)
-            .header("Accept", accept_header)
-            .body(b)
-            .send()
-            .await
-            .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        Payload::Url(s) => CLIENT
-            .post(url)
-            .header("Content-Type", content_type_header)
-            .header("Accept", accept_header)
-            .body(s)
-            .send()
-            .await
-            .map_err(|e| ServerFnError::Request(e.to_string()))?,
+    let resp = match &enc {
+        Encoding::Url | Encoding::Cbor => match args_encoded {
+            Payload::Binary(b) => CLIENT
+                .post(url)
+                .header("Content-Type", content_type_header)
+                .header("Accept", accept_header)
+                .body(b)
+                .send()
+                .await
+                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+            Payload::Url(s) => CLIENT
+                .post(url)
+                .header("Content-Type", content_type_header)
+                .header("Accept", accept_header)
+                .body(s)
+                .send()
+                .await
+                .map_err(|e| ServerFnError::Request(e.to_string()))?,
+        },
+        Encoding::GetJSON | Encoding::GetCBOR => match args_encoded {
+            Payload::Binary(b) => panic!(
+                "Binary data cannot be transferred via GET request in a query \
+                 string. Please try using the CBOR encoding."
+            ),
+
+            Payload::Url(s) => {
+                let full_url = format!("{url}?{s}");
+                CLIENT
+                    .get(full_url)
+                    .header("Content-Type", content_type_header)
+                    .header("Accept", accept_header)
+                    .send()
+                    .await
+                    .map_err(|e| ServerFnError::Request(e.to_string()))?
+            }
+        },
     };
 
     // check for error status
@@ -441,7 +507,8 @@ where
         return Err(ServerFnError::ServerError(status_text));
     }
 
-    if enc == Encoding::Cbor {
+    // Decoding the body of the request
+    if (enc == Encoding::Cbor) || (enc == Encoding::GetCBOR) {
         #[cfg(target_arch = "wasm32")]
         let binary = resp
             .binary()

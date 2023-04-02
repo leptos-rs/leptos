@@ -274,6 +274,10 @@ impl Parse for ServerFnName {
             .map(|encoding| match encoding.to_string().as_str() {
                 "\"Url\"" => syn::parse_quote!(Encoding::Url),
                 "\"Cbor\"" => syn::parse_quote!(Encoding::Cbor),
+                "\"GetCbor\"" => syn::parse_quote!(Encoding::GetCBOR),
+                "\"GetCBOR\"" => syn::parse_quote!(Encoding::GetCBOR),
+                "\"GetJSON\"" => syn::parse_quote!(Encoding::GetJSON),
+                "\"GETJson\"" => syn::parse_quote!(Encoding::GetJSON),
                 _ => abort!(encoding, "Encoding Not Found"),
             })
             .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));

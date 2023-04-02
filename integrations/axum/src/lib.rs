@@ -8,7 +8,7 @@
 
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    extract::Path,
+    extract::{Path, RawQuery},
     http::{
         header::{HeaderName, HeaderValue},
         HeaderMap, Request, StatusCode,
@@ -23,7 +23,8 @@ use futures::{
 use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::{
-    leptos_server::{server_fn_by_path, Payload},
+    leptos_server::{server_fn_by_path, server_fn_encoding_by_path, Payload},
+    server_fn::Encoding,
     ssr::*,
     *,
 };
@@ -248,9 +249,10 @@ where
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
+    RawQuery(query): RawQuery,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    handle_server_fns_inner(fn_name, headers, |_| {}, req).await
+    handle_server_fns_inner(fn_name, headers, query, |_| {}, req).await
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
@@ -270,15 +272,18 @@ pub async fn handle_server_fns(
 pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
+    RawQuery(query): RawQuery,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    handle_server_fns_inner(fn_name, headers, additional_context, req).await
+    handle_server_fns_inner(fn_name, headers, query, additional_context, req)
+        .await
 }
 
 async fn handle_server_fns_inner(
     fn_name: String,
     headers: HeaderMap,
+    query: Option<String>,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
@@ -312,7 +317,23 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            match server_fn(cx, &req_parts.body).await {
+                            // Supply either the query string for Get* encodings or the body for
+                            // the rest
+                            let encoding: Encoding =
+                                server_fn_encoding_by_path(fn_name.as_str())
+                                    .expect(
+                                        "Every Server Fn should have an \
+                                         Encoding!",
+                                    );
+                            let query: &Bytes =
+                                &query.unwrap_or("".to_string()).into();
+                            let data = match encoding {
+                                Encoding::Url | Encoding::Cbor => {
+                                    &req_parts.body
+                                }
+                                Encoding::GetJSON | Encoding::GetCBOR => query,
+                            };
+                            match server_fn(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =

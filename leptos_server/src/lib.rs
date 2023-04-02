@@ -97,6 +97,7 @@ type ServerFnTraitObj = server_fn::ServerFnTraitObj<Scope>;
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
     static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
+    static ref REGISTERED_SERVER_FUNCTION_ENCODINGS: Arc<RwLock<HashMap<&'static str, Encoding>>> = Default::default();
 }
 
 #[cfg(any(feature = "ssr", doc))]
@@ -110,12 +111,19 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     fn register(
         url: &'static str,
         server_function: Arc<ServerFnTraitObj>,
+        encoding: Encoding,
     ) -> Result<(), Self::Error> {
         // store it in the hashmap
-        let mut write = REGISTERED_SERVER_FUNCTIONS
+        let mut func_write = REGISTERED_SERVER_FUNCTIONS
             .write()
             .map_err(|e| ServerRegistrationFnError::Poisoned(e.to_string()))?;
-        let prev = write.insert(url, server_function);
+        let prev = func_write.insert(url, server_function);
+
+        let mut enc_write = REGISTERED_SERVER_FUNCTION_ENCODINGS
+            .write()
+            .map_err(|e| ServerRegistrationFnError::Poisoned(e.to_string()))?;
+
+        let _enc = enc_write.insert(url, encoding);
 
         // if there was already a server function with this key,
         // return Err
@@ -136,6 +144,12 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
     fn get(url: &str) -> Option<Arc<ServerFnTraitObj>> {
         REGISTERED_SERVER_FUNCTIONS
+            .read()
+            .ok()
+            .and_then(|fns| fns.get(url).cloned())
+    }
+    fn get_encoding(url: &str) -> Option<Encoding> {
+        REGISTERED_SERVER_FUNCTION_ENCODINGS
             .read()
             .ok()
             .and_then(|fns| fns.get(url).cloned())
@@ -211,6 +225,12 @@ pub enum ServerRegistrationFnError {
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
     server_fn::server_fn_by_path::<Scope, LeptosServerFnRegistry>(path)
+}
+
+/// Get the Encoding of a server fn if one is registered at that path. Otherwise, return None
+#[cfg(any(feature = "ssr", doc))]
+pub fn server_fn_encoding_by_path(path: &str) -> Option<Encoding> {
+    server_fn::server_fn_encoding_by_path::<Scope, LeptosServerFnRegistry>(path)
 }
 
 /// Returns the set of currently-registered server function paths, for debugging purposes.
