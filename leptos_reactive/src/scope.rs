@@ -5,7 +5,8 @@ use crate::{
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, StoredValueId, SuspenseContext, SpecialNonReactiveZone,
+    PinnedFuture, ResourceId, SpecialNonReactiveZone, StoredValueId,
+    SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
 use std::{
