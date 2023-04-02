@@ -5,7 +5,7 @@ use crate::{
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, StoredValueId, SuspenseContext,
+    PinnedFuture, ResourceId, StoredValueId, SuspenseContext, SpecialNonReactiveZone,
 };
 use futures::stream::FuturesUnordered;
 use std::{
@@ -176,9 +176,11 @@ impl Scope {
     /// ```
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
+            SpecialNonReactiveZone::enter();
             let prev_observer = runtime.observer.take();
             let untracked_result = f();
             runtime.observer.set(prev_observer);
+            SpecialNonReactiveZone::exit();
             untracked_result
         })
         .expect(
