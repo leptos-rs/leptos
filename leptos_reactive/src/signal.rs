@@ -771,6 +771,7 @@ where
 
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
+    #[track_caller]
     pub(crate) fn try_with<U>(
         &self,
         f: impl FnOnce(&T) -> U,
@@ -1828,7 +1829,7 @@ impl NodeId {
                 sources.borrow_mut().insert(*self);
             }
         } else {
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(feature = "ssr")))]
             {
                 if !SpecialNonReactiveZone::is_inside() {
                     let AccessDiagnostics {

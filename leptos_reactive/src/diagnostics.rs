@@ -5,6 +5,7 @@ use cfg_if::cfg_if;
 // you create a signal/memo, and where you access it non-reactively.
 
 #[cfg(debug_assertions)]
+#[allow(dead_code)] // allowed for SSR
 #[derive(Copy, Clone)]
 pub(crate) struct AccessDiagnostics {
     pub defined_at: &'static std::panic::Location<'static>,
@@ -33,6 +34,7 @@ cfg_if! {
 }
 
 impl SpecialNonReactiveZone {
+    #[allow(dead_code)] // allowed for SSR
     pub(crate) fn is_inside() -> bool {
         #[cfg(debug_assertions)]
         {
