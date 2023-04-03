@@ -114,18 +114,6 @@ pub fn server_macro_impl(
             .as_ref()
             .and_then(|ctx| fn_arg_is_cx(f, ctx).then_some(f))
     });
-    let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
-        if let Pat::Ident(id) = &*arg.pat {
-            quote! {
-                #[allow(unused)]
-                let #id = cx;
-            }
-        } else {
-            quote! {}
-        }
-    } else {
-        quote! {}
-    };
     let cx_fn_arg = if cx_arg.is_some() {
         quote! { cx, }
     } else {
@@ -230,7 +218,6 @@ pub fn server_macro_impl(
             #[cfg(feature = "ssr")]
             fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;
-                #cx_assign_statement;
                 Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
             }
 
@@ -247,6 +234,7 @@ pub fn server_macro_impl(
         }
 
         #[cfg(not(feature = "ssr"))]
+        #[allow(unused_variables)]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
             let prefix = #struct_name::prefix().to_string();
             let url = prefix + "/" + #struct_name::url();
