@@ -463,7 +463,7 @@ where
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
         },
         Encoding::GetCBOR | Encoding::GetJSON => match args_encoded {
-            Payload::Binary(b) => panic!(
+            Payload::Binary(_) => panic!(
                 "Binary data cannot be transferred via GET request in a query \
                  string. Please try using the CBOR encoding."
             ),
@@ -499,7 +499,7 @@ where
                 .map_err(|e| ServerFnError::Request(e.to_string()))?,
         },
         Encoding::GetJSON | Encoding::GetCBOR => match args_encoded {
-            Payload::Binary(b) => panic!(
+            Payload::Binary(_) => panic!(
                 "Binary data cannot be transferred via GET request in a query \
                  string. Please try using the CBOR encoding."
             ),

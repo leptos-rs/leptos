@@ -18,6 +18,7 @@ use http::StatusCode;
 use leptos::{
     leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
     leptos_server::{server_fn_by_path, Payload},
+    server_fn::Encoding,
     *,
 };
 use leptos_integration_utils::{build_async_response, html_parts_separated};
@@ -194,7 +195,15 @@ pub fn handle_server_fns_with_context(
                     provide_context(cx, req.clone());
                     provide_context(cx, res_options.clone());
 
-                    match server_fn(cx, body).await {
+                    let query = req.query_string().as_bytes();
+
+                    let data = match &server_fn.encoding {
+                        Encoding::Url | Encoding::Cbor => {
+                            &body
+                        }
+                        Encoding::GetJSON | Encoding::GetCBOR => query,
+                    };
+                    match (server_fn.trait_obj)(cx, data).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
