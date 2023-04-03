@@ -50,15 +50,36 @@ pub fn Routes(
 /// between routes.
 ///
 /// You should locate the `<AnimatedRoutes/>` component wherever on the page you want the routes to appear.
+/// 
+/// ## Animations
+/// The router uses CSS classes for animations, and transitions to the next specified class in order when 
+/// the `animationend` event fires. Each property takes a `&'static str` that can contain a class or classes 
+/// to be added at certain points. These CSS classes must have associated animations.
+/// - `outro`: added when route is being unmounted
+/// - `start`: added when route is first created
+/// - `intro`: added after `start` has completed (if defined), and the route is being mounted 
+/// - `finally`: added after the `intro` animation is complete
+/// 
+/// Each of these properties is optional, and the router will transition to the next correct state 
+/// whenever an `animationend` event fires.
 #[component]
 pub fn AnimatedRoutes(
     cx: Scope,
     /// Base path relative at which the routes are mounted.
     #[prop(optional)]
     base: Option<String>,
-    /// Configuration for router animations.
+    /// CSS class added when route is being unmounted
     #[prop(optional)]
-    animation: Animation,
+    outro: Option<&'static str>,
+    /// CSS class added when route is first created
+    #[prop(optional)]
+    start: Option<&'static str>,
+    /// CSS class added while the route is being mounted
+    #[prop(optional)]
+    intro: Option<&'static str>,
+    /// CSS class added after other animations have completed.
+    #[prop(optional)]
+    finally: Option<&'static str>,
     children: Children,
 ) -> impl IntoView {
     let router = use_context::<RouterContext>(cx)
@@ -71,11 +92,11 @@ pub fn AnimatedRoutes(
         *context.0.borrow_mut() = branches.clone();
     }
 
+    let animation = Animation { outro, start, intro, finally };
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
-    let animation_and_route = create_memo(cx, {
-        let animation = animation.clone();
+    let animation_and_route = create_memo(cx, 
         move |prev: Option<&(AnimationState, String)>| {
             leptos::log!("animation_and_route {prev:?}");
             let next_route = next_route.get();
@@ -93,54 +114,36 @@ pub fn AnimatedRoutes(
                 }
             }
         }
-    });
+    );
     let current_animation =
         create_memo(cx, move |_| animation_and_route.get().0);
-    let current_route = match animation {
-        Animation::None => next_route,
-        Animation::Classes { .. } => {
-            create_memo(cx, move |_| animation_and_route.get().1)
-        }
-    };
+    let current_route = create_memo(cx, move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
     let route_states = route_states(cx, &router, branches, current_route, &root_equal);
 
-    let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
 
-    let anim_config = animation.clone();
-    match animation {
-        Animation::None => {
-            leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
-                .into_view(cx)
-        }
-        Animation::Classes {
-            start,
-            outro,
-            intro,
-            finally,
-        } => html::div(cx)
-            .attr(
-                "class",
-                (cx, move || match current_animation.get() {
-                    AnimationState::Outro => outro.unwrap_or_default(),
-                    AnimationState::Start => start.unwrap_or_default(),
-                    AnimationState::Intro => intro.unwrap_or_default(),
-                    AnimationState::Finally => finally.unwrap_or_default(),
-                }),
-            )
-            .on(leptos::ev::animationend, move |_| {
-                let current = current_animation.get();
-                set_animation_state.update(|current_state| {
-                    let (next, _) = anim_config.next_state(&current);
-                    *current_state = next;
-                    leptos::log!("animation updating to {next:?}");
-                });
-            })
-            .child(move || root.get())
-            .into_view(cx),
-    }
+    html::div(cx)
+        .attr(
+            "class",
+            (cx, move || match current_animation.get() {
+                AnimationState::Outro => outro.unwrap_or_default(),
+                AnimationState::Start => start.unwrap_or_default(),
+                AnimationState::Intro => intro.unwrap_or_default(),
+                AnimationState::Finally => finally.unwrap_or_default(),
+            }),
+        )
+        .on(leptos::ev::animationend, move |_| {
+            let current = current_animation.get();
+            set_animation_state.update(|current_state| {
+                let (next, _) = animation.next_state(&current);
+                *current_state = next;
+                leptos::log!("animation updating to {next:?}");
+            });
+        })
+        .child(move || root.get())
+        .into_view(cx)
 }
 
 fn build_branches(cx: Scope, children: Children, base: Option<String>) -> Vec<Branch> {
