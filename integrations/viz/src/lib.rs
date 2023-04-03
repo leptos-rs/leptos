@@ -186,7 +186,7 @@ async fn handle_server_fns_inner(
 ) -> Result<Response> {
     let fn_name = req.params::<String>()?;
     let headers = req.headers().clone();
-    let query= req.query_string().unwrap_or("").to_owned().into();
+    let query = req.query_string().unwrap_or("").to_owned().into();
     let (tx, rx) = futures::channel::oneshot::channel();
     spawn_blocking({
         move || {
