@@ -164,7 +164,7 @@ pub enum Payload {
 ///
 ///     if let Some(server_fn) = server_fn_by_path::<MyRegistry>(path.as_str()) {
 ///         let body: &[u8] = &body;
-///         match server_fn(&body).await {
+///         match server_fn.trait_obj()(&body).await {
 ///             Ok(serialized) => {
 ///                 // if this is Accept: application/json then send a serialized JSON response
 ///                 if let Some("application/json") = accept_header {

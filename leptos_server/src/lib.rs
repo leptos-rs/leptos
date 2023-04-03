@@ -212,10 +212,13 @@ pub fn server_fn_by_path(path: &str) -> Option<ServerFunction> {
 ///         .headers()
 ///         .get("Accept")
 ///         .and_then(|value| value.to_str().ok());
-///
 ///     if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-///         let body: &[u8] = &body;
-///         match server_fn(&body).await {
+///         let query = req.query_string().as_bytes();
+///         let data = match &server_fn.encoding {
+///             Encoding::Url | Encoding::Cbor => &body,
+///             Encoding::GetJSON | Encoding::GetCBOR => query,
+///         };
+///         match (server_fn.trait_obj)(data).await {
 ///             Ok(serialized) => {
 ///                 // if this is Accept: application/json then send a serialized JSON response
 ///                 if let Some("application/json") = accept_header {
