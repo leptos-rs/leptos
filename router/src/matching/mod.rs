@@ -16,7 +16,7 @@ pub(crate) struct RouteMatch {
 }
 
 pub(crate) fn get_route_matches(
-    branches: Vec<Branch>,
+    branches: &Vec<Branch>,
     location: String,
 ) -> Vec<RouteMatch> {
     for branch in branches {

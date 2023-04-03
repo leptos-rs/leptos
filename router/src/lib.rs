@@ -187,6 +187,7 @@
 #![cfg_attr(not(feature = "stable"), feature(negative_impls))]
 #![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
+mod animation;
 mod components;
 #[cfg(any(feature = "ssr", doc))]
 mod extract_routes;
@@ -195,6 +196,7 @@ mod hooks;
 #[doc(hidden)]
 pub mod matching;
 mod render_mode;
+pub use animation::*;
 pub use components::*;
 #[cfg(any(feature = "ssr", doc))]
 pub use extract_routes::*;

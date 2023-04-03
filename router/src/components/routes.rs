@@ -3,7 +3,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    RouteContext, RouterContext,
+    RouteContext, RouterContext, animation::*
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -13,90 +13,45 @@ use std::{
     rc::Rc,
 };
 
-/// Configures what animation should be shown when transitioning
-/// between two root routes. Defaults to `None`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Animation {
-    /// No animation set up.
-    None,
-    /// Animated using CSS classes.
-    Classes {
-        /// Class set when a route is first painted.
-        start: Option<&'static str>,
-        /// Class set when a route is fading out.
-        outro: Option<&'static str>,
-        /// Class set when a route is fading in.
-        intro: Option<&'static str>,
-        /// Class set when all animations have finished.
-        finally: Option<&'static str>,
-    },
-}
-
-impl Animation {
-    fn next_state(&self, current: &AnimationState) -> (AnimationState, bool) {
-        leptos::log!("Animation::next_state() current is {current:?}");
-        match self {
-            Self::None => (AnimationState::Finally, true),
-            Self::Classes {
-                start,
-                outro,
-                intro,
-                finally,
-            } => match current {
-                AnimationState::Outro => {
-                    let next = if start.is_some() {
-                        AnimationState::Start
-                    } else if intro.is_some() {
-                        AnimationState::Intro
-                    } else {
-                        AnimationState::Finally
-                    };
-                    (next, true)
-                }
-                AnimationState::Start => {
-                    let next = if intro.is_some() {
-                        AnimationState::Intro
-                    } else {
-                        AnimationState::Finally
-                    };
-                    (next, false)
-                }
-                AnimationState::Intro => (AnimationState::Finally, false),
-                AnimationState::Finally => {
-                    if outro.is_some() {
-                        (AnimationState::Outro, false)
-                    } else if start.is_some() {
-                        (AnimationState::Start, true)
-                    } else if intro.is_some() {
-                        (AnimationState::Intro, true)
-                    } else {
-                        (AnimationState::Finally, true)
-                    }
-                }
-            },
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
-enum AnimationState {
-    Outro,
-    Start,
-    Intro,
-    Finally,
-}
-
-impl Default for Animation {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Contains route definitions and manages the actual routing process.
 ///
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 #[component]
 pub fn Routes(
+    cx: Scope,
+    /// Base path relative at which the routes are mounted.
+    #[prop(optional)]
+    base: Option<String>,
+    children: Children,
+) -> impl IntoView {
+    let router = use_context::<RouterContext>(cx)
+        .expect("<Routes/> component should be nested within a <Router/>.");
+    let base_route = router.base();
+    let branches = build_branches(cx, children, base);
+
+    #[cfg(feature = "ssr")]
+    if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
+        *context.0.borrow_mut() = branches.clone();
+    }
+
+    let next_route = router.pathname();
+    let current_route = next_route;
+
+    let root_equal = Rc::new(Cell::new(true));
+    let route_states = route_states(cx, &router, branches, current_route, &root_equal);
+
+    let id = HydrationCtx::id();
+    let root = root_route(cx, base_route, route_states, root_equal);
+    leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
+        .into_view(cx)
+}
+
+/// Contains route definitions and manages the actual routing process, with animated transitions 
+/// between routes.
+///
+/// You should locate the `<AnimatedRoutes/>` component wherever on the page you want the routes to appear.
+#[component]
+pub fn AnimatedRoutes(
     cx: Scope,
     /// Base path relative at which the routes are mounted.
     #[prop(optional)]
@@ -109,26 +64,7 @@ pub fn Routes(
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
-
-    let mut branches = Vec::new();
-    let frag = children(cx);
-    let children = frag
-        .as_children()
-        .iter()
-        .filter_map(|child| {
-            child
-                .as_transparent()
-                .and_then(|t| t.downcast_ref::<RouteDefinition>())
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-
-    create_branches(
-        &children,
-        &base.unwrap_or_default(),
-        &mut Vec::new(),
-        &mut branches,
-    );
+    let branches = build_branches(cx, children, base);
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
@@ -148,12 +84,6 @@ pub fn Routes(
                 Some((prev_state, prev_route)) => {
                     let (next_state, can_advance) =
                         animation.next_state(prev_state);
-                    let animation_state = animation_state.get();
-                    /*let next_state = if animation_state > next_state {
-                        animation_state
-                    } else {
-                        next_state
-                    };*/
 
                     if can_advance {
                         (next_state, next_route)
@@ -173,19 +103,96 @@ pub fn Routes(
         }
     };
 
+    let root_equal = Rc::new(Cell::new(true));
+    let route_states = route_states(cx, &router, branches, current_route, &root_equal);
+
+    let id = HydrationCtx::id();
+    let root = root_route(cx, base_route, route_states, root_equal);
+
+    let anim_config = animation.clone();
+    match animation {
+        Animation::None => {
+            leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
+                .into_view(cx)
+        }
+        Animation::Classes {
+            start,
+            outro,
+            intro,
+            finally,
+        } => html::div(cx)
+            .attr(
+                "class",
+                (cx, move || match current_animation.get() {
+                    AnimationState::Outro => outro.unwrap_or_default(),
+                    AnimationState::Start => start.unwrap_or_default(),
+                    AnimationState::Intro => intro.unwrap_or_default(),
+                    AnimationState::Finally => finally.unwrap_or_default(),
+                }),
+            )
+            .on(leptos::ev::animationend, move |_| {
+                let current = current_animation.get();
+                set_animation_state.update(|current_state| {
+                    let (next, _) = anim_config.next_state(&current);
+                    *current_state = next;
+                    leptos::log!("animation updating to {next:?}");
+                });
+            })
+            .child(move || root.get())
+            .into_view(cx),
+    }
+}
+
+fn build_branches(cx: Scope, children: Children, base: Option<String>) -> Vec<Branch> {
+    let mut branches = Vec::new();
+    let children = fragment_to_route_definitions(&children(cx));
+
+    create_branches(
+        &children,
+        &base.unwrap_or_default(),
+        &mut Vec::new(),
+        &mut branches,
+    );
+
+    branches
+}
+
+fn fragment_to_route_definitions(frag: &Fragment) -> Vec<RouteDefinition> {
+    frag
+        .as_children()
+        .iter()
+        .filter_map(view_as_route_definition)
+        .cloned()
+        .collect::<Vec<_>>()
+}
+
+fn view_as_route_definition(view: &View) -> Option<&RouteDefinition> {
+    let def = view
+        .as_transparent()
+        .and_then(|t| t.downcast_ref::<RouteDefinition>());
+    if def.is_none() {
+        warn!(
+            "[NOTE] The <Routes/> component should include *only* \
+                <Route/>or <ProtectedRoute/> components, or some \
+                #[component(transparent)] that returns a RouteDefinition."
+        );
+    }
+    def
+}
+
+fn route_states(cx: Scope, router: &RouterContext, branches: Vec<Branch>, current_route: Memo<String>, root_equal: &Rc<Cell<bool>>) -> Memo<RouterState> {
     // whenever path changes, update matches
     let matches = create_memo(cx, move |_| {
-        get_route_matches(branches.clone(), current_route.get())
+        get_route_matches(&branches, current_route.get())
     });
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
     let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
+    let router = Rc::clone(&router.inner);
 
-    let root_equal = Rc::new(Cell::new(true));
-
-    let route_states: Memo<RouterState> = create_memo(cx, {
-        let root_equal = Rc::clone(&root_equal);
+    create_memo(cx, {
+        let root_equal = Rc::clone(root_equal);
         move |prev: Option<&RouterState>| {
             root_equal.set(true);
             next.borrow_mut().clear();
@@ -227,12 +234,11 @@ pub fn Routes(
                         }
 
                         let next = next.clone();
-                        let router = Rc::clone(&router.inner);
 
                         let next = next.clone();
                         let next_ctx = RouteContext::new(
                             cx,
-                            &RouterContext { inner: router },
+                            &RouterContext { inner: Rc::clone(&router) },
                             {
                                 let next = next.clone();
                                 move |cx| {
@@ -287,12 +293,13 @@ pub fn Routes(
                 }
             }
         }
-    });
+    })
+}
 
-    // show the root route
-    let id = HydrationCtx::id();
+fn root_route(cx: Scope, base_route: RouteContext, route_states: Memo<RouterState>, root_equal: Rc<Cell<bool>>) -> Memo<Option<View>> {
     let root_cx = RefCell::new(None);
-    let root = create_memo(cx, move |prev| {
+
+    create_memo(cx, move |prev| {
         provide_context(cx, route_states);
         route_states.with(|state| {
             if state.routes.borrow().is_empty() {
@@ -322,40 +329,7 @@ pub fn Routes(
                 }
             }
         })
-    });
-
-    let anim_config = animation.clone();
-    match animation {
-        Animation::None => {
-            leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
-                .into_view(cx)
-        }
-        Animation::Classes {
-            start,
-            outro,
-            intro,
-            finally,
-        } => html::div(cx)
-            .attr(
-                "class",
-                (cx, move || match current_animation.get() {
-                    AnimationState::Outro => outro.unwrap_or_default(),
-                    AnimationState::Start => start.unwrap_or_default(),
-                    AnimationState::Intro => intro.unwrap_or_default(),
-                    AnimationState::Finally => finally.unwrap_or_default(),
-                }),
-            )
-            .on(leptos::ev::animationend, move |_| {
-                let current = current_animation.get();
-                set_animation_state.update(|current_state| {
-                    let (next, _) = anim_config.next_state(&current);
-                    *current_state = next;
-                    leptos::log!("animation updating to {next:?}");
-                });
-            })
-            .child(move || root.get())
-            .into_view(cx),
-    }
+    })
 }
 
 #[derive(Clone, Debug, PartialEq)]
