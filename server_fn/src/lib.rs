@@ -199,11 +199,12 @@ pub fn server_fns_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 
 /// Holds the current options for encoding types.
 /// More could be added, but they need to be serde
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum Encoding {
     /// A Binary Encoding Scheme Called Cbor
     Cbor,
     /// The Default URL-encoded encoding method
+    #[default]
     Url,
     /// Pass arguments to server fns as part of the query string. Cacheable. Returns JSON
     GetJSON,

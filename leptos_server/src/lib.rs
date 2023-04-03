@@ -95,9 +95,17 @@ use std::{
 type ServerFnTraitObj = server_fn::ServerFnTraitObj<Scope>;
 
 #[cfg(any(feature = "ssr", doc))]
+/// Holds information about the server function, like the ServerFN object
+/// and it's encoding
+#[derive(Clone)]
+pub struct ServerFunction {
+    server_function: Arc<ServerFnTraitObj>,
+    encoding: Encoding,
+}
+
+#[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
-    static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, Arc<ServerFnTraitObj>>>> = Default::default();
-    static ref REGISTERED_SERVER_FUNCTION_ENCODINGS: Arc<RwLock<HashMap<&'static str, Encoding>>> = Default::default();
+    static ref REGISTERED_SERVER_FUNCTIONS: Arc<RwLock<HashMap<&'static str, ServerFunction>>> = Default::default();
 }
 
 #[cfg(any(feature = "ssr", doc))]
@@ -117,13 +125,13 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
         let mut func_write = REGISTERED_SERVER_FUNCTIONS
             .write()
             .map_err(|e| ServerRegistrationFnError::Poisoned(e.to_string()))?;
-        let prev = func_write.insert(url, server_function);
-
-        let mut enc_write = REGISTERED_SERVER_FUNCTION_ENCODINGS
-            .write()
-            .map_err(|e| ServerRegistrationFnError::Poisoned(e.to_string()))?;
-
-        let _enc = enc_write.insert(url, encoding);
+        let prev = func_write.insert(
+            url,
+            ServerFunction {
+                server_function,
+                encoding,
+            },
+        );
 
         // if there was already a server function with this key,
         // return Err
@@ -146,13 +154,13 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .ok()
-            .and_then(|fns| fns.get(url).cloned())
+            .and_then(|fns| fns.get(url).map(|sf| sf.server_function.clone()))
     }
     fn get_encoding(url: &str) -> Option<Encoding> {
-        REGISTERED_SERVER_FUNCTION_ENCODINGS
+        REGISTERED_SERVER_FUNCTIONS
             .read()
             .ok()
-            .and_then(|fns| fns.get(url).cloned())
+            .and_then(|fns| fns.get(url).map(|sf| sf.encoding.clone()))
     }
 
     /// Returns a list of all registered server functions.
