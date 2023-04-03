@@ -23,7 +23,7 @@ use futures::{
 use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::{
-    leptos_server::{server_fn_by_path, server_fn_encoding_by_path, Payload},
+    leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
     ssr::*,
     *,
@@ -317,23 +317,15 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            // Supply either the query string for Get* encodings or the body for
-                            // the rest
-                            let encoding: Encoding =
-                                server_fn_encoding_by_path(fn_name.as_str())
-                                    .expect(
-                                        "Every Server Fn should have an \
-                                         Encoding!",
-                                    );
                             let query: &Bytes =
                                 &query.unwrap_or("".to_string()).into();
-                            let data = match encoding {
+                            let data = match &server_fn.encoding {
                                 Encoding::Url | Encoding::Cbor => {
                                     &req_parts.body
                                 }
                                 Encoding::GetJSON | Encoding::GetCBOR => query,
                             };
-                            match server_fn(cx, data).await {
+                            match (server_fn.trait_obj)(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =

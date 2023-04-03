@@ -106,7 +106,10 @@ pub trait ServerFunctionRegistry<T> {
         encoding: Encoding,
     ) -> Result<(), Self::Error>;
     /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
-    fn get(url: &str) -> Option<Arc<ServerFnTraitObj<T>>>;
+    fn get(url: &str) -> Option<ServerFunction<T>>;
+
+    /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
+    fn get_trait_obj(url: &str) -> Option<Arc<ServerFnTraitObj<T>>>;
     /// Returns the encoding of the server FN at the given URL, or `None` if no function is
     /// registered at that URL
     fn get_encoding(url: &str) -> Option<Encoding>;
@@ -114,6 +117,15 @@ pub trait ServerFunctionRegistry<T> {
     fn paths_registered() -> Vec<&'static str>;
 }
 
+/// A Struct to hold information about a ServerFunction
+#[cfg(any(feature = "ssr", doc))]
+#[derive(Clone)]
+pub struct ServerFunction<T> {
+    /// A trait obj for the server fn that can be called
+    pub trait_obj: Arc<ServerFnTraitObj<T>>,
+    /// The encoding and method to serialize and deserialize the server fn
+    pub encoding: Encoding,
+}
 /// A server function that can be called from the client.
 pub type ServerFnTraitObj<T> = dyn Fn(
         T,
@@ -179,8 +191,16 @@ pub enum Payload {
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fn_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
     path: &str,
-) -> Option<Arc<ServerFnTraitObj<T>>> {
+) -> Option<ServerFunction<T>> {
     R::get(path)
+}
+
+/// Returns a trait obj of the server fn for calling purposes
+#[cfg(any(feature = "ssr", doc))]
+pub fn server_fn_trait_obj_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
+    path: &str,
+) -> Option<Arc<ServerFnTraitObj<T>>> {
+    R::get_trait_obj(path)
 }
 
 /// Returns the Encoding of the server fn  at a particular path
@@ -190,6 +210,7 @@ pub fn server_fn_encoding_by_path<T: 'static, R: ServerFunctionRegistry<T>>(
 ) -> Option<Encoding> {
     R::get_encoding(path)
 }
+
 /// Returns the set of currently-registered server function paths, for debugging purposes.
 #[cfg(any(feature = "ssr", doc))]
 pub fn server_fns_by_path<T: 'static, R: ServerFunctionRegistry<T>>(

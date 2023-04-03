@@ -95,13 +95,7 @@ use std::{
 type ServerFnTraitObj = server_fn::ServerFnTraitObj<Scope>;
 
 #[cfg(any(feature = "ssr", doc))]
-/// Holds information about the server function, like the ServerFN object
-/// and it's encoding
-#[derive(Clone)]
-pub struct ServerFunction {
-    server_function: Arc<ServerFnTraitObj>,
-    encoding: Encoding,
-}
+type ServerFunction = server_fn::ServerFunction<Scope>;
 
 #[cfg(any(feature = "ssr", doc))]
 lazy_static::lazy_static! {
@@ -118,7 +112,7 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
 
     fn register(
         url: &'static str,
-        server_function: Arc<ServerFnTraitObj>,
+        trait_obj: Arc<ServerFnTraitObj>,
         encoding: Encoding,
     ) -> Result<(), Self::Error> {
         // store it in the hashmap
@@ -128,7 +122,7 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
         let prev = func_write.insert(
             url,
             ServerFunction {
-                server_function,
+                trait_obj,
                 encoding,
             },
         );
@@ -150,12 +144,21 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     }
 
     /// Returns the server function registered at the given URL, or `None` if no function is registered at that URL.
-    fn get(url: &str) -> Option<Arc<ServerFnTraitObj>> {
+    fn get(url: &str) -> Option<ServerFunction> {
         REGISTERED_SERVER_FUNCTIONS
             .read()
             .ok()
-            .and_then(|fns| fns.get(url).map(|sf| sf.server_function.clone()))
+            .and_then(|fns| fns.get(url).cloned())
     }
+
+    /// Returns the server function trait obj registered at the given URL, or `None` if no function is registered at that URL.
+    fn get_trait_obj(url: &str) -> Option<Arc<ServerFnTraitObj>> {
+        REGISTERED_SERVER_FUNCTIONS
+            .read()
+            .ok()
+            .and_then(|fns| fns.get(url).map(|sf| sf.trait_obj.clone()))
+    }
+    /// Return the
     fn get_encoding(url: &str) -> Option<Encoding> {
         REGISTERED_SERVER_FUNCTIONS
             .read()
@@ -185,6 +188,12 @@ pub enum ServerRegistrationFnError {
     /// The server function registry is poisoned.
     #[error("The server function registry is poisoned: {0}")]
     Poisoned(String),
+}
+
+/// Get a ServerFunction struct containing info about the server fn
+#[cfg(any(feature = "ssr", doc))]
+pub fn server_fn_by_path(path: &str) -> Option<ServerFunction> {
+    server_fn::server_fn_by_path::<Scope, LeptosServerFnRegistry>(path)
 }
 
 /// Attempts to find a server function registered at the given path.
@@ -231,8 +240,12 @@ pub enum ServerRegistrationFnError {
 /// }
 /// ```
 #[cfg(any(feature = "ssr", doc))]
-pub fn server_fn_by_path(path: &str) -> Option<Arc<ServerFnTraitObj>> {
-    server_fn::server_fn_by_path::<Scope, LeptosServerFnRegistry>(path)
+pub fn server_fn_trait_obj_by_path(
+    path: &str,
+) -> Option<Arc<ServerFnTraitObj>> {
+    server_fn::server_fn_trait_obj_by_path::<Scope, LeptosServerFnRegistry>(
+        path,
+    )
 }
 
 /// Get the Encoding of a server fn if one is registered at that path. Otherwise, return None
