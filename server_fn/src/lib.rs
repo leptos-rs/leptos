@@ -85,7 +85,6 @@ use proc_macro2::TokenStream;
 use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use server_fn_macro_default::server;
-#[cfg(any(feature = "ssr", doc))]
 use std::sync::Arc;
 use std::{future::Future, pin::Pin, str::FromStr};
 use syn::parse_quote;
@@ -94,7 +93,6 @@ use thiserror::Error;
 #[doc(hidden)]
 pub use xxhash_rust;
 
-#[cfg(any(feature = "ssr", doc))]
 /// Something that can register a server function.
 pub trait ServerFunctionRegistry<T> {
     /// An error that can occur when registering a server function.
@@ -118,7 +116,6 @@ pub trait ServerFunctionRegistry<T> {
 }
 
 /// A Struct to hold information about a ServerFunction
-#[cfg(any(feature = "ssr", doc))]
 #[derive(Clone)]
 pub struct ServerFunction<T> {
     /// A trait obj for the server fn that can be called
@@ -302,7 +299,7 @@ where
     ) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
     /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(any(feature = "ssr", doc))]
+    #[cfg(any(feature = "ssr", doc, ))]
     fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
     {
         // create the handler for this server function

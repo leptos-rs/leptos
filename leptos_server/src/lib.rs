@@ -94,7 +94,6 @@ use std::{
 #[cfg(any(feature = "ssr", doc))]
 type ServerFnTraitObj = server_fn::ServerFnTraitObj<Scope>;
 
-#[cfg(any(feature = "ssr", doc))]
 type ServerFunction = server_fn::ServerFunction<Scope>;
 
 #[cfg(any(feature = "ssr", doc))]
@@ -106,7 +105,7 @@ lazy_static::lazy_static! {
 /// The registry of all Leptos server functions.
 pub struct LeptosServerFnRegistry;
 
-#[cfg(any(feature = "ssr"))]
+#[cfg(any(feature = "ssr", doc))]
 impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     type Error = ServerRegistrationFnError;
 
