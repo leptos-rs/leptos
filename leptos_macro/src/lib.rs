@@ -697,6 +697,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   can be a Leptos `Scope`. This scope can be used to inject dependencies like the HTTP request
 ///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
 #[proc_macro_attribute]
+#[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let context = ServerContext {
         ty: syn::parse_quote!(Scope),
