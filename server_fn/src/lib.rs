@@ -85,8 +85,7 @@ use proc_macro2::TokenStream;
 use quote::TokenStreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use server_fn_macro_default::server;
-use std::sync::Arc;
-use std::{future::Future, pin::Pin, str::FromStr};
+use std::{future::Future, pin::Pin, str::FromStr, sync::Arc};
 use syn::parse_quote;
 use thiserror::Error;
 // used by the macro
@@ -299,7 +298,7 @@ where
     ) -> Pin<Box<dyn Future<Output = Result<Self::Output, ServerFnError>>>>;
 
     /// Registers the server function, allowing the server to query it by URL.
-    #[cfg(any(feature = "ssr", doc, ))]
+    #[cfg(any(feature = "ssr", doc,))]
     fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
     {
         // create the handler for this server function
