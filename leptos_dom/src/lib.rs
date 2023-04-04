@@ -120,7 +120,7 @@ where
 
 impl<F, N> IntoView for F
 where
-    F: Fn() -> N + 'static,
+    F: Fn(Scope) -> N + 'static,
     N: IntoView,
 {
     #[cfg_attr(
@@ -152,7 +152,7 @@ where
         instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+        DynChild::new(move |cx| self.get()).into_view(cx)
     }
 }
 #[cfg(feature = "stable")]
@@ -165,7 +165,7 @@ where
         instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+        DynChild::new(move |cx| self.get()).into_view(cx)
     }
 }
 #[cfg(feature = "stable")]
@@ -178,7 +178,7 @@ where
         instrument(level = "trace", name = "Memo<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+        DynChild::new(move |cx| self.get()).into_view(cx)
     }
 }
 #[cfg(feature = "stable")]
@@ -191,7 +191,7 @@ where
         instrument(level = "trace", name = "Signal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+        DynChild::new(move |cx| self.get()).into_view(cx)
     }
 }
 #[cfg(feature = "stable")]
@@ -204,7 +204,7 @@ where
         instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+        DynChild::new(move |cx| self.get()).into_view(cx)
     }
 }
 

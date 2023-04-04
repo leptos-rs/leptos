@@ -124,7 +124,7 @@ impl DynChildRepr {
 /// Represents any [`View`] that can change over time.
 pub struct DynChild<CF, N>
 where
-    CF: Fn() -> N + 'static,
+    CF: Fn(Scope) -> N + 'static,
     N: IntoView,
 {
     id: crate::HydrationKey,
@@ -133,7 +133,7 @@ where
 
 impl<CF, N> DynChild<CF, N>
 where
-    CF: Fn() -> N + 'static,
+    CF: Fn(Scope) -> N + 'static,
     N: IntoView,
 {
     /// Creates a new dynamic child which will re-render whenever it's
@@ -152,7 +152,7 @@ where
 
 impl<CF, N> IntoView for DynChild<CF, N>
 where
-    CF: Fn() -> N + 'static,
+    CF: Fn(Scope) -> N + 'static,
     N: IntoView,
 {
     #[cfg_attr(
@@ -164,7 +164,7 @@ where
         fn create_dyn_view(
             cx: Scope,
             component: DynChildRepr,
-            child_fn: Box<dyn Fn() -> View>,
+            child_fn: Box<dyn Fn(Scope) -> View>,
         ) -> DynChildRepr {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             let closing = component.closing.node.clone();
@@ -189,7 +189,9 @@ where
                     let _guard = span.enter();
 
                     let (new_child, disposer) =
-                        cx.run_child_scope(|cx| child_fn().into_view(cx));
+                        cx.run_child_scope(|cx| {
+                            child_fn(cx).into_view(cx)
+                        });
 
                     let mut child_borrow = child.borrow_mut();
 
@@ -346,7 +348,7 @@ where
 
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             {
-                let new_child = child_fn().into_view(cx);
+                let new_child = child_fn(cx).into_view(cx);
 
                 **child.borrow_mut() = Some(new_child);
             }
@@ -361,7 +363,7 @@ where
         let component = create_dyn_view(
             cx,
             component,
-            Box::new(move || child_fn().into_view(cx)),
+            Box::new(move |cx| child_fn(cx).into_view(cx)),
         );
 
         View::CoreComponent(crate::CoreComponent::DynChild(component))

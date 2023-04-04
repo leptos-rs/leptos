@@ -75,7 +75,7 @@ where
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         let current_id = current_id.clone();
-        move || {
+        move |cx| {
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
                     if context.ready() {

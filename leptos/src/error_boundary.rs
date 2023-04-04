@@ -47,7 +47,7 @@ where
     // Run children so that they render and execute resources
     let children = children(cx);
 
-    move || {
+    move |cx| {
         match errors.with(Errors::is_empty) {
             true => children.clone().into_view(cx),
             false => view! { cx,

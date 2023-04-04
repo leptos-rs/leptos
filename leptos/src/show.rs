@@ -46,7 +46,7 @@ where
 {
     let memoized_when = create_memo(cx, move |_| when());
 
-    move || match memoized_when.get() {
+    move |cx| match memoized_when.get() {
         true => children(cx).into_view(cx),
         false => fallback(cx).into_view(cx),
     }
