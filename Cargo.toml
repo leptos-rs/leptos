@@ -39,7 +39,7 @@ server_fn_macro = { path = "./server_fn_macro", default-features = false, versio
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", default-features = false, version = "0.2.5" }
 leptos_config = { path = "./leptos_config", default-features = false, version = "0.2.5" }
 leptos_router = { path = "./router", version = "0.2.5" }
-leptos_meta = { path = "./meta", default-feature = false, version = "0.2.5" }
+leptos_meta = { path = "./meta", default-features = false, version = "0.2.5" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.2.5" }
 
 [profile.release]
