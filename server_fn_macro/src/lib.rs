@@ -276,7 +276,7 @@ impl Parse for ServerFnName {
                     "\"url\"" => syn::parse_quote!(Encoding::Url),
                     "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
                     "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
-                    "\"getjson\"" => syn::parse_quote!(Encoding::GetCBOR),
+                    "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
                     _ => abort!(encoding, "Encoding Not Found"),
                 }
             })
