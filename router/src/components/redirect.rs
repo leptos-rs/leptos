@@ -50,7 +50,7 @@ where
                  `ServerRedirectFunction` being provided. (If you’re getting \
                  this on initial server start-up, it’s okay to ignore. It \
                  just means that your root route is a redirect.)"
-            )
+            );
         }
     }
 }
