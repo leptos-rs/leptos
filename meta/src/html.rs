@@ -98,6 +98,9 @@ pub fn Html(
     #[prop(optional, into)]
     attributes: Option<MaybeSignal<AdditionalAttributes>>,
 ) -> impl IntoView {
+    #[cfg(debug_assertions)]
+    crate::feature_warning();
+
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             let el = document().document_element().expect("there to be a <html> element");

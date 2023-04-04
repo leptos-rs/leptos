@@ -206,6 +206,9 @@ pub fn provide_meta_context(cx: Scope) {
 /// call `use_head()` but a single [MetaContext] has not been provided at the application root.
 /// The best practice is always to call [provide_meta_context] early in the application.
 pub fn use_head(cx: Scope) -> MetaContext {
+    #[cfg(debug_assertions)]
+    feature_warning();
+
     match use_context::<MetaContext>(cx) {
         None => {
             debug_warn!(
@@ -341,5 +344,12 @@ where
 {
     fn from(s: F) -> Self {
         TextProp(Rc::new(s))
+    }
+}
+
+#[cfg(debug_assertions)]
+pub(crate) fn feature_warning() {
+    if !cfg!(any(feature = "csr", feature = "hydrate", feature = "ssr")) {
+        leptos::debug_warn!("WARNING: `leptos_meta` does nothing unless you enable one of its features (`csr`, `hydrate`, or `ssr`). See the docs at https://docs.rs/leptos_meta/latest/leptos_meta/ for more information.");
     }
 }
