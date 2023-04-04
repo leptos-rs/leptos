@@ -128,9 +128,9 @@ pub fn server_macro_impl(
             FnArg::Typed(t) => t,
         };
         let is_cx = if let Some(ctx) = &server_context {
-            !fn_arg_is_cx(f, ctx)
+            fn_arg_is_cx(f, ctx)
         } else {
-            true
+            false
         };
         if is_cx {
             quote! {
