@@ -196,43 +196,30 @@ impl Runtime {
                 current_observer,
             );
 
-            // mark all children check
-            recursive_mark_check(
-                node,
-                &mut nodes,
-                &mut pending_effects,
-                &subscribers,
-                current_observer,
-            );
+            let mut stack: Vec<NodeId> = match subscribers.get(node) {
+                Some(children) => {
+                    let children = children.borrow();
+                    let mut stack = Vec::with_capacity(children.len());
+                    stack.extend(children.iter().rev());
+                    stack
+                }
+                None => return,
+            };
 
-            fn recursive_mark_check(
-                node_id: NodeId,
-                nodes: &mut SlotMap<NodeId, ReactiveNode>,
-                pending_effects: &mut FxIndexSet<NodeId>,
-                subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
-                current_observer: Option<NodeId>,
-            ) {
-                if let Some(children) = subscribers.get(node_id) {
-                    for &child in children.borrow().iter() {
-                        if let Some(node) = nodes.get_mut(child) {
-                            if Runtime::mark(
-                                child,
-                                node,
-                                ReactiveNodeState::Check,
-                                pending_effects,
-                                current_observer,
-                            ) {
-                                continue;
-                            }
+            while let Some(child) = stack.pop() {
+                if let Some(node) = nodes.get_mut(child) {
+                    if Runtime::mark(
+                        child,
+                        node,
+                        ReactiveNodeState::Check,
+                        &mut pending_effects,
+                        current_observer,
+                    ) {
+                        continue;
+                    }
 
-                            recursive_mark_check(
-                                child,
-                                nodes,
-                                pending_effects,
-                                subscribers,
-                                current_observer,
-                            );
-                        }
+                    if let Some(children) = subscribers.get(child) {
+                        stack.extend(children.borrow().iter().rev());
                     }
                 }
             }
