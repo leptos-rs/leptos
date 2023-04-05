@@ -209,13 +209,13 @@ impl Runtime {
              */
 
             #[ouroboros::self_referencing]
-            struct RefIter<'a, T> {
+            struct RefIter<'a> {
                 set: std::cell::Ref<'a, FxIndexSet<NodeId>>,
 
                 // Boxes the iterator internally
                 #[borrows(set)]
                 #[covariant]
-                iter: indexmap::set::Iter<'this, T>,
+                iter: indexmap::set::Iter<'this, NodeId>,
             }
 
             /// Due to the limitations of ouroboros, we cannot borrow the
@@ -225,7 +225,7 @@ impl Runtime {
             enum IterResult<'a> {
                 Continue,
                 Empty,
-                NewIter(RefIter<'a, NodeId>),
+                NewIter(RefIter<'a>),
             }
 
             let mut stack = Vec::new();
