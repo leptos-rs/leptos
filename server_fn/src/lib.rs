@@ -307,12 +307,12 @@ where
         let run_server_fn = Arc::new(|cx: T, data: &[u8]| {
             // decode the args
             let value = match Self::encoding() {
-                Encoding::Url | Encoding::GetJSON => {
+                Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
                     serde_urlencoded::from_bytes(data).map_err(|e| {
                         ServerFnError::Deserialization(e.to_string())
                     })
                 }
-                Encoding::Cbor | Encoding::GetCBOR => {
+                Encoding::Cbor => {
                     ciborium::de::from_reader(data).map_err(|e| {
                         ServerFnError::Deserialization(e.to_string())
                     })
@@ -410,11 +410,11 @@ where
         Url(String),
     }
     let args_encoded = match &enc {
-        Encoding::Url | Encoding::GetJSON => Payload::Url(
+        Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => Payload::Url(
             serde_urlencoded::to_string(&args)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
         ),
-        Encoding::Cbor | Encoding::GetCBOR => {
+        Encoding::Cbor => {
             let mut buffer: Vec<u8> = Vec::new();
             into_writer(&args, &mut buffer)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
