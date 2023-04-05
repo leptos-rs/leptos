@@ -314,10 +314,16 @@ pub fn create_runtime() -> RuntimeId {
     }
 }
 
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 slotmap::new_key_type! {
     /// Unique ID assigned to a [Runtime](crate::Runtime).
     pub struct RuntimeId;
 }
+
+/// Unique ID assigned to a [Runtime](crate::Runtime).
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RuntimeId;
 
 impl RuntimeId {
     /// Removes the runtime, disposing all its child [Scope](crate::Scope)s.
