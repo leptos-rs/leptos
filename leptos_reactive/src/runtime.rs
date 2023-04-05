@@ -197,23 +197,47 @@ impl Runtime {
             );
 
             // mark all children check
-            // this can probably be done in a better way
-            let mut descendants = Default::default();
-            Runtime::gather_descendants(&subscribers, node, &mut descendants);
-            for descendant in descendants {
-                if let Some(node) = nodes.get_mut(descendant) {
-                    Runtime::mark(
-                        descendant,
-                        node,
-                        ReactiveNodeState::Check,
-                        &mut pending_effects,
-                        current_observer,
-                    );
+            recursive_mark_check(
+                node,
+                &mut nodes,
+                &mut pending_effects,
+                &subscribers,
+                current_observer,
+            );
+
+            fn recursive_mark_check(
+                node_id: NodeId,
+                nodes: &mut SlotMap<NodeId, ReactiveNode>,
+                pending_effects: &mut Vec<NodeId>,
+                subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
+                current_observer: Option<NodeId>,
+            ) {
+                if let Some(children) = subscribers.get(node_id) {
+                    for &child in children.borrow().iter() {
+                        if let Some(node) = nodes.get_mut(child) {
+                            Runtime::mark(
+                                child,
+                                node,
+                                ReactiveNodeState::Check,
+                                pending_effects,
+                                current_observer,
+                            );
+
+                            recursive_mark_check(
+                                child,
+                                nodes,
+                                pending_effects,
+                                subscribers,
+                                current_observer,
+                            );
+                        }
+                    }
                 }
             }
         }
     }
 
+    #[inline(always)] // small function, used in hot loop
     fn mark(
         //nodes: &mut SlotMap<NodeId, ReactiveNode>,
         node_id: NodeId,
@@ -231,19 +255,6 @@ impl Runtime {
         {
             //crate::macros::debug_warn!("pushing effect {node_id:?}");
             pending_effects.push(node_id);
-        }
-    }
-
-    fn gather_descendants(
-        subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
-        node: NodeId,
-        descendants: &mut FxIndexSet<NodeId>,
-    ) {
-        if let Some(children) = subscribers.get(node) {
-            for child in children.borrow().iter() {
-                descendants.insert(*child);
-                Runtime::gather_descendants(subscribers, *child, descendants);
-            }
         }
     }
 
