@@ -76,8 +76,17 @@ impl Runtime {
         if self.current_state(node_id) == ReactiveNodeState::Check {
             let sources = {
                 let sources = self.node_sources.borrow();
-                sources.get(node_id).map(|n| n.borrow().clone())
+
+                // rather than cloning the entire FxIndexSet, only allocate a `Vec` for the node ids
+                sources.get(node_id).map(|n| {
+                    let sources = n.borrow();
+                    // in case Vec::from_iterator specialization doesn't work, do it manually
+                    let mut sources_vec = Vec::with_capacity(sources.len());
+                    sources_vec.extend(sources.iter().cloned());
+                    sources_vec
+                })
             };
+
             for source in sources.into_iter().flatten() {
                 self.update_if_necessary(source);
                 if self.current_state(node_id) == ReactiveNodeState::Dirty {
@@ -103,10 +112,7 @@ impl Runtime {
             let nodes = self.nodes.borrow();
             nodes.get(node_id).cloned()
         };
-        let subs = {
-            let subs = self.node_subscribers.borrow();
-            subs.get(node_id).cloned()
-        };
+
         if let Some(node) = node {
             // memos and effects rerun
             // signals simply have their value
@@ -126,7 +132,9 @@ impl Runtime {
 
             // mark children dirty
             if changed {
-                if let Some(subs) = subs {
+                let subs = self.node_subscribers.borrow();
+
+                if let Some(subs) = subs.get(node_id) {
                     let mut nodes = self.nodes.borrow_mut();
                     for sub_id in subs.borrow().iter() {
                         if let Some(sub) = nodes.get_mut(*sub_id) {
