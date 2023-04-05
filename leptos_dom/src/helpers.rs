@@ -243,7 +243,7 @@ pub fn set_timeout_with_handle(
 pub fn debounce<T: 'static>(
     cx: Scope,
     delay: Duration,
-    mut cb: impl FnMut(T) + 'static,
+    #[allow(unused_mut)] mut cb: impl FnMut(T) + 'static,
 ) -> impl FnMut(T) {
     use std::{
         cell::{Cell, RefCell},

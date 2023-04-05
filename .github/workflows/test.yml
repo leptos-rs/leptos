@@ -42,4 +42,4 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Run tests with all features
-        run: cargo make test
+        run: cargo make --profile=github-actions test

@@ -21,6 +21,7 @@ pub fn Redirect<P>(
     path: P,
     /// Navigation options to be used on the client side.
     #[prop(optional)]
+    #[allow(unused)]
     options: Option<NavigateOptions>,
 ) -> impl IntoView
 where
@@ -36,6 +37,7 @@ where
     }
     // redirect on the client
     else {
+        #[allow(unused)]
         let navigate = use_navigate(cx);
         #[cfg(any(feature = "csr", feature = "hydrate"))]
         leptos::request_animation_frame(move || {
