@@ -14,6 +14,7 @@ use http::{header, method::Method, uri::Uri, version::Version, StatusCode};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
+    server_fn::Encoding,
     ssr::*,
     *,
 };
@@ -185,6 +186,7 @@ async fn handle_server_fns_inner(
 ) -> Result<Response> {
     let fn_name = req.params::<String>()?;
     let headers = req.headers().clone();
+    let query = req.query_string().unwrap_or("").to_owned().into();
     let (tx, rx) = futures::channel::oneshot::channel();
     spawn_blocking({
         move || {
@@ -207,7 +209,14 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            match server_fn(cx, &req_parts.body).await {
+                            let data = match &server_fn.encoding {
+                                Encoding::Url | Encoding::Cbor => {
+                                    &req_parts.body
+                                }
+                                Encoding::GetJSON | Encoding::GetCBOR => &query,
+                            };
+
+                            match (server_fn.trait_obj)(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =

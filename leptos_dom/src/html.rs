@@ -849,12 +849,14 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     key,
                     event_name,
                     event_handler,
+                    event.options(),
                 );
             } else {
                 add_event_listener_undelegated(
                     self.element.as_ref(),
                     &event_name,
                     event_handler,
+                    event.options(),
                 );
             }
 

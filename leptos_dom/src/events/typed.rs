@@ -22,6 +22,12 @@ pub trait EventDescriptor: Clone {
     fn bubbles(&self) -> bool {
         true
     }
+
+    /// Return the options for this type. This is only used when you create a [`Custom`] event
+    /// handler.
+    fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
+        &None
+    }
 }
 
 /// Overrides the [`EventDescriptor::bubbles`] method to always return
@@ -49,6 +55,7 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
 /// A custom event.
 pub struct Custom<E: FromWasmAbi = web_sys::Event> {
     name: Cow<'static, str>,
+    options: Option<web_sys::AddEventListenerOptions>,
     _event_type: PhantomData<E>,
 }
 
@@ -56,6 +63,7 @@ impl<E: FromWasmAbi> Clone for Custom<E> {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
+            options: self.options.clone(),
             _event_type: PhantomData,
         }
     }
@@ -75,6 +83,10 @@ impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
     fn bubbles(&self) -> bool {
         false
     }
+
+    fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
+        &self.options
+    }
 }
 
 impl<E: FromWasmAbi> Custom<E> {
@@ -84,8 +96,34 @@ impl<E: FromWasmAbi> Custom<E> {
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: name.into(),
+            options: None,
             _event_type: PhantomData,
         }
+    }
+
+    /// Modify the [`AddEventListenerOptions`] used for this event listener.
+    ///
+    /// ```rust
+    /// # use leptos::*;
+    /// # run_scope(create_runtime(), |cx| {
+    /// # let canvas_ref: NodeRef<html::Canvas> = create_node_ref(cx);
+    /// let mut non_passive_wheel = ev::Custom::<ev::WheelEvent>::new("wheel");
+    /// # if false {
+    /// let options = non_passive_wheel.options_mut();
+    /// options.passive(false);
+    /// # }
+    /// canvas_ref.on_load(cx, move |canvas: HtmlElement<html::Canvas>| {
+    ///     canvas.on(non_passive_wheel, move |_event| {
+    ///         // Handle _event
+    ///     });
+    /// });
+    /// # });
+    /// ```
+    ///
+    /// [`AddEventListenerOptions`]: web_sys::AddEventListenerOptions
+    pub fn options_mut(&mut self) -> &mut web_sys::AddEventListenerOptions {
+        self.options
+            .get_or_insert_with(web_sys::AddEventListenerOptions::new)
     }
 }
 
