@@ -18,6 +18,7 @@ use http::StatusCode;
 use leptos::{
     leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
     leptos_server::{server_fn_by_path, Payload},
+    server_fn::Encoding,
     *,
 };
 use leptos_integration_utils::{build_async_response, html_parts_separated};
@@ -150,9 +151,9 @@ pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|_cx| {})
 }
 
-/// An Actix [Route](actix_web::Route) that listens for a `POST` request with
-/// Leptos server function arguments in the body, runs the server function if found,
-/// and returns the resulting [HttpResponse].
+/// An Actix [Route](actix_web::Route) that listens for `GET` or `POST` requests with
+/// Leptos server function arguments in the URL (`GET`) or body (`POST`),
+/// runs the server function if found, and returns the resulting [HttpResponse].
 ///
 /// This provides the [HttpRequest] to the server [Scope](leptos::Scope).
 ///
@@ -168,7 +169,7 @@ pub fn handle_server_fns() -> Route {
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> Route {
-    web::post().to(
+    web::to(
         move |req: HttpRequest, params: web::Path<String>, body: web::Bytes| {
             let additional_context = additional_context.clone();
             async move {
@@ -194,7 +195,13 @@ pub fn handle_server_fns_with_context(
                     provide_context(cx, req.clone());
                     provide_context(cx, res_options.clone());
 
-                    match server_fn(cx, body).await {
+                    let query = req.query_string().as_bytes();
+
+                    let data = match &server_fn.encoding {
+                        Encoding::Url | Encoding::Cbor => body,
+                        Encoding::GetJSON | Encoding::GetCBOR => query,
+                    };
+                    match (server_fn.trait_obj)(cx, data).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();

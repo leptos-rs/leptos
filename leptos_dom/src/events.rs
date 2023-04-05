@@ -28,9 +28,15 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
             event.event_delegation_key(),
             event_name,
             event_handler,
+            &None,
         );
     } else {
-        add_event_listener_undelegated(target, &event_name, event_handler);
+        add_event_listener_undelegated(
+            target,
+            &event_name,
+            event_handler,
+            &None,
+        );
     }
 }
 
@@ -43,6 +49,7 @@ pub fn add_event_listener<E>(
     event_name: Cow<'static, str>,
     #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
     #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
+    options: &Option<web_sys::AddEventListenerOptions>,
 ) where
     E: FromWasmAbi + 'static,
 {
@@ -61,7 +68,7 @@ pub fn add_event_listener<E>(
     let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
     let key = intern(&key);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
-    add_delegated_event_listener(&key, event_name);
+    add_delegated_event_listener(&key, event_name, options);
 }
 
 #[doc(hidden)]
@@ -71,6 +78,7 @@ pub(crate) fn add_event_listener_undelegated<E>(
     event_name: &str,
     #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
     #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
+    options: &Option<web_sys::AddEventListenerOptions>,
 ) where
     E: FromWasmAbi + 'static,
 {
@@ -88,7 +96,17 @@ pub(crate) fn add_event_listener_undelegated<E>(
 
     let event_name = intern(event_name);
     let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
-    _ = target.add_event_listener_with_callback(event_name, cb.unchecked_ref());
+    if let Some(options) = options {
+        _ = target
+            .add_event_listener_with_callback_and_add_event_listener_options(
+                event_name,
+                cb.unchecked_ref(),
+                options,
+            );
+    } else {
+        _ = target
+            .add_event_listener_with_callback(event_name, cb.unchecked_ref());
+    }
 }
 
 // cf eventHandler in ryansolid/dom-expressions
@@ -96,6 +114,7 @@ pub(crate) fn add_event_listener_undelegated<E>(
 pub(crate) fn add_delegated_event_listener(
     key: &str,
     event_name: Cow<'static, str>,
+    options: &Option<web_sys::AddEventListenerOptions>,
 ) {
     GLOBAL_EVENTS.with(|global_events| {
         let mut events = global_events.borrow_mut();
@@ -167,10 +186,19 @@ pub(crate) fn add_delegated_event_listener(
 
             let handler = Box::new(handler) as Box<dyn FnMut(web_sys::Event)>;
             let handler = Closure::wrap(handler).into_js_value();
-            _ = crate::window().add_event_listener_with_callback(
-                &event_name,
-                handler.unchecked_ref(),
-            );
+            if let Some(options) = options {
+                _ = crate::window().add_event_listener_with_callback_and_add_event_listener_options(
+                    &event_name,
+                    handler.unchecked_ref(),
+                    options,
+                );
+            } else {
+                _ = crate::window().add_event_listener_with_callback(
+                    &event_name,
+                    handler.unchecked_ref(),
+                );
+
+            }
 
             // register that we've created handler
             events.insert(event_name);

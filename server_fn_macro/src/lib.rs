@@ -259,10 +259,14 @@ impl Parse for ServerFnName {
         let _comma2 = input.parse()?;
         let encoding = input
             .parse::<Literal>()
-            .map(|encoding| match encoding.to_string().as_str() {
-                "\"Url\"" => syn::parse_quote!(Encoding::Url),
-                "\"Cbor\"" => syn::parse_quote!(Encoding::Cbor),
-                _ => abort!(encoding, "Encoding Not Found"),
+            .map(|encoding| {
+                match encoding.to_string().to_lowercase().as_str() {
+                    "\"url\"" => syn::parse_quote!(Encoding::Url),
+                    "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
+                    "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
+                    "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
+                    _ => abort!(encoding, "Encoding Not Found"),
+                }
             })
             .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));
 
