@@ -60,7 +60,7 @@ pub(crate) struct Runtime {
         RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
     pub node_sources:
         RefCell<SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>>,
-    pub pending_effects: RefCell<Vec<NodeId>>,
+    pub pending_effects: RefCell<FxIndexSet<NodeId>>,
     pub resources: RefCell<SlotMap<ResourceId, AnyResource>>,
     pub batching: Cell<bool>,
 }
@@ -208,20 +208,22 @@ impl Runtime {
             fn recursive_mark_check(
                 node_id: NodeId,
                 nodes: &mut SlotMap<NodeId, ReactiveNode>,
-                pending_effects: &mut Vec<NodeId>,
+                pending_effects: &mut FxIndexSet<NodeId>,
                 subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
                 current_observer: Option<NodeId>,
             ) {
                 if let Some(children) = subscribers.get(node_id) {
                     for &child in children.borrow().iter() {
                         if let Some(node) = nodes.get_mut(child) {
-                            Runtime::mark(
+                            if Runtime::mark(
                                 child,
                                 node,
                                 ReactiveNodeState::Check,
                                 pending_effects,
                                 current_observer,
-                            );
+                            ) {
+                                continue;
+                            }
 
                             recursive_mark_check(
                                 child,
@@ -243,9 +245,10 @@ impl Runtime {
         node_id: NodeId,
         node: &mut ReactiveNode,
         level: ReactiveNodeState,
-        pending_effects: &mut Vec<NodeId>,
+        pending_effects: &mut FxIndexSet<NodeId>,
         current_observer: Option<NodeId>,
-    ) {
+    ) -> bool {
+        let prev_state = node.state;
         //crate::macros::debug_warn!("marking {node_id:?} {level:?}");
         if level > node.state {
             node.state = level;
@@ -254,7 +257,9 @@ impl Runtime {
             && current_observer != Some(node_id)
         {
             //crate::macros::debug_warn!("pushing effect {node_id:?}");
-            pending_effects.push(node_id);
+            pending_effects.insert(node_id)
+        } else {
+            prev_state >= ReactiveNodeState::Check
         }
     }
 
