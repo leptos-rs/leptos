@@ -1812,7 +1812,7 @@ impl NodeId {
     pub(crate) fn subscribe(
         &self,
         runtime: &Runtime,
-        diagnostics: AccessDiagnostics,
+        #[allow(unused)] diagnostics: AccessDiagnostics,
     ) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
