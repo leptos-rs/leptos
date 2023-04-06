@@ -790,13 +790,7 @@ where
 
 impl<T> Clone for ReadSignal<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -1073,13 +1067,7 @@ impl<T> SignalDispose for WriteSignal<T> {
 
 impl<T> Clone for WriteSignal<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -1180,13 +1168,7 @@ where
 
 impl<T> Clone for RwSignal<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: self.ty,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
