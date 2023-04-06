@@ -8,7 +8,7 @@
 
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    extract::Path,
+    extract::{Path, RawQuery},
     http::{
         header::{HeaderName, HeaderValue},
         HeaderMap, Request, StatusCode,
@@ -24,11 +24,12 @@ use http::{header, method::Method, uri::Uri, version::Version, Response};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
+    server_fn::Encoding,
     ssr::*,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts};
-use leptos_meta::{generate_head_metadata, MetaContext};
+use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc};
@@ -95,7 +96,7 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(cx: leptos::Scope, path: &str) {
@@ -128,7 +129,7 @@ pub async fn generate_request_parts(req: Request<Body>) -> RequestParts {
 
 /// Decomposes an HTTP request into its parts, allowing you to read its headers
 /// and other data without consuming the body. Creates a new Request from the
-/// original parts for further processsing
+/// original parts for further processing
 pub async fn generate_request_and_parts(
     req: Request<Body>,
 ) -> (Request<Body>, RequestParts) {
@@ -147,8 +148,9 @@ pub async fn generate_request_and_parts(
     (request, request_parts)
 }
 
-/// A struct to hold the http::request::Request and allow users to take ownership of it
-/// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+/// A struct to hold the [`http::request::Request`] and allow users to take ownership of it
+/// Required by `Request` not being `Clone`. See
+/// [this issue](https://github.com/hyperium/http/pull/574) for eventual resolution:
 #[derive(Debug, Default)]
 pub struct LeptosRequest<B>(Arc<RwLock<Option<Request<B>>>>);
 
@@ -158,12 +160,12 @@ impl<B> Clone for LeptosRequest<B> {
     }
 }
 impl<B> LeptosRequest<B> {
-    /// Overwrite the contents of a LeptosRequest with a new Request<B>
+    /// Overwrite the contents of a LeptosRequest with a new `Request<B>`
     pub fn overwrite(&self, req: Option<Request<B>>) {
         let mut writable = self.0.write();
         *writable = req
     }
-    /// Consume the inner Request<B> inside the LeptosRequest and return it
+    /// Consume the inner `Request<B>` inside the LeptosRequest and return it
     ///```rust, ignore
     /// use axum::{
     /// RequestPartsExt,
@@ -198,8 +200,9 @@ impl<B> LeptosRequest<B> {
     }
 }
 /// Generate a wrapper for the http::Request::Request type that allows one to
-/// processs it, access the body, and use axum Extractors on it.
-/// Requred by Request not being Clone. See this issue for eventual resolution: https://github.com/hyperium/http/pull/574
+/// process it, access the body, and use axum Extractors on it.
+/// Required by Request not being Clone. See
+/// [this issue](https://github.com/hyperium/http/pull/574) for eventual resolution:
 pub async fn generate_leptos_request<B>(req: Request<B>) -> LeptosRequest<B>
 where
     B: Default + std::fmt::Debug,
@@ -246,9 +249,10 @@ where
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
+    RawQuery(query): RawQuery,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    handle_server_fns_inner(fn_name, headers, |_| {}, req).await
+    handle_server_fns_inner(fn_name, headers, query, |_| {}, req).await
 }
 
 /// An Axum handlers to listens for a request with Leptos server function arguments in the body,
@@ -268,15 +272,18 @@ pub async fn handle_server_fns(
 pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
+    RawQuery(query): RawQuery,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    handle_server_fns_inner(fn_name, headers, additional_context, req).await
+    handle_server_fns_inner(fn_name, headers, query, additional_context, req)
+        .await
 }
 
 async fn handle_server_fns_inner(
     fn_name: String,
     headers: HeaderMap,
+    query: Option<String>,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     req: Request<Body>,
 ) -> impl IntoResponse {
@@ -310,7 +317,15 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            match server_fn(cx, &req_parts.body).await {
+                            let query: &Bytes =
+                                &query.unwrap_or("".to_string()).into();
+                            let data = match &server_fn.encoding {
+                                Encoding::Url | Encoding::Cbor => {
+                                    &req_parts.body
+                                }
+                                Encoding::GetJSON | Encoding::GetCBOR => query,
+                            };
+                            match (server_fn.trait_obj)(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -495,7 +510,7 @@ where
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
@@ -653,7 +668,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata(cx).into(),
+                                                    |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 
@@ -711,7 +726,7 @@ async fn forward_stream(
 ) {
     let cx = Scope { runtime, id: scope };
     let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     _ = tx.send(head).await;
     let mut shell = Box::pin(bundle);
@@ -735,7 +750,7 @@ async fn forward_stream(
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
@@ -822,7 +837,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata(cx).into(),
+                                                    |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 

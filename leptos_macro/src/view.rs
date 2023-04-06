@@ -1392,7 +1392,7 @@ fn is_math_ml_element(tag: &str) -> bool {
 }
 
 fn is_ambiguous_element(tag: &str) -> bool {
-    tag == "a" || tag == "script"
+    tag == "a" || tag == "script" || tag == "title"
 }
 
 fn parse_event(event_name: &str) -> (&str, bool) {

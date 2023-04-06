@@ -32,9 +32,17 @@ pub fn Routes(
         .as_children()
         .iter()
         .filter_map(|child| {
-            child
+            let def = child
                 .as_transparent()
-                .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                .and_then(|t| t.downcast_ref::<RouteDefinition>());
+            if def.is_none() {
+                warn!(
+                    "[NOTE] The <Routes/> component should include *only* \
+                     <Route/>or <ProtectedRoute/> components, or some \
+                     #[component(transparent)] that returns a RouteDefinition."
+                );
+            }
+            def
         })
         .cloned()
         .collect::<Vec<_>>();

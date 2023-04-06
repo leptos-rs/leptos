@@ -72,6 +72,8 @@ extern crate tracing;
 #[macro_use]
 mod signal;
 mod context;
+#[macro_use]
+mod diagnostics;
 mod effect;
 mod hydration;
 mod memo;
@@ -90,6 +92,7 @@ mod stored_value;
 pub mod suspense;
 
 pub use context::*;
+pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
 pub use memo::*;
 pub use resource::*;
@@ -127,8 +130,11 @@ mod macros {
 }
 
 pub(crate) fn console_warn(s: &str) {
-    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-    eprintln!("{s}");
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
-    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
+    cfg_if::cfg_if! {
+        if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
+            web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
+        } else {
+            eprintln!("{s}");
+        }
+    }
 }

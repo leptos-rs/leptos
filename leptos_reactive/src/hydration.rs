@@ -1,20 +1,26 @@
 #![forbid(unsafe_code)]
 use crate::{runtime::PinnedFuture, suspense::StreamChunk, ResourceId};
 use cfg_if::cfg_if;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub struct SharedContext {
     pub events: Vec<()>,
     pub pending_resources: HashSet<ResourceId>,
     pub resolved_resources: HashMap<ResourceId, String>,
     #[allow(clippy::type_complexity)]
-    // index String is the fragment ID: tuple is
-    // `(
-    //    Future of <Suspense/> HTML when resolved (out-of-order)
-    //    Future of additional stream chunks when resolved (in-order)
-    // )`
-    pub pending_fragments:
-        HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)>,
+    pub pending_fragments: HashMap<String, FragmentData>,
+}
+
+/// Represents its pending `<Suspense/>` fragment.
+pub struct FragmentData {
+    /// Future that represents how it should be render for an out-of-order stream.
+    pub out_of_order: PinnedFuture<String>,
+    /// Future that represents how it should be render for an in-order stream.
+    pub in_order: PinnedFuture<VecDeque<StreamChunk>>,
+    /// Whether the stream should wait for this fragment before sending any data.
+    pub should_block: bool,
+    /// Future that will resolve when the fragment is ready.
+    pub is_ready: Option<PinnedFuture<()>>,
 }
 
 impl std::fmt::Debug for SharedContext {

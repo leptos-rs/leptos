@@ -34,10 +34,25 @@ where
     if let Some(redirect_fn) = use_context::<ServerRedirectFunction>(cx) {
         (redirect_fn.f)(&path);
     }
-
     // redirect on the client
-    let navigate = use_navigate(cx);
-    navigate(&path, options.unwrap_or_default())
+    else {
+        let navigate = use_navigate(cx);
+        #[cfg(any(feature = "csr", feature = "hydrate"))]
+        leptos::request_animation_frame(move || {
+            if let Err(e) = navigate(&path, options.unwrap_or_default()) {
+                leptos::error!("<Redirect/> error: {e:?}");
+            }
+        });
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        {
+            leptos::debug_warn!(
+                "<Redirect/> is trying to redirect without \
+                 `ServerRedirectFunction` being provided. (If you’re getting \
+                 this on initial server start-up, it’s okay to ignore. It \
+                 just means that your root route is a redirect.)"
+            );
+        }
+    }
 }
 
 /// Wrapping type for a function provided as context to allow for

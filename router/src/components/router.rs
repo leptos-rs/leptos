@@ -104,7 +104,7 @@ impl RouterContext {
         let base_path = resolve_path("", base, None);
 
         if let Some(base_path) = &base_path {
-            if source.with(|s| s.value.is_empty()) {
+            if source.with_untracked(|s| s.value.is_empty()) {
                 history.navigate(&LocationChange {
                     value: base_path.to_string(),
                     replace: true,
@@ -116,11 +116,11 @@ impl RouterContext {
 
         // the current URL
         let (reference, set_reference) =
-            create_signal(cx, source.with(|s| s.value.clone()));
+            create_signal(cx, source.with_untracked(|s| s.value.clone()));
 
         // the current History.state
         let (state, set_state) =
-            create_signal(cx, source.with(|s| s.state.clone()));
+            create_signal(cx, source.with_untracked(|s| s.state.clone()));
 
         // we'll use this transition to wait for async resources to load when navigating to a new route
         #[cfg(feature = "transition")]

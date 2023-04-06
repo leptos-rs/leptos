@@ -50,6 +50,7 @@ features = [
   "TreeWalker",
 
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
+  "AddEventListenerOptions",
   "AnimationEvent",
   "BeforeUnloadEvent",
   "ClipboardEvent",

@@ -58,6 +58,7 @@ use std::{
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
+mod additional_attributes;
 mod body;
 mod html;
 mod link;
@@ -66,6 +67,7 @@ mod script;
 mod style;
 mod stylesheet;
 mod title;
+pub use additional_attributes::*;
 pub use body::*;
 pub use html::*;
 pub use link::*;
@@ -204,6 +206,9 @@ pub fn provide_meta_context(cx: Scope) {
 /// call `use_head()` but a single [MetaContext] has not been provided at the application root.
 /// The best practice is always to call [provide_meta_context] early in the application.
 pub fn use_head(cx: Scope) -> MetaContext {
+    #[cfg(debug_assertions)]
+    feature_warning();
+
     match use_context::<MetaContext>(cx) {
         None => {
             debug_warn!(
@@ -282,6 +287,15 @@ impl MetaContext {
 /// server-side HTML rendering across crates.
 #[cfg(feature = "ssr")]
 pub fn generate_head_metadata(cx: Scope) -> String {
+    let (head, body) = generate_head_metadata_separated(cx);
+    format!("{head}</head><{body}>")
+}
+
+/// Extracts the metadata that should be inserted at the beginning of the `<head>` tag
+/// and on the opening `<body>` tag. This is a helper function used in implementing
+/// server-side HTML rendering across crates.
+#[cfg(feature = "ssr")]
+pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
     let meta = use_context::<MetaContext>(cx);
     let head = meta
         .as_ref()
@@ -291,7 +305,7 @@ pub fn generate_head_metadata(cx: Scope) -> String {
         .as_ref()
         .and_then(|meta| meta.body.as_string())
         .unwrap_or_default();
-    format!("{head}</head><body{body_meta}>")
+    (head, format!("<body{body_meta}>"))
 }
 
 /// Describes a value that is either a static or a reactive string, i.e.,
@@ -330,5 +344,12 @@ where
 {
     fn from(s: F) -> Self {
         TextProp(Rc::new(s))
+    }
+}
+
+#[cfg(debug_assertions)]
+pub(crate) fn feature_warning() {
+    if !cfg!(any(feature = "csr", feature = "hydrate", feature = "ssr")) {
+        leptos::debug_warn!("WARNING: `leptos_meta` does nothing unless you enable one of its features (`csr`, `hydrate`, or `ssr`). See the docs at https://docs.rs/leptos_meta/latest/leptos_meta/ for more information.");
     }
 }

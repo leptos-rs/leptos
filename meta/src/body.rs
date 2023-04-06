@@ -1,4 +1,4 @@
-use crate::TextProp;
+use crate::{additional_attributes::AdditionalAttributes, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
@@ -7,15 +7,37 @@ use std::{cell::RefCell, rc::Rc};
 #[derive(Clone, Default)]
 pub struct BodyContext {
     class: Rc<RefCell<Option<TextProp>>>,
+    attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
 impl BodyContext {
     /// Converts the `<body>` metadata into an HTML string.
     pub fn as_string(&self) -> Option<String> {
-        self.class
+        let class = self
+            .class
             .borrow()
             .as_ref()
-            .map(|class| format!(" class=\"{}\"", class.get()))
+            .map(|val| format!("class=\"{}\"", val.get()));
+        let attributes = self.attributes.borrow().as_ref().map(|val| {
+            val.with(|val| {
+                val.0
+                    .iter()
+                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+        });
+        let mut val = [class, attributes]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if val.is_empty() {
+            None
+        } else {
+            val.insert(0, ' ');
+            Some(val)
+        }
     }
 }
 
@@ -57,20 +79,41 @@ pub fn Body(
     /// The `class` attribute on the `<body>`.
     #[prop(optional, into)]
     class: Option<TextProp>,
+    /// Arbitrary attributes to add to the `<html>`
+    #[prop(optional, into)]
+    attributes: Option<MaybeSignal<AdditionalAttributes>>,
 ) -> impl IntoView {
+    #[cfg(debug_assertions)]
+    crate::feature_warning();
+
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             let el = document().body().expect("there to be a <body> element");
 
             if let Some(class) = class {
-                create_render_effect(cx, move |_| {
-                    let value = class.get();
-                    _ = el.set_attribute("class", &value);
+                create_render_effect(cx, {
+                    let el = el.clone();
+                    move |_| {
+                        let value = class.get();
+                        _ = el.set_attribute("class", &value);
+                    }
                 });
+            }
+
+            if let Some(attributes) = attributes {
+                let attributes = attributes.get();
+                for (attr_name, attr_value) in attributes.0.into_iter() {
+                    let el = el.clone();
+                    create_render_effect(cx, move |_|{
+                        let value = attr_value.get();
+                            _ = el.set_attribute(&attr_name, &value);
+                    });
+                }
             }
         } else {
             let meta = crate::use_head(cx);
             *meta.body.class.borrow_mut() = class;
+            *meta.body.attributes.borrow_mut() = attributes;
         }
     }
 }

@@ -1,6 +1,7 @@
 use leptos::component;
 use leptos_dom::{Fragment, IntoView};
-use leptos_reactive::{create_memo, signal_prelude::*, Scope};
+use leptos_reactive::{create_memo, signal_prelude::*, Scope, ScopeDisposer};
+use std::{cell::RefCell, rc::Rc};
 
 /// A component that will show its children when the `when` condition is `true`,
 /// and show the fallback when it is `false`, without rerendering every time
@@ -45,9 +46,18 @@ where
     IV: IntoView,
 {
     let memoized_when = create_memo(cx, move |_| when());
+    let prev_disposer = Rc::new(RefCell::new(None::<ScopeDisposer>));
 
-    move || match memoized_when.get() {
-        true => children(cx).into_view(cx),
-        false => fallback(cx).into_view(cx),
+    move || {
+        if let Some(disposer) = prev_disposer.take() {
+            disposer.dispose();
+        }
+        let (view, disposer) =
+            cx.run_child_scope(|cx| match memoized_when.get() {
+                true => children(cx).into_view(cx),
+                false => fallback(cx).into_view(cx),
+            });
+        *prev_disposer.borrow_mut() = Some(disposer);
+        view
     }
 }

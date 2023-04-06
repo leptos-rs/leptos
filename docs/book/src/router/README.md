@@ -16,7 +16,7 @@ The Leptos Router works with the path and query (`/blog/search?q=Search`). Given
 
 ## The Philosophy
 
-In most cases, the path should drive what is displayed on the page. From the user’s perspective, for most appliations, most major changes in the state of the app should be reflected in the URL. If you copy and paste the URL and open it in another tab, you should find yourself more or less in the same place.
+In most cases, the path should drive what is displayed on the page. From the user’s perspective, for most applications, most major changes in the state of the app should be reflected in the URL. If you copy and paste the URL and open it in another tab, you should find yourself more or less in the same place.
 
 In this sense, the router is really at the heart of the global state management for your application. More than anything else, it drives what is displayed on the page.
 

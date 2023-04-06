@@ -1,13 +1,18 @@
 #![forbid(unsafe_code)]
 use crate::{
     console_warn,
+    hydration::FragmentData,
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, StoredValueId, SuspenseContext,
+    PinnedFuture, ResourceId, SpecialNonReactiveZone, StoredValueId,
+    SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -172,9 +177,11 @@ impl Scope {
     /// ```
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
+            SpecialNonReactiveZone::enter();
             let prev_observer = runtime.observer.take();
             let untracked_result = f();
             runtime.observer.set(prev_observer);
+            SpecialNonReactiveZone::exit();
             untracked_result
         })
         .expect(
@@ -374,7 +381,7 @@ impl Scope {
         context: SuspenseContext,
         key: &str,
         out_of_order_resolver: impl FnOnce() -> String + 'static,
-        in_order_resolver: impl FnOnce() -> Vec<StreamChunk> + 'static,
+        in_order_resolver: impl FnOnce() -> VecDeque<StreamChunk> + 'static,
     ) {
         use crate::create_isomorphic_effect;
         use futures::StreamExt;
@@ -383,6 +390,7 @@ impl Scope {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let (tx1, mut rx1) = futures::channel::mpsc::unbounded();
             let (tx2, mut rx2) = futures::channel::mpsc::unbounded();
+            let (tx3, mut rx3) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
                 let pending = context
@@ -393,33 +401,35 @@ impl Scope {
                 if pending == 0 {
                     _ = tx1.unbounded_send(());
                     _ = tx2.unbounded_send(());
+                    _ = tx3.unbounded_send(());
                 }
             });
 
             shared_context.pending_fragments.insert(
                 key.to_string(),
-                (
-                    Box::pin(async move {
+                FragmentData {
+                    out_of_order: Box::pin(async move {
                         rx1.next().await;
                         out_of_order_resolver()
                     }),
-                    Box::pin(async move {
+                    in_order: Box::pin(async move {
                         rx2.next().await;
                         in_order_resolver()
                     }),
-                ),
+                    should_block: context.should_block(),
+                    is_ready: Some(Box::pin(async move {
+                        rx3.next().await;
+                    })),
+                },
             );
         })
     }
 
     /// The set of all HTML fragments currently pending.
     ///
-    /// The keys are hydration IDs. Valeus are tuples of two pinned
+    /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
-    pub fn pending_fragments(
-        &self,
-    ) -> HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)>
-    {
+    pub fn pending_fragments(&self) -> HashMap<String, FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
@@ -427,14 +437,31 @@ impl Scope {
         .unwrap_or_default()
     }
 
+    /// A future that will resolve when all blocking fragments are ready.
+    pub fn blocking_fragments_ready(self) -> PinnedFuture<()> {
+        use futures::StreamExt;
+
+        let mut ready = with_runtime(self.runtime, |runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            let ready = FuturesUnordered::new();
+            for (_, data) in shared_context.pending_fragments.iter_mut() {
+                if data.should_block {
+                    if let Some(is_ready) = data.is_ready.take() {
+                        ready.push(is_ready);
+                    }
+                }
+            }
+            ready
+        })
+        .unwrap_or_default();
+        Box::pin(async move { while ready.next().await.is_some() {} })
+    }
+
     /// Takes the pending HTML for a single `<Suspense/>` node.
     ///
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
-    pub fn take_pending_fragment(
-        &self,
-        id: &str,
-    ) -> Option<(PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)> {
+    pub fn take_pending_fragment(&self, id: &str) -> Option<FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             shared_context.pending_fragments.remove(id)

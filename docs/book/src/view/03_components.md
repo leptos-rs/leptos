@@ -24,6 +24,7 @@ view! {
         max="50"
         value=double_count
     />
+}
 ```
 
 But of course, this doesn’t scale very well. If you want to add a third progress

@@ -43,7 +43,7 @@ impl Parse for Model {
                 "this method requires a `Scope` parameter";
                 help = "try `fn {}(cx: Scope, /* ... */)`", item.sig.ident
             );
-        } else if props[0].ty != parse_quote!(Scope) {
+        } else if !is_valid_scope_type(&props[0].ty) {
             abort!(
                 item.sig.inputs,
                 "this method requires a `Scope` parameter";
@@ -68,7 +68,7 @@ impl Parse for Model {
         });
 
         // Make sure return type is correct
-        if item.sig.output != parse_quote!(-> impl IntoView) {
+        if !is_valid_into_view_return_type(&item.sig.output) {
             abort!(
                 item.sig,
                 "return type is incorrect";
@@ -206,7 +206,7 @@ impl ToTokens for Model {
             #tracing_instrument_attr
             #vis fn #name #generics (
                 #[allow(unused_variables)]
-                #scope_name: Scope,
+                #scope_name: ::leptos::Scope,
                 props: #props_name #generics
             ) #ret #(+ #lifetimes)*
             #where_clause
@@ -436,7 +436,7 @@ impl ToTokens for TypedBuilderOpts {
 fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
     props
         .iter()
-        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
         .map(|prop| {
             let Prop {
                 docs,
@@ -463,7 +463,7 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
 fn prop_names(props: &[Prop]) -> TokenStream {
     props
         .iter()
-        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
         .map(|Prop { name, .. }| quote! { #name, })
         .collect()
 }
@@ -641,4 +641,24 @@ fn prop_to_doc(
             }
         }
     }
+}
+
+fn is_valid_scope_type(ty: &Type) -> bool {
+    [
+        parse_quote!(Scope),
+        parse_quote!(leptos::Scope),
+        parse_quote!(::leptos::Scope),
+    ]
+    .iter()
+    .any(|test| ty == test)
+}
+
+fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
+    [
+        parse_quote!(-> impl IntoView),
+        parse_quote!(-> impl leptos::IntoView),
+        parse_quote!(-> impl ::leptos::IntoView),
+    ]
+    .iter()
+    .any(|test| ty == test)
 }

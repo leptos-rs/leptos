@@ -64,16 +64,16 @@ view! {
 
 ## Build configuration
 
-### Cargo feature resolution in workspaces 
+### Cargo feature resolution in workspaces
 
 A new [version](https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions) of Cargo's feature resolver was introduced for the 2021 edition of Rust.
 For single crate projects it will select a resolver version based on the Rust edition in `Cargo.toml`. As there is no Rust edition present for `Cargo.toml` in a workspace, Cargo will default to the pre 2021 edition resolver.
-This can cause issues resulting in non WASM compatabile code being built for a WASM target. Seeing `mio` failing to build is often a sign that none WASM compatible code is being included in the build.
+This can cause issues resulting in non WASM compatible code being built for a WASM target. Seeing `mio` failing to build is often a sign that none WASM compatible code is being included in the build.
 
 The resolver version can be set in the workspace `Cargo.toml` to remedy this issue.
 
 ```toml
 [workspace]
 members = ["member1", "member2"]
-resolver = "2"	
+resolver = "2"
 ```

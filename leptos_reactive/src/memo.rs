@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, node::NodeId, on_cleanup, with_runtime, AnyComputation,
-    RuntimeId, Scope, SignalDispose, SignalGet, SignalGetUntracked,
-    SignalStream, SignalWith, SignalWithUntracked,
+    create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
+    with_runtime, AnyComputation, RuntimeId, Scope, SignalDispose, SignalGet,
+    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
 };
+use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -70,6 +71,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
         )
     )
 )]
+#[track_caller]
 pub fn create_memo<T>(
     cx: Scope,
     f: impl Fn(Option<&T>) -> T + 'static,
@@ -191,7 +193,8 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     )]
     fn get_untracked(&self) -> T {
         with_runtime(self.runtime, move |runtime| {
-            match self.id.try_with_no_subscription(runtime, T::clone) {
+            let f = move |maybe_value: &Option<T>| maybe_value.clone().unwrap();
+            match self.id.try_with_no_subscription(runtime, f) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
                     #[cfg(debug_assertions)]
@@ -305,6 +308,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
     fn get(&self) -> T {
         self.with(T::clone)
     }
@@ -322,6 +326,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_get(&self) -> Option<T> {
         self.try_with(T::clone)
     }
@@ -341,6 +346,7 @@ impl<T> SignalWith<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         match self.try_with(f) {
             Some(t) => t,
@@ -364,13 +370,16 @@ impl<T> SignalWith<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         // memo is stored as Option<T>, but will always have T available
         // after latest_value() called, so we can unwrap safely
         let f = move |maybe_value: &Option<T>| f(maybe_value.as_ref().unwrap());
 
+        let diagnostics = diagnostics!(self);
+
         with_runtime(self.runtime, |runtime| {
-            self.id.subscribe(runtime);
+            self.id.subscribe(runtime, diagnostics);
             self.id.try_with_no_subscription(runtime, f).ok()
         })
         .ok()

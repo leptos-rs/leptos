@@ -14,11 +14,12 @@ use http::{header, method::Method, uri::Uri, version::Version, StatusCode};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
+    server_fn::Encoding,
     ssr::*,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts};
-use leptos_meta::{generate_head_metadata, MetaContext};
+use leptos_integration_utils::{build_async_response, html_parts_separated};
+use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use parking_lot::RwLock;
 use std::{pin::Pin, sync::Arc};
@@ -90,7 +91,7 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(cx: leptos::Scope, path: &str) {
@@ -185,6 +186,7 @@ async fn handle_server_fns_inner(
 ) -> Result<Response> {
     let fn_name = req.params::<String>()?;
     let headers = req.headers().clone();
+    let query = req.query_string().unwrap_or("").to_owned().into();
     let (tx, rx) = futures::channel::oneshot::channel();
     spawn_blocking({
         move || {
@@ -207,7 +209,14 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            match server_fn(cx, &req_parts.body).await {
+                            let data = match &server_fn.encoding {
+                                Encoding::Url | Encoding::Cbor => {
+                                    &req_parts.body
+                                }
+                                Encoding::GetJSON | Encoding::GetCBOR => &query,
+                            };
+
+                            match (server_fn.trait_obj)(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -385,7 +394,7 @@ where
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
@@ -536,7 +545,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata(cx).into(),
+                                                    |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 
@@ -593,7 +602,7 @@ async fn forward_stream(
 ) {
     let cx = Scope { runtime, id: scope };
     let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     _ = tx.send(head).await;
     let mut shell = Box::pin(bundle);
@@ -617,7 +626,7 @@ async fn forward_stream(
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// This version allows us to pass Viz State/Extractor or other infro from Viz or network
@@ -700,7 +709,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata(cx).into(),
+                                                    |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 

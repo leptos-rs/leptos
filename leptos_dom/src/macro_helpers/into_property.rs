@@ -91,15 +91,10 @@ pub(crate) fn property_helper(
     match value {
         Property::Fn(cx, f) => {
             let el = el.clone();
-            create_render_effect(cx, move |old| {
+            create_render_effect(cx, move |_| {
                 let new = f();
                 let prop_name = wasm_bindgen::intern(&name);
-                if old.as_ref() != Some(&new)
-                    && !(old.is_none()
-                        && new == wasm_bindgen::JsValue::UNDEFINED)
-                {
-                    property_expression(&el, prop_name, new.clone())
-                }
+                property_expression(&el, prop_name, new.clone());
                 new
             });
         }
