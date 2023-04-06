@@ -18,3 +18,4 @@ leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12.1"
+tokio-util = {version = "0.7.7", features = ["rt"] }
