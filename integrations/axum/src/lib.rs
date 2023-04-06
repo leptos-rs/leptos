@@ -36,6 +36,7 @@ use std::{
     io,
     pin::Pin,
     sync::{Arc, OnceLock},
+    thread::available_parallelism,
 };
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
@@ -613,6 +614,9 @@ where
             let (tx, rx) = futures::channel::mpsc::channel(8);
             local_pool.spawn_pinned(move || async move {
                 let app = {
+                    // Need to get the path and query string of the Request
+                    // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
+                    // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
                     let path = req.uri().path_and_query().unwrap().as_str();
 
                     let full_path = format!("http://leptos.dev{path}");
@@ -632,13 +636,7 @@ where
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
             });
-            async move {
-                // Need to get the path and query string of the Request
-                // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
-                // if http, it returns a relative path. Adding .path() seems to make it explicitly return the relative uri
-
-                generate_response(res_options3, rx).await
-            }
+            async move { generate_response(res_options3, rx).await }
         })
     }
 }
@@ -1146,8 +1144,9 @@ fn get_leptos_pool() -> LocalPoolHandle {
     static LOCAL_POOL: OnceLock<LocalPoolHandle> = OnceLock::new();
     LOCAL_POOL
         .get_or_init(|| {
-            let pool = tokio_util::task::LocalPoolHandle::new(1);
-            pool
+            tokio_util::task::LocalPoolHandle::new(
+                available_parallelism().map(Into::into).unwrap_or(1),
+            )
         })
         .clone()
 }
