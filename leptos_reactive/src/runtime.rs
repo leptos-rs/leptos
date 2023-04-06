@@ -80,7 +80,7 @@ impl Runtime {
             };
             for source in sources.into_iter().flatten() {
                 self.update_if_necessary(source);
-                if self.current_state(node_id) == ReactiveNodeState::Dirty {
+                if self.current_state(node_id) >= ReactiveNodeState::Dirty {
                     // as soon as a single parent has marked us dirty, we can
                     // stop checking them to avoid over-re-running
                     break;
@@ -89,7 +89,7 @@ impl Runtime {
         }
 
         // if we're dirty at this point, update
-        if self.current_state(node_id) == ReactiveNodeState::Dirty {
+        if self.current_state(node_id) >= ReactiveNodeState::Dirty {
             self.update(node_id);
         }
 
@@ -179,6 +179,7 @@ impl Runtime {
         }
     }
 
+    #[allow(clippy::await_holding_refcell_ref)] // not using this part of ouroboros
     pub(crate) fn mark_dirty(&self, node: NodeId) {
         //crate::macros::debug_warn!("marking {node:?} dirty");
         let mut nodes = self.nodes.borrow_mut();
@@ -196,24 +197,89 @@ impl Runtime {
                 current_observer,
             );
 
-            // mark all children check
-            // this can probably be done in a better way
-            let mut descendants = Default::default();
-            Runtime::gather_descendants(&subscribers, node, &mut descendants);
-            for descendant in descendants {
-                if let Some(node) = nodes.get_mut(descendant) {
-                    Runtime::mark(
-                        descendant,
-                        node,
-                        ReactiveNodeState::Check,
-                        &mut pending_effects,
-                        current_observer,
-                    );
+            /*
+             * Depth-first DAG traversal that uses a stack of iterators instead of
+             * buffering the entire to-visit list. Visited nodes are either marked as
+             * `Check` or `DirtyMarked`.
+             *
+             * Because `RefCell`, borrowing the iterators all at once is difficult,
+             * so a self-referential struct is used instead. ouroboros produces safe
+             * code, but it would not be recommended to use this outside of this
+             * algorithm.
+             */
+
+            #[ouroboros::self_referencing]
+            struct RefIter<'a> {
+                set: std::cell::Ref<'a, FxIndexSet<NodeId>>,
+
+                // Boxes the iterator internally
+                #[borrows(set)]
+                #[covariant]
+                iter: indexmap::set::Iter<'this, NodeId>,
+            }
+
+            /// Due to the limitations of ouroboros, we cannot borrow the
+            /// stack and iter simultaneously, or directly within the loop,
+            /// therefore this must be used to command the outside scope
+            /// of what to do.
+            enum IterResult<'a> {
+                Continue,
+                Empty,
+                NewIter(RefIter<'a>),
+            }
+
+            let mut stack = Vec::new();
+
+            if let Some(children) = subscribers.get(node) {
+                stack.push(RefIter::new(children.borrow(), |children| {
+                    children.iter()
+                }));
+            }
+
+            while let Some(iter) = stack.last_mut() {
+                let res = iter.with_iter_mut(|iter| {
+                    let Some(&child) = iter.next() else {
+                        return IterResult::Empty;
+                    };
+
+                    if let Some(node) = nodes.get_mut(child) {
+                        if node.state == ReactiveNodeState::Check
+                            || node.state == ReactiveNodeState::DirtyMarked
+                        {
+                            return IterResult::Continue;
+                        }
+
+                        Runtime::mark(
+                            child,
+                            node,
+                            ReactiveNodeState::Check,
+                            &mut pending_effects,
+                            current_observer,
+                        );
+
+                        if let Some(children) = subscribers.get(child) {
+                            return IterResult::NewIter(RefIter::new(
+                                children.borrow(),
+                                |children| children.iter(),
+                            ));
+                        }
+                    }
+
+                    IterResult::Continue
+                });
+
+                match res {
+                    IterResult::Continue => continue,
+                    IterResult::NewIter(iter) => stack.push(iter),
+                    IterResult::Empty => {
+                        stack.pop();
+                    }
                 }
             }
         }
     }
 
+    #[inline(always)] // small function, used in hot loop
     fn mark(
         //nodes: &mut SlotMap<NodeId, ReactiveNode>,
         node_id: NodeId,
@@ -226,24 +292,16 @@ impl Runtime {
         if level > node.state {
             node.state = level;
         }
-        if matches!(node.node_type, ReactiveNodeType::Effect { .. })
-            && current_observer != Some(node_id)
+
+        if matches!(node.node_type, ReactiveNodeType::Effect { .. } if current_observer != Some(node_id))
         {
             //crate::macros::debug_warn!("pushing effect {node_id:?}");
-            pending_effects.push(node_id);
+            //debug_assert!(!pending_effects.contains(&node_id));
+            pending_effects.push(node_id)
         }
-    }
 
-    fn gather_descendants(
-        subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
-        node: NodeId,
-        descendants: &mut FxIndexSet<NodeId>,
-    ) {
-        if let Some(children) = subscribers.get(node) {
-            for child in children.borrow().iter() {
-                descendants.insert(*child);
-                Runtime::gather_descendants(subscribers, *child, descendants);
-            }
+        if node.state == ReactiveNodeState::Dirty {
+            node.state = ReactiveNodeState::DirtyMarked;
         }
     }
 

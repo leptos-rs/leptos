@@ -25,4 +25,7 @@ pub(crate) enum ReactiveNodeState {
     Clean,
     Check,
     Dirty,
+
+    /// Dirty and Marked as visited
+    DirtyMarked,
 }
