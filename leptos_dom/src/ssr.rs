@@ -249,7 +249,7 @@ impl View {
 
     pub(crate) fn render_to_string_helper(self) -> Cow<'static, str> {
         match self {
-            View::Text(node) => node.content,
+            View::Text(node) => html_escape::encode_safe(&node.content).to_string().into(),
             View::Component(node) => {
                 let content = || {
                     node.children
