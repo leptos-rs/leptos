@@ -246,11 +246,11 @@ impl Runtime {
 
             while let Some(iter) = stack.last_mut() {
                 let res = iter.with_iter_mut(|iter| {
-                    let Some(&child) = iter.next() else {
+                    let Some(mut child) = iter.next().copied() else {
                         return IterResult::Empty;
                     };
 
-                    if let Some(node) = nodes.get_mut(child) {
+                    while let Some(node) = nodes.get_mut(child) {
                         if node.state == ReactiveNodeState::Check
                             || node.state == ReactiveNodeState::DirtyMarked
                         {
@@ -266,11 +266,23 @@ impl Runtime {
                         );
 
                         if let Some(children) = subscribers.get(child) {
-                            return IterResult::NewIter(RefIter::new(
-                                children.borrow(),
-                                |children| children.iter(),
-                            ));
+                            let children = children.borrow();
+
+                            if !children.is_empty() {
+                                // avoid going through an iterator in the simple psuedo-recursive case
+                                if children.len() == 1 {
+                                    child = children[0];
+                                    continue;
+                                }
+
+                                return IterResult::NewIter(RefIter::new(
+                                    children,
+                                    |children| children.iter(),
+                                ));
+                            }
                         }
+
+                        break;
                     }
 
                     IterResult::Continue
