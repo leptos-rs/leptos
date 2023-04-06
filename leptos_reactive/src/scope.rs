@@ -336,7 +336,8 @@ pub(crate) enum ScopeProperty {
 /// 1. dispose of all child `Scope`s
 /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
 /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
-pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
+#[repr(transparent)]
+pub struct ScopeDisposer(pub(crate) Scope);
 
 impl ScopeDisposer {
     /// Disposes of a reactive [Scope](crate::Scope).
@@ -345,8 +346,9 @@ impl ScopeDisposer {
     /// 1. dispose of all child `Scope`s
     /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
+    #[inline(always)]
     pub fn dispose(self) {
-        (self.0)()
+        self.0.dispose()
     }
 }
 

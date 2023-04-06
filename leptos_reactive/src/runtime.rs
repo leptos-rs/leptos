@@ -418,7 +418,7 @@ impl RuntimeId {
         with_runtime(self, |runtime| {
             let id = { runtime.scopes.borrow_mut().insert(Default::default()) };
             let scope = Scope { runtime: self, id };
-            let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
+            let disposer = ScopeDisposer(scope);
             (scope, disposer)
         })
         .expect(
@@ -439,7 +439,7 @@ impl RuntimeId {
             }
             let scope = Scope { runtime: self, id };
             let val = f(scope);
-            let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
+            let disposer = ScopeDisposer(scope);
             (val, id, disposer)
         })
         .expect("tried to run scope in a runtime that has been disposed")
