@@ -59,6 +59,7 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 
 Here are some resources for learning more about Leptos:
 
+- [Book (work in progress)](https://leptos-rs.github.io/leptos/)
 - [Examples](https://github.com/leptos-rs/leptos/tree/main/examples)
 - [API Documentation](https://docs.rs/leptos/latest/leptos/)
 - [Common Bugs](https://github.com/leptos-rs/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
