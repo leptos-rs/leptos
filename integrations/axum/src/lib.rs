@@ -392,7 +392,10 @@ async fn handle_server_fns_inner(
                     }
                     Err(e) => Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Full::from(e.to_string())),
+                        .body(Full::from(
+                            serde_json::to_string(&e)
+                                .unwrap_or_else(|_| e.to_string()),
+                        )),
                 }
             } else {
                 Response::builder().status(StatusCode::BAD_REQUEST).body(

@@ -94,6 +94,7 @@ use std::{
 #[cfg(any(feature = "ssr", doc))]
 type ServerFnTraitObj = server_fn::ServerFnTraitObj<Scope>;
 
+#[allow(unused)]
 type ServerFunction = server_fn::ServerFunction<Scope>;
 
 #[cfg(any(feature = "ssr", doc))]

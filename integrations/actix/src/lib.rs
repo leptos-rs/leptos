@@ -264,8 +264,10 @@ pub fn handle_server_fns_with_context(
                                 }
                             }
                         }
-                        Err(e) => HttpResponse::InternalServerError()
-                            .body(e.to_string()),
+                        Err(e) => HttpResponse::InternalServerError().body(
+                            serde_json::to_string(&e)
+                                .unwrap_or_else(|_| e.to_string()),
+                        ),
                     }
                 } else {
                     HttpResponse::BadRequest().body(format!(
