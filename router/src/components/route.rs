@@ -72,7 +72,7 @@ where
     P: std::fmt::Display + 'static,
     C: Fn(Scope) -> bool + 'static,
 {
-    use crate::{Redirect, RedirectProps};
+    use crate::Redirect;
     let redirect_path = redirect_path.to_string();
 
     define_route(
