@@ -106,6 +106,9 @@ in as if it were an HTML element attribute. Simple.
 > sure you include this `ComponentProps` type:
 >
 > `use progress_bar::{ProgressBar, ProgressBarProps};`
+>
+> **Note**: This is still true as of `0.2.5`, but the requirement has been removed on `main`
+> and will not apply to later versions.
 
 ### Reactive and Static Props
 
