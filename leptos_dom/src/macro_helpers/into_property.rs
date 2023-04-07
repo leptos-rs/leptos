@@ -36,6 +36,7 @@ where
 }
 
 impl<T: IntoProperty> IntoProperty for (Scope, T) {
+    #[inline(always)]
     fn into_property(self, _: Scope) -> Property {
         self.1.into_property(self.0)
     }

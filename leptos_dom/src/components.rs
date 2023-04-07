@@ -135,6 +135,7 @@ impl Mountable for ComponentRepr {
         };
     }
 
+    #[inline]
     fn get_closing_node(&self) -> web_sys::Node {
         self.closing.node.clone()
     }
@@ -156,11 +157,13 @@ impl IntoView for ComponentRepr {
 
 impl ComponentRepr {
     /// Creates a new [`Component`].
+    #[inline(always)]
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         Self::new_with_id_concrete(name.into(), HydrationCtx::id())
     }
 
     /// Creates a new [`Component`] with the given hydration ID.
+    #[inline(always)]
     pub fn new_with_id(
         name: impl Into<Cow<'static, str>>,
         id: HydrationKey,

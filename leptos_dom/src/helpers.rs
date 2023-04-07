@@ -97,6 +97,7 @@ impl AnimationFrameRequestHandle {
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame).
 #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[inline(always)]
 pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
     _ = request_animation_frame_with_handle(cb);
 }
@@ -105,6 +106,7 @@ pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame),
 /// returning a cancelable handle.
 #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[inline(always)]
 pub fn request_animation_frame_with_handle(
     cb: impl FnOnce() + 'static,
 ) -> Result<AnimationFrameRequestHandle, JsValue> {
@@ -144,6 +146,7 @@ impl IdleCallbackHandle {
 /// Queues the given function during an idle period using
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback).
 #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[inline(always)]
 pub fn request_idle_callback(cb: impl Fn() + 'static) {
     _ = request_idle_callback_with_handle(cb);
 }
@@ -152,6 +155,7 @@ pub fn request_idle_callback(cb: impl Fn() + 'static) {
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback),
 /// returning a cancelable handle.
 #[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[inline(always)]
 pub fn request_idle_callback_with_handle(
     cb: impl Fn() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
@@ -205,6 +209,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
   debug_assertions,
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
+#[inline(always)]
 pub fn set_timeout_with_handle(
     cb: impl FnOnce() + 'static,
     duration: Duration,
@@ -362,6 +367,7 @@ pub fn set_interval(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
+#[inline(always)]
 pub fn set_interval_with_handle(
     cb: impl Fn() + 'static,
     duration: Duration,
@@ -401,6 +407,7 @@ pub fn set_interval_with_handle(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
 )]
+#[inline(always)]
 pub fn window_event_listener(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,

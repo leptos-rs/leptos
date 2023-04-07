@@ -652,6 +652,7 @@ impl View {
     ///
     /// This method will attach an event listener to **all** child
     /// [`HtmlElement`] children.
+    #[inline(always)]
     pub fn on<E: ev::EventDescriptor + 'static>(
         self,
         event: E,
@@ -919,6 +920,7 @@ macro_rules! impl_into_view_for_tuples {
     where
       $($ty: IntoView),*
     {
+      #[inline]
       fn into_view(self, cx: Scope) -> View {
         paste::paste! {
           let ($([<$ty:lower>],)*) = self;
@@ -993,12 +995,14 @@ impl IntoView for String {
         debug_assertions,
         instrument(level = "trace", name = "#text", skip_all)
     )]
+    #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         View::Text(Text::new(self.into()))
     }
 }
 
 impl IntoView for &'static str {
+    #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         View::Text(Text::new(self.into()))
     }
@@ -1020,6 +1024,7 @@ macro_rules! viewable_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
       impl IntoView for $child_type {
+        #[inline(always)]
         fn into_view(self, _cx: Scope) -> View {
           View::Text(Text::new(self.to_string().into()))
         }

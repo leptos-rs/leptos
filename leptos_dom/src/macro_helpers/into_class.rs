@@ -21,6 +21,7 @@ pub trait IntoClass {
 }
 
 impl IntoClass for bool {
+    #[inline(always)]
     fn into_class(self, _cx: Scope) -> Class {
         Class::Value(self)
     }
@@ -30,6 +31,7 @@ impl<T> IntoClass for T
 where
     T: Fn() -> bool + 'static,
 {
+    #[inline(always)]
     fn into_class(self, cx: Scope) -> Class {
         let modified_fn = Box::new(self);
         Class::Fn(cx, modified_fn)
@@ -60,6 +62,7 @@ impl Class {
 }
 
 impl<T: IntoClass> IntoClass for (Scope, T) {
+    #[inline(always)]
     fn into_class(self, _: Scope) -> Class {
         self.1.into_class(self.0)
     }

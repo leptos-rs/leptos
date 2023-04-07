@@ -14,6 +14,7 @@ thread_local! {
 // Used in template macro
 #[doc(hidden)]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[inline(always)]
 pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
     target: &web_sys::Element,
     event: E,
