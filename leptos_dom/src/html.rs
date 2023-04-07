@@ -476,10 +476,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-            self.element
-                .as_ref()
-                .set_attribute(wasm_bindgen::intern("id"), &id)
-                .unwrap();
+            #[inline(never)]
+            fn id_inner(el: &web_sys::HtmlElement, id: &str) {
+                el.set_attribute(wasm_bindgen::intern("id"), id).unwrap()
+            }
+
+            id_inner(self.element.as_ref(), &id);
 
             self
         }
@@ -580,10 +582,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     pub fn is_mounted(&self) -> bool {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-            crate::document()
-                .body()
-                .unwrap()
-                .contains(Some(self.element.as_ref()))
+            #[inline(never)]
+            fn is_mounted_inner(el: &web_sys::HtmlElement) -> bool {
+                crate::document().body().unwrap().contains(Some(el))
+            }
+
+            is_mounted_inner(self.element.as_ref())
         }
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -685,15 +689,18 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
-    /// Adds a list of classes separated by ASCII whitespace to an element.
-    #[track_caller]
-    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
-        let classes = classes.into();
+    fn classes_inner(self, classes: &str) -> Self {
         let mut this = self;
         for class in classes.split_ascii_whitespace() {
             this = this.class(class.to_string(), true);
         }
         this
+    }
+
+    /// Adds a list of classes separated by ASCII whitespace to an element.
+    #[track_caller]
+    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
+        self.classes_inner(&classes.into())
     }
 
     /// Sets the class on the element as the class signal changes.
@@ -842,6 +849,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             let event_name = event.name();
 
             let key = event.event_delegation_key();
+            let event_handler = Box::new(event_handler);
 
             if event.bubbles() {
                 add_event_listener(
