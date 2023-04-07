@@ -228,12 +228,11 @@ pub trait Props {
     fn builder() -> Self::Builder;
 }
 
-impl<P, F, R> Component<P> for F
-where
-    F: FnOnce(::leptos::Scope, P) -> R,
-{}
+impl<P, F, R> Component<P> for F where F: FnOnce(::leptos::Scope, P) -> R {}
 
 #[doc(hidden)]
-pub fn component_props_builder<P: Props>(_f: &impl Component<P>) -> <P as Props>::Builder {
+pub fn component_props_builder<P: Props>(
+    _f: &impl Component<P>,
+) -> <P as Props>::Builder {
     <P as Props>::builder()
 }
