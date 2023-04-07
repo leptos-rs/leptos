@@ -137,6 +137,7 @@ impl<T> IntoView for (Scope, T)
 where
     T: IntoView,
 {
+    #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         self.1.into_view(self.0)
     }

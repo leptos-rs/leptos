@@ -383,6 +383,7 @@ cfg_if! {
         }
 
         impl NonViewMarkerSibling for web_sys::Node {
+            #[cfg_attr(not(debug_assertions), inline(always))]
             fn next_non_view_marker_sibling(&self) -> Option<Node> {
                 cfg_if! {
                     if #[cfg(debug_assertions)] {
@@ -399,6 +400,7 @@ cfg_if! {
                 }
             }
 
+            #[cfg_attr(not(debug_assertions), inline(always))]
             fn previous_non_view_marker_sibling(&self) -> Option<Node> {
                 cfg_if! {
                     if #[cfg(debug_assertions)] {

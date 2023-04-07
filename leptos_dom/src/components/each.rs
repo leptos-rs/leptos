@@ -155,6 +155,7 @@ impl Mountable for EachRepr {
         };
     }
 
+    #[inline(always)]
     fn get_closing_node(&self) -> web_sys::Node {
         self.closing.node.clone()
     }
