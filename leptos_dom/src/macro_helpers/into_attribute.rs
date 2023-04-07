@@ -23,9 +23,14 @@ pub enum Attribute {
 impl Attribute {
     /// Converts the attribute to its HTML value at that moment, including the attribute name,
     /// so it can be rendered on the server.
-    pub fn as_value_string(&self, attr_name: &'static str) -> String {
+    pub fn as_value_string(
+        &self,
+        attr_name: &'static str,
+    ) -> Cow<'static, str> {
         match self {
-            Attribute::String(value) => format!("{attr_name}=\"{value}\""),
+            Attribute::String(value) => {
+                format!("{attr_name}=\"{value}\"").into()
+            }
             Attribute::Fn(_, f) => {
                 let mut value = f();
                 while let Attribute::Fn(_, f) = value {
@@ -35,14 +40,10 @@ impl Attribute {
             }
             Attribute::Option(_, value) => value
                 .as_ref()
-                .map(|value| format!("{attr_name}=\"{value}\""))
+                .map(|value| format!("{attr_name}=\"{value}\"").into())
                 .unwrap_or_default(),
             Attribute::Bool(include) => {
-                if *include {
-                    attr_name.to_string()
-                } else {
-                    String::new()
-                }
+                Cow::Borrowed(if *include { attr_name } else { "" })
             }
         }
     }
@@ -127,7 +128,7 @@ impl IntoAttribute for Attribute {
 
 macro_rules! impl_into_attr_boxed {
     () => {
-        #[inline]
+        #[inline(always)]
         fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
             self.into_attribute(cx)
         }
