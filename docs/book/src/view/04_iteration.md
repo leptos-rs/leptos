@@ -1,18 +1,19 @@
 # Iteration
 
-Whether you’re listing todos, displaying a table, or showing product images, 
+Whether you’re listing todos, displaying a table, or showing product images,
 iterating over a list of items is a common task in web applications. Reconciling
 the differences between changing sets of items can also be one of the trickiest
 tasks for a framework to handle well.
 
 Leptos supports to two different patterns for iterating over items:
+
 1. For static views: `Vec<_>`
 2. For dynamic lists: `<For/>`
 
 ## Static Views with `Vec<_>`
 
-Sometimes you need to show an item repeatedly, but the list you’re drawing from 
-does not often change. In this case, it’s important to know that you can insert 
+Sometimes you need to show an item repeatedly, but the list you’re drawing from
+does not often change. In this case, it’s important to know that you can insert
 any `Vec<IV> where IV: IntoView` into your view. In other words, if you can render
 `T`, you can render `Vec<T>`.
 
@@ -58,31 +59,34 @@ view! { cx,
 }
 ```
 
-You _can_ render a `Fn() -> Vec<_>` reactively as well. But note that every time 
+You _can_ render a `Fn() -> Vec<_>` reactively as well. But note that every time
 it changes, this will rerender every item in the list. This is quite inefficient!
 Fortunately, there’s a better way.
 
 ## Dynamic Rendering with the `<For/>` Component
 
-The [`<For/>`](https://docs.rs/leptos/latest/leptos/fn.For.html) component is a 
+The [`<For/>`](https://docs.rs/leptos/latest/leptos/fn.For.html) component is a
 keyed dynamic list. It takes three props:
+
 - `each`: a function (such as a signal) that returns the items `T` to be iterated over
 - `key`: a key function that takes `&T` and returns a stable, unique key or ID
-- `view`: renders each `T` into a view 
+- `view`: renders each `T` into a view
 
 `key` is, well, the key. You can add, remove, and move items within the list. As
 long as each item’s key is stable over time, the framework does not need to rerender
 any of the items, unless they are new additions, and it can very efficiently add,
-remove, and move items as they change. This allows for extremely efficient updates 
+remove, and move items as they change. This allows for extremely efficient updates
 to the list as it changes, with minimal additional work.
 
-Creating a good `key` can be a little tricky. You generally do _not_ want to use 
-an index for this purpose, as it is not stable—if you remove or move items, their 
+Creating a good `key` can be a little tricky. You generally do _not_ want to use
+an index for this purpose, as it is not stable—if you remove or move items, their
 indices change.
 
-But it’s a great idea to do something like generating a unique ID for each row as 
+But it’s a great idea to do something like generating a unique ID for each row as
 it is generated, and using that as an ID for the key function.
 
 Check out the `<DynamicList/>` component below for an example.
 
-<iframe src="https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D" width="100%" height="1000px"></iframe>
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D)
+
+<iframe src="https://codesandbox.io/p/sandbox/4-iteration-sglt1o?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A6%2C%22endLineNumber%22%3A55%2C%22startColumn%22%3A5%2C%22startLineNumber%22%3A31%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
