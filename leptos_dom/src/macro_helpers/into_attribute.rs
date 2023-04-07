@@ -293,7 +293,7 @@ attr_type!(char);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
-#[inline]
+#[inline(never)]
 pub fn attribute_helper(
     el: &web_sys::Element,
     name: Cow<'static, str>,
@@ -316,6 +316,7 @@ pub fn attribute_helper(
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[inline(never)]
 pub(crate) fn attribute_expression(
     el: &web_sys::Element,
     attr_name: &str,

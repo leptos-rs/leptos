@@ -45,12 +45,14 @@ impl<T: IntoProperty> IntoProperty for (Scope, T) {
 macro_rules! prop_type {
     ($prop_type:ty) => {
         impl IntoProperty for $prop_type {
+            #[inline(always)]
             fn into_property(self, _cx: Scope) -> Property {
                 Property::Value(self.into())
             }
         }
 
         impl IntoProperty for Option<$prop_type> {
+            #[inline(always)]
             fn into_property(self, _cx: Scope) -> Property {
                 Property::Value(self.into())
             }
@@ -82,6 +84,7 @@ prop_type!(bool);
 use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[inline(never)]
 pub(crate) fn property_helper(
     el: &web_sys::Element,
     name: Cow<'static, str>,
@@ -107,6 +110,7 @@ pub(crate) fn property_helper(
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[inline(never)]
 pub(crate) fn property_expression(
     el: &web_sys::Element,
     prop_name: &str,

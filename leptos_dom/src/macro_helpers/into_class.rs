@@ -73,6 +73,7 @@ use std::borrow::Cow;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
+#[inline(never)]
 pub fn class_helper(
     el: &web_sys::Element,
     name: Cow<'static, str>,
@@ -98,6 +99,7 @@ pub fn class_helper(
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[inline(never)]
 pub(crate) fn class_expression(
     class_list: &web_sys::DomTokenList,
     class_name: &str,

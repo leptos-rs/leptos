@@ -23,6 +23,7 @@ pub trait EventDescriptor: Clone {
 
     /// Return the options for this type. This is only used when you create a [`Custom`] event
     /// handler.
+    #[inline(always)]
     fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
         &None
     }
@@ -37,10 +38,12 @@ pub struct undelegated<Ev: EventDescriptor>(pub Ev);
 impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
     type EventType = Ev::EventType;
 
+    #[inline(always)]
     fn name(&self) -> Cow<'static, str> {
         self.0.name()
     }
 
+    #[inline(always)]
     fn event_delegation_key(&self) -> Cow<'static, str> {
         self.0.event_delegation_key()
     }
@@ -78,6 +81,7 @@ impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
 
     const BUBBLES: bool = false;
 
+    #[inline(always)]
     fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
         &self.options
     }
@@ -136,10 +140,12 @@ macro_rules! generate_event_types {
         impl EventDescriptor for $event {
           type EventType = web_sys::$web_sys_event;
 
+          #[inline(always)]
           fn name(&self) -> Cow<'static, str> {
             stringify!($event).into()
           }
 
+          #[inline(always)]
           fn event_delegation_key(&self) -> Cow<'static, str> {
             concat!("$$$", stringify!($event)).into()
           }

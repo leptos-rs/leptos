@@ -161,8 +161,10 @@ where
         debug_assertions,
         instrument(level = "trace", name = "<DynChild />", skip_all)
     )]
+    #[inline]
     fn into_view(self, cx: Scope) -> View {
         // concrete inner function
+        #[inline(never)]
         fn create_dyn_view(
             cx: Scope,
             component: DynChildRepr,
