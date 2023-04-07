@@ -17,15 +17,11 @@ lazy_static = "1"
 log = "0.4"
 strum = "0.24"
 strum_macros = "0.24"
-serde = { version = "1", features = ["derive", "rc"]}
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 tera = "1"
+reactive-signals = "0.1.0-alpha.4"
 
 [dependencies.web-sys]
 version = "0.3"
-features = [
-	"Window",
-	"Document",
-	"HtmlElement",
-	"HtmlInputElement"
-]
+features = ["Window", "Document", "HtmlElement", "HtmlInputElement"]
