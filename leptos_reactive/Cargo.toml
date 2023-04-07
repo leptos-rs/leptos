@@ -52,6 +52,9 @@ log = "0.4"
 tokio-test = "0.4"
 leptos = { path = "../leptos" }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = { version = "0.4" }
+
 [features]
 default = []
 csr = [

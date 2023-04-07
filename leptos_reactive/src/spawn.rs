@@ -76,7 +76,7 @@ where
     F: Future<Output = ()> + 'static,
 {
     cfg_if! {
-        if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
+        if #[cfg(target_arch = "wasm32")] {
             wasm_bindgen_futures::spawn_local(fut)
         }
         else if #[cfg(any(test, doctest))] {
