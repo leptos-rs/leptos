@@ -10,7 +10,9 @@ use crate::{
 };
 use cfg_if::cfg_if;
 use futures::Stream;
-use std::{fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc};
+use std::{
+    any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc,
+};
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
@@ -20,6 +22,7 @@ macro_rules! impl_get_fn_traits {
             impl<T: Clone> FnOnce<()> for $ty<T> {
                 type Output = T;
 
+                #[inline(always)]
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
                     impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
@@ -27,6 +30,7 @@ macro_rules! impl_get_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> FnMut<()> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                     impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
@@ -34,6 +38,7 @@ macro_rules! impl_get_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> Fn<()> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                     impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
@@ -55,6 +60,7 @@ macro_rules! impl_set_fn_traits {
             impl<T> FnOnce<(T,)> for $ty<T> {
                 type Output = ();
 
+                #[inline(always)]
                 extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
                     impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
@@ -62,6 +68,7 @@ macro_rules! impl_set_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T> FnMut<(T,)> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
                     impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
@@ -69,6 +76,7 @@ macro_rules! impl_set_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T> Fn<(T,)> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
                     impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
@@ -146,7 +154,7 @@ pub trait SignalSet<T> {
     /// if the signal is still valid, [`Some(T)`] otherwise.
     ///
     /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.    
+    /// even if the value has not actually changed.
     fn try_set(&self, new_value: T) -> Option<T>;
 }
 
@@ -247,6 +255,7 @@ pub trait SignalUpdateUntracked<T> {
     /// the value the closure returned.
     #[deprecated = "Please use `try_update_untracked` instead. This method \
                     will be removed in a future version of `leptos`"]
+    #[inline(always)]
     fn update_returning_untracked<U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -557,6 +566,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.with_no_subscription(f)
     }
@@ -575,16 +585,16 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        match with_runtime(self.runtime, |runtime| {
             self.id.try_with(runtime, f, diagnostics)
-        })
-        .ok()
-        .transpose()
-        .ok()
-        .flatten()
+        }) {
+            Ok(Ok(o)) => Some(o),
+            _ => None,
+        }
     }
 }
 
@@ -621,6 +631,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         let diagnostics = diagnostics!(self);
 
@@ -651,6 +662,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
@@ -765,6 +777,7 @@ impl<T> ReadSignal<T>
 where
     T: 'static,
 {
+    #[inline(always)]
     pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with_no_subscription(self.runtime, f)
     }
@@ -772,6 +785,7 @@ where
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn try_with<U>(
         &self,
         f: impl FnOnce(&T) -> U,
@@ -912,6 +926,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
@@ -929,6 +944,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update_returning_untracked<U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -936,6 +952,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 
+    #[inline(always)]
     fn try_update_untracked<O>(
         &self,
         f: impl FnOnce(&mut T) -> O,
@@ -974,6 +991,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
@@ -996,6 +1014,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(self.runtime, f)
     }
@@ -1234,6 +1253,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id.with_no_subscription(self.runtime, f)
     }
@@ -1252,16 +1272,16 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        match with_runtime(self.runtime, |runtime| {
             self.id.try_with(runtime, f, diagnostics)
-        })
-        .ok()
-        .transpose()
-        .ok()
-        .flatten()
+        }) {
+            Ok(Ok(o)) => Some(o),
+            _ => None,
+        }
     }
 }
 
@@ -1321,6 +1341,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
+    #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
@@ -1338,6 +1359,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
+    #[inline(always)]
     fn update_returning_untracked<U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -1358,6 +1380,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_update_untracked<O>(
         &self,
         f: impl FnOnce(&mut T) -> O,
@@ -1400,6 +1423,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         let diagnostics = diagnostics!(self);
 
@@ -1430,6 +1454,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
@@ -1549,6 +1574,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
@@ -1571,6 +1597,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(self.runtime, f)
     }
@@ -1850,6 +1877,7 @@ impl NodeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn try_with_no_subscription<T, U>(
         &self,
         runtime: &Runtime,
@@ -1868,6 +1896,7 @@ impl NodeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn try_with<T, U>(
         &self,
         runtime: &Runtime,
@@ -1882,6 +1911,7 @@ impl NodeId {
         self.try_with_no_subscription(runtime, f)
     }
 
+    #[inline(always)]
     pub(crate) fn with_no_subscription<T, U>(
         &self,
         runtime: RuntimeId,
@@ -1896,6 +1926,7 @@ impl NodeId {
         .expect("runtime to be alive")
     }
 
+    #[inline(always)]
     fn update_value<T, U>(
         &self,
         runtime: RuntimeId,
@@ -1932,6 +1963,7 @@ impl NodeId {
         .unwrap_or_default()
     }
 
+    #[inline(always)]
     pub(crate) fn update<T, U>(
         &self,
         runtime_id: RuntimeId,
@@ -1977,6 +2009,7 @@ impl NodeId {
         .unwrap_or_default()
     }
 
+    #[inline(always)]
     pub(crate) fn update_with_no_effect<T, U>(
         &self,
         runtime: RuntimeId,
@@ -1990,6 +2023,8 @@ impl NodeId {
     }
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 fn format_signal_warning(
     msg: &str,
@@ -2012,6 +2047,8 @@ fn format_signal_warning(
     format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_signal(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
@@ -2026,6 +2063,8 @@ pub(crate) fn panic_getting_dead_signal(
     )
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn warn_updating_dead_signal(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,

@@ -58,6 +58,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
     )
 )]
 #[track_caller]
+#[inline(always)]
 pub fn create_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
@@ -113,6 +114,7 @@ where
     )
 )]
 #[track_caller]
+#[inline(always)]
 pub fn create_isomorphic_effect<T>(
     cx: Scope,
     f: impl Fn(Option<T>) -> T + 'static,
@@ -136,6 +138,7 @@ pub fn create_isomorphic_effect<T>(
         )
     )
 )]
+#[inline(always)]
 pub fn create_render_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,

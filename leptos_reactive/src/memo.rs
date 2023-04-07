@@ -72,6 +72,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
     )
 )]
 #[track_caller]
+#[inline(always)]
 pub fn create_memo<T>(
     cx: Scope,
     f: impl Fn(Option<&T>) -> T + 'static,
@@ -218,6 +219,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_get_untracked(&self) -> Option<T> {
         self.try_with_untracked(T::clone)
     }
@@ -265,6 +267,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             )
         )
     )]
+    #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
             self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
@@ -305,6 +308,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn get(&self) -> T {
         self.with(T::clone)
     }
@@ -323,6 +327,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn try_get(&self) -> Option<T> {
         self.try_with(T::clone)
     }
@@ -477,6 +482,8 @@ where
     }
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 fn format_memo_warning(
     msg: &str,
@@ -499,6 +506,8 @@ fn format_memo_warning(
     format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_memo(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,

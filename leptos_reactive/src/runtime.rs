@@ -360,6 +360,7 @@ impl Debug for Runtime {
 }
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
+#[inline(always)] // it monomorphizes anyway
 pub(crate) fn with_runtime<T>(
     id: RuntimeId,
     f: impl FnOnce(&Runtime) -> T,
@@ -456,6 +457,7 @@ impl RuntimeId {
         (f(scope), scope.id, disposer)
     }
 
+    #[inline(always)]
     pub(crate) fn run_scope<T>(
         self,
         f: impl FnOnce(Scope) -> T,
@@ -632,6 +634,7 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_effect<T>(
         self,
         f: impl Fn(Option<T>) -> T + 'static,
@@ -651,6 +654,7 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_memo<T>(
         self,
         f: impl Fn(Option<&T>) -> T + 'static,

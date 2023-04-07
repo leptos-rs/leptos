@@ -116,6 +116,7 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
+    #[inline(always)]
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, disposer) = self.run_child_scope(f);
         disposer
@@ -130,6 +131,7 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
+    #[inline(always)]
     pub fn run_child_scope<T>(
         self,
         f: impl FnOnce(Scope) -> T,
@@ -154,7 +156,6 @@ impl Scope {
                 .or_default()
                 .push(child_id);
         });
-        (res, disposer)
     }
 
     /// Suspends reactive tracking while running the given function.
@@ -182,6 +183,7 @@ impl Scope {
     ///
     /// # });
     /// ```
+    #[inline(always)]
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
             let untracked_result;
@@ -312,15 +314,15 @@ impl Scope {
 
     /// Returns the the parent Scope, if any.
     pub fn parent(&self) -> Option<Scope> {
-        with_runtime(self.runtime, |runtime| {
+        match with_runtime(self.runtime, |runtime| {
             runtime.scope_parents.borrow().get(self.id).copied()
-        })
-        .ok()
-        .flatten()
-        .map(|id| Scope {
-            runtime: self.runtime,
-            id,
-        })
+        }) {
+            Ok(Some(id)) => Some(Scope {
+                runtime: self.runtime,
+                id,
+            }),
+            _ => None,
+        }
     }
 }
 
@@ -339,6 +341,7 @@ fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
 ///
 /// It runs after child scopes have been disposed, but before signals, effects, and resources
 /// are invalidated.
+#[inline(always)]
 pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
     push_cleanup(cx, Box::new(cleanup_fn))
 }
@@ -505,6 +508,7 @@ impl Scope {
     ///
     /// # Panics
     /// Panics if the runtime this scope belongs to has already been disposed.
+    #[inline(always)]
     pub fn batch<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, move |runtime| {
             let batching =
