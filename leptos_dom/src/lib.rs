@@ -680,7 +680,7 @@ impl View {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             match &self {
               Self::Element(el) => {
-                if event.bubbles() {
+                if E::BUBBLES {
                   add_event_listener(&el.element, event.event_delegation_key(), event.name(), event_handler, &None);
                 } else {
                   add_event_listener_undelegated(

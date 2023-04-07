@@ -8,20 +8,18 @@ pub trait EventDescriptor: Clone {
     /// The [`web_sys`] event type, such as [`web_sys::MouseEvent`].
     type EventType: FromWasmAbi;
 
+    /// Indicates if this event bubbles. For example, `click` bubbles,
+    /// but `focus` does not.
+    ///
+    /// If this is true, then the event will be delegated globally,
+    /// otherwise, event listeners will be directly attached to the element.
+    const BUBBLES: bool;
+
     /// The name of the event, such as `click` or `mouseover`.
     fn name(&self) -> Cow<'static, str>;
 
     /// The key used for event delegation.
     fn event_delegation_key(&self) -> Cow<'static, str>;
-
-    /// Indicates if this event bubbles. For example, `click` bubbles,
-    /// but `focus` does not.
-    ///
-    /// If this method returns true, then the event will be delegated globally,
-    /// otherwise, event listeners will be directly attached to the element.
-    fn bubbles(&self) -> bool {
-        true
-    }
 
     /// Return the options for this type. This is only used when you create a [`Custom`] event
     /// handler.
@@ -47,9 +45,7 @@ impl<Ev: EventDescriptor> EventDescriptor for undelegated<Ev> {
         self.0.event_delegation_key()
     }
 
-    fn bubbles(&self) -> bool {
-        false
-    }
+    const BUBBLES: bool = false;
 }
 
 /// A custom event.
@@ -80,9 +76,7 @@ impl<E: FromWasmAbi> EventDescriptor for Custom<E> {
         format!("$$${}", self.name).into()
     }
 
-    fn bubbles(&self) -> bool {
-        false
-    }
+    const BUBBLES: bool = false;
 
     fn options(&self) -> &Option<web_sys::AddEventListenerOptions> {
         &self.options
@@ -150,16 +144,12 @@ macro_rules! generate_event_types {
             concat!("$$$", stringify!($event)).into()
           }
 
-          $(
-            generate_event_types!($does_not_bubble);
-          )?
+          const BUBBLES: bool = true $(&& generate_event_types!($does_not_bubble))?;
         }
     )*
   };
 
-  (does_not_bubble) => {
-    fn bubbles(&self) -> bool { false }
-  }
+  (does_not_bubble) => { false }
 }
 
 generate_event_types! {

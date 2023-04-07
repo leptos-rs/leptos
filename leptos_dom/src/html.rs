@@ -851,7 +851,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             let key = event.event_delegation_key();
             let event_handler = Box::new(event_handler);
 
-            if event.bubbles() {
+            if E::BUBBLES {
                 add_event_listener(
                     self.element.as_ref(),
                     key,
