@@ -392,12 +392,12 @@ impl View {
                                                     StreamChunk::Sync(
                                                         format!(
                                                             "<!>{}",
-                                                            t.content
+                                                            html_escape::encode_safe(&t.content)
                                                         )
                                                         .into(),
                                                     )
                                                 } else {
-                                                    StreamChunk::Sync(t.content)
+                                                    StreamChunk::Sync(html_escape::encode_safe(&t.content).to_string().into())
                                                 },
                                             );
                                         } else {
