@@ -373,47 +373,52 @@ struct Comment {
 }
 
 impl Comment {
+    #[inline]
     fn new(
         content: impl Into<Cow<'static, str>>,
         id: &HydrationKey,
         closing: bool,
     ) -> Self {
-        let content = content.into();
+        Self::new_inner(content.into(), id, closing)
+    }
 
-        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-        {
-            let _ = id;
-            let _ = closing;
-        }
+    fn new_inner(
+        content: Cow<'static, str>,
+        id: &HydrationKey,
+        closing: bool,
+    ) -> Self {
+        cfg_if! {
+            if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
+                let _ = id;
+                let _ = closing;
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        let node = COMMENT.with(|comment| comment.clone_node().unwrap());
+                Self { content }
+            } else {
+                let node = COMMENT.with(|comment| comment.clone_node().unwrap());
 
-        #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
-        node.set_text_content(Some(&format!(" {content} ")));
+                #[cfg(debug_assertions)]
+                node.set_text_content(Some(&format!(" {content} ")));
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
-            if HydrationCtx::is_hydrating() {
-                let id = HydrationCtx::to_string(id, closing);
+                if HydrationCtx::is_hydrating() {
+                    let id = HydrationCtx::to_string(id, closing);
 
-                if let Some(marker) = hydration::get_marker(&id) {
-                    marker.before_with_node_1(&node).unwrap();
+                    if let Some(marker) = hydration::get_marker(&id) {
+                        marker.before_with_node_1(&node).unwrap();
 
-                    marker.remove();
-                } else {
-                    crate::warn!(
-                        "component with id {id} not found, ignoring it for \
-                         hydration"
-                    );
+                        marker.remove();
+                    } else {
+                        crate::warn!(
+                            "component with id {id} not found, ignoring it for \
+                             hydration"
+                        );
+                    }
+                }
+
+                Self {
+                    node,
+                    content,
                 }
             }
-        }
-
-        Self {
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            node,
-            content,
         }
     }
 }
