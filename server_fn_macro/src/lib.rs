@@ -236,9 +236,15 @@ pub fn server_macro_impl(
         #[cfg(not(feature = "ssr"))]
         #[allow(unused_variables)]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            let prefix = #struct_name::prefix().to_string();
-            let url = prefix + "/" + #struct_name::url();
-            #server_fn_path::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
+            
+            #server_fn_path::call_server_fn(
+                &{
+                    let prefix = #struct_name::prefix().to_string();
+                    prefix + "/" + #struct_name::url()
+                },
+                #struct_name { #(#field_names_5),* },
+                #encoding
+            ).await
         }
     })
 }
