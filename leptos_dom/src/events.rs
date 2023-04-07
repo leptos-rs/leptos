@@ -67,7 +67,7 @@ pub fn add_event_listener<E>(
       }
     }
 
-    let cb = Closure::wrap(cb).into_js_value();
+    let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
     let key = intern(&key);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     add_delegated_event_listener(&key, event_name, options);
@@ -97,7 +97,7 @@ pub(crate) fn add_event_listener_undelegated<E>(
     }
 
     let event_name = intern(event_name);
-    let cb = Closure::wrap(cb).into_js_value();
+    let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
     if let Some(options) = options {
         _ = target
             .add_event_listener_with_callback_and_add_event_listener_options(
