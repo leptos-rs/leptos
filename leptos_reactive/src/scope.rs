@@ -290,14 +290,11 @@ impl Scope {
         })
     }
 
-    pub(crate) fn with_scope_property(
-        &self,
-        f: impl FnOnce(&mut Vec<ScopeProperty>),
-    ) {
+    pub(crate) fn push_scope_property(&self, prop: ScopeProperty) {
         _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
             if let Some(scope) = scopes.get(self.id) {
-                f(&mut scope.borrow_mut());
+                scope.borrow_mut().push(prop);
             } else {
                 console_warn(
                     "tried to add property to a scope that has been disposed",

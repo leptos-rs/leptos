@@ -340,7 +340,7 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
+    cx.push_scope_property(ScopeProperty::Signal(s.0.id));
     s
 }
 
@@ -1107,7 +1107,7 @@ impl<T> Copy for WriteSignal<T> {}
 #[track_caller]
 pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
     let s = cx.runtime.create_rw_signal(value);
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
+    cx.push_scope_property(ScopeProperty::Signal(s.id));
     s
 }
 

@@ -418,7 +418,7 @@ where
             .insert(Rc::new(RefCell::new(value)))
     })
     .unwrap_or_default();
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::StoredValue(id)));
+    cx.push_scope_property(ScopeProperty::StoredValue(id));
     StoredValue {
         runtime: cx.runtime,
         id,

@@ -66,7 +66,7 @@ where
         if #[cfg(not(feature = "ssr"))] {
             let e = cx.runtime.create_effect(f);
             //eprintln!("created effect {e:?}");
-            cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
+            cx.push_scope_property(ScopeProperty::Effect(e))
         } else {
             // clear warnings
             _ = cx;
@@ -121,7 +121,7 @@ pub fn create_isomorphic_effect<T>(
 {
     let e = cx.runtime.create_effect(f);
     //eprintln!("created effect {e:?}");
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
+    cx.push_scope_property(ScopeProperty::Effect(e))
 }
 
 #[doc(hidden)]
