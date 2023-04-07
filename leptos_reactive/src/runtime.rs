@@ -483,6 +483,7 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_signal<T>(
         self,
         value: T,
@@ -569,6 +570,7 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_rw_signal<T>(self, value: T) -> RwSignal<T>
     where
         T: Any + 'static,
