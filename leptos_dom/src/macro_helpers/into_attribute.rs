@@ -135,6 +135,7 @@ macro_rules! impl_into_attr_boxed {
 }
 
 impl IntoAttribute for Option<Attribute> {
+    #[inline(always)]
     fn into_attribute(self, cx: Scope) -> Attribute {
         self.unwrap_or(Attribute::Option(cx, None))
     }

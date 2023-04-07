@@ -5,16 +5,18 @@ use std::{collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
+#[repr(transparent)]
 pub struct Errors(HashMap<ErrorKey, Arc<dyn Error + Send + Sync>>);
 
 /// A unique key for an error that occurs at a particular location in the user interface.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-pub struct ErrorKey(String);
+#[repr(transparent)]
 
 impl<T> From<T> for ErrorKey
 where
     T: Into<String>,
 {
+    #[inline(always)]
     fn from(key: T) -> ErrorKey {
         ErrorKey(key.into())
     }
@@ -24,12 +26,14 @@ impl IntoIterator for Errors {
     type Item = (ErrorKey, Arc<dyn Error + Send + Sync>);
     type IntoIter = IntoIter;
 
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         IntoIter(self.0.into_iter())
     }
 }
 
 /// An owning iterator over all the errors contained in the [Errors] struct.
+#[repr(transparent)]
 pub struct IntoIter(
     std::collections::hash_map::IntoIter<
         ErrorKey,
@@ -40,6 +44,7 @@ pub struct IntoIter(
 impl Iterator for IntoIter {
     type Item = (ErrorKey, Arc<dyn Error + Send + Sync>);
 
+    #[inline(always)]
     fn next(
         &mut self,
     ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
@@ -48,6 +53,7 @@ impl Iterator for IntoIter {
 }
 
 /// An iterator over all the errors contained in the [Errors] struct.
+#[repr(transparent)]
 pub struct Iter<'a>(
     std::collections::hash_map::Iter<
         'a,
@@ -59,6 +65,7 @@ pub struct Iter<'a>(
 impl<'a> Iterator for Iter<'a> {
     type Item = (&'a ErrorKey, &'a Arc<dyn Error + Send + Sync>);
 
+    #[inline(always)]
     fn next(
         &mut self,
     ) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
@@ -127,6 +134,7 @@ where
 }
 impl Errors {
     /// Returns `true` if there are no errors.
+    #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -156,6 +164,7 @@ impl Errors {
     }
 
     /// An iterator over all the errors, in arbitrary order.
+    #[inline(always)]
     pub fn iter(&self) -> Iter<'_> {
         Iter(self.0.iter())
     }
