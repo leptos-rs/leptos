@@ -218,3 +218,22 @@ pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 /// }
 /// ```
 pub type AttributeValue = Box<dyn IntoAttribute>;
+
+#[doc(hidden)]
+pub trait Component<P> {}
+
+#[doc(hidden)]
+pub trait Props {
+    type Builder;
+    fn builder() -> Self::Builder;
+}
+
+impl<P, F, R> Component<P> for F
+where
+    F: FnOnce(::leptos::Scope, P) -> R,
+{}
+
+#[doc(hidden)]
+pub fn component_props_builder<P: Props>(_f: &impl Component<P>) -> <P as Props>::Builder {
+    <P as Props>::builder()
+}

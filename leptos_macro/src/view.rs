@@ -1062,7 +1062,6 @@ pub(crate) fn component_to_tokens(
     let name = &node.name;
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
-    let component_props_name = format_ident!("{component_name}Props");
 
     let attrs = node.attributes.iter().filter_map(|node| {
         if let Node::Attribute(node) = node {
@@ -1154,7 +1153,7 @@ pub(crate) fn component_to_tokens(
     let component = quote! {
         #name(
             #cx,
-            #component_props_name::builder()
+            ::leptos::component_props_builder(&#name)
                 #(#props)*
                 #children
                 .build()
