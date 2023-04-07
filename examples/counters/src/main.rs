@@ -1,4 +1,4 @@
-use counters::{Counters, CountersProps};
+use counters::Counters;
 use leptos::*;
 
 fn main() {

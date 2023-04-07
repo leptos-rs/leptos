@@ -162,6 +162,77 @@ fn leptos_scope_creation_and_disposal(b: &mut Bencher) {
 }
 
 #[bench]
+fn rs_deep_update(b: &mut Bencher) {
+    use reactive_signals::{Scope, Signal, signal, runtimes::ClientRuntime, types::Func};
+
+    let sc = ClientRuntime::new_root_scope();
+    b.iter(|| {
+        let signal = signal!(sc, 0);
+        let mut memos = Vec::<Signal<Func<i32>, ClientRuntime>>::new();
+        for i in 0..1000usize {
+            let prev = memos.get(i.saturating_sub(1)).copied();
+            if let Some(prev) = prev {
+                memos.push(signal!(sc, move || prev.get() + 1))
+            } else {
+                memos.push(signal!(sc, move || signal.get() + 1))
+            }
+        }
+        signal.set(1);
+        assert_eq!(memos[999].get(), 1001);
+    });
+}
+
+#[bench]
+fn rs_fanning_out(b: &mut Bencher) {
+    use reactive_signals::{Scope, Signal, signal, runtimes::ClientRuntime, types::Func};
+    let cx = ClientRuntime::new_root_scope();
+
+    b.iter(|| {
+        let sig = signal!(cx, 0);
+        let memos = (0..1000)
+            .map(|_| signal!(cx, move || sig.get()))
+            .collect::<Vec<_>>();
+        assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 0);
+        sig.set(1);
+        assert_eq!(memos.iter().map(|m| m.get()).sum::<i32>(), 1000);
+    });
+}
+
+#[bench]
+fn rs_narrowing_update(b: &mut Bencher) {
+    use reactive_signals::{Scope, Signal, signal, runtimes::ClientRuntime, types::Func};
+    let cx = ClientRuntime::new_root_scope();
+
+    b.iter(|| {
+        let acc = Rc::new(Cell::new(0));
+        let sigs =
+            (0..1000).map(|n| signal!(cx, n)).collect::<Vec<_>>();
+        let memo = signal!(cx, {
+            let sigs = sigs.clone();
+            move || {
+                sigs.iter().map(|r| r.get()).sum::<i32>()
+            }
+        });
+        assert_eq!(memo.get(), 499500);
+        signal!(cx, {
+            let acc = Rc::clone(&acc);
+            move || {
+                acc.set(memo.get());
+            }
+        });
+
+        assert_eq!(acc.get(), 499500);
+
+        sigs[1].update(|n| *n += 1);
+        sigs[10].update(|n| *n += 1);
+        sigs[100].update(|n| *n += 1);
+
+        assert_eq!(acc.get(), 499503);
+        assert_eq!(memo.get(), 499503);
+    });
+}
+
+#[bench]
 fn l021_deep_creation(b: &mut Bencher) {
     use l021::*;
     let runtime = create_runtime();

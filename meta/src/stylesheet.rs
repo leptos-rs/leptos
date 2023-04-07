@@ -1,4 +1,4 @@
-use crate::{Link, LinkProps};
+use crate::Link;
 use leptos::*;
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
