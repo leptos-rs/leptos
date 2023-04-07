@@ -64,4 +64,6 @@ view! { cx,
 
 You’ll notice that this version drops the `Submit` button. Instead, we add an `oninput` attribute to the input. Note that this is _not_ `on:input`, which would listen for the `input` event and run some Rust code. Without the colon, `oninput` is the plain HTML attribute. So the string is actually a JavaScript string. `this.form` gives us the form the input is attached to. `requestSubmit()` fires the `submit` event on the `<form>`, which is caught by `<Form/>` just as if we had clicked a `Submit` button. Now the form will “navigate” on every keystroke or input to keep the URL (and therefore the search) perfectly in sync with the user’s input as they type.
 
-<iframe src="https://codesandbox.io/p/sandbox/16-router-forked-hrrt3h?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px"></iframe>
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/16-router-forked-hrrt3h?file=%2Fsrc%2Fmain.rs)
+
+<iframe src="https://codesandbox.io/p/sandbox/16-router-forked-hrrt3h?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
