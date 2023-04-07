@@ -638,7 +638,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
             match attr {
                 Attribute::String(value) => {
-                    this.attrs.push((name, value.into()));
+                    this.attrs.push((name, value));
                 }
                 Attribute::Bool(include) => {
                     if include {
@@ -647,7 +647,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 }
                 Attribute::Option(_, maybe) => {
                     if let Some(value) = maybe {
-                        this.attrs.push((name, value.into()));
+                        this.attrs.push((name, value));
                     }
                 }
                 _ => unreachable!(),
