@@ -50,6 +50,7 @@ use leptos::{
     *,
 };
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Debug,
@@ -101,7 +102,7 @@ pub struct MetaTagsContext {
     els: Rc<
         RefCell<
             HashMap<
-                String,
+                Cow<'static, str>,
                 (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>),
             >,
         >,
@@ -131,7 +132,7 @@ impl MetaTagsContext {
     pub fn register(
         &self,
         cx: Scope,
-        id: String,
+        id: Cow<'static, str>,
         builder_el: HtmlElement<AnyElement>,
     ) {
         cfg_if! {

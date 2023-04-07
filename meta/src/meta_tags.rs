@@ -53,5 +53,5 @@ pub fn Meta(
             .attr("content", move || content.as_ref().map(|v| v.get()))
     });
 
-    meta.tags.register(cx, id, builder_el.into_any());
+    meta.tags.register(cx, id.into(), builder_el.into_any());
 }

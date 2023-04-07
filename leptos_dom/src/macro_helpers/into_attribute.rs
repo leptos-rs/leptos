@@ -1,5 +1,5 @@
 use leptos_reactive::Scope;
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
 
@@ -11,11 +11,11 @@ use wasm_bindgen::UnwrapThrowExt;
 #[derive(Clone)]
 pub enum Attribute {
     /// A plain string value.
-    String(String),
+    String(Cow<'static, str>),
     /// A (presumably reactive) function, which will be run inside an effect to do targeted updates to the attribute.
     Fn(Scope, Rc<dyn Fn() -> Attribute>),
     /// An optional string value, which sets the attribute to the value if `Some` and removes the attribute if `None`.
-    Option(Scope, Option<String>),
+    Option(Scope, Option<Cow<'static, str>>),
     /// A boolean attribute, which sets the attribute if `true` and removes the attribute if `false`.
     Bool(bool),
 }
@@ -49,9 +49,9 @@ impl Attribute {
 
     /// Converts the attribute to its HTML value at that moment, not including
     /// the attribute name, so it can be rendered on the server.
-    pub fn as_nameless_value_string(&self) -> Option<String> {
+    pub fn as_nameless_value_string(&self) -> Option<Cow<'static, str>> {
         match self {
-            Attribute::String(value) => Some(value.to_string()),
+            Attribute::String(value) => Some(value.clone()),
             Attribute::Fn(_, f) => {
                 let mut value = f();
                 while let Attribute::Fn(_, f) = value {
@@ -59,12 +59,10 @@ impl Attribute {
                 }
                 value.as_nameless_value_string()
             }
-            Attribute::Option(_, value) => {
-                value.as_ref().map(|value| value.to_string())
-            }
+            Attribute::Option(_, value) => value.as_ref().cloned(),
             Attribute::Bool(include) => {
                 if *include {
-                    Some("".to_string())
+                    Some("".into())
                 } else {
                     None
                 }
@@ -109,18 +107,19 @@ pub trait IntoAttribute {
 }
 
 impl<T: IntoAttribute + 'static> From<T> for Box<dyn IntoAttribute> {
+    #[inline(always)]
     fn from(value: T) -> Self {
         Box::new(value)
     }
 }
 
 impl IntoAttribute for Attribute {
-    #[inline]
+    #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
         self
     }
 
-    #[inline]
+    #[inline(always)]
     fn into_attribute_boxed(self: Box<Self>, _: Scope) -> Attribute {
         *self
     }
@@ -144,6 +143,25 @@ impl IntoAttribute for Option<Attribute> {
 }
 
 impl IntoAttribute for String {
+    #[inline(always)]
+    fn into_attribute(self, _: Scope) -> Attribute {
+        Attribute::String(Cow::Owned(self))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for &'static str {
+    #[inline(always)]
+    fn into_attribute(self, _: Scope) -> Attribute {
+        Attribute::String(Cow::Borrowed(self))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Cow<'static, str> {
+    #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
         Attribute::String(self)
     }
@@ -152,6 +170,7 @@ impl IntoAttribute for String {
 }
 
 impl IntoAttribute for bool {
+    #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
         Attribute::Bool(self)
     }
@@ -160,6 +179,25 @@ impl IntoAttribute for bool {
 }
 
 impl IntoAttribute for Option<String> {
+    #[inline(always)]
+    fn into_attribute(self, cx: Scope) -> Attribute {
+        Attribute::Option(cx, self.map(Cow::Owned))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Option<&'static str> {
+    #[inline(always)]
+    fn into_attribute(self, cx: Scope) -> Attribute {
+        Attribute::Option(cx, self.map(Cow::Borrowed))
+    }
+
+    impl_into_attr_boxed! {}
+}
+
+impl IntoAttribute for Option<Cow<'static, str>> {
+    #[inline(always)]
     fn into_attribute(self, cx: Scope) -> Attribute {
         Attribute::Option(cx, self)
     }
@@ -181,6 +219,7 @@ where
 }
 
 impl<T: IntoAttribute> IntoAttribute for (Scope, T) {
+    #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
         self.1.into_attribute(self.0)
     }
@@ -200,6 +239,7 @@ impl IntoAttribute for (Scope, Option<Box<dyn IntoAttribute>>) {
 }
 
 impl IntoAttribute for (Scope, Box<dyn IntoAttribute>) {
+    #[inline(always)]
     fn into_attribute(self, _: Scope) -> Attribute {
         self.1.into_attribute_boxed(self.0)
     }
@@ -211,7 +251,7 @@ macro_rules! attr_type {
     ($attr_type:ty) => {
         impl IntoAttribute for $attr_type {
             fn into_attribute(self, _: Scope) -> Attribute {
-                Attribute::String(self.to_string())
+                Attribute::String(self.to_string().into())
             }
 
             #[inline]
@@ -222,7 +262,7 @@ macro_rules! attr_type {
 
         impl IntoAttribute for Option<$attr_type> {
             fn into_attribute(self, cx: Scope) -> Attribute {
-                Attribute::Option(cx, self.map(|n| n.to_string()))
+                Attribute::Option(cx, self.map(|n| n.to_string().into()))
             }
 
             #[inline]
@@ -234,7 +274,6 @@ macro_rules! attr_type {
 }
 
 attr_type!(&String);
-attr_type!(&str);
 attr_type!(usize);
 attr_type!(u8);
 attr_type!(u16);
@@ -252,9 +291,8 @@ attr_type!(f64);
 attr_type!(char);
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-use std::borrow::Cow;
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[doc(hidden)]
+#[inline]
 pub fn attribute_helper(
     el: &web_sys::Element,
     name: Cow<'static, str>,
