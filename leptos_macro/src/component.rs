@@ -204,7 +204,7 @@ impl ToTokens for Model {
             impl #generics ::leptos::Props for #props_name #generics #where_clause {
                 type Builder = #props_builder_name #generics;
                 fn builder() -> Self::Builder {
-                    todo!()//#props_name::builder()
+                    #props_name::builder()
                 }
             }
 
