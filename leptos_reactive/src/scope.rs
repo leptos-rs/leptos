@@ -177,17 +177,36 @@ impl Scope {
     /// ```
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
+            let untracked_result;
+
             SpecialNonReactiveZone::enter();
-            let prev_observer = runtime.observer.take();
-            let untracked_result = f();
-            runtime.observer.set(prev_observer);
+
+            let prev_observer =
+                SetObserverOnDrop(self.runtime, runtime.observer.take());
+
+            untracked_result = f();
+
+            runtime.observer.set(prev_observer.1);
+            std::mem::forget(prev_observer); // avoid Drop
+
             SpecialNonReactiveZone::exit();
+
             untracked_result
         })
         .expect(
             "tried to run untracked function in a runtime that has been \
              disposed",
         )
+    }
+}
+
+struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
+
+impl Drop for SetObserverOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.observer.set(self.1);
+        });
     }
 }
 
@@ -480,15 +499,31 @@ impl Scope {
     /// Panics if the runtime this scope belongs to has already been disposed.
     pub fn batch<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, move |runtime| {
+            let batching =
+                SetBatchingOnDrop(self.runtime, runtime.batching.get());
             runtime.batching.set(true);
+
             let val = f();
-            runtime.batching.set(false);
+
+            runtime.batching.set(batching.1);
+            std::mem::forget(batching);
+
             runtime.run_your_effects();
             val
         })
         .expect(
             "tried to run a batched update in a runtime that has been disposed",
         )
+    }
+}
+
+struct SetBatchingOnDrop(RuntimeId, bool);
+
+impl Drop for SetBatchingOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.batching.set(self.1);
+        });
     }
 }
 

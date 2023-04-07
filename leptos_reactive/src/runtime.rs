@@ -332,9 +332,11 @@ impl Runtime {
     }
 
     pub(crate) fn run_your_effects(&self) {
-        let effects = self.pending_effects.take();
-        for effect_id in effects {
-            self.update_if_necessary(effect_id);
+        if !self.batching.get() {
+            let effects = self.pending_effects.take();
+            for effect_id in effects {
+                self.update_if_necessary(effect_id);
+            }
         }
     }
 
