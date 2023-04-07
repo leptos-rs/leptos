@@ -1,7 +1,7 @@
 use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{signal_prelude::*, use_context, RwSignal};
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, error::Error, sync::Arc};
 
 /// A struct to hold all the possible errors that could be provided by child Views
 #[derive(Debug, Clone, Default)]
@@ -11,10 +11,11 @@ pub struct Errors(HashMap<ErrorKey, Arc<dyn Error + Send + Sync>>);
 /// A unique key for an error that occurs at a particular location in the user interface.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct ErrorKey(Cow<'static, str>);
 
 impl<T> From<T> for ErrorKey
 where
-    T: Into<String>,
+    T: Into<Cow<'static, str>>,
 {
     #[inline(always)]
     fn from(key: T) -> ErrorKey {
@@ -79,7 +80,7 @@ where
     E: Error + Send + Sync + 'static,
 {
     fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
-        let id = ErrorKey(HydrationCtx::peek().previous);
+        let id = ErrorKey(HydrationCtx::peek().previous.into());
         let errors = use_context::<RwSignal<Errors>>(cx);
         match self {
             Ok(stuff) => {
