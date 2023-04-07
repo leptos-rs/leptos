@@ -236,7 +236,7 @@ pub fn server_macro_impl(
         #[cfg(not(feature = "ssr"))]
         #[allow(unused_variables)]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            
+
             #server_fn_path::call_server_fn(
                 &{
                     let prefix = #struct_name::prefix().to_string();
