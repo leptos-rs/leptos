@@ -136,6 +136,13 @@ impl Scope {
     ) -> (T, ScopeDisposer) {
         let (res, child_id, disposer) =
             self.runtime.run_scope_undisposed(f, Some(self));
+
+        self.push_child(child_id);
+
+        (res, disposer)
+    }
+
+    fn push_child(&self, child_id: ScopeId) {
         _ = with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
@@ -317,19 +324,23 @@ impl Scope {
     }
 }
 
-/// Creates a cleanup function, which will be run when a [Scope] is disposed.
-///
-/// It runs after child scopes have been disposed, but before signals, effects, and resources
-/// are invalidated.
-pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
     _ = with_runtime(cx.runtime, |runtime| {
         let mut cleanups = runtime.scope_cleanups.borrow_mut();
         let cleanups = cleanups
             .entry(cx.id)
             .expect("trying to clean up a Scope that has already been disposed")
             .or_insert_with(Default::default);
-        cleanups.push(Box::new(cleanup_fn));
-    })
+        cleanups.push(cleanup_fn);
+    });
+}
+
+/// Creates a cleanup function, which will be run when a [Scope] is disposed.
+///
+/// It runs after child scopes have been disposed, but before signals, effects, and resources
+/// are invalidated.
+pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+    push_cleanup(cx, Box::new(cleanup_fn))
 }
 
 slotmap::new_key_type! {

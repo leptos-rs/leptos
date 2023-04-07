@@ -1839,6 +1839,16 @@ impl NodeId {
         }
     }
 
+    fn try_with_no_subscription_inner(
+        &self,
+        runtime: &Runtime,
+    ) -> Result<Rc<RefCell<dyn Any>>, SignalError> {
+        runtime.update_if_necessary(*self);
+        let nodes = runtime.nodes.borrow();
+        let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
+        Ok(Rc::clone(&node.value))
+    }
+
     #[track_caller]
     pub(crate) fn try_with_no_subscription<T, U>(
         &self,
@@ -1848,13 +1858,7 @@ impl NodeId {
     where
         T: 'static,
     {
-        runtime.update_if_necessary(*self);
-        let value = {
-            let nodes = runtime.nodes.borrow();
-            let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
-            Rc::clone(&node.value)
-        };
-
+        let value = self.try_with_no_subscription_inner(runtime)?;
         let value = value.borrow();
         let value = value
             .downcast_ref::<T>()
@@ -1901,11 +1905,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime, |runtime| {
-            let value = {
-                let signals = runtime.nodes.borrow();
-                signals.get(*self).map(|node| Rc::clone(&node.value))
-            };
-            if let Some(value) = value {
+            if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))
@@ -1941,11 +1941,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            let value = {
-                let signals = runtime.nodes.borrow();
-                signals.get(*self).map(|node| Rc::clone(&node.value))
-            };
-            let updated = if let Some(value) = value {
+            let updated = if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))

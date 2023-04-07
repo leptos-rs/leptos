@@ -429,22 +429,31 @@ impl RuntimeId {
         )
     }
 
-    pub(crate) fn run_scope_undisposed<T>(
+    pub(crate) fn raw_scope_and_disposer_with_parent(
         self,
-        f: impl FnOnce(Scope) -> T,
         parent: Option<Scope>,
-    ) -> (T, ScopeId, ScopeDisposer) {
+    ) -> (Scope, ScopeDisposer) {
         with_runtime(self, |runtime| {
             let id = { runtime.scopes.borrow_mut().insert(Default::default()) };
             if let Some(parent) = parent {
                 runtime.scope_parents.borrow_mut().insert(id, parent.id);
             }
             let scope = Scope { runtime: self, id };
-            let val = f(scope);
             let disposer = ScopeDisposer(scope);
-            (val, id, disposer)
+            (scope, disposer)
         })
-        .expect("tried to run scope in a runtime that has been disposed")
+        .expect("tried to crate scope in a runtime that has been disposed")
+    }
+
+    #[inline(always)]
+    pub(crate) fn run_scope_undisposed<T>(
+        self,
+        f: impl FnOnce(Scope) -> T,
+        parent: Option<Scope>,
+    ) -> (T, ScopeId, ScopeDisposer) {
+        let (scope, disposer) = self.raw_scope_and_disposer_with_parent(parent);
+
+        (f(scope), scope.id, disposer)
     }
 
     pub(crate) fn run_scope<T>(
@@ -457,7 +466,6 @@ impl RuntimeId {
         ret
     }
 
-    #[track_caller]
     pub(crate) fn create_concrete_signal(
         self,
         value: Rc<RefCell<dyn Any>>,
@@ -579,7 +587,6 @@ impl RuntimeId {
         }
     }
 
-    #[track_caller]
     pub(crate) fn create_concrete_effect(
         self,
         value: Rc<RefCell<dyn Any>>,
@@ -607,6 +614,23 @@ impl RuntimeId {
         .expect("tried to create an effect in a runtime that has been disposed")
     }
 
+    pub(crate) fn create_concrete_memo(
+        self,
+        value: Rc<RefCell<dyn Any>>,
+        computation: Rc<dyn AnyComputation>,
+    ) -> NodeId {
+        with_runtime(self, |runtime| {
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value,
+                // memos are lazy, so are dirty when created
+                // will be run the first time we ask for it
+                state: ReactiveNodeState::Dirty,
+                node_type: ReactiveNodeType::Memo { f: computation },
+            })
+        })
+        .expect("tried to create a memo in a runtime that has been disposed")
+    }
+
     #[track_caller]
     pub(crate) fn create_effect<T>(
         self,
@@ -615,18 +639,15 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        #[cfg(debug_assertions)]
-        let defined_at = std::panic::Location::caller();
-
-        let effect = Effect {
-            f,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at,
-        };
-
-        let value = Rc::new(RefCell::new(None::<T>));
-        self.create_concrete_effect(value, Rc::new(effect))
+        self.create_concrete_effect(
+            Rc::new(RefCell::new(None::<T>)),
+            Rc::new(Effect {
+                f,
+                ty: PhantomData,
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }),
+        )
     }
 
     #[track_caller]
@@ -637,33 +658,20 @@ impl RuntimeId {
     where
         T: PartialEq + Any + 'static,
     {
-        #[cfg(debug_assertions)]
-        let defined_at = std::panic::Location::caller();
-
-        let id = with_runtime(self, |runtime| {
-            runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Rc::new(RefCell::new(None::<T>)),
-                // memos are lazy, so are dirty when created
-                // will be run the first time we ask for it
-                state: ReactiveNodeState::Dirty,
-                node_type: ReactiveNodeType::Memo {
-                    f: Rc::new(MemoState {
-                        f,
-                        t: PhantomData,
-                        #[cfg(debug_assertions)]
-                        defined_at,
-                    }),
-                },
-            })
-        })
-        .expect("tried to create a memo in a runtime that has been disposed");
-
         Memo {
             runtime: self,
-            id,
+            id: self.create_concrete_memo(
+                Rc::new(RefCell::new(None::<T>)),
+                Rc::new(MemoState {
+                    f,
+                    t: PhantomData,
+                    #[cfg(debug_assertions)]
+                    defined_at: std::panic::Location::caller(),
+                }),
+            ),
             ty: PhantomData,
             #[cfg(debug_assertions)]
-            defined_at,
+            defined_at: std::panic::Location::caller(),
         }
     }
 }
@@ -759,6 +767,14 @@ impl Runtime {
             }
         }
         f
+    }
+
+    pub(crate) fn get_value(
+        &self,
+        node_id: NodeId,
+    ) -> Option<Rc<RefCell<dyn Any>>> {
+        let signals = self.nodes.borrow();
+        signals.get(node_id).map(|node| Rc::clone(&node.value))
     }
 }
 

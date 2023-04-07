@@ -219,11 +219,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
         )
     )]
     fn try_get_untracked(&self) -> Option<T> {
-        with_runtime(self.runtime, move |runtime| {
-            self.id.try_with_no_subscription(runtime, T::clone).ok()
-        })
-        .ok()
-        .flatten()
+        self.try_with_untracked(T::clone)
     }
 }
 
