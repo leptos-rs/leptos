@@ -515,11 +515,13 @@ where
     #[cfg(not(target_arch = "wasm32"))]
     let status = status.as_u16();
     if (500..=599).contains(&status) {
+        let text = resp.text().await.unwrap_or_default();
         #[cfg(target_arch = "wasm32")]
         let status_text = resp.status_text();
         #[cfg(not(target_arch = "wasm32"))]
         let status_text = status.to_string();
-        return Err(ServerFnError::ServerError(status_text));
+        return Err(serde_json::from_str(&text)
+            .unwrap_or(ServerFnError::ServerError(status_text)));
     }
 
     // Decoding the body of the request
