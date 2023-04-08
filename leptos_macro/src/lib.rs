@@ -1,6 +1,9 @@
 #![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 
+#[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
+extern crate tracing;
+
 #[macro_use]
 extern crate proc_macro_error;
 
@@ -282,6 +285,10 @@ mod template;
 /// ```
 #[proc_macro_error::proc_macro_error]
 #[proc_macro]
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn view(tokens: TokenStream) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();

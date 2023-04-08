@@ -54,7 +54,7 @@ pub struct ComponentRepr {
     pub(crate) document_fragment: web_sys::DocumentFragment,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     mounted: Rc<OnceCell<()>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature="ssr"))]
     pub(crate) name: Cow<'static, str>,
     #[cfg(debug_assertions)]
     _opening: Comment,
@@ -202,7 +202,7 @@ impl ComponentRepr {
             #[cfg(debug_assertions)]
             _opening: markers.1,
             closing: markers.0,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             name,
             children: Vec::with_capacity(1),
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
