@@ -6,7 +6,7 @@
 //! The DOM implementation for `leptos`.
 
 #[doc(hidden)]
-#[cfg_attr(debug_assertions, macro_use)]
+#[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
 mod components;
@@ -93,7 +93,7 @@ pub trait Mountable {
 
 impl IntoView for () {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "<() />", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -106,7 +106,7 @@ where
     T: IntoView,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Option<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -124,7 +124,7 @@ where
     N: IntoView,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Fn() -> impl IntoView", skip_all)
     )]
     #[track_caller]
@@ -148,7 +148,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -161,7 +161,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -174,7 +174,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Memo<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -187,7 +187,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Signal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -200,7 +200,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -513,7 +513,7 @@ impl IntoView for &View {
 
 impl<const N: usize> IntoView for [View; N] {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "[Node; N]", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -990,7 +990,7 @@ api_planning! {
 
 impl IntoView for String {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "#text", skip_all)
     )]
     fn into_view(self, _: Scope) -> View {

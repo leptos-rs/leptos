@@ -987,7 +987,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
 
 impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -1109,7 +1109,7 @@ macro_rules! generate_html_tags {
 
         #[$meta]
       #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
           level = "trace",
           name = "HtmlElement",

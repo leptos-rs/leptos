@@ -179,7 +179,7 @@ impl<T> Copy for Memo<T> {}
 
 impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::get_untracked()",
@@ -206,7 +206,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::try_get_untracked()",
@@ -229,7 +229,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
 
 impl<T> SignalWithUntracked<T> for Memo<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::with_untracked()",
@@ -257,7 +257,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::try_with_untracked()",
@@ -296,7 +296,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 /// ```
 impl<T: Clone> SignalGet<T> for Memo<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "Memo::get()",
             level = "trace",
@@ -314,7 +314,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::try_get()",
@@ -334,7 +334,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
 
 impl<T> SignalWith<T> for Memo<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::with()",
@@ -358,7 +358,7 @@ impl<T> SignalWith<T> for Memo<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::try_with()",
@@ -389,7 +389,7 @@ impl<T> SignalWith<T> for Memo<T> {
 
 impl<T: Clone> SignalStream<T> for Memo<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Memo::to_stream()",
@@ -446,7 +446,7 @@ where
     F: Fn(Option<&T>) -> T,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "Memo::run()",
             level = "debug",
