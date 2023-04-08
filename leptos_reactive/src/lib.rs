@@ -66,7 +66,7 @@
 //! });
 //! ```
 
-#[cfg_attr(debug_assertions, macro_use)]
+#[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 extern crate tracing;
 
 #[macro_use]
@@ -114,7 +114,7 @@ mod macros {
     macro_rules! debug_warn {
         ($($x:tt)*) => {
             {
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, features = "ssr"))]
                 {
                     ($crate::console_warn(&format_args!($($x)*).to_string()))
                 }

@@ -138,7 +138,7 @@ where
     /// ```
     #[track_caller]
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
+        debug_assertions,
         instrument(
             level = "trace",
             skip_all,
@@ -179,7 +179,7 @@ where
     /// assert_eq!(count(), 8);
     /// # });
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
+        debug_assertions,
         instrument(
             level = "trace",
             skip_all,

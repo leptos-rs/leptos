@@ -164,7 +164,7 @@ where
     F: Fn(Option<T>) -> T,
 {
     #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
+        debug_assertions,
         instrument(
             name = "Effect::run()",
             level = "debug",
