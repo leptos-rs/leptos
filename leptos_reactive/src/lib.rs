@@ -114,7 +114,7 @@ mod macros {
     macro_rules! debug_warn {
         ($($x:tt)*) => {
             {
-                #[cfg(any(debug_assertions, features = "ssr"))]
+                #[cfg(debug_assertions)]
                 {
                     ($crate::console_warn(&format_args!($($x)*).to_string()))
                 }

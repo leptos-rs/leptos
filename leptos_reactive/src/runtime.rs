@@ -475,14 +475,14 @@ impl RuntimeId {
                 runtime: self,
                 id,
                 ty: PhantomData,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self,
                 id,
                 ty: PhantomData,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
         )
@@ -526,14 +526,14 @@ impl RuntimeId {
                             runtime: self,
                             id,
                             ty: PhantomData,
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, feature="ssr"))]
                             defined_at: std::panic::Location::caller(),
                         },
                         WriteSignal {
                             runtime: self,
                             id,
                             ty: PhantomData,
-                            #[cfg(debug_assertions)]
+                            #[cfg(any(debug_assertions, feature="ssr"))]
                             defined_at: std::panic::Location::caller(),
                         },
                     )
@@ -560,7 +560,7 @@ impl RuntimeId {
             runtime: self,
             id,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -601,13 +601,13 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         let defined_at = std::panic::Location::caller();
 
         let effect = Effect {
             f,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at,
         };
 
@@ -623,7 +623,7 @@ impl RuntimeId {
     where
         T: PartialEq + Any + 'static,
     {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         let defined_at = std::panic::Location::caller();
 
         let id = with_runtime(self, |runtime| {
@@ -636,7 +636,7 @@ impl RuntimeId {
                     f: Rc::new(MemoState {
                         f,
                         t: PhantomData,
-                        #[cfg(debug_assertions)]
+                        #[cfg(any(debug_assertions, feature = "ssr"))]
                         defined_at,
                     }),
                 },
@@ -648,7 +648,7 @@ impl RuntimeId {
             runtime: self,
             id,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at,
         }
     }

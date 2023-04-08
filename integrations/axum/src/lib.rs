@@ -252,6 +252,10 @@ where
 /// This function always provides context values including the following types:
 /// - [RequestParts]
 /// - [ResponseOptions]
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+    )]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -276,9 +280,9 @@ pub async fn handle_server_fns(
 /// - [RequestParts]
 /// - [ResponseOptions]
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -290,9 +294,9 @@ pub async fn handle_server_fns_with_context(
         .await
 }
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 async fn handle_server_fns_inner(
     fn_name: String,
     headers: HeaderMap,
@@ -477,9 +481,9 @@ pub type PinnedHtmlStream =
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
-debug_assertions,
-instrument(level = "info", skip_all,)
-)]
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+    )]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -554,9 +558,9 @@ where
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -603,9 +607,9 @@ where
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -663,9 +667,9 @@ where
     }
 }
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
@@ -696,9 +700,9 @@ async fn generate_response(
     res
 }
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
@@ -759,9 +763,9 @@ async fn forward_stream(
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -826,9 +830,9 @@ where
     }
 }
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 fn provide_contexts<B: 'static + std::fmt::Debug + std::default::Default>(
     cx: Scope,
     path: String,
@@ -897,9 +901,9 @@ fn provide_contexts<B: 'static + std::fmt::Debug + std::default::Default>(
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -942,9 +946,9 @@ where
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -1034,9 +1038,9 @@ where
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(level = "info", skip_all,)
-  )]
+    )]
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
 ) -> Vec<(String, SsrMode)>
@@ -1119,12 +1123,12 @@ pub trait LeptosRoutes {
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for axum::Router {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
       )]
     
       #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
       )]
       fn leptos_routes<IV>(
@@ -1140,9 +1144,9 @@ impl LeptosRoutes for axum::Router {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature="ssr"),
         instrument(level = "info", skip_all,)
-      )]
+        )]
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
@@ -1184,7 +1188,7 @@ impl LeptosRoutes for axum::Router {
     }
     
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
       )]
     fn leptos_routes_with_handler<H, T>(

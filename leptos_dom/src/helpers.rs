@@ -182,7 +182,7 @@ impl TimeoutHandle {
 /// Executes the given function after the given duration of time has passed.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
@@ -192,7 +192,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// Executes the given function after the given duration of time has passed, returning a cancelable handle.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout_with_handle(
@@ -309,7 +309,7 @@ impl IntervalHandle {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[deprecated = "use set_interval_with_handle() instead. In the future, \
@@ -344,7 +344,7 @@ pub fn set_interval(
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_interval_with_handle(
@@ -374,7 +374,7 @@ pub fn set_interval_with_handle(
 
 /// Adds an event listener to the `Window`.
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
 )]
 pub fn window_event_listener(

@@ -26,6 +26,10 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 /// assert!(html.contains("Hello, world!</p>"));
 /// # }}
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_to_string<F, N>(f: F) -> String
 where
     F: FnOnce(Scope) -> N + 'static,
@@ -55,6 +59,10 @@ where
 ///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
 /// 3) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_to_stream(
     view: impl FnOnce(Scope) -> View + 'static,
 ) -> impl Stream<Item = String> {
@@ -75,6 +83,10 @@ pub fn render_to_stream(
 ///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
 /// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_to_stream_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
@@ -100,6 +112,10 @@ pub fn render_to_stream_with_prefix(
 ///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
 /// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_to_stream_with_prefix_undisposed(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
@@ -122,6 +138,10 @@ pub fn render_to_stream_with_prefix_undisposed(
 ///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
 /// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
@@ -209,7 +229,10 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 
     (stream, runtime, scope)
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 fn fragments_to_chunks(
     fragments: impl Stream<Item = (String, String)>,
 ) -> impl Stream<Item = String> {
@@ -243,10 +266,17 @@ fn fragments_to_chunks(
 
 impl View {
     /// Consumes the node and renders it into an HTML string.
+    #[cfg_attr(
+        any(debug_assertions, feature="ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
         self.render_to_string_helper()
     }
-
+    #[cfg_attr(
+        any(debug_assertions, feature="ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     pub(crate) fn render_to_string_helper(self) -> Cow<'static, str> {
         match self {
             View::Text(node) => {
@@ -489,6 +519,10 @@ impl View {
     }
 }
 
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 #[cfg(debug_assertions)]
 pub(crate) fn to_kebab_case(name: &str) -> String {
     if name.is_empty() {
@@ -524,7 +558,10 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
 
     new_name
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub(crate) fn render_serializers(
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> impl Stream<Item = String> {
