@@ -7,30 +7,36 @@ use thiserror::Error;
 // that O(n) iteration over a vectorized map is (*probably*) more space-
 // and time-efficient than hashing and using an actual `HashMap`
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[repr(transparent)]
 pub struct ParamsMap(pub LinearMap<String, String>);
 
 impl ParamsMap {
     /// Creates an empty map.
+    #[inline(always)]
     pub fn new() -> Self {
         Self(LinearMap::new())
     }
 
     /// Creates an empty map with the given capacity.
+    #[inline(always)]
     pub fn with_capacity(capacity: usize) -> Self {
         Self(LinearMap::with_capacity(capacity))
     }
 
     /// Inserts a value into the map.
+    #[inline(always)]
     pub fn insert(&mut self, key: String, value: String) -> Option<String> {
         self.0.insert(key, value)
     }
 
     /// Gets a value from the map.
+    #[inline(always)]
     pub fn get(&self, key: &str) -> Option<&String> {
         self.0.get(key)
     }
 
     /// Removes a value from the map.
+    #[inline(always)]
     pub fn remove(&mut self, key: &str) -> Option<String> {
         self.0.remove(key)
     }
@@ -51,6 +57,7 @@ impl ParamsMap {
 }
 
 impl Default for ParamsMap {
+    #[inline(always)]
     fn default() -> Self {
         Self::new()
     }
@@ -95,6 +102,7 @@ where
 }
 
 impl Params for () {
+    #[inline(always)]
     fn from_map(_map: &ParamsMap) -> Result<Self, ParamsError> {
         Ok(())
     }

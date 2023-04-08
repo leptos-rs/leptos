@@ -35,6 +35,7 @@ cfg_if! {
 
 impl SpecialNonReactiveZone {
     #[allow(dead_code)] // allowed for SSR
+    #[inline(always)]
     pub(crate) fn is_inside() -> bool {
         #[cfg(debug_assertions)]
         {
@@ -44,6 +45,7 @@ impl SpecialNonReactiveZone {
         false
     }
 
+    #[inline(always)]
     pub fn enter() {
         #[cfg(debug_assertions)]
         {
@@ -51,6 +53,7 @@ impl SpecialNonReactiveZone {
         }
     }
 
+    #[inline(always)]
     pub fn exit() {
         #[cfg(debug_assertions)]
         {

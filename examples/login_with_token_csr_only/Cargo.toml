@@ -1,6 +1,10 @@
 [workspace]
 members = ["client", "api-boundary", "server"]
 
+[profile.release]
+codegen-units = 1
+lto = true
+
 [patch.crates-io]
 leptos = { path = "../../leptos" }
 leptos_router = { path = "../../router" }

@@ -14,6 +14,7 @@ thread_local! {
 // Used in template macro
 #[doc(hidden)]
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[inline(always)]
 pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
     target: &web_sys::Element,
     event: E,
@@ -21,8 +22,9 @@ pub fn add_event_helper<E: crate::ev::EventDescriptor + 'static>(
     mut event_handler: impl FnMut(E::EventType) + 'static,
 ) {
     let event_name = event.name();
+    let event_handler = Box::new(event_handler);
 
-    if event.bubbles() {
+    if E::BUBBLES {
         add_event_listener(
             target,
             event.event_delegation_key(),
@@ -47,8 +49,8 @@ pub fn add_event_listener<E>(
     target: &web_sys::Element,
     key: Cow<'static, str>,
     event_name: Cow<'static, str>,
-    #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
-    #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
+    #[cfg(debug_assertions)] mut cb: Box<dyn FnMut(E)>,
+    #[cfg(not(debug_assertions))] cb: Box<dyn FnMut(E)>,
     options: &Option<web_sys::AddEventListenerOptions>,
 ) where
     E: FromWasmAbi + 'static,
@@ -56,16 +58,16 @@ pub fn add_event_listener<E>(
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
         let span = ::tracing::Span::current();
-        let cb = move |e| {
+        let cb = Box::new(move |e| {
           leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
           leptos_reactive::SpecialNonReactiveZone::exit();
-        };
+        });
       }
     }
 
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
+    let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
     let key = intern(&key);
     _ = js_sys::Reflect::set(target, &JsValue::from_str(&key), &cb);
     add_delegated_event_listener(&key, event_name, options);
@@ -76,8 +78,8 @@ pub fn add_event_listener<E>(
 pub(crate) fn add_event_listener_undelegated<E>(
     target: &web_sys::Element,
     event_name: &str,
-    #[cfg(debug_assertions)] mut cb: impl FnMut(E) + 'static,
-    #[cfg(not(debug_assertions))] cb: impl FnMut(E) + 'static,
+    #[cfg(debug_assertions)] mut cb: Box<dyn FnMut(E)>,
+    #[cfg(not(debug_assertions))] cb: Box<dyn FnMut(E)>,
     options: &Option<web_sys::AddEventListenerOptions>,
 ) where
     E: FromWasmAbi + 'static,
@@ -86,16 +88,16 @@ pub(crate) fn add_event_listener_undelegated<E>(
       if #[cfg(debug_assertions)] {
         leptos_reactive::SpecialNonReactiveZone::enter();
         let span = ::tracing::Span::current();
-        let cb = move |e| {
+        let cb = Box::new(move |e| {
           let _guard = span.enter();
           cb(e);
-        };
+        });
         leptos_reactive::SpecialNonReactiveZone::exit();
       }
     }
 
     let event_name = intern(event_name);
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn FnMut(E)>).into_js_value();
+    let cb = Closure::wrap(cb as Box<dyn FnMut(E)>).into_js_value();
     if let Some(options) = options {
         _ = target
             .add_event_listener_with_callback_and_add_event_listener_options(
