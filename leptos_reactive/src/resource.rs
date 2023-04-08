@@ -90,7 +90,7 @@ where
 #[cfg_attr(
     debug_assertions,
     instrument(
-        level = "trace",
+        level = "info",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -137,7 +137,7 @@ where
 #[cfg_attr(
     debug_assertions,
     instrument(
-        level = "trace",
+        level = "info",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -283,7 +283,7 @@ where
 #[cfg_attr(
     debug_assertions,
     instrument(
-        level = "trace",
+        level = "info",
         skip_all,
         fields(
             scope = ?cx.id,

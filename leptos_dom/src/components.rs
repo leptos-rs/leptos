@@ -141,7 +141,7 @@ impl Mountable for ComponentRepr {
 }
 
 impl IntoView for ComponentRepr {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
+    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
     fn into_view(self, _: Scope) -> View {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         if !HydrationCtx::is_hydrating() {

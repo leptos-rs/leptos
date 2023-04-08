@@ -96,7 +96,7 @@ impl AnimationFrameRequestHandle {
 
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame).
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(debug_assertions, instrument(level = "info", skip_all))]
 pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
     _ = request_animation_frame_with_handle(cb);
 }
@@ -104,7 +104,7 @@ pub fn request_animation_frame(cb: impl FnOnce() + 'static) {
 /// Runs the given function between the next repaint using
 /// [`Window.requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame),
 /// returning a cancelable handle.
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(debug_assertions, instrument(level = "info", skip_all))]
 pub fn request_animation_frame_with_handle(
     cb: impl FnOnce() + 'static,
 ) -> Result<AnimationFrameRequestHandle, JsValue> {
@@ -139,7 +139,7 @@ impl IdleCallbackHandle {
 
 /// Queues the given function during an idle period using
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback).
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(debug_assertions, instrument(level = "info", skip_all))]
 pub fn request_idle_callback(cb: impl Fn() + 'static) {
     _ = request_idle_callback_with_handle(cb);
 }
@@ -147,7 +147,7 @@ pub fn request_idle_callback(cb: impl Fn() + 'static) {
 /// Queues the given function during an idle period using
 /// [`Window.requestIdleCallback`](https://developer.mozilla.org/en-US/docs/Web/API/window/requestIdleCallback),
 /// returning a cancelable handle.
-#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all))]
+#[cfg_attr(debug_assertions, instrument(level = "info", skip_all))]
 pub fn request_idle_callback_with_handle(
     cb: impl Fn() + 'static,
 ) -> Result<IdleCallbackHandle, JsValue> {
@@ -183,7 +183,7 @@ impl TimeoutHandle {
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
   any(debug_assertions, features = "ssr"),
-  instrument(level = "trace", skip_all, fields(duration = ?duration))
+  instrument(level = "info", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
     _ = set_timeout_with_handle(cb, duration);
@@ -193,7 +193,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
   any(debug_assertions, features = "ssr"),
-  instrument(level = "trace", skip_all, fields(duration = ?duration))
+  instrument(level = "info", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout_with_handle(
     cb: impl FnOnce() + 'static,
@@ -310,7 +310,7 @@ impl IntervalHandle {
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
   any(debug_assertions, features = "ssr"),
-  instrument(level = "trace", skip_all, fields(duration = ?duration))
+  instrument(level = "info", skip_all, fields(duration = ?duration))
 )]
 #[deprecated = "use set_interval_with_handle() instead. In the future, \
                 set_interval() will no longer return a handle, for consistency \
@@ -345,7 +345,7 @@ pub fn set_interval(
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
   any(debug_assertions, features = "ssr"),
-  instrument(level = "trace", skip_all, fields(duration = ?duration))
+  instrument(level = "info", skip_all, fields(duration = ?duration))
 )]
 pub fn set_interval_with_handle(
     cb: impl Fn() + 'static,
@@ -375,7 +375,7 @@ pub fn set_interval_with_handle(
 /// Adds an event listener to the `Window`.
 #[cfg_attr(
   any(debug_assertions, features = "ssr"),
-  instrument(level = "trace", skip_all, fields(event_name = %event_name))
+  instrument(level = "info", skip_all, fields(event_name = %event_name))
 )]
 pub fn window_event_listener(
     event_name: &str,

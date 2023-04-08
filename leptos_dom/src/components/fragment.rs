@@ -81,7 +81,7 @@ impl Fragment {
 }
 
 impl IntoView for Fragment {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
     fn into_view(self, cx: leptos_reactive::Scope) -> View {
         let mut frag = ComponentRepr::new_with_id("", self.id.clone());
 
