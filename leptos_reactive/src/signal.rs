@@ -1872,7 +1872,7 @@ impl NodeId {
         runtime.update_if_necessary(*self);
         let nodes = runtime.nodes.borrow();
         let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
-        Ok(Rc::clone(&node.value))
+        Ok(node.value())
     }
 
     #[track_caller]

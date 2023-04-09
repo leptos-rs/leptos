@@ -90,6 +90,7 @@ mod spawn;
 mod spawn_microtask;
 mod stored_value;
 pub mod suspense;
+mod trigger;
 
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
@@ -109,6 +110,7 @@ pub use spawn::*;
 pub use spawn_microtask::*;
 pub use stored_value::*;
 pub use suspense::SuspenseContext;
+pub use trigger::*;
 
 mod macros {
     macro_rules! debug_warn {

@@ -4,8 +4,8 @@ use crate::{
     node::{NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
     AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SerializableResource, StoredValueId, UnserializableResource,
-    WriteSignal,
+    ScopeProperty, SerializableResource, StoredValueId, Trigger,
+    UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
@@ -117,15 +117,16 @@ impl Runtime {
             // memos and effects rerun
             // signals simply have their value
             let changed = match node.node_type {
-                ReactiveNodeType::Signal => true,
-                ReactiveNodeType::Memo { f }
-                | ReactiveNodeType::Effect { f } => {
+                ReactiveNodeType::Signal | ReactiveNodeType::Trigger => true,
+                ReactiveNodeType::Memo { ref f }
+                | ReactiveNodeType::Effect { ref f } => {
+                    let value = node.value();
                     // set this node as the observer
                     self.with_observer(node_id, move || {
                         // clean up sources of this memo/effect
                         self.cleanup(node_id);
 
-                        f.run(Rc::clone(&node.value))
+                        f.run(value)
                     })
                 }
             };
@@ -468,13 +469,35 @@ impl RuntimeId {
         ret
     }
 
+    #[track_caller]
+    #[inline(always)] // only because it's placed here to fit in with the other create methods
+    pub(crate) fn create_trigger(self) -> Trigger {
+        let id = with_runtime(self, |runtime| {
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value: None,
+                state: ReactiveNodeState::Clean,
+                node_type: ReactiveNodeType::Trigger,
+            })
+        })
+        .expect(
+            "tried to create a trigger in a runtime that has been disposed",
+        );
+
+        Trigger {
+            id,
+            runtime: self,
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
+    }
+
     pub(crate) fn create_concrete_signal(
         self,
         value: Rc<RefCell<dyn Any>>,
     ) -> NodeId {
         with_runtime(self, |runtime| {
             runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value,
+                value: Some(value),
                 state: ReactiveNodeState::Clean,
                 node_type: ReactiveNodeType::Signal,
             })
@@ -539,7 +562,7 @@ impl RuntimeId {
             values
                 .map(|value| {
                     signals.insert(ReactiveNode {
-                        value: Rc::new(RefCell::new(value)),
+                        value: Some(Rc::new(RefCell::new(value))),
                         state: ReactiveNodeState::Clean,
                         node_type: ReactiveNodeType::Signal,
                     })
@@ -598,7 +621,7 @@ impl RuntimeId {
     ) -> NodeId {
         with_runtime(self, |runtime| {
             let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Rc::clone(&value),
+                value: Some(Rc::clone(&value)),
                 state: ReactiveNodeState::Clean,
                 node_type: ReactiveNodeType::Effect {
                     f: Rc::clone(&effect),
@@ -625,7 +648,7 @@ impl RuntimeId {
     ) -> NodeId {
         with_runtime(self, |runtime| {
             runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value,
+                value: Some(value),
                 // memos are lazy, so are dirty when created
                 // will be run the first time we ask for it
                 state: ReactiveNodeState::Dirty,
@@ -775,12 +798,13 @@ impl Runtime {
         f
     }
 
+    /// Do not call on triggers
     pub(crate) fn get_value(
         &self,
         node_id: NodeId,
     ) -> Option<Rc<RefCell<dyn Any>>> {
         let signals = self.nodes.borrow();
-        signals.get(node_id).map(|node| Rc::clone(&node.value))
+        signals.get(node_id).map(|node| node.value())
     }
 }
 

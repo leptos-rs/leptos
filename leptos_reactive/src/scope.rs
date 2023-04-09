@@ -264,7 +264,8 @@ impl Scope {
             if let Some(owned) = owned {
                 for property in owned {
                     match property {
-                        ScopeProperty::Signal(id) => {
+                        ScopeProperty::Signal(id)
+                        | ScopeProperty::Trigger(id) => {
                             // remove the signal
                             runtime.nodes.borrow_mut().remove(id);
                             let subs = runtime
@@ -355,6 +356,7 @@ slotmap::new_key_type! {
 
 #[derive(Debug)]
 pub(crate) enum ScopeProperty {
+    Trigger(NodeId),
     Signal(NodeId),
     Effect(NodeId),
     Resource(ResourceId),
