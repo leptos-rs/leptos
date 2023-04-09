@@ -1996,13 +1996,14 @@ impl NodeId {
                 None
             };
 
-            // mark descendants dirty
-            runtime.mark_dirty(*self);
-
             // notify subscribers
-            if updated.is_some() && !runtime.batching.get() {
-                Runtime::run_effects(runtime_id);
-            };
+            if updated.is_some() {
+                // mark descendants dirty
+                runtime.mark_dirty(*self);
+
+                runtime.run_your_effects();
+            }
+
             updated
         })
         .unwrap_or_default()
