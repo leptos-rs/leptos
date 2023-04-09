@@ -1,0 +1,16 @@
+[package]
+name = "blog"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+console_log = "0.2.0"
+leptos = "0.0.20"
+leptos_meta = "0.0.5"
+leptos_router = "0.0.6"
+log = "0.4.17"
+pulldown-cmark = { version = "0.9.2", default-features = false }
+futures = "0.3"

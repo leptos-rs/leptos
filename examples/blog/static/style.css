@@ -1,0 +1,135 @@
+:root {
+  --dark: rgb(34, 39, 46);
+  --dark-highlight: rgb(71, 78, 104);
+}
+
+@font-face {
+  font-family: cascadiaCode;
+  src: url(font.woff2) format("woff2");
+}
+
+body {
+  margin: 0;
+  font-family: cascadiaCode, sans serif;
+  background-color: var(--dark);
+  color: white;
+}
+
+@media screen and (prefers-color-scheme: light) {
+  body {
+    background-color: white;
+    color: black;
+  }
+}
+
+a {
+  text-decoration: none;
+}
+
+li {
+  margin: 6px 0;
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.data {
+  max-width: 800px;
+  line-height: 2;
+}
+
+.nav {
+  margin-top: 48px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.nav-text {
+  text-align: end;
+}
+
+.nav-text > a {
+  color: darkgrey;
+}
+
+.nav-text > a:hover {
+  color: white;
+}
+
+@media screen and (prefers-color-scheme: light) {
+  .nav-text > a:hover {
+    color: black;
+  }
+}
+
+.posts {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-intro {
+  margin: 24px 0;
+}
+
+.post-intro > .post-date,
+.post-intro > .post-title {
+  color: darkgrey;
+}
+
+.post {
+  display: flex;
+  margin: 6px 0;
+}
+
+.post-date {
+  font-weight: 700;
+  padding-right: 64px;
+}
+
+li > a,
+.post > a {
+  color: white;
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+li > a:hover,
+.post > a:hover {
+  box-shadow: inset 200px 0 0 0 var(--dark-highlight);
+}
+
+@media screen and (prefers-color-scheme: light) {
+  li > a,
+  .post > a {
+    color: black;
+  }
+
+  li > a:hover,
+  .post > a:hover {
+    box-shadow: inset 200px 0 0 0 darkgrey;
+  }
+
+  .nav-text > a:hover {
+    color: black;
+  }
+}
+
+.mode {
+  position: absolute;
+  width: 38px;
+  height: 12px;
+  background-color: white;
+  right: 100px;
+  top: 50px;
+  cursor: pointer;
+}
+
+@media screen and (prefers-color-scheme: light) {
+  .mode {
+    background-color: var(--dark);
+  }
+}
