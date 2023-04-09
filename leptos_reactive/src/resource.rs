@@ -228,7 +228,7 @@ where
         }
     });
 
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Resource(id)));
+    cx.push_scope_property(ScopeProperty::Resource(id));
 
     Resource {
         runtime: cx.runtime,
@@ -351,7 +351,7 @@ where
         move |_| r.load(false)
     });
 
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Resource(id)));
+    cx.push_scope_property(ScopeProperty::Resource(id));
 
     Resource {
         runtime: cx.runtime,

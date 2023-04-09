@@ -15,19 +15,14 @@
 /// 4. **`async`**: Load all resources on the server. Wait until all data are loaded, and render HTML in one sweep.
 ///     - *Pros*: Better handling for meta tags (because you know async data even before you render the `<head>`). Faster complete load than **synchronous** because async resources begin loading on server.
 ///     - *Cons*: Slower load time/TTFB: you need to wait for all async resources to load before displaying anything on the client.
-///  
+///
 /// The mode defaults to out-of-order streaming. For a path that includes multiple nested routes, the most
 /// restrictive mode will be used: i.e., if even a single nested route asks for `async` rendering, the whole initial
 /// request will be rendered `async`. (`async` is the most restricted requirement, followed by in-order, out-of-order, and synchronous.)
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SsrMode {
+    #[default]
     OutOfOrder,
     InOrder,
     Async,
-}
-
-impl Default for SsrMode {
-    fn default() -> Self {
-        Self::OutOfOrder
-    }
 }

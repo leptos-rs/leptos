@@ -139,13 +139,15 @@ where
     /// Creates a new dynamic child which will re-render whenever it's
     /// signal dependencies change.
     #[track_caller]
+    #[inline(always)]
     pub fn new(child_fn: CF) -> Self {
         Self::new_with_id(HydrationCtx::id(), child_fn)
     }
 
     #[doc(hidden)]
     #[track_caller]
-    pub fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
+    #[inline(always)]
+    pub const fn new_with_id(id: HydrationKey, child_fn: CF) -> Self {
         Self { id, child_fn }
     }
 }
@@ -159,8 +161,10 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "<DynChild />", skip_all)
     )]
+    #[inline]
     fn into_view(self, cx: Scope) -> View {
         // concrete inner function
+        #[inline(never)]
         fn create_dyn_view(
             cx: Scope,
             component: DynChildRepr,
@@ -379,6 +383,7 @@ cfg_if! {
         }
 
         impl NonViewMarkerSibling for web_sys::Node {
+            #[cfg_attr(not(debug_assertions), inline(always))]
             fn next_non_view_marker_sibling(&self) -> Option<Node> {
                 cfg_if! {
                     if #[cfg(debug_assertions)] {
@@ -395,6 +400,7 @@ cfg_if! {
                 }
             }
 
+            #[cfg_attr(not(debug_assertions), inline(always))]
             fn previous_non_view_marker_sibling(&self) -> Option<Node> {
                 cfg_if! {
                     if #[cfg(debug_assertions)] {

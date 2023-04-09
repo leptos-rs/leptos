@@ -50,6 +50,7 @@ use leptos::{
     *,
 };
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Debug,
@@ -101,7 +102,7 @@ pub struct MetaTagsContext {
     els: Rc<
         RefCell<
             HashMap<
-                String,
+                Cow<'static, str>,
                 (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>),
             >,
         >,
@@ -131,7 +132,7 @@ impl MetaTagsContext {
     pub fn register(
         &self,
         cx: Scope,
-        id: String,
+        id: Cow<'static, str>,
         builder_el: HtmlElement<AnyElement>,
     ) {
         cfg_if! {
@@ -314,6 +315,7 @@ pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
 pub struct TextProp(Rc<dyn Fn() -> String>);
 
 impl TextProp {
+    #[inline(always)]
     fn get(&self) -> String {
         (self.0)()
     }
@@ -342,6 +344,7 @@ impl<F> From<F> for TextProp
 where
     F: Fn() -> String + 'static,
 {
+    #[inline(always)]
     fn from(s: F) -> Self {
         TextProp(Rc::new(s))
     }

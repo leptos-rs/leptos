@@ -3,6 +3,7 @@ use crate::TextProp;
 /// A collection of additional HTML attributes to be applied to an element,
 /// each of which may or may not be reactive.
 #[derive(Default, Clone)]
+#[repr(transparent)]
 pub struct AdditionalAttributes(pub(crate) Vec<(String, TextProp)>);
 
 impl<I, T, U> From<I> for AdditionalAttributes
@@ -22,6 +23,7 @@ where
 }
 
 /// Iterator over additional HTML attributes.
+#[repr(transparent)]
 pub struct AdditionalAttributesIter<'a>(
     std::slice::Iter<'a, (String, TextProp)>,
 );
@@ -29,6 +31,7 @@ pub struct AdditionalAttributesIter<'a>(
 impl<'a> Iterator for AdditionalAttributesIter<'a> {
     type Item = &'a (String, TextProp);
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }

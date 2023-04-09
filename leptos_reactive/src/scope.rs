@@ -132,6 +132,7 @@ impl Scope {
         any(debug_assertions, features = "ssr"),
         instrument(level = "info", skip_all,)
     )]
+    #[inline(always)]
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, disposer) = self.run_child_scope(f);
         disposer
@@ -150,12 +151,20 @@ impl Scope {
         any(debug_assertions, features = "ssr"),
         instrument(level = "info", skip_all,)
     )]
+    #[inline(always)]
     pub fn run_child_scope<T>(
         self,
         f: impl FnOnce(Scope) -> T,
     ) -> (T, ScopeDisposer) {
         let (res, child_id, disposer) =
             self.runtime.run_scope_undisposed(f, Some(self));
+
+        self.push_child(child_id);
+
+        (res, disposer)
+    }
+
+    fn push_child(&self, child_id: ScopeId) {
         _ = with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
@@ -167,7 +176,6 @@ impl Scope {
                 .or_default()
                 .push(child_id);
         });
-        (res, disposer)
     }
 
     /// Suspends reactive tracking while running the given function.
@@ -199,19 +207,39 @@ impl Scope {
         any(debug_assertions, features = "ssr"),
         instrument(level = "info", skip_all,)
     )]
+    #[inline(always)]
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
+            let untracked_result;
+
             SpecialNonReactiveZone::enter();
-            let prev_observer = runtime.observer.take();
-            let untracked_result = f();
-            runtime.observer.set(prev_observer);
+
+            let prev_observer =
+                SetObserverOnDrop(self.runtime, runtime.observer.take());
+
+            untracked_result = f();
+
+            runtime.observer.set(prev_observer.1);
+            std::mem::forget(prev_observer); // avoid Drop
+
             SpecialNonReactiveZone::exit();
+
             untracked_result
         })
         .expect(
             "tried to run untracked function in a runtime that has been \
              disposed",
         )
+    }
+}
+
+struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
+
+impl Drop for SetObserverOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.observer.set(self.1);
+        });
     }
 }
 
@@ -253,6 +281,8 @@ impl Scope {
                     cleanup();
                 }
             }
+
+            runtime.scope_parents.borrow_mut().remove(self.id);
 
             // remove everything we own and run cleanups
             let owned = {
@@ -302,14 +332,11 @@ impl Scope {
         any(debug_assertions, features = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    pub(crate) fn with_scope_property(
-        &self,
-        f: impl FnOnce(&mut Vec<ScopeProperty>),
-    ) {
+    pub(crate) fn push_scope_property(&self, prop: ScopeProperty) {
         _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
             if let Some(scope) = scopes.get(self.id) {
-                f(&mut scope.borrow_mut());
+                scope.borrow_mut().push(prop);
             } else {
                 console_warn(
                     "tried to add property to a scope that has been disposed",
@@ -323,35 +350,40 @@ impl Scope {
     )]
     /// Returns the the parent Scope, if any.
     pub fn parent(&self) -> Option<Scope> {
-        with_runtime(self.runtime, |runtime| {
+        match with_runtime(self.runtime, |runtime| {
             runtime.scope_parents.borrow().get(self.id).copied()
-        })
-        .ok()
-        .flatten()
-        .map(|id| Scope {
-            runtime: self.runtime,
-            id,
-        })
+        }) {
+            Ok(Some(id)) => Some(Scope {
+                runtime: self.runtime,
+                id,
+            }),
+            _ => None,
+        }
     }
 }
 
-/// Creates a cleanup function, which will be run when a [Scope] is disposed.
-///
-/// It runs after child scopes have been disposed, but before signals, effects, and resources
-/// are invalidated.
 #[cfg_attr(
     any(debug_assertions, features = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
     _ = with_runtime(cx.runtime, |runtime| {
         let mut cleanups = runtime.scope_cleanups.borrow_mut();
         let cleanups = cleanups
             .entry(cx.id)
             .expect("trying to clean up a Scope that has already been disposed")
             .or_insert_with(Default::default);
-        cleanups.push(Box::new(cleanup_fn));
-    })
+        cleanups.push(cleanup_fn);
+    });
+}
+
+/// Creates a cleanup function, which will be run when a [Scope] is disposed.
+///
+/// It runs after child scopes have been disposed, but before signals, effects, and resources
+/// are invalidated.
+#[inline(always)]
+pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+    push_cleanup(cx, Box::new(cleanup_fn))
 }
 
 slotmap::new_key_type! {
@@ -374,7 +406,8 @@ pub(crate) enum ScopeProperty {
 /// 1. dispose of all child `Scope`s
 /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
 /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
-pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
+#[repr(transparent)]
+pub struct ScopeDisposer(pub(crate) Scope);
 
 impl ScopeDisposer {
     /// Disposes of a reactive [Scope](crate::Scope).
@@ -383,8 +416,9 @@ impl ScopeDisposer {
     /// 1. dispose of all child `Scope`s
     /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
+    #[inline(always)]
     pub fn dispose(self) {
-        (self.0)()
+        self.0.dispose()
     }
 }
 
@@ -546,17 +580,34 @@ impl Scope {
         any(debug_assertions, features = "ssr"),
         instrument(level = "info", skip_all,)
     )]
+    #[inline(always)]
     pub fn batch<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, move |runtime| {
+            let batching =
+                SetBatchingOnDrop(self.runtime, runtime.batching.get());
             runtime.batching.set(true);
+
             let val = f();
-            runtime.batching.set(false);
+
+            runtime.batching.set(batching.1);
+            std::mem::forget(batching);
+
             runtime.run_your_effects();
             val
         })
         .expect(
             "tried to run a batched update in a runtime that has been disposed",
         )
+    }
+}
+
+struct SetBatchingOnDrop(RuntimeId, bool);
+
+impl Drop for SetBatchingOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.batching.set(self.1);
+        });
     }
 }
 

@@ -27,7 +27,7 @@ use std::any::{Any, TypeId};
 /// #[component]
 /// pub fn Provider(cx: Scope) -> impl IntoView {
 ///     let (value, set_value) = create_signal(cx, 0);
-///     
+///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD
@@ -90,7 +90,7 @@ where
 /// #[component]
 /// pub fn Provider(cx: Scope) -> impl IntoView {
 ///     let (value, set_value) = create_signal(cx, 0);
-///     
+///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD

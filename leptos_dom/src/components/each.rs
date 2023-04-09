@@ -155,6 +155,7 @@ impl Mountable for EachRepr {
         };
     }
 
+    #[inline(always)]
     fn get_closing_node(&self) -> web_sys::Node {
         self.closing.node.clone()
     }
@@ -257,6 +258,7 @@ impl Mountable for EachItem {
         }
     }
 
+    #[inline(always)]
     fn get_opening_node(&self) -> web_sys::Node {
         #[cfg(debug_assertions)]
         return self.opening.node.clone();
@@ -328,7 +330,8 @@ where
     T: 'static,
 {
     /// Creates a new [`Each`] component.
-    pub fn new(items_fn: IF, key_fn: KF, each_fn: EF) -> Self {
+    #[inline(always)]
+    pub const fn new(items_fn: IF, key_fn: KF, each_fn: EF) -> Self {
         Self {
             items_fn,
             each_fn,

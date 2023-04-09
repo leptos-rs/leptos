@@ -35,12 +35,14 @@ impl std::fmt::Debug for TitleContext {
 }
 
 /// A function that is applied to the text value before setting `document.title`.
+#[repr(transparent)]
 pub struct Formatter(Box<dyn Fn(String) -> String>);
 
 impl<F> From<F> for Formatter
 where
     F: Fn(String) -> String + 'static,
 {
+    #[inline(always)]
     fn from(f: F) -> Formatter {
         Formatter(Box::new(f))
     }
