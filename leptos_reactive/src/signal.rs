@@ -2001,7 +2001,7 @@ impl NodeId {
                 // mark descendants dirty
                 runtime.mark_dirty(*self);
 
-                runtime.run_your_effects();
+                runtime.run_effects();
             }
 
             updated

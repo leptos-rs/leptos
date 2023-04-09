@@ -524,7 +524,7 @@ impl Scope {
             runtime.batching.set(batching.1);
             std::mem::forget(batching);
 
-            runtime.run_your_effects();
+            runtime.run_effects();
             val
         })
         .expect(

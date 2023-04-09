@@ -6,7 +6,7 @@ use crate::{
     diagnostics::*,
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty, SignalGet, SignalSet, SignalUpdate,
+    Scope, ScopeProperty, SignalGet, SignalSet, SignalUpdate,
 };
 
 pub trait TriggerDirty {
@@ -36,7 +36,7 @@ impl TriggerDirty for Trigger {
     fn try_dirty(&self) -> bool {
         with_runtime(self.runtime, |runtime| {
             runtime.mark_dirty(self.id);
-            runtime.run_your_effects();
+            runtime.run_effects();
         })
         .is_ok()
     }

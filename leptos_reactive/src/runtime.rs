@@ -326,13 +326,7 @@ impl Runtime {
         }
     }
 
-    pub(crate) fn run_effects(runtime_id: RuntimeId) {
-        _ = with_runtime(runtime_id, |runtime| {
-            runtime.run_your_effects();
-        });
-    }
-
-    pub(crate) fn run_your_effects(&self) {
+    pub(crate) fn run_effects(&self) {
         if !self.batching.get() {
             let effects = self.pending_effects.take();
             for effect_id in effects {
