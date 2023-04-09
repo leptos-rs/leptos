@@ -8,7 +8,6 @@ use crate::{
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty,
 };
-use cfg_if::cfg_if;
 use futures::Stream;
 use std::{
     any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc,
@@ -419,7 +418,7 @@ pub fn create_signal_from_stream<T>(
     #[allow(unused_mut)] // allowed because needed for SSR
     mut stream: impl Stream<Item = T> + Unpin + 'static,
 ) -> ReadSignal<Option<T>> {
-    cfg_if! {
+    cfg_if::cfg_if! {
         if #[cfg(feature = "ssr")] {
             _ = stream;
             let (read, _) = create_signal(cx, None);
@@ -638,7 +637,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
         match with_runtime(self.runtime, |runtime| {
             self.id.try_with(runtime, f, diagnostics)
         })
-        .expect("runtime to be alive ")
+        .expect("runtime to be alive")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
