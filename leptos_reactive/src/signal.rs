@@ -324,7 +324,7 @@ pub trait SignalDispose {
 /// #
 /// ```
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -346,7 +346,7 @@ pub fn create_signal<T>(
 
 /// Works exactly as [create_signal], but creates multiple signals at once.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -366,7 +366,7 @@ pub fn create_many_signals<T>(
 
 /// Works exactly as [create_many_signals], but applies the map function to each signal pair.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -396,7 +396,7 @@ where
 /// **Note**: If used on the server side during server rendering, this will return `None`
 /// immediately and not begin driving the stream.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -1106,7 +1106,7 @@ impl<T> Copy for WriteSignal<T> {}
 /// #
 /// ```
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -1326,7 +1326,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
 
 impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         name = "RwSignal::update_untracked()",
@@ -1343,7 +1343,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "info",
         name = "RwSignal::update_returning_untracked()",

@@ -47,7 +47,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// # }).dispose();
 /// ```
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -102,7 +102,7 @@ where
 /// # assert_eq!(b(), 2);
 /// # }).dispose();
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -126,7 +126,7 @@ pub fn create_isomorphic_effect<T>(
 
 #[doc(hidden)]
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,

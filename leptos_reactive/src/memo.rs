@@ -61,7 +61,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 /// # }).dispose();
 /// ```
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,

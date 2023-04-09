@@ -11,6 +11,10 @@ thread_local! {
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component(transparent)]
 pub fn Route<E, F, P>(
     cx: Scope,
@@ -46,6 +50,10 @@ where
 /// Describes a route that is guarded by a certain condition. This works the same way as
 /// [`<Route/>`](Route), except that if the `condition` function evaluates to `false`, it
 /// redirects to `redirect_path` instead of displaying its `view`.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component(transparent)]
 pub fn ProtectedRoute<P, E, F, C>(
     cx: Scope,
@@ -90,7 +98,10 @@ where
         ssr,
     )
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 pub(crate) fn define_route(
     cx: Scope,
     children: Option<Children>,
@@ -141,6 +152,10 @@ pub struct RouteContext {
 }
 
 impl RouteContext {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "info", skip_all,)
+    )]
     pub(crate) fn new(
         cx: Scope,
         router: &RouterContext,

@@ -1,6 +1,5 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -140,6 +139,7 @@
 //! }
 //! # }
 //! ```
+//! 
 
 pub use leptos_config::{self, get_configuration, LeptosOptions};
 #[cfg(not(all(
@@ -181,13 +181,13 @@ pub use show::*;
 mod suspense;
 pub use suspense::*;
 mod transition;
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
-
 extern crate self as leptos;
 
+// extern crate tracing;
 /// The most common type for the `children` property on components,
 /// which can only be called once.
 pub type Children = Box<dyn FnOnce(Scope) -> Fragment>;

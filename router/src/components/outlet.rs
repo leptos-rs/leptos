@@ -4,6 +4,10 @@ use std::{cell::Cell, rc::Rc};
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where
 /// that child route is displayed. Renders nothing if there is no nested child.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component]
 pub fn Outlet(cx: Scope) -> impl IntoView {
     let id = HydrationCtx::id();

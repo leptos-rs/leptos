@@ -29,6 +29,10 @@ use std::{cell::RefCell, rc::Rc};
 /// }
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component]
 pub fn Show<F, W, IV>(
     /// The scope the component is running in
