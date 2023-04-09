@@ -278,7 +278,7 @@ where
     I: 'static,
     O: 'static,
     F: Fn(&I) -> Fu + 'static,
-    Fu: Future<Output = O> + 'static,
+    Fu: Future<Output = O>,
 {
     let version = create_rw_signal(cx, 0);
     let input = create_rw_signal(cx, None);
