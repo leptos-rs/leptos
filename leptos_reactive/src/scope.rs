@@ -254,6 +254,8 @@ impl Scope {
                 }
             }
 
+            runtime.scope_parents.borrow_mut().remove(self.id);
+
             // remove everything we own and run cleanups
             let owned = {
                 let owned = runtime.scopes.borrow_mut().remove(self.id);

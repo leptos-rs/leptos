@@ -1,8 +1,9 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
-    with_runtime, AnyComputation, RuntimeId, Scope, SignalDispose, SignalGet,
-    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
+    with_runtime, AnyComputation, RuntimeId, Scope, ScopeProperty,
+    SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    SignalWithUntracked,
 };
 use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
@@ -80,7 +81,9 @@ pub fn create_memo<T>(
 where
     T: PartialEq + 'static,
 {
-    cx.runtime.create_memo(f)
+    let memo = cx.runtime.create_memo(f);
+    cx.push_scope_property(ScopeProperty::Effect(memo.id));
+    memo
 }
 
 /// An efficient derived reactive value based on other reactive values.
