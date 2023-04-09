@@ -36,6 +36,7 @@ hydrate = [
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
 ]
+rustls = ["server_fn/rustls"]
 ssr = [
   "leptos_dom/ssr",
   "leptos_macro/ssr",
