@@ -98,6 +98,10 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn redirect(cx: leptos::Scope, path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>(cx) {
         response_options.set_status(StatusCode::FOUND);
@@ -147,6 +151,10 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 /// This function always provides context values including the following types:
 /// - [ResponseOptions]
 /// - [HttpRequest](actix_web::HttpRequest)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|_cx| {})
 }
@@ -166,6 +174,10 @@ pub fn handle_server_fns() -> Route {
 /// This function always provides context values including the following types:
 /// - [ResponseOptions]
 /// - [HttpRequest](actix_web::HttpRequest)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> Route {
@@ -337,6 +349,10 @@ pub fn handle_server_fns_with_context(
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
@@ -402,6 +418,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
@@ -465,6 +485,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
@@ -487,6 +511,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -528,6 +556,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -571,6 +603,10 @@ where
 /// - [HttpRequest](actix_web::HttpRequest)
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -703,7 +739,10 @@ where
         }
     })
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 fn provide_contexts(
     cx: leptos::Scope,
     req: &HttpRequest,
@@ -728,7 +767,10 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
         "http://leptos".to_string() + path + "?" + query
     }
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 async fn stream_app(
     options: &LeptosOptions,
     app: impl FnOnce(leptos::Scope) -> View + 'static,
@@ -744,7 +786,10 @@ async fn stream_app(
 
     build_stream_response(options, res_options, stream, runtime, scope).await
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 async fn stream_app_in_order(
     options: &LeptosOptions,
     app: impl FnOnce(leptos::Scope) -> View + 'static,
@@ -762,7 +807,10 @@ async fn stream_app_in_order(
 
     build_stream_response(options, res_options, stream, runtime, scope).await
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 async fn build_stream_response(
     options: &LeptosOptions,
     res_options: ResponseOptions,
@@ -812,7 +860,10 @@ async fn build_stream_response(
     // Return the response
     res
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 async fn render_app_async_helper(
     options: &LeptosOptions,
     app: impl FnOnce(leptos::Scope) -> View + 'static,
@@ -945,6 +996,10 @@ where
         InitError = (),
     >,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -956,7 +1011,10 @@ where
     {
         self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
     }
-
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
         options: LeptosOptions,
@@ -984,7 +1042,10 @@ where
         }
         router
     }
-
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,

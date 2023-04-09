@@ -1122,11 +1122,6 @@ pub trait LeptosRoutes {
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for axum::Router {
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-      )]
-    
       #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)

@@ -519,10 +519,6 @@ impl View {
     }
 }
 
-#[cfg_attr(
-    any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
-)]
 #[cfg(debug_assertions)]
 pub(crate) fn to_kebab_case(name: &str) -> String {
     if name.is_empty() {

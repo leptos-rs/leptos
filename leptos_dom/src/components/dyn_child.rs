@@ -172,7 +172,7 @@ where
             let child = component.child.clone();
 
             #[cfg(all(
-                debug_assertions,
+                any(debug_assertions, feature="ssr"),
                 target_arch = "wasm32",
                 feature = "web"
             ))]

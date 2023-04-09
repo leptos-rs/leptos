@@ -14,6 +14,10 @@ where
     I: IntoIterator<Item = V>,
     V: IntoView,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     fn into_fragment(self, cx: Scope) -> Fragment {
         self.into_iter().map(|v| v.into_view(cx)).collect()
     }

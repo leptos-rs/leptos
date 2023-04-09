@@ -64,7 +64,7 @@ use std::{
 /// # }).dispose();
 /// ```
 #[cfg_attr(
-    any(debug_assertions, features="ssr"),
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -100,7 +100,7 @@ where
 /// serialized, or you just want to make sure the [Future] runs locally, use
 /// [create_local_resource_with_initial_value()].
 #[cfg_attr(
-    any(debug_assertions, features="ssr"),
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -147,7 +147,7 @@ where
 /// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather,
 /// it is blocking in the sense that it blocks the server from sending a response.
 #[cfg_attr(
-    any(debug_assertions, features="ssr"),
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -293,7 +293,7 @@ where
 /// on the local system and therefore its output type does not need to be
 /// [Serializable].
 #[cfg_attr(
-    any(debug_assertions, features="ssr"),
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "info",
         skip_all,
@@ -458,7 +458,7 @@ where
     /// If you want to get the value without cloning it, use [Resource::with].
     /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
       )]
     #[track_caller]
@@ -484,7 +484,7 @@ where
     /// If you want to get the value by cloning it, you can use
     /// [Resource::read].
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
@@ -501,7 +501,7 @@ where
 
     /// Returns a signal that indicates whether the resource is currently loading.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     pub fn loading(&self) -> ReadSignal<bool> {
@@ -518,7 +518,7 @@ where
 
     /// Re-runs the async function with the current source data.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     pub fn refetch(&self) {
@@ -533,7 +533,7 @@ where
     /// yield its [ResourceId] and a JSON string.
     #[cfg(any(feature = "ssr", doc))]
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     pub async fn to_serialization_resolver(
@@ -625,7 +625,7 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     fn clone(&self) -> Self {
@@ -684,7 +684,7 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
@@ -700,7 +700,7 @@ where
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
@@ -772,14 +772,14 @@ where
         v
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     pub fn refetch(&self) {
         self.load(true);
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     fn load(&self, refetching: bool) {
@@ -840,7 +840,7 @@ where
         });
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     pub fn resource_to_serialization_resolver(
@@ -904,7 +904,7 @@ where
         self
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature ="ssr"),
         instrument(level = "info", skip_all,)
     )]
     fn to_serialization_resolver(
