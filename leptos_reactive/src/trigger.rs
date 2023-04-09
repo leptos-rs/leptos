@@ -36,10 +36,7 @@ impl TriggerDirty for Trigger {
     fn try_dirty(&self) -> bool {
         with_runtime(self.runtime, |runtime| {
             runtime.mark_dirty(self.id);
-
-            if !runtime.batching.get() {
-                Runtime::run_effects(self.runtime);
-            };
+            runtime.run_your_effects();
         })
         .is_ok()
     }

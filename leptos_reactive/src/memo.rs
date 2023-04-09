@@ -5,7 +5,6 @@ use crate::{
     SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
     SignalWithUntracked,
 };
-use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
 /// Creates an efficient derived reactive value based on other reactive values.
