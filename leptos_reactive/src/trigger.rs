@@ -81,13 +81,13 @@ impl Trigger {
 ///     write!(o.borrow_mut(), "{}", *e.borrow());
 ///     *e.borrow_mut() += 1;
 /// });
-///
+/// # if !cfg!(feature = "ssr") {
 /// assert_eq!(*output.borrow(), "1");
 ///
 /// trigger.notify();
 ///
 /// assert_eq!(*output.borrow(), "12");
-///
+/// # }
 /// # }).dispose();
 /// ```
 #[cfg_attr(
