@@ -298,6 +298,7 @@ pub fn handle_server_fns_with_context(
 /// ```
 /// use actix_web::{App, HttpServer};
 /// use leptos::*;
+/// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -321,7 +322,7 @@ pub fn handle_server_fns_with_context(
 ///                 leptos_actix::render_app_to_stream(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
-///                     Method::Get
+///                     Method::Get,
 ///                 ),
 ///             )
 ///     })
@@ -365,6 +366,7 @@ where
 /// ```
 /// use actix_web::{App, HttpServer};
 /// use leptos::*;
+/// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -388,7 +390,7 @@ where
 ///                 leptos_actix::render_app_to_stream_in_order(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
-///                     Method::Get
+///                     Method::Get,
 ///                 ),
 ///             )
 ///     })
@@ -435,6 +437,7 @@ where
 /// ```
 /// use actix_web::{App, HttpServer};
 /// use leptos::*;
+/// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -458,6 +461,7 @@ where
 ///                 leptos_actix::render_app_async(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
+///                     Method::Get,
 ///                 ),
 ///             )
 ///     })
