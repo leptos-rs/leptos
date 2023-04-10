@@ -254,7 +254,8 @@ impl View {
                 }
             }
             View::Element(el) => {
-                let is_script_or_style = el.name == "script" || el.name == "style";
+                let is_script_or_style =
+                    el.name == "script" || el.name == "style";
 
                 #[cfg(debug_assertions)]
                 if let Some(id) = &el.view_marker {
@@ -269,7 +270,11 @@ impl View {
                                 chunks.push_back(StreamChunk::Sync(string))
                             }
                             StringOrView::View(view) => {
-                                view().into_stream_chunks_helper(cx, chunks, is_script_or_style);
+                                view().into_stream_chunks_helper(
+                                    cx,
+                                    chunks,
+                                    is_script_or_style,
+                                );
                             }
                         }
                     }
@@ -321,7 +326,11 @@ impl View {
                             ElementChildren::Empty => {}
                             ElementChildren::Children(children) => {
                                 for child in children {
-                                    child.into_stream_chunks_helper(cx, chunks, is_script_or_style);
+                                    child.into_stream_chunks_helper(
+                                        cx,
+                                        chunks,
+                                        is_script_or_style,
+                                    );
                                 }
                             }
                             ElementChildren::InnerHtml(inner_html) => {
@@ -393,7 +402,11 @@ impl View {
                                             let content = if dont_escape_text {
                                                 t.content.into()
                                             } else {
-                                                html_escape::encode_safe(&t.content).to_string().into()
+                                                html_escape::encode_safe(
+                                                    &t.content,
+                                                )
+                                                .to_string()
+                                                .into()
                                             };
                                             chunks.push_back(
                                                 if !cfg!(debug_assertions) {
@@ -410,7 +423,9 @@ impl View {
                                             );
                                         } else {
                                             child.into_stream_chunks_helper(
-                                                cx, chunks, dont_escape_text
+                                                cx,
+                                                chunks,
+                                                dont_escape_text,
                                             );
                                         }
                                     }
@@ -443,7 +458,9 @@ impl View {
                                             );
                                             node.child
                                                 .into_stream_chunks_helper(
-                                                    cx, chunks, dont_escape_text
+                                                    cx,
+                                                    chunks,
+                                                    dont_escape_text,
                                                 );
                                             chunks.push_back(
                                                 StreamChunk::Sync(
