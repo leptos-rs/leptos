@@ -1114,15 +1114,26 @@ impl LeptosRoutes for Router {
         H: Handler<Request, Output = Result<O>> + Clone,
         O: IntoResponse + Send + Sync + 'static,
     {
-        paths
-            .iter()
-            .fold(self, |router, listing| for method in listing.methods() { match method {
-                        leptos_router::Method::Get => router.get(listing.path(), handler.clone()),
-                        leptos_router::Method::Post => router.post(listing.path(), handler.clone()),
-                        leptos_router::Method::Put => router.put(listing.path(), handler.clone()),
-                        leptos_router::Method::Delete => router.delete(listing.path(), handler.clone()),
-                        leptos_router::Method::Patch => router.patch(listing.path(), handler.clone()),
+        paths.iter().fold(self, |router, listing| {
+            listing
+                .methods()
+                .fold(router, |router, method| match method {
+                    leptos_router::Method::Get => {
+                        router.get(listing.path(), handler.clone())
                     }
-    })
+                    leptos_router::Method::Post => {
+                        router.post(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Put => {
+                        router.put(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Delete => {
+                        router.delete(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Patch => {
+                        router.patch(listing.path(), handler.clone())
+                    }
+                })
+        })
     }
 }

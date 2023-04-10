@@ -68,7 +68,7 @@ where
         path.to_string(),
         Rc::new(move |cx| view(cx).into_view(cx)),
         ssr,
-        methods
+        methods,
     )
 }
 
@@ -157,7 +157,7 @@ pub(crate) fn define_route(
         children,
         view,
         ssr_mode,
-        methods
+        methods,
     }
 }
 

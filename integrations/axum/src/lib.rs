@@ -1174,15 +1174,19 @@ impl LeptosRoutes for axum::Router {
         let mut router = self;
         for listing in paths.iter() {
             for method in listing.methods() {
-            router = router.route(listing.path(), 
-                match method {
-                leptos_router::Method::Get => get(handler.clone()),
-                leptos_router::Method::Post => post(handler.clone()),
-                leptos_router::Method::Put => put(handler.clone()),
-                leptos_router::Method::Delete => delete(handler.clone()),
-                leptos_router::Method::Patch => patch(handler.clone()),
-            });
-        }
+                router = router.route(
+                    listing.path(),
+                    match method {
+                        leptos_router::Method::Get => get(handler.clone()),
+                        leptos_router::Method::Post => post(handler.clone()),
+                        leptos_router::Method::Put => put(handler.clone()),
+                        leptos_router::Method::Delete => {
+                            delete(handler.clone())
+                        }
+                        leptos_router::Method::Patch => patch(handler.clone()),
+                    },
+                );
+            }
         }
         router
     }
