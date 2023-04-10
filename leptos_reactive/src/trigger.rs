@@ -72,19 +72,19 @@ impl Trigger {
 /// let external_data = Rc::new(RefCell::new(1));
 /// let output = Rc::new(RefCell::new(String::new()));
 ///
-/// let trigger = create_trigger(cx);
+/// let rerun_on_data = create_trigger(cx);
 ///
 /// let o = output.clone();
 /// let e = external_data.clone();
 /// create_effect(cx, move |_| {
-///     trigger(); // or trigger.track();
+///     rerun_on_data(); // or rerun_on_data.track();
 ///     write!(o.borrow_mut(), "{}", *e.borrow());
 ///     *e.borrow_mut() += 1;
 /// });
 /// # if !cfg!(feature = "ssr") {
 /// assert_eq!(*output.borrow(), "1");
 ///
-/// trigger.notify();
+/// rerun_on_data.notify(); // reruns the above effect
 ///
 /// assert_eq!(*output.borrow(), "12");
 /// # }
@@ -157,8 +157,7 @@ impl SignalUpdate<()> for Trigger {
     )]
     #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut ())) {
-        self.notify();
-        f(&mut ())
+        self.try_update(f).expect("runtime to be alive")
     }
 
     #[cfg_attr(
@@ -175,11 +174,18 @@ impl SignalUpdate<()> for Trigger {
     )]
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut ()) -> O) -> Option<O> {
-        if !self.try_notify() {
-            return None;
-        }
+        // run callback with runtime before dirtying the trigger,
+        // consistent with signals.
+        with_runtime(self.runtime, |runtime| {
+            let res = f(&mut ());
 
-        Some(f(&mut ()))
+            runtime.mark_dirty(self.id);
+            runtime.run_effects();
+
+            Some(res)
+        })
+        .ok()
+        .flatten()
     }
 }
 
