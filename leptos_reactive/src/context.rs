@@ -3,8 +3,8 @@
 use crate::{runtime::with_runtime, Scope};
 use std::any::{Any, TypeId};
 
-/// Provides a context value of type `T` to the current reactive [Scope](crate::Scope)
-/// and all of its descendants. This can be consumed using [use_context](crate::use_context).
+/// Provides a context value of type `T` to the current reactive [`Scope`](crate::Scope)
+/// and all of its descendants. This can be consumed using [`use_context`](crate::use_context).
 ///
 /// This is useful for passing values down to components or functions lower in a
 /// hierarchy without needs to “prop drill” by passing them through each layer as
@@ -61,9 +61,9 @@ where
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current [Scope](crate::Scope) and iterating
+/// it upwards, beginning from the current [`Scope`](crate::Scope) and iterating
 /// through its parents, if any. The context value should have been provided elsewhere
-/// using [provide_context](crate::provide_context).
+/// using [`provide_context`](crate::provide_context).
 ///
 /// This is useful for passing values down to components or functions lower in a
 /// hierarchy without needs to “prop drill” by passing them through each layer as

@@ -3,9 +3,9 @@ use crate::{
     SignalUpdate, SignalWith,
 };
 
-/// Derives a reactive slice of an [RwSignal](crate::RwSignal).
+/// Derives a reactive slice of an [`RwSignal`](crate::RwSignal).
 ///
-/// Slices have the same guarantees as [Memos](crate::Memo):
+/// Slices have the same guarantees as [`Memo`s](crate::Memo):
 /// they only emit their value when it has actually been changed.
 ///
 /// Slices need a getter and a setter, and you must make sure that

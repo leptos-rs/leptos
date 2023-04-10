@@ -9,7 +9,7 @@ use std::{
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
-/// (as determined by [PartialEq].)
+/// (as determined by [`PartialEq`].)
 ///
 /// **You probably don’t need this,** but it can be a very useful optimization
 /// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)

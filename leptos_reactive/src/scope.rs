@@ -82,7 +82,7 @@ pub fn run_scope_undisposed<T>(
 /// when it is removed from the list.
 ///
 /// Every other function in this crate takes a `Scope` as its first argument. Since `Scope`
-/// is [Copy] and `'static` this does not add much overhead or lifetime complexity.
+/// is [`Copy`] and `'static` this does not add much overhead or lifetime complexity.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Scope {
     #[doc(hidden)]
@@ -226,7 +226,7 @@ impl Scope {
     ///
     /// This will
     /// 1. dispose of all child `Scope`s
-    /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+    /// 2. run all cleanup functions defined for this scope by [`on_cleanup`](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
     pub fn dispose(self) {
         _ = with_runtime(self.runtime, |runtime| {
@@ -264,7 +264,8 @@ impl Scope {
             if let Some(owned) = owned {
                 for property in owned {
                     match property {
-                        ScopeProperty::Signal(id) => {
+                        ScopeProperty::Signal(id)
+                        | ScopeProperty::Trigger(id) => {
                             // remove the signal
                             runtime.nodes.borrow_mut().remove(id);
                             let subs = runtime
@@ -339,7 +340,7 @@ fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
     });
 }
 
-/// Creates a cleanup function, which will be run when a [Scope] is disposed.
+/// Creates a cleanup function, which will be run when a [`Scope`] is disposed.
 ///
 /// It runs after child scopes have been disposed, but before signals, effects, and resources
 /// are invalidated.
@@ -349,34 +350,35 @@ pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
 }
 
 slotmap::new_key_type! {
-    /// Unique ID assigned to a [Scope](crate::Scope).
+    /// Unique ID assigned to a [`Scope`](crate::Scope).
     pub struct ScopeId;
 }
 
 #[derive(Debug)]
 pub(crate) enum ScopeProperty {
+    Trigger(NodeId),
     Signal(NodeId),
     Effect(NodeId),
     Resource(ResourceId),
     StoredValue(StoredValueId),
 }
 
-/// Creating a [Scope](crate::Scope) gives you a disposer, which can be called
+/// Creating a [`Scope`](crate::Scope) gives you a disposer, which can be called
 /// to dispose of that reactive scope.
 ///
 /// This will
 /// 1. dispose of all child `Scope`s
-/// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+/// 2. run all cleanup functions defined for this scope by [`on_cleanup`](crate::on_cleanup).
 /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
 #[repr(transparent)]
 pub struct ScopeDisposer(pub(crate) Scope);
 
 impl ScopeDisposer {
-    /// Disposes of a reactive [Scope](crate::Scope).
+    /// Disposes of a reactive [`Scope`](crate::Scope).
     ///
     /// This will
     /// 1. dispose of all child `Scope`s
-    /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
+    /// 2. run all cleanup functions defined for this scope by [`on_cleanup`](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
     #[inline(always)]
     pub fn dispose(self) {
@@ -385,20 +387,20 @@ impl ScopeDisposer {
 }
 
 impl Scope {
-    /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
+    /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     pub fn all_resources(&self) -> Vec<ResourceId> {
         with_runtime(self.runtime, |runtime| runtime.all_resources())
             .unwrap_or_default()
     }
 
-    /// Returns IDs for all [Resource](crate::Resource)s found on any scope that are
+    /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope that are
     /// pending from the server.
     pub fn pending_resources(&self) -> Vec<ResourceId> {
         with_runtime(self.runtime, |runtime| runtime.pending_resources())
             .unwrap_or_default()
     }
 
-    /// Returns IDs for all [Resource](crate::Resource)s found on any scope.
+    /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     pub fn serialization_resolvers(
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
@@ -408,7 +410,7 @@ impl Scope {
         .unwrap_or_default()
     }
 
-    /// Registers the given [SuspenseContext](crate::SuspenseContext) with the current scope,
+    /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
     /// calling the `resolver` when its resources are all resolved.
     pub fn register_suspense(
         &self,
@@ -522,7 +524,7 @@ impl Scope {
             runtime.batching.set(batching.1);
             std::mem::forget(batching);
 
-            runtime.run_your_effects();
+            runtime.run_effects();
             val
         })
         .expect(
