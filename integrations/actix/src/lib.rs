@@ -321,6 +321,7 @@ pub fn handle_server_fns_with_context(
 ///                 leptos_actix::render_app_to_stream(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
+///                     Method::Get
 ///                 ),
 ///             )
 ///     })
@@ -387,6 +388,7 @@ where
 ///                 leptos_actix::render_app_to_stream_in_order(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
+///                     Method::Get
 ///                 ),
 ///             )
 ///     })
