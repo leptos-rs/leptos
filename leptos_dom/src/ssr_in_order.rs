@@ -247,7 +247,7 @@ impl View {
                     chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}|leptos-{name}-end-->"#, HydrationCtx::to_string(&node.id, true)).into()));
                   } else {
                     for child in node.children {
-                        child.into_stream_chunks_helper(cx, chunks);
+                        child.into_stream_chunks_helper(cx, chunks, dont_escape_text);
                     }
                     chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}-->"#, HydrationCtx::to_string(&node.id, true)).into()))
                   }
