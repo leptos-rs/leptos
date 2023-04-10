@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-#![allow(missing_docs)]
 
 use crate::{
     diagnostics,
@@ -9,16 +8,9 @@ use crate::{
     Scope, ScopeProperty, SignalGet, SignalSet, SignalUpdate,
 };
 
-pub trait TriggerDirty {
-    fn dirty(&self);
-    fn try_dirty(&self) -> bool;
-}
-
-pub trait TriggerTrack {
-    fn track(&self);
-    fn try_track(&self) -> bool;
-}
-
+/// Reactive Trigger, notifies reactive code to rerun.
+///
+/// See [`create_trigger`] for more.
 #[derive(Clone, Copy)]
 pub struct Trigger {
     pub(crate) runtime: RuntimeId,
@@ -28,26 +20,31 @@ pub struct Trigger {
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
-impl TriggerDirty for Trigger {
-    fn dirty(&self) {
-        assert!(self.try_dirty(), "Trigger::dirty(): runtime not alive")
+impl Trigger {
+    /// Notifies any reactive code where this trigger is tracked to rerun.
+    pub fn notify(&self) {
+        assert!(self.try_notify(), "Trigger::notify(): runtime not alive")
     }
 
-    fn try_dirty(&self) -> bool {
+    /// Attempts to notify any reactive code where this trigger is tracked to rerun.
+    ///
+    /// Returns `None` if the runtime has been disposed.
+    pub fn try_notify(&self) -> bool {
         with_runtime(self.runtime, |runtime| {
             runtime.mark_dirty(self.id);
             runtime.run_effects();
         })
         .is_ok()
     }
-}
 
-impl TriggerTrack for Trigger {
-    fn track(&self) {
+    /// Subscribes the running effect to this trigger.
+    pub fn track(&self) {
         assert!(self.try_track(), "Trigger::track(): runtime not alive")
     }
 
-    fn try_track(&self) -> bool {
+    /// Attempts to subscribe the running effect to this trigger, returning
+    /// `None` if the runtime has been disposed.
+    pub fn try_track(&self) -> bool {
         let diagnostics = diagnostics!(self);
 
         with_runtime(self.runtime, |runtime| {
@@ -57,6 +54,42 @@ impl TriggerTrack for Trigger {
     }
 }
 
+/// Creates a [`Trigger`], a kind of reactive primitive.
+///
+/// A trigger is a data-less signal with the sole purpose
+/// of notifying other reactive code of a change. This can be useful
+/// for when using external data not stored in signals, for example.
+///
+/// Take a reactive [`Scope`] and returns the [`Trigger`] handle, which
+/// can be called as a function to track the trigger in the current
+/// reactive context.
+///
+/// ```
+/// # use leptos_reactive::*;
+/// # create_scope(create_runtime(), |cx| {
+/// use std::{cell::RefCell, fmt::Write, rc::Rc};
+///
+/// let external_data = Rc::new(RefCell::new(1));
+/// let output = Rc::new(RefCell::new(String::new()));
+///
+/// let trigger = create_trigger(cx);
+///
+/// let o = output.clone();
+/// let e = external_data.clone();
+/// create_effect(cx, move |_| {
+///     trigger(); // or trigger.track();
+///     write!(o.borrow_mut(), "{}", *e.borrow());
+///     *e.borrow_mut() += 1;
+/// });
+///
+/// assert_eq!(*output.borrow(), "1");
+///
+/// trigger.notify();
+///
+/// assert_eq!(*output.borrow(), "12");
+///
+/// # }).dispose();
+/// ```
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -124,7 +157,7 @@ impl SignalUpdate<()> for Trigger {
     )]
     #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut ())) {
-        self.dirty();
+        self.notify();
         f(&mut ())
     }
 
@@ -142,7 +175,7 @@ impl SignalUpdate<()> for Trigger {
     )]
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut ()) -> O) -> Option<O> {
-        if !self.try_dirty() {
+        if !self.try_notify() {
             return None;
         }
 
@@ -165,7 +198,7 @@ impl SignalSet<()> for Trigger {
     )]
     #[inline(always)]
     fn set(&self, _: ()) {
-        self.dirty();
+        self.notify();
     }
 
     #[cfg_attr(
@@ -182,6 +215,32 @@ impl SignalSet<()> for Trigger {
     )]
     #[inline(always)]
     fn try_set(&self, _: ()) -> Option<()> {
-        self.try_dirty().then_some(())
+        self.try_notify().then_some(())
+    }
+}
+
+#[cfg(not(feature = "stable"))]
+impl FnOnce<()> for Trigger {
+    type Output = ();
+
+    #[inline(always)]
+    extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
+        self.track()
+    }
+}
+
+#[cfg(not(feature = "stable"))]
+impl FnMut<()> for Trigger {
+    #[inline(always)]
+    extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
+        self.track()
+    }
+}
+
+#[cfg(not(feature = "stable"))]
+impl Fn<()> for Trigger {
+    #[inline(always)]
+    extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
+        self.track()
     }
 }
