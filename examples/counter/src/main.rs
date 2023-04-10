@@ -1,4 +1,4 @@
-use counter::*;
+use counter::SimpleCounter;
 use leptos::*;
 
 pub fn main() {

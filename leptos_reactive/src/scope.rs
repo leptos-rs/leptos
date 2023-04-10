@@ -1,13 +1,18 @@
 #![forbid(unsafe_code)]
 use crate::{
     console_warn,
+    hydration::FragmentData,
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, StoredValueId, SuspenseContext,
+    PinnedFuture, ResourceId, SpecialNonReactiveZone, StoredValueId,
+    SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+};
 
 #[doc(hidden)]
 #[must_use = "Scope will leak memory if the disposer function is never called"]
@@ -111,6 +116,7 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
+    #[inline(always)]
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, disposer) = self.run_child_scope(f);
         disposer
@@ -125,12 +131,20 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
+    #[inline(always)]
     pub fn run_child_scope<T>(
         self,
         f: impl FnOnce(Scope) -> T,
     ) -> (T, ScopeDisposer) {
         let (res, child_id, disposer) =
             self.runtime.run_scope_undisposed(f, Some(self));
+
+        self.push_child(child_id);
+
+        (res, disposer)
+    }
+
+    fn push_child(&self, child_id: ScopeId) {
         _ = with_runtime(self.runtime, |runtime| {
             let mut children = runtime.scope_children.borrow_mut();
             children
@@ -142,7 +156,6 @@ impl Scope {
                 .or_default()
                 .push(child_id);
         });
-        (res, disposer)
     }
 
     /// Suspends reactive tracking while running the given function.
@@ -170,17 +183,39 @@ impl Scope {
     ///
     /// # });
     /// ```
+    #[inline(always)]
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
-            let prev_observer = runtime.observer.take();
-            let untracked_result = f();
-            runtime.observer.set(prev_observer);
+            let untracked_result;
+
+            SpecialNonReactiveZone::enter();
+
+            let prev_observer =
+                SetObserverOnDrop(self.runtime, runtime.observer.take());
+
+            untracked_result = f();
+
+            runtime.observer.set(prev_observer.1);
+            std::mem::forget(prev_observer); // avoid Drop
+
+            SpecialNonReactiveZone::exit();
+
             untracked_result
         })
         .expect(
             "tried to run untracked function in a runtime that has been \
              disposed",
         )
+    }
+}
+
+struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
+
+impl Drop for SetObserverOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.observer.set(self.1);
+        });
     }
 }
 
@@ -218,6 +253,8 @@ impl Scope {
                     cleanup();
                 }
             }
+
+            runtime.scope_parents.borrow_mut().remove(self.id);
 
             // remove everything we own and run cleanups
             let owned = {
@@ -264,14 +301,11 @@ impl Scope {
         })
     }
 
-    pub(crate) fn with_scope_property(
-        &self,
-        f: impl FnOnce(&mut Vec<ScopeProperty>),
-    ) {
+    pub(crate) fn push_scope_property(&self, prop: ScopeProperty) {
         _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
             if let Some(scope) = scopes.get(self.id) {
-                f(&mut scope.borrow_mut());
+                scope.borrow_mut().push(prop);
             } else {
                 console_warn(
                     "tried to add property to a scope that has been disposed",
@@ -282,31 +316,36 @@ impl Scope {
 
     /// Returns the the parent Scope, if any.
     pub fn parent(&self) -> Option<Scope> {
-        with_runtime(self.runtime, |runtime| {
+        match with_runtime(self.runtime, |runtime| {
             runtime.scope_parents.borrow().get(self.id).copied()
-        })
-        .ok()
-        .flatten()
-        .map(|id| Scope {
-            runtime: self.runtime,
-            id,
-        })
+        }) {
+            Ok(Some(id)) => Some(Scope {
+                runtime: self.runtime,
+                id,
+            }),
+            _ => None,
+        }
     }
 }
 
-/// Creates a cleanup function, which will be run when a [Scope] is disposed.
-///
-/// It runs after child scopes have been disposed, but before signals, effects, and resources
-/// are invalidated.
-pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
     _ = with_runtime(cx.runtime, |runtime| {
         let mut cleanups = runtime.scope_cleanups.borrow_mut();
         let cleanups = cleanups
             .entry(cx.id)
             .expect("trying to clean up a Scope that has already been disposed")
             .or_insert_with(Default::default);
-        cleanups.push(Box::new(cleanup_fn));
-    })
+        cleanups.push(cleanup_fn);
+    });
+}
+
+/// Creates a cleanup function, which will be run when a [Scope] is disposed.
+///
+/// It runs after child scopes have been disposed, but before signals, effects, and resources
+/// are invalidated.
+#[inline(always)]
+pub fn on_cleanup(cx: Scope, cleanup_fn: impl FnOnce() + 'static) {
+    push_cleanup(cx, Box::new(cleanup_fn))
 }
 
 slotmap::new_key_type! {
@@ -329,7 +368,8 @@ pub(crate) enum ScopeProperty {
 /// 1. dispose of all child `Scope`s
 /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
 /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
-pub struct ScopeDisposer(pub(crate) Box<dyn FnOnce()>);
+#[repr(transparent)]
+pub struct ScopeDisposer(pub(crate) Scope);
 
 impl ScopeDisposer {
     /// Disposes of a reactive [Scope](crate::Scope).
@@ -338,8 +378,9 @@ impl ScopeDisposer {
     /// 1. dispose of all child `Scope`s
     /// 2. run all cleanup functions defined for this scope by [on_cleanup](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
+    #[inline(always)]
     pub fn dispose(self) {
-        (self.0)()
+        self.0.dispose()
     }
 }
 
@@ -374,7 +415,7 @@ impl Scope {
         context: SuspenseContext,
         key: &str,
         out_of_order_resolver: impl FnOnce() -> String + 'static,
-        in_order_resolver: impl FnOnce() -> Vec<StreamChunk> + 'static,
+        in_order_resolver: impl FnOnce() -> VecDeque<StreamChunk> + 'static,
     ) {
         use crate::create_isomorphic_effect;
         use futures::StreamExt;
@@ -383,6 +424,7 @@ impl Scope {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let (tx1, mut rx1) = futures::channel::mpsc::unbounded();
             let (tx2, mut rx2) = futures::channel::mpsc::unbounded();
+            let (tx3, mut rx3) = futures::channel::mpsc::unbounded();
 
             create_isomorphic_effect(*self, move |_| {
                 let pending = context
@@ -393,33 +435,35 @@ impl Scope {
                 if pending == 0 {
                     _ = tx1.unbounded_send(());
                     _ = tx2.unbounded_send(());
+                    _ = tx3.unbounded_send(());
                 }
             });
 
             shared_context.pending_fragments.insert(
                 key.to_string(),
-                (
-                    Box::pin(async move {
+                FragmentData {
+                    out_of_order: Box::pin(async move {
                         rx1.next().await;
                         out_of_order_resolver()
                     }),
-                    Box::pin(async move {
+                    in_order: Box::pin(async move {
                         rx2.next().await;
                         in_order_resolver()
                     }),
-                ),
+                    should_block: context.should_block(),
+                    is_ready: Some(Box::pin(async move {
+                        rx3.next().await;
+                    })),
+                },
             );
         })
     }
 
     /// The set of all HTML fragments currently pending.
     ///
-    /// The keys are hydration IDs. Valeus are tuples of two pinned
+    /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
-    pub fn pending_fragments(
-        &self,
-    ) -> HashMap<String, (PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)>
-    {
+    pub fn pending_fragments(&self) -> HashMap<String, FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
@@ -427,20 +471,73 @@ impl Scope {
         .unwrap_or_default()
     }
 
+    /// A future that will resolve when all blocking fragments are ready.
+    pub fn blocking_fragments_ready(self) -> PinnedFuture<()> {
+        use futures::StreamExt;
+
+        let mut ready = with_runtime(self.runtime, |runtime| {
+            let mut shared_context = runtime.shared_context.borrow_mut();
+            let ready = FuturesUnordered::new();
+            for (_, data) in shared_context.pending_fragments.iter_mut() {
+                if data.should_block {
+                    if let Some(is_ready) = data.is_ready.take() {
+                        ready.push(is_ready);
+                    }
+                }
+            }
+            ready
+        })
+        .unwrap_or_default();
+        Box::pin(async move { while ready.next().await.is_some() {} })
+    }
+
     /// Takes the pending HTML for a single `<Suspense/>` node.
     ///
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
-    pub fn take_pending_fragment(
-        &self,
-        id: &str,
-    ) -> Option<(PinnedFuture<String>, PinnedFuture<Vec<StreamChunk>>)> {
+    pub fn take_pending_fragment(&self, id: &str) -> Option<FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             shared_context.pending_fragments.remove(id)
         })
         .ok()
         .flatten()
+    }
+
+    /// Batches any reactive updates, preventing effects from running until the whole
+    /// function has run. This allows you to prevent rerunning effects if multiple
+    /// signal updates might cause the same effect to run.
+    ///
+    /// # Panics
+    /// Panics if the runtime this scope belongs to has already been disposed.
+    #[inline(always)]
+    pub fn batch<T>(&self, f: impl FnOnce() -> T) -> T {
+        with_runtime(self.runtime, move |runtime| {
+            let batching =
+                SetBatchingOnDrop(self.runtime, runtime.batching.get());
+            runtime.batching.set(true);
+
+            let val = f();
+
+            runtime.batching.set(batching.1);
+            std::mem::forget(batching);
+
+            runtime.run_your_effects();
+            val
+        })
+        .expect(
+            "tried to run a batched update in a runtime that has been disposed",
+        )
+    }
+}
+
+struct SetBatchingOnDrop(RuntimeId, bool);
+
+impl Drop for SetBatchingOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.batching.set(self.1);
+        });
     }
 }
 

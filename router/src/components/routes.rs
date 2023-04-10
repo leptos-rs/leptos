@@ -32,9 +32,17 @@ pub fn Routes(
         .as_children()
         .iter()
         .filter_map(|child| {
-            child
+            let def = child
                 .as_transparent()
-                .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                .and_then(|t| t.downcast_ref::<RouteDefinition>());
+            if def.is_none() {
+                warn!(
+                    "[NOTE] The <Routes/> component should include *only* \
+                     <Route/>or <ProtectedRoute/> components, or some \
+                     #[component(transparent)] that returns a RouteDefinition."
+                );
+            }
+            def
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -88,7 +96,7 @@ pub fn Routes(
                         if next_match.route.key == prev_match.route.key
                             && next_match.route.id == prev_match.route.id =>
                     {
-                        let mut prev_one = { prev.borrow()[i].clone() };
+                        let prev_one = { prev.borrow()[i].clone() };
                         if next_match.path_match.path != prev_one.path() {
                             prev_one
                                 .set_path(next_match.path_match.path.clone());

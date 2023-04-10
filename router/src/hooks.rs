@@ -70,7 +70,7 @@ pub fn use_resolved_path(
         if path.starts_with('/') {
             Some(path)
         } else {
-            route.resolve_path(&path).map(String::from)
+            route.resolve_path_tracked(&path).map(String::from)
         }
     })
 }

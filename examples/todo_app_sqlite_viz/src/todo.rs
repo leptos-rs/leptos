@@ -51,7 +51,8 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut conn = db().await?;
 
     let mut todos = Vec::new();
-    let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
+    let mut rows =
+        sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
     while let Some(row) = rows
         .try_next()
         .await

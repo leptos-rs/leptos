@@ -3,8 +3,12 @@ name = "router"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+codegen-units = 1
+lto = true
+
 [dependencies]
-console_log = "0.2"
+console_log = "1"
 log = "0.4"
 leptos = { path = "../../leptos" }
 leptos_router = { path = "../../router", features = ["csr"] }

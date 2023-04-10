@@ -15,6 +15,7 @@ use std::{
     fmt::Debug,
     future::Future,
     marker::PhantomData,
+    panic::Location,
     pin::Pin,
     rc::Rc,
 };
@@ -110,6 +111,73 @@ where
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
+    create_resource_helper(
+        cx,
+        source,
+        fetcher,
+        initial_value,
+        ResourceSerialization::Serializable,
+    )
+}
+
+/// Creates a “blocking” [Resource](crate::Resource). When server-side rendering is used,
+/// this resource will cause any `<Suspense/>` you read it under to block the initial
+/// chunk of HTML from being sent to the client. This means that if you set things like
+/// HTTP headers or `<head>` metadata in that `<Suspense/>`, that header material will
+/// be included in the server’s original response.
+///
+/// This causes a slow time to first byte (TTFB) but is very useful for loading data that
+/// is essential to the first load. For example, a blog post page that needs to include
+/// the title of the blog post in the page’s initial HTML `<title>` tag for SEO reasons
+/// might use a blocking resource to load blog post metadata, which will prevent the page from
+/// returning until that data has loaded.
+///
+/// **Note**: This is not “blocking” in the sense that it blocks the current thread. Rather,
+/// it is blocking in the sense that it blocks the server from sending a response.
+#[cfg_attr(
+    debug_assertions,
+    instrument(
+        level = "trace",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
+#[track_caller]
+pub fn create_blocking_resource<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Serializable + 'static,
+    Fu: Future<Output = T> + 'static,
+{
+    create_resource_helper(
+        cx,
+        source,
+        fetcher,
+        None,
+        ResourceSerialization::Blocking,
+    )
+}
+
+fn create_resource_helper<S, T, Fu>(
+    cx: Scope,
+    source: impl Fn() -> S + 'static,
+    fetcher: impl Fn(S) -> Fu + 'static,
+    initial_value: Option<T>,
+    serializable: ResourceSerialization,
+) -> Resource<S, T>
+where
+    S: PartialEq + Debug + Clone + 'static,
+    T: Serializable + 'static,
+    Fu: Future<Output = T> + 'static,
+{
     let resolved = initial_value.is_some();
     let (value, set_value) = create_signal(cx, initial_value);
 
@@ -131,7 +199,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
-        serializable: true,
+        serializable,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -148,7 +216,7 @@ where
         }
     });
 
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Resource(id)));
+    cx.push_scope_property(ScopeProperty::Resource(id));
 
     Resource {
         runtime: cx.runtime,
@@ -255,7 +323,7 @@ where
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
-        serializable: false,
+        serializable: ResourceSerialization::Local,
     });
 
     let id = with_runtime(cx.runtime, |runtime| {
@@ -271,7 +339,7 @@ where
         move |_| r.load(false)
     });
 
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Resource(id)));
+    cx.push_scope_property(ScopeProperty::Resource(id));
 
     Resource {
         runtime: cx.runtime,
@@ -377,13 +445,15 @@ where
     ///
     /// If you want to get the value without cloning it, use [Resource::with].
     /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
+    #[track_caller]
     pub fn read(&self, cx: Scope) -> Option<T>
     where
         T: Clone,
     {
+        let location = std::panic::Location::caller();
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read(cx)
+                resource.read(cx, location)
             })
         })
         .ok()
@@ -397,10 +467,12 @@ where
     ///
     /// If you want to get the value by cloning it, you can use
     /// [Resource::read].
+    #[track_caller]
     pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+        let location = std::panic::Location::caller();
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(cx, f)
+                resource.with(cx, f, location)
             })
         })
         .ok()
@@ -555,7 +627,19 @@ where
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
-    serializable: bool,
+    serializable: ResourceSerialization,
+}
+
+/// Whether and how the resource can be serialized.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ResourceSerialization {
+    /// Not serializable.
+    Local,
+    /// Can be serialized.
+    Serializable,
+    /// Can be serialized, and cause the first chunk to be blocked until
+    /// their suspense has resolved.
+    Blocking,
 }
 
 impl<S, T> ResourceState<S, T>
@@ -563,14 +647,25 @@ where
     S: Clone + 'static,
     T: 'static,
 {
-    pub fn read(&self, cx: Scope) -> Option<T>
+    #[track_caller]
+    pub fn read(
+        &self,
+        cx: Scope,
+        location: &'static Location<'static>,
+    ) -> Option<T>
     where
         T: Clone,
     {
-        self.with(cx, T::clone)
+        self.with(cx, T::clone, location)
     }
 
-    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+    #[track_caller]
+    pub fn with<U>(
+        &self,
+        cx: Scope,
+        f: impl FnOnce(&T) -> U,
+        location: &'static Location<'static>,
+    ) -> Option<U> {
         let suspense_cx = use_context::<SuspenseContext>(cx);
 
         let v = self
@@ -584,9 +679,26 @@ where
 
         let serializable = self.serializable;
         if let Some(suspense_cx) = &suspense_cx {
-            if serializable {
+            if serializable != ResourceSerialization::Local {
                 suspense_cx.has_local_only.set_value(false);
             }
+        } else {
+            #[cfg(not(all(feature = "hydrate", debug_assertions)))]
+            {
+                _ = location;
+            }
+            #[cfg(all(feature = "hydrate", debug_assertions))]
+            crate::macros::debug_warn!(
+                "At {location}, you are reading a resource in `hydrate` mode \
+                 outside a <Suspense/> or <Transition/>. This can cause \
+                 hydration mismatch errors and loses out on a significant \
+                 performance optimization. To fix this issue, you can either: \
+                 \n1. Wrap the place where you read the resource in a \
+                 <Suspense/> or <Transition/> component, or \n2. Switch to \
+                 using create_local_resource(), which will wait to load the \
+                 resource until the app is hydrated on the client side. (This \
+                 will have worse performance in most cases.)",
+            );
         }
 
         let increment = move |_: Option<()>| {
@@ -600,7 +712,12 @@ where
                         // because the context has been tracked here
                         // on the first read, resource is already loading without having incremented
                         if !has_value {
-                            s.increment(serializable);
+                            s.increment(
+                                serializable != ResourceSerialization::Local,
+                            );
+                            if serializable == ResourceSerialization::Blocking {
+                                s.should_block.set_value(true);
+                            }
                         }
                     }
                 }
@@ -641,7 +758,12 @@ where
             let suspense_contexts = self.suspense_contexts.clone();
 
             for suspense_context in suspense_contexts.borrow().iter() {
-                suspense_context.increment(self.serializable);
+                suspense_context.increment(
+                    self.serializable != ResourceSerialization::Local,
+                );
+                if self.serializable == ResourceSerialization::Blocking {
+                    suspense_context.should_block.set_value(true);
+                }
             }
 
             // run the Future
@@ -659,7 +781,9 @@ where
                     set_loading.update(|n| *n = false);
 
                     for suspense_context in suspense_contexts.borrow().iter() {
-                        suspense_context.decrement(serializable);
+                        suspense_context.decrement(
+                            serializable != ResourceSerialization::Local,
+                        );
                     }
                 }
             })

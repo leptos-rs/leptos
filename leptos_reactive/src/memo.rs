@@ -1,9 +1,11 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_effect, node::NodeId, on_cleanup, with_runtime, AnyComputation,
-    RuntimeId, Scope, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
+    with_runtime, AnyComputation, RuntimeId, Scope, ScopeProperty,
+    SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
     SignalWithUntracked,
 };
+use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -70,6 +72,8 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
         )
     )
 )]
+#[track_caller]
+#[inline(always)]
 pub fn create_memo<T>(
     cx: Scope,
     f: impl Fn(Option<&T>) -> T + 'static,
@@ -77,7 +81,9 @@ pub fn create_memo<T>(
 where
     T: PartialEq + 'static,
 {
-    cx.runtime.create_memo(f)
+    let memo = cx.runtime.create_memo(f);
+    cx.push_scope_property(ScopeProperty::Effect(memo.id));
+    memo
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -191,7 +197,8 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     )]
     fn get_untracked(&self) -> T {
         with_runtime(self.runtime, move |runtime| {
-            match self.id.try_with_no_subscription(runtime, T::clone) {
+            let f = move |maybe_value: &Option<T>| maybe_value.clone().unwrap();
+            match self.id.try_with_no_subscription(runtime, f) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
                     #[cfg(debug_assertions)]
@@ -215,12 +222,9 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_get_untracked(&self) -> Option<T> {
-        with_runtime(self.runtime, move |runtime| {
-            self.id.try_with_no_subscription(runtime, T::clone).ok()
-        })
-        .ok()
-        .flatten()
+        self.try_with_untracked(T::clone)
     }
 }
 
@@ -266,6 +270,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             )
         )
     )]
+    #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
             self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
@@ -305,6 +310,8 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn get(&self) -> T {
         self.with(T::clone)
     }
@@ -322,6 +329,8 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn try_get(&self) -> Option<T> {
         self.try_with(T::clone)
     }
@@ -341,6 +350,7 @@ impl<T> SignalWith<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         match self.try_with(f) {
             Some(t) => t,
@@ -364,13 +374,16 @@ impl<T> SignalWith<T> for Memo<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         // memo is stored as Option<T>, but will always have T available
         // after latest_value() called, so we can unwrap safely
         let f = move |maybe_value: &Option<T>| f(maybe_value.as_ref().unwrap());
 
+        let diagnostics = diagnostics!(self);
+
         with_runtime(self.runtime, |runtime| {
-            self.id.subscribe(runtime);
+            self.id.subscribe(runtime, diagnostics);
             self.id.try_with_no_subscription(runtime, f).ok()
         })
         .ok()
@@ -409,6 +422,12 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
         });
 
         Box::pin(rx)
+    }
+}
+
+impl<T> SignalDispose for Memo<T> {
+    fn dispose(self) {
+        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
     }
 }
 
@@ -466,6 +485,8 @@ where
     }
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 fn format_memo_warning(
     msg: &str,
@@ -488,6 +509,8 @@ fn format_memo_warning(
     format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_memo(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,

@@ -3,15 +3,18 @@ name = "fetch"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+codegen-units = 1
+lto = true
+
 [dependencies]
 anyhow = "1.0.58"
 leptos = { path = "../../leptos" }
 reqwasm = "0.5.0"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
-console_log = "0.2"
+console_log = "1"
 console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
-

@@ -85,6 +85,7 @@ where
             // POST
             if method == "post" {
                 ev.prevent_default();
+                ev.stop_propagation();
 
                 let on_response = on_response.clone();
                 spawn_local(async move {
@@ -120,7 +121,10 @@ where
                                     Ok(url) => {
                                         request_animation_frame(move || {
                                             if let Err(e) = navigate(
-                                                &url.pathname,
+                                                &format!(
+                                                    "{}{}",
+                                                    url.pathname, url.search,
+                                                ),
                                                 Default::default(),
                                             ) {
                                                 warn!("{}", e);
@@ -141,6 +145,7 @@ where
                     .is_ok()
                 {
                     ev.prevent_default();
+                    ev.stop_propagation();
                 }
             }
         };
@@ -345,6 +350,7 @@ where
             }
             Ok(input) => {
                 ev.prevent_default();
+                ev.stop_propagation();
                 multi_action.dispatch(input);
                 if let Some(error) = error {
                     error.set(None);

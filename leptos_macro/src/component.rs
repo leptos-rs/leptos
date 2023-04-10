@@ -43,7 +43,7 @@ impl Parse for Model {
                 "this method requires a `Scope` parameter";
                 help = "try `fn {}(cx: Scope, /* ... */)`", item.sig.ident
             );
-        } else if props[0].ty != parse_quote!(Scope) {
+        } else if !is_valid_scope_type(&props[0].ty) {
             abort!(
                 item.sig.inputs,
                 "this method requires a `Scope` parameter";
@@ -68,7 +68,7 @@ impl Parse for Model {
         });
 
         // Make sure return type is correct
-        if item.sig.output != parse_quote!(-> impl IntoView) {
+        if !is_valid_into_view_return_type(&item.sig.output) {
             abort!(
                 item.sig,
                 "return type is incorrect";
@@ -130,12 +130,14 @@ impl ToTokens for Model {
         let mut body = body.to_owned();
 
         body.sig.ident = format_ident!("__{}", body.sig.ident);
+        #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
         let (_, generics, where_clause) = body.sig.generics.split_for_impl();
         let lifetimes = body.sig.generics.lifetimes();
 
         let props_name = format_ident!("{name}Props");
+        let props_builder_name = format_ident!("{name}PropsBuilder");
         let trace_name = format!("<{name} />");
 
         let prop_builder_fields = prop_builder_fields(vis, props);
@@ -153,6 +155,7 @@ impl ToTokens for Model {
             if cfg!(feature = "tracing") {
                 (
                     quote! {
+                        #[allow(clippy::let_with_type_underscore)]
                         #[cfg_attr(
                             debug_assertions,
                             ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
@@ -198,13 +201,20 @@ impl ToTokens for Model {
                 #prop_builder_fields
             }
 
+            impl #generics ::leptos::Props for #props_name #generics #where_clause {
+                type Builder = #props_builder_name #generics;
+                fn builder() -> Self::Builder {
+                    #props_name::builder()
+                }
+            }
+
             #docs
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #tracing_instrument_attr
             #vis fn #name #generics (
                 #[allow(unused_variables)]
-                #scope_name: Scope,
+                #scope_name: ::leptos::Scope,
                 props: #props_name #generics
             ) #ret #(+ #lifetimes)*
             #where_clause
@@ -434,7 +444,7 @@ impl ToTokens for TypedBuilderOpts {
 fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
     props
         .iter()
-        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
         .map(|prop| {
             let Prop {
                 docs,
@@ -461,7 +471,7 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
 fn prop_names(props: &[Prop]) -> TokenStream {
     props
         .iter()
-        .filter(|Prop { ty, .. }| *ty != parse_quote!(Scope))
+        .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
         .map(|Prop { name, .. }| quote! { #name, })
         .collect()
 }
@@ -639,4 +649,24 @@ fn prop_to_doc(
             }
         }
     }
+}
+
+fn is_valid_scope_type(ty: &Type) -> bool {
+    [
+        parse_quote!(Scope),
+        parse_quote!(leptos::Scope),
+        parse_quote!(::leptos::Scope),
+    ]
+    .iter()
+    .any(|test| ty == test)
+}
+
+fn is_valid_into_view_return_type(ty: &ReturnType) -> bool {
+    [
+        parse_quote!(-> impl IntoView),
+        parse_quote!(-> impl leptos::IntoView),
+        parse_quote!(-> impl ::leptos::IntoView),
+    ]
+    .iter()
+    .any(|test| ty == test)
 }

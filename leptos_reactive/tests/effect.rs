@@ -1,7 +1,7 @@
 #[cfg(not(feature = "stable"))]
 use leptos_reactive::{
-    create_isomorphic_effect, create_memo, create_runtime, create_scope,
-    create_signal,
+    create_isomorphic_effect, create_memo, create_runtime, create_rw_signal,
+    create_scope, create_signal, SignalSet,
 };
 
 #[cfg(not(feature = "stable"))]
@@ -88,6 +88,48 @@ fn untrack_mutes_effect() {
 
         assert_eq!(a(), 1);
         assert_eq!(b.borrow().as_str(), "Value is -1");
+    })
+    .dispose()
+}
+
+#[cfg(not(feature = "stable"))]
+#[test]
+fn batching_actually_batches() {
+    use std::{cell::Cell, rc::Rc};
+
+    create_scope(create_runtime(), |cx| {
+        let first_name = create_rw_signal(cx, "Greg".to_string());
+        let last_name = create_rw_signal(cx, "Johnston".to_string());
+
+        // simulate an arbitrary side effect
+        let count = Rc::new(Cell::new(0));
+
+        create_isomorphic_effect(cx, {
+            let count = count.clone();
+            move |_| {
+                _ = first_name();
+                _ = last_name();
+
+                count.set(count.get() + 1);
+            }
+        });
+
+        // runs once initially
+        assert_eq!(count.get(), 1);
+
+        // individual updates run effect once each
+        first_name.set("Alice".to_string());
+        assert_eq!(count.get(), 2);
+
+        last_name.set("Smith".to_string());
+        assert_eq!(count.get(), 3);
+
+        // batched effect only runs twice
+        cx.batch(move || {
+            first_name.set("Bob".to_string());
+            last_name.set("Williams".to_string());
+        });
+        assert_eq!(count.get(), 4);
     })
     .dispose()
 }

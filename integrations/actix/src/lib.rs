@@ -18,9 +18,10 @@ use http::StatusCode;
 use leptos::{
     leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
     leptos_server::{server_fn_by_path, Payload},
+    server_fn::Encoding,
     *,
 };
-use leptos_integration_utils::{build_async_response, html_parts};
+use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
@@ -94,7 +95,7 @@ impl ResponseOptions {
     }
 }
 
-/// Provides an easy way to redirect the user from within a server function. Mimicing the Remix `redirect()`,
+/// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a [StatusCode] of 302 and a [LOCATION](header::LOCATION) header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
 pub fn redirect(cx: leptos::Scope, path: &str) {
@@ -150,9 +151,9 @@ pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|_cx| {})
 }
 
-/// An Actix [Route](actix_web::Route) that listens for a `POST` request with
-/// Leptos server function arguments in the body, runs the server function if found,
-/// and returns the resulting [HttpResponse].
+/// An Actix [Route](actix_web::Route) that listens for `GET` or `POST` requests with
+/// Leptos server function arguments in the URL (`GET`) or body (`POST`),
+/// runs the server function if found, and returns the resulting [HttpResponse].
 ///
 /// This provides the [HttpRequest] to the server [Scope](leptos::Scope).
 ///
@@ -168,7 +169,7 @@ pub fn handle_server_fns() -> Route {
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
 ) -> Route {
-    web::post().to(
+    web::to(
         move |req: HttpRequest, params: web::Path<String>, body: web::Bytes| {
             let additional_context = additional_context.clone();
             async move {
@@ -194,7 +195,13 @@ pub fn handle_server_fns_with_context(
                     provide_context(cx, req.clone());
                     provide_context(cx, res_options.clone());
 
-                    match server_fn(cx, body).await {
+                    let query = req.query_string().as_bytes();
+
+                    let data = match &server_fn.encoding {
+                        Encoding::Url | Encoding::Cbor => body,
+                        Encoding::GetJSON | Encoding::GetCBOR => query,
+                    };
+                    match (server_fn.trait_obj)(cx, data).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
@@ -257,8 +264,10 @@ pub fn handle_server_fns_with_context(
                                 }
                             }
                         }
-                        Err(e) => HttpResponse::InternalServerError()
-                            .body(e.to_string()),
+                        Err(e) => HttpResponse::InternalServerError().body(
+                            serde_json::to_string(&e)
+                                .unwrap_or_else(|_| e.to_string()),
+                        ),
                     }
                 } else {
                     HttpResponse::BadRequest().body(format!(
@@ -341,14 +350,15 @@ where
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
-/// This stream will pause at each `<Suspense/>` node and wait for it to resolve befores
+/// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
 /// sending down its HTML. The app will become interactive once it has fully loaded.
 ///
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
 ///
-/// The HTML stream is rendered using [render_to_stream_in_order], and includes everything described in
-/// the documentation for that function.
+/// The HTML stream is rendered using
+/// [render_to_stream_in_order](leptos::ssr::render_to_stream_in_order),
+/// and includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -416,8 +426,8 @@ where
 /// The provides a [MetaContext] and a [RouterIntegrationContext] to the app’s context before
 /// rendering it, and includes any meta tags injected using [leptos_meta].
 ///
-/// The HTML stream is rendered using [render_to_string_async], and includes everything described in
-/// the documentation for that function.
+/// The HTML stream is rendered using [render_to_string_async](leptos::ssr::render_to_string_async), and
+/// includes everything described in the documentation for that function.
 ///
 /// This can then be set up at an appropriate route in your application:
 /// ```
@@ -760,7 +770,7 @@ async fn stream_app(
     let (stream, runtime, scope) =
         render_to_stream_with_prefix_undisposed_with_context(
             app,
-            move |cx| generate_head_metadata(cx).into(),
+            move |cx| generate_head_metadata_separated(cx).1.into(),
             additional_context,
         );
 
@@ -777,7 +787,7 @@ async fn stream_app_in_order(
         leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
             app,
             move |cx| {
-                generate_head_metadata(cx).into()
+                generate_head_metadata_separated(cx).1.into()
             },
             additional_context,
         );
@@ -794,7 +804,7 @@ async fn build_stream_response(
 ) -> HttpResponse {
     let cx = leptos::Scope { runtime, id: scope };
     let (head, tail) =
-        html_parts(options, use_context::<MetaContext>(cx).as_ref());
+        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })

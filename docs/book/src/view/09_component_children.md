@@ -123,4 +123,6 @@ view! { cx,
 }
 ```
 
-<iframe src="https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D" width="100%" height="1000px"></iframe>
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D)
+
+<iframe src="https://codesandbox.io/p/sandbox/9-component-children-2wrdfd?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A12%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A12%2C%22startLineNumber%22%3A19%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>

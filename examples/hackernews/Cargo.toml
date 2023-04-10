@@ -6,10 +6,14 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[profile.release]
+codegen-units = 1
+lto = true
+
 [dependencies]
 actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["macros"] }
-console_log = "0.2"
+console_log = "1"
 console_error_panic_hook = "0.1"
 cfg-if = "1"
 leptos = { path = "../../leptos", default-features = false, features = [

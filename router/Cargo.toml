@@ -1,10 +1,10 @@
 [package]
 name = "leptos_router"
-version = "0.2.3"
+version = "0.2.5"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
-README = "../README.md"
+readme = "../README.md"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Router for the Leptos web framework."
 

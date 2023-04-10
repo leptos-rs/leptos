@@ -40,14 +40,17 @@ impl Default for UnitRepr {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for UnitRepr {
+    #[inline(always)]
     fn get_mountable_node(&self) -> web_sys::Node {
         self.comment.node.clone().unchecked_into()
     }
 
+    #[inline(always)]
     fn get_opening_node(&self) -> web_sys::Node {
         self.comment.node.clone().unchecked_into()
     }
 
+    #[inline(always)]
     fn get_closing_node(&self) -> web_sys::Node {
         self.comment.node.clone().unchecked_into()
     }

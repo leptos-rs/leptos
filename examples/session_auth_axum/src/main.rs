@@ -6,7 +6,7 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         response::{Response, IntoResponse},
         routing::{post, get},
-        extract::{Path, Extension},
+        extract::{Path, Extension, RawQuery},
         http::{Request, header::HeaderMap},
         body::Body as AxumBody,
         Router,
@@ -22,11 +22,12 @@ if #[cfg(feature = "ssr")] {
     use axum_database_sessions::{SessionConfig, SessionLayer, SessionStore};
     use axum_sessions_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
 
-    async fn server_fn_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, path: Path<String>, headers: HeaderMap, request: Request<AxumBody>) -> impl IntoResponse {
+    async fn server_fn_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, path: Path<String>, headers: HeaderMap, raw_query: RawQuery,
+    request: Request<AxumBody>) -> impl IntoResponse {
 
         log!("{:?}", path);
 
-        handle_server_fns_with_context(path, headers, move |cx| {
+        handle_server_fns_with_context(path, headers, raw_query, move |cx| {
             provide_context(cx, auth_session.clone());
             provide_context(cx, pool.clone());
         }, request).await
@@ -73,7 +74,7 @@ if #[cfg(feature = "ssr")] {
 
         // build our application with a route
         let app = Router::new()
-        .route("/api/*fn_name", post(server_fn_handler))
+        .route("/api/*fn_name", get(server_fn_handler).post(server_fn_handler))
         .leptos_routes_with_handler(routes, get(leptos_routes_handler) )
         .fallback(file_and_error_handler)
         .layer(AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(Some(pool.clone()))

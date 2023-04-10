@@ -34,6 +34,11 @@ leptos = { path = "../leptos" }
 [dependencies.web-sys]
 version = "0.3"
 features = [
+  "DocumentFragment",
+  "Element",
+  "HtmlTemplateElement",
+  "NodeList",
+  "Window",
   "console",
   "Comment",
   "Document",
@@ -45,6 +50,7 @@ features = [
   "TreeWalker",
 
   # Events we cast to in leptos_macro -- added here so we don't force users to import them
+  "AddEventListenerOptions",
   "AnimationEvent",
   "BeforeUnloadEvent",
   "ClipboardEvent",

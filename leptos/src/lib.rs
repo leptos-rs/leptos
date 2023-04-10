@@ -56,7 +56,7 @@
 //! - [`hackernews`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews)
 //!   and [`hackernews_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/hackernews_axum)
 //!   integrate calls to a real external REST API, routing, server-side rendering and hydration to create
-//!   a fully-functional that works as intended even before WASM has loaded and begun to run.
+//!   a fully-functional application that works as intended even before WASM has loaded and begun to run.
 //! - [`todo_app_sqlite`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite),
 //!   [`todo_app_sqlite_axum`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_axum), and
 //!   [`todo_app_sqlite_viz`](https://github.com/leptos-rs/leptos/tree/main/examples/todo_app_sqlite_viz)
@@ -150,12 +150,15 @@ pub use leptos_config::{self, get_configuration, LeptosOptions};
 pub mod ssr {
     pub use leptos_dom::{ssr::*, ssr_in_order::*};
 }
+#[allow(deprecated)]
 pub use leptos_dom::{
     self, create_node_ref, debug_warn, document, error, ev,
     helpers::{
         event_target, event_target_checked, event_target_value,
-        request_animation_frame, request_idle_callback, set_interval,
-        set_timeout, window_event_listener,
+        request_animation_frame, request_animation_frame_with_handle,
+        request_idle_callback, request_idle_callback_with_handle, set_interval,
+        set_interval_with_handle, set_timeout, set_timeout_with_handle,
+        window_event_listener,
     },
     html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
     Class, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
@@ -215,3 +218,21 @@ pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 /// }
 /// ```
 pub type AttributeValue = Box<dyn IntoAttribute>;
+
+#[doc(hidden)]
+pub trait Component<P> {}
+
+#[doc(hidden)]
+pub trait Props {
+    type Builder;
+    fn builder() -> Self::Builder;
+}
+
+impl<P, F, R> Component<P> for F where F: FnOnce(::leptos::Scope, P) -> R {}
+
+#[doc(hidden)]
+pub fn component_props_builder<P: Props>(
+    _f: &impl Component<P>,
+) -> <P as Props>::Builder {
+    <P as Props>::builder()
+}

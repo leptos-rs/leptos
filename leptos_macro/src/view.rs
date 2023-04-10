@@ -351,7 +351,7 @@ fn root_element_to_tokens_ssr(
         quote! {
         {
             #(#exprs_for_compiler)*
-            ::leptos::HtmlElement::from_chunks(cx, #full_name, [#(#chunks),*])#view_marker
+            ::leptos::HtmlElement::from_chunks(#cx, #full_name, [#(#chunks),*])#view_marker
         }
         }
     }
@@ -365,6 +365,7 @@ enum SsrElementChunks {
     View(TokenStream),
 }
 
+#[allow(clippy::too_many_arguments)]
 fn element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
@@ -384,7 +385,7 @@ fn element_to_tokens_ssr(
             })
         }
         chunks.push(SsrElementChunks::View(quote! {
-          {#component}.into_view(cx)
+          {#component}.into_view(#cx)
         }));
     } else {
         let tag_name = node
@@ -441,7 +442,7 @@ fn element_to_tokens_ssr(
                 let value = inner_html.as_ref();
 
                 holes.push(quote! {
-                  (#value).into_attribute(cx).as_nameless_value_string().unwrap_or_default()
+                  (#value).into_attribute(#cx).as_nameless_value_string().unwrap_or_default()
                 })
             } else {
                 for child in &node.children {
@@ -485,7 +486,7 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                  {#value}.into_view(cx)
+                                  {#value}.into_view(#cx)
                                 }));
                             }
                         }
@@ -667,7 +668,7 @@ fn set_class_attribute_ssr(
                 template.push_str(" {}");
                 let value = value.as_ref();
                 holes.push(quote! {
-                  &(cx, #value).into_attribute(#cx).as_nameless_value_string()
+                  &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
                     .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
                     .unwrap_or_default()
                 });
@@ -677,7 +678,7 @@ fn set_class_attribute_ssr(
         for (_span, name, value) in &class_attrs {
             template.push_str(" {}");
             holes.push(quote! {
-              (cx, #value).into_class(#cx).as_value_string(#name)
+              (#cx, #value).into_class(#cx).as_value_string(#name)
             });
         }
 
@@ -817,7 +818,22 @@ fn element_to_tokens(
         };
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
-                Some(attribute_to_tokens(cx, node))
+                if node.key.to_string().trim().starts_with("class:") {
+                    None
+                } else {
+                    Some(attribute_to_tokens(cx, node))
+                }
+            } else {
+                None
+            }
+        });
+        let class_attrs = node.attributes.iter().filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                if node.key.to_string().trim().starts_with("class:") {
+                    Some(attribute_to_tokens(cx, node))
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -875,6 +891,7 @@ fn element_to_tokens(
         quote! {
             #name
                 #(#attrs)*
+                #(#class_attrs)*
                 #global_class_expr
                 #(#children)*
                 #view_marker
@@ -1045,7 +1062,6 @@ pub(crate) fn component_to_tokens(
     let name = &node.name;
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
-    let component_props_name = format_ident!("{component_name}Props");
 
     let attrs = node.attributes.iter().filter_map(|node| {
         if let Node::Attribute(node) = node {
@@ -1102,8 +1118,14 @@ pub(crate) fn component_to_tokens(
     let children = if node.children.is_empty() {
         quote! {}
     } else {
-        let marker = format!("<{component_name}/>-children");
-        let view_marker = quote! { .with_view_marker(#marker) };
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let marker = format!("<{component_name}/>-children");
+                let view_marker = quote! { .with_view_marker(#marker) };
+            } else {
+                let view_marker = quote! {};
+            }
+        }
 
         let children = fragment_to_tokens(
             cx,
@@ -1131,7 +1153,7 @@ pub(crate) fn component_to_tokens(
     let component = quote! {
         #name(
             #cx,
-            #component_props_name::builder()
+            ::leptos::component_props_builder(&#name)
                 #(#props)*
                 #children
                 .build()
@@ -1369,7 +1391,7 @@ fn is_math_ml_element(tag: &str) -> bool {
 }
 
 fn is_ambiguous_element(tag: &str) -> bool {
-    tag == "a" || tag == "script"
+    tag == "a" || tag == "script" || tag == "title"
 }
 
 fn parse_event(event_name: &str) -> (&str, bool) {

@@ -286,7 +286,7 @@ where
     let pending = create_rw_signal(cx, false);
     let action_fn = Rc::new(move |input: &I| {
         let fut = action_fn(input);
-        Box::pin(async move { fut.await }) as Pin<Box<dyn Future<Output = O>>>
+        Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
     });
 
     Action(store_value(
