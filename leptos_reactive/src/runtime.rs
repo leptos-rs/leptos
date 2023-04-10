@@ -192,12 +192,17 @@ impl Runtime {
     pub(crate) fn mark_dirty(&self, node: NodeId) {
         //crate::macros::debug_warn!("marking {node:?} dirty");
         let mut nodes = self.nodes.borrow_mut();
-        let mut pending_effects = self.pending_effects.borrow_mut();
-        let subscribers = self.node_subscribers.borrow();
-        let current_observer = self.observer.get();
 
-        // mark self dirty
         if let Some(current_node) = nodes.get_mut(node) {
+            if current_node.state == ReactiveNodeState::DirtyMarked {
+                return;
+            }
+
+            let mut pending_effects = self.pending_effects.borrow_mut();
+            let subscribers = self.node_subscribers.borrow();
+            let current_observer = self.observer.get();
+
+            // mark self dirty
             Runtime::mark(
                 node,
                 current_node,
