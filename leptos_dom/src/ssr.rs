@@ -244,19 +244,23 @@ fn fragments_to_chunks(
 impl View {
     /// Consumes the node and renders it into an HTML string.
     pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
-        self.render_to_string_helper()
+        self.render_to_string_helper(false)
     }
 
-    pub(crate) fn render_to_string_helper(self) -> Cow<'static, str> {
+    pub(crate) fn render_to_string_helper(self, dont_escape_text: bool) -> Cow<'static, str> {
         match self {
             View::Text(node) => {
-                html_escape::encode_safe(&node.content).to_string().into()
+                if dont_escape_text {
+                    node.content
+                } else {
+                    html_escape::encode_safe(&node.content).to_string().into()
+                }
             }
             View::Component(node) => {
                 let content = || {
                     node.children
                         .into_iter()
-                        .map(|node| node.render_to_string_helper())
+                        .map(|node| node.render_to_string_helper(dont_escape_text))
                         .join("")
                 };
                 cfg_if! {
@@ -283,7 +287,7 @@ impl View {
             }
             View::Suspense(id, node) => format!(
                 "<!--suspense-open-{id}-->{}<!--suspense-close-{id}-->",
-                View::CoreComponent(node).render_to_string_helper()
+                View::CoreComponent(node).render_to_string_helper(dont_escape_text)
             )
             .into(),
             View::CoreComponent(node) => {
@@ -333,7 +337,7 @@ impl View {
                                             t.content
                                         }
                                     } else {
-                                        child.render_to_string_helper()
+                                        child.render_to_string_helper(dont_escape_text)
                                     }
                                 } else {
                                     "".into()
@@ -356,7 +360,7 @@ impl View {
                                         let id = node.id;
 
                                         let content = || {
-                                            node.child.render_to_string_helper()
+                                            node.child.render_to_string_helper(dont_escape_text)
                                         };
 
                                         #[cfg(debug_assertions)]
@@ -409,6 +413,7 @@ impl View {
                 }
             }
             View::Element(el) => {
+                let is_script_or_style = el.name == "script" || el.name == "style";
                 let el_html = if let ElementChildren::Chunks(chunks) =
                     el.children
                 {
@@ -417,7 +422,7 @@ impl View {
                         .map(|chunk| match chunk {
                             StringOrView::String(string) => string,
                             StringOrView::View(view) => {
-                                view().render_to_string_helper()
+                                view().render_to_string_helper(is_script_or_style)
                             }
                         })
                         .join("")
@@ -460,7 +465,7 @@ impl View {
                             ElementChildren::Empty => "".into(),
                             ElementChildren::Children(c) => c
                                 .into_iter()
-                                .map(View::render_to_string_helper)
+                                .map(|v| v.render_to_string_helper(is_script_or_style))
                                 .join("")
                                 .into(),
                             ElementChildren::InnerHtml(h) => h,

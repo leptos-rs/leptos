@@ -213,7 +213,7 @@ impl View {
     /// Renders the view into a set of HTML chunks that can be streamed.
     pub fn into_stream_chunks(self, cx: Scope) -> VecDeque<StreamChunk> {
         let mut chunks = VecDeque::new();
-        self.into_stream_chunks_helper(cx, &mut chunks);
+        self.into_stream_chunks_helper(cx, &mut chunks, false);
         chunks
     }
 
@@ -221,6 +221,7 @@ impl View {
         self,
         cx: Scope,
         chunks: &mut VecDeque<StreamChunk>,
+        dont_escape_text: bool,
     ) {
         match self {
             View::Suspense(id, _) => {
@@ -241,7 +242,7 @@ impl View {
                     let name = crate::ssr::to_kebab_case(&node.name);
                     chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}|leptos-{name}-start-->"#, HydrationCtx::to_string(&node.id, false)).into()));
                     for child in node.children {
-                        child.into_stream_chunks_helper(cx, chunks);
+                        child.into_stream_chunks_helper(cx, chunks, dont_escape_text);
                     }
                     chunks.push_back(StreamChunk::Sync(format!(r#"<!--hk={}|leptos-{name}-end-->"#, HydrationCtx::to_string(&node.id, true)).into()));
                   } else {
@@ -253,6 +254,8 @@ impl View {
                 }
             }
             View::Element(el) => {
+                let is_script_or_style = el.name == "script" || el.name == "style";
+
                 #[cfg(debug_assertions)]
                 if let Some(id) = &el.view_marker {
                     chunks.push_back(StreamChunk::Sync(
@@ -266,7 +269,7 @@ impl View {
                                 chunks.push_back(StreamChunk::Sync(string))
                             }
                             StringOrView::View(view) => {
-                                view().into_stream_chunks_helper(cx, chunks);
+                                view().into_stream_chunks_helper(cx, chunks, is_script_or_style);
                             }
                         }
                     }
@@ -318,7 +321,7 @@ impl View {
                             ElementChildren::Empty => {}
                             ElementChildren::Children(children) => {
                                 for child in children {
-                                    child.into_stream_chunks_helper(cx, chunks);
+                                    child.into_stream_chunks_helper(cx, chunks, is_script_or_style);
                                 }
                             }
                             ElementChildren::InnerHtml(inner_html) => {
@@ -387,22 +390,27 @@ impl View {
                                         // into one single node, so we need to artificially make the
                                         // browser create the dynamic text as it's own text node
                                         if let View::Text(t) = child {
+                                            let content = if dont_escape_text {
+                                                t.content.into()
+                                            } else {
+                                                html_escape::encode_safe(&t.content).to_string().into()
+                                            };
                                             chunks.push_back(
                                                 if !cfg!(debug_assertions) {
                                                     StreamChunk::Sync(
                                                         format!(
                                                             "<!>{}",
-                                                            html_escape::encode_safe(&t.content)
+                                                            content
                                                         )
                                                         .into(),
                                                     )
                                                 } else {
-                                                    StreamChunk::Sync(html_escape::encode_safe(&t.content).to_string().into())
+                                                    StreamChunk::Sync(content)
                                                 },
                                             );
                                         } else {
                                             child.into_stream_chunks_helper(
-                                                cx, chunks,
+                                                cx, chunks, dont_escape_text
                                             );
                                         }
                                     }
@@ -435,7 +443,7 @@ impl View {
                                             );
                                             node.child
                                                 .into_stream_chunks_helper(
-                                                    cx, chunks,
+                                                    cx, chunks, dont_escape_text
                                                 );
                                             chunks.push_back(
                                                 StreamChunk::Sync(

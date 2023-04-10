@@ -393,6 +393,7 @@ fn element_to_tokens_ssr(
             .to_string()
             .replace("svg::", "")
             .replace("math::", "");
+        let is_script_or_style = tag_name == "script" || tag_name == "style";
         template.push('<');
         template.push_str(&tag_name);
 
@@ -461,9 +462,12 @@ fn element_to_tokens_ssr(
                         }
                         Node::Text(text) => {
                             if let Some(value) = value_to_string(&text.value) {
-                                template.push_str(&html_escape::encode_safe(
-                                    &value,
-                                ));
+                                let value = if is_script_or_style {
+                                    value.into()
+                                } else {
+                                    html_escape::encode_safe(&value)
+                                };
+                                template.push_str(&value);
                             } else {
                                 template.push_str("{}");
                                 let value = text.value.as_ref();
