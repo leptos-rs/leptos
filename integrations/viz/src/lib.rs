@@ -1022,7 +1022,7 @@ pub trait LeptosRoutes {
 
     fn leptos_routes_with_handler<H, O>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1107,7 +1107,7 @@ impl LeptosRoutes for Router {
 
     fn leptos_routes_with_handler<H, O>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1116,6 +1116,13 @@ impl LeptosRoutes for Router {
     {
         paths
             .iter()
-            .fold(self, |router, (path, _)| router.get(path, handler.clone()))
+            .fold(self, |router, listing| for method in listing.methods() { match method {
+                        leptos_router::Method::Get => router.get(listing.path(), handler.clone()),
+                        leptos_router::Method::Post => router.post(listing.path(), handler.clone()),
+                        leptos_router::Method::Put => router.put(listing.path(), handler.clone()),
+                        leptos_router::Method::Delete => router.delete(listing.path(), handler.clone()),
+                        leptos_router::Method::Patch => router.patch(listing.path(), handler.clone()),
+                    }
+    })
     }
 }
