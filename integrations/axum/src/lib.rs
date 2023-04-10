@@ -14,7 +14,7 @@ use axum::{
         HeaderMap, Request, StatusCode,
     },
     response::IntoResponse,
-    routing::get,
+    routing::{delete, get, patch, post, put},
 };
 use futures::{
     channel::mpsc::{Receiver, Sender},
@@ -995,12 +995,12 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
-) -> Vec<(String, SsrMode)>
+) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
     #[derive(Default, Clone, Debug)]
-    pub struct Routes(pub Arc<RwLock<Vec<(String, SsrMode)>>>);
+    pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
 
     let routes = Routes::default();
     let routes_inner = routes.clone();
@@ -1024,17 +1024,26 @@ where
     // Axum's Router defines Root routes as "/" not ""
     let routes = routes
         .into_iter()
-        .map(|(s, m)| {
-            if s.is_empty() {
-                ("/".to_string(), m)
+        .map(|listing| {
+            let path = listing.path();
+            if path.is_empty() {
+                RouteListing::new(
+                    "/",
+                    Default::default(),
+                    [leptos_router::Method::Get],
+                )
             } else {
-                (s, m)
+                listing
             }
         })
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![("/".to_string(), Default::default())]
+        vec![RouteListing::new(
+            "/",
+            Default::default(),
+            [leptos_router::Method::Get],
+        )]
     } else {
         routes
     }
@@ -1046,7 +1055,7 @@ pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1055,7 +1064,7 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1064,7 +1073,7 @@ pub trait LeptosRoutes {
 
     fn leptos_routes_with_handler<H, T>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1077,7 +1086,7 @@ impl LeptosRoutes for axum::Router {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1089,7 +1098,7 @@ impl LeptosRoutes for axum::Router {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1097,38 +1106,65 @@ impl LeptosRoutes for axum::Router {
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for (path, mode) in paths.iter() {
-            router = router.route(
-                path,
-                match mode {
-                    SsrMode::OutOfOrder => {
-                        get(render_app_to_stream_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        ))
-                    }
-                    SsrMode::InOrder => {
-                        get(render_app_to_stream_in_order_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        ))
-                    }
-                    SsrMode::Async => get(render_app_async_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    )),
-                },
-            );
+        for listing in paths.iter() {
+            let path = listing.path();
+
+            for method in listing.methods() {
+                router = router.route(
+                    path,
+                    match listing.mode() {
+                        SsrMode::OutOfOrder => {
+                            let s = render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::InOrder => {
+                            let s = render_app_to_stream_in_order_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::Async => {
+                            let s = render_app_async_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                    },
+                );
+            }
         }
         router
     }
 
     fn leptos_routes_with_handler<H, T>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1136,8 +1172,21 @@ impl LeptosRoutes for axum::Router {
         T: 'static,
     {
         let mut router = self;
-        for (path, _) in paths.iter() {
-            router = router.route(path, get(handler.clone()));
+        for listing in paths.iter() {
+            for method in listing.methods() {
+                router = router.route(
+                    listing.path(),
+                    match method {
+                        leptos_router::Method::Get => get(handler.clone()),
+                        leptos_router::Method::Post => post(handler.clone()),
+                        leptos_router::Method::Put => put(handler.clone()),
+                        leptos_router::Method::Delete => {
+                            delete(handler.clone())
+                        }
+                        leptos_router::Method::Patch => patch(handler.clone()),
+                    },
+                );
+            }
         }
         router
     }

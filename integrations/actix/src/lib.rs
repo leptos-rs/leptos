@@ -298,6 +298,7 @@ pub fn handle_server_fns_with_context(
 /// ```
 /// use actix_web::{App, HttpServer};
 /// use leptos::*;
+/// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -321,6 +322,7 @@ pub fn handle_server_fns_with_context(
 ///                 leptos_actix::render_app_to_stream(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
+///                     Method::Get,
 ///                 ),
 ///             )
 ///     })
@@ -340,11 +342,12 @@ pub fn handle_server_fns_with_context(
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_cx| {}, app_fn)
+    render_app_to_stream_with_context(options, |_cx| {}, app_fn, method)
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -363,6 +366,7 @@ where
 /// ```
 /// use actix_web::{App, HttpServer};
 /// use leptos::*;
+/// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -386,6 +390,7 @@ where
 ///                 leptos_actix::render_app_to_stream_in_order(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
+///                     Method::Get,
 ///                 ),
 ///             )
 ///     })
@@ -405,11 +410,17 @@ where
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    render_app_to_stream_in_order_with_context(options, |_cx| {}, app_fn)
+    render_app_to_stream_in_order_with_context(
+        options,
+        |_cx| {},
+        app_fn,
+        method,
+    )
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -426,6 +437,7 @@ where
 /// ```
 /// use actix_web::{App, HttpServer};
 /// use leptos::*;
+/// use leptos_router::Method;
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
@@ -449,6 +461,7 @@ where
 ///                 leptos_actix::render_app_async(
 ///                     leptos_options.to_owned(),
 ///                     |cx| view! { cx, <MyApp/> },
+///                     Method::Get,
 ///                 ),
 ///             )
 ///     })
@@ -468,11 +481,12 @@ where
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    render_app_async_with_context(options, |_cx| {}, app_fn)
+    render_app_async_with_context(options, |_cx| {}, app_fn, method)
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -491,11 +505,12 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    web::get().to(move |req: HttpRequest| {
+    let handler = move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
@@ -513,7 +528,14 @@ where
 
             stream_app(&options, app, res_options, additional_context).await
         }
-    })
+    };
+    match method {
+        Method::Get => web::get().to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
+    }
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -532,11 +554,12 @@ pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    web::get().to(move |req: HttpRequest| {
+    let handler = move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
@@ -555,7 +578,14 @@ where
             stream_app_in_order(&options, app, res_options, additional_context)
                 .await
         }
-    })
+    };
+    match method {
+        Method::Get => web::get().to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
+    }
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -575,11 +605,12 @@ pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
 ) -> Route
 where
     IV: IntoView,
 {
-    web::get().to(move |req: HttpRequest| {
+    let handler = move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
@@ -603,7 +634,14 @@ where
             )
             .await
         }
-    })
+    };
+    match method {
+        Method::Get => web::get().to(handler),
+        Method::Post => web::post().to(handler),
+        Method::Put => web::put().to(handler),
+        Method::Delete => web::delete().to(handler),
+        Method::Patch => web::patch().to(handler),
+    }
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -854,7 +892,7 @@ async fn render_app_async_helper(
 /// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
 pub fn generate_route_list<IV>(
     app_fn: impl FnOnce(leptos::Scope) -> IV + 'static,
-) -> Vec<(String, SsrMode)>
+) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
@@ -863,11 +901,16 @@ where
     // Empty strings screw with Actix pathing, they need to be "/"
     routes = routes
         .into_iter()
-        .map(|(s, mode)| {
-            if s.is_empty() {
-                return ("/".to_string(), mode);
+        .map(|listing| {
+            let path = listing.path();
+            if path.is_empty() {
+                return RouteListing::new(
+                    "/".to_string(),
+                    listing.mode(),
+                    listing.methods(),
+                );
             }
-            (s, mode)
+            RouteListing::new(listing.path(), listing.mode(), listing.methods())
         })
         .collect();
 
@@ -877,14 +920,19 @@ where
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
 
-    let routes: Vec<(String, SsrMode)> = routes
+    let routes = routes
         .into_iter()
-        .map(|(s, m)| (wildcard_re.replace_all(&s, "{tail:.*}").to_string(), m))
-        .map(|(s, m)| (capture_re.replace_all(&s, "{$1}").to_string(), m))
-        .collect();
+        .map(|listing| {
+            let path = wildcard_re
+                .replace_all(&listing.path(), "{tail:.*}")
+                .to_string();
+            let path = capture_re.replace_all(&path, "{$1}").to_string();
+            RouteListing::new(path, listing.mode(), listing.methods())
+        })
+        .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![("/".to_string(), Default::default())]
+        vec![RouteListing::new("/", Default::default(), [Method::Get])]
     } else {
         routes
     }
@@ -901,7 +949,7 @@ pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -926,7 +974,7 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -948,7 +996,7 @@ where
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -988,7 +1036,7 @@ where
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -996,29 +1044,39 @@ where
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for (path, mode) in paths.iter() {
-            router = router.route(
-                path,
-                match mode {
-                    SsrMode::OutOfOrder => render_app_to_stream_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    ),
-                    SsrMode::InOrder => {
-                        render_app_to_stream_in_order_with_context(
+        for listing in paths.iter() {
+            let path = listing.path();
+            let mode = listing.mode();
+
+            for method in listing.methods() {
+                router = router.route(
+                    path,
+                    match mode {
+                        SsrMode::OutOfOrder => {
+                            render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                            )
+                        }
+                        SsrMode::InOrder => {
+                            render_app_to_stream_in_order_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                            )
+                        }
+                        SsrMode::Async => render_app_async_with_context(
                             options.clone(),
                             additional_context.clone(),
                             app_fn.clone(),
-                        )
-                    }
-                    SsrMode::Async => render_app_async_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    ),
-                },
-            );
+                            method,
+                        ),
+                    },
+                );
+            }
         }
         router
     }
