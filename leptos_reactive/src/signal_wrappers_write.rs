@@ -18,8 +18,8 @@ where
     }
 }
 
-/// A wrapper for any kind of settable reactive signal: a [WriteSignal](crate::WriteSignal),
-/// [RwSignal](crate::RwSignal), or closure that receives a value and sets a signal depending
+/// A wrapper for any kind of settable reactive signal: a [`WriteSignal`](crate::WriteSignal),
+/// [`RwSignal`](crate::RwSignal), or closure that receives a value and sets a signal depending
 /// on it.
 ///
 /// This allows you to create APIs that take any kind of `SignalSetter<T>` as an argument,

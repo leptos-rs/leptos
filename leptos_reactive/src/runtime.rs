@@ -379,7 +379,7 @@ pub(crate) fn with_runtime<T>(
 
 #[doc(hidden)]
 #[must_use = "Runtime will leak memory if Runtime::dispose() is never called."]
-/// Creates a new reactive [Runtime]. This should almost always be handled by the framework.
+/// Creates a new reactive [`Runtime`]. This should almost always be handled by the framework.
 pub fn create_runtime() -> RuntimeId {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -392,17 +392,17 @@ pub fn create_runtime() -> RuntimeId {
 
 #[cfg(not(any(feature = "csr", feature = "hydrate")))]
 slotmap::new_key_type! {
-    /// Unique ID assigned to a [Runtime](crate::Runtime).
+    /// Unique ID assigned to a Runtime.
     pub struct RuntimeId;
 }
 
-/// Unique ID assigned to a [Runtime](crate::Runtime).
+/// Unique ID assigned to a Runtime.
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeId;
 
 impl RuntimeId {
-    /// Removes the runtime, disposing all its child [Scope](crate::Scope)s.
+    /// Removes the runtime, disposing all its child [`Scope`](crate::Scope)s.
     pub fn dispose(self) {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {

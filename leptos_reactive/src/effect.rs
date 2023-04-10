@@ -11,14 +11,14 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// Effects are intended to run *side-effects* of the system, not to synchronize state
 /// *within* the system. In other words: don't write to signals within effects.
 /// (If you need to define a signal that depends on the value of other signals, use a
-/// derived signal or [create_memo](crate::create_memo)).
+/// derived signal or [`create_memo`](crate::create_memo)).
 ///
 /// The effect function is called with an argument containing whatever value it returned
 /// the last time it ran. On the initial run, this is `None`.
 ///
 /// By default, effects **do not run on the server**. This means you can call browser-specific
 /// APIs within the effect function without causing issues. If you need an effect to run on
-/// the server, use [create_isomorphic_effect].
+/// the server, use [`create_isomorphic_effect`].
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
@@ -76,7 +76,7 @@ where
     }
 }
 
-/// Creates an effect; unlike effects created by [create_effect], isomorphic effects will run on
+/// Creates an effect; unlike effects created by [`create_effect`], isomorphic effects will run on
 /// the server as well as the client.
 /// ```
 /// # use leptos_reactive::*;

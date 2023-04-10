@@ -109,7 +109,7 @@ pub trait SignalGet<T> {
     /// the running effect to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn get(&self) -> T;
 
@@ -125,7 +125,7 @@ pub trait SignalWith<T> {
     /// the running effect to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -197,7 +197,7 @@ pub trait SignalGetUntracked<T> {
     /// current scope.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn get_untracked(&self) -> T;
 
@@ -214,7 +214,7 @@ pub trait SignalWithUntracked<T> {
     /// value without creating a dependency on the current scope.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -275,7 +275,7 @@ pub trait SignalStream<T> {
     /// whenever it changes.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     // We're returning an opaque type until impl trait in trait
     // positions are stabilized, and also so any underlying
     // changes are non-breaking
@@ -283,7 +283,7 @@ pub trait SignalStream<T> {
     fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
-/// This trait allows disposing a signal before its [Scope] has been disposed.
+/// This trait allows disposing a signal before its [`Scope`] has been disposed.
 pub trait SignalDispose {
     /// Disposes of the signal. This:
     /// 1. Detaches the signal from the reactive graph, preventing it from triggering
@@ -299,8 +299,8 @@ pub trait SignalDispose {
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// Takes a reactive [Scope] and the initial value as arguments,
-/// and returns a tuple containing a [ReadSignal] and a [WriteSignal],
+/// Takes a reactive [`Scope`] and the initial value as arguments,
+/// and returns a tuple containing a [`ReadSignal`] and a [`WriteSignal`],
 /// each of which can be called as a function.
 ///
 /// ```
@@ -352,7 +352,7 @@ pub fn create_signal<T>(
     s
 }
 
-/// Works exactly as [create_signal], but creates multiple signals at once.
+/// Works exactly as [`create_signal`], but creates multiple signals at once.
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -372,7 +372,7 @@ pub fn create_many_signals<T>(
     cx.runtime.create_many_signals_with_map(cx, values, |x| x)
 }
 
-/// Works exactly as [create_many_signals], but applies the map function to each signal pair.
+/// Works exactly as [`create_many_signals`], but applies the map function to each signal pair.
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -397,7 +397,7 @@ where
 }
 
 /// Creates a signal that always contains the most recent value emitted by a
-/// [Stream](futures::stream::Stream).
+/// [`Stream`](futures::stream::Stream).
 /// If the stream has not yet emitted a value since the signal was created, the signal's
 /// value will be `None`.
 ///
@@ -444,7 +444,7 @@ pub fn create_signal_from_stream<T>(
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// `ReadSignal` is also [Copy] and `'static`, so it can very easily moved into closures
+/// `ReadSignal` is also [`Copy`] and `'static`, so it can very easily moved into closures
 /// or copied structs.
 ///
 /// ## Core Trait Implementations
@@ -815,13 +815,13 @@ impl<T> Copy for ReadSignal<T> {}
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// Calling [WriteSignal::update] will mutate the signal’s value in place,
+/// Calling [`WriteSignal::update`] will mutate the signal’s value in place,
 /// and notify all subscribers that the signal’s value has changed.
 ///
-/// `WriteSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
+/// `WriteSignal` implements [`Fn`], such that `set_value(new_value)` is equivalent to
 /// `set_value.update(|value| *value = new_value)`.
 ///
-/// `WriteSignal` is [Copy] and `'static`, so it can very easily moved into closures
+/// `WriteSignal` is [`Copy`] and `'static`, so it can very easily moved into closures
 /// or copied structs.
 ///
 /// ## Core Trait Implementations
@@ -1130,7 +1130,7 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 }
 
 /// A signal that combines the getter and setter into one value, rather than
-/// separating them into a [ReadSignal] and a [WriteSignal]. You may prefer this
+/// separating them into a [`ReadSignal`] and a [`WriteSignal`]. You may prefer this
 /// its style, or it may be easier to pass around in a context or as a function argument.
 ///
 /// ## Core Trait Implementations
@@ -1723,7 +1723,7 @@ impl<T> RwSignal<T> {
     /// Returns a write-only handle to the signal.
     ///
     /// Useful if you're trying to give write access to another component, or split an
-    /// `RwSignal` into a [ReadSignal] and a [WriteSignal].
+    /// [`RwSignal`] into a [`ReadSignal`] and a [`WriteSignal`].
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {

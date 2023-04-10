@@ -8,7 +8,7 @@ use crate::{
 use futures::Future;
 use std::{borrow::Cow, collections::VecDeque, pin::Pin};
 
-/// Tracks [Resource](crate::Resource)s that are read under a suspense context,
+/// Tracks [`Resource`](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
 #[derive(Copy, Clone, Debug)]
 pub struct SuspenseContext {
