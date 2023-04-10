@@ -13,11 +13,11 @@ cfg-if = "1"
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
-leptos_server = { workspace = true }
+leptos_server = { workspace = true, default-features = false }
 leptos_config = { workspace = true }
 tracing = "0.1"
 typed-builder = "0.14"
-server_fn = { workspace = true }
+server_fn = { workspace = true, default-features = false }
 
 [dev-dependencies]
 leptos = { path = ".", default-features = false }
@@ -36,7 +36,8 @@ hydrate = [
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
 ]
-rustls = ["server_fn/rustls"]
+default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
+rustls = ["leptos_server/rustls", "server_fn/rustls"]
 ssr = [
   "leptos_dom/ssr",
   "leptos_macro/ssr",
@@ -93,5 +94,9 @@ skip_feature_sets = [
   [
     "serde-lite",
     "rkyv",
+  ],
+  [
+    "default-tls",
+    "rustls",
   ],
 ]
