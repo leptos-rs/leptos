@@ -467,7 +467,11 @@ fn element_to_tokens_ssr(
                                 } else {
                                     html_escape::encode_safe(&value)
                                 };
-                                template.push_str(&value.replace('{', "{{").replace('}', "}}"));
+                                template.push_str(
+                                    &value
+                                        .replace('{', "{{")
+                                        .replace('}', "}}"),
+                                );
                             } else {
                                 template.push_str("{}");
                                 let value = text.value.as_ref();
