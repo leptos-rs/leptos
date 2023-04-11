@@ -403,7 +403,7 @@ impl Scope {
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     pub fn serialization_resolvers(
         &self,
-    ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
+    ) -> Vec<PinnedFuture<(ResourceId, String)>> {
         with_runtime(self.runtime, |runtime| {
             runtime.serialization_resolvers(*self)
         })

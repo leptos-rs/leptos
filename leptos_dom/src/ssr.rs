@@ -7,7 +7,10 @@ use crate::{
     CoreComponent, HydrationCtx, IntoView, View,
 };
 use cfg_if::cfg_if;
-use futures::{stream::FuturesUnordered, Future, Stream, StreamExt};
+use futures::{
+    stream::{self, LocalBoxStream},
+    Future, FutureExt, Stream, StreamExt,
+};
 use itertools::Itertools;
 use leptos_reactive::*;
 use std::{borrow::Cow, pin::Pin};
@@ -157,29 +160,39 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     });
     let cx = Scope { runtime, id: scope };
 
-    let blocking_fragments = FuturesUnordered::new();
-    let fragments = FuturesUnordered::new();
+    let mut blocking_fragments = Vec::new();
+    let mut fragments = Vec::new();
 
     for (fragment_id, data) in pending_fragments {
         if data.should_block {
-            blocking_fragments
-                .push(async move { (fragment_id, data.out_of_order.await) });
+            blocking_fragments.push(async move {
+                fragment_to_chunk(fragment_id, data.out_of_order.await)
+            });
         } else {
-            fragments
-                .push(async move { (fragment_id, data.out_of_order.await) });
+            fragments.push(
+                async move {
+                    fragment_to_chunk(fragment_id, data.out_of_order.await)
+                }
+                .boxed_local(),
+            );
         }
     }
 
     // resources and fragments
     // stream HTML for each <Suspense/> as it resolves
-    let fragments = fragments_to_chunks(fragments);
+    let fragments: LocalBoxStream<_> = stream::iter(fragments).boxed_local();
     // stream data for each Resource as it resolves
-    let resources = render_serializers(serializers);
+    let resources: LocalBoxStream<_> = stream::iter(serializers)
+        .map(|s| async move { render_serializer(s.await) }.boxed_local())
+        .boxed_local();
+    // chain both fragments/resources together and allow either to resolve independently
+    let fragments = fragments.chain(resources).buffered(100);
 
     // HTML for the view function and script to store resources
     let stream = futures::stream::once(async move {
         let mut blocking = String::new();
-        let mut blocking_fragments = fragments_to_chunks(blocking_fragments);
+        let mut blocking_fragments =
+            stream::iter(blocking_fragments).buffer_unordered(100);
         while let Some(fragment) = blocking_fragments.next().await {
             blocking.push_str(&fragment);
         }
@@ -197,10 +210,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
             "#
         )
     })
-    // TODO these should be combined again in a way that chains them appropriately
-    // such that individual resources can resolve before all fragments are done
     .chain(fragments)
-    .chain(resources)
     // dispose of the root scope
     .chain(futures::stream::once(async move {
         disposer.dispose();
@@ -210,11 +220,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     (stream, runtime, scope)
 }
 
-fn fragments_to_chunks(
-    fragments: impl Stream<Item = (String, String)>,
-) -> impl Stream<Item = String> {
-    fragments.map(|(fragment_id, html)| {
-      format!(
+pub(crate) fn fragment_to_chunk(fragment_id: String, html: String) -> String {
+    format!(
         r#"
                 <template id="{fragment_id}f">{html}</template>
                 <script>
@@ -237,8 +244,7 @@ fn fragments_to_chunks(
                     close.parentNode.insertBefore(tpl.content.cloneNode(true), close);
                 </script>
                 "#
-      )
-    })
+    )
 }
 
 impl View {
@@ -544,14 +550,11 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
     new_name
 }
 
-pub(crate) fn render_serializers(
-    serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
-) -> impl Stream<Item = String> {
-    serializers.map(|(id, json)| {
-        let id = serde_json::to_string(&id).unwrap();
-        let json = json.replace('<', "\\u003c");
-        format!(
-            r#"<script>
+fn render_serializer((id, json): (ResourceId, String)) -> String {
+    let id = serde_json::to_string(&id).unwrap();
+    let json = json.replace('<', "\\u003c");
+    format!(
+        r#"<script>
                   var val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)
@@ -559,8 +562,15 @@ pub(crate) fn render_serializers(
                       __LEPTOS_RESOLVED_RESOURCES.set({id}, val);
                   }}
               </script>"#,
-        )
-    })
+    )
+}
+
+pub(crate) fn render_serializers(
+    serializers: Vec<PinnedFuture<(ResourceId, String)>>,
+) -> impl Stream<Item = String> {
+    stream::iter(serializers)
+        .buffer_unordered(100)
+        .map(render_serializer)
 }
 
 #[doc(hidden)]

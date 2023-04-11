@@ -9,7 +9,6 @@ use crate::{
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
-use futures::stream::FuturesUnordered;
 use indexmap::IndexSet;
 use rustc_hash::{FxHashMap, FxHasher};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
@@ -787,8 +786,8 @@ impl Runtime {
     pub(crate) fn serialization_resolvers(
         &self,
         cx: Scope,
-    ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        let f = FuturesUnordered::new();
+    ) -> Vec<PinnedFuture<(ResourceId, String)>> {
+        let mut f = Vec::new();
         for (id, resource) in self.resources.borrow().iter() {
             if let AnyResource::Serializable(resource) = resource {
                 f.push(resource.to_serialization_resolver(cx, id));
