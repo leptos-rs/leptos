@@ -4,8 +4,8 @@ use crate::{
     node::{NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
     AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SerializableResource, StoredValueId, UnserializableResource,
-    WriteSignal,
+    ScopeProperty, SerializableResource, StoredValueId, Trigger,
+    UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
@@ -76,11 +76,20 @@ impl Runtime {
         if self.current_state(node_id) == ReactiveNodeState::Check {
             let sources = {
                 let sources = self.node_sources.borrow();
-                sources.get(node_id).map(|n| n.borrow().clone())
+
+                // rather than cloning the entire FxIndexSet, only allocate a `Vec` for the node ids
+                sources.get(node_id).map(|n| {
+                    let sources = n.borrow();
+                    // in case Vec::from_iterator specialization doesn't work, do it manually
+                    let mut sources_vec = Vec::with_capacity(sources.len());
+                    sources_vec.extend(sources.iter().cloned());
+                    sources_vec
+                })
             };
+
             for source in sources.into_iter().flatten() {
                 self.update_if_necessary(source);
-                if self.current_state(node_id) == ReactiveNodeState::Dirty {
+                if self.current_state(node_id) >= ReactiveNodeState::Dirty {
                     // as soon as a single parent has marked us dirty, we can
                     // stop checking them to avoid over-re-running
                     break;
@@ -89,7 +98,7 @@ impl Runtime {
         }
 
         // if we're dirty at this point, update
-        if self.current_state(node_id) == ReactiveNodeState::Dirty {
+        if self.current_state(node_id) >= ReactiveNodeState::Dirty {
             self.update(node_id);
         }
 
@@ -103,30 +112,30 @@ impl Runtime {
             let nodes = self.nodes.borrow();
             nodes.get(node_id).cloned()
         };
-        let subs = {
-            let subs = self.node_subscribers.borrow();
-            subs.get(node_id).cloned()
-        };
+
         if let Some(node) = node {
             // memos and effects rerun
             // signals simply have their value
             let changed = match node.node_type {
-                ReactiveNodeType::Signal => true,
-                ReactiveNodeType::Memo { f }
-                | ReactiveNodeType::Effect { f } => {
+                ReactiveNodeType::Signal | ReactiveNodeType::Trigger => true,
+                ReactiveNodeType::Memo { ref f }
+                | ReactiveNodeType::Effect { ref f } => {
+                    let value = node.value();
                     // set this node as the observer
                     self.with_observer(node_id, move || {
                         // clean up sources of this memo/effect
                         self.cleanup(node_id);
 
-                        f.run(Rc::clone(&node.value))
+                        f.run(value)
                     })
                 }
             };
 
             // mark children dirty
             if changed {
-                if let Some(subs) = subs {
+                let subs = self.node_subscribers.borrow();
+
+                if let Some(subs) = subs.get(node_id) {
                     let mut nodes = self.nodes.borrow_mut();
                     for sub_id in subs.borrow().iter() {
                         if let Some(sub) = nodes.get_mut(*sub_id) {
@@ -179,15 +188,21 @@ impl Runtime {
         }
     }
 
+    #[allow(clippy::await_holding_refcell_ref)] // not using this part of ouroboros
     pub(crate) fn mark_dirty(&self, node: NodeId) {
         //crate::macros::debug_warn!("marking {node:?} dirty");
         let mut nodes = self.nodes.borrow_mut();
-        let mut pending_effects = self.pending_effects.borrow_mut();
-        let subscribers = self.node_subscribers.borrow();
-        let current_observer = self.observer.get();
 
-        // mark self dirty
         if let Some(current_node) = nodes.get_mut(node) {
+            if current_node.state == ReactiveNodeState::DirtyMarked {
+                return;
+            }
+
+            let mut pending_effects = self.pending_effects.borrow_mut();
+            let subscribers = self.node_subscribers.borrow();
+            let current_observer = self.observer.get();
+
+            // mark self dirty
             Runtime::mark(
                 node,
                 current_node,
@@ -196,24 +211,101 @@ impl Runtime {
                 current_observer,
             );
 
-            // mark all children check
-            // this can probably be done in a better way
-            let mut descendants = Default::default();
-            Runtime::gather_descendants(&subscribers, node, &mut descendants);
-            for descendant in descendants {
-                if let Some(node) = nodes.get_mut(descendant) {
-                    Runtime::mark(
-                        descendant,
-                        node,
-                        ReactiveNodeState::Check,
-                        &mut pending_effects,
-                        current_observer,
-                    );
+            /*
+             * Depth-first DAG traversal that uses a stack of iterators instead of
+             * buffering the entire to-visit list. Visited nodes are either marked as
+             * `Check` or `DirtyMarked`.
+             *
+             * Because `RefCell`, borrowing the iterators all at once is difficult,
+             * so a self-referential struct is used instead. ouroboros produces safe
+             * code, but it would not be recommended to use this outside of this
+             * algorithm.
+             */
+
+            #[ouroboros::self_referencing]
+            struct RefIter<'a> {
+                set: std::cell::Ref<'a, FxIndexSet<NodeId>>,
+
+                // Boxes the iterator internally
+                #[borrows(set)]
+                #[covariant]
+                iter: indexmap::set::Iter<'this, NodeId>,
+            }
+
+            /// Due to the limitations of ouroboros, we cannot borrow the
+            /// stack and iter simultaneously, or directly within the loop,
+            /// therefore this must be used to command the outside scope
+            /// of what to do.
+            enum IterResult<'a> {
+                Continue,
+                Empty,
+                NewIter(RefIter<'a>),
+            }
+
+            let mut stack = Vec::new();
+
+            if let Some(children) = subscribers.get(node) {
+                stack.push(RefIter::new(children.borrow(), |children| {
+                    children.iter()
+                }));
+            }
+
+            while let Some(iter) = stack.last_mut() {
+                let res = iter.with_iter_mut(|iter| {
+                    let Some(mut child) = iter.next().copied() else {
+                        return IterResult::Empty;
+                    };
+
+                    while let Some(node) = nodes.get_mut(child) {
+                        if node.state == ReactiveNodeState::Check
+                            || node.state == ReactiveNodeState::DirtyMarked
+                        {
+                            return IterResult::Continue;
+                        }
+
+                        Runtime::mark(
+                            child,
+                            node,
+                            ReactiveNodeState::Check,
+                            &mut pending_effects,
+                            current_observer,
+                        );
+
+                        if let Some(children) = subscribers.get(child) {
+                            let children = children.borrow();
+
+                            if !children.is_empty() {
+                                // avoid going through an iterator in the simple psuedo-recursive case
+                                if children.len() == 1 {
+                                    child = children[0];
+                                    continue;
+                                }
+
+                                return IterResult::NewIter(RefIter::new(
+                                    children,
+                                    |children| children.iter(),
+                                ));
+                            }
+                        }
+
+                        break;
+                    }
+
+                    IterResult::Continue
+                });
+
+                match res {
+                    IterResult::Continue => continue,
+                    IterResult::NewIter(iter) => stack.push(iter),
+                    IterResult::Empty => {
+                        stack.pop();
+                    }
                 }
             }
         }
     }
 
+    #[inline(always)] // small function, used in hot loop
     fn mark(
         //nodes: &mut SlotMap<NodeId, ReactiveNode>,
         node_id: NodeId,
@@ -226,37 +318,25 @@ impl Runtime {
         if level > node.state {
             node.state = level;
         }
-        if matches!(node.node_type, ReactiveNodeType::Effect { .. })
-            && current_observer != Some(node_id)
+
+        if matches!(node.node_type, ReactiveNodeType::Effect { .. } if current_observer != Some(node_id))
         {
             //crate::macros::debug_warn!("pushing effect {node_id:?}");
-            pending_effects.push(node_id);
+            //debug_assert!(!pending_effects.contains(&node_id));
+            pending_effects.push(node_id)
+        }
+
+        if node.state == ReactiveNodeState::Dirty {
+            node.state = ReactiveNodeState::DirtyMarked;
         }
     }
 
-    fn gather_descendants(
-        subscribers: &SecondaryMap<NodeId, RefCell<FxIndexSet<NodeId>>>,
-        node: NodeId,
-        descendants: &mut FxIndexSet<NodeId>,
-    ) {
-        if let Some(children) = subscribers.get(node) {
-            for child in children.borrow().iter() {
-                descendants.insert(*child);
-                Runtime::gather_descendants(subscribers, *child, descendants);
+    pub(crate) fn run_effects(&self) {
+        if !self.batching.get() {
+            let effects = self.pending_effects.take();
+            for effect_id in effects {
+                self.update_if_necessary(effect_id);
             }
-        }
-    }
-
-    pub(crate) fn run_effects(runtime_id: RuntimeId) {
-        _ = with_runtime(runtime_id, |runtime| {
-            runtime.run_your_effects();
-        });
-    }
-
-    pub(crate) fn run_your_effects(&self) {
-        let effects = self.pending_effects.take();
-        for effect_id in effects {
-            self.update_if_necessary(effect_id);
         }
     }
 
@@ -280,6 +360,7 @@ impl Debug for Runtime {
 }
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
+#[inline(always)] // it monomorphizes anyway
 pub(crate) fn with_runtime<T>(
     id: RuntimeId,
     f: impl FnOnce(&Runtime) -> T,
@@ -303,7 +384,7 @@ pub(crate) fn with_runtime<T>(
 
 #[doc(hidden)]
 #[must_use = "Runtime will leak memory if Runtime::dispose() is never called."]
-/// Creates a new reactive [Runtime]. This should almost always be handled by the framework.
+/// Creates a new reactive [`Runtime`]. This should almost always be handled by the framework.
 pub fn create_runtime() -> RuntimeId {
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -314,13 +395,19 @@ pub fn create_runtime() -> RuntimeId {
     }
 }
 
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 slotmap::new_key_type! {
-    /// Unique ID assigned to a [Runtime](crate::Runtime).
+    /// Unique ID assigned to a Runtime.
     pub struct RuntimeId;
 }
 
+/// Unique ID assigned to a Runtime.
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RuntimeId;
+
 impl RuntimeId {
-    /// Removes the runtime, disposing all its child [Scope](crate::Scope)s.
+    /// Removes the runtime, disposing all its child [`Scope`](crate::Scope)s.
     pub fn dispose(self) {
         cfg_if! {
             if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
@@ -334,7 +421,7 @@ impl RuntimeId {
         with_runtime(self, |runtime| {
             let id = { runtime.scopes.borrow_mut().insert(Default::default()) };
             let scope = Scope { runtime: self, id };
-            let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
+            let disposer = ScopeDisposer(scope);
             (scope, disposer)
         })
         .expect(
@@ -343,24 +430,34 @@ impl RuntimeId {
         )
     }
 
-    pub(crate) fn run_scope_undisposed<T>(
+    pub(crate) fn raw_scope_and_disposer_with_parent(
         self,
-        f: impl FnOnce(Scope) -> T,
         parent: Option<Scope>,
-    ) -> (T, ScopeId, ScopeDisposer) {
+    ) -> (Scope, ScopeDisposer) {
         with_runtime(self, |runtime| {
             let id = { runtime.scopes.borrow_mut().insert(Default::default()) };
             if let Some(parent) = parent {
                 runtime.scope_parents.borrow_mut().insert(id, parent.id);
             }
             let scope = Scope { runtime: self, id };
-            let val = f(scope);
-            let disposer = ScopeDisposer(Box::new(move || scope.dispose()));
-            (val, id, disposer)
+            let disposer = ScopeDisposer(scope);
+            (scope, disposer)
         })
-        .expect("tried to run scope in a runtime that has been disposed")
+        .expect("tried to crate scope in a runtime that has been disposed")
     }
 
+    #[inline(always)]
+    pub(crate) fn run_scope_undisposed<T>(
+        self,
+        f: impl FnOnce(Scope) -> T,
+        parent: Option<Scope>,
+    ) -> (T, ScopeId, ScopeDisposer) {
+        let (scope, disposer) = self.raw_scope_and_disposer_with_parent(parent);
+
+        (f(scope), scope.id, disposer)
+    }
+
+    #[inline(always)]
     pub(crate) fn run_scope<T>(
         self,
         f: impl FnOnce(Scope) -> T,
@@ -372,13 +469,34 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)] // only because it's placed here to fit in with the other create methods
+    pub(crate) fn create_trigger(self) -> Trigger {
+        let id = with_runtime(self, |runtime| {
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value: None,
+                state: ReactiveNodeState::Clean,
+                node_type: ReactiveNodeType::Trigger,
+            })
+        })
+        .expect(
+            "tried to create a trigger in a runtime that has been disposed",
+        );
+
+        Trigger {
+            id,
+            runtime: self,
+            #[cfg(debug_assertions)]
+            defined_at: std::panic::Location::caller(),
+        }
+    }
+
     pub(crate) fn create_concrete_signal(
         self,
         value: Rc<RefCell<dyn Any>>,
     ) -> NodeId {
         with_runtime(self, |runtime| {
             runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value,
+                value: Some(value),
                 state: ReactiveNodeState::Clean,
                 node_type: ReactiveNodeType::Signal,
             })
@@ -387,6 +505,7 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_signal<T>(
         self,
         value: T,
@@ -442,7 +561,7 @@ impl RuntimeId {
             values
                 .map(|value| {
                     signals.insert(ReactiveNode {
-                        value: Rc::new(RefCell::new(value)),
+                        value: Some(Rc::new(RefCell::new(value))),
                         state: ReactiveNodeState::Clean,
                         node_type: ReactiveNodeType::Signal,
                     })
@@ -473,6 +592,7 @@ impl RuntimeId {
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_rw_signal<T>(self, value: T) -> RwSignal<T>
     where
         T: Any + 'static,
@@ -493,7 +613,6 @@ impl RuntimeId {
         }
     }
 
-    #[track_caller]
     pub(crate) fn create_concrete_effect(
         self,
         value: Rc<RefCell<dyn Any>>,
@@ -501,7 +620,7 @@ impl RuntimeId {
     ) -> NodeId {
         with_runtime(self, |runtime| {
             let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Rc::clone(&value),
+                value: Some(Rc::clone(&value)),
                 state: ReactiveNodeState::Clean,
                 node_type: ReactiveNodeType::Effect {
                     f: Rc::clone(&effect),
@@ -521,7 +640,25 @@ impl RuntimeId {
         .expect("tried to create an effect in a runtime that has been disposed")
     }
 
+    pub(crate) fn create_concrete_memo(
+        self,
+        value: Rc<RefCell<dyn Any>>,
+        computation: Rc<dyn AnyComputation>,
+    ) -> NodeId {
+        with_runtime(self, |runtime| {
+            runtime.nodes.borrow_mut().insert(ReactiveNode {
+                value: Some(value),
+                // memos are lazy, so are dirty when created
+                // will be run the first time we ask for it
+                state: ReactiveNodeState::Dirty,
+                node_type: ReactiveNodeType::Memo { f: computation },
+            })
+        })
+        .expect("tried to create a memo in a runtime that has been disposed")
+    }
+
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_effect<T>(
         self,
         f: impl Fn(Option<T>) -> T + 'static,
@@ -529,21 +666,19 @@ impl RuntimeId {
     where
         T: Any + 'static,
     {
-        #[cfg(debug_assertions)]
-        let defined_at = std::panic::Location::caller();
-
-        let effect = Effect {
-            f,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at,
-        };
-
-        let value = Rc::new(RefCell::new(None::<T>));
-        self.create_concrete_effect(value, Rc::new(effect))
+        self.create_concrete_effect(
+            Rc::new(RefCell::new(None::<T>)),
+            Rc::new(Effect {
+                f,
+                ty: PhantomData,
+                #[cfg(debug_assertions)]
+                defined_at: std::panic::Location::caller(),
+            }),
+        )
     }
 
     #[track_caller]
+    #[inline(always)]
     pub(crate) fn create_memo<T>(
         self,
         f: impl Fn(Option<&T>) -> T + 'static,
@@ -551,33 +686,20 @@ impl RuntimeId {
     where
         T: PartialEq + Any + 'static,
     {
-        #[cfg(debug_assertions)]
-        let defined_at = std::panic::Location::caller();
-
-        let id = with_runtime(self, |runtime| {
-            runtime.nodes.borrow_mut().insert(ReactiveNode {
-                value: Rc::new(RefCell::new(None::<T>)),
-                // memos are lazy, so are dirty when created
-                // will be run the first time we ask for it
-                state: ReactiveNodeState::Dirty,
-                node_type: ReactiveNodeType::Memo {
-                    f: Rc::new(MemoState {
-                        f,
-                        t: PhantomData,
-                        #[cfg(debug_assertions)]
-                        defined_at,
-                    }),
-                },
-            })
-        })
-        .expect("tried to create a memo in a runtime that has been disposed");
-
         Memo {
             runtime: self,
-            id,
+            id: self.create_concrete_memo(
+                Rc::new(RefCell::new(None::<T>)),
+                Rc::new(MemoState {
+                    f,
+                    t: PhantomData,
+                    #[cfg(debug_assertions)]
+                    defined_at: std::panic::Location::caller(),
+                }),
+            ),
             ty: PhantomData,
             #[cfg(debug_assertions)]
-            defined_at,
+            defined_at: std::panic::Location::caller(),
         }
     }
 }
@@ -673,6 +795,15 @@ impl Runtime {
             }
         }
         f
+    }
+
+    /// Do not call on triggers
+    pub(crate) fn get_value(
+        &self,
+        node_id: NodeId,
+    ) -> Option<Rc<RefCell<dyn Any>>> {
+        let signals = self.nodes.borrow();
+        signals.get(node_id).map(|node| node.value())
     }
 }
 

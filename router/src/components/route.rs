@@ -9,6 +9,28 @@ thread_local! {
     static ROUTE_ID: Cell<usize> = Cell::new(0);
 }
 
+/// Represents an HTTP method that can be handled by this route.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Method {
+    /// The [`GET`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/GET) method
+    /// requests a representation of the specified resource.
+    #[default]
+    Get,
+    /// The [`POST`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST) method
+    /// submits an entity to the specified resource, often causing a change in
+    /// state or side effects on the server.
+    Post,
+    /// The [`PUT`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT) method
+    /// replaces all current representations of the target resource with the request payload.
+    Put,
+    /// The [`DELETE`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE) method
+    /// deletes the specified resource.
+    Delete,
+    /// The [`PATCH`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH) method
+    /// applies partial modifications to a resource.
+    Patch,
+}
+
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
 /// the element it should display, and data that should be loaded alongside the route.
 #[component(transparent)]
@@ -25,6 +47,9 @@ pub fn Route<E, F, P>(
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
+    /// The HTTP methods that this route can handle (defaults to only `GET`).
+    #[prop(default = &[Method::Get])]
+    methods: &'static [Method],
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -34,50 +59,105 @@ where
     F: Fn(Scope) -> E + 'static,
     P: std::fmt::Display,
 {
-    fn inner(
-        cx: Scope,
-        children: Option<Children>,
-        path: String,
-        view: Rc<dyn Fn(Scope) -> View>,
-        ssr_mode: SsrMode,
-    ) -> RouteDefinition {
-        let children = children
-            .map(|children| {
-                children(cx)
-                    .as_children()
-                    .iter()
-                    .filter_map(|child| {
-                        child
-                            .as_transparent()
-                            .and_then(|t| t.downcast_ref::<RouteDefinition>())
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        let id = ROUTE_ID.with(|id| {
-            let next = id.get() + 1;
-            id.set(next);
-            next
-        });
-
-        RouteDefinition {
-            id,
-            path,
-            children,
-            view,
-            ssr_mode,
-        }
-    }
-
-    inner(
+    define_route(
         cx,
         children,
         path.to_string(),
         Rc::new(move |cx| view(cx).into_view(cx)),
         ssr,
+        methods,
     )
+}
+
+/// Describes a route that is guarded by a certain condition. This works the same way as
+/// [`<Route/>`](Route), except that if the `condition` function evaluates to `false`, it
+/// redirects to `redirect_path` instead of displaying its `view`.
+#[component(transparent)]
+pub fn ProtectedRoute<P, E, F, C>(
+    cx: Scope,
+    /// The path fragment that this route should match. This can be static (`users`),
+    /// include a parameter (`:id`) or an optional parameter (`:id?`), or match a
+    /// wildcard (`user/*any`).
+    path: P,
+    /// The path that will be redirected to if the condition is `false`.
+    redirect_path: P,
+    /// Condition function that returns a boolean.
+    condition: C,
+    /// View that will be exposed if the condition is `true`.
+    view: F,
+    /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
+    #[prop(optional)]
+    ssr: SsrMode,
+    /// The HTTP methods that this route can handle (defaults to only `GET`).
+    #[prop(default = &[Method::Get])]
+    methods: &'static [Method],
+    /// `children` may be empty or include nested routes.
+    #[prop(optional)]
+    children: Option<Children>,
+) -> impl IntoView
+where
+    E: IntoView,
+    F: Fn(Scope) -> E + 'static,
+    P: std::fmt::Display + 'static,
+    C: Fn(Scope) -> bool + 'static,
+{
+    use crate::Redirect;
+    let redirect_path = redirect_path.to_string();
+
+    define_route(
+        cx,
+        children,
+        path.to_string(),
+        Rc::new(move |cx| {
+            if condition(cx) {
+                view(cx).into_view(cx)
+            } else {
+                view! { cx, <Redirect path=redirect_path.clone()/> }
+                    .into_view(cx)
+            }
+        }),
+        ssr,
+        methods,
+    )
+}
+
+pub(crate) fn define_route(
+    cx: Scope,
+    children: Option<Children>,
+    path: String,
+    view: Rc<dyn Fn(Scope) -> View>,
+    ssr_mode: SsrMode,
+    methods: &'static [Method],
+) -> RouteDefinition {
+    let children = children
+        .map(|children| {
+            children(cx)
+                .as_children()
+                .iter()
+                .filter_map(|child| {
+                    child
+                        .as_transparent()
+                        .and_then(|t| t.downcast_ref::<RouteDefinition>())
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let id = ROUTE_ID.with(|id| {
+        let next = id.get() + 1;
+        id.set(next);
+        next
+    });
+
+    RouteDefinition {
+        id,
+        path,
+        children,
+        view,
+        ssr_mode,
+        methods,
+    }
 }
 
 impl IntoView for RouteDefinition {

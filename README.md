@@ -24,8 +24,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
     let increment = move |_| set_value.update(|value| *value += 1);
 
     // create user interfaces with the declarative `view!` macro
-    view! {
-        cx,
+    view! { cx,
         <div>
             <button on:click=clear>"Clear"</button>
             <button on:click=decrement>"-1"</button>
@@ -48,21 +47,21 @@ Leptos is a full-stack, isomorphic Rust web framework leveraging fine-grained re
 
 ## What does that mean?
 
-- **Full-stack**: Leptos can be used to build apps that run in the browser (_client-side rendering_), on the server (_server-side rendering_), or by rendering HTML on the server and then adding interactivity in the browser (_hydration_). This includes support for _HTTP streaming_ of both data (`Resource`s) and HTML (out-of-order streaming of `<Suspense/>` components.)
-- **Isomorphic**: Leptos provides primitives to write isomorphic server functions, i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser.
-- **Web**: Leptos is built on the Web platform and Web standards. The router is designed to use Web fundamentals (like links and forms) and build on top of them rather than trying to replace them.
+- **Full-stack**: Leptos can be used to build apps that run in the browser (client-side rendering), on the server (server-side rendering), or by rendering HTML on the server and then adding interactivity in the browser (server-side rendering with hydration). This includes support for HTTP streaming of both data ([`Resource`s](https://docs.rs/leptos/latest/leptos/struct.Resource.html)) and HTML (out-of-order or in-order streaming of [`<Suspense/>`](https://docs.rs/leptos/latest/leptos/fn.Suspense.html) components.)
+- **Isomorphic**: Leptos provides primitives to write isomorphic [server functions](https://docs.rs/leptos_server/0.2.5/leptos_server/index.html), i.e., functions that can be called with the “same shape” on the client or server, but only run on the server. This means you can write your server-only logic (database requests, authentication etc.) alongside the client-side components that will consume it, and call server functions as if they were running in the browser, without needing to create and maintain a separate REST or other API.
+- **Web**: Leptos is built on the Web platform and Web standards. The [router](https://docs.rs/leptos_router/latest/leptos_router/) is designed to use Web fundamentals (like links and forms) and build on top of them rather than trying to replace them.
 - **Framework**: Leptos provides most of what you need to build a modern web app: a reactive system, templating library, and a router that works on both the server and client side.
-- **Fine-grained reactivity**: The entire framework is built from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (_So, no virtual DOM!_)
+- **Fine-grained reactivity**: The entire framework is built from reactive primitives. This allows for extremely performant code with minimal overhead: when a reactive signal’s value changes, it can update a single text node, toggle a single class, or remove an element from the DOM without any other code running. (So, no virtual DOM overhead!)
 - **Declarative**: Tell Leptos how you want the page to look, and let the framework tell the browser how to do it.
 
 ## Learn more
 
 Here are some resources for learning more about Leptos:
 
+- [Book](https://leptos-rs.github.io/leptos/) (work in progress)
 - [Examples](https://github.com/leptos-rs/leptos/tree/main/examples)
 - [API Documentation](https://docs.rs/leptos/latest/leptos/)
 - [Common Bugs](https://github.com/leptos-rs/leptos/tree/main/docs/COMMON_BUGS.md) (and how to fix them!)
-- Leptos Guide (in progress)
 
 ## `nightly` Note
 
@@ -86,7 +85,7 @@ If you’re on `stable`, note the following:
 
 ## `cargo-leptos`
 
-[`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our [starter template](https://github.com/leptos-rs/start).
+[`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) is a build tool that's designed to make it easy to build apps that run on both the client and the server, with seamless integration. The best way to get started with a real Leptos project right now is to use `cargo-leptos` and our starter templates for [Actix](https://github.com/leptos-rs/start) or [Axum](https://github.com/leptos-rs/start-axum).
 
 ```bash
 cargo install cargo-leptos
@@ -95,13 +94,13 @@ cd [your project name]
 cargo leptos watch
 ```
 
-Open browser on [http://localhost:3000/](http://localhost:3000/)
+Open browser to [http://localhost:3000/](http://localhost:3000/).
 
 ## FAQs
 
 ### What’s up with the name?
 
-*Leptos* (λεπτός) is an ancient Greek word meaning “thin, light, refine, fine-grained.” To me, a classicist and not a dog owner, it evokes the lightweight reactive system that powers the framework. I've since learned the same word is at the root of the medical term “leptospirosis,” a blood infection that affects humans and animals... My bad. No dogs were harmed in the creation of this framework.
+_Leptos_ (λεπτός) is an ancient Greek word meaning “thin, light, refine, fine-grained.” To me, a classicist and not a dog owner, it evokes the lightweight reactive system that powers the framework. I've since learned the same word is at the root of the medical term “leptospirosis,” a blood infection that affects humans and animals... My bad. No dogs were harmed in the creation of this framework.
 
 ### Is it production ready?
 
@@ -109,7 +108,7 @@ People usually mean one of three things by this question.
 
 1. **Are the APIs stable?** i.e., will I have to rewrite my whole app from Leptos 0.1 to 0.2 to 0.3 to 0.4, or can I write it now and benefit from new features and updates as new versions come?
 
-With 0.1 the APIs are basically settled. We’re adding new features, but we’re very happy with where the type system and patterns have landed. I would not expect major breaking changes to your code to adapt to, for example, a 0.2.0 release.
+The APIs are basically settled. We’re adding new features, but we’re very happy with where the type system and patterns have landed. I would not expect major breaking changes to your code to adapt to future releases. The sorts of breaking changes that we discuss are things like “Oh yeah, that function should probably take `cx` as its argument...” not major changes to the way you write your application.
 
 2. **Are there bugs?**
 
@@ -119,7 +118,7 @@ Yes, I’m sure there are. You can see from the state of our issue tracker over 
 
 This may be the big one: “production ready” implies a certain orientation to a library: that you can basically use it, without any special knowledge of its internals or ability to contribute. Everyone has this at some level in their stack: for example I (@gbj) don’t have the capacity or knowledge to contribute to something like `wasm-bindgen` at this point: I simply rely on it to work.
 
-There are several people in this community using Leptos right now for internal apps at work, who have also become significant contributors. I think this is the right level of production use for now. There may be missing features that you need, and you may end up building them! But for internal apps, if you’re willing to build and contribute missing pieces along the way, the framework is definitely usable right now.
+There are several people in the community using Leptos right now for internal apps at work, who have also become significant contributors. I think this is the right level of production use for now. There may be missing features that you need, and you may end up building them! But for internal apps, if you’re willing to build and contribute missing pieces along the way, the framework is definitely usable right now.
 
 ### Can I use this for native GUI?
 
@@ -137,8 +136,8 @@ I've put together a [very simple GTK example](https://github.com/leptos-rs/lepto
 On the surface level, these libraries may seem similar. Yew is, of course, the most mature Rust library for web UI development and has a huge ecosystem. Dioxus is similar in many ways, being heavily inspired by React. Here are some conceptual differences between Leptos and these frameworks:
 
 - **VDOM vs. fine-grained:** Yew is built on the virtual DOM (VDOM) model: state changes cause components to re-render, generating a new virtual DOM tree. Yew diffs this against the previous VDOM, and applies those patches to the actual DOM. Component functions rerun whenever state changes. Leptos takes an entirely different approach. Components run once, creating (and returning) actual DOM nodes and setting up a reactive system to update those DOM nodes.
-- **Performance:** This has huge performance implications: Leptos is simply _much_ faster at both creating and updating the UI than Yew is.
-- **Mental model:** Adopting fine-grained reactivity also tends to simplify the mental model. There are no surprising component re-renders because there are no re-renders. Your app can be divided into components based on what makes sense for your app, because they have no performance implications.
+- **Performance:** This has huge performance implications: Leptos is simply much faster at both creating and updating the UI than Yew is. (Dioxus has made huge advances in performance with its recent 0.3 release, and is now roughly on par with Leptos.)
+- **Mental model:** Adopting fine-grained reactivity also tends to simplify the mental model. There are no surprising component re-renders because there are no re-renders. You can call functions, create timeouts, etc. within the body of your component functions because they won’t be re-run. You don’t need to think about manual dependency tracking for effects; fine-grained reactivity tracks dependencies automatically.
 
 ### How is this different from Sycamore?
 
@@ -146,9 +145,9 @@ Conceptually, these two frameworks are very similar: because both are built on f
 
 There are some practical differences that make a significant difference:
 
-- **Maturity:** Sycamore is obviously a much more mature and stable library with a larger ecosystem.
 - **Templating:** Leptos uses a JSX-like template format (built on [syn-rsx](https://github.com/stoically/syn-rsx)) for its `view` macro. Sycamore offers the choice of its own templating DSL or a builder syntax.
-- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use `create_rw_signal` to give a unified read/write signal.)_
+- **Server integration:** Leptos provides primitives that encourage HTML streaming and allow for easy async integration and RPC calls, even without WASM enabled, making it easy to opt into integrations between your frontend and backend code without pushing you toward any particular metaframework patterns.
+- **Read-write segregation:** Leptos, like Solid, encourages read-write segregation between signal getters and setters, so you end up accessing signals with tuples like `let (count, set_count) = create_signal(cx, 0);` _(If you prefer or if it's more convenient for your API, you can use [`create_rw_signal`](https://docs.rs/leptos/latest/leptos/fn.create_rw_signal.html) to give a unified read/write signal.)_
 - **Signals are functions:** In Leptos, you can call a signal to access it rather than calling a specific method (so, `count()` instead of `count.get()`) This creates a more consistent mental model: accessing a reactive value is always a matter of calling a function. For example:
 
   ```rust

@@ -4,7 +4,7 @@ use test::Bencher;
 fn leptos_ssr_bench(b: &mut Bencher) {
     b.iter(|| {
 		use leptos::*;
-		HydrationCtx::reset_id();
+		leptos_dom::HydrationCtx::reset_id();
 		_ = create_scope(create_runtime(), |cx| {
 			#[component]
 			fn Counter(cx: Scope, initial: i32) -> impl IntoView {
@@ -32,7 +32,8 @@ fn leptos_ssr_bench(b: &mut Bencher) {
 
 			assert_eq!(
 				rendered,
-				"<main id=\"_0-1\"><h1 id=\"_0-2\">Welcome to our benchmark page.</h1><p id=\"_0-3\">Here's some introductory text.</p><div id=\"_0-3-1\"><button id=\"_0-3-2\">-1</button><span id=\"_0-3-3\">Value: <!>1<!--hk=_0-3-4-->!</span><button id=\"_0-3-5\">+1</button></div><!--hk=_0-3-0--><div id=\"_0-3-5-1\"><button id=\"_0-3-5-2\">-1</button><span id=\"_0-3-5-3\">Value: <!>2<!--hk=_0-3-5-4-->!</span><button id=\"_0-3-5-5\">+1</button></div><!--hk=_0-3-5-0--><div id=\"_0-3-5-5-1\"><button id=\"_0-3-5-5-2\">-1</button><span id=\"_0-3-5-5-3\">Value: <!>3<!--hk=_0-3-5-5-4-->!</span><button id=\"_0-3-5-5-5\">+1</button></div><!--hk=_0-3-5-5-0--></main>"			);
+				"<main id=\"_0-1\"><h1 id=\"_0-2\">Welcome to our benchmark page.</h1><p id=\"_0-3\">Here&#x27;s some introductory text.</p><div id=\"_0-3-1\"><button id=\"_0-3-2\">-1</button><span id=\"_0-3-3\">Value: <!>1<!--hk=_0-3-4-->!</span><button id=\"_0-3-5\">+1</button></div><!--hk=_0-3-0--><div id=\"_0-3-5-1\"><button id=\"_0-3-5-2\">-1</button><span id=\"_0-3-5-3\">Value: <!>2<!--hk=_0-3-5-4-->!</span><button id=\"_0-3-5-5\">+1</button></div><!--hk=_0-3-5-0--><div id=\"_0-3-5-5-1\"><button id=\"_0-3-5-5-2\">-1</button><span id=\"_0-3-5-5-3\">Value: <!>3<!--hk=_0-3-5-5-4-->!</span><button id=\"_0-3-5-5-5\">+1</button></div><!--hk=_0-3-5-5-0--></main>"
+			);
 		});
 	});
 }

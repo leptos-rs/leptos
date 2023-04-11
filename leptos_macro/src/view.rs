@@ -393,6 +393,7 @@ fn element_to_tokens_ssr(
             .to_string()
             .replace("svg::", "")
             .replace("math::", "");
+        let is_script_or_style = tag_name == "script" || tag_name == "style";
         template.push('<');
         template.push_str(&tag_name);
 
@@ -461,9 +462,16 @@ fn element_to_tokens_ssr(
                         }
                         Node::Text(text) => {
                             if let Some(value) = value_to_string(&text.value) {
-                                template.push_str(&html_escape::encode_safe(
-                                    &value,
-                                ));
+                                let value = if is_script_or_style {
+                                    value.into()
+                                } else {
+                                    html_escape::encode_safe(&value)
+                                };
+                                template.push_str(
+                                    &value
+                                        .replace('{', "{{")
+                                        .replace('}', "}}"),
+                                );
                             } else {
                                 template.push_str("{}");
                                 let value = text.value.as_ref();
@@ -818,7 +826,22 @@ fn element_to_tokens(
         };
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
-                Some(attribute_to_tokens(cx, node))
+                if node.key.to_string().trim().starts_with("class:") {
+                    None
+                } else {
+                    Some(attribute_to_tokens(cx, node))
+                }
+            } else {
+                None
+            }
+        });
+        let class_attrs = node.attributes.iter().filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                if node.key.to_string().trim().starts_with("class:") {
+                    Some(attribute_to_tokens(cx, node))
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -876,6 +899,7 @@ fn element_to_tokens(
         quote! {
             #name
                 #(#attrs)*
+                #(#class_attrs)*
                 #global_class_expr
                 #(#children)*
                 #view_marker
@@ -1046,7 +1070,6 @@ pub(crate) fn component_to_tokens(
     let name = &node.name;
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
-    let component_props_name = format_ident!("{component_name}Props");
 
     let attrs = node.attributes.iter().filter_map(|node| {
         if let Node::Attribute(node) = node {
@@ -1138,7 +1161,7 @@ pub(crate) fn component_to_tokens(
     let component = quote! {
         #name(
             #cx,
-            #component_props_name::builder()
+            ::leptos::component_props_builder(&#name)
                 #(#props)*
                 #children
                 .build()
@@ -1376,7 +1399,7 @@ fn is_math_ml_element(tag: &str) -> bool {
 }
 
 fn is_ambiguous_element(tag: &str) -> bool {
-    tag == "a" || tag == "script"
+    tag == "a" || tag == "script" || tag == "title"
 }
 
 fn parse_event(event_name: &str) -> (&str, bool) {

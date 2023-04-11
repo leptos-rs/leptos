@@ -31,19 +31,7 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                     outro="slideOut"
                     intro="slideIn"
                 >
-                    <Route
-                        path=""
-                        view=move |cx| view! { cx,  <ContactList/> }
-                    >
-                        <Route
-                            path=":id"
-                            view=move |cx| view! { cx,  <Contact/> }
-                        />
-                        <Route
-                            path="/"
-                            view=move |_| view! { cx,  <p>"Select a contact."</p> }
-                        />
-                    </Route>
+                    <ContactRoutes/>
                     <Route
                         path="about"
                         view=move |cx| view! { cx,  <About/> }
@@ -59,6 +47,27 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 </AnimatedRoutes>
             </main>
         </Router>
+    }
+}
+
+// You can define other routes in their own component.
+// Use a #[component(transparent)] that returns a <Route/>.
+#[component(transparent)]
+pub fn ContactRoutes(cx: Scope) -> impl IntoView {
+    view! { cx,
+        <Route
+            path=""
+            view=move |cx| view! { cx,  <ContactList/> }
+        >
+            <Route
+                path=":id"
+                view=move |cx| view! { cx,  <Contact/> }
+            />
+            <Route
+                path="/"
+                view=move |_| view! { cx,  <p>"Select a contact."</p> }
+            />
+        </Route>
     }
 }
 

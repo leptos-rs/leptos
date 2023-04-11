@@ -8,13 +8,22 @@ slotmap::new_key_type! {
 
 #[derive(Clone)]
 pub(crate) struct ReactiveNode {
-    pub value: Rc<RefCell<dyn Any>>,
+    pub value: Option<Rc<RefCell<dyn Any>>>,
     pub state: ReactiveNodeState,
     pub node_type: ReactiveNodeType,
 }
 
+impl ReactiveNode {
+    pub fn value(&self) -> Rc<RefCell<dyn Any>> {
+        self.value
+            .clone()
+            .expect("ReactiveNode.value to have a value")
+    }
+}
+
 #[derive(Clone)]
 pub(crate) enum ReactiveNodeType {
+    Trigger,
     Signal,
     Memo { f: Rc<dyn AnyComputation> },
     Effect { f: Rc<dyn AnyComputation> },
@@ -25,4 +34,7 @@ pub(crate) enum ReactiveNodeState {
     Clean,
     Check,
     Dirty,
+
+    /// Dirty and Marked as visited
+    DirtyMarked,
 }

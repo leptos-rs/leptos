@@ -14,7 +14,7 @@ use syn::{
     *,
 };
 
-/// Discribes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
+/// Describes the custom context from the server that passed to the server function. Optionally, the first argument of a server function
 /// can be a custom context of this type. This context can be used to access the server's state within the server function.
 pub struct ServerContext {
     /// The type of the context.
@@ -114,18 +114,6 @@ pub fn server_macro_impl(
             .as_ref()
             .and_then(|ctx| fn_arg_is_cx(f, ctx).then_some(f))
     });
-    let cx_assign_statement = if let Some(FnArg::Typed(arg)) = cx_arg {
-        if let Pat::Ident(id) = &*arg.pat {
-            quote! {
-                #[allow(unused)]
-                let #id = cx;
-            }
-        } else {
-            quote! {}
-        }
-    } else {
-        quote! {}
-    };
     let cx_fn_arg = if cx_arg.is_some() {
         quote! { cx, }
     } else {
@@ -140,9 +128,9 @@ pub fn server_macro_impl(
             FnArg::Typed(t) => t,
         };
         let is_cx = if let Some(ctx) = &server_context {
-            !fn_arg_is_cx(f, ctx)
+            fn_arg_is_cx(f, ctx)
         } else {
-            true
+            false
         };
         if is_cx {
             quote! {
@@ -230,7 +218,6 @@ pub fn server_macro_impl(
             #[cfg(feature = "ssr")]
             fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;
-                #cx_assign_statement;
                 Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
             }
 
@@ -247,10 +234,17 @@ pub fn server_macro_impl(
         }
 
         #[cfg(not(feature = "ssr"))]
+        #[allow(unused_variables)]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            let prefix = #struct_name::prefix().to_string();
-            let url = prefix + "/" + #struct_name::url();
-            #server_fn_path::call_server_fn(&url, #struct_name { #(#field_names_5),* }, #encoding).await
+
+            #server_fn_path::call_server_fn(
+                &{
+                    let prefix = #struct_name::prefix().to_string();
+                    prefix + "/" + #struct_name::url()
+                },
+                #struct_name { #(#field_names_5),* },
+                #encoding
+            ).await
         }
     })
 }
@@ -271,10 +265,14 @@ impl Parse for ServerFnName {
         let _comma2 = input.parse()?;
         let encoding = input
             .parse::<Literal>()
-            .map(|encoding| match encoding.to_string().as_str() {
-                "\"Url\"" => syn::parse_quote!(Encoding::Url),
-                "\"Cbor\"" => syn::parse_quote!(Encoding::Cbor),
-                _ => abort!(encoding, "Encoding Not Found"),
+            .map(|encoding| {
+                match encoding.to_string().to_lowercase().as_str() {
+                    "\"url\"" => syn::parse_quote!(Encoding::Url),
+                    "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
+                    "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
+                    "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
+                    _ => abort!(encoding, "Encoding Not Found"),
+                }
             })
             .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));
 

@@ -21,8 +21,8 @@ where
     }
 }
 
-/// A wrapper for any kind of readable reactive signal: a [ReadSignal](crate::ReadSignal),
-/// [Memo](crate::Memo), [RwSignal](crate::RwSignal), or derived signal closure.
+/// A wrapper for any kind of readable reactive signal: a [`ReadSignal`](crate::ReadSignal),
+/// [`Memo`](crate::Memo), [`RwSignal`](crate::RwSignal), or derived signal closure.
 ///
 /// This allows you to create APIs that take any kind of `Signal<T>` as an argument,
 /// rather than adding a generic `F: Fn() -> T`. Values can be access with the same

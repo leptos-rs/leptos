@@ -137,6 +137,7 @@ impl<T> IntoView for (Scope, T)
 where
     T: IntoView,
 {
+    #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         self.1.into_view(self.0)
     }
@@ -373,47 +374,52 @@ struct Comment {
 }
 
 impl Comment {
+    #[inline]
     fn new(
         content: impl Into<Cow<'static, str>>,
         id: &HydrationKey,
         closing: bool,
     ) -> Self {
-        let content = content.into();
+        Self::new_inner(content.into(), id, closing)
+    }
 
-        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-        {
-            let _ = id;
-            let _ = closing;
-        }
+    fn new_inner(
+        content: Cow<'static, str>,
+        id: &HydrationKey,
+        closing: bool,
+    ) -> Self {
+        cfg_if! {
+            if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
+                let _ = id;
+                let _ = closing;
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        let node = COMMENT.with(|comment| comment.clone_node().unwrap());
+                Self { content }
+            } else {
+                let node = COMMENT.with(|comment| comment.clone_node().unwrap());
 
-        #[cfg(all(debug_assertions, target_arch = "wasm32", feature = "web"))]
-        node.set_text_content(Some(&format!(" {content} ")));
+                #[cfg(debug_assertions)]
+                node.set_text_content(Some(&format!(" {content} ")));
 
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        {
-            if HydrationCtx::is_hydrating() {
-                let id = HydrationCtx::to_string(id, closing);
+                if HydrationCtx::is_hydrating() {
+                    let id = HydrationCtx::to_string(id, closing);
 
-                if let Some(marker) = hydration::get_marker(&id) {
-                    marker.before_with_node_1(&node).unwrap();
+                    if let Some(marker) = hydration::get_marker(&id) {
+                        marker.before_with_node_1(&node).unwrap();
 
-                    marker.remove();
-                } else {
-                    crate::warn!(
-                        "component with id {id} not found, ignoring it for \
-                         hydration"
-                    );
+                        marker.remove();
+                    } else {
+                        crate::warn!(
+                            "component with id {id} not found, ignoring it for \
+                             hydration"
+                        );
+                    }
+                }
+
+                Self {
+                    node,
+                    content,
                 }
             }
-        }
-
-        Self {
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            node,
-            content,
         }
     }
 }
@@ -652,6 +658,7 @@ impl View {
     ///
     /// This method will attach an event listener to **all** child
     /// [`HtmlElement`] children.
+    #[inline(always)]
     pub fn on<E: ev::EventDescriptor + 'static>(
         self,
         event: E,
@@ -680,13 +687,14 @@ impl View {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             match &self {
               Self::Element(el) => {
-                if event.bubbles() {
-                  add_event_listener(&el.element, event.event_delegation_key(), event.name(), event_handler);
+                if E::BUBBLES {
+                  add_event_listener(&el.element, event.event_delegation_key(), event.name(), event_handler, &None);
                 } else {
                   add_event_listener_undelegated(
                     &el.element,
                     &event.name(),
                     event_handler,
+                    &None,
                   );
                 }
               }
@@ -918,6 +926,7 @@ macro_rules! impl_into_view_for_tuples {
     where
       $($ty: IntoView),*
     {
+      #[inline]
       fn into_view(self, cx: Scope) -> View {
         paste::paste! {
           let ($([<$ty:lower>],)*) = self;
@@ -992,12 +1001,14 @@ impl IntoView for String {
         debug_assertions,
         instrument(level = "trace", name = "#text", skip_all)
     )]
+    #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         View::Text(Text::new(self.into()))
     }
 }
 
 impl IntoView for &'static str {
+    #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         View::Text(Text::new(self.into()))
     }
@@ -1019,6 +1030,7 @@ macro_rules! viewable_primitive {
   ($($child_type:ty),* $(,)?) => {
     $(
       impl IntoView for $child_type {
+        #[inline(always)]
         fn into_view(self, _cx: Scope) -> View {
           View::Text(Text::new(self.to_string().into()))
         }

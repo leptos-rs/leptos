@@ -10,7 +10,7 @@ description = "Reactive system for the Leptos web framework."
 [dependencies]
 slotmap = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
-serde-lite = { version = "0.3", optional = true }
+serde-lite = { version = "0.4", optional = true }
 futures = { version = "0.3" }
 js-sys = { version = "0.3", optional = true }
 miniserde = { version = "0.1", optional = true }
@@ -42,16 +42,31 @@ web-sys = { version = "0.3", optional = true, features = [
 ] }
 cfg-if = "1"
 indexmap = "1"
+ouroboros = { version = "0.15.6", default-features = false }
 
 [dev-dependencies]
+criterion = { version = "0.4.0", features = ["html_reports"] }
+reactive-signals = { version = "0.1.0-alpha.4", features = ["profile"] }
+l021 = { package = "leptos", version = "0.2.1" }
+sycamore = { version = "0.8", features = ["ssr"] }
 log = "0.4"
 tokio-test = "0.4"
 leptos = { path = "../leptos" }
 
 [features]
 default = []
-csr = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
-hydrate = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
+csr = [
+  "dep:js-sys",
+  "dep:wasm-bindgen",
+  "dep:wasm-bindgen-futures",
+  "dep:web-sys",
+]
+hydrate = [
+  "dep:js-sys",
+  "dep:wasm-bindgen",
+  "dep:wasm-bindgen-futures",
+  "dep:web-sys",
+]
 ssr = ["dep:tokio"]
 stable = []
 serde = []
@@ -99,3 +114,15 @@ skip_feature_sets = [
     "rkyv",
   ],
 ]
+
+[[bench]]
+name = "deep_update"
+harness = false
+
+[[bench]]
+name = "fan_out"
+harness = false
+
+[[bench]]
+name = "narrow_down"
+harness = false

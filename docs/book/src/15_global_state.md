@@ -84,7 +84,7 @@ fn FancyMath(cx: Scope) -> impl IntoView {
 This kind of “provide a signal in a parent, consume it in a child” should be familiar
 from the chapter on [parent-child interactions](./view/08_parent_child.md). The same
 pattern you use to communicate between parents and children works for grandparents and
-grandchildren, or any ancestors and descendents: in other words, between “global” state
+grandchildren, or any ancestors and descendants: in other words, between “global” state
 in the root component of your app and any other components anywhere else in the app.
 
 Because of the fine-grained nature of updates, this is usually all you need. However,
@@ -122,6 +122,7 @@ fn App(cx: Scope) -> impl IntoView {
     provide_context(cx, state);
 
     // ...
+}
 ```
 
 Then child components can access “slices” of that state with fine-grained
@@ -168,4 +169,6 @@ somewhere else that only takes `state.name`, clicking the button won’t cause
 that other slice to update. This allows you to combine the benefits of a top-down
 data flow and of fine-grained reactive updates.
 
-<iframe src="https://codesandbox.io/p/sandbox/1-basic-component-forked-8bte19?selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs" width="100%" height="1000px">
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/1-basic-component-forked-8bte19?selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs)
+
+<iframe src="https://codesandbox.io/p/sandbox/1-basic-component-forked-8bte19?selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh">

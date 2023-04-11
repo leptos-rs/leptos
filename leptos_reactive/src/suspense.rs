@@ -6,9 +6,9 @@ use crate::{
     RwSignal, Scope, SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
-use std::{borrow::Cow, pin::Pin};
+use std::{borrow::Cow, collections::VecDeque, pin::Pin};
 
-/// Tracks [Resource](crate::Resource)s that are read under a suspense context,
+/// Tracks [`Resource`](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
 #[derive(Copy, Clone, Debug)]
 pub struct SuspenseContext {
@@ -17,12 +17,20 @@ pub struct SuspenseContext {
     set_pending_resources: WriteSignal<usize>,
     pub(crate) pending_serializable_resources: RwSignal<usize>,
     pub(crate) has_local_only: StoredValue<bool>,
+    pub(crate) should_block: StoredValue<bool>,
 }
 
 impl SuspenseContext {
-    /// Whether the suspense contains local resources at this moment, and therefore can't be
+    /// Whether the suspense contains local resources at this moment,
+    /// and therefore can't be serialized
     pub fn has_local_only(&self) -> bool {
         self.has_local_only.get_value()
+    }
+
+    /// Whether any blocking resources are read under this suspense context,
+    /// meaning the HTML stream should not begin until it has resolved.
+    pub fn should_block(&self) -> bool {
+        self.should_block.get_value()
     }
 }
 
@@ -46,11 +54,13 @@ impl SuspenseContext {
         let (pending_resources, set_pending_resources) = create_signal(cx, 0);
         let pending_serializable_resources = create_rw_signal(cx, 0);
         let has_local_only = store_value(cx, true);
+        let should_block = store_value(cx, false);
         Self {
             pending_resources,
             set_pending_resources,
             pending_serializable_resources,
             has_local_only,
+            should_block,
         }
     }
 
@@ -101,14 +111,19 @@ pub enum StreamChunk {
     /// A chunk of synchronous HTML.
     Sync(Cow<'static, str>),
     /// A future that resolves to be a list of additional chunks.
-    Async(Pin<Box<dyn Future<Output = Vec<StreamChunk>>>>),
+    Async {
+        /// The HTML chunks this contains.
+        chunks: Pin<Box<dyn Future<Output = VecDeque<StreamChunk>>>>,
+        /// Whether this should block the stream.
+        should_block: bool,
+    },
 }
 
 impl std::fmt::Debug for StreamChunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StreamChunk::Sync(data) => write!(f, "StreamChunk::Sync({data:?})"),
-            StreamChunk::Async(_) => write!(f, "StreamChunk::Async(_)"),
+            StreamChunk::Async { .. } => write!(f, "StreamChunk::Async(_)"),
         }
     }
 }

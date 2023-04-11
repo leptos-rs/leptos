@@ -133,7 +133,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     let runtime = create_runtime();
 
     let (
-        (shell, prefix, pending_resources, pending_fragments, serializers),
+        (shell, pending_resources, pending_fragments, serializers),
         scope,
         disposer,
     ) = run_scope_undisposed(runtime, {
@@ -146,34 +146,81 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 
             let resources = cx.pending_resources();
             let pending_resources = serde_json::to_string(&resources).unwrap();
-            let prefix = prefix(cx);
 
             (
                 shell,
-                prefix,
                 pending_resources,
                 cx.pending_fragments(),
                 cx.serialization_resolvers(),
             )
         }
     });
+    let cx = Scope { runtime, id: scope };
 
+    let blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
-    for (fragment_id, (fut, _)) in pending_fragments {
-        fragments.push(async move { (fragment_id, fut.await) })
+
+    for (fragment_id, data) in pending_fragments {
+        if data.should_block {
+            blocking_fragments
+                .push(async move { (fragment_id, data.out_of_order.await) });
+        } else {
+            fragments
+                .push(async move { (fragment_id, data.out_of_order.await) });
+        }
     }
 
     // resources and fragments
     // stream HTML for each <Suspense/> as it resolves
-    // TODO can remove id_before_suspense entirely now
-    let fragments = fragments.map(|(fragment_id, html)| {
+    let fragments = fragments_to_chunks(fragments);
+    // stream data for each Resource as it resolves
+    let resources = render_serializers(serializers);
+
+    // HTML for the view function and script to store resources
+    let stream = futures::stream::once(async move {
+        let mut blocking = String::new();
+        let mut blocking_fragments = fragments_to_chunks(blocking_fragments);
+        while let Some(fragment) = blocking_fragments.next().await {
+            blocking.push_str(&fragment);
+        }
+        let prefix = prefix(cx);
+        format!(
+            r#"
+                {prefix}
+                {shell}
+                <script>
+                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
+                    __LEPTOS_RESOLVED_RESOURCES = new Map();
+                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
+                </script>
+                {blocking}
+            "#
+        )
+    })
+    // TODO these should be combined again in a way that chains them appropriately
+    // such that individual resources can resolve before all fragments are done
+    .chain(fragments)
+    .chain(resources)
+    // dispose of the root scope
+    .chain(futures::stream::once(async move {
+        disposer.dispose();
+        Default::default()
+    }));
+
+    (stream, runtime, scope)
+}
+
+fn fragments_to_chunks(
+    fragments: impl Stream<Item = (String, String)>,
+) -> impl Stream<Item = String> {
+    fragments.map(|(fragment_id, html)| {
       format!(
         r#"
                 <template id="{fragment_id}f">{html}</template>
                 <script>
                     var id = "{fragment_id}";
-                    var open;
-                    var close;
+                    var open = undefined;
+                    var close = undefined;
                     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT);
                     while(walker.nextNode()) {{
                          if(walker.currentNode.textContent == `suspense-open-${{id}}`) {{
@@ -191,51 +238,34 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
                 </script>
                 "#
       )
-    });
-    // stream data for each Resource as it resolves
-    let resources = render_serializers(serializers);
-
-    // HTML for the view function and script to store resources
-    let stream = futures::stream::once(async move {
-        format!(
-            r#"
-                {prefix}
-                {shell}
-                <script>
-                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
-                    __LEPTOS_RESOLVED_RESOURCES = new Map();
-                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
-                </script>
-            "#
-        )
     })
-    // TODO these should be combined again in a way that chains them appropriately
-    // such that individual resources can resolve before all fragments are done
-    .chain(fragments)
-    .chain(resources)
-    // dispose of the root scope
-    .chain(futures::stream::once(async move {
-        disposer.dispose();
-        Default::default()
-    }));
-
-    (stream, runtime, scope)
 }
 
 impl View {
     /// Consumes the node and renders it into an HTML string.
     pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
-        self.render_to_string_helper()
+        self.render_to_string_helper(false)
     }
 
-    pub(crate) fn render_to_string_helper(self) -> Cow<'static, str> {
+    pub(crate) fn render_to_string_helper(
+        self,
+        dont_escape_text: bool,
+    ) -> Cow<'static, str> {
         match self {
-            View::Text(node) => node.content,
+            View::Text(node) => {
+                if dont_escape_text {
+                    node.content
+                } else {
+                    html_escape::encode_safe(&node.content).to_string().into()
+                }
+            }
             View::Component(node) => {
                 let content = || {
                     node.children
                         .into_iter()
-                        .map(|node| node.render_to_string_helper())
+                        .map(|node| {
+                            node.render_to_string_helper(dont_escape_text)
+                        })
                         .join("")
                 };
                 cfg_if! {
@@ -262,7 +292,8 @@ impl View {
             }
             View::Suspense(id, node) => format!(
                 "<!--suspense-open-{id}-->{}<!--suspense-close-{id}-->",
-                View::CoreComponent(node).render_to_string_helper()
+                View::CoreComponent(node)
+                    .render_to_string_helper(dont_escape_text)
             )
             .into(),
             View::CoreComponent(node) => {
@@ -312,7 +343,9 @@ impl View {
                                             t.content
                                         }
                                     } else {
-                                        child.render_to_string_helper()
+                                        child.render_to_string_helper(
+                                            dont_escape_text,
+                                        )
                                     }
                                 } else {
                                     "".into()
@@ -335,7 +368,9 @@ impl View {
                                         let id = node.id;
 
                                         let content = || {
-                                            node.child.render_to_string_helper()
+                                            node.child.render_to_string_helper(
+                                                dont_escape_text,
+                                            )
                                         };
 
                                         #[cfg(debug_assertions)]
@@ -388,6 +423,8 @@ impl View {
                 }
             }
             View::Element(el) => {
+                let is_script_or_style =
+                    el.name == "script" || el.name == "style";
                 let el_html = if let ElementChildren::Chunks(chunks) =
                     el.children
                 {
@@ -395,9 +432,8 @@ impl View {
                         .into_iter()
                         .map(|chunk| match chunk {
                             StringOrView::String(string) => string,
-                            StringOrView::View(view) => {
-                                view().render_to_string_helper()
-                            }
+                            StringOrView::View(view) => view()
+                                .render_to_string_helper(is_script_or_style),
                         })
                         .join("")
                         .into()
@@ -439,7 +475,11 @@ impl View {
                             ElementChildren::Empty => "".into(),
                             ElementChildren::Children(c) => c
                                 .into_iter()
-                                .map(View::render_to_string_helper)
+                                .map(|v| {
+                                    v.render_to_string_helper(
+                                        is_script_or_style,
+                                    )
+                                })
                                 .join("")
                                 .into(),
                             ElementChildren::InnerHtml(h) => h,
@@ -509,12 +549,14 @@ pub(crate) fn render_serializers(
 ) -> impl Stream<Item = String> {
     serializers.map(|(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
+        let json = json.replace('<', "\\u003c");
         format!(
             r#"<script>
+                  var val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
-                      __LEPTOS_RESOURCE_RESOLVERS.get({id})({json:?})
+                      __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)
                   }} else {{
-                      __LEPTOS_RESOLVED_RESOURCES.set({id}, {json:?});
+                      __LEPTOS_RESOLVED_RESOURCES.set({id}, val);
                   }}
               </script>"#,
         )

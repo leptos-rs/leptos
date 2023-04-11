@@ -17,18 +17,19 @@
 //! Here are the most commonly-used functions and types you'll need to build a reactive system:
 //!
 //! ### Signals
-//! 1. *Signals:* [create_signal](crate::create_signal), which returns a ([ReadSignal](crate::ReadSignal),
-//!    [WriteSignal](crate::WriteSignal)) tuple, or [create_rw_signal](crate::create_rw_signal), which returns
-//!    a signal [RwSignal](crate::RwSignal) without this read-write segregation.
+//! 1. *Signals:* [`create_signal`](crate::create_signal), which returns a ([`ReadSignal`](crate::ReadSignal),
+//!    [`WriteSignal`](crate::WriteSignal)) tuple, or [`create_rw_signal`](crate::create_rw_signal), which returns
+//!    a signal [`RwSignal`](crate::RwSignal) without this read-write segregation.
 //! 2. *Derived Signals:* any function that relies on another signal.
-//! 3. *Memos:* [create_memo](crate::create_memo), which returns a [Memo](crate::Memo).
-//! 4. *Resources:* [create_resource], which converts an `async` [std::future::Future] into a
-//!    synchronous [Resource](crate::Resource) signal.
+//! 3. *Memos:* [`create_memo`], which returns a [`Memo`](crate::Memo).
+//! 4. *Resources:* [`create_resource`], which converts an `async` [`Future`](std::future::Future) into a
+//!    synchronous [`Resource`](crate::Resource) signal.
+//! 5. *Triggers:* [`create_trigger`], creates a purely reactive [`Trigger`] primitive without any associated state.
 //!
 //! ### Effects
-//! 1. Use [create_effect](crate::create_effect) when you need to synchronize the reactive system
+//! 1. Use [`create_effect`](crate::create_effect) when you need to synchronize the reactive system
 //!    with something outside it (for example: logging to the console, writing to a file or local storage)
-//! 2. The Leptos DOM renderer wraps any [Fn] in your template with [create_effect](crate::create_effect), so
+//! 2. The Leptos DOM renderer wraps any [`Fn`] in your template with [`create_effect`](crate::create_effect), so
 //!    components you write do *not* need explicit effects to synchronize with the DOM.
 //!
 //! ### Example
@@ -72,6 +73,8 @@ extern crate tracing;
 #[macro_use]
 mod signal;
 mod context;
+#[macro_use]
+mod diagnostics;
 mod effect;
 mod hydration;
 mod memo;
@@ -88,8 +91,10 @@ mod spawn;
 mod spawn_microtask;
 mod stored_value;
 pub mod suspense;
+mod trigger;
 
 pub use context::*;
+pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
 pub use memo::*;
 pub use resource::*;
@@ -106,6 +111,7 @@ pub use spawn::*;
 pub use spawn_microtask::*;
 pub use stored_value::*;
 pub use suspense::SuspenseContext;
+pub use trigger::*;
 
 mod macros {
     macro_rules! debug_warn {
@@ -127,8 +133,11 @@ mod macros {
 }
 
 pub(crate) fn console_warn(s: &str) {
-    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-    eprintln!("{s}");
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
-    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
+    cfg_if::cfg_if! {
+        if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
+            web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(s));
+        } else {
+            eprintln!("{s}");
+        }
+    }
 }

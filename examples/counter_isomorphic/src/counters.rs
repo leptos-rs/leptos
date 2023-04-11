@@ -198,13 +198,13 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
         let s = create_signal_from_stream(
             cx,
             source.subscribe("message").unwrap().map(|value| {
-                value
-                    .expect("no message event")
-                    .1
-                    .data()
-                    .as_string()
-                    .expect("expected string value")
-            }),
+                match value {
+                    Ok(value) => {
+                        value.1.data().as_string().expect("expected string value")
+                    },
+                    Err(_) => "0".to_string(),
+                }
+            })
         );
 
         on_cleanup(cx, move || source.close());

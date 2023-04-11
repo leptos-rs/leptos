@@ -74,3 +74,9 @@ dependencies = ["test-all"]
 command = "cargo"
 args = ["+nightly", "test-all-features"]
 install_crate = "cargo-all-features"
+
+[env]
+RUSTFLAGS=""
+
+[env.github-actions]
+RUSTFLAGS="-D warnings"

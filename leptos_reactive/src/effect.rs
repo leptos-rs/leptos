@@ -11,14 +11,14 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// Effects are intended to run *side-effects* of the system, not to synchronize state
 /// *within* the system. In other words: don't write to signals within effects.
 /// (If you need to define a signal that depends on the value of other signals, use a
-/// derived signal or [create_memo](crate::create_memo)).
+/// derived signal or [`create_memo`](crate::create_memo)).
 ///
 /// The effect function is called with an argument containing whatever value it returned
 /// the last time it ran. On the initial run, this is `None`.
 ///
 /// By default, effects **do not run on the server**. This means you can call browser-specific
 /// APIs within the effect function without causing issues. If you need an effect to run on
-/// the server, use [create_isomorphic_effect].
+/// the server, use [`create_isomorphic_effect`].
 /// ```
 /// # use leptos_reactive::*;
 /// # use log::*;
@@ -58,6 +58,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
     )
 )]
 #[track_caller]
+#[inline(always)]
 pub fn create_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,
@@ -66,7 +67,7 @@ where
         if #[cfg(not(feature = "ssr"))] {
             let e = cx.runtime.create_effect(f);
             //eprintln!("created effect {e:?}");
-            cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
+            cx.push_scope_property(ScopeProperty::Effect(e))
         } else {
             // clear warnings
             _ = cx;
@@ -75,7 +76,7 @@ where
     }
 }
 
-/// Creates an effect; unlike effects created by [create_effect], isomorphic effects will run on
+/// Creates an effect; unlike effects created by [`create_effect`], isomorphic effects will run on
 /// the server as well as the client.
 /// ```
 /// # use leptos_reactive::*;
@@ -113,6 +114,7 @@ where
     )
 )]
 #[track_caller]
+#[inline(always)]
 pub fn create_isomorphic_effect<T>(
     cx: Scope,
     f: impl Fn(Option<T>) -> T + 'static,
@@ -121,7 +123,7 @@ pub fn create_isomorphic_effect<T>(
 {
     let e = cx.runtime.create_effect(f);
     //eprintln!("created effect {e:?}");
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Effect(e)))
+    cx.push_scope_property(ScopeProperty::Effect(e))
 }
 
 #[doc(hidden)]
@@ -136,6 +138,7 @@ pub fn create_isomorphic_effect<T>(
         )
     )
 )]
+#[inline(always)]
 pub fn create_render_effect<T>(cx: Scope, f: impl Fn(Option<T>) -> T + 'static)
 where
     T: 'static,

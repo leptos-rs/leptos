@@ -74,13 +74,14 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
     /// The name of the element, i.e., `div`, `p`, `custom-element`.
     fn name(&self) -> Cow<'static, str>;
 
-    /// Determains if the tag is void, i.e., `<input>` and `<br>`.
+    /// Determines if the tag is void, i.e., `<input>` and `<br>`.
+    #[inline(always)]
     fn is_void(&self) -> bool {
         false
     }
 
     /// A unique `id` that should be generated for each new instance of
-    /// this element, and be consistant for both SSR and CSR.
+    /// this element, and be consistent for both SSR and CSR.
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     fn hydration_id(&self) -> &HydrationKey;
 }
@@ -140,6 +141,7 @@ pub struct AnyElement {
 impl std::ops::Deref for AnyElement {
     type Target = web_sys::HtmlElement;
 
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         return &self.element;
@@ -150,6 +152,7 @@ impl std::ops::Deref for AnyElement {
 }
 
 impl std::convert::AsRef<web_sys::HtmlElement> for AnyElement {
+    #[inline(always)]
     fn as_ref(&self) -> &web_sys::HtmlElement {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         return &self.element;
@@ -164,11 +167,13 @@ impl ElementDescriptor for AnyElement {
         self.name.clone()
     }
 
+    #[inline(always)]
     fn is_void(&self) -> bool {
         self.is_void
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[inline(always)]
     fn hydration_id(&self) -> &HydrationKey {
         &self.id
     }
@@ -254,6 +259,7 @@ impl Custom {
 impl std::ops::Deref for Custom {
     type Target = web_sys::HtmlElement;
 
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.element
     }
@@ -261,6 +267,7 @@ impl std::ops::Deref for Custom {
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl std::convert::AsRef<web_sys::HtmlElement> for Custom {
+    #[inline(always)]
     fn as_ref(&self) -> &web_sys::HtmlElement {
         &self.element
     }
@@ -272,6 +279,7 @@ impl ElementDescriptor for Custom {
     }
 
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[inline(always)]
     fn hydration_id(&self) -> &HydrationKey {
         &self.id
     }
@@ -413,6 +421,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     #[cfg(debug_assertions)]
     /// Adds an optional marker indicating the view macro source.
+    #[inline(always)]
     pub fn with_view_marker(mut self, marker: impl Into<String>) -> Self {
         self.view_marker = Some(marker.into());
         self
@@ -471,15 +480,18 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     /// Adds an `id` to the element.
     #[track_caller]
+    #[inline(always)]
     pub fn id(self, id: impl Into<Cow<'static, str>>) -> Self {
         let id = id.into();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
-            self.element
-                .as_ref()
-                .set_attribute(wasm_bindgen::intern("id"), &id)
-                .unwrap();
+            #[inline(never)]
+            fn id_inner(el: &web_sys::HtmlElement, id: &str) {
+                el.set_attribute(wasm_bindgen::intern("id"), id).unwrap()
+            }
+
+            id_inner(self.element.as_ref(), &id);
 
             self
         }
@@ -495,6 +507,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Binds the element reference to [`NodeRef`].
+    #[inline(always)]
     pub fn node_ref(self, node_ref: NodeRef<El>) -> Self
     where
         Self: Clone,
@@ -573,8 +586,29 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         self
     }
 
+    /// Checks to see if this element is mounted to the DOM as a child
+    /// of `body`.
+    ///
+    /// This method will always return [`None`] on non-wasm CSR targets.
+    #[inline(always)]
+    pub fn is_mounted(&self) -> bool {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            #[inline(never)]
+            fn is_mounted_inner(el: &web_sys::HtmlElement) -> bool {
+                crate::document().body().unwrap().contains(Some(el))
+            }
+
+            is_mounted_inner(self.element.as_ref())
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        false
+    }
+
     /// Adds an attribute to this element.
     #[track_caller]
+    #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
     pub fn attr(
         self,
         name: impl Into<Cow<'static, str>>,
@@ -604,7 +638,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
             match attr {
                 Attribute::String(value) => {
-                    this.attrs.push((name, value.into()));
+                    this.attrs.push((name, value));
                 }
                 Attribute::Bool(include) => {
                     if include {
@@ -613,7 +647,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 }
                 Attribute::Option(_, maybe) => {
                     if let Some(value) = maybe {
-                        this.attrs.push((name, value.into()));
+                        this.attrs.push((name, value));
                     }
                 }
                 _ => unreachable!(),
@@ -668,15 +702,117 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
-    /// Adds a list of classes separated by ASCII whitespace to an element.
-    #[track_caller]
-    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
-        let classes = classes.into();
+    fn classes_inner(self, classes: &str) -> Self {
         let mut this = self;
         for class in classes.split_ascii_whitespace() {
             this = this.class(class.to_string(), true);
         }
         this
+    }
+
+    /// Adds a list of classes separated by ASCII whitespace to an element.
+    #[track_caller]
+    #[inline(always)]
+    pub fn classes(self, classes: impl Into<Cow<'static, str>>) -> Self {
+        self.classes_inner(&classes.into())
+    }
+
+    /// Sets the class on the element as the class signal changes.
+    #[track_caller]
+    pub fn dyn_classes<I, C>(
+        self,
+        classes_signal: impl Fn() -> I + 'static,
+    ) -> Self
+    where
+        I: IntoIterator<Item = C>,
+        C: Into<Cow<'static, str>>,
+    {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            use smallvec::SmallVec;
+
+            let class_list = self.element.as_ref().class_list();
+
+            leptos_reactive::create_effect(
+                self.cx,
+                move |prev_classes: Option<
+                    SmallVec<[Cow<'static, str>; 4]>,
+                >| {
+                    let classes = classes_signal()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect::<SmallVec<[Cow<'static, str>; 4]>>(
+                    );
+
+                    let mut new_classes = classes
+                        .iter()
+                        .flat_map(|classes| classes.split_whitespace());
+
+                    if let Some(prev_classes) = prev_classes {
+                        let mut old_classes = prev_classes
+                            .iter()
+                            .flat_map(|classes| classes.split_whitespace());
+
+                        // Remove old classes
+                        for prev_class in old_classes.clone() {
+                            if !new_classes.any(|c| c == prev_class) {
+                                class_list.remove_1(prev_class).unwrap_or_else(
+                                    |err| {
+                                        panic!(
+                                            "failed to add class \
+                                             `{prev_class}`, error: {err:#?}"
+                                        )
+                                    },
+                                );
+                            }
+                        }
+
+                        // Add new classes
+                        for class in new_classes {
+                            if !old_classes.any(|c| c == class) {
+                                class_list.add_1(class).unwrap_or_else(|err| {
+                                    panic!(
+                                        "failed to remove class `{class}`, \
+                                         error: {err:#?}"
+                                    )
+                                });
+                            }
+                        }
+                    } else {
+                        let new_classes = new_classes
+                            .map(ToOwned::to_owned)
+                            .collect::<SmallVec<[_; 4]>>();
+
+                        for class in &new_classes {
+                            class_list.add_1(class).unwrap_or_else(|err| {
+                                panic!(
+                                    "failed to add class `{class}`, error: \
+                                     {err:#?}"
+                                )
+                            });
+                        }
+                    }
+
+                    classes
+                },
+            );
+
+            self
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            classes_signal()
+                .into_iter()
+                .map(Into::into)
+                .flat_map(|classes| {
+                    classes
+                        .split_whitespace()
+                        .map(ToString::to_string)
+                        .collect::<SmallVec<[_; 4]>>()
+                })
+                .fold(self, |this, class| this.class(class, true))
+        }
     }
 
     /// Sets a property on an element.
@@ -705,6 +841,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     /// Adds an event listener to this element.
     #[track_caller]
+    #[inline(always)]
     pub fn on<E: EventDescriptor + 'static>(
         self,
         event: E,
@@ -727,19 +864,22 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             let event_name = event.name();
 
             let key = event.event_delegation_key();
+            let event_handler = Box::new(event_handler);
 
-            if event.bubbles() {
+            if E::BUBBLES {
                 add_event_listener(
                     self.element.as_ref(),
                     key,
                     event_name,
                     event_handler,
+                    event.options(),
                 );
             } else {
                 add_event_listener_undelegated(
                     self.element.as_ref(),
                     &event_name,
                     event_handler,
+                    event.options(),
                 );
             }
 
@@ -805,6 +945,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Be very careful when using this method. Always remember to
     /// sanitize the input to avoid a cross-site scripting (XSS)
     /// vulnerability.
+    #[inline(always)]
     pub fn inner_html(self, html: impl Into<Cow<'static, str>>) -> Self {
         let html = html.into();
 
@@ -828,6 +969,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
 impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
     #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
+    #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
     fn into_view(self, _: Scope) -> View {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -894,6 +1036,7 @@ pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
 }
 
 /// Creates a text node.
+#[inline(always)]
 pub fn text(text: impl Into<Cow<'static, str>>) -> Text {
     Text::new(text.into())
 }
@@ -955,6 +1098,7 @@ macro_rules! generate_html_tags {
         impl std::ops::Deref for [<$tag:camel $($trailing_)?>] {
           type Target = web_sys::$el_type;
 
+          #[inline(always)]
           fn deref(&self) -> &Self::Target {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             {
@@ -968,6 +1112,7 @@ macro_rules! generate_html_tags {
         }
 
         impl std::convert::AsRef<web_sys::HtmlElement> for [<$tag:camel $($trailing_)?>] {
+          #[inline(always)]
           fn as_ref(&self) -> &web_sys::HtmlElement {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             return &self.element;
@@ -978,11 +1123,13 @@ macro_rules! generate_html_tags {
         }
 
         impl ElementDescriptor for [<$tag:camel $($trailing_)?>] {
+          #[inline(always)]
           fn name(&self) -> Cow<'static, str> {
             stringify!($tag).into()
           }
 
           #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[inline(always)]
           fn hydration_id(&self) -> &HydrationKey {
             &self.id
           }
@@ -1010,6 +1157,7 @@ macro_rules! generate_html_tags {
   };
   (@void) => {};
   (@void void) => {
+    #[inline(always)]
     fn is_void(&self) -> bool {
       true
     }

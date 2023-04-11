@@ -27,7 +27,26 @@ pub fn Routes(
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
-    let branches = build_branches(cx, children, base);
+        let mut branches = Vec::new();
+        
+    let mut branches = Vec::new();
+    let frag = children(cx);
+    let children = frag
+        .as_children()
+        .iter()
+        .filter_map(|child| {
+            let def = child
+                .as_transparent()
+                .and_then(|t| t.downcast_ref::<RouteDefinition>());
+            if def.is_none() {
+                warn!(
+                    "[NOTE] The <Routes/> component should include *only* \
+                     <Route/>or <ProtectedRoute/> components, or some \
+                     #[component(transparent)] that returns a RouteDefinition."
+                );
+            }
+            def
+        });
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
@@ -85,7 +104,25 @@ pub fn AnimatedRoutes(
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
-    let branches = build_branches(cx, children, base);
+    
+    let mut branches = Vec::new();
+    let frag = children(cx);
+    let children = frag
+        .as_children()
+        .iter()
+        .filter_map(|child| {
+            let def = child
+                .as_transparent()
+                .and_then(|t| t.downcast_ref::<RouteDefinition>());
+            if def.is_none() {
+                warn!(
+                    "[NOTE] The <Routes/> component should include *only* \
+                     <Route/>or <ProtectedRoute/> components, or some \
+                     #[component(transparent)] that returns a RouteDefinition."
+                );
+            }
+            def
+        });
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
@@ -148,24 +185,9 @@ pub fn AnimatedRoutes(
             set_animation_state.update(|current_state| {
                 let (next, _) = animation.next_state(&current);
                 *current_state = next;
-            });
-        })
+            })
         .child(move || root.get())
         .into_view(cx)
-}
-
-fn build_branches(cx: Scope, children: Children, base: Option<String>) -> Vec<Branch> {
-    let mut branches = Vec::new();
-    let children = fragment_to_route_definitions(&children(cx));
-
-    create_branches(
-        &children,
-        &base.unwrap_or_default(),
-        &mut Vec::new(),
-        &mut branches,
-    );
-
-    branches
 }
 
 fn fragment_to_route_definitions(frag: &Fragment) -> Vec<RouteDefinition> {

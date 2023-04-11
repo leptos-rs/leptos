@@ -1,23 +1,24 @@
 # Forms and Inputs
 
-Forms and form inputs are an important part of interactive apps. There are two 
+Forms and form inputs are an important part of interactive apps. There are two
 basic patterns for interacting with inputs in Leptos, which you may recognize
 if you’re familiar with React, SolidJS, or a similar framework: using **controlled**
 or **uncontrolled** inputs.
 
 ## Controlled Inputs
 
-In a "controlled input," the framework controls the state of the input 
-element. On every `input` event, it updates a local signal that holds the current 
+In a "controlled input," the framework controls the state of the input
+element. On every `input` event, it updates a local signal that holds the current
 state, which in turn updates the `value` prop of the input.
 
 There are two important things to remember:
-1. The `input` event fires on (almost) every change to the element, while the 
-   `change` event fires (more or less) when you unfocus the input. You probably 
+
+1. The `input` event fires on (almost) every change to the element, while the
+   `change` event fires (more or less) when you unfocus the input. You probably
    want `on:input`, but we give you the freedom to choose.
-2. The `value` *attribute* only sets the initial value of the input, i.e., it 
-   only updates the input up to the point that you begin typing. The `value` 
-   *property* continues updating the input after that. You usually want to set 
+2. The `value` _attribute_ only sets the initial value of the input, i.e., it
+   only updates the input up to the point that you begin typing. The `value`
+   _property_ continues updating the input after that. You usually want to set
    `prop:value` for this reason.
 
 ```rust
@@ -41,14 +42,14 @@ view! { cx,
 }
 ```
 
-## Uncontrolled Inputs 
+## Uncontrolled Inputs
 
-In an "uncontrolled input," the browser controls the state of the input element. 
-Rather than continuously updating a signal to hold its value, we use a 
-[`NodeRef`](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to access 
+In an "uncontrolled input," the browser controls the state of the input element.
+Rather than continuously updating a signal to hold its value, we use a
+[`NodeRef`](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to access
 the input once when we want to get its value.
 
-In this example, we only notify the framework when the `<form>` fires a `submit` 
+In this example, we only notify the framework when the `<form>` fires a `submit`
 event.
 
 ```rust
@@ -56,7 +57,8 @@ let (name, set_name) = create_signal(cx, "Uncontrolled".to_string());
 
 let input_element: NodeRef<Input> = create_node_ref(cx);
 ```
-`NodeRef` is a kind of reactive smart pointer: we can use it to access the 
+
+`NodeRef` is a kind of reactive smart pointer: we can use it to access the
 underlying DOM node. Its value will be set when the element is rendered.
 
 ```rust
@@ -76,13 +78,14 @@ let on_submit = move |ev: SubmitEvent| {
     set_name(value);
 };
 ```
+
 Our `on_submit` handler will access the input’s value and use it to call `set_name`.
 To access the DOM node stored in the `NodeRef`, we can simply call it as a function
-(or using `.get()`). This will return `Option<web_sys::HtmlInputElement>`, but we 
-know it will already have been filled when we rendered the view, so it’s safe to 
+(or using `.get()`). This will return `Option<web_sys::HtmlInputElement>`, but we
+know it will already have been filled when we rendered the view, so it’s safe to
 unwrap here.
 
-We can then call `.value()` to get the value out of the input, because `NodeRef` 
+We can then call `.value()` to get the value out of the input, because `NodeRef`
 gives us access to a correctly-typed HTML element.
 
 ```rust
@@ -97,11 +100,15 @@ view! { cx,
     <p>"Name is: " {name}</p>
 }
 ```
+
 The view should be pretty self-explanatory by now. Note two things:
+
 1. Unlike in the controlled input example, we use `value` (not `prop:value`).
-   This is because we’re just setting the initial value of the input, and letting 
+   This is because we’re just setting the initial value of the input, and letting
    the browser control its state. (We could use `prop:value` instead.)
 2. We use `node_ref` to fill the `NodeRef`. (Older examples sometimes use `_ref`.
    They are the same thing, but `node_ref` has better rust-analyzer support.)
 
-<iframe src="https://codesandbox.io/p/sandbox/5-form-inputs-ih9m62?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A12%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A12%7D%5D" width="100%" height="1000px"></iframe>
+[Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/5-form-inputs-ih9m62?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A12%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A12%7D%5D)
+
+<iframe src="https://codesandbox.io/p/sandbox/5-form-inputs-ih9m62?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A12%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A12%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>

@@ -1,15 +1,17 @@
 #![forbid(unsafe_code)]
 use crate::{
-    console_warn, create_effect,
+    console_warn, create_effect, diagnostics,
+    diagnostics::*,
     macros::debug_warn,
     node::NodeId,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
     Runtime, Scope, ScopeProperty,
 };
-use cfg_if::cfg_if;
 use futures::Stream;
-use std::{fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc};
+use std::{
+    any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc,
+};
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
@@ -19,6 +21,7 @@ macro_rules! impl_get_fn_traits {
             impl<T: Clone> FnOnce<()> for $ty<T> {
                 type Output = T;
 
+                #[inline(always)]
                 extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
                     impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
@@ -26,6 +29,7 @@ macro_rules! impl_get_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> FnMut<()> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                     impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
@@ -33,6 +37,7 @@ macro_rules! impl_get_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T: Clone> Fn<()> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                     impl_get_fn_traits!(@method_name self $($method_name)?)
                 }
@@ -54,6 +59,7 @@ macro_rules! impl_set_fn_traits {
             impl<T> FnOnce<(T,)> for $ty<T> {
                 type Output = ();
 
+                #[inline(always)]
                 extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
                     impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
@@ -61,6 +67,7 @@ macro_rules! impl_set_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T> FnMut<(T,)> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
                     impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
@@ -68,6 +75,7 @@ macro_rules! impl_set_fn_traits {
 
             #[cfg(not(feature = "stable"))]
             impl<T> Fn<(T,)> for $ty<T> {
+                #[inline(always)]
                 extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
                     impl_set_fn_traits!(@method_name self $($method_name)? args)
                 }
@@ -101,7 +109,7 @@ pub trait SignalGet<T> {
     /// the running effect to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn get(&self) -> T;
 
@@ -117,7 +125,7 @@ pub trait SignalWith<T> {
     /// the running effect to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -145,7 +153,7 @@ pub trait SignalSet<T> {
     /// if the signal is still valid, [`Some(T)`] otherwise.
     ///
     /// **Note:** `set()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.    
+    /// even if the value has not actually changed.
     fn try_set(&self, new_value: T) -> Option<T>;
 }
 
@@ -189,7 +197,7 @@ pub trait SignalGetUntracked<T> {
     /// current scope.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn get_untracked(&self) -> T;
 
@@ -206,7 +214,7 @@ pub trait SignalWithUntracked<T> {
     /// value without creating a dependency on the current scope.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     #[track_caller]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O;
 
@@ -246,6 +254,7 @@ pub trait SignalUpdateUntracked<T> {
     /// the value the closure returned.
     #[deprecated = "Please use `try_update_untracked` instead. This method \
                     will be removed in a future version of `leptos`"]
+    #[inline(always)]
     fn update_returning_untracked<U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -266,7 +275,7 @@ pub trait SignalStream<T> {
     /// whenever it changes.
     ///
     /// # Panics
-    /// Panics if you try to access a signal that was created in a [Scope] that has been disposed.
+    /// Panics if you try to access a signal that was created in a [`Scope`] that has been disposed.
     // We're returning an opaque type until impl trait in trait
     // positions are stabilized, and also so any underlying
     // changes are non-breaking
@@ -274,7 +283,7 @@ pub trait SignalStream<T> {
     fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
-/// This trait allows disposing a signal before its [Scope] has been disposed.
+/// This trait allows disposing a signal before its [`Scope`] has been disposed.
 pub trait SignalDispose {
     /// Disposes of the signal. This:
     /// 1. Detaches the signal from the reactive graph, preventing it from triggering
@@ -290,8 +299,8 @@ pub trait SignalDispose {
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// Takes a reactive [Scope] and the initial value as arguments,
-/// and returns a tuple containing a [ReadSignal] and a [WriteSignal],
+/// Takes a reactive [`Scope`] and the initial value as arguments,
+/// and returns a tuple containing a [`ReadSignal`] and a [`WriteSignal`],
 /// each of which can be called as a function.
 ///
 /// ```
@@ -339,11 +348,11 @@ pub fn create_signal<T>(
     value: T,
 ) -> (ReadSignal<T>, WriteSignal<T>) {
     let s = cx.runtime.create_signal(value);
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.0.id)));
+    cx.push_scope_property(ScopeProperty::Signal(s.0.id));
     s
 }
 
-/// Works exactly as [create_signal], but creates multiple signals at once.
+/// Works exactly as [`create_signal`], but creates multiple signals at once.
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -363,7 +372,7 @@ pub fn create_many_signals<T>(
     cx.runtime.create_many_signals_with_map(cx, values, |x| x)
 }
 
-/// Works exactly as [create_many_signals], but applies the map function to each signal pair.
+/// Works exactly as [`create_many_signals`], but applies the map function to each signal pair.
 #[cfg_attr(
     debug_assertions,
     instrument(
@@ -388,7 +397,7 @@ where
 }
 
 /// Creates a signal that always contains the most recent value emitted by a
-/// [Stream](futures::stream::Stream).
+/// [`Stream`](futures::stream::Stream).
 /// If the stream has not yet emitted a value since the signal was created, the signal's
 /// value will be `None`.
 ///
@@ -409,7 +418,7 @@ pub fn create_signal_from_stream<T>(
     #[allow(unused_mut)] // allowed because needed for SSR
     mut stream: impl Stream<Item = T> + Unpin + 'static,
 ) -> ReadSignal<Option<T>> {
-    cfg_if! {
+    cfg_if::cfg_if! {
         if #[cfg(feature = "ssr")] {
             _ = stream;
             let (read, _) = create_signal(cx, None);
@@ -435,7 +444,7 @@ pub fn create_signal_from_stream<T>(
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// `ReadSignal` is also [Copy] and `'static`, so it can very easily moved into closures
+/// `ReadSignal` is also [`Copy`] and `'static`, so it can very easily moved into closures
 /// or copied structs.
 ///
 /// ## Core Trait Implementations
@@ -532,6 +541,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
         with_runtime(self.runtime, |runtime| {
             self.id.try_with_no_subscription(runtime, Clone::clone).ok()
@@ -555,6 +565,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.with_no_subscription(f)
     }
@@ -572,12 +583,17 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .ok()
-            .transpose()
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        }) {
+            Ok(Ok(o)) => Some(o),
+            _ => None,
+        }
     }
 }
 
@@ -613,9 +629,15 @@ impl<T> SignalWith<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .expect("runtime to be alive ")
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        })
+        .expect("runtime to be alive")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
@@ -638,10 +660,16 @@ impl<T> SignalWith<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics).ok()
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -672,9 +700,12 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn get(&self) -> T {
+        let diagnostics = diagnostics!(self);
+
         match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, T::clone)
+            self.id.try_with(runtime, T::clone, diagnostics)
         })
         .expect("runtime to be alive")
         {
@@ -745,18 +776,24 @@ impl<T> ReadSignal<T>
 where
     T: 'static,
 {
+    #[inline(always)]
     pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.id.with_no_subscription(self.runtime, f)
     }
 
     /// Applies the function to the current Signal, if it exists, and subscribes
     /// the running effect.
+    #[track_caller]
+    #[inline(always)]
     pub(crate) fn try_with<U>(
         &self,
         f: impl FnOnce(&T) -> U,
     ) -> Result<U, SignalError> {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-        {
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        }) {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
@@ -766,13 +803,7 @@ where
 
 impl<T> Clone for ReadSignal<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -784,13 +815,13 @@ impl<T> Copy for ReadSignal<T> {}
 /// and notifies other code when it has changed. This is the
 /// core primitive of Leptos’s reactive system.
 ///
-/// Calling [WriteSignal::update] will mutate the signal’s value in place,
+/// Calling [`WriteSignal::update`] will mutate the signal’s value in place,
 /// and notify all subscribers that the signal’s value has changed.
 ///
-/// `WriteSignal` implements [Fn], such that `set_value(new_value)` is equivalent to
+/// `WriteSignal` implements [`Fn`], such that `set_value(new_value)` is equivalent to
 /// `set_value.update(|value| *value = new_value)`.
 ///
-/// `WriteSignal` is [Copy] and `'static`, so it can very easily moved into closures
+/// `WriteSignal` is [`Copy`] and `'static`, so it can very easily moved into closures
 /// or copied structs.
 ///
 /// ## Core Trait Implementations
@@ -894,6 +925,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
@@ -911,6 +943,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update_returning_untracked<U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -918,6 +951,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
         self.id.update_with_no_effect(self.runtime, f)
     }
 
+    #[inline(always)]
     fn try_update_untracked<O>(
         &self,
         f: impl FnOnce(&mut T) -> O,
@@ -956,6 +990,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
@@ -978,6 +1013,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(self.runtime, f)
     }
@@ -1049,13 +1085,7 @@ impl<T> SignalDispose for WriteSignal<T> {
 
 impl<T> Clone for WriteSignal<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -1095,12 +1125,12 @@ impl<T> Copy for WriteSignal<T> {}
 #[track_caller]
 pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
     let s = cx.runtime.create_rw_signal(value);
-    cx.with_scope_property(|prop| prop.push(ScopeProperty::Signal(s.id)));
+    cx.push_scope_property(ScopeProperty::Signal(s.id));
     s
 }
 
 /// A signal that combines the getter and setter into one value, rather than
-/// separating them into a [ReadSignal] and a [WriteSignal]. You may prefer this
+/// separating them into a [`ReadSignal`] and a [`WriteSignal`]. You may prefer this
 /// its style, or it may be easier to pass around in a context or as a function argument.
 ///
 /// ## Core Trait Implementations
@@ -1156,13 +1186,7 @@ where
 
 impl<T> Clone for RwSignal<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: self.ty,
-            #[cfg(debug_assertions)]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -1228,6 +1252,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id.with_no_subscription(self.runtime, f)
     }
@@ -1245,12 +1270,17 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .ok()
-            .transpose()
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        }) {
+            Ok(Ok(o)) => Some(o),
+            _ => None,
+        }
     }
 }
 
@@ -1310,6 +1340,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
+    #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
     }
@@ -1327,6 +1358,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         )
     )
     )]
+    #[inline(always)]
     fn update_returning_untracked<U>(
         &self,
         f: impl FnOnce(&mut T) -> U,
@@ -1347,6 +1379,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_update_untracked<O>(
         &self,
         f: impl FnOnce(&mut T) -> O,
@@ -1388,9 +1421,15 @@ impl<T> SignalWith<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        match with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f))
-            .expect("runtime to be alive")
+        let diagnostics = diagnostics!(self);
+
+        match with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics)
+        })
+        .expect("runtime to be alive")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
@@ -1413,10 +1452,16 @@ impl<T> SignalWith<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
+    #[inline(always)]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| self.id.try_with(runtime, f).ok())
-            .ok()
-            .flatten()
+        let diagnostics = diagnostics!(self);
+
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with(runtime, f, diagnostics).ok()
+        })
+        .ok()
+        .flatten()
     }
 }
 
@@ -1448,12 +1493,15 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn get(&self) -> T
     where
         T: Clone,
     {
+        let diagnostics = diagnostics!(self);
+
         match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, T::clone)
+            self.id.try_with(runtime, T::clone, diagnostics)
         })
         .expect("runtime to be alive")
         {
@@ -1478,9 +1526,12 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_get(&self) -> Option<T> {
+        let diagnostics = diagnostics!(self);
+
         with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, Clone::clone).ok()
+            self.id.try_with(runtime, Clone::clone, diagnostics).ok()
         })
         .ok()
         .flatten()
@@ -1522,6 +1573,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
@@ -1544,6 +1596,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(self.runtime, f)
     }
@@ -1670,7 +1723,7 @@ impl<T> RwSignal<T> {
     /// Returns a write-only handle to the signal.
     ///
     /// Useful if you're trying to give write access to another component, or split an
-    /// `RwSignal` into a [ReadSignal] and a [WriteSignal].
+    /// [`RwSignal`] into a [`ReadSignal`] and a [`WriteSignal`].
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
@@ -1763,7 +1816,12 @@ pub(crate) enum SignalError {
 }
 
 impl NodeId {
-    pub(crate) fn subscribe(&self, runtime: &Runtime) {
+    #[track_caller]
+    pub(crate) fn subscribe(
+        &self,
+        runtime: &Runtime,
+        #[allow(unused)] diagnostics: AccessDiagnostics,
+    ) {
         // add subscriber
         if let Some(observer) = runtime.observer.get() {
             // add this observer to this node's dependencies (to allow notification)
@@ -1778,9 +1836,47 @@ impl NodeId {
                 let sources = sources.or_default();
                 sources.borrow_mut().insert(*self);
             }
+        } else {
+            #[cfg(all(debug_assertions, not(feature = "ssr")))]
+            {
+                if !SpecialNonReactiveZone::is_inside() {
+                    let AccessDiagnostics {
+                        called_at,
+                        defined_at,
+                    } = diagnostics;
+                    crate::macros::debug_warn!(
+                        "At {called_at}, you access a signal or memo (defined \
+                         at {defined_at}) outside a reactive tracking \
+                         context. This might mean your app is not responding \
+                         to changes in signal values in the way you \
+                         expect.\n\nHere’s how to fix it:\n\n1. If this is \
+                         inside a `view!` macro, make sure you are passing a \
+                         function, not a value.\n  ❌ NO  <p>{{x.get() * \
+                         2}}</p>\n  ✅ YES <p>{{move || x.get() * \
+                         2}}</p>\n\n2. If it’s in the body of a component, \
+                         try wrapping this access in a closure: \n  ❌ NO  \
+                         let y = x.get() * 2\n  ✅ YES let y = move || \
+                         x.get() * 2.\n\n3. If you’re *trying* to access the \
+                         value without tracking, use `.get_untracked()` or \
+                         `.with_untracked()` instead."
+                    );
+                }
+            }
         }
     }
 
+    fn try_with_no_subscription_inner(
+        &self,
+        runtime: &Runtime,
+    ) -> Result<Rc<RefCell<dyn Any>>, SignalError> {
+        runtime.update_if_necessary(*self);
+        let nodes = runtime.nodes.borrow();
+        let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
+        Ok(node.value())
+    }
+
+    #[track_caller]
+    #[inline(always)]
     pub(crate) fn try_with_no_subscription<T, U>(
         &self,
         runtime: &Runtime,
@@ -1789,13 +1885,7 @@ impl NodeId {
     where
         T: 'static,
     {
-        runtime.update_if_necessary(*self);
-        let value = {
-            let nodes = runtime.nodes.borrow();
-            let node = nodes.get(*self).ok_or(SignalError::Disposed)?;
-            Rc::clone(&node.value)
-        };
-
+        let value = self.try_with_no_subscription_inner(runtime)?;
         let value = value.borrow();
         let value = value
             .downcast_ref::<T>()
@@ -1804,19 +1894,23 @@ impl NodeId {
         Ok(f(value))
     }
 
+    #[track_caller]
+    #[inline(always)]
     pub(crate) fn try_with<T, U>(
         &self,
         runtime: &Runtime,
         f: impl FnOnce(&T) -> U,
+        diagnostics: AccessDiagnostics,
     ) -> Result<U, SignalError>
     where
         T: 'static,
     {
-        self.subscribe(runtime);
+        self.subscribe(runtime, diagnostics);
 
         self.try_with_no_subscription(runtime, f)
     }
 
+    #[inline(always)]
     pub(crate) fn with_no_subscription<T, U>(
         &self,
         runtime: RuntimeId,
@@ -1831,6 +1925,7 @@ impl NodeId {
         .expect("runtime to be alive")
     }
 
+    #[inline(always)]
     fn update_value<T, U>(
         &self,
         runtime: RuntimeId,
@@ -1840,11 +1935,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime, |runtime| {
-            let value = {
-                let signals = runtime.nodes.borrow();
-                signals.get(*self).map(|node| Rc::clone(&node.value))
-            };
-            if let Some(value) = value {
+            if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))
@@ -1871,6 +1962,7 @@ impl NodeId {
         .unwrap_or_default()
     }
 
+    #[inline(always)]
     pub(crate) fn update<T, U>(
         &self,
         runtime_id: RuntimeId,
@@ -1880,11 +1972,7 @@ impl NodeId {
         T: 'static,
     {
         with_runtime(runtime_id, |runtime| {
-            let value = {
-                let signals = runtime.nodes.borrow();
-                signals.get(*self).map(|node| Rc::clone(&node.value))
-            };
-            let updated = if let Some(value) = value {
+            let updated = if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
                     Some(f(value))
@@ -1908,18 +1996,20 @@ impl NodeId {
                 None
             };
 
-            // mark descendants dirty
-            runtime.mark_dirty(*self);
-
             // notify subscribers
-            if updated.is_some() && !runtime.batching.get() {
-                Runtime::run_effects(runtime_id);
-            };
+            if updated.is_some() {
+                // mark descendants dirty
+                runtime.mark_dirty(*self);
+
+                runtime.run_effects();
+            }
+
             updated
         })
         .unwrap_or_default()
     }
 
+    #[inline(always)]
     pub(crate) fn update_with_no_effect<T, U>(
         &self,
         runtime: RuntimeId,
@@ -1933,6 +2023,8 @@ impl NodeId {
     }
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 fn format_signal_warning(
     msg: &str,
@@ -1955,6 +2047,8 @@ fn format_signal_warning(
     format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_signal(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
@@ -1969,6 +2063,8 @@ pub(crate) fn panic_getting_dead_signal(
     )
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn warn_updating_dead_signal(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
