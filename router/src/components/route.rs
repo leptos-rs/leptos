@@ -10,10 +10,11 @@ thread_local! {
 }
 
 /// Represents an HTTP method that can be handled by this route.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Method {
     /// The [`GET`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/GET) method
     /// requests a representation of the specified resource.
+    #[default]
     Get,
     /// The [`POST`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST) method
     /// submits an entity to the specified resource, often causing a change in
@@ -28,12 +29,6 @@ pub enum Method {
     /// The [`PATCH`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH) method
     /// applies partial modifications to a resource.
     Patch,
-}
-
-impl Default for Method {
-    fn default() -> Self {
-        Method::Get
-    }
 }
 
 /// Describes a portion of the nested layout of the app, specifying the route it should match,
@@ -52,7 +47,9 @@ pub fn Route<E, F, P>(
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-    #[prop(default = &[Method::Get])] methods: &'static [Method],
+    /// The HTTP methods that this route can handle (defaults to only `GET`).
+    #[prop(default = &[Method::Get])]
+    methods: &'static [Method],
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
@@ -91,7 +88,9 @@ pub fn ProtectedRoute<P, E, F, C>(
     /// The mode that this route prefers during server-side rendering. Defaults to out-of-order streaming.
     #[prop(optional)]
     ssr: SsrMode,
-    #[prop(default = &[Method::Get])] methods: &'static [Method],
+    /// The HTTP methods that this route can handle (defaults to only `GET`).
+    #[prop(default = &[Method::Get])]
+    methods: &'static [Method],
     /// `children` may be empty or include nested routes.
     #[prop(optional)]
     children: Option<Children>,
