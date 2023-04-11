@@ -27,7 +27,6 @@ pub fn Routes(
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
-        let mut branches = Vec::new();
         
     let mut branches = Vec::new();
     let frag = children(cx);
@@ -46,7 +45,15 @@ pub fn Routes(
                 );
             }
             def
-        });
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    create_branches(
+        &children,
+        &base.unwrap_or_default(),
+        &mut Vec::new(),
+        &mut branches,
+    );
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
@@ -122,7 +129,15 @@ pub fn AnimatedRoutes(
                 );
             }
             def
-        });
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    create_branches(
+        &children,
+        &base.unwrap_or_default(),
+        &mut Vec::new(),
+        &mut branches,
+    );
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
@@ -186,6 +201,7 @@ pub fn AnimatedRoutes(
                 let (next, _) = animation.next_state(&current);
                 *current_state = next;
             })
+        })
         .child(move || root.get())
         .into_view(cx)
 }
