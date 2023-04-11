@@ -186,7 +186,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
         .map(|s| async move { render_serializer(s.await) }.boxed_local())
         .boxed_local();
     // chain both fragments/resources together and allow either to resolve independently
-    let fragments = fragments.chain(resources).buffered(100);
+    let fragments = fragments.chain(resources).buffer_unordered(100);
 
     // HTML for the view function and script to store resources
     let stream = futures::stream::once(async move {
