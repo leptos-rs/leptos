@@ -28,8 +28,8 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
             </nav>
             <main>
                 <AnimatedRoutes
-                    outro="fadeOut"
-                    intro="fadeIn"
+                    outro="slideOut"
+                    intro="slideIn"
                 >
                     <Route
                         path=""
@@ -96,7 +96,7 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
             <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>
                 {move || view! { cx, <ul>{contacts}</ul>}}
             </Suspense>
-            <Outlet/>
+            <AnimatedOutlet outro="fadeOut" intro="fadeIn"/>
         </div>
     }
 }

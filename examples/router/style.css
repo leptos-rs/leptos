@@ -19,15 +19,41 @@ a[aria-current] {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translate(-20px, 0);
   }
+
   to {
     opacity: 1;
-    transform: translate(0px, 0px);
   }
 }
 
 @keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.slideIn {
+  animation: 0.5s slideIn forwards;
+}
+
+.slideOut {
+  animation: 0.5s slideOut forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translate(-150px, 0);
+  }
+  to {
+    transform: translate(0px, 0px);
+  }
+}
+
+@keyframes slideOut {
   from {
     opacity: 1;
     transform: translate(0px, 0px);
