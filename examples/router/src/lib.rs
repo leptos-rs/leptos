@@ -27,13 +27,9 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 <A href="redirect-home">"Redirect to Home"</A>
             </nav>
             <main>
-                <Routes
-                    animation=Animation::Classes {
-                        start: None,
-                        outro: Some("fadeOut"),
-                        intro: Some("fadeIn"),
-                        finally: None, //Some("finally")
-                    }
+                <AnimatedRoutes
+                    outro="fadeOut"
+                    intro="fadeIn"
                 >
                     <Route
                         path=""
@@ -60,7 +56,7 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                         path="redirect-home"
                         view=move |cx| view! { cx, <Redirect path="/"/> }
                     />
-                </Routes>
+                </AnimatedRoutes>
             </main>
         </Router>
     }

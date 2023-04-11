@@ -196,7 +196,6 @@ mod hooks;
 #[doc(hidden)]
 pub mod matching;
 mod render_mode;
-pub use animation::*;
 pub use components::*;
 #[cfg(any(feature = "ssr", doc))]
 pub use extract_routes::*;

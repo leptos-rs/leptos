@@ -96,25 +96,34 @@ pub fn AnimatedRoutes(
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
-    let animation_and_route = create_memo(cx, 
+    
+    let animation_and_route = create_memo(cx, {
+        let branches = branches.clone();
         move |prev: Option<&(AnimationState, String)>| {
-            leptos::log!("animation_and_route {prev:?}");
+            let animation_state = animation_state.get();
             let next_route = next_route.get();
-            match prev {
-                None => (animation_state.get(), next_route),
-                Some((prev_state, prev_route)) => {
-                    let (next_state, can_advance) =
-                        animation.next_state(prev_state);
+            let prev_matches = prev.map(|(_, r)| r).cloned().map(|prev| get_route_matches(&branches, prev));
+            let matches = get_route_matches(&branches, next_route.clone());
+            let same_route = prev_matches.and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone())) == matches.get(0).as_ref().map(|r| r.route.key.clone());
+            if same_route {
+                (animation_state, next_route)
+            } else {
+                match prev {
+                    None => (animation_state, next_route),
+                    Some((prev_state, prev_route)) => {
+                        let (next_state, can_advance) =
+                            animation.next_state(prev_state);
 
-                    if can_advance {
-                        (next_state, next_route)
-                    } else {
-                        (next_state, prev_route.to_owned())
+                        if can_advance {
+                            (next_state, next_route)
+                        } else {
+                            (next_state, prev_route.to_owned())
+                        }
                     }
                 }
             }
         }
-    );
+    });
     let current_animation =
         create_memo(cx, move |_| animation_and_route.get().0);
     let current_route = create_memo(cx, move |_| animation_and_route.get().1);
@@ -139,7 +148,6 @@ pub fn AnimatedRoutes(
             set_animation_state.update(|current_state| {
                 let (next, _) = animation.next_state(&current);
                 *current_state = next;
-                leptos::log!("animation updating to {next:?}");
             });
         })
         .child(move || root.get())

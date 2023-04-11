@@ -18,7 +18,8 @@ impl Animation {
 		let Animation { start,
                 outro,
                 intro,
-                finally, } = self;
+                finally
+        } = self;
         match current {
 			AnimationState::Outro => {
 				let next = if start.is_some() {
