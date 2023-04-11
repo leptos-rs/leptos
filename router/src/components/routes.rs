@@ -1,9 +1,10 @@
 use crate::{
+    animation::*,
     matching::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    RouteContext, RouterContext, animation::*
+    RouteContext, RouterContext,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -27,7 +28,7 @@ pub fn Routes(
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
-        
+
     let mut branches = Vec::new();
     let frag = children(cx);
     let children = frag
@@ -64,7 +65,8 @@ pub fn Routes(
     let current_route = next_route;
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(cx, &router, branches, current_route, &root_equal);
+    let route_states =
+        route_states(cx, &router, branches, current_route, &root_equal);
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
@@ -72,21 +74,21 @@ pub fn Routes(
         .into_view(cx)
 }
 
-/// Contains route definitions and manages the actual routing process, with animated transitions 
+/// Contains route definitions and manages the actual routing process, with animated transitions
 /// between routes.
 ///
 /// You should locate the `<AnimatedRoutes/>` component wherever on the page you want the routes to appear.
-/// 
+///
 /// ## Animations
-/// The router uses CSS classes for animations, and transitions to the next specified class in order when 
-/// the `animationend` event fires. Each property takes a `&'static str` that can contain a class or classes 
+/// The router uses CSS classes for animations, and transitions to the next specified class in order when
+/// the `animationend` event fires. Each property takes a `&'static str` that can contain a class or classes
 /// to be added at certain points. These CSS classes must have associated animations.
 /// - `outro`: added when route is being unmounted
 /// - `start`: added when route is first created
-/// - `intro`: added after `start` has completed (if defined), and the route is being mounted 
+/// - `intro`: added after `start` has completed (if defined), and the route is being mounted
 /// - `finally`: added after the `intro` animation is complete
-/// 
-/// Each of these properties is optional, and the router will transition to the next correct state 
+///
+/// Each of these properties is optional, and the router will transition to the next correct state
 /// whenever an `animationend` event fires.
 #[component]
 pub fn AnimatedRoutes(
@@ -111,7 +113,7 @@ pub fn AnimatedRoutes(
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
-    
+
     let mut branches = Vec::new();
     let frag = children(cx);
     let children = frag
@@ -144,19 +146,29 @@ pub fn AnimatedRoutes(
         *context.0.borrow_mut() = branches.clone();
     }
 
-    let animation = Animation { outro, start, intro, finally };
+    let animation = Animation {
+        outro,
+        start,
+        intro,
+        finally,
+    };
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
-    
+
     let animation_and_route = create_memo(cx, {
         let branches = branches.clone();
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
-            let prev_matches = prev.map(|(_, r)| r).cloned().map(|prev| get_route_matches(&branches, prev));
+            let prev_matches = prev
+                .map(|(_, r)| r)
+                .cloned()
+                .map(|prev| get_route_matches(&branches, prev));
             let matches = get_route_matches(&branches, next_route.clone());
-            let same_route = prev_matches.and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone())) == matches.get(0).as_ref().map(|r| r.route.key.clone());
+            let same_route = prev_matches
+                .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
+                == matches.get(0).as_ref().map(|r| r.route.key.clone());
             if same_route {
                 (animation_state, next_route)
             } else {
@@ -181,7 +193,8 @@ pub fn AnimatedRoutes(
     let current_route = create_memo(cx, move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(cx, &router, branches, current_route, &root_equal);
+    let route_states =
+        route_states(cx, &router, branches, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
 
@@ -207,8 +220,7 @@ pub fn AnimatedRoutes(
 }
 
 fn fragment_to_route_definitions(frag: &Fragment) -> Vec<RouteDefinition> {
-    frag
-        .as_children()
+    frag.as_children()
         .iter()
         .filter_map(view_as_route_definition)
         .cloned()
@@ -221,15 +233,21 @@ fn view_as_route_definition(view: &View) -> Option<&RouteDefinition> {
         .and_then(|t| t.downcast_ref::<RouteDefinition>());
     if def.is_none() {
         warn!(
-            "[NOTE] The <Routes/> component should include *only* \
-                <Route/>or <ProtectedRoute/> components, or some \
-                #[component(transparent)] that returns a RouteDefinition."
+            "[NOTE] The <Routes/> component should include *only* <Route/>or \
+             <ProtectedRoute/> components, or some #[component(transparent)] \
+             that returns a RouteDefinition."
         );
     }
     def
 }
 
-fn route_states(cx: Scope, router: &RouterContext, branches: Vec<Branch>, current_route: Memo<String>, root_equal: &Rc<Cell<bool>>) -> Memo<RouterState> {
+fn route_states(
+    cx: Scope,
+    router: &RouterContext,
+    branches: Vec<Branch>,
+    current_route: Memo<String>,
+    root_equal: &Rc<Cell<bool>>,
+) -> Memo<RouterState> {
     // whenever path changes, update matches
     let matches = create_memo(cx, move |_| {
         get_route_matches(&branches, current_route.get())
@@ -287,7 +305,9 @@ fn route_states(cx: Scope, router: &RouterContext, branches: Vec<Branch>, curren
                         let next = next.clone();
                         let next_ctx = RouteContext::new(
                             cx,
-                            &RouterContext { inner: Rc::clone(&router) },
+                            &RouterContext {
+                                inner: Rc::clone(&router),
+                            },
                             {
                                 let next = next.clone();
                                 move |cx| {
@@ -345,7 +365,12 @@ fn route_states(cx: Scope, router: &RouterContext, branches: Vec<Branch>, curren
     })
 }
 
-fn root_route(cx: Scope, base_route: RouteContext, route_states: Memo<RouterState>, root_equal: Rc<Cell<bool>>) -> Memo<Option<View>> {
+fn root_route(
+    cx: Scope,
+    base_route: RouteContext,
+    route_states: Memo<RouterState>,
+    root_equal: Rc<Cell<bool>>,
+) -> Memo<Option<View>> {
     let root_cx = RefCell::new(None);
 
     create_memo(cx, move |prev| {

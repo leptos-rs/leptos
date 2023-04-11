@@ -1,7 +1,10 @@
-use crate::{use_route, animation::{Animation, AnimationState}};
+use crate::{
+    animation::{Animation, AnimationState},
+    use_route,
+};
 use leptos::{leptos_dom::HydrationCtx, *};
-use web_sys::AnimationEvent;
 use std::{cell::Cell, rc::Rc};
+use web_sys::AnimationEvent;
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where
 /// that child route is displayed. Renders nothing if there is no nested child.
@@ -43,17 +46,17 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where
 /// that child route is displayed. Renders nothing if there is no nested child.
-/// 
+///
 /// ## Animations
-/// The router uses CSS classes for animations, and transitions to the next specified class in order when 
-/// the `animationend` event fires. Each property takes a `&'static str` that can contain a class or classes 
+/// The router uses CSS classes for animations, and transitions to the next specified class in order when
+/// the `animationend` event fires. Each property takes a `&'static str` that can contain a class or classes
 /// to be added at certain points. These CSS classes must have associated animations.
 /// - `outro`: added when route is being unmounted
 /// - `start`: added when route is first created
-/// - `intro`: added after `start` has completed (if defined), and the route is being mounted 
+/// - `intro`: added after `start` has completed (if defined), and the route is being mounted
 /// - `finally`: added after the `intro` animation is complete
-/// 
-/// Each of these properties is optional, and the router will transition to the next correct state 
+///
+/// Each of these properties is optional, and the router will transition to the next correct state
 /// whenever an `animationend` event fires.
 #[component]
 pub fn AnimatedOutlet(
@@ -76,7 +79,12 @@ pub fn AnimatedOutlet(
     let is_showing = Rc::new(Cell::new(None::<(usize, Scope)>));
     let (outlet, set_outlet) = create_signal(cx, None::<View>);
 
-    let animation = Animation { outro, start, intro, finally };
+    let animation = Animation {
+        outro,
+        start,
+        intro,
+        finally,
+    };
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
     let trigger_animation = create_rw_signal(cx, ());
