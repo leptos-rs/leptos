@@ -400,7 +400,7 @@ impl View {
                                         // browser create the dynamic text as it's own text node
                                         if let View::Text(t) = child {
                                             let content = if dont_escape_text {
-                                                t.content.into()
+                                                t.content
                                             } else {
                                                 html_escape::encode_safe(
                                                     &t.content,
