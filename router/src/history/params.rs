@@ -52,6 +52,9 @@ impl ParamsMap {
             buf.push_str(&escape(v));
             buf.push('&');
         }
+        if buf.len() > 1 {
+            buf.pop();
+        }
         buf
     }
 }
