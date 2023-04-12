@@ -1,5 +1,5 @@
 use crate::{use_navigate, use_resolved_path, ToHref, Url};
-use leptos::{*, html::form};
+use leptos::{html::form, *};
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -66,7 +66,7 @@ where
         class: Option<Attribute>,
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
-        attributes: Option<MaybeSignal<AdditionalAttributes>>
+        attributes: Option<MaybeSignal<AdditionalAttributes>>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
         let on_submit = move |ev: web_sys::SubmitEvent| {
@@ -171,13 +171,13 @@ where
             form = form.node_ref(node_ref)
         };
         if let Some(attributes) = attributes {
-                let attributes = attributes.get();
-                for (attr_name, attr_value) in attributes.into_iter() {
-                    let attr_name = attr_name.to_owned();
-                    let attr_value = attr_value.to_owned();
-                    form = form.attr(attr_name, move || attr_value.get());
-                }
+            let attributes = attributes.get();
+            for (attr_name, attr_value) in attributes.into_iter() {
+                let attr_name = attr_name.to_owned();
+                let attr_value = attr_value.to_owned();
+                form = form.attr(attr_name, move || attr_value.get());
             }
+        }
         form
     }
 
@@ -195,7 +195,7 @@ where
         class,
         children,
         node_ref,
-        attributes
+        attributes,
     )
 }
 
@@ -389,16 +389,24 @@ where
     };
 
     let class = class.map(|bx| bx.into_attribute_boxed(cx));
-    view! { cx,
-        <form
-            method="POST"
-            action=action
-            class=class
-            on:submit=on_submit
-        >
-            {children(cx)}
-        </form>
+    let mut form = form(cx)
+        .attr("method", "POST")
+        .attr("action", action)
+        .on(ev::submit, on_submit)
+        .attr("class", class)
+        .child(children(cx));
+    if let Some(node_ref) = node_ref {
+        form = form.node_ref(node_ref)
+    };
+    if let Some(attributes) = attributes {
+        let attributes = attributes.get();
+        for (attr_name, attr_value) in attributes.into_iter() {
+            let attr_name = attr_name.to_owned();
+            let attr_value = attr_value.to_owned();
+            form = form.attr(attr_name, move || attr_value.get());
+        }
     }
+    form
 }
 
 fn extract_form_attributes(

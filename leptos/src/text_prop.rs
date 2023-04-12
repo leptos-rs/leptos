@@ -1,5 +1,4 @@
-use std::fmt::Debug;
-use std::rc::Rc;
+use std::{fmt::Debug, rc::Rc};
 
 /// Describes a value that is either a static or a reactive string, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
@@ -7,7 +6,7 @@ use std::rc::Rc;
 pub struct TextProp(Rc<dyn Fn() -> String>);
 
 impl TextProp {
-	/// Accesses the current value of the property.
+    /// Accesses the current value of the property.
     #[inline(always)]
     pub fn get(&self) -> String {
         (self.0)()

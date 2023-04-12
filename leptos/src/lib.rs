@@ -182,8 +182,8 @@ pub use for_loop::*;
 pub use show::*;
 mod suspense;
 pub use suspense::*;
-mod transition;
 mod text_prop;
+mod transition;
 pub use text_prop::TextProp;
 #[cfg(debug_assertions)]
 #[doc(hidden)]
