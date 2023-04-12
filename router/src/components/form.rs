@@ -1,5 +1,5 @@
 use crate::{use_navigate, use_resolved_path, ToHref, Url};
-use leptos::*;
+use leptos::{*, html::form};
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -42,6 +42,12 @@ pub fn Form<A>(
     /// to a form submission.
     #[prop(optional)]
     on_response: Option<OnResponse>,
+    /// A [`NodeRef`] in which the `<form>` element should be stored.
+    #[prop(optional)]
+    node_ref: Option<NodeRef<html::Form>>,
+    /// Arbitrary attributes to add to the `<form>`
+    #[prop(optional, into)]
+    attributes: Option<MaybeSignal<AdditionalAttributes>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -59,6 +65,8 @@ where
         on_response: Option<OnResponse>,
         class: Option<Attribute>,
         children: Children,
+        node_ref: Option<NodeRef<html::Form>>,
+        attributes: Option<MaybeSignal<AdditionalAttributes>>
     ) -> HtmlElement<html::Form> {
         let action_version = version;
         let on_submit = move |ev: web_sys::SubmitEvent| {
@@ -152,17 +160,25 @@ where
 
         let method = method.unwrap_or("get");
 
-        view! { cx,
-            <form
-                method=method
-                action=move || action.get()
-                enctype=enctype
-                on:submit=on_submit
-                class=class
-            >
-                {children(cx)}
-            </form>
-        }
+        let mut form = form(cx)
+            .attr("method", method)
+            .attr("action", move || action.get())
+            .attr("enctype", enctype)
+            .on(ev::submit, on_submit)
+            .attr("class", class)
+            .child(children(cx));
+        if let Some(node_ref) = node_ref {
+            form = form.node_ref(node_ref)
+        };
+        if let Some(attributes) = attributes {
+                let attributes = attributes.get();
+                for (attr_name, attr_value) in attributes.into_iter() {
+                    let attr_name = attr_name.to_owned();
+                    let attr_value = attr_value.to_owned();
+                    form = form.attr(attr_name, move || attr_value.get());
+                }
+            }
+        form
     }
 
     let action = use_resolved_path(cx, move || action.to_href()());
@@ -178,6 +194,8 @@ where
         on_response,
         class,
         children,
+        node_ref,
+        attributes
     )
 }
 
@@ -197,6 +215,12 @@ pub fn ActionForm<I, O>(
     /// A signal that will be set if the form submission ends in an error.
     #[prop(optional)]
     error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    /// A [`NodeRef`] in which the `<form>` element should be stored.
+    #[prop(optional)]
+    node_ref: Option<NodeRef<html::Form>>,
+    /// Arbitrary attributes to add to the `<form>`
+    #[prop(optional, into)]
+    attributes: Option<MaybeSignal<AdditionalAttributes>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
@@ -286,19 +310,18 @@ where
         });
     });
     let class = class.map(|bx| bx.into_attribute_boxed(cx));
-    let props = FormProps::builder()
+    let mut props = FormProps::builder()
         .action(action_url)
         .version(version)
         .on_form_data(on_form_data)
         .on_response(on_response)
         .method("post")
         .class(class)
-        .children(children);
-    let props = if let Some(error) = error {
-        props.error(error).build()
-    } else {
-        props.build()
-    };
+        .children(children)
+        .build();
+    props.error = error;
+    props.node_ref = node_ref;
+    props.attributes = attributes;
     Form(cx, props)
 }
 
@@ -318,6 +341,12 @@ pub fn MultiActionForm<I, O>(
     /// A signal that will be set if the form submission ends in an error.
     #[prop(optional)]
     error: Option<RwSignal<Option<Box<dyn Error>>>>,
+    /// A [`NodeRef`] in which the `<form>` element should be stored.
+    #[prop(optional)]
+    node_ref: Option<NodeRef<html::Form>>,
+    /// Arbitrary attributes to add to the `<form>`
+    #[prop(optional, into)]
+    attributes: Option<MaybeSignal<AdditionalAttributes>>,
     /// Component children; should include the HTML of the form elements.
     children: Children,
 ) -> impl IntoView
