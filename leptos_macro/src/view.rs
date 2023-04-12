@@ -527,10 +527,12 @@ fn attribute_to_tokens_ssr<'a>(
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         // ignore refs on SSR
-    } else if name.strip_prefix("on:").is_some() {
-        let (event_type, handler) = event_from_attribute_node(node, false);
+    } else if let Some(name) = name.strip_prefix("on:") {
+        let handler = attribute_value(node);
+        let (event_type, _, _) = parse_event_name(name);
+
         exprs_for_compiler.push(quote! {
-            leptos::leptos_dom::helpers::ssr_event_listener(#event_type, #handler);
+            leptos::leptos_dom::helpers::ssr_event_listener(::leptos::ev::#event_type, #handler);
         })
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
@@ -937,24 +939,8 @@ fn attribute_to_tokens(
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         let handler = attribute_value(node);
-        let (name, is_force_undelegated) = parse_event(name);
-
-        let event_type = TYPED_EVENTS
-            .iter()
-            .find(|e| **e == name)
-            .copied()
-            .unwrap_or("Custom");
-        let is_custom = event_type == "Custom";
-
-        let Ok(event_type) = event_type.parse::<TokenStream>() else {
-            abort!(event_type, "couldn't parse event name");
-        };
-
-        let event_type = if is_custom {
-            quote! { Custom::new(#name) }
-        } else {
-            event_type
-        };
+        
+        let (event_type, is_custom, is_force_undelegated) = parse_event_name(name);
 
         let event_name_ident = match &node.key {
             NodeName::Punctuated(parts) => {
@@ -1091,6 +1077,28 @@ fn attribute_to_tokens(
             #attr(#name, (#cx, #value))
         }
     }
+}
+
+pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
+    let (name, is_force_undelegated) = parse_event(name);
+
+        let event_type = TYPED_EVENTS
+            .iter()
+            .find(|e| **e == name)
+            .copied()
+            .unwrap_or("Custom");
+        let is_custom = event_type == "Custom";
+
+        let Ok(event_type) = event_type.parse::<TokenStream>() else {
+            abort!(event_type, "couldn't parse event name");
+        };
+
+        let event_type = if is_custom {
+            quote! { Custom::new(#name) }
+        } else {
+            event_type
+        };
+    (event_type, is_custom, is_force_undelegated)
 }
 
 pub(crate) fn component_to_tokens(
