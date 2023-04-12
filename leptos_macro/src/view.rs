@@ -939,8 +939,9 @@ fn attribute_to_tokens(
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         let handler = attribute_value(node);
-        
-        let (event_type, is_custom, is_force_undelegated) = parse_event_name(name);
+
+        let (event_type, is_custom, is_force_undelegated) =
+            parse_event_name(name);
 
         let event_name_ident = match &node.key {
             NodeName::Punctuated(parts) => {
@@ -1082,22 +1083,22 @@ fn attribute_to_tokens(
 pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
     let (name, is_force_undelegated) = parse_event(name);
 
-        let event_type = TYPED_EVENTS
-            .iter()
-            .find(|e| **e == name)
-            .copied()
-            .unwrap_or("Custom");
-        let is_custom = event_type == "Custom";
+    let event_type = TYPED_EVENTS
+        .iter()
+        .find(|e| **e == name)
+        .copied()
+        .unwrap_or("Custom");
+    let is_custom = event_type == "Custom";
 
-        let Ok(event_type) = event_type.parse::<TokenStream>() else {
+    let Ok(event_type) = event_type.parse::<TokenStream>() else {
             abort!(event_type, "couldn't parse event name");
         };
 
-        let event_type = if is_custom {
-            quote! { Custom::new(#name) }
-        } else {
-            event_type
-        };
+    let event_type = if is_custom {
+        quote! { Custom::new(#name) }
+    } else {
+        event_type
+    };
     (event_type, is_custom, is_force_undelegated)
 }
 
