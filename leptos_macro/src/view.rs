@@ -407,6 +407,7 @@ fn element_to_tokens_ssr(
                     template,
                     holes,
                     exprs_for_compiler,
+                    global_class,
                 );
             }
         }
@@ -521,6 +522,7 @@ fn attribute_to_tokens_ssr<'a>(
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
+    global_class: Option<&TokenTree>,
 ) -> Option<&'a NodeValueExpr> {
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
@@ -539,6 +541,18 @@ fn attribute_to_tokens_ssr<'a>(
         return node.value.as_ref();
     } else {
         let name = name.replacen("attr:", "", 1);
+
+        // special case of global_class and class attribute
+        if name == "class"
+            && global_class.is_some()
+            && node.value.as_ref().and_then(value_to_string).is_none()
+        {
+            let span = node.key.span();
+            proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
+            and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
+            toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+        };
 
         if name != "class" {
             template.push(' ');
@@ -771,7 +785,7 @@ fn node_to_tokens(
             let value = node.value.as_ref();
             quote! { #value }
         }
-        Node::Attribute(node) => attribute_to_tokens(cx, node),
+        Node::Attribute(node) => attribute_to_tokens(cx, node, global_class),
         Node::Element(node) => {
             element_to_tokens(cx, node, parent_type, global_class, view_marker)
         }
@@ -829,7 +843,7 @@ fn element_to_tokens(
                 if node.key.to_string().trim().starts_with("class:") {
                     None
                 } else {
-                    Some(attribute_to_tokens(cx, node))
+                    Some(attribute_to_tokens(cx, node, global_class))
                 }
             } else {
                 None
@@ -838,7 +852,7 @@ fn element_to_tokens(
         let class_attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
                 if node.key.to_string().trim().starts_with("class:") {
-                    Some(attribute_to_tokens(cx, node))
+                    Some(attribute_to_tokens(cx, node, global_class))
                 } else {
                     None
                 }
@@ -907,7 +921,11 @@ fn element_to_tokens(
     }
 }
 
-fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
+fn attribute_to_tokens(
+    cx: &Ident,
+    node: &NodeAttribute,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     let span = node.key.span();
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
@@ -1033,6 +1051,18 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             return fancy;
         }
 
+        // special case of global_class and class attribute
+        if name == "class"
+            && global_class.is_some()
+            && node.value.as_ref().and_then(value_to_string).is_none()
+        {
+            let span = node.key.span();
+            proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
+            and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
+            toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+        };
+
         // all other attributes
         let value = match node.value.as_ref() {
             Some(value) => {
@@ -1042,6 +1072,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             }
             None => quote_spanned! { span => "" },
         };
+
         let attr = match &node.key {
             NodeName::Punctuated(parts) => Some(&parts[0]),
             _ => None,
