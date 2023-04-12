@@ -394,10 +394,8 @@ where
                     let items_iter = items_fn().into_iter();
 
                     let (capacity, _) = items_iter.size_hint();
-                    let mut hashed_items = FxIndexSet::with_capacity_and_hasher(
-                        capacity,
-                        BuildHasherDefault::<FxHasher>::default(),
-                    );
+                    let mut hashed_items = FxIndexSet::default();
+                    hashed_items.reserve(capacity);
 
                     if let Some(HashRun(prev_hash_run)) = prev_hash_run {
                         if !prev_hash_run.is_empty() {
@@ -416,20 +414,12 @@ where
                             apply_opts(
                                 &prev_hash_run,
                                 &hashed_items,
-                                &mut diffs,
+                                &mut cmds,
                             );
 
                             apply_cmds(
                                 cx,
-                                #[cfg(all(
-                                    target_arch = "wasm32",
-                                    feature = "web"
-                                ))]
                                 &opening,
-                                #[cfg(all(
-                                    target_arch = "wasm32",
-                                    feature = "web"
-                                ))]
                                 &closing,
                                 cmds,
                                 &mut children_borrow,
@@ -443,7 +433,7 @@ where
 
                     // if previous run is empty
                     *children_borrow = Vec::with_capacity(capacity);
-                    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+
                     let fragment = crate::document().create_document_fragment();
 
                     for item in items_iter {
@@ -767,8 +757,7 @@ fn apply_cmds<T, EF, N>(
     // The order of cmds needs to be:
     // 1. Clear
     // 2. Removed
-    // 3. Moved
-    // 4. Add
+    // 4. Moves and adds must be applied together interleaved
     if cmds.clear {
         cmds.removed.clear();
         crate::log!("clearing list");
@@ -787,7 +776,7 @@ fn apply_cmds<T, EF, N>(
             crate::log!("no siblings");
             let parent = closing
                 .parent_node()
-                .expect("could not get closing node")
+                .expect("`Each` to have a parent node")
                 .unchecked_into::<web_sys::Element>();
             parent.set_text_content(Some(""));
 
@@ -811,57 +800,7 @@ fn apply_cmds<T, EF, N>(
         item_to_remove.prepare_for_move();
     }
 
-    for DiffOpMove {
-        from,
-        to,
-        move_in_dom,
-    } in cmds.moved
-    {
-        let item = std::mem::take(&mut children[from]).unwrap();
-
-        if move_in_dom {
-            item.prepare_for_move()
-        }
-
-        items_to_move.push((move_in_dom, to, item));
-    }
-
-    for DiffOpAdd { at, mode } in cmds.added {
-        let item = items[at].take().unwrap();
-
-        let (each_item, _) = cx.run_child_scope(|cx| {
-            let child = each_fn(cx, item).into_view(cx);
-            EachItem::new(cx, child)
-        });
-
-        match mode {
-            DiffOpAddMode::Normal => {
-                let opening = children.get_next_closest_mounted_sibling(
-                    at + 1,
-                    closing.to_owned(),
-                );
-
-                mount_child(MountKind::Before(&opening), &each_item);
-            }
-            DiffOpAddMode::Append => {
-                mount_child(MountKind::Before(closing), &each_item);
-            }
-            DiffOpAddMode::_Prepend => todo!(),
-        }
-
-        children[at] = Some(each_item);
-    }
-
-    for (move_in_dom, to, each_item) in items_to_move {
-        if move_in_dom {
-            let opening = children
-                .get_next_closest_mounted_sibling(to + 1, closing.to_owned());
-
-            mount_child(MountKind::Before(&opening), &each_item);
-        }
-
-        children[to] = Some(each_item);
-    }
+    todo!();
 
     // Now, remove the holes that might have been left from removing
     // items
