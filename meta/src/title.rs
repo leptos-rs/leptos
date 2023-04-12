@@ -17,7 +17,7 @@ pub struct TitleContext {
 impl TitleContext {
     /// Converts the title into a string that can be used as the text content of a `<title>` tag.
     pub fn as_string(&self) -> Option<String> {
-        let title = self.text.borrow().as_ref().map(|f| (f.0)());
+        let title = self.text.borrow().as_ref().map(|f| f.get());
         title.map(|title| {
             if let Some(formatter) = &*self.formatter.borrow() {
                 (formatter.0)(title)

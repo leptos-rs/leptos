@@ -141,6 +141,8 @@
 //! # }
 //! ```
 
+mod additional_attributes;
+pub use additional_attributes::*;
 pub use leptos_config::{self, get_configuration, LeptosOptions};
 #[cfg(not(all(
     target_arch = "wasm32",
@@ -181,6 +183,8 @@ pub use show::*;
 mod suspense;
 pub use suspense::*;
 mod transition;
+mod text_prop;
+pub use text_prop::TextProp;
 #[cfg(debug_assertions)]
 #[doc(hidden)]
 pub use tracing;
