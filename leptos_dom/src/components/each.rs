@@ -588,13 +588,12 @@ fn apply_opts<K: Eq + Hash>(
     cmds: &mut Diff,
 ) {
     // We can optimize the case of replacing all items
-    if !from.is_empty()
-        && !to.is_empty()
-        && cmds.removed.len() == from.len()
-        && cmds.moved.is_empty()
-    {
+    if !from.is_empty() && !to.is_empty() && cmds.removed.len() == from.len() {
+        debug_assert!(cmds.moved.is_empty());
+
         cmds.clear = true;
 
+        cmds.removed.clear();
         cmds.added
             .iter_mut()
             .for_each(|op| op.mode = DiffOpAddMode::Append);
@@ -613,75 +612,73 @@ fn apply_opts<K: Eq + Hash>(
     //         .for_each(|op| op.mode = DiffOpAddMode::Append);
     // }
 
-    // if ranges.len() == 3 {
-    //     // This one's a little hard to explain, but basically,
-    //     // we want to hand-optimize the case where there are
-    //     // exactly 3 ranges to minimize the number of moves.
-    //     // We can do this for 4 or more, but I think 3 is a
-    //     // happy ground for now. We also don't need to do 0
-    //     // or 1, because the "filter items that didn't move"
-    //     // step above makes these cases impossible. We also
-    //     // don't need to do 2 because the moves are already
-    //     // minimal, i.e., swapping.
-    //     //
-    //     // But it goes like this, we have 3 ranges:
-    //     // from: [A, B, C]
-    //     //
-    //     // There are 3 factorial (6) ways to arrange `from` TO
-    //     // to get to `to`:
-    //     //
-    //     // 1. [A, B, C]
-    //     // 2. [A, C, B]
-    //     // 3. [B, A, C]
-    //     // 4. [B, C, A]
-    //     // 5. [C, A, B]
-    //     // 6. [C, B, A]
-    //     //
-    //     // That's a lot of cases, however, here's a trick we can
-    //     // use to get this list down to just 2. Remember the
-    //     // "filter items the didn't move" step? We can exclude
-    //     // any combination that has any of the column letters unmoved.
-    //     //
-    //     // This means
-    //     //
-    //     //    [A, B, C] // original, removing with respect to A
-    //     // 1. [A, B, C]
-    //     // 2. [A, C, B]
-    //     //
-    //     //    [A, B, C] // original, removing with respect to B
-    //     // 1. [A, B, C]
-    //     // 6. [C, B, A]
-    //     //
-    //     //    [A, B, C] // original, removing with respect to C
-    //     // 1. [A, B, C]
-    //     // 3. [B, A, C]
-    //     //
-    //     //  1, 2, 3, and 6 are impossible cases, which leaves us
-    //     // with only needing to worry about:
-    //     //
-    //     // 4. [B, C, A]
-    //     // 5. [C, A, B]
-    //     //
-    //     // In the case of 4, they all move, so no point on doing
-    //     // anything special.
-    //     //
-    //     // For 5, C should be the only one to move.
+    // Move optimizations
+    if cmds.moved.len() == 3 {
+        // This one's a little hard to explain, but basically,
+        // we want to hand-optimize the case where there are
+        // exactly 3 ranges to minimize the number of moves.
+        // We can do this for 4 or more, but I think 3 is a
+        // happy ground for now. We also don't need to do 0
+        // or 1, because the "filter items that didn't move"
+        // step above makes these cases impossible. We also
+        // don't need to do 2 because the moves are already
+        // minimal, i.e., swapping.
+        //
+        // But it goes like this, we have 3 ranges:
+        // from: [A, B, C]
+        //
+        // There are 3 factorial (6) ways to arrange `from` TO
+        // to get to `to`:
+        //
+        // 1. [A, B, C]
+        // 2. [A, C, B]
+        // 3. [B, A, C]
+        // 4. [B, C, A]
+        // 5. [C, A, B]
+        // 6. [C, B, A]
+        //
+        // That's a lot of cases, however, here's a trick we can
+        // use to get this list down to just 2. Remember the
+        // "filter items the didn't move" step? We can exclude
+        // any combination that has any of the column letters unmoved.
+        //
+        // This means
+        //
+        //    [A, B, C] // original, removing with respect to A
+        // 1. [A, B, C]
+        // 2. [A, C, B]
+        //
+        //    [A, B, C] // original, removing with respect to B
+        // 1. [A, B, C]
+        // 6. [C, B, A]
+        //
+        //    [A, B, C] // original, removing with respect to C
+        // 1. [A, B, C]
+        // 3. [B, A, C]
+        //
+        //  1, 2, 3, and 6 are impossible cases, which leaves us
+        // with only needing to worry about:
+        //
+        // 4. [B, C, A]
+        // 5. [C, A, B]
+        //
+        // In the case of 4, they all move, so no point on doing
+        // anything special.
+        //
+        // For 5, C should be the only one to move.
 
-    //     const A: usize = 0;
-    //     const B: usize = 1;
-    //     const C: usize = 2;
+        const A: usize = 0;
+        const B: usize = 1;
+        const C: usize = 2;
 
-    //     // Are we arranged in the [C, A, B] configuration?
-    //     if ranges[C].to < ranges[A].to && ranges[A].to < ranges[B].to {
-    //         let mut ranges = ranges;
-
-    //         move_cmds.push(std::mem::take(&mut ranges[C]).into());
-    //     } else {
-    //         move_cmds.extend(ranges.into_iter().map(Into::into));
-    //     }
-    // } else {
-    //     move_cmds.extend(ranges.into_iter().map(Into::into));
-    // }
+        // Are we arranged in the [C, A, B] configuration?
+        if cmds.moved[C].to < cmds.moved[A].to
+            && cmds.moved[A].to < cmds.moved[B].to
+        {
+            cmds.moved.remove(A);
+            cmds.moved.remove(B);
+        }
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -936,7 +933,7 @@ fn find_ranges<K: Eq + Hash>(
 }
 
 #[cfg(test)]
-mod utils {
+mod testing_utils {
     use super::*;
 
     pub trait IntoFxIndexSet<K>: Sized {
@@ -956,7 +953,7 @@ mod utils {
 
 #[cfg(test)]
 mod find_ranges {
-    use super::{utils::IntoFxIndexSet, *};
+    use super::{testing_utils::IntoFxIndexSet, *};
 
     #[test]
     fn two_ranges() {
@@ -1047,7 +1044,7 @@ mod find_ranges {
 
 #[cfg(test)]
 mod diff {
-    use super::{utils::IntoFxIndexSet, *};
+    use super::{testing_utils::IntoFxIndexSet, *};
 
     #[test]
     fn removes() {
@@ -1205,6 +1202,64 @@ mod diff {
                         to: 0,
                     },
                 ],
+                ..Default::default()
+            }
+        );
+    }
+}
+
+#[cfg(test)]
+mod apply_opts {
+    use super::{testing_utils::IntoFxIndexSet, *};
+
+    #[test]
+    fn replace_all_items() {
+        let from = [0, 1, 2].into_fx_index_set();
+        let to = [3, 4, 5].into_fx_index_set();
+
+        let mut diff = diff(&from, &to);
+
+        apply_opts(&from, &to, &mut diff);
+
+        assert_eq!(
+            diff,
+            Diff {
+                clear: true,
+                added: vec![
+                    DiffOpAdd {
+                        at: 0,
+                        mode: DiffOpAddMode::Append
+                    },
+                    DiffOpAdd {
+                        at: 1,
+                        mode: DiffOpAddMode::Append
+                    },
+                    DiffOpAdd {
+                        at: 2,
+                        mode: DiffOpAddMode::Append
+                    },
+                ],
+                ..Default::default()
+            }
+        );
+    }
+
+    fn c_a_b_moves_optimization() {
+        let from = ['a', 'b', 'c'].into_fx_index_set();
+        let to = ['c', 'a', 'b'].into_fx_index_set();
+
+        let mut diff = diff(&from, &to);
+
+        apply_opts(&from, &to, &mut diff);
+
+        assert_eq!(
+            diff,
+            Diff {
+                moved: vec![DiffOpMove {
+                    from: 2,
+                    len: 1,
+                    to: 0,
+                }],
                 ..Default::default()
             }
         );
