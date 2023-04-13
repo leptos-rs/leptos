@@ -1,3 +1,10 @@
+[env]
+CARGO_MAKE_WASM_TEST_ARGS = "--headless --chrome"
+
+[tasks.post-test]
+command = "cargo"
+args = ["make", "wasm-pack-test"]
+
 [tasks.build]
 command = "cargo"
 args = ["+stable", "build-all-features"]
