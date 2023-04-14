@@ -1,4 +1,3 @@
-use crate::{additional_attributes::AdditionalAttributes, TextProp};
 use cfg_if::cfg_if;
 use leptos::*;
 use std::{cell::RefCell, rc::Rc};
@@ -32,8 +31,7 @@ impl HtmlContext {
             .map(|val| format!("class=\"{}\"", val.get()));
         let attributes = self.attributes.borrow().as_ref().map(|val| {
             val.with(|val| {
-                val.0
-                    .iter()
+                val.into_iter()
                     .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
                     .collect::<Vec<_>>()
                     .join(" ")
@@ -131,8 +129,10 @@ pub fn Html(
 
             if let Some(attributes) = attributes {
                 let attributes = attributes.get();
-                for (attr_name, attr_value) in attributes.0.into_iter() {
+                for (attr_name, attr_value) in attributes.into_iter() {
                     let el = el.clone();
+                    let attr_name = attr_name.to_owned();
+                    let attr_value = attr_value.to_owned();
                     create_render_effect(cx, move |_|{
                         let value = attr_value.get();
                             _ = el.set_attribute(&attr_name, &value);
