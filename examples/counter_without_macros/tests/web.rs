@@ -1,21 +1,14 @@
+use counter_without_macros::counter;
+use leptos::*;
+use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
+use web_sys::HtmlElement;
 
 wasm_bindgen_test_configure!(run_in_browser);
-use counter_without_macros as counter;
-use leptos::*;
-use web_sys::HtmlElement;
 
 #[wasm_bindgen_test]
 fn inc() {
-    mount_to_body(|cx| {
-        counter::view(
-            cx,
-            counter::Props {
-                initial_value: 0,
-                step: 1,
-            },
-        )
-    });
+    mount_to_body(move |cx| counter(cx, 0, 1));
 
     let document = leptos::document();
     let div = document.query_selector("div").unwrap().unwrap();
