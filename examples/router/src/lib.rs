@@ -27,7 +27,12 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 <A href="redirect-home">"Redirect to Home"</A>
             </nav>
             <main>
-                <Routes>
+                <AnimatedRoutes
+                    outro="slideOut"
+                    intro="slideIn"
+                    outro_back="slideOutBack"
+                    intro_back="slideInBack"
+                >
                     <ContactRoutes/>
                     <Route
                         path="about"
@@ -41,7 +46,7 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                         path="redirect-home"
                         view=move |cx| view! { cx, <Redirect path="/"/> }
                     />
-                </Routes>
+                </AnimatedRoutes>
             </main>
         </Router>
     }
@@ -102,7 +107,7 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
             <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>
                 {move || view! { cx, <ul>{contacts}</ul>}}
             </Suspense>
-            <Outlet/>
+            <AnimatedOutlet outro="fadeOut" intro="fadeIn"/>
         </div>
     }
 }

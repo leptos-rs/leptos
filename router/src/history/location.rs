@@ -12,7 +12,7 @@ pub fn create_location(
         path.with(|path| match Url::try_from(path.as_str()) {
             Ok(url) => url,
             Err(e) => {
-                log::error!("[Leptos Router] Invalid path {path}\n\n{e:?}");
+                leptos::error!("[Leptos Router] Invalid path {path}\n\n{e:?}");
                 prev.cloned().unwrap()
             }
         })
@@ -62,6 +62,8 @@ pub struct LocationChange {
     pub scroll: bool,
     /// The [`state`](https://developer.mozilla.org/en-US/docs/Web/API/History/state) that will be added during navigation.
     pub state: State,
+    /// Whether the navigation is a “back” navigation.
+    pub back: bool,
 }
 
 impl Default for LocationChange {
@@ -71,6 +73,7 @@ impl Default for LocationChange {
             replace: true,
             scroll: true,
             state: Default::default(),
+            back: false,
         }
     }
 }
