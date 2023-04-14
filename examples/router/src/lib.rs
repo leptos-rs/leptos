@@ -30,6 +30,8 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 <AnimatedRoutes
                     outro="slideOut"
                     intro="slideIn"
+                    outro_back="slideOutBack"
+                    intro_back="slideInBack"
                 >
                     <ContactRoutes/>
                     <Route

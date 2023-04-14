@@ -54,6 +54,7 @@ pub(crate) struct RouterContextInner {
     referrers: Rc<RefCell<Vec<LocationChange>>>,
     state: ReadSignal<State>,
     set_state: WriteSignal<State>,
+    pub(crate) is_back: RwSignal<bool>
 }
 
 impl std::fmt::Debug for RouterContextInner {
@@ -110,6 +111,7 @@ impl RouterContext {
                     replace: true,
                     scroll: false,
                     state: State(None),
+                    back: false
                 });
             }
         }
@@ -162,6 +164,7 @@ impl RouterContext {
             state,
             set_state,
             possible_routes: Default::default(),
+            is_back: create_rw_signal(cx, false)
         });
 
         // handle all click events on anchor tags
@@ -200,6 +203,7 @@ impl RouterContextInner {
         self: Rc<Self>,
         to: &str,
         options: &NavigateOptions,
+        back: bool
     ) -> Result<(), NavigationError> {
         let cx = self.cx;
         let this = Rc::clone(&self);
@@ -227,6 +231,7 @@ impl RouterContextInner {
                                 replace: options.replace,
                                 scroll: options.scroll,
                                 state: self.state.get(),
+                                back
                             });
                         }
                         let len = self.referrers.borrow().len();
@@ -250,6 +255,7 @@ impl RouterContextInner {
                                 replace: false,
                                 scroll: true,
                                 state,
+                                back
                             })
                         }
                     }
@@ -359,8 +365,9 @@ impl RouterContextInner {
                     scroll: !a.has_attribute("noscroll"),
                     state: State(state),
                 },
+                false
             ) {
-                log::error!("{e:#?}");
+                leptos::error!("{e:#?}");
             }
         }
     }

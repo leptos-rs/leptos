@@ -37,16 +37,16 @@ a[aria-current] {
 }
 
 .slideIn {
-  animation: 0.5s slideIn forwards;
+  animation: 0.125s slideIn forwards;
 }
 
 .slideOut {
-  animation: 0.5s slideOut forwards;
+  animation: 0.125s slideOut forwards;
 }
 
 @keyframes slideIn {
   from {
-    transform: translate(-150px, 0);
+    transform: translate(100vw, 0);
   }
   to {
     transform: translate(0px, 0px);
@@ -55,11 +55,37 @@ a[aria-current] {
 
 @keyframes slideOut {
   from {
-    opacity: 1;
     transform: translate(0px, 0px);
   }
   to {
-    transform: translate(-20px, 0);
-    opacity: 0;
+    transform: translate(-100vw, 0);
+  }
+}
+
+.slideInBack {
+  animation: 0.125s slideInBack forwards;
+}
+
+.slideOutBack {
+  animation: 0.125s slideOutBack forwards;
+}
+
+@keyframes slideInBack {
+  from {
+    transform: translate(-100vw, 0);
+  }
+
+  to {
+    transform: translate(0px, 0px);
+  }
+}
+
+@keyframes slideOutBack {
+  from {
+    transform: translate(0px, 0px);
+  }
+
+  to {
+    transform: translate(100vw, 0);
   }
 }

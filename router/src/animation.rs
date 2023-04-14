@@ -8,6 +8,10 @@ pub(crate) struct Animation {
     pub outro: Option<&'static str>,
     /// Class set when a route is fading in.
     pub intro: Option<&'static str>,
+    /// Class set when a route is fading out, if it’s a “back” navigation.
+    pub outro_back: Option<&'static str>,
+    /// Class set when a route is fading in, if it’s a “back” navigation.
+    pub intro_back: Option<&'static str>,
     /// Class set when all animations have finished.
     pub finally: Option<&'static str>,
 }
@@ -16,13 +20,14 @@ impl Animation {
     pub(crate) fn next_state(
         &self,
         current: &AnimationState,
+        is_back: bool
     ) -> (AnimationState, bool) {
-        leptos::log!("Animation::next_state() current is {current:?}");
         let Animation {
             start,
             outro,
             intro,
-            finally,
+            intro_back,
+            ..
         } = self;
         match current {
             AnimationState::Outro => {
@@ -31,6 +36,18 @@ impl Animation {
                 } else if intro.is_some() {
                     AnimationState::Intro
                 } else {
+                    AnimationState::Finally
+                };
+                (next, true)
+            }
+            AnimationState::OutroBack => {
+                let next = if start.is_some() {
+                    AnimationState::Start
+                } else if intro_back.is_some() {
+                    AnimationState::IntroBack
+                } else if intro.is_some() {
+                    AnimationState::Intro
+                }  else {
                     AnimationState::Finally
                 };
                 (next, true)
@@ -44,13 +61,22 @@ impl Animation {
                 (next, false)
             }
             AnimationState::Intro => (AnimationState::Finally, false),
+            AnimationState::IntroBack => (AnimationState::Finally, false),
             AnimationState::Finally => {
                 if outro.is_some() {
-                    (AnimationState::Outro, false)
+                    if is_back {
+                        (AnimationState::OutroBack, false)
+                    } else {
+                        (AnimationState::Outro, false)
+                    }
                 } else if start.is_some() {
                     (AnimationState::Start, true)
                 } else if intro.is_some() {
-                    (AnimationState::Intro, true)
+                    if is_back {
+                        (AnimationState::IntroBack, false)
+                    } else {
+                        (AnimationState::Intro, false)
+                    }
                 } else {
                     (AnimationState::Finally, true)
                 }
@@ -62,7 +88,9 @@ impl Animation {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub(crate) enum AnimationState {
     Outro,
+    OutroBack,
     Start,
     Intro,
+    IntroBack,
     Finally,
 }

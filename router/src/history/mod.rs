@@ -35,7 +35,7 @@ pub trait History {
 pub struct BrowserIntegration {}
 
 impl BrowserIntegration {
-    fn current() -> LocationChange {
+    fn current(back: bool) -> LocationChange {
         let loc = leptos_dom::helpers::location();
         LocationChange {
             value: loc.pathname().unwrap_or_default()
@@ -44,6 +44,7 @@ impl BrowserIntegration {
             replace: true,
             scroll: true,
             state: State(None), // TODO
+            back
         }
     }
 }
@@ -52,12 +53,17 @@ impl History for BrowserIntegration {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
         use crate::{NavigateOptions, RouterContext};
 
-        let (location, set_location) = create_signal(cx, Self::current());
+        let (location, set_location) = create_signal(cx, Self::current(false));
 
         leptos::window_event_listener("popstate", move |_| {
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
-                let change = Self::current();
+                let is_back = router.inner.is_back;
+                let change = Self::current(true);
+                is_back.set(true);
+                request_animation_frame(move || {
+                    is_back.set(false);
+                });
                 if let Err(e) = router.inner.navigate_from_route(
                     &change.value,
                     &NavigateOptions {
@@ -66,12 +72,13 @@ impl History for BrowserIntegration {
                         scroll: change.scroll,
                         state: change.state,
                     },
+                    true
                 ) {
-                    log::error!("{e:#?}");
+                    leptos::error!("{e:#?}");
                 }
-                set_location.set(Self::current());
+                set_location.set(Self::current(true));
             } else {
-                log::warn!("RouterContext not found");
+                leptos::warn!("RouterContext not found");
             }
         });
 
@@ -165,6 +172,7 @@ impl History for ServerIntegration {
                 replace: false,
                 scroll: true,
                 state: State(None),
+                back: false
             },
         )
         .0

@@ -4,7 +4,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    RouteContext, RouterContext,
+    RouteContext, RouterContext, use_is_back_navigation,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -99,12 +99,18 @@ pub fn AnimatedRoutes(
     /// CSS class added when route is being unmounted
     #[prop(optional)]
     outro: Option<&'static str>,
+    /// CSS class added when route is being unmounted, in a “back” navigation
+    #[prop(optional)]
+    outro_back: Option<&'static str>,
     /// CSS class added when route is first created
     #[prop(optional)]
     start: Option<&'static str>,
     /// CSS class added while the route is being mounted
     #[prop(optional)]
     intro: Option<&'static str>,
+    /// CSS class added while the route is being mounted, in a “back” navigation
+    #[prop(optional)]
+    intro_back: Option<&'static str>,
     /// CSS class added after other animations have completed.
     #[prop(optional)]
     finally: Option<&'static str>,
@@ -151,7 +157,10 @@ pub fn AnimatedRoutes(
         start,
         intro,
         finally,
+        outro_back,
+        intro_back
     };
+    let is_back = use_is_back_navigation(cx);
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
@@ -176,7 +185,7 @@ pub fn AnimatedRoutes(
                     None => (animation_state, next_route),
                     Some((prev_state, prev_route)) => {
                         let (next_state, can_advance) =
-                            animation.next_state(prev_state);
+                            animation.next_state(prev_state, is_back.get_untracked());
 
                         if can_advance {
                             (next_state, next_route)
@@ -206,12 +215,14 @@ pub fn AnimatedRoutes(
                 AnimationState::Start => start.unwrap_or_default(),
                 AnimationState::Intro => intro.unwrap_or_default(),
                 AnimationState::Finally => finally.unwrap_or_default(),
+                AnimationState::OutroBack => outro_back.unwrap_or_default(),
+                AnimationState::IntroBack => intro_back.unwrap_or_default()
             }),
         )
         .on(leptos::ev::animationend, move |_| {
             let current = current_animation.get();
             set_animation_state.update(|current_state| {
-                let (next, _) = animation.next_state(&current);
+                let (next, _) = animation.next_state(&current, is_back.get_untracked());
                 *current_state = next;
             })
         })

@@ -81,6 +81,15 @@ pub fn use_navigate(
 ) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
     let router = use_router(cx);
     move |to, options| {
-        Rc::clone(&router.inner).navigate_from_route(to, &options)
+        Rc::clone(&router.inner).navigate_from_route(to, &options, false)
     }
 }
+
+/// Returns a signal that tells you whether you are currently navigating backwards.
+pub(crate) fn use_is_back_navigation(
+    cx: Scope,
+) -> ReadSignal<bool> {
+    let router = use_router(cx);
+    router.inner.is_back.read_only()
+}
+

@@ -1,6 +1,6 @@
 use crate::{
     animation::{Animation, AnimationState},
-    use_route,
+    use_route, use_is_back_navigation,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{cell::Cell, rc::Rc};
@@ -64,12 +64,18 @@ pub fn AnimatedOutlet(
     /// CSS class added when route is being unmounted
     #[prop(optional)]
     outro: Option<&'static str>,
+    /// CSS class added when route is being unmounted, in a “back” navigation
+    #[prop(optional)]
+    outro_back: Option<&'static str>,
     /// CSS class added when route is first created
     #[prop(optional)]
     start: Option<&'static str>,
     /// CSS class added while the route is being mounted
     #[prop(optional)]
     intro: Option<&'static str>,
+    /// CSS class added while the route is being mounted, in a “back” navigation
+    #[prop(optional)]
+    intro_back: Option<&'static str>,
     /// CSS class added after other animations have completed.
     #[prop(optional)]
     finally: Option<&'static str>,
@@ -84,10 +90,13 @@ pub fn AnimatedOutlet(
         start,
         intro,
         finally,
+        outro_back,
+        intro_back
     };
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
     let trigger_animation = create_rw_signal(cx, ());
+    let is_back = use_is_back_navigation(cx);
     let animation_and_outlet = create_memo(cx, {
         move |prev: Option<&(AnimationState, View)>| {
             let animation_state = animation_state.get();
@@ -97,7 +106,7 @@ pub fn AnimatedOutlet(
                 None => (animation_state, next_outlet),
                 Some((prev_state, prev_outlet)) => {
                     let (next_state, can_advance) =
-                        animation.next_state(prev_state);
+                        animation.next_state(prev_state, is_back.get_untracked());
 
                     if can_advance {
                         (next_state, next_outlet)
@@ -145,12 +154,14 @@ pub fn AnimatedOutlet(
         AnimationState::Start => start.unwrap_or_default(),
         AnimationState::Intro => intro.unwrap_or_default(),
         AnimationState::Finally => finally.unwrap_or_default(),
+        AnimationState::OutroBack => outro_back.unwrap_or_default(),
+        AnimationState::IntroBack => intro_back.unwrap_or_default()
     };
     let animationend = move |ev: AnimationEvent| {
         ev.stop_propagation();
         let current = current_animation.get();
         set_animation_state.update(|current_state| {
-            let (next, _) = animation.next_state(&current);
+            let (next, _) = animation.next_state(&current, is_back.get_untracked());
             *current_state = next;
         });
     };
