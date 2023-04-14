@@ -24,7 +24,7 @@ The [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos) build tool exist
 ## In the Browser
 
 - The browser receives this HTML page from the server. It immediately goes back to the server to begin loading the JS and WASM necessary to run the interactive, client side version of the app.
-- In the meantime, it renders the HTML verrsion.
+- In the meantime, it renders the HTML version.
 - When the WASM version has reloaded, it does the same route-matching process that the server did. Because the `<Routes/>` component is identical on the server and in the client, the browser version will read the URL and render the same page that was already returned by the server.
 - During this initial “hydration” phase, the WASM version of your app doesn’t re-create the DOM nodes that make up your application. Instead, it walks over the existing HTML tree, “picking up” existing elements and adding the necessary interactivity.
 
