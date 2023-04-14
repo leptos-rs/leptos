@@ -63,7 +63,7 @@ pub struct LocationChange {
     /// The [`state`](https://developer.mozilla.org/en-US/docs/Web/API/History/state) that will be added during navigation.
     pub state: State,
     /// Whether the navigation is a “back” navigation.
-    pub back: bool
+    pub back: bool,
 }
 
 impl Default for LocationChange {
@@ -73,7 +73,7 @@ impl Default for LocationChange {
             replace: true,
             scroll: true,
             state: Default::default(),
-            back: false
+            back: false,
         }
     }
 }

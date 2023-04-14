@@ -20,7 +20,7 @@ impl Animation {
     pub(crate) fn next_state(
         &self,
         current: &AnimationState,
-        is_back: bool
+        is_back: bool,
     ) -> (AnimationState, bool) {
         let Animation {
             start,
@@ -47,7 +47,7 @@ impl Animation {
                     AnimationState::IntroBack
                 } else if intro.is_some() {
                     AnimationState::Intro
-                }  else {
+                } else {
                     AnimationState::Finally
                 };
                 (next, true)

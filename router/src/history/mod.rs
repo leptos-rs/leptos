@@ -44,7 +44,7 @@ impl BrowserIntegration {
             replace: true,
             scroll: true,
             state: State(None), // TODO
-            back
+            back,
         }
     }
 }
@@ -72,7 +72,7 @@ impl History for BrowserIntegration {
                         scroll: change.scroll,
                         state: change.state,
                     },
-                    true
+                    true,
                 ) {
                     leptos::error!("{e:#?}");
                 }
@@ -172,7 +172,7 @@ impl History for ServerIntegration {
                 replace: false,
                 scroll: true,
                 state: State(None),
-                back: false
+                back: false,
             },
         )
         .0

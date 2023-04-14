@@ -4,7 +4,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    RouteContext, RouterContext, use_is_back_navigation,
+    use_is_back_navigation, RouteContext, RouterContext,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -158,7 +158,7 @@ pub fn AnimatedRoutes(
         intro,
         finally,
         outro_back,
-        intro_back
+        intro_back,
     };
     let is_back = use_is_back_navigation(cx);
     let (animation_state, set_animation_state) =
@@ -184,8 +184,8 @@ pub fn AnimatedRoutes(
                 match prev {
                     None => (animation_state, next_route),
                     Some((prev_state, prev_route)) => {
-                        let (next_state, can_advance) =
-                            animation.next_state(prev_state, is_back.get_untracked());
+                        let (next_state, can_advance) = animation
+                            .next_state(prev_state, is_back.get_untracked());
 
                         if can_advance {
                             (next_state, next_route)
@@ -216,13 +216,14 @@ pub fn AnimatedRoutes(
                 AnimationState::Intro => intro.unwrap_or_default(),
                 AnimationState::Finally => finally.unwrap_or_default(),
                 AnimationState::OutroBack => outro_back.unwrap_or_default(),
-                AnimationState::IntroBack => intro_back.unwrap_or_default()
+                AnimationState::IntroBack => intro_back.unwrap_or_default(),
             }),
         )
         .on(leptos::ev::animationend, move |_| {
             let current = current_animation.get();
             set_animation_state.update(|current_state| {
-                let (next, _) = animation.next_state(&current, is_back.get_untracked());
+                let (next, _) =
+                    animation.next_state(&current, is_back.get_untracked());
                 *current_state = next;
             })
         })

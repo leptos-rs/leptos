@@ -1,6 +1,6 @@
 use crate::{
     animation::{Animation, AnimationState},
-    use_route, use_is_back_navigation,
+    use_is_back_navigation, use_route,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{cell::Cell, rc::Rc};
@@ -91,7 +91,7 @@ pub fn AnimatedOutlet(
         intro,
         finally,
         outro_back,
-        intro_back
+        intro_back,
     };
     let (animation_state, set_animation_state) =
         create_signal(cx, AnimationState::Finally);
@@ -105,8 +105,8 @@ pub fn AnimatedOutlet(
             match prev {
                 None => (animation_state, next_outlet),
                 Some((prev_state, prev_outlet)) => {
-                    let (next_state, can_advance) =
-                        animation.next_state(prev_state, is_back.get_untracked());
+                    let (next_state, can_advance) = animation
+                        .next_state(prev_state, is_back.get_untracked());
 
                     if can_advance {
                         (next_state, next_outlet)
@@ -155,13 +155,14 @@ pub fn AnimatedOutlet(
         AnimationState::Intro => intro.unwrap_or_default(),
         AnimationState::Finally => finally.unwrap_or_default(),
         AnimationState::OutroBack => outro_back.unwrap_or_default(),
-        AnimationState::IntroBack => intro_back.unwrap_or_default()
+        AnimationState::IntroBack => intro_back.unwrap_or_default(),
     };
     let animationend = move |ev: AnimationEvent| {
         ev.stop_propagation();
         let current = current_animation.get();
         set_animation_state.update(|current_state| {
-            let (next, _) = animation.next_state(&current, is_back.get_untracked());
+            let (next, _) =
+                animation.next_state(&current, is_back.get_untracked());
             *current_state = next;
         });
     };
