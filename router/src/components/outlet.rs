@@ -80,7 +80,6 @@ pub fn AnimatedOutlet(
     #[prop(optional)]
     finally: Option<&'static str>,
 ) -> impl IntoView {
-    let id = HydrationCtx::id();
     let route = use_route(cx);
     let is_showing = Rc::new(Cell::new(None::<(usize, Scope)>));
     let (outlet, set_outlet) = create_signal(cx, None::<View>);

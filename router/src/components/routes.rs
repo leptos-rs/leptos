@@ -231,28 +231,6 @@ pub fn AnimatedRoutes(
         .into_view(cx)
 }
 
-fn fragment_to_route_definitions(frag: &Fragment) -> Vec<RouteDefinition> {
-    frag.as_children()
-        .iter()
-        .filter_map(view_as_route_definition)
-        .cloned()
-        .collect::<Vec<_>>()
-}
-
-fn view_as_route_definition(view: &View) -> Option<&RouteDefinition> {
-    let def = view
-        .as_transparent()
-        .and_then(|t| t.downcast_ref::<RouteDefinition>());
-    if def.is_none() {
-        warn!(
-            "[NOTE] The <Routes/> component should include *only* <Route/>or \
-             <ProtectedRoute/> components, or some #[component(transparent)] \
-             that returns a RouteDefinition."
-        );
-    }
-    def
-}
-
 fn route_states(
     cx: Scope,
     router: &RouterContext,
