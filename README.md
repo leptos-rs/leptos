@@ -65,14 +65,22 @@ Here are some resources for learning more about Leptos:
 
 ## `nightly` Note
 
-Most of the examples assume you’re using `nightly` Rust.
+Most of the examples assume you’re using `nightly` version of Rust. For this, you can either set your toolchain globally or on per-project basis.
 
-To set up your Rust toolchain using `nightly` (and add the ability to compile Rust to WebAssembly, if you haven’t already)
+To set `nightly` as a default toolchain for all projects (and add the ability to compile Rust to WebAssembly, if you haven’t already):
 
 ```
 rustup toolchain install nightly
 rustup default nightly
 rustup target add wasm32-unknown-unknown
+```
+
+If you'd like to use `nightly` only in your Leptos project however, add [`rust-toolchain.toml`](https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file) file with the following content:
+
+```toml
+[toolchain]
+channel = "nightly"
+targets = ["wasm32-unknown-unknown"]
 ```
 
 If you’re on `stable`, note the following:
