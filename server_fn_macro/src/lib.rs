@@ -195,8 +195,8 @@ pub fn server_macro_impl(
         .unwrap_or_else(|| quote! { server_fn });
 
     let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
-         Some(_) => "SERVER_FN_OVERRIDE_KEY",
-         None => "CARGO_MANIFEST_DIR",
+        Some(_) => "SERVER_FN_OVERRIDE_KEY",
+        None => "CARGO_MANIFEST_DIR",
     };
 
     Ok(quote::quote! {
