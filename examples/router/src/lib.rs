@@ -107,7 +107,11 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
             <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>
                 {move || view! { cx, <ul>{contacts}</ul>}}
             </Suspense>
-            <AnimatedOutlet outro="fadeOut" intro="fadeIn"/>
+            <AnimatedOutlet 
+                class="outlet"
+                outro="fadeOut"
+                intro="fadeIn"
+            />
         </div>
     }
 }

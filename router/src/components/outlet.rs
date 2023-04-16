@@ -61,6 +61,9 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
 #[component]
 pub fn AnimatedOutlet(
     cx: Scope,
+    /// Base classes to be applied to the `<div>` wrapping the outlet during any animation state.
+    #[prop(optional, into)]
+    class: Option<TextProp>,
     /// CSS class added when route is being unmounted
     #[prop(optional)]
     outro: Option<&'static str>,
@@ -148,13 +151,20 @@ pub fn AnimatedOutlet(
         }
     });
 
-    let class = move || match current_animation.get() {
-        AnimationState::Outro => outro.unwrap_or_default(),
-        AnimationState::Start => start.unwrap_or_default(),
-        AnimationState::Intro => intro.unwrap_or_default(),
-        AnimationState::Finally => finally.unwrap_or_default(),
-        AnimationState::OutroBack => outro_back.unwrap_or_default(),
-        AnimationState::IntroBack => intro_back.unwrap_or_default(),
+    let class = move || {
+        let animation_class = match current_animation.get() {
+            AnimationState::Outro => outro.unwrap_or_default(),
+            AnimationState::Start => start.unwrap_or_default(),
+            AnimationState::Intro => intro.unwrap_or_default(),
+            AnimationState::Finally => finally.unwrap_or_default(),
+            AnimationState::OutroBack => outro_back.unwrap_or_default(),
+            AnimationState::IntroBack => intro_back.unwrap_or_default(),
+        };
+        if let Some(class) = &class {
+            format!("{} {animation_class}", class.get())
+        } else {
+            animation_class.to_string()
+        }
     };
     let animationend = move |ev: AnimationEvent| {
         ev.stop_propagation();
