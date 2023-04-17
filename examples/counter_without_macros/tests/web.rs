@@ -9,7 +9,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn should_increment_counter() {
-    mount_counter();
+    open_counter();
 
     click_increment();
     click_increment();
@@ -19,7 +19,7 @@ fn should_increment_counter() {
 
 #[wasm_bindgen_test]
 fn should_decrement_counter() {
-    mount_counter();
+    open_counter();
 
     click_decrement();
     click_decrement();
@@ -29,7 +29,7 @@ fn should_decrement_counter() {
 
 #[wasm_bindgen_test]
 fn should_clear_counter() {
-    mount_counter();
+    open_counter();
 
     click_increment();
     click_increment();
@@ -39,7 +39,7 @@ fn should_clear_counter() {
     assert_eq!(see_text(), Some("Value: 0!".to_string()));
 }
 
-fn mount_counter() {
+fn open_counter() {
     remove_existing_counter();
     mount_to_body(move |cx| counter(cx, 0, 1));
 }
