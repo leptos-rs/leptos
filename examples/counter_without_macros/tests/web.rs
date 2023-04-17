@@ -53,18 +53,18 @@ fn remove_existing_counter() {
 }
 
 fn click_clear() {
-    click("Clear");
+    click_text("Clear");
 }
 
 fn click_decrement() {
-    click("-1");
+    click_text("-1");
 }
 
 fn click_increment() {
-    click("+1");
+    click_text("+1");
 }
 
-fn click(text: &str) {
+fn click_text(text: &str) {
     find_by_text(text).click();
 }
 
