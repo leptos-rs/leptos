@@ -482,9 +482,14 @@ impl View {
                                                 );
                                             chunks.push_back(
                                                 StreamChunk::Sync(
-                                                    format!("<!--hk={}-->", HydrationCtx::to_string(&id, true))
-                                                        .into()
-                                                )
+                                                    format!(
+                                                        "<!--hk={}-->",
+                                                        HydrationCtx::to_string(
+                                                            &id, true
+                                                        )
+                                                    )
+                                                    .into(),
+                                                ),
                                             );
                                         }
                                     }
