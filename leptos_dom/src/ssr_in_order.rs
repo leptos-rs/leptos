@@ -472,6 +472,26 @@ impl View {
                                                 ),
                                             );
                                         }
+                                        #[cfg(not(debug_assertions))]
+                                        {
+                                            node.child
+                                                .into_stream_chunks_helper(
+                                                    cx,
+                                                    chunks,
+                                                    dont_escape_text,
+                                                );
+                                            chunks.push_back(
+                                                StreamChunk::Sync(
+                                                    format!(
+                                                        "<!--hk={}-->",
+                                                        HydrationCtx::to_string(
+                                                            &id, true
+                                                        )
+                                                    )
+                                                    .into(),
+                                                ),
+                                            );
+                                        }
                                     }
                                 },
                             )
