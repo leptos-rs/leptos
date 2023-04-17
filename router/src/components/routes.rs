@@ -93,6 +93,9 @@ pub fn Routes(
 #[component]
 pub fn AnimatedRoutes(
     cx: Scope,
+    /// Base classes to be applied to the `<div>` wrapping the routes during any animation state.
+    #[prop(optional, into)]
+    class: Option<TextProp>,
     /// Base path relative at which the routes are mounted.
     #[prop(optional)]
     base: Option<String>,
@@ -210,13 +213,20 @@ pub fn AnimatedRoutes(
     html::div(cx)
         .attr(
             "class",
-            (cx, move || match current_animation.get() {
-                AnimationState::Outro => outro.unwrap_or_default(),
-                AnimationState::Start => start.unwrap_or_default(),
-                AnimationState::Intro => intro.unwrap_or_default(),
-                AnimationState::Finally => finally.unwrap_or_default(),
-                AnimationState::OutroBack => outro_back.unwrap_or_default(),
-                AnimationState::IntroBack => intro_back.unwrap_or_default(),
+            (cx, move || {
+                let animation_class = match current_animation.get() {
+                    AnimationState::Outro => outro.unwrap_or_default(),
+                    AnimationState::Start => start.unwrap_or_default(),
+                    AnimationState::Intro => intro.unwrap_or_default(),
+                    AnimationState::Finally => finally.unwrap_or_default(),
+                    AnimationState::OutroBack => outro_back.unwrap_or_default(),
+                    AnimationState::IntroBack => intro_back.unwrap_or_default(),
+                };
+                if let Some(class) = &class {
+                    format!("{} {animation_class}", class.get())
+                } else {
+                    animation_class.to_string()
+                }
             }),
         )
         .on(leptos::ev::animationend, move |_| {
