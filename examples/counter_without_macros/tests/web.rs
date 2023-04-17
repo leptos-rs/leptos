@@ -53,15 +53,19 @@ fn remove_existing_counter() {
 }
 
 fn click_clear() {
-    find_by_text("Clear").click();
+    click("Clear");
 }
 
 fn click_decrement() {
-    find_by_text("-1").click();
+    click("-1");
 }
 
 fn click_increment() {
-    find_by_text("+1").click();
+    click("+1");
+}
+
+fn click(text: &str) {
+    find_by_text(text).click();
 }
 
 fn see_text() -> Option<String> {
