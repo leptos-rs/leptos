@@ -27,7 +27,7 @@
   - [Params and Queries](./router/18_params_and_queries.md)
   - [`<A/>`](./router/19_a.md)
   - [`<Form/>`](./router/20_form.md)
-- [Interlude: Styling — CSS, Tailwind, Style.rs, and more]()
+- [Interlude: Styling](./interlude_styling.md)
 - [Server Side Rendering](./ssr/README.md)
   - [The Life of a Page Load](./ssr/21_life_cycle.md)
   - [Models of SSR]()
