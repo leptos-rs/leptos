@@ -187,9 +187,14 @@ where
 ///     todo!()
 /// }
 /// ```
-pub fn use_unwrapped_context<T>(cx: Scope) -> T
+pub fn expect_context<T>(cx: Scope) -> T
 where
     T: Clone + 'static,
 {
-    use_context(cx).expect("context to be present")
+    use_context(cx).unwrap_or_else(|| {
+        panic!(
+            "context of type {:?} to be present",
+            std::any::type_name::<T>()
+        )
+    })
 }
