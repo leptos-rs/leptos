@@ -216,7 +216,9 @@ async fn handle_server_fns_inner(
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            let res = match (server_fn.trait_obj)(cx, data).await {
+                            let res = match (server_fn.trait_obj)(cx, data)
+                                .await
+                            {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
