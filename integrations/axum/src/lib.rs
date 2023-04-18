@@ -35,9 +35,10 @@ use parking_lot::RwLock;
 use std::{
     io,
     pin::Pin,
-    sync::{Arc, OnceLock},
+    sync::Arc,
     thread::available_parallelism,
 };
+use once_cell::sync::OnceCell;
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 
@@ -1193,7 +1194,7 @@ impl LeptosRoutes for axum::Router {
 }
 
 fn get_leptos_pool() -> LocalPoolHandle {
-    static LOCAL_POOL: OnceLock<LocalPoolHandle> = OnceLock::new();
+    static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
     LOCAL_POOL
         .get_or_init(|| {
             tokio_util::task::LocalPoolHandle::new(
