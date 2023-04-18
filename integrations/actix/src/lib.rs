@@ -201,14 +201,10 @@ pub fn handle_server_fns_with_context(
                         Encoding::Url | Encoding::Cbor => body,
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
-                    match (server_fn.trait_obj)(cx, data).await {
+                    let res = match (server_fn.trait_obj)(cx, data).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
-
-                            // clean up the scope, which we only needed to run the server fn
-                            disposer.dispose();
-                            runtime.dispose();
 
                             let mut res: HttpResponseBuilder;
                             let mut res_parts = res_options.0.write();
@@ -268,7 +264,11 @@ pub fn handle_server_fns_with_context(
                             serde_json::to_string(&e)
                                 .unwrap_or_else(|_| e.to_string()),
                         ),
-                    }
+                    };
+                    // clean up the scope
+                    disposer.dispose();
+                    runtime.dispose();
+                    res
                 } else {
                     HttpResponse::BadRequest().body(format!(
                         "Could not find a server function at the route {:?}. \
