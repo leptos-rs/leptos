@@ -31,14 +31,9 @@ use leptos::{
 use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
-use parking_lot::RwLock;
-use std::{
-    io,
-    pin::Pin,
-    sync::Arc,
-    thread::available_parallelism,
-};
 use once_cell::sync::OnceCell;
+use parking_lot::RwLock;
+use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 
