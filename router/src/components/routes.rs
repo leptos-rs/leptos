@@ -209,8 +209,10 @@ pub fn AnimatedRoutes(
         route_states(cx, &router, branches, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
+    let node_ref = create_node_ref::<html::Div>(cx);
 
     html::div(cx)
+        .node_ref(node_ref)
         .attr(
             "class",
             (cx, move || {
@@ -229,13 +231,21 @@ pub fn AnimatedRoutes(
                 }
             }),
         )
-        .on(leptos::ev::animationend, move |_| {
-            let current = current_animation.get();
-            set_animation_state.update(|current_state| {
-                let (next, _) =
-                    animation.next_state(&current, is_back.get_untracked());
-                *current_state = next;
-            })
+        .on(leptos::ev::animationend, move |ev| {
+            use wasm_bindgen::JsCast;
+            if let Some(target) = ev.target() {
+                if target
+                    .unchecked_ref::<web_sys::Node>()
+                    .is_same_node(Some(&*node_ref.get().unwrap()))
+                {
+                    let current = current_animation.get();
+                    set_animation_state.update(|current_state| {
+                        let (next, _) = animation
+                            .next_state(&current, is_back.get_untracked());
+                        *current_state = next;
+                    })
+                }
+            }
         })
         .child(move || root.get())
         .into_view(cx)
