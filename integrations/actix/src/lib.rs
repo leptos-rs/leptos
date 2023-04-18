@@ -924,7 +924,7 @@ where
         .into_iter()
         .map(|listing| {
             let path = wildcard_re
-                .replace_all(&listing.path(), "{tail:.*}")
+                .replace_all(listing.path(), "{tail:.*}")
                 .to_string();
             let path = capture_re.replace_all(&path, "{$1}").to_string();
             RouteListing::new(path, listing.mode(), listing.methods())
