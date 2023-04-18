@@ -1,5 +1,5 @@
 use linear_map::LinearMap;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{rc::Rc, str::FromStr};
 use thiserror::Error;
 
