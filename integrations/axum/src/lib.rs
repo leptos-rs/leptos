@@ -31,13 +31,9 @@ use leptos::{
 use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
+use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{
-    io,
-    pin::Pin,
-    sync::{Arc, OnceLock},
-    thread::available_parallelism,
-};
+use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 
@@ -1193,7 +1189,7 @@ impl LeptosRoutes for axum::Router {
 }
 
 fn get_leptos_pool() -> LocalPoolHandle {
-    static LOCAL_POOL: OnceLock<LocalPoolHandle> = OnceLock::new();
+    static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
     LOCAL_POOL
         .get_or_init(|| {
             tokio_util::task::LocalPoolHandle::new(
