@@ -53,12 +53,18 @@ pub struct LeptosOptions {
 
 impl LeptosOptions {
     fn try_from_env() -> Result<Self, LeptosConfigError> {
+        let output_name = std::env::var("LEPTOS_OUTPUT_NAME").or_else(|e| {
+            std::option_env!("LEPTOS_OUTPUT_NAME")
+                .map(|s| s.to_string())
+                .ok_or_else(|| {
+                    LeptosConfigError::EnvVarError(format!(
+                        "LEPTOS_OUTPUT_NAME: {e}"
+                    ))
+                })
+        })?;
+
         Ok(LeptosOptions {
-            output_name: std::env::var("LEPTOS_OUTPUT_NAME").map_err(|e| {
-                LeptosConfigError::EnvVarError(format!(
-                    "LEPTOS_OUTPUT_NAME: {e}"
-                ))
-            })?,
+            output_name,
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
             env: Env::default(),
