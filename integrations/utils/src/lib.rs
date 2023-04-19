@@ -51,7 +51,7 @@ pub fn html_parts(
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
     // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
     let mut wasm_output_name = output_name.clone();
-    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+    if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_output_name.push_str("_bg");
     }
 
@@ -86,7 +86,7 @@ pub fn html_parts_separated(
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
     // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
     let mut wasm_output_name = output_name.clone();
-    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+    if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_output_name.push_str("_bg");
     }
 
