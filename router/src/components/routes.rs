@@ -42,8 +42,7 @@ pub fn Routes(
     let current_route = next_route;
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states =
-        route_states(cx, &router, current_route, &root_equal);
+    let route_states = route_states(cx, &router, current_route, &root_equal);
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
@@ -126,10 +125,8 @@ pub fn AnimatedRoutes(
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
-            let prev_matches = prev
-                .map(|(_, r)| r)
-                .cloned()
-                .map(get_route_matches);
+            let prev_matches =
+                prev.map(|(_, r)| r).cloned().map(get_route_matches);
             let matches = get_route_matches(next_route.clone());
             let same_route = prev_matches
                 .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
@@ -158,8 +155,7 @@ pub fn AnimatedRoutes(
     let current_route = create_memo(cx, move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states =
-        route_states(cx, &router, current_route, &root_equal);
+    let route_states = route_states(cx, &router, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
 
@@ -240,7 +236,10 @@ impl Branches {
     pub fn with<T>(cb: impl FnOnce(&[Branch]) -> T) -> T {
         BRANCHES.with(|branches| {
             let branches = branches.borrow();
-            let branches = branches.as_ref().expect("Branches::initialize() should be called before Branches::with()");
+            let branches = branches.as_ref().expect(
+                "Branches::initialize() should be called before \
+                 Branches::with()",
+            );
             cb(branches)
         })
     }
@@ -253,9 +252,8 @@ fn route_states(
     root_equal: &Rc<Cell<bool>>,
 ) -> Memo<RouterState> {
     // whenever path changes, update matches
-    let matches = create_memo(cx, move |_| {
-        get_route_matches(current_route.get())
-    });
+    let matches =
+        create_memo(cx, move |_| get_route_matches(current_route.get()));
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
