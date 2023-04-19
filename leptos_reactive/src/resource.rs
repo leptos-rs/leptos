@@ -564,9 +564,12 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 if resource.loading.get_untracked() {
                     resource.preempted.set(true);
-                    for suspense_context in resource.suspense_contexts.borrow().iter() {
+                    for suspense_context in
+                        resource.suspense_contexts.borrow().iter()
+                    {
                         suspense_context.decrement(
-                            resource.serializable != ResourceSerialization::Local,
+                            resource.serializable
+                                != ResourceSerialization::Local,
                         );
                     }
                 }
@@ -880,7 +883,9 @@ where
                     set_loading.update(|n| *n = false);
 
                     if !preempted.get() {
-                        for suspense_context in suspense_contexts.borrow().iter() {
+                        for suspense_context in
+                            suspense_contexts.borrow().iter()
+                        {
                             suspense_context.decrement(
                                 serializable != ResourceSerialization::Local,
                             );
