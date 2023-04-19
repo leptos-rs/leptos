@@ -15,14 +15,25 @@ pub(crate) struct RouteMatch {
     pub route: RouteData,
 }
 
-pub(crate) fn get_route_matches(location: String) -> Vec<RouteMatch> {
-    Branches::with(|branches| {
-        for branch in branches {
-            if let Some(matches) = branch.matcher(&location) {
-                return matches;
-            }
-        }
-        vec![]
+use lru::LruCache;
+use std::{cell::RefCell, num::NonZeroUsize, rc::Rc};
+thread_local! {
+    static ROUTE_MATCH_CACHE: RefCell<LruCache<String, Rc<Vec<RouteMatch>>>> = RefCell::new(LruCache::new(NonZeroUsize::new(32).unwrap()));
+}
+
+pub(crate) fn get_route_matches(location: String) -> Rc<Vec<RouteMatch>> {
+    ROUTE_MATCH_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        Rc::clone(cache.get_or_insert(location.clone(), || {
+            Rc::new(Branches::with(|branches| {
+                for branch in branches {
+                    if let Some(matches) = branch.matcher(&location) {
+                        return matches;
+                    }
+                }
+                vec![]
+            }))
+        }))
     })
 }
 
