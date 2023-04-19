@@ -27,7 +27,7 @@ tracing = "0.1"
 js-sys = { version = "0.3" }
 wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = { version = "0.4" }
-lru = "0.10.0"
+lru = { version = "0.10", optional = true }
 
 [dependencies.web-sys]
 version = "0.3"
@@ -58,7 +58,7 @@ features = [
 default = []
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
-ssr = ["leptos/ssr", "dep:cached", "dep:url", "dep:regex"]
+ssr = ["leptos/ssr", "dep:cached", "dep:lru", "dep:url", "dep:regex"]
 stable = ["leptos/stable"]
 
 [package.metadata.cargo-all-features]
