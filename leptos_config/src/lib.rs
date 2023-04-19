@@ -53,8 +53,9 @@ pub struct LeptosOptions {
 
 impl LeptosOptions {
     fn try_from_env() -> Result<Self, LeptosConfigError> {
+
         Ok(LeptosOptions {
-            output_name: env_w_default("LEPTOS_OUTPUT_NAME", std::env!("LEPTOS_OUTPUT_NAME"))?,
+            output_name: env_w_default("LEPTOS_OUTPUT_NAME", std::env!("LEPTOS_OUTPUT_NAME", "It looks like you're trying to compile Leptos without the LEPTOS_OUTPUT_NAME environment variable being set. There are two options\n 1. cargo-leptos is not being used, but get_configuration() is being passed None. This needs to be changed to Some(\"Cargo.toml\")\n 2. You are compiling Leptos without LEPTOS_OUTPUT_NAME being set with cargo-leptos. This shouldn't be possible!"))?,
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?,
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?,
             env: Env::default(),
