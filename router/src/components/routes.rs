@@ -168,8 +168,10 @@ pub fn AnimatedRoutes(
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
 
+    let is_complete = Rc::new(Cell::new(true));
     let animation_and_route = create_memo(cx, {
         let branches = branches.clone();
+        let is_complete = Rc::clone(&is_complete);
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
@@ -190,7 +192,7 @@ pub fn AnimatedRoutes(
                         let (next_state, can_advance) = animation
                             .next_state(prev_state, is_back.get_untracked());
 
-                        if can_advance {
+                        if can_advance || !is_complete.get() {
                             (next_state, next_route)
                         } else {
                             (next_state, prev_route.to_owned())
@@ -224,6 +226,7 @@ pub fn AnimatedRoutes(
                     AnimationState::OutroBack => outro_back.unwrap_or_default(),
                     AnimationState::IntroBack => intro_back.unwrap_or_default(),
                 };
+                is_complete.set(animation_class == finally.unwrap_or_default());
                 if let Some(class) = &class {
                     format!("{} {animation_class}", class.get())
                 } else {
