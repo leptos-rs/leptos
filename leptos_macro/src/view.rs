@@ -180,6 +180,7 @@ pub(crate) fn render_view(
                 cx,
                 &nodes[0],
                 TagType::Unknown,
+                None,
                 global_class,
                 call_site,
             ),
@@ -189,6 +190,7 @@ pub(crate) fn render_view(
                 nodes,
                 true,
                 TagType::Unknown,
+                None,
                 global_class,
                 call_site,
             ),
@@ -265,7 +267,11 @@ fn root_element_to_tokens_ssr(
     view_marker: Option<String>,
 ) -> TokenStream {
     if is_component_node(node) {
-        component_to_tokens(cx, node, global_class)
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, None, global_class)
+        } else {
+            component_to_tokens(cx, node, global_class)
+        }
     } else {
         let mut exprs_for_compiler = Vec::<TokenStream>::new();
 
@@ -275,6 +281,7 @@ fn root_element_to_tokens_ssr(
         element_to_tokens_ssr(
             cx,
             node,
+            None,
             &mut template,
             &mut holes,
             &mut chunks,
@@ -369,6 +376,7 @@ enum SsrElementChunks {
 fn element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
+    parent_slots: Option<&mut Vec<TokenStream>>,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     chunks: &mut Vec<SsrElementChunks>,
@@ -377,13 +385,19 @@ fn element_to_tokens_ssr(
     global_class: Option<&TokenTree>,
 ) {
     if is_component_node(node) {
-        let component = component_to_tokens(cx, node, global_class);
+        let component = if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, parent_slots, global_class)
+        } else {
+            component_to_tokens(cx, node, global_class)
+        };
+
         if !template.is_empty() {
             chunks.push(SsrElementChunks::String {
                 template: std::mem::take(template),
                 holes: std::mem::take(holes),
             })
         }
+
         chunks.push(SsrElementChunks::View(quote! {
           {#component}.into_view(#cx)
         }));
@@ -453,6 +467,7 @@ fn element_to_tokens_ssr(
                             element_to_tokens_ssr(
                                 cx,
                                 child,
+                                None,
                                 template,
                                 holes,
                                 chunks,
@@ -721,11 +736,22 @@ fn fragment_to_tokens(
     nodes: &[Node],
     lazy: bool,
     parent_type: TagType,
+    parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> TokenStream {
+    let mut slots = Vec::new();
+    let has_slots = parent_slots.is_some();
+
     let nodes = nodes.iter().map(|node| {
-        let node = node_to_tokens(cx, node, parent_type, global_class, None);
+        let node = node_to_tokens(
+            cx,
+            node,
+            parent_type,
+            if has_slots { Some(&mut slots) } else { None },
+            global_class,
+            None,
+        );
 
         quote! {
             #node.into_view(#cx)
@@ -738,7 +764,7 @@ fn fragment_to_tokens(
         quote! {}
     };
 
-    if lazy {
+    let tokens = if lazy {
         quote! {
             {
                 leptos::Fragment::lazy(|| vec![
@@ -756,13 +782,20 @@ fn fragment_to_tokens(
                 #view_marker
             }
         }
+    };
+
+    if let Some(parent_slots) = parent_slots {
+        parent_slots.append(&mut slots);
     }
+
+    tokens
 }
 
 fn node_to_tokens(
     cx: &Ident,
     node: &Node,
     parent_type: TagType,
+    parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> TokenStream {
@@ -773,6 +806,7 @@ fn node_to_tokens(
             &fragment.children,
             true,
             parent_type,
+            None,
             global_class,
             view_marker,
         ),
@@ -788,9 +822,14 @@ fn node_to_tokens(
             quote! { #value }
         }
         Node::Attribute(node) => attribute_to_tokens(cx, node, global_class),
-        Node::Element(node) => {
-            element_to_tokens(cx, node, parent_type, global_class, view_marker)
-        }
+        Node::Element(node) => element_to_tokens(
+            cx,
+            node,
+            parent_type,
+            parent_slots,
+            global_class,
+            view_marker,
+        ),
     }
 }
 
@@ -798,11 +837,16 @@ fn element_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     mut parent_type: TagType,
+    parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> TokenStream {
     if is_component_node(node) {
-        component_to_tokens(cx, node, global_class)
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, parent_slots, global_class)
+        } else {
+            component_to_tokens(cx, node, global_class)
+        }
     } else {
         let tag = node.name.to_string();
         let name = if is_custom_element(&tag) {
@@ -882,6 +926,7 @@ fn element_to_tokens(
                         &fragment.children,
                         true,
                         parent_type,
+                        None,
                         global_class,
                         None,
                     ),
@@ -918,6 +963,7 @@ fn element_to_tokens(
                         cx,
                         node,
                         parent_type,
+                        None,
                         global_class,
                         None,
                     ),
@@ -1132,6 +1178,110 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
     (event_type, is_custom, is_force_undelegated)
 }
 
+pub(crate) fn slot_to_tokens(
+    cx: &Ident,
+    node: &NodeElement,
+    slot: &NodeAttribute,
+    parent_slots: Option<&mut Vec<TokenStream>>,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
+    let parent_slots =
+        parent_slots.expect("slots can only be used inside components");
+
+    let name = format_ident!("{}", slot.key.to_string().trim().replacen("slot:", "", 1));
+    let component_name = ident_from_tag_name(&node.name);
+    let span = node.name.span();
+
+    let attrs = node.attributes.iter().filter_map(|node| {
+        if let Node::Attribute(node) = node {
+            if is_slot(node) {
+                None
+            } else {
+                Some(node)
+            }
+        } else {
+            None
+        }
+    });
+
+    let props = attrs
+        .clone()
+        .filter(|attr| !attr.key.to_string().starts_with("clone:"))
+        .map(|attr| {
+            let name = &attr.key;
+
+            let value = attr
+                .value
+                .as_ref()
+                .map(|v| {
+                    let v = v.as_ref();
+                    quote! { #v }
+                })
+                .unwrap_or_else(|| quote! { #name });
+
+            quote! {
+                .#name(#[allow(unused_braces)] #value)
+            }
+        });
+
+    let items_to_clone = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("clone:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
+
+    let children = if node.children.is_empty() {
+        quote! {}
+    } else {
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let marker = format!("<{component_name}/>-children");
+                let view_marker = quote! { .with_view_marker(#marker) };
+            } else {
+                let view_marker = quote! {};
+            }
+        }
+
+        let children = fragment_to_tokens(
+            cx,
+            span,
+            &node.children,
+            true,
+            TagType::Unknown,
+            None,
+            global_class,
+            None,
+        );
+
+        let clonables = items_to_clone
+            .iter()
+            .map(|ident| quote! { let #ident = #ident.clone(); });
+
+        quote! {
+            .children({
+                #(#clonables)*
+
+                Box::new(move |#cx| #children #view_marker)
+            })
+        }
+    };
+
+    parent_slots.push(quote! {
+        .#name(
+            #component_name::builder()
+                #(#props)*
+                #children
+                .build()
+        )
+    });
+
+    quote! { () }
+}
+
 pub(crate) fn component_to_tokens(
     cx: &Ident,
     node: &NodeElement,
@@ -1193,6 +1343,8 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
+    let mut slots = Vec::new();
+
     let children = if node.children.is_empty() {
         quote! {}
     } else {
@@ -1211,6 +1363,7 @@ pub(crate) fn component_to_tokens(
             &node.children,
             true,
             TagType::Unknown,
+            Some(&mut slots),
             global_class,
             None,
         );
@@ -1233,6 +1386,7 @@ pub(crate) fn component_to_tokens(
             #cx,
             ::leptos::component_props_builder(&#name)
                 #(#props)*
+                #(#slots)*
                 #children
                 .build()
         )
@@ -1318,6 +1472,24 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
         syn::Expr::Path(path) => Some(path),
         _ => None,
     }
+}
+
+fn is_slot(node: &NodeAttribute) -> bool {
+    node.key.to_string().trim().starts_with("slot:")
+}
+
+fn get_slot(node: &NodeElement) -> Option<&NodeAttribute> {
+    node.attributes.iter().find_map(|node| {
+        if let Node::Attribute(node) = node {
+            if is_slot(node) {
+                Some(node)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    })
 }
 
 fn is_custom_element(tag: &str) -> bool {
