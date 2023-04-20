@@ -1,35 +1,39 @@
 use leptos::*;
 
 #[derive(::leptos::typed_builder::TypedBuilder)]
-struct Slot {
-    #[builder(default, setter(strip_option))]
-    children: Option<Children>,
+struct Then {
+    children: Box<dyn Fn(Scope) -> Fragment>,
+}
+
+#[derive(::leptos::typed_builder::TypedBuilder)]
+struct Else {
+    children: Box<dyn Fn(Scope) -> Fragment>,
 }
 
 #[component]
-fn Slottable(
-    cx: Scope,
-    slot: Slot,
-    #[prop(optional)] children: Option<Children>,
-) -> impl IntoView {
-    let _children = children;
-
-    view! { cx,
-        {if let Some(children) = slot.children {
-            (children)(cx).into_view(cx)
+fn SlotIf<C>(cx: Scope, cond: C, then: Then, else_: Else) -> impl IntoView
+where
+    C: Fn() -> bool + 'static,
+{
+    move || {
+        if (cond)() {
+            (then.children)(cx)
         } else {
-            ().into_view(cx)
-        }}
+            (else_.children)(cx)
+        }
     }
 }
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
+    let (toggle, set_toggle) = create_signal(cx, false);
+
     view! { cx,
-        <Slottable>
-            <Slot slot:slot>
-                <h1>"Hello, World!"</h1>
-            </Slot>
-        </Slottable>
+        <button on:click=move |_| set_toggle.update(|value| *value = !*value)>"Toggle"</button>
+
+        <SlotIf cond=toggle>
+            <Then slot:then>" True"</Then>
+            <Else slot:else_>" False"</Else>
+        </SlotIf>
     }
 }

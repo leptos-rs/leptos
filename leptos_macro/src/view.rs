@@ -149,14 +149,16 @@ pub(crate) fn render_view(
     global_class: Option<&TokenTree>,
     call_site: Option<String>,
 ) -> TokenStream {
+    let empty = {
+        let span = Span::call_site();
+        quote_spanned! {
+            span => leptos::leptos_dom::Unit
+        }
+    };
+
     if mode == Mode::Ssr {
         match nodes.len() {
-            0 => {
-                let span = Span::call_site();
-                quote_spanned! {
-                    span => leptos::leptos_dom::Unit
-                }
-            }
+            0 => empty,
             1 => {
                 root_node_to_tokens_ssr(cx, &nodes[0], global_class, call_site)
             }
@@ -170,12 +172,7 @@ pub(crate) fn render_view(
         }
     } else {
         match nodes.len() {
-            0 => {
-                let span = Span::call_site();
-                quote_spanned! {
-                    span => leptos::leptos_dom::Unit
-                }
-            }
+            0 => empty,
             1 => node_to_tokens(
                 cx,
                 &nodes[0],
@@ -183,7 +180,8 @@ pub(crate) fn render_view(
                 None,
                 global_class,
                 call_site,
-            ),
+            )
+            .unwrap_or_default(),
             _ => fragment_to_tokens(
                 cx,
                 Span::call_site(),
@@ -193,7 +191,8 @@ pub(crate) fn render_view(
                 None,
                 global_class,
                 call_site,
-            ),
+            )
+            .unwrap_or(empty),
         }
     }
 }
@@ -228,6 +227,7 @@ fn root_node_to_tokens_ssr(
         }
         Node::Element(node) => {
             root_element_to_tokens_ssr(cx, node, global_class, view_marker)
+                .unwrap_or_default()
         }
     }
 }
@@ -265,12 +265,12 @@ fn root_element_to_tokens_ssr(
     node: &NodeElement,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             slot_to_tokens(cx, node, slot, None, global_class)
         } else {
-            component_to_tokens(cx, node, global_class)
+            Some(component_to_tokens(cx, node, global_class))
         }
     } else {
         let mut exprs_for_compiler = Vec::<TokenStream>::new();
@@ -355,12 +355,12 @@ fn root_element_to_tokens_ssr(
         } else {
             quote! {}
         };
-        quote! {
+        Some(quote! {
         {
             #(#exprs_for_compiler)*
             ::leptos::HtmlElement::from_chunks(#cx, #full_name, [#(#chunks),*])#view_marker
         }
-        }
+        })
     }
 }
 
@@ -385,11 +385,12 @@ fn element_to_tokens_ssr(
     global_class: Option<&TokenTree>,
 ) {
     if is_component_node(node) {
-        let component = if let Some(slot) = get_slot(node) {
-            slot_to_tokens(cx, node, slot, parent_slots, global_class)
-        } else {
-            component_to_tokens(cx, node, global_class)
-        };
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, parent_slots, global_class);
+            return;
+        }
+
+        let component = component_to_tokens(cx, node, global_class);
 
         if !template.is_empty() {
             chunks.push(SsrElementChunks::String {
@@ -739,24 +740,35 @@ fn fragment_to_tokens(
     parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
     let mut slots = Vec::new();
     let has_slots = parent_slots.is_some();
 
-    let nodes = nodes.iter().map(|node| {
-        let node = node_to_tokens(
-            cx,
-            node,
-            parent_type,
-            if has_slots { Some(&mut slots) } else { None },
-            global_class,
-            None,
-        );
+    let mut nodes = nodes
+        .iter()
+        .filter_map(|node| {
+            let node = node_to_tokens(
+                cx,
+                node,
+                parent_type,
+                if has_slots { Some(&mut slots) } else { None },
+                global_class,
+                None,
+            )?;
 
-        quote! {
-            #node.into_view(#cx)
+            Some(quote! {
+                #node.into_view(#cx)
+            })
+        })
+        .peekable();
+
+    if nodes.peek().is_none() {
+        _ = nodes.collect::<Vec<_>>();
+        if let Some(parent_slots) = parent_slots {
+            parent_slots.append(&mut slots);
         }
-    });
+        return None;
+    }
 
     let view_marker = if let Some(marker) = view_marker {
         quote! { .with_view_marker(#marker) }
@@ -788,7 +800,7 @@ fn fragment_to_tokens(
         parent_slots.append(&mut slots);
     }
 
-    tokens
+    Some(tokens)
 }
 
 fn node_to_tokens(
@@ -798,7 +810,7 @@ fn node_to_tokens(
     parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
             cx,
@@ -810,18 +822,20 @@ fn node_to_tokens(
             global_class,
             view_marker,
         ),
-        Node::Comment(_) | Node::Doctype(_) => quote! {},
+        Node::Comment(_) | Node::Doctype(_) => Some(quote! {}),
         Node::Text(node) => {
             let value = node.value.as_ref();
-            quote! {
+            Some(quote! {
                 leptos::leptos_dom::html::text(#value)
-            }
+            })
         }
         Node::Block(node) => {
             let value = node.value.as_ref();
-            quote! { #value }
+            Some(quote! { #value })
         }
-        Node::Attribute(node) => attribute_to_tokens(cx, node, global_class),
+        Node::Attribute(node) => {
+            Some(attribute_to_tokens(cx, node, global_class))
+        }
         Node::Element(node) => element_to_tokens(
             cx,
             node,
@@ -840,12 +854,12 @@ fn element_to_tokens(
     parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             slot_to_tokens(cx, node, slot, parent_slots, global_class)
         } else {
-            component_to_tokens(cx, node, global_class)
+            Some(component_to_tokens(cx, node, global_class))
         }
     } else {
         let tag = node.name.to_string();
@@ -929,7 +943,13 @@ fn element_to_tokens(
                         None,
                         global_class,
                         None,
-                    ),
+                    )
+                    .unwrap_or({
+                        let span = Span::call_site();
+                        quote_spanned! {
+                            span => leptos::leptos_dom::Unit
+                        }
+                    }),
                     false,
                 ),
                 Node::Text(node) => {
@@ -966,7 +986,8 @@ fn element_to_tokens(
                         None,
                         global_class,
                         None,
-                    ),
+                    )
+                    .unwrap_or_default(),
                     false,
                 ),
                 Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
@@ -988,14 +1009,14 @@ fn element_to_tokens(
         } else {
             quote! {}
         };
-        quote! {
+        Some(quote! {
             #name
                 #(#attrs)*
                 #(#class_attrs)*
                 #global_class_expr
                 #(#children)*
                 #view_marker
-        }
+        })
     }
 }
 
@@ -1184,11 +1205,14 @@ pub(crate) fn slot_to_tokens(
     slot: &NodeAttribute,
     parent_slots: Option<&mut Vec<TokenStream>>,
     global_class: Option<&TokenTree>,
-) -> TokenStream {
+) -> Option<TokenStream> {
     let parent_slots =
         parent_slots.expect("slots can only be used inside components");
 
-    let name = format_ident!("{}", slot.key.to_string().trim().replacen("slot:", "", 1));
+    let name = format_ident!(
+        "{}",
+        slot.key.to_string().trim().replacen("slot:", "", 1)
+    );
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
 
@@ -1257,29 +1281,35 @@ pub(crate) fn slot_to_tokens(
             None,
         );
 
-        let clonables = items_to_clone
-            .iter()
-            .map(|ident| quote! { let #ident = #ident.clone(); });
+        if let Some(children) = children {
+            let clonables = items_to_clone
+                .iter()
+                .map(|ident| quote! { let #ident = #ident.clone(); });
 
-        quote! {
-            .children({
-                #(#clonables)*
+            quote! {
+                .children({
+                    #(#clonables)*
 
-                Box::new(move |#cx| #children #view_marker)
-            })
+                    Box::new(move |#cx| #children #view_marker)
+                })
+            }
+        } else {
+            quote! {}
         }
     };
 
-    parent_slots.push(quote! {
+    let a = quote! {
         .#name(
             #component_name::builder()
                 #(#props)*
                 #children
                 .build()
         )
-    });
+    };
 
-    quote! { () }
+    parent_slots.push(a);
+
+    None
 }
 
 pub(crate) fn component_to_tokens(
@@ -1368,16 +1398,20 @@ pub(crate) fn component_to_tokens(
             None,
         );
 
-        let clonables = items_to_clone
-            .iter()
-            .map(|ident| quote! { let #ident = #ident.clone(); });
+        if let Some(children) = children {
+            let clonables = items_to_clone
+                .iter()
+                .map(|ident| quote! { let #ident = #ident.clone(); });
 
-        quote! {
-            .children({
-                #(#clonables)*
+            quote! {
+                .children({
+                    #(#clonables)*
 
-                Box::new(move |#cx| #children #view_marker)
-            })
+                    Box::new(move |#cx| #children #view_marker)
+                })
+            }
+        } else {
+            quote! {}
         }
     };
 
