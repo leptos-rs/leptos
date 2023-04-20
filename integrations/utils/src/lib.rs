@@ -7,7 +7,7 @@ extern crate tracing;
 
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 fn autoreload(options: &LeptosOptions) -> String {
     let site_ip = &options.site_addr.ip().to_string();
@@ -47,7 +47,7 @@ fn autoreload(options: &LeptosOptions) -> String {
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn html_parts(
     options: &LeptosOptions,
@@ -85,7 +85,7 @@ pub fn html_parts(
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn html_parts_separated(
     options: &LeptosOptions,
@@ -129,7 +129,7 @@ pub fn html_parts_separated(
 
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    tracing::instrument(level = "info", skip_all,)
 )]
 pub async fn build_async_response(
     stream: impl Stream<Item = String> + 'static,

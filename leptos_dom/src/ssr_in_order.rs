@@ -58,7 +58,7 @@ pub fn render_to_stream_in_order(
 /// after the `view` is rendered, but before `<Suspense/>` nodes have resolved.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream_in_order_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
@@ -84,7 +84,7 @@ pub fn render_to_stream_in_order_with_prefix(
 /// after the `view` is rendered, but before `<Suspense/>` nodes have resolved.
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     view: impl FnOnce(Scope) -> View + 'static,
@@ -162,7 +162,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
 
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 #[async_recursion(?Send)]
 async fn handle_blocking_chunks(
@@ -206,7 +206,7 @@ async fn handle_blocking_chunks(
 
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 #[async_recursion(?Send)]
 async fn handle_chunks(
@@ -237,11 +237,11 @@ impl View {
     /// Renders the view into a set of HTML chunks that can be streamed.
     #[cfg_attr(
         any(debug_assertions, feature="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
         )]
         #[cfg_attr(
             any(debug_assertions, feature="ssr"),
-            instrument(level = "info", skip_all,)
+            instrument(level = "trace", skip_all,)
             )]
         pub fn into_stream_chunks(self, cx: Scope) -> VecDeque<StreamChunk> {
         let mut chunks = VecDeque::new();
@@ -250,7 +250,7 @@ impl View {
     }
     #[cfg_attr(
         any(debug_assertions, feature="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
         )]
     fn into_stream_chunks_helper(
         self,

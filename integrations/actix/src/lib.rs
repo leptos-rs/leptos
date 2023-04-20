@@ -27,7 +27,7 @@ use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
 use std::sync::Arc;
-
+use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -100,7 +100,7 @@ impl ResponseOptions {
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn redirect(cx: leptos::Scope, path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>(cx) {
@@ -153,7 +153,7 @@ pub fn redirect(cx: leptos::Scope, path: &str) {
 /// - [HttpRequest](actix_web::HttpRequest)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn handle_server_fns() -> Route {
     handle_server_fns_with_context(|_cx| {})
@@ -176,7 +176,7 @@ pub fn handle_server_fns() -> Route {
 /// - [HttpRequest](actix_web::HttpRequest)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn handle_server_fns_with_context(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -351,7 +351,7 @@ pub fn handle_server_fns_with_context(
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
@@ -420,7 +420,7 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
@@ -487,7 +487,7 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
@@ -513,7 +513,7 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
@@ -558,7 +558,7 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
@@ -605,7 +605,7 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
@@ -741,7 +741,7 @@ where
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 fn provide_contexts(
     cx: leptos::Scope,
@@ -769,7 +769,7 @@ fn leptos_corrected_path(req: &HttpRequest) -> String {
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 async fn stream_app(
     options: &LeptosOptions,
@@ -788,7 +788,7 @@ async fn stream_app(
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 async fn stream_app_in_order(
     options: &LeptosOptions,
@@ -809,7 +809,7 @@ async fn stream_app_in_order(
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 async fn build_stream_response(
     options: &LeptosOptions,
@@ -862,7 +862,7 @@ async fn build_stream_response(
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 async fn render_app_async_helper(
     options: &LeptosOptions,
@@ -998,7 +998,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn leptos_routes<IV>(
         self,
@@ -1013,7 +1013,7 @@ where
     }
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn leptos_preloaded_data_routes<Data, Fut, IV>(
         self,
@@ -1044,7 +1044,7 @@ where
     }
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn leptos_routes_with_context<IV>(
         self,

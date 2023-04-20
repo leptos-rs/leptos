@@ -968,7 +968,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 }
 
 impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
-    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
+    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
     #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
     fn into_view(self, _: Scope) -> View {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1013,7 +1013,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
 impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "[HtmlElement; N]", skip_all)
+        instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
@@ -1141,7 +1141,7 @@ macro_rules! generate_html_tags {
       #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-          level = "info",
+          level = "trace",
           name = "HtmlElement",
           skip_all,
           fields(

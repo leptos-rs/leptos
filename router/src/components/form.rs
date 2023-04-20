@@ -12,7 +12,7 @@ type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
 /// enhanced to use client-side routing.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
 pub fn Form<A>(
@@ -190,7 +190,7 @@ where
 /// progressively enhanced to use client-side routing.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
 pub fn ActionForm<I, O>(
@@ -315,7 +315,7 @@ where
 /// progressively enhanced to use client-side routing.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
 pub fn MultiActionForm<I, O>(
@@ -385,7 +385,7 @@ where
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 fn extract_form_attributes(
     ev: &web_sys::Event,
@@ -516,7 +516,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     fn from_event(
         ev: &web_sys::Event,
@@ -529,7 +529,7 @@ where
     }
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     fn from_form_data(
         form_data: &web_sys::FormData,

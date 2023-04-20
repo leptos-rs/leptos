@@ -96,7 +96,7 @@ where
     /// Calls the `async` function with a reference to the input type as its argument.
     #[cfg_attr(
         any(debug_assertions, features = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
         self.0.with_value(|a| a.dispatch(input))
@@ -105,7 +105,7 @@ where
     /// The set of all submissions to this multi-action.
     #[cfg_attr(
         any(debug_assertions, features = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
         self.0.with_value(|a| a.submissions())
@@ -120,7 +120,7 @@ where
     /// How many times an action has successfully resolved.
     #[cfg_attr(
         any(debug_assertions, features = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn version(&self) -> RwSignal<usize> {
         self.0.with_value(|a| a.version)
@@ -130,7 +130,7 @@ where
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
     #[cfg_attr(
         any(debug_assertions, features = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         let prefix = T::prefix();
@@ -213,7 +213,7 @@ where
     /// Calls the `async` function with a reference to the input type as its argument.
     #[cfg_attr(
         any(debug_assertions, features = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
         let cx = self.cx;
@@ -305,7 +305,7 @@ where
 /// ```
 #[cfg_attr(
     any(debug_assertions, features = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn create_multi_action<I, O, F, Fu>(
     cx: Scope,
@@ -352,7 +352,7 @@ where
 /// ```
 #[cfg_attr(
     any(debug_assertions, features = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn create_server_multi_action<S>(
     cx: Scope,

@@ -49,7 +49,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -105,7 +105,7 @@ where
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -130,7 +130,7 @@ pub fn create_isomorphic_effect<T>(
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,

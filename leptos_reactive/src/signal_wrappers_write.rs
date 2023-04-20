@@ -140,7 +140,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             skip_all,
             fields(
                 cx = ?cx.id,
@@ -181,7 +181,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             skip_all,
             fields(
                 defined_at = %self.defined_at,

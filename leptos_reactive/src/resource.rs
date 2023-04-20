@@ -271,6 +271,18 @@ where
 /// # }
 /// # }).dispose();
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature="ssr"),
+    instrument(
+        level = "info",
+        skip_all,
+        fields(
+            scope = ?cx.id,
+            ty = %std::any::type_name::<T>(),
+            signal_ty = %std::any::type_name::<S>(),
+        )
+    )
+)]
 pub fn create_local_resource<S, T, Fu>(
     cx: Scope,
     source: impl Fn() -> S + 'static,
@@ -502,7 +514,7 @@ where
     /// Returns a signal that indicates whether the resource is currently loading.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub fn loading(&self) -> ReadSignal<bool> {
         with_runtime(self.runtime, |runtime| {
@@ -519,7 +531,7 @@ where
     /// Re-runs the async function with the current source data.
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub fn refetch(&self) {
         _ = with_runtime(self.runtime, |runtime| {
@@ -534,7 +546,7 @@ where
     #[cfg(any(feature = "ssr", doc))]
     #[cfg_attr(
         any(debug_assertions, feature ="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub async fn to_serialization_resolver(
         &self,
@@ -626,7 +638,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature ="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn clone(&self) -> Self {
         Self {
@@ -773,14 +785,14 @@ where
     }
     #[cfg_attr(
         any(debug_assertions, feature ="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub fn refetch(&self) {
         self.load(true);
     }
     #[cfg_attr(
         any(debug_assertions, feature ="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn load(&self, refetching: bool) {
         // doesn't refetch if already refetching
@@ -841,7 +853,7 @@ where
     }
     #[cfg_attr(
         any(debug_assertions, feature ="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub fn resource_to_serialization_resolver(
         &self,
@@ -905,7 +917,7 @@ where
     }
     #[cfg_attr(
         any(debug_assertions, feature ="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     fn to_serialization_resolver(
         &self,

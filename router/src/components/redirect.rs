@@ -16,7 +16,7 @@ use std::rc::Rc;
 /// using [provide_server_redirect].
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component]
 pub fn Redirect<P>(
@@ -80,7 +80,7 @@ impl std::fmt::Debug for ServerRedirectFunction {
 /// appropriate `Location` header.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn provide_server_redirect(cx: Scope, handler: impl Fn(&str) + 'static) {
     provide_context(

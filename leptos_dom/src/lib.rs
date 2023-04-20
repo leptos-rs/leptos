@@ -150,7 +150,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "ReadSignal<T>", skip_all)
+        instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(move || self.get()).into_view(cx)
@@ -163,7 +163,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "RwSignal<T>", skip_all)
+        instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(move || self.get()).into_view(cx)
@@ -176,7 +176,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "Memo<T>", skip_all)
+        instrument(level = "trace", name = "Memo<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(move || self.get()).into_view(cx)
@@ -189,7 +189,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "Signal<T>", skip_all)
+        instrument(level = "trace", name = "Signal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(move || self.get()).into_view(cx)
@@ -202,7 +202,7 @@ where
 {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", name = "MaybeSignal<T>", skip_all)
+        instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(move || self.get()).into_view(cx)
@@ -1008,6 +1008,10 @@ impl IntoView for String {
 }
 
 impl IntoView for &'static str {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
     #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         View::Text(Text::new(self.into()))
@@ -1018,6 +1022,10 @@ impl<V> IntoView for Vec<V>
 where
     V: IntoView,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
     fn into_view(self, cx: Scope) -> View {
         self.into_iter()
             .map(|v| v.into_view(cx))

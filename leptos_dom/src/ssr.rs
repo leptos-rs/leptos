@@ -231,7 +231,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 }
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 fn fragments_to_chunks(
     fragments: impl Stream<Item = (String, String)>,
@@ -275,7 +275,7 @@ impl View {
     }
     #[cfg_attr(
         any(debug_assertions, feature="ssr"),
-        instrument(level = "info", skip_all,)
+        instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn render_to_string_helper(self) -> Cow<'static, str> {
         match self {
@@ -556,7 +556,7 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
 }
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "trace", skip_all,)
 )]
 pub(crate) fn render_serializers(
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,

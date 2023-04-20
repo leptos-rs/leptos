@@ -89,7 +89,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Signal::get_untracked()",
             skip_all,
             fields(
@@ -111,7 +111,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Signal::try_get_untracked()",
             skip_all,
             fields(
@@ -135,7 +135,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Signal::with_untracked()",
             skip_all,
             fields(
@@ -161,7 +161,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Signal::try_with_untracked()",
             skip_all,
             fields(
@@ -214,7 +214,7 @@ impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Signal::with()",
             skip_all,
             fields(
@@ -234,7 +234,7 @@ impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Signal::try_with()",
             skip_all,
             fields(
@@ -340,7 +340,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             skip_all,
             fields(
                 cx = ?cx.id
@@ -608,7 +608,7 @@ impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "MaybeSignal::with()",
             skip_all,
             fields(ty = %std::any::type_name::<T>())
@@ -624,7 +624,7 @@ impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "MaybeSignal::try_with()",
             skip_all,
             fields(ty = %std::any::type_name::<T>())
@@ -713,7 +713,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "MaybeSignal::derive()",
             skip_all,
             fields(

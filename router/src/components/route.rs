@@ -13,7 +13,7 @@ thread_local! {
 /// the element it should display, and data that should be loaded alongside the route.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn Route<E, F, P>(
@@ -52,7 +52,7 @@ where
 /// redirects to `redirect_path` instead of displaying its `view`.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 #[component(transparent)]
 pub fn ProtectedRoute<P, E, F, C>(
@@ -100,7 +100,7 @@ where
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
+    tracing::instrument(level = "trace", skip_all,)
 )]
 pub(crate) fn define_route(
     cx: Scope,
@@ -154,7 +154,7 @@ pub struct RouteContext {
 impl RouteContext {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn new(
         cx: Scope,

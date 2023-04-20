@@ -74,7 +74,7 @@ impl std::fmt::Debug for RouterContextInner {
 impl RouterContext {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn new(
         cx: Scope,
@@ -203,7 +203,7 @@ impl RouterContext {
 impl RouterContextInner {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        tracing::instrument(level = "info", skip_all,)
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn navigate_from_route(
         self: Rc<Self>,

@@ -254,7 +254,7 @@ where
 /// This function always provides context values including the following types:
 /// - [RequestParts]
 /// - [ResponseOptions]
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -278,7 +278,7 @@ pub async fn handle_server_fns(
 /// This function always provides context values including the following types:
 /// - [RequestParts]
 /// - [ResponseOptions]
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -289,7 +289,7 @@ pub async fn handle_server_fns_with_context(
     handle_server_fns_inner(fn_name, headers, query, additional_context, req)
         .await
 }
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 async fn handle_server_fns_inner(
     fn_name: String,
     headers: HeaderMap,
@@ -624,10 +624,7 @@ where
             let (tx, rx) = futures::channel::mpsc::channel(8);
 
             let current_span = tracing::Span::current();
-            println!("OUTER SPAN: {current_span:#?}");
             local_pool.spawn_pinned(move || async move {
-                let current_span2 = tracing::Span::current();
-                println!("INNER SPAN: {current_span2:#?}");
                 let app = {
                     // Need to get the path and query string of the Request
                     // For reasons that escape me, if the incoming URI protocol is https, it provides the absolute URI
@@ -841,7 +838,7 @@ where
         })
     }
 }
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn provide_contexts<B: 'static + std::fmt::Debug + std::default::Default>(
     cx: Scope,
     path: String,
@@ -1040,7 +1037,7 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
-#[tracing::instrument(level = "info", fields(error), skip_all)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
 ) -> Vec<(String, SsrMode)>
@@ -1204,7 +1201,7 @@ impl LeptosRoutes for axum::Router {
 }
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
-    instrument(level = "info", skip_all,)
+    instrument(level = "info")
   )]
 fn get_leptos_pool() -> LocalPoolHandle {
     static LOCAL_POOL: OnceLock<LocalPoolHandle> = OnceLock::new();

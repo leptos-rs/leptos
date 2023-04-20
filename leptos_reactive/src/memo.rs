@@ -64,7 +64,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 #[cfg_attr(
     any(debug_assertions, feature="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -185,7 +185,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::get_untracked()",
             skip_all,
             fields(
@@ -212,7 +212,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::try_get_untracked()",
             skip_all,
             fields(
@@ -232,7 +232,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::with_untracked()",
             skip_all,
             fields(
@@ -260,7 +260,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::try_with_untracked()",
             skip_all,
             fields(
@@ -301,7 +301,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
         any(debug_assertions, feature = "ssr"),
         instrument(
             name = "Memo::get()",
-            level = "info",
+            level = "trace",
             skip_all,
             fields(
                 id = ?self.id,
@@ -319,7 +319,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::try_get()",
             skip_all,
             fields(
@@ -340,7 +340,7 @@ impl<T> SignalWith<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::with()",
             skip_all,
             fields(
@@ -364,7 +364,7 @@ impl<T> SignalWith<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::try_with()",
             skip_all,
             fields(
@@ -395,7 +395,7 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "Memo::to_stream()",
             skip_all,
             fields(

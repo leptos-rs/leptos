@@ -335,7 +335,7 @@ pub trait SignalDispose {
 #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -357,7 +357,7 @@ pub fn create_signal<T>(
 #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -377,7 +377,7 @@ pub fn create_many_signals<T>(
 #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -407,7 +407,7 @@ where
 #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             scope = ?cx.id,
@@ -505,7 +505,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::get_untracked()",
             skip_all,
             fields(
@@ -532,7 +532,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::try_get_untracked()",
             skip_all,
             fields(
@@ -556,7 +556,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::with_untracked()",
             skip_all,
             fields(
@@ -574,7 +574,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::try_with_untracked()",
             skip_all,
             fields(
@@ -620,7 +620,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::with()",
             skip_all,
             fields(
@@ -651,7 +651,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::try_with()",
             skip_all,
             fields(
@@ -691,7 +691,7 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::get()",
             skip_all,
             fields(
@@ -721,7 +721,7 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::try_get()",
             skip_all,
             fields(
@@ -740,7 +740,7 @@ impl<T: Clone> SignalStream<T> for ReadSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "ReadSignal::to_stream()",
             skip_all,
             fields(
@@ -873,7 +873,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "WriteSignal::set_untracked()",
             skip_all,
             fields(
@@ -891,7 +891,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "WriteSignal::try_set_untracked()",
             skip_all,
             fields(
@@ -915,7 +915,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "WriteSignal::updated_untracked()",
             skip_all,
             fields(
@@ -933,7 +933,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "WriteSignal::update_returning_untracked()",
             skip_all,
             fields(
@@ -981,7 +981,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
         any(debug_assertions, feature = "ssr"),
         instrument(
             name = "WriteSignal::update()",
-            level = "info",
+            level = "trace",
             skip_all,
             fields(
                 id = ?self.id,
@@ -1004,7 +1004,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
         any(debug_assertions, feature = "ssr"),
         instrument(
             name = "WriteSignal::try_update()",
-            level = "info",
+            level = "trace",
             skip_all,
             fields(
                 id = ?self.id,
@@ -1040,7 +1040,7 @@ impl<T> SignalSet<T> for WriteSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "WriteSignal::set()",
             skip_all,
             fields(
@@ -1057,7 +1057,7 @@ impl<T> SignalSet<T> for WriteSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "WriteSignal::try_set()",
             skip_all,
             fields(
@@ -1115,7 +1115,7 @@ impl<T> Copy for WriteSignal<T> {}
 #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         skip_all,
         fields(
             ty = %std::any::type_name::<T>()
@@ -1196,7 +1196,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::get_untracked()",
             skip_all,
             fields(
@@ -1213,7 +1213,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_get_untracked()",
             skip_all,
             fields(
@@ -1242,7 +1242,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::with_untracked()",
             skip_all,
             fields(
@@ -1260,7 +1260,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_with_untracked()",
             skip_all,
             fields(
@@ -1288,7 +1288,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::set_untracked()",
             skip_all,
             fields(
@@ -1306,7 +1306,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_set_untracked()",
             skip_all,
             fields(
@@ -1330,7 +1330,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         name = "RwSignal::update_untracked()",
         skip_all,
         fields(
@@ -1348,7 +1348,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
  any(debug_assertions, features="ssr"),
     instrument(
-        level = "info",
+        level = "trace",
         name = "RwSignal::update_returning_untracked()",
         skip_all,
         fields(
@@ -1369,7 +1369,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_update_untracked()",
             skip_all,
             fields(
@@ -1411,7 +1411,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::with()",
             skip_all,
             fields(
@@ -1442,7 +1442,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_with()",
             skip_all,
             fields(
@@ -1483,7 +1483,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::get()",
             skip_all,
             fields(
@@ -1516,7 +1516,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_get()",
             skip_all,
             fields(
@@ -1563,7 +1563,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::update()",
             skip_all,
             fields(
@@ -1586,7 +1586,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_update()",
             skip_all,
             fields(
@@ -1618,7 +1618,7 @@ impl<T> SignalSet<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::set()",
             skip_all,
             fields(
@@ -1635,7 +1635,7 @@ impl<T> SignalSet<T> for RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::try_set()",
             skip_all,
             fields(
@@ -1699,7 +1699,7 @@ impl<T> RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::read_only()",
             skip_all,
             fields(
@@ -1737,7 +1737,7 @@ impl<T> RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::write_only()",
             skip_all,
             fields(
@@ -1774,7 +1774,7 @@ impl<T> RwSignal<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(
-            level = "info",
+            level = "trace",
             name = "RwSignal::split()",
             skip_all,
             fields(
