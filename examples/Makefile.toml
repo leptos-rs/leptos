@@ -1,0 +1,60 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+# Emulate workspace
+CARGO_MAKE_WORKSPACE_EMULATION = true
+
+CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
+    "counter",
+    "counter_isomorphic",
+    #"counters", - FIXME: test compile errors
+    "counters_stable",
+    "counter_without_macros",
+    "error_boundary",
+    "errors_axum",
+    "fetch",
+    "hackernews",
+    "hackernews_axum",
+    "login_with_token_csr_only",
+    "parent_child",
+    "router",
+    "session_auth_axum",
+    "ssr_modes",
+    "ssr_modes_axum",
+    "tailwind",
+    "tailwind_csr_trunk",
+    "todo_app_sqlite",
+    "todo_app_sqlite_axum",
+    "todo_app_sqlite_viz",
+    "todomvc",
+]
+
+[tasks.verify-flow]
+description = "Provides pre and post hooks for verify"
+dependencies = ["pre-verify-flow", "verify", "post-verify-flow"]
+
+[tasks.verify]
+description = "Run all quality checks and tests"
+dependencies = ["check-style", "test-unit-and-web"]
+
+[tasks.test-unit-and-web]
+description = "Run all unit and web tests"
+dependencies = ["test-flow", "web-test-flow"]
+
+[tasks.check-style]
+description = "Check for style violations"
+dependencies = ["check-format-flow", "clippy-flow"]
+
+[tasks.pre-verify-flow]
+
+[tasks.post-verify-flow]
+
+[tasks.web-test-flow]
+description = "Provides pre and post hooks for web-test"
+dependencies = ["pre-web-test-flow", "web-test", "post-web-test-flow"]
+
+[tasks.pre-web-test-flow]
+
+[tasks.web-test]
+
+[tasks.post-web-test-flow]
