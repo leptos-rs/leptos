@@ -659,7 +659,8 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///
 /// #[slot]
 /// struct HelloSlot {
-///     // Allows the slot to take children instead of just properties.
+///     // Same prop syntax as components.
+///     #[prop(optional)]
 ///     children: Option<Children>,
 /// }
 ///
@@ -667,10 +668,10 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// fn HelloComponent(
 ///     cx: Scope,
 ///     /// Component slot, should be passed through the <HelloSlot slot> syntax.
-///     slot: HelloSlot,
+///     hello_slot: HelloSlot,
 /// ) -> impl IntoView {
 ///     // mirror the children from the slot, if any were passed
-///     if let Some(children) = slot.children {
+///     if let Some(children) = hello_slot.children {
 ///         (children)(cx).into_view(cx)
 ///     } else {
 ///         ().into_view(cx)
@@ -697,27 +698,57 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///
 /// 3. Currently, event handlers cannot be specified directly on the slot.
 ///
-/// ```
+/// ```compile_error
 /// // ❌ This won't work
-/// view! {
-///     <ComponentWithSlot>
-///       <SlotWithChildren slot on:click=move |_| {...}>
-///         <h1>"Hello, World!"</h1>
-///       </SlotWithChildren>
-///     </ComponentWithSlot>
+/// # use leptos::*;
+/// 
+/// #[slot]
+/// struct SlotWithChildren {
+///     children: Children,
+/// }
+///
+/// #[component]
+/// fn ComponentWithSlot(cx: Scope, slot: SlotWithChildren) -> impl IntoView {
+///     (slot.children)(cx)
+/// }
+///
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///     view! { cx,
+///         <ComponentWithSlot>
+///           <SlotWithChildren slot:slot on:click=move |_| {}>
+///             <h1>"Hello, World!"</h1>
+///           </SlotWithChildren>
+///         </ComponentWithSlot>
+///     }
 /// }
 /// ```
 ///
 /// ```
 /// // ✅ Until fixed, do this instead
-/// view! {
-///     <ComponentWithSlot>
-///       <SlotWithChildren slot>
-///         <div on:click=move |_| {...}>
-///           <h1>"Hello, World!"</h1>
-///         </div>
-///       </SlotWithChildren>
-///     </ComponentWithSlot>
+/// # use leptos::*;
+/// 
+/// #[slot]
+/// struct SlotWithChildren {
+///     children: Children,
+/// }
+///
+/// #[component]
+/// fn ComponentWithSlot(cx: Scope, slot: SlotWithChildren) -> impl IntoView {
+///     (slot.children)(cx)
+/// }
+///
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///     view! { cx,
+///         <ComponentWithSlot>
+///           <SlotWithChildren slot:slot>
+///             <div on:click=move |_| {}>
+///               <h1>"Hello, World!"</h1>
+///             </div>
+///           </SlotWithChildren>
+///         </ComponentWithSlot>
+///     }
 /// }
 /// ```
 #[proc_macro_error::proc_macro_error]
