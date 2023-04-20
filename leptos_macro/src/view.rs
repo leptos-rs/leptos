@@ -734,6 +734,7 @@ fn set_class_attribute_ssr(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn fragment_to_tokens(
     cx: &Ident,
     _span: Span,
