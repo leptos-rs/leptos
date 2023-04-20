@@ -7,9 +7,10 @@ use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
-    FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaNameValue, Pat, PatIdent,
-    Path, PathArguments, ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote,
+    AngleBracketedGenericArguments, Attribute, ExprLit, FnArg, GenericArgument,
+    ItemFn, LitStr, Meta, MetaNameValue, Pat, PatIdent, Path, PathArguments,
+    ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -56,13 +57,12 @@ impl Parse for Model {
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
         drain_filter(&mut item.attrs, |attr| {
-            attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+            attr.path().is_ident("doc") || attr.path().is_ident("prop")
         });
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
                 drain_filter(&mut ty.attrs, |attr| {
-                    attr.path == parse_quote!(doc)
-                        || attr.path == parse_quote!(prop)
+                    attr.path().is_ident("doc") || attr.path().is_ident("prop")
                 });
             }
         });
@@ -303,7 +303,7 @@ impl Docs {
     fn new(attrs: &[Attribute]) -> Self {
         let attrs = attrs
             .iter()
-            .filter(|attr| attr.path == parse_quote!(doc))
+            .filter(|attr| attr.path().is_ident("doc"))
             .cloned()
             .collect();
 
@@ -315,30 +315,32 @@ impl Docs {
             .iter()
             .enumerate()
             .map(|(idx, attr)| {
-                match attr.parse_meta() {
-                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
-                        let doc_str = quote!(#doc);
+                if let Meta::NameValue(MetaNameValue {
+                                        value: syn::Expr::Lit(ExprLit { lit: doc, .. }),
+                                        ..
+                                    }) = &attr.meta {
+                    let doc_str = quote!(#doc);
 
-                        // We need to remove the leading and trailing `"`"
-                        let mut doc_str = doc_str.to_string();
-                        doc_str.pop();
-                        doc_str.remove(0);
+                    // We need to remove the leading and trailing `"`"
+                    let mut doc_str = doc_str.to_string();
+                    doc_str.pop();
+                    doc_str.remove(0);
 
-                        let doc_str = if idx == 0 {
-                            format!("    - {doc_str}")
-                        } else {
-                            format!("      {doc_str}")
-                        };
+                    let doc_str = if idx == 0 {
+                        format!("    - {doc_str}")
+                    } else {
+                        format!("      {doc_str}")
+                    };
 
-                        let docs = LitStr::new(&doc_str, doc.span());
+                    let docs = LitStr::new(&doc_str, doc.span());
 
-                        if !doc_str.is_empty() {
-                            quote! { #[doc = #docs] }
-                        } else {
-                            quote! {}
-                        }
+                    if !doc_str.is_empty() {
+                        quote! { #[doc = #docs] }
+                    } else {
+                        quote! {}
                     }
-                    _ => abort!(attr, "could not parse attributes"),
+                } else {
+                    abort!(attr, "could not parse attributes")
                 }
             })
             .collect()
@@ -350,17 +352,19 @@ impl Docs {
             .0
             .iter()
             .map(|attr| {
-                match attr.parse_meta() {
-                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
-                        let mut doc_str = quote!(#doc).to_string();
+                if let Meta::NameValue(MetaNameValue {
+                                        value: syn::Expr::Lit(ExprLit { lit: doc, .. }),
+                                        ..
+                                    }) = &attr.meta {
+                    let mut doc_str = quote!(#doc).to_string();
 
-                        // Remove the leading and trailing `"`
-                        doc_str.pop();
-                        doc_str.remove(0);
+                    // Remove the leading and trailing `"`
+                    doc_str.pop();
+                    doc_str.remove(0);
 
-                        doc_str
-                    }
-                    _ => abort!(attr, "could not parse attributes"),
+                    doc_str
+                } else {
+                    abort!(attr, "could not parse attributes")
                 }
             })
             .intersperse("\n".to_string())

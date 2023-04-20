@@ -1309,7 +1309,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
 fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
     match expr {
         syn::Expr::Block(block) => block.block.stmts.last().and_then(|stmt| {
-            if let syn::Stmt::Expr(expr) = stmt {
+            if let syn::Stmt::Expr(expr, None) = stmt {
                 expr_to_ident(expr)
             } else {
                 None

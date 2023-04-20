@@ -11,7 +11,7 @@ description = "The default implementation of the server_fn macro without a conte
 proc-macro = true
 
 [dependencies]
-syn = { version = "1", features = ["full"] }
+syn = { version = "2", features = ["full"] }
 server_fn_macro = { workspace = true }
 
 [dev-dependencies]
