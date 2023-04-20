@@ -10,11 +10,12 @@ description = "Router for the Leptos web framework."
 
 [dependencies]
 leptos = { workspace = true }
+cached = { optional = true }
 cfg-if = "1"
 common_macros = "0.1"
 gloo-net = { version = "0.2", features = ["http"] }
 lazy_static = "1"
-linear-map = {version = "1", features = ["serde_impl"]}
+linear-map = { version = "1", features = ["serde_impl"] }
 log = "0.4"
 regex = { version = "1", optional = true }
 url = { version = "2", optional = true }
@@ -26,6 +27,7 @@ tracing = "0.1"
 js-sys = { version = "0.3" }
 wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = { version = "0.4" }
+lru = { version = "0.10", optional = true }
 
 [dependencies.web-sys]
 version = "0.3"
@@ -56,7 +58,7 @@ features = [
 default = []
 csr = ["leptos/csr"]
 hydrate = ["leptos/hydrate"]
-ssr = ["leptos/ssr", "dep:url", "dep:regex"]
+ssr = ["leptos/ssr", "dep:cached", "dep:lru", "dep:url", "dep:regex"]
 stable = ["leptos/stable"]
 
 [package.metadata.cargo-all-features]
