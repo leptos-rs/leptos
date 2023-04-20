@@ -378,14 +378,14 @@ impl Docs {
 #[attribute(ident = prop)]
 struct PropOpt {
     #[attribute(conflicts = [optional_no_strip, strip_option])]
-    pub optional: bool,
+    optional: bool,
     #[attribute(conflicts = [optional, strip_option])]
-    pub optional_no_strip: bool,
+    optional_no_strip: bool,
     #[attribute(conflicts = [optional, optional_no_strip])]
-    pub strip_option: bool,
+    strip_option: bool,
     #[attribute(example = "5 * 10")]
-    pub default: Option<syn::Expr>,
-    pub into: bool,
+    default: Option<syn::Expr>,
+    into: bool,
 }
 
 struct TypedBuilderOpts {
