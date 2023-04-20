@@ -1,13 +1,13 @@
 use leptos::*;
 
-#[derive(::leptos::typed_builder::TypedBuilder)]
+#[slot]
 struct Then {
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: ChildrenFn,
 }
 
-#[derive(::leptos::typed_builder::TypedBuilder)]
+#[slot]
 struct Else {
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: ChildrenFn,
 }
 
 #[component]
