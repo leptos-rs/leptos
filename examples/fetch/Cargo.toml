@@ -8,13 +8,13 @@ codegen-units = 1
 lto = true
 
 [dependencies]
-anyhow = "1.0.58"
 leptos = { path = "../../leptos" }
-reqwasm = "0.5.0"
+reqwasm = "0.5"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
 console_log = "1"
-console_error_panic_hook = "0.1.7"
+console_error_panic_hook = "0.1"
+thiserror = "1"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "0.3"

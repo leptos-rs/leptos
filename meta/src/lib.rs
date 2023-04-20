@@ -59,7 +59,6 @@ use std::{
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-mod additional_attributes;
 mod body;
 mod html;
 mod link;
@@ -68,7 +67,6 @@ mod script;
 mod style;
 mod stylesheet;
 mod title;
-pub use additional_attributes::*;
 pub use body::*;
 pub use html::*;
 pub use link::*;
@@ -307,47 +305,6 @@ pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
         .and_then(|meta| meta.body.as_string())
         .unwrap_or_default();
     (head, format!("<body{body_meta}>"))
-}
-
-/// Describes a value that is either a static or a reactive string, i.e.,
-/// a [String], a [&str], or a reactive `Fn() -> String`.
-#[derive(Clone)]
-pub struct TextProp(Rc<dyn Fn() -> String>);
-
-impl TextProp {
-    #[inline(always)]
-    fn get(&self) -> String {
-        (self.0)()
-    }
-}
-
-impl Debug for TextProp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("TextProp").finish()
-    }
-}
-
-impl From<String> for TextProp {
-    fn from(s: String) -> Self {
-        TextProp(Rc::new(move || s.clone()))
-    }
-}
-
-impl From<&str> for TextProp {
-    fn from(s: &str) -> Self {
-        let s = s.to_string();
-        TextProp(Rc::new(move || s.clone()))
-    }
-}
-
-impl<F> From<F> for TextProp
-where
-    F: Fn() -> String + 'static,
-{
-    #[inline(always)]
-    fn from(s: F) -> Self {
-        TextProp(Rc::new(s))
-    }
 }
 
 #[cfg(debug_assertions)]

@@ -42,6 +42,6 @@ impl<'a> IntoIterator for &'a AdditionalAttributes {
     type IntoIter = AdditionalAttributesIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        todo!()
+        AdditionalAttributesIter(self.0.iter())
     }
 }

@@ -26,11 +26,11 @@ let b = create_resource(cx, count2, |count| async move { load_b(count).await });
 view! { cx,
     <h1>"My Data"</h1>
     {move || match (a.read(cx), b.read(cx)) {
-        _ => view! { cx, <p>"Loading..."</p> }.into_view(cx),
         (Some(a), Some(b)) => view! { cx,
             <ShowA a/>
             <ShowA b/>
-        }.into_view(cx)
+        }.into_view(cx),
+        _ => view! { cx, <p>"Loading..."</p> }.into_view(cx)
     }}
 }
 ```

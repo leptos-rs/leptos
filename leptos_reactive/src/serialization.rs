@@ -4,7 +4,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 /// Describes errors that can occur while serializing and deserializing data,
-/// typically during the process of streaming [Resource](crate::Resource)s from
+/// typically during the process of streaming [`Resource`](crate::Resource)s from
 /// the server to the client.
 #[derive(Debug, Clone, Error)]
 pub enum SerializationError {
@@ -19,7 +19,7 @@ pub enum SerializationError {
 /// Describes an object that can be serialized to or from a supported format
 /// Currently those are JSON and Cbor
 ///
-/// This is primarily used for serializing and deserializing [Resource](crate::Resource)s
+/// This is primarily used for serializing and deserializing [`Resource`](crate::Resource)s
 /// so they can begin on the server and be resolved on the client, but can be used
 /// for any data that needs to be serialized/deserialized.
 ///

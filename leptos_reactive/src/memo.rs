@@ -5,7 +5,6 @@ use crate::{
     SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
     SignalWithUntracked,
 };
-use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -21,7 +20,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 /// create a derived signal. But if the derivation calculation is expensive, you should
 /// create a memo.
 ///
-/// As with [create_effect](crate::create_effect), the argument to the memo function is the previous value,
+/// As with [`create_effect`](crate::create_effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
 ///
 /// ```
@@ -99,7 +98,7 @@ where
 /// create a derived signal. But if the derivation calculation is expensive, you should
 /// create a memo.
 ///
-/// As with [create_effect](crate::create_effect), the argument to the memo function is the previous value,
+/// As with [`create_effect`](crate::create_effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
 ///
 /// ## Core Trait Implementations

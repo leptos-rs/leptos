@@ -194,6 +194,11 @@ pub fn server_macro_impl(
         .map(|path| quote!(#path))
         .unwrap_or_else(|| quote! { server_fn });
 
+    let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
+        Some(_) => "SERVER_FN_OVERRIDE_KEY",
+        None => "CARGO_MANIFEST_DIR",
+    };
+
     Ok(quote::quote! {
         #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
@@ -208,7 +213,7 @@ pub fn server_macro_impl(
             }
 
             fn url() -> &'static str {
-                #server_fn_path::const_format::concatcp!(#fn_name_as_str, #server_fn_path::xxhash_rust::const_xxh64::xxh64(concat!(env!("CARGO_MANIFEST_DIR"), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
+                #server_fn_path::const_format::concatcp!(#fn_name_as_str, #server_fn_path::xxhash_rust::const_xxh64::xxh64(concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
             }
 
             fn encoding() -> #server_fn_path::Encoding {

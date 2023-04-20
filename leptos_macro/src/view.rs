@@ -393,6 +393,7 @@ fn element_to_tokens_ssr(
             .to_string()
             .replace("svg::", "")
             .replace("math::", "");
+        let is_script_or_style = tag_name == "script" || tag_name == "style";
         template.push('<');
         template.push_str(&tag_name);
 
@@ -406,6 +407,7 @@ fn element_to_tokens_ssr(
                     template,
                     holes,
                     exprs_for_compiler,
+                    global_class,
                 );
             }
         }
@@ -461,9 +463,16 @@ fn element_to_tokens_ssr(
                         }
                         Node::Text(text) => {
                             if let Some(value) = value_to_string(&text.value) {
-                                template.push_str(&html_escape::encode_safe(
-                                    &value,
-                                ));
+                                let value = if is_script_or_style {
+                                    value.into()
+                                } else {
+                                    html_escape::encode_safe(&value)
+                                };
+                                template.push_str(
+                                    &value
+                                        .replace('{', "{{")
+                                        .replace('}', "}}"),
+                                );
                             } else {
                                 template.push_str("{}");
                                 let value = text.value.as_ref();
@@ -513,14 +522,17 @@ fn attribute_to_tokens_ssr<'a>(
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
+    global_class: Option<&TokenTree>,
 ) -> Option<&'a NodeValueExpr> {
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         // ignore refs on SSR
-    } else if name.strip_prefix("on:").is_some() {
-        let (event_type, handler) = event_from_attribute_node(node, false);
+    } else if let Some(name) = name.strip_prefix("on:") {
+        let handler = attribute_value(node);
+        let (event_type, _, _) = parse_event_name(name);
+
         exprs_for_compiler.push(quote! {
-            leptos::leptos_dom::helpers::ssr_event_listener(#event_type, #handler);
+            leptos::leptos_dom::helpers::ssr_event_listener(::leptos::ev::#event_type, #handler);
         })
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
@@ -531,6 +543,18 @@ fn attribute_to_tokens_ssr<'a>(
         return node.value.as_ref();
     } else {
         let name = name.replacen("attr:", "", 1);
+
+        // special case of global_class and class attribute
+        if name == "class"
+            && global_class.is_some()
+            && node.value.as_ref().and_then(value_to_string).is_none()
+        {
+            let span = node.key.span();
+            proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
+            and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
+            toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+        };
 
         if name != "class" {
             template.push(' ');
@@ -763,7 +787,7 @@ fn node_to_tokens(
             let value = node.value.as_ref();
             quote! { #value }
         }
-        Node::Attribute(node) => attribute_to_tokens(cx, node),
+        Node::Attribute(node) => attribute_to_tokens(cx, node, global_class),
         Node::Element(node) => {
             element_to_tokens(cx, node, parent_type, global_class, view_marker)
         }
@@ -821,7 +845,7 @@ fn element_to_tokens(
                 if node.key.to_string().trim().starts_with("class:") {
                     None
                 } else {
-                    Some(attribute_to_tokens(cx, node))
+                    Some(attribute_to_tokens(cx, node, global_class))
                 }
             } else {
                 None
@@ -830,7 +854,7 @@ fn element_to_tokens(
         let class_attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
                 if node.key.to_string().trim().starts_with("class:") {
-                    Some(attribute_to_tokens(cx, node))
+                    Some(attribute_to_tokens(cx, node, global_class))
                 } else {
                     None
                 }
@@ -850,37 +874,67 @@ fn element_to_tokens(
             }
         };
         let children = node.children.iter().map(|node| {
-            let child = match node {
-                Node::Fragment(fragment) => fragment_to_tokens(
-                    cx,
-                    Span::call_site(),
-                    &fragment.children,
-                    true,
-                    parent_type,
-                    global_class,
-                    None,
+            let (child, is_static) = match node {
+                Node::Fragment(fragment) => (
+                    fragment_to_tokens(
+                        cx,
+                        Span::call_site(),
+                        &fragment.children,
+                        true,
+                        parent_type,
+                        global_class,
+                        None,
+                    ),
+                    false,
                 ),
                 Node::Text(node) => {
-                    let value = node.value.as_ref();
-                    quote! {
-                        #[allow(unused_braces)] #value
+                    if let Some(primitive) = value_to_string(&node.value) {
+                        (quote! { #primitive }, true)
+                    } else {
+                        let value = node.value.as_ref();
+                        (
+                            quote! {
+                                #[allow(unused_braces)] #value
+                            },
+                            false,
+                        )
                     }
                 }
                 Node::Block(node) => {
-                    let value = node.value.as_ref();
-                    quote! {
-                        #[allow(unused_braces)] #value
+                    if let Some(primitive) = value_to_string(&node.value) {
+                        (quote! { #primitive }, true)
+                    } else {
+                        let value = node.value.as_ref();
+                        (
+                            quote! {
+                                #[allow(unused_braces)] #value
+                            },
+                            false,
+                        )
                     }
                 }
-                Node::Element(node) => {
-                    element_to_tokens(cx, node, parent_type, global_class, None)
-                }
+                Node::Element(node) => (
+                    element_to_tokens(
+                        cx,
+                        node,
+                        parent_type,
+                        global_class,
+                        None,
+                    ),
+                    false,
+                ),
                 Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
-                    quote! {}
+                    (quote! {}, false)
                 }
             };
-            quote! {
-                .child((#cx, #child))
+            if is_static {
+                quote! {
+                    .child(#child)
+                }
+            } else {
+                quote! {
+                    .child((#cx, #child))
+                }
             }
         });
         let view_marker = if let Some(marker) = view_marker {
@@ -899,7 +953,11 @@ fn element_to_tokens(
     }
 }
 
-fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
+fn attribute_to_tokens(
+    cx: &Ident,
+    node: &NodeAttribute,
+    global_class: Option<&TokenTree>,
+) -> TokenStream {
     let span = node.key.span();
     let name = node.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
@@ -911,24 +969,9 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
         }
     } else if let Some(name) = name.strip_prefix("on:") {
         let handler = attribute_value(node);
-        let (name, is_force_undelegated) = parse_event(name);
 
-        let event_type = TYPED_EVENTS
-            .iter()
-            .find(|e| **e == name)
-            .copied()
-            .unwrap_or("Custom");
-        let is_custom = event_type == "Custom";
-
-        let Ok(event_type) = event_type.parse::<TokenStream>() else {
-            abort!(event_type, "couldn't parse event name");
-        };
-
-        let event_type = if is_custom {
-            quote! { Custom::new(#name) }
-        } else {
-            event_type
-        };
+        let (event_type, is_custom, is_force_undelegated) =
+            parse_event_name(name);
 
         let event_name_ident = match &node.key {
             NodeName::Punctuated(parts) => {
@@ -1025,6 +1068,18 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             return fancy;
         }
 
+        // special case of global_class and class attribute
+        if name == "class"
+            && global_class.is_some()
+            && node.value.as_ref().and_then(value_to_string).is_none()
+        {
+            let span = node.key.span();
+            proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
+            and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
+            toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
+            for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
+        };
+
         // all other attributes
         let value = match node.value.as_ref() {
             Some(value) => {
@@ -1034,6 +1089,7 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             }
             None => quote_spanned! { span => "" },
         };
+
         let attr = match &node.key {
             NodeName::Punctuated(parts) => Some(&parts[0]),
             _ => None,
@@ -1052,6 +1108,28 @@ fn attribute_to_tokens(cx: &Ident, node: &NodeAttribute) -> TokenStream {
             #attr(#name, (#cx, #value))
         }
     }
+}
+
+pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
+    let (name, is_force_undelegated) = parse_event(name);
+
+    let event_type = TYPED_EVENTS
+        .iter()
+        .find(|e| **e == name)
+        .copied()
+        .unwrap_or("Custom");
+    let is_custom = event_type == "Custom";
+
+    let Ok(event_type) = event_type.parse::<TokenStream>() else {
+            abort!(event_type, "couldn't parse event name");
+        };
+
+    let event_type = if is_custom {
+        quote! { Custom::new(#name) }
+    } else {
+        event_type
+    };
+    (event_type, is_custom, is_force_undelegated)
 }
 
 pub(crate) fn component_to_tokens(

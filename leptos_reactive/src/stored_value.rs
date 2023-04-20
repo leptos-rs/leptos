@@ -3,17 +3,17 @@ use crate::{with_runtime, RuntimeId, Scope, ScopeProperty};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 slotmap::new_key_type! {
-    /// Unique ID assigned to a [StoredValue].
+    /// Unique ID assigned to a [`StoredValue`].
     pub(crate) struct StoredValueId;
 }
 
-/// A **non-reactive** wrapper for any value, which can be created with [store_value].
+/// A **non-reactive** wrapper for any value, which can be created with [`store_value`].
 ///
-/// If you want a reactive wrapper, use [create_signal](crate::create_signal).
+/// If you want a reactive wrapper, use [`create_signal`](crate::create_signal).
 ///
 /// This allows you to create a stable reference for any value by storing it within
-/// the reactive system. Like the signal types (e.g., [ReadSignal](crate::ReadSignal)
-/// and [RwSignal](crate::RwSignal)), it is `Copy` and `'static`. Unlike the signal
+/// the reactive system. Like the signal types (e.g., [`ReadSignal`](crate::ReadSignal)
+/// and [`RwSignal`](crate::RwSignal)), it is `Copy` and `'static`. Unlike the signal
 /// types, it is not reactive; accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -43,7 +43,7 @@ impl<T> StoredValue<T> {
     /// to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
     ///
     /// # Examples
     /// ```
@@ -77,7 +77,7 @@ impl<T> StoredValue<T> {
     /// to this signal.
     ///
     /// # Panics
-    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
     ///
     /// # Examples
     /// ```
@@ -128,7 +128,7 @@ impl<T> StoredValue<T> {
     /// Applies a function to the current stored value.
     ///
     /// # Panics
-    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
     ///
     /// # Examples
     /// ```
@@ -155,7 +155,7 @@ impl<T> StoredValue<T> {
     /// Applies a function to the current stored value.
     ///
     /// # Panics
-    /// Panics if you try to access a value stored in a [Scope] that has been disposed.
+    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
     ///
     /// # Examples
     /// ```
@@ -375,8 +375,8 @@ impl<T> StoredValue<T> {
 /// Creates a **non-reactive** wrapper for any value by storing it within
 /// the reactive system.
 ///
-/// Like the signal types (e.g., [ReadSignal](crate::ReadSignal)
-/// and [RwSignal](crate::RwSignal)), it is `Copy` and `'static`. Unlike the signal
+/// Like the signal types (e.g., [`ReadSignal`](crate::ReadSignal)
+/// and [`RwSignal`](crate::RwSignal)), it is `Copy` and `'static`. Unlike the signal
 /// types, it is not reactive; accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
 /// ```compile_fail

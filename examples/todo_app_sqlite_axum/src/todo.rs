@@ -18,6 +18,7 @@ cfg_if! {
             _ = GetTodos::register();
             _ = AddTodo::register();
             _ = DeleteTodo::register();
+            _ = FormDataHandler::register();
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -106,6 +107,24 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
         .map_err(|e| ServerFnError::ServerError(e.to_string()))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct FormData {
+    hi: String
+}
+
+#[server(FormDataHandler, "/api")]
+pub async fn form_data(cx: Scope) -> Result<FormData, ServerFnError> {
+    use axum::extract::FromRequest;
+
+    let req = use_context::<leptos_axum::LeptosRequest<axum::body::Body>>(cx).and_then(|req| req.take_request()).unwrap();
+    if req.method() == http::Method::POST {
+        let form = axum::Form::from_request(req, &()).await.map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+        Ok(form.0)
+    } else {
+        Err(ServerFnError::ServerError("wrong form fields submitted".to_string()))
+    }
+}
+
 #[component]
 pub fn TodoApp(cx: Scope) -> impl IntoView {
     //let id = use_context::<String>(cx);
@@ -126,6 +145,23 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                             <Todos/>
                         </ErrorBoundary>
                     }/> //Route
+                    <Route path="weird" methods=&[Method::Get, Method::Post]
+                        ssr=SsrMode::Async 
+                        view=|cx| {
+                            let res = create_resource(cx, || (), move |_| async move {
+                                form_data(cx).await
+                            });
+                            view! { cx,
+                                <Suspense fallback=|| ()>
+                                    <pre>
+                                        {move || {
+                                            res.with(cx, |body| format!("{body:#?}"))
+                                        }}
+                                    </pre>
+                                </Suspense>
+                            }
+                        }
+                    />
                 </Routes>
             </main>
         </Router>
@@ -147,6 +183,10 @@ pub fn Todos(cx: Scope) -> impl IntoView {
 
     view! {
         cx,
+        <form method="POST" action="/weird">
+            <input type="text" name="hi" value="John"/>
+            <input type="submit"/>
+        </form>
         <div>
             <MultiActionForm action=add_todo>
                 <label>

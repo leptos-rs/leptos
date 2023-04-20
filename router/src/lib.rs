@@ -187,6 +187,7 @@
 #![cfg_attr(not(feature = "stable"), feature(negative_impls))]
 #![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
 
+mod animation;
 mod components;
 #[cfg(any(feature = "ssr", doc))]
 mod extract_routes;

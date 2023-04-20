@@ -1,4 +1,5 @@
 use linear_map::LinearMap;
+use serde::{Deserialize, Serialize};
 use std::{rc::Rc, str::FromStr};
 use thiserror::Error;
 
@@ -6,7 +7,7 @@ use thiserror::Error;
 // For now, implemented with a `LinearMap`, as `n` is small enough
 // that O(n) iteration over a vectorized map is (*probably*) more space-
 // and time-efficient than hashing and using an actual `HashMap`
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 #[repr(transparent)]
 pub struct ParamsMap(pub LinearMap<String, String>);
 
@@ -51,6 +52,9 @@ impl ParamsMap {
             buf.push('=');
             buf.push_str(&escape(v));
             buf.push('&');
+        }
+        if buf.len() > 1 {
+            buf.pop();
         }
         buf
     }
