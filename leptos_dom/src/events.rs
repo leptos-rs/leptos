@@ -86,13 +86,13 @@ pub(crate) fn add_event_listener_undelegated<E>(
 {
     cfg_if::cfg_if! {
       if #[cfg(debug_assertions)] {
-        leptos_reactive::SpecialNonReactiveZone::enter();
         let span = ::tracing::Span::current();
         let cb = Box::new(move |e| {
+          leptos_reactive::SpecialNonReactiveZone::enter();
           let _guard = span.enter();
           cb(e);
+          leptos_reactive::SpecialNonReactiveZone::exit();
         });
-        leptos_reactive::SpecialNonReactiveZone::exit();
       }
     }
 
