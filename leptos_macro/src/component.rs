@@ -7,10 +7,9 @@ use itertools::Itertools;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote,
-    AngleBracketedGenericArguments, Attribute, ExprLit, FnArg, GenericArgument,
-    ItemFn, LitStr, Meta, MetaNameValue, Pat, PatIdent, Path, PathArguments,
-    ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
+    ExprLit, FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaNameValue, Pat,
+    PatIdent, Path, PathArguments, ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -316,9 +315,10 @@ impl Docs {
             .enumerate()
             .map(|(idx, attr)| {
                 if let Meta::NameValue(MetaNameValue {
-                                        value: syn::Expr::Lit(ExprLit { lit: doc, .. }),
-                                        ..
-                                    }) = &attr.meta {
+                    value: syn::Expr::Lit(ExprLit { lit: doc, .. }),
+                    ..
+                }) = &attr.meta
+                {
                     let doc_str = quote!(#doc);
 
                     // We need to remove the leading and trailing `"`"
@@ -353,9 +353,10 @@ impl Docs {
             .iter()
             .map(|attr| {
                 if let Meta::NameValue(MetaNameValue {
-                                        value: syn::Expr::Lit(ExprLit { lit: doc, .. }),
-                                        ..
-                                    }) = &attr.meta {
+                    value: syn::Expr::Lit(ExprLit { lit: doc, .. }),
+                    ..
+                }) = &attr.meta
+                {
                     let mut doc_str = quote!(#doc).to_string();
 
                     // Remove the leading and trailing `"`
