@@ -1,4 +1,5 @@
 use crate::{attribute_value, Mode};
+use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
@@ -1209,10 +1210,20 @@ pub(crate) fn slot_to_tokens(
     let parent_slots =
         parent_slots.expect("slots can only be used inside components");
 
+    let name = slot.key.to_string();
+    let name = name.trim();
     let name = format_ident!(
         "{}",
-        slot.key.to_string().trim().replacen("slot:", "", 1)
+        convert_to_snake_case(
+            if name.starts_with("slot:") {
+                name.replacen("slot:", "", 1)
+            } else {
+                node.name.to_string()
+            },
+            slot.key.span(),
+        )
     );
+
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
 
@@ -1509,7 +1520,9 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
 }
 
 fn is_slot(node: &NodeAttribute) -> bool {
-    node.key.to_string().trim().starts_with("slot:")
+    let key = node.key.to_string();
+    let key = key.trim();
+    key == "slot" || key.starts_with("slot:")
 }
 
 fn get_slot(node: &NodeElement) -> Option<&NodeAttribute> {
@@ -1524,6 +1537,13 @@ fn get_slot(node: &NodeElement) -> Option<&NodeAttribute> {
             None
         }
     })
+}
+
+fn convert_to_snake_case(mut name: String, span: Span) -> Ident {
+    if !name.is_case(Snake) {
+        name = name.to_case(Snake);
+    }
+    Ident::new(&name, span)
 }
 
 fn is_custom_element(tag: &str) -> bool {
