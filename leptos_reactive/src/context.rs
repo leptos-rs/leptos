@@ -3,8 +3,8 @@
 use crate::{runtime::with_runtime, Scope};
 use std::any::{Any, TypeId};
 
-/// Provides a context value of type `T` to the current reactive [Scope](crate::Scope)
-/// and all of its descendants. This can be consumed using [use_context](crate::use_context).
+/// Provides a context value of type `T` to the current reactive [`Scope`](crate::Scope)
+/// and all of its descendants. This can be consumed using [`use_context`](crate::use_context).
 ///
 /// This is useful for passing values down to components or functions lower in a
 /// hierarchy without needs to “prop drill” by passing them through each layer as
@@ -27,7 +27,7 @@ use std::any::{Any, TypeId};
 /// #[component]
 /// pub fn Provider(cx: Scope) -> impl IntoView {
 ///     let (value, set_value) = create_signal(cx, 0);
-///     
+///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD
@@ -61,9 +61,9 @@ where
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
-/// it upwards, beginning from the current [Scope](crate::Scope) and iterating
+/// it upwards, beginning from the current [`Scope`](crate::Scope) and iterating
 /// through its parents, if any. The context value should have been provided elsewhere
-/// using [provide_context](crate::provide_context).
+/// using [`provide_context`](crate::provide_context).
 ///
 /// This is useful for passing values down to components or functions lower in a
 /// hierarchy without needs to “prop drill” by passing them through each layer as
@@ -86,7 +86,7 @@ where
 /// #[component]
 /// pub fn Provider(cx: Scope) -> impl IntoView {
 ///     let (value, set_value) = create_signal(cx, 0);
-///     
+///
 ///     // the newtype pattern isn't *necessary* here but is a good practice
 ///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
 ///     // and makes it easier to refer to it in ButtonD
@@ -139,4 +139,62 @@ where
     })
     .ok()
     .flatten()
+}
+
+/// Extracts a context value of type `T` from the reactive system by traversing
+/// it upwards, beginning from the current [Scope](crate::Scope) and iterating
+/// through its parents, if any. The context value should have been provided elsewhere
+/// using [provide_context](crate::provide_context).
+///
+/// This is useful for passing values down to components or functions lower in a
+/// hierarchy without needs to “prop drill” by passing them through each layer as
+/// arguments to a function or properties of a component.
+///
+/// Context works similarly to variable scope: a context that is provided higher in
+/// the component tree can be used lower down, but a context that is provided lower
+/// in the tree cannot be used higher up.
+///
+/// ```
+/// use leptos::*;
+///
+/// // define a newtype we'll provide as context
+/// // contexts are stored by their types, so it can be useful to create
+/// // a new type to avoid confusion with other `WriteSignal<i32>`s we may have
+/// // all types to be shared via context should implement `Clone`
+/// #[derive(Copy, Clone)]
+/// struct ValueSetter(WriteSignal<i32>);
+///
+/// #[component]
+/// pub fn Provider(cx: Scope) -> impl IntoView {
+///     let (value, set_value) = create_signal(cx, 0);
+///
+///     // the newtype pattern isn't *necessary* here but is a good practice
+///     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
+///     // and makes it easier to refer to it in ButtonD
+///     provide_context(cx, ValueSetter(set_value));
+///
+///     // because <Consumer/> is nested inside <Provider/>,
+///     // it has access to the provided context
+///     view! { cx, <div><Consumer/></div> }
+/// }
+///
+/// #[component]
+/// pub fn Consumer(cx: Scope) -> impl IntoView {
+///     // consume the provided context of type `ValueSetter` using `use_context`
+///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
+///     let set_value = expect_context::<ValueSetter>(cx).0;
+///
+///     todo!()
+/// }
+/// ```
+pub fn expect_context<T>(cx: Scope) -> T
+where
+    T: Clone + 'static,
+{
+    use_context(cx).unwrap_or_else(|| {
+        panic!(
+            "context of type {:?} to be present",
+            std::any::type_name::<T>()
+        )
+    })
 }

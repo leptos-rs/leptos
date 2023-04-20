@@ -14,7 +14,7 @@ use axum::{
         HeaderMap, Request, StatusCode,
     },
     response::IntoResponse,
-    routing::get,
+    routing::{delete, get, patch, post, put},
 };
 use futures::{
     channel::mpsc::{Receiver, Sender},
@@ -31,13 +31,9 @@ use leptos::{
 use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
+use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{
-    io,
-    pin::Pin,
-    sync::{Arc, OnceLock},
-    thread::available_parallelism,
-};
+use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 
@@ -323,14 +319,10 @@ async fn handle_server_fns_inner(
                     Encoding::Url | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,
                 };
-                match (server_fn.trait_obj)(cx, data).await {
+                let res = match (server_fn.trait_obj)(cx, data).await {
                     Ok(serialized) => {
                         // If ResponseOptions are set, add the headers and status to the request
                         let res_options = use_context::<ResponseOptions>(cx);
-
-                        // clean up the scope, which we only needed to run the server fn
-                        disposer.dispose();
-                        runtime.dispose();
 
                         // if this is Accept: application/json then send a serialized JSON response
                         let accept_header = headers
@@ -396,7 +388,11 @@ async fn handle_server_fns_inner(
                             serde_json::to_string(&e)
                                 .unwrap_or_else(|_| e.to_string()),
                         )),
-                }
+                };
+                // clean up the scope
+                disposer.dispose();
+                runtime.dispose();
+                res
             } else {
                 Response::builder().status(StatusCode::BAD_REQUEST).body(
                     Full::from(format!(
@@ -995,12 +991,12 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
-) -> Vec<(String, SsrMode)>
+) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
     #[derive(Default, Clone, Debug)]
-    pub struct Routes(pub Arc<RwLock<Vec<(String, SsrMode)>>>);
+    pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
 
     let routes = Routes::default();
     let routes_inner = routes.clone();
@@ -1024,17 +1020,26 @@ where
     // Axum's Router defines Root routes as "/" not ""
     let routes = routes
         .into_iter()
-        .map(|(s, m)| {
-            if s.is_empty() {
-                ("/".to_string(), m)
+        .map(|listing| {
+            let path = listing.path();
+            if path.is_empty() {
+                RouteListing::new(
+                    "/",
+                    Default::default(),
+                    [leptos_router::Method::Get],
+                )
             } else {
-                (s, m)
+                listing
             }
         })
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![("/".to_string(), Default::default())]
+        vec![RouteListing::new(
+            "/",
+            Default::default(),
+            [leptos_router::Method::Get],
+        )]
     } else {
         routes
     }
@@ -1046,7 +1051,7 @@ pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1055,7 +1060,7 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1064,7 +1069,7 @@ pub trait LeptosRoutes {
 
     fn leptos_routes_with_handler<H, T>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1077,7 +1082,7 @@ impl LeptosRoutes for axum::Router {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
@@ -1089,7 +1094,7 @@ impl LeptosRoutes for axum::Router {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1097,38 +1102,65 @@ impl LeptosRoutes for axum::Router {
         IV: IntoView + 'static,
     {
         let mut router = self;
-        for (path, mode) in paths.iter() {
-            router = router.route(
-                path,
-                match mode {
-                    SsrMode::OutOfOrder => {
-                        get(render_app_to_stream_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        ))
-                    }
-                    SsrMode::InOrder => {
-                        get(render_app_to_stream_in_order_with_context(
-                            options.clone(),
-                            additional_context.clone(),
-                            app_fn.clone(),
-                        ))
-                    }
-                    SsrMode::Async => get(render_app_async_with_context(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                    )),
-                },
-            );
+        for listing in paths.iter() {
+            let path = listing.path();
+
+            for method in listing.methods() {
+                router = router.route(
+                    path,
+                    match listing.mode() {
+                        SsrMode::OutOfOrder => {
+                            let s = render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::InOrder => {
+                            let s = render_app_to_stream_in_order_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::Async => {
+                            let s = render_app_async_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                    },
+                );
+            }
         }
         router
     }
 
     fn leptos_routes_with_handler<H, T>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1136,15 +1168,28 @@ impl LeptosRoutes for axum::Router {
         T: 'static,
     {
         let mut router = self;
-        for (path, _) in paths.iter() {
-            router = router.route(path, get(handler.clone()));
+        for listing in paths.iter() {
+            for method in listing.methods() {
+                router = router.route(
+                    listing.path(),
+                    match method {
+                        leptos_router::Method::Get => get(handler.clone()),
+                        leptos_router::Method::Post => post(handler.clone()),
+                        leptos_router::Method::Put => put(handler.clone()),
+                        leptos_router::Method::Delete => {
+                            delete(handler.clone())
+                        }
+                        leptos_router::Method::Patch => patch(handler.clone()),
+                    },
+                );
+            }
         }
         router
     }
 }
 
 fn get_leptos_pool() -> LocalPoolHandle {
-    static LOCAL_POOL: OnceLock<LocalPoolHandle> = OnceLock::new();
+    static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
     LOCAL_POOL
         .get_or_init(|| {
             tokio_util::task::LocalPoolHandle::new(

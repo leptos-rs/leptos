@@ -10,8 +10,8 @@ fn leptos_deep_creation(b: &mut Bencher) {
         create_scope(runtime, |cx| {
             let signal = create_rw_signal(cx, 0);
             let mut memos = Vec::<Memo<usize>>::new();
-            for i in 0..1000usize {
-                let prev = memos.get(i.saturating_sub(1)).copied();
+            for _ in 0..1000usize {
+                let prev = memos.last().copied();
                 if let Some(prev) = prev {
                     memos.push(create_memo(cx, move |_| prev.get() + 1));
                 } else {
@@ -34,9 +34,8 @@ fn leptos_deep_update(b: &mut Bencher) {
         create_scope(runtime, |cx| {
             let signal = create_rw_signal(cx, 0);
             let mut memos = Vec::<Memo<usize>>::new();
-            for i in 0..1000usize {
-                let prev = memos.get(i.saturating_sub(1)).copied();
-                if let Some(prev) = prev {
+            for _ in 0..1000usize {
+                if let Some(prev) = memos.last().copied() {
                     memos.push(create_memo(cx, move |_| prev.get() + 1));
                 } else {
                     memos.push(create_memo(cx, move |_| signal.get() + 1));
@@ -242,9 +241,8 @@ fn l021_deep_creation(b: &mut Bencher) {
         create_scope(runtime, |cx| {
             let signal = create_rw_signal(cx, 0);
             let mut memos = Vec::<Memo<usize>>::new();
-            for i in 0..1000usize {
-                let prev = memos.get(i.saturating_sub(1)).copied();
-                if let Some(prev) = prev {
+            for _ in 0..1000usize {
+                if let Some(prev) = memos.last().copied() {
                     memos.push(create_memo(cx, move |_| prev.get() + 1));
                 } else {
                     memos.push(create_memo(cx, move |_| signal.get() + 1));
@@ -266,9 +264,8 @@ fn l021_deep_update(b: &mut Bencher) {
         create_scope(runtime, |cx| {
             let signal = create_rw_signal(cx, 0);
             let mut memos = Vec::<Memo<usize>>::new();
-            for i in 0..1000usize {
-                let prev = memos.get(i.saturating_sub(1)).copied();
-                if let Some(prev) = prev {
+            for _ in 0..1000usize {
+                if let Some(prev) = memos.last().copied() {
                     memos.push(create_memo(cx, move |_| prev.get() + 1));
                 } else {
                     memos.push(create_memo(cx, move |_| signal.get() + 1));
@@ -444,9 +441,8 @@ fn sycamore_deep_creation(b: &mut Bencher) {
         let d = create_scope(|cx| {
             let signal = create_signal(cx, 0);
             let mut memos = Vec::<&ReadSignal<usize>>::new();
-            for i in 0..1000usize {
-                let prev = memos.get(i.saturating_sub(1)).copied();
-                if let Some(prev) = prev {
+            for _ in 0..1000usize {
+                if let Some(prev) = memos.last().copied() {
                     memos.push(create_memo(cx, move || *prev.get() + 1));
                 } else {
                     memos.push(create_memo(cx, move || *signal.get() + 1));
@@ -465,9 +461,8 @@ fn sycamore_deep_update(b: &mut Bencher) {
         let d = create_scope(|cx| {
             let signal = create_signal(cx, 0);
             let mut memos = Vec::<&ReadSignal<usize>>::new();
-            for i in 0..1000usize {
-                let prev = memos.get(i.saturating_sub(1)).copied();
-                if let Some(prev) = prev {
+            for _ in 0..1000usize {
+                if let Some(prev) = memos.last().copied() {
                     memos.push(create_memo(cx, move || *prev.get() + 1));
                 } else {
                     memos.push(create_memo(cx, move || *signal.get() + 1));

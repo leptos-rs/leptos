@@ -43,17 +43,20 @@ impl From<View> for Fragment {
 
 impl Fragment {
     /// Creates a new [`Fragment`] from a [`Vec<Node>`].
+    #[inline(always)]
     pub fn new(nodes: Vec<View>) -> Self {
         Self::new_with_id(HydrationCtx::id(), nodes)
     }
 
     /// Creates a new [`Fragment`] from a function that returns [`Vec<Node>`].
+    #[inline(always)]
     pub fn lazy(nodes: impl FnOnce() -> Vec<View>) -> Self {
         Self::new_with_id(HydrationCtx::id(), nodes())
     }
 
     /// Creates a new [`Fragment`] with the given hydration ID from a [`Vec<Node>`].
-    pub fn new_with_id(id: HydrationKey, nodes: Vec<View>) -> Self {
+    #[inline(always)]
+    pub const fn new_with_id(id: HydrationKey, nodes: Vec<View>) -> Self {
         Self {
             id,
             nodes,
@@ -63,11 +66,13 @@ impl Fragment {
     }
 
     /// Gives access to the [View] children contained within the fragment.
+    #[inline(always)]
     pub fn as_children(&self) -> &[View] {
         &self.nodes
     }
 
     /// Returns the fragment's hydration ID.
+    #[inline(always)]
     pub fn id(&self) -> &HydrationKey {
         &self.id
     }

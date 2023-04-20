@@ -141,6 +141,8 @@
 //! # }
 //! ```
 
+mod additional_attributes;
+pub use additional_attributes::*;
 pub use leptos_config::{self, get_configuration, LeptosOptions};
 #[cfg(not(all(
     target_arch = "wasm32",
@@ -180,7 +182,9 @@ pub use for_loop::*;
 pub use show::*;
 mod suspense;
 pub use suspense::*;
+mod text_prop;
 mod transition;
+pub use text_prop::TextProp;
 #[cfg(debug_assertions)]
 #[doc(hidden)]
 pub use tracing;
@@ -218,3 +222,21 @@ pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 /// }
 /// ```
 pub type AttributeValue = Box<dyn IntoAttribute>;
+
+#[doc(hidden)]
+pub trait Component<P> {}
+
+#[doc(hidden)]
+pub trait Props {
+    type Builder;
+    fn builder() -> Self::Builder;
+}
+
+impl<P, F, R> Component<P> for F where F: FnOnce(::leptos::Scope, P) -> R {}
+
+#[doc(hidden)]
+pub fn component_props_builder<P: Props>(
+    _f: &impl Component<P>,
+) -> <P as Props>::Builder {
+    <P as Props>::builder()
+}

@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
-    with_runtime, AnyComputation, RuntimeId, Scope, SignalDispose, SignalGet,
-    SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
+    with_runtime, AnyComputation, RuntimeId, Scope, ScopeProperty,
+    SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
+    SignalWithUntracked,
 };
-use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 
 /// Creates an efficient derived reactive value based on other reactive values.
@@ -20,7 +20,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
 /// create a derived signal. But if the derivation calculation is expensive, you should
 /// create a memo.
 ///
-/// As with [create_effect](crate::create_effect), the argument to the memo function is the previous value,
+/// As with [`create_effect`](crate::create_effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
 ///
 /// ```
@@ -72,6 +72,7 @@ use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
     )
 )]
 #[track_caller]
+#[inline(always)]
 pub fn create_memo<T>(
     cx: Scope,
     f: impl Fn(Option<&T>) -> T + 'static,
@@ -79,7 +80,9 @@ pub fn create_memo<T>(
 where
     T: PartialEq + 'static,
 {
-    cx.runtime.create_memo(f)
+    let memo = cx.runtime.create_memo(f);
+    cx.push_scope_property(ScopeProperty::Effect(memo.id));
+    memo
 }
 
 /// An efficient derived reactive value based on other reactive values.
@@ -95,7 +98,7 @@ where
 /// create a derived signal. But if the derivation calculation is expensive, you should
 /// create a memo.
 ///
-/// As with [create_effect](crate::create_effect), the argument to the memo function is the previous value,
+/// As with [`create_effect`](crate::create_effect), the argument to the memo function is the previous value,
 /// i.e., the current value of the memo, which will be `None` for the initial calculation.
 ///
 /// ## Core Trait Implementations
@@ -218,12 +221,9 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
             )
         )
     )]
+    #[inline(always)]
     fn try_get_untracked(&self) -> Option<T> {
-        with_runtime(self.runtime, move |runtime| {
-            self.id.try_with_no_subscription(runtime, T::clone).ok()
-        })
-        .ok()
-        .flatten()
+        self.try_with_untracked(T::clone)
     }
 }
 
@@ -269,6 +269,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
             )
         )
     )]
+    #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
             self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
@@ -309,6 +310,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn get(&self) -> T {
         self.with(T::clone)
     }
@@ -327,6 +329,7 @@ impl<T: Clone> SignalGet<T> for Memo<T> {
         )
     )]
     #[track_caller]
+    #[inline(always)]
     fn try_get(&self) -> Option<T> {
         self.try_with(T::clone)
     }
@@ -481,6 +484,8 @@ where
     }
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 fn format_memo_warning(
     msg: &str,
@@ -503,6 +508,8 @@ fn format_memo_warning(
     format!("{msg}\n{defined_at_msg}warning happened here: {location}",)
 }
 
+#[cold]
+#[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_memo(
     #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,

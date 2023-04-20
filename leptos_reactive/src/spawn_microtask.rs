@@ -7,7 +7,7 @@ use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
-        /// Exposes the [queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
+        /// Exposes the [`queueMicrotask`](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
         /// in the browser, and simply runs the given function when on the server.
         pub fn queue_microtask(task: impl FnOnce() + 'static) {
             microtask(wasm_bindgen::closure::Closure::once_into_js(task));
@@ -21,7 +21,7 @@ cfg_if! {
             fn microtask(task: wasm_bindgen::JsValue);
         }
     } else {
-        /// Exposes the [queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
+        /// Exposes the [`queueMicrotask`](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask) method
         /// in the browser, and simply runs the given function when on the server.
         pub fn queue_microtask(task: impl FnOnce() + 'static) {
             task();

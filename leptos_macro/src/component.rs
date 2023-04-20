@@ -137,6 +137,7 @@ impl ToTokens for Model {
         let lifetimes = body.sig.generics.lifetimes();
 
         let props_name = format_ident!("{name}Props");
+        let props_builder_name = format_ident!("{name}PropsBuilder");
         let trace_name = format!("<{name} />");
 
         let prop_builder_fields = prop_builder_fields(vis, props);
@@ -198,6 +199,13 @@ impl ToTokens for Model {
             #[builder(doc)]
             #vis struct #props_name #generics #where_clause {
                 #prop_builder_fields
+            }
+
+            impl #generics ::leptos::Props for #props_name #generics #where_clause {
+                type Builder = #props_builder_name #generics;
+                fn builder() -> Self::Builder {
+                    #props_name::builder()
+                }
             }
 
             #docs

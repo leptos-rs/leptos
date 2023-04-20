@@ -9,7 +9,7 @@ use std::{
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
-/// (as determined by [PartialEq].)
+/// (as determined by [`PartialEq`].)
 ///
 /// **You probably don’t need this,** but it can be a very useful optimization
 /// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
@@ -46,6 +46,7 @@ use std::{
 ///  # })
 ///  # .dispose()
 /// ```
+#[inline(always)]
 pub fn create_selector<T>(
     cx: Scope,
     source: impl Fn() -> T + Clone + 'static,
@@ -53,7 +54,7 @@ pub fn create_selector<T>(
 where
     T: PartialEq + Eq + Debug + Clone + Hash + 'static,
 {
-    create_selector_with_fn(cx, source, |a, b| a == b)
+    create_selector_with_fn(cx, source, PartialEq::eq)
 }
 
 /// Creates a conditional signal that only notifies subscribers when a change

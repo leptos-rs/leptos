@@ -35,6 +35,7 @@ use std::cell::Cell;
 ///     }
 /// }
 /// ```
+#[repr(transparent)]
 pub struct NodeRef<T: ElementDescriptor + 'static>(
     RwSignal<Option<HtmlElement<T>>>,
 );
@@ -70,6 +71,7 @@ pub struct NodeRef<T: ElementDescriptor + 'static>(
 ///     }
 /// }
 /// ```
+#[inline(always)]
 pub fn create_node_ref<T: ElementDescriptor + 'static>(
     cx: Scope,
 ) -> NodeRef<T> {
@@ -89,11 +91,24 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
     /// Initially, the value will be `None`, but once it is loaded the effect
     /// will rerun and its value will be `Some(Element)`.
     #[track_caller]
+    #[inline(always)]
     pub fn get(&self) -> Option<HtmlElement<T>>
     where
         T: Clone,
     {
         self.0.get()
+    }
+
+    /// Gets the element that is currently stored in the reference.
+    ///
+    /// This **does not** track reactively.
+    #[track_caller]
+    #[inline(always)]
+    pub fn get_untracked(&self) -> Option<HtmlElement<T>>
+    where
+        T: Clone,
+    {
+        self.0.get_untracked()
     }
 
     #[doc(hidden)]
@@ -120,6 +135,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
 
     /// Runs the provided closure when the `NodeRef` has been connected
     /// with it's [`HtmlElement`].
+    #[inline(always)]
     pub fn on_load<F>(self, cx: Scope, f: F)
     where
         T: Clone,
@@ -148,18 +164,21 @@ cfg_if::cfg_if! {
         impl<T: Clone + ElementDescriptor + 'static> FnOnce<()> for NodeRef<T> {
             type Output = Option<HtmlElement<T>>;
 
+            #[inline(always)]
             extern "rust-call" fn call_once(self, _args: ()) -> Self::Output {
                 self.get()
             }
         }
 
         impl<T: Clone + ElementDescriptor + 'static> FnMut<()> for NodeRef<T> {
+            #[inline(always)]
             extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
                 self.get()
             }
         }
 
         impl<T: Clone + ElementDescriptor + Clone + 'static> Fn<()> for NodeRef<T> {
+            #[inline(always)]
             extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
                 self.get()
             }

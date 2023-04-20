@@ -1,5 +1,3 @@
-use cfg_if::cfg_if;
-
 // The point of these diagnostics is to give useful error messages when someone
 // tries to access a reactive variable outside the reactive scope. They track when
 // you create a signal/memo, and where you access it non-reactively.
@@ -23,7 +21,7 @@ pub(crate) struct AccessDiagnostics {}
 #[doc(hidden)]
 pub struct SpecialNonReactiveZone {}
 
-cfg_if! {
+cfg_if::cfg_if! {
     if #[cfg(debug_assertions)] {
         use std::cell::Cell;
 
@@ -35,6 +33,7 @@ cfg_if! {
 
 impl SpecialNonReactiveZone {
     #[allow(dead_code)] // allowed for SSR
+    #[inline(always)]
     pub(crate) fn is_inside() -> bool {
         #[cfg(debug_assertions)]
         {
@@ -44,6 +43,7 @@ impl SpecialNonReactiveZone {
         false
     }
 
+    #[inline(always)]
     pub fn enter() {
         #[cfg(debug_assertions)]
         {
@@ -51,6 +51,7 @@ impl SpecialNonReactiveZone {
         }
     }
 
+    #[inline(always)]
     pub fn exit() {
         #[cfg(debug_assertions)]
         {
@@ -63,7 +64,7 @@ impl SpecialNonReactiveZone {
 #[macro_export]
 macro_rules! diagnostics {
     ($this:ident) => {{
-        cfg_if! {
+        cfg_if::cfg_if! {
             if #[cfg(debug_assertions)] {
                 AccessDiagnostics {
                     defined_at: $this.defined_at,

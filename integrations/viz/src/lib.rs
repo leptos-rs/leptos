@@ -216,15 +216,13 @@ async fn handle_server_fns_inner(
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            match (server_fn.trait_obj)(cx, data).await {
+                            let res = match (server_fn.trait_obj)(cx, data)
+                                .await
+                            {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
                                         use_context::<ResponseOptions>(cx);
-
-                                    // clean up the scope, which we only needed to run the server fn
-                                    disposer.dispose();
-                                    runtime.dispose();
 
                                     // if this is Accept: application/json then send a serialized JSON response
                                     let accept_header = headers
@@ -305,7 +303,11 @@ async fn handle_server_fns_inner(
                                         serde_json::to_string(&e)
                                             .unwrap_or_else(|_| e.to_string()),
                                     )),
-                            }
+                            };
+                            // clean up the scope
+                            disposer.dispose();
+                            runtime.dispose();
+                            res
                         } else {
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
@@ -944,12 +946,12 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
-) -> Vec<(String, SsrMode)>
+) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
 {
     #[derive(Default, Clone, Debug)]
-    pub struct Routes(pub Arc<RwLock<Vec<(String, SsrMode)>>>);
+    pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
 
     let routes = Routes::default();
     let routes_inner = routes.clone();
@@ -973,17 +975,26 @@ where
     // Viz's Router defines Root routes as "/" not ""
     let routes = routes
         .into_iter()
-        .map(|(s, m)| {
-            if s.is_empty() {
-                ("/".to_string(), m)
+        .map(|listing| {
+            let path = listing.path();
+            if path.is_empty() {
+                RouteListing::new(
+                    "/",
+                    Default::default(),
+                    [leptos_router::Method::Get],
+                )
             } else {
-                (s, m)
+                listing
             }
         })
         .collect::<Vec<_>>();
 
     if routes.is_empty() {
-        vec![("/".to_string(), Default::default())]
+        vec![RouteListing::new(
+            "/",
+            Default::default(),
+            [leptos_router::Method::Get],
+        )]
     } else {
         routes
     }
@@ -995,7 +1006,7 @@ pub trait LeptosRoutes {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
@@ -1004,7 +1015,7 @@ pub trait LeptosRoutes {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + Clone + Send + Sync + 'static,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
     ) -> Self
@@ -1013,7 +1024,7 @@ pub trait LeptosRoutes {
 
     fn leptos_routes_with_handler<H, O>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
@@ -1026,7 +1037,7 @@ impl LeptosRoutes for Router {
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
@@ -1038,52 +1049,93 @@ impl LeptosRoutes for Router {
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + Clone + Send + Sync + 'static,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
     {
-        paths.iter().fold(self, |router, (path, mode)| match mode {
-            SsrMode::OutOfOrder => router.get(
-                path,
-                render_app_to_stream_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                ),
-            ),
-            SsrMode::InOrder => router.get(
-                path,
-                render_app_to_stream_in_order_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                ),
-            ),
-            SsrMode::Async => router.get(
-                path,
-                render_app_async_with_context(
-                    options.clone(),
-                    additional_context.clone(),
-                    app_fn.clone(),
-                ),
-            ),
+        paths.iter().fold(self, |router, listing| {
+            let path = listing.path();
+            let mode = listing.mode();
+
+            listing.methods().fold(router, |router, method| match mode {
+                SsrMode::OutOfOrder => {
+                    let s = render_app_to_stream_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
+                    }
+                }
+                SsrMode::InOrder => {
+                    let s = render_app_to_stream_in_order_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
+                    }
+                }
+                SsrMode::Async => {
+                    let s = render_app_async_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
+                    }
+                }
+            })
         })
     }
 
     fn leptos_routes_with_handler<H, O>(
         self,
-        paths: Vec<(String, SsrMode)>,
+        paths: Vec<RouteListing>,
         handler: H,
     ) -> Self
     where
         H: Handler<Request, Output = Result<O>> + Clone,
         O: IntoResponse + Send + Sync + 'static,
     {
-        paths
-            .iter()
-            .fold(self, |router, (path, _)| router.get(path, handler.clone()))
+        paths.iter().fold(self, |router, listing| {
+            listing
+                .methods()
+                .fold(router, |router, method| match method {
+                    leptos_router::Method::Get => {
+                        router.get(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Post => {
+                        router.post(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Put => {
+                        router.put(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Delete => {
+                        router.delete(listing.path(), handler.clone())
+                    }
+                    leptos_router::Method::Patch => {
+                        router.patch(listing.path(), handler.clone())
+                    }
+                })
+        })
     }
 }

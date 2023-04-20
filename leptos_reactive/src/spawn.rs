@@ -2,7 +2,7 @@
 use cfg_if::cfg_if;
 use std::future::Future;
 
-/// Spawns and runs a thread-local [std::future::Future] in a platform-independent way.
+/// Spawns and runs a thread-local [`Future`] in a platform-independent way.
 ///
 /// This can be used to interface with any `async` code.
 pub fn spawn_local<F>(fut: F)
