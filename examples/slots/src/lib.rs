@@ -20,27 +20,18 @@ struct Fallback {
 }
 
 // Slots are added to components like any other prop.
-//     For a single required instance of the prop, use `name: Prop`.
-//     For a single optional instance of the prop, use `name: Optional<Prop>`,
-//         and mark it as #[prop(optional)].
-//     For multiple instances of the prop (1 or more), use `name: Vec<Prop>`,
-//         and mark it as #[prop(into)].
-//     For multiple instances of the prop (0 or more), use `name: Vec<Prop>`,
-//         and mark it as #[prop(default=vec![], into)].
 #[component]
 fn SlotIf(
     cx: Scope,
     cond: MaybeSignal<bool>,
     then: Then,
-    #[prop(default=vec![], into)] else_if: Vec<ElseIf>,
+    #[prop(default=vec![])] else_if: Vec<ElseIf>,
     #[prop(optional)] fallback: Option<Fallback>,
 ) -> impl IntoView {
     move || {
         if cond() {
             (then.children)(cx).into_view(cx)
-        } else if let Some(else_if) =
-            else_if.iter().find(|else_if| (else_if.cond)())
-        {
+        } else if let Some(else_if) = else_if.iter().find(|i| (i.cond)()) {
             (else_if.children)(cx).into_view(cx)
         } else if let Some(fallback) = &fallback {
             (fallback.children)(cx).into_view(cx)

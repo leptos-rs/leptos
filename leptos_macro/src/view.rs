@@ -1321,7 +1321,8 @@ pub(crate) fn slot_to_tokens(
         #component_name::builder()
             #(#props)*
             #children
-            .build(),
+            .build()
+            .into(),
     };
 
     parent_slots

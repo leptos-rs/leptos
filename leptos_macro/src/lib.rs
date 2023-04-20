@@ -701,7 +701,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```compile_error
 /// // ❌ This won't work
 /// # use leptos::*;
-/// 
+///
 /// #[slot]
 /// struct SlotWithChildren {
 ///     children: Children,
@@ -727,7 +727,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 /// // ✅ Until fixed, do this instead
 /// # use leptos::*;
-/// 
+///
 /// #[slot]
 /// struct SlotWithChildren {
 ///     children: Children,
