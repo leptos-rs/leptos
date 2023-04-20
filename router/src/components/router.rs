@@ -280,6 +280,8 @@ impl RouterContextInner {
 
     #[cfg(not(feature = "ssr"))]
     pub(crate) fn handle_anchor_click(self: Rc<Self>, ev: web_sys::Event) {
+        use wasm_bindgen::JsValue;
+
         let ev = ev.unchecked_into::<web_sys::MouseEvent>();
         if ev.default_prevented()
             || ev.button() != 0
@@ -343,7 +345,7 @@ impl RouterContextInner {
                 leptos_dom::helpers::get_property(a.unchecked_ref(), "state")
                     .ok()
                     .and_then(|value| {
-                        if value == wasm_bindgen::JsValue::UNDEFINED {
+                        if value == JsValue::UNDEFINED {
                             None
                         } else {
                             Some(value)
@@ -406,7 +408,7 @@ impl Default for NavigateOptions {
             resolve: true,
             replace: false,
             scroll: true,
-            state: State(None),
+            state: State(None)
         }
     }
 }
