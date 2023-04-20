@@ -43,6 +43,7 @@
 //!   HTTP request within your reactive code.
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
+//! - [`slots`](https://github.com/leptos-rs/leptos/tree/main/examples/slots) shows how to use slots on components.
 //! - [`counter_isomorphic`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic) shows
 //!   different methods of interaction with a stateful server, including server functions, server actions, forms,
 //!   and server-sent events (SSE).
