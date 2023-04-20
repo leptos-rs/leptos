@@ -3,6 +3,7 @@ use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
+use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
 use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
 
@@ -269,7 +270,8 @@ fn root_element_to_tokens_ssr(
 ) -> Option<TokenStream> {
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
-            slot_to_tokens(cx, node, slot, None, global_class)
+            slot_to_tokens(cx, node, slot, None, global_class);
+            None
         } else {
             Some(component_to_tokens(cx, node, global_class))
         }
@@ -377,7 +379,7 @@ enum SsrElementChunks {
 fn element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
-    parent_slots: Option<&mut Vec<TokenStream>>,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     chunks: &mut Vec<SsrElementChunks>,
@@ -738,11 +740,11 @@ fn fragment_to_tokens(
     nodes: &[Node],
     lazy: bool,
     parent_type: TagType,
-    parent_slots: Option<&mut Vec<TokenStream>>,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
-    let mut slots = Vec::new();
+    let mut slots = HashMap::new();
     let has_slots = parent_slots.is_some();
 
     let mut nodes = nodes
@@ -766,7 +768,12 @@ fn fragment_to_tokens(
     if nodes.peek().is_none() {
         _ = nodes.collect::<Vec<_>>();
         if let Some(parent_slots) = parent_slots {
-            parent_slots.append(&mut slots);
+            for (slot, mut values) in slots.drain() {
+                parent_slots
+                    .entry(slot)
+                    .and_modify(|entry| entry.append(&mut values))
+                    .or_insert(values);
+            }
         }
         return None;
     }
@@ -798,7 +805,12 @@ fn fragment_to_tokens(
     };
 
     if let Some(parent_slots) = parent_slots {
-        parent_slots.append(&mut slots);
+        for (slot, mut values) in slots.drain() {
+            parent_slots
+                .entry(slot)
+                .and_modify(|entry| entry.append(&mut values))
+                .or_insert(values);
+        }
     }
 
     Some(tokens)
@@ -808,7 +820,7 @@ fn node_to_tokens(
     cx: &Ident,
     node: &Node,
     parent_type: TagType,
-    parent_slots: Option<&mut Vec<TokenStream>>,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
@@ -852,13 +864,14 @@ fn element_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     mut parent_type: TagType,
-    parent_slots: Option<&mut Vec<TokenStream>>,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
-            slot_to_tokens(cx, node, slot, parent_slots, global_class)
+            slot_to_tokens(cx, node, slot, parent_slots, global_class);
+            None
         } else {
             Some(component_to_tokens(cx, node, global_class))
         }
@@ -1204,25 +1217,19 @@ pub(crate) fn slot_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     slot: &NodeAttribute,
-    parent_slots: Option<&mut Vec<TokenStream>>,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
-) -> Option<TokenStream> {
+) {
     let parent_slots =
         parent_slots.expect("slots can only be used inside components");
 
     let name = slot.key.to_string();
     let name = name.trim();
-    let name = format_ident!(
-        "{}",
-        convert_to_snake_case(
-            if name.starts_with("slot:") {
-                name.replacen("slot:", "", 1)
-            } else {
-                node.name.to_string()
-            },
-            slot.key.span(),
-        )
-    );
+    let name = convert_to_snake_case(if name.starts_with("slot:") {
+        name.replacen("slot:", "", 1)
+    } else {
+        node.name.to_string()
+    });
 
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
@@ -1309,18 +1316,17 @@ pub(crate) fn slot_to_tokens(
         }
     };
 
-    let a = quote! {
-        .#name(
-            #component_name::builder()
-                #(#props)*
-                #children
-                .build()
-        )
+    let slot = quote! {
+        #component_name::builder()
+            #(#props)*
+            #children
+            .build(),
     };
 
-    parent_slots.push(a);
-
-    None
+    parent_slots
+        .entry(name)
+        .and_modify(|entry| entry.push(slot.clone()))
+        .or_insert(vec![slot]);
 }
 
 pub(crate) fn component_to_tokens(
@@ -1384,8 +1390,7 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
-    let mut slots = Vec::new();
-
+    let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
         quote! {}
     } else {
@@ -1425,6 +1430,20 @@ pub(crate) fn component_to_tokens(
             quote! {}
         }
     };
+
+    let slots = slots.drain().map(|(slot, values)| {
+        let slot = Ident::new(&slot, span);
+        if values.len() > 1 {
+            quote! {
+                .#slot(vec![
+                    #(#values)*
+                ])
+            }
+        } else {
+            let value = &values[0];
+            quote! { .#slot(#value) }
+        }
+    });
 
     let component = quote! {
         #name(
@@ -1539,11 +1558,12 @@ fn get_slot(node: &NodeElement) -> Option<&NodeAttribute> {
     })
 }
 
-fn convert_to_snake_case(mut name: String, span: Span) -> Ident {
+fn convert_to_snake_case(name: String) -> String {
     if !name.is_case(Snake) {
-        name = name.to_case(Snake);
+        name.to_case(Snake)
+    } else {
+        name
     }
-    Ident::new(&name, span)
 }
 
 fn is_custom_element(tag: &str) -> bool {
