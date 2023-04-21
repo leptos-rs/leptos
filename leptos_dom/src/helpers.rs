@@ -1,6 +1,6 @@
 //! A variety of DOM utility functions.
 
-use crate::{is_server, window};
+use crate::{events::typed as ev, is_server, window};
 use leptos_reactive::{on_cleanup, Scope};
 use std::time::Duration;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
@@ -436,6 +436,18 @@ pub fn window_event_listener(
 
         wel(Box::new(cb), event_name);
     }
+}
+
+/// Creates a window event listener where the event in the callback is already appropriately cast.
+pub fn window_event_listener_with_precast<E: ev::EventDescriptor + 'static>(
+    event: E,
+    cb: impl Fn(E::EventType) + 'static,
+) where
+    E::EventType: JsCast,
+{
+    window_event_listener(&event.name(), move |e| {
+        cb(e.unchecked_into::<E::EventType>())
+    });
 }
 
 #[doc(hidden)]
