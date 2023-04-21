@@ -240,3 +240,24 @@ pub fn component_props_builder<P: Props>(
 ) -> <P as Props>::Builder {
     <P as Props>::builder()
 }
+
+#[cfg(all(not(doc), feature = "csr", feature = "ssr"))]
+compile_error!(
+    "You have both `csr` and `ssr` enabled as features, which may cause \
+     issues like <Suspense/>` failing to work silently. `csr` is enabled by \
+     default on `leptos`, and can be disabled by adding `default-features = \
+     false` to your `leptos` dependency."
+);
+
+#[cfg(all(not(doc), feature = "hydrate", feature = "ssr"))]
+compile_error!(
+    "You have both `hydrate` and `ssr` enabled as features, which may cause \
+     issues like <Suspense/>` failing to work silently."
+);
+
+#[cfg(all(not(doc), feature = "hydrate", feature = "csr"))]
+compile_error!(
+    "You have both `hydrate` and `csr` enabled as features, which may cause \
+     issues. `csr` is enabled by default on `leptos`, and can be disabled by \
+     adding `default-features = false` to your `leptos` dependency."
+);
