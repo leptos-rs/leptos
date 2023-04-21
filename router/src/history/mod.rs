@@ -36,7 +36,7 @@ pub trait History {
 pub struct BrowserIntegration {}
 
 impl BrowserIntegration {
-    fn current(back: bool) -> LocationChange {
+    fn current() -> LocationChange {
         let loc = leptos_dom::helpers::location();
         LocationChange {
             value: loc.pathname().unwrap_or_default()
@@ -45,7 +45,6 @@ impl BrowserIntegration {
             replace: true,
             scroll: true,
             state: State(None),
-            back,
         }
     }
 }
@@ -54,24 +53,23 @@ impl History for BrowserIntegration {
     fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
         use crate::{NavigateOptions, RouterContext};
 
-        let (location, set_location) = create_signal(cx, Self::current(false));
+        let (location, set_location) = create_signal(cx, Self::current());
 
         leptos::window_event_listener("popstate", move |ev| {
-            let ev = ev.unchecked_into::<PopStateEvent>();
-            let state = ev.state();
-            let current_state = window().history().unwrap().state().unwrap();
-            let has_forward = if state.is_undefined() {
-                false 
-            } else {
-                let forward = js_sys::Reflect::get(&state, &JsValue::from_str(crate::FORWARD)).unwrap_or(JsValue::UNDEFINED);
-                forward.is_truthy()
-            };
-
+            let ev = ev.unchecked_into::<PopStateEvent>();            
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
+                let path_stack = router.inner.path_stack;
+
                 let is_back = router.inner.is_back;
-                let change = Self::current(!has_forward);
-                is_back.set(!has_forward);
+                let change = Self::current();
+
+                let is_navigating_back = path_stack.with_value(|stack| stack.len() == 1 || stack.get(stack.len() - 2) == Some(&change.value));
+                if is_navigating_back {
+                    path_stack.update(|stack| { stack.pop(); });
+                }
+
+                is_back.set(is_navigating_back);
 
                 request_animation_frame(move || {
                     is_back.set(false);
@@ -84,11 +82,11 @@ impl History for BrowserIntegration {
                         scroll: change.scroll,
                         state: change.state,
                     },
-                    !has_forward,
+                    is_navigating_back,
                 ) {
                     leptos::error!("{e:#?}");
                 }
-                set_location.set(Self::current(!has_forward));
+                set_location.set(Self::current());
             } else {
                 leptos::warn!("RouterContext not found");
             }
@@ -110,7 +108,7 @@ impl History for BrowserIntegration {
                 .unwrap_throw();
         } else {
             // push the "forward direction" marker
-            let state = &loc.state.to_object(!loc.back);
+            let state = &loc.state.to_js_value();
             history
                 .push_state_with_url(
                     state,
@@ -186,7 +184,6 @@ impl History for ServerIntegration {
                 replace: false,
                 scroll: true,
                 state: State(None),
-                back: false,
             },
         )
         .0
