@@ -169,7 +169,7 @@ impl RouterContext {
 
         // handle all click events on anchor tags
         #[cfg(not(feature = "ssr"))]
-        leptos::window_event_listener("click", {
+        leptos::window_event_listener_untyped("click", {
             let inner = Rc::clone(&inner);
             move |ev| inner.clone().handle_anchor_click(ev)
         });

@@ -408,7 +408,25 @@ pub fn set_interval_with_handle(
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
 )]
 #[inline(always)]
+#[deprecated = "In the next release, `window_event_listener` will become \
+                typed. You can switch now to `window_event_listener_untyped` \
+                for the current behavior or use \
+                `window_event_listener_with_precast`, which will become the \
+                new`window_event_listener`."]
 pub fn window_event_listener(
+    event_name: &str,
+    cb: impl Fn(web_sys::Event) + 'static,
+) {
+    window_event_listener_untyped(event_name, cb)
+}
+
+/// Adds an event listener to the `Window`, typed as a generic `Event`.
+#[cfg_attr(
+  debug_assertions,
+  instrument(level = "trace", skip_all, fields(event_name = %event_name))
+)]
+#[inline(always)]
+pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
 ) {
@@ -445,7 +463,7 @@ pub fn window_event_listener_with_precast<E: ev::EventDescriptor + 'static>(
 ) where
     E::EventType: JsCast,
 {
-    window_event_listener(&event.name(), move |e| {
+    window_event_listener_untyped(&event.name(), move |e| {
         cb(e.unchecked_into::<E::EventType>())
     });
 }
