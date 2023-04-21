@@ -55,7 +55,7 @@ pub(crate) struct RouterContextInner {
     state: ReadSignal<State>,
     set_state: WriteSignal<State>,
     pub(crate) is_back: RwSignal<bool>,
-    pub(crate) path_stack: StoredValue<Vec<String>>
+    pub(crate) path_stack: StoredValue<Vec<String>>,
 }
 
 impl std::fmt::Debug for RouterContextInner {
@@ -155,7 +155,10 @@ impl RouterContext {
 
         let inner = Rc::new(RouterContextInner {
             base_path: base_path.into_owned(),
-            path_stack: store_value(cx, vec![location.pathname.get_untracked()]),
+            path_stack: store_value(
+                cx,
+                vec![location.pathname.get_untracked()],
+            ),
             location,
             base,
             history: Box::new(history),
@@ -251,7 +254,9 @@ impl RouterContextInner {
                             move |state| *state = next_state
                         });
 
-                        self.path_stack.update_value(|stack| stack.push(resolved_to.clone()));
+                        self.path_stack.update_value(|stack| {
+                            stack.push(resolved_to.clone())
+                        });
 
                         if referrers.borrow().len() == len {
                             this.navigate_end(LocationChange {
@@ -411,7 +416,7 @@ impl Default for NavigateOptions {
             resolve: true,
             replace: false,
             scroll: true,
-            state: State(None)
+            state: State(None),
         }
     }
 }

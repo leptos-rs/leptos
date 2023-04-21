@@ -1,7 +1,7 @@
 use leptos::*;
-use web_sys::PopStateEvent;
 use std::rc::Rc;
-use wasm_bindgen::{UnwrapThrowExt, JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+use web_sys::PopStateEvent;
 
 mod location;
 mod params;
@@ -56,7 +56,7 @@ impl History for BrowserIntegration {
         let (location, set_location) = create_signal(cx, Self::current());
 
         leptos::window_event_listener("popstate", move |ev| {
-            let ev = ev.unchecked_into::<PopStateEvent>();            
+            let ev = ev.unchecked_into::<PopStateEvent>();
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
                 let path_stack = router.inner.path_stack;
@@ -64,9 +64,14 @@ impl History for BrowserIntegration {
                 let is_back = router.inner.is_back;
                 let change = Self::current();
 
-                let is_navigating_back = path_stack.with_value(|stack| stack.len() == 1 || stack.get(stack.len() - 2) == Some(&change.value));
+                let is_navigating_back = path_stack.with_value(|stack| {
+                    stack.len() == 1
+                        || stack.get(stack.len() - 2) == Some(&change.value)
+                });
                 if is_navigating_back {
-                    path_stack.update(|stack| { stack.pop(); });
+                    path_stack.update(|stack| {
+                        stack.pop();
+                    });
                 }
 
                 is_back.set(is_navigating_back);
@@ -110,11 +115,7 @@ impl History for BrowserIntegration {
             // push the "forward direction" marker
             let state = &loc.state.to_js_value();
             history
-                .push_state_with_url(
-                    state,
-                    "",
-                    Some(&loc.value),
-                )
+                .push_state_with_url(state, "", Some(&loc.value))
                 .unwrap_throw();
         }
         // scroll to el
