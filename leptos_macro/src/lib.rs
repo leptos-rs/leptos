@@ -5,7 +5,7 @@
 extern crate proc_macro_error;
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenTree;
+use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
@@ -35,6 +35,7 @@ mod view;
 use template::render_template;
 use view::render_view;
 mod component;
+mod slot;
 mod template;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
@@ -640,6 +641,128 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 
     parse_macro_input!(s as component::Model)
         .is_transparent(is_transparent)
+        .into_token_stream()
+        .into()
+}
+
+/// Annotates a struct so that it can be used with your Component as a `slot`.
+///
+/// The `#[slot]` macro allows you to annotate plain Rust struct as component slots and use them
+/// within your Leptos [component](crate::component!) properties. The struct can contain any number
+/// of fields. When you use the component somewhere else, the names of the slot fields are the
+/// names of the properties you use in the [view](crate::view!) macro.
+///
+/// Here’s how you would define and use a simple Leptos component which can accept a custom slot:
+/// ```rust
+/// # use leptos::*;
+/// use std::time::Duration;
+///
+/// #[slot]
+/// struct HelloSlot {
+///     // Same prop syntax as components.
+///     #[prop(optional)]
+///     children: Option<Children>,
+/// }
+///
+/// #[component]
+/// fn HelloComponent(
+///     cx: Scope,
+///     /// Component slot, should be passed through the <HelloSlot slot> syntax.
+///     hello_slot: HelloSlot,
+/// ) -> impl IntoView {
+///     // mirror the children from the slot, if any were passed
+///     if let Some(children) = hello_slot.children {
+///         (children)(cx).into_view(cx)
+///     } else {
+///         ().into_view(cx)
+///     }
+/// }
+///
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///     view! { cx,
+///         <HelloComponent>
+///             <HelloSlot slot>
+///                 "Hello, World!"
+///             </HelloSlot>
+///         </HelloComponent>
+///     }
+/// }
+/// ```
+///
+/// /// Here are some important details about how slots work within the framework:
+/// 1. Most of the same rules from [component](crate::component!) macro should also be followed on slots.
+///
+/// 2. Specifying only `slot` without a name (such as in `<HelloSlot slot>`) will default the chosen slot to
+/// the a snake case version of the slot struct name (`hello_slot` for `<HelloSlot>`).
+///
+/// 3. Event handlers cannot be specified directly on the slot.
+///
+/// ```compile_error
+/// // ❌ This won't work
+/// # use leptos::*;
+///
+/// #[slot]
+/// struct SlotWithChildren {
+///     children: Children,
+/// }
+///
+/// #[component]
+/// fn ComponentWithSlot(cx: Scope, slot: SlotWithChildren) -> impl IntoView {
+///     (slot.children)(cx)
+/// }
+///
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///     view! { cx,
+///         <ComponentWithSlot>
+///           <SlotWithChildren slot:slot on:click=move |_| {}>
+///             <h1>"Hello, World!"</h1>
+///           </SlotWithChildren>
+///         </ComponentWithSlot>
+///     }
+/// }
+/// ```
+///
+/// ```
+/// // ✅ Do this instead
+/// # use leptos::*;
+///
+/// #[slot]
+/// struct SlotWithChildren {
+///     children: Children,
+/// }
+///
+/// #[component]
+/// fn ComponentWithSlot(cx: Scope, slot: SlotWithChildren) -> impl IntoView {
+///     (slot.children)(cx)
+/// }
+///
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///     view! { cx,
+///         <ComponentWithSlot>
+///           <SlotWithChildren slot:slot>
+///             <div on:click=move |_| {}>
+///               <h1>"Hello, World!"</h1>
+///             </div>
+///           </SlotWithChildren>
+///         </ComponentWithSlot>
+///     }
+/// }
+/// ```
+#[proc_macro_error::proc_macro_error]
+#[proc_macro_attribute]
+pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    if !args.is_empty() {
+        abort!(
+            Span::call_site(),
+            "no arguments are supported";
+            help = "try just `#[slot]`"
+        );
+    }
+
+    parse_macro_input!(s as slot::Model)
         .into_token_stream()
         .into()
 }
