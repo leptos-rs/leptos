@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-#![feature(once_cell)]
 //! Provides functions to easily integrate Leptos with Axum.
 //!
 //! For more details on how to use the integrations, see the
@@ -711,37 +710,6 @@ async fn forward_stream(
     tx.close_channel();
 }
 
-use tokio::task::JoinHandle;
-// pub fn spawn_pinned_with_tracing<F, R>(p: LocalPoolHandle,f: F) -> JoinHandle<R>
-// where
-//     F: FnOnce() -> R + Send + 'static,
-//     R: Send + 'static + futures::Future<Output=R>,
-// {
-//     let current_span = tracing::Span::current();
-//     p.spawn_pinned(move || current_span.in_scope(f))
-// }
-
-// pub fn spawn_with_tracing<F, R>(f: F) -> JoinHandle<R>
-// where
-//     F: FnOnce() -> R + Send + 'static,
-//     R: Send + 'static + Future<Output = R>,
-// {
-//     let current_span = tracing::Span::current();
-//     spawn(current_span.in_scope(f))
-// }
-
-// pub fn spawn_pinned_with_tracing<F, Fut>(p: LocalPoolHandle, create_task: F) -> JoinHandle<Fut::Output>
-// where
-//     F: FnOnce() -> Fut + Send,
-//     F: Send + 'static,
-//     Fut: Future + 'static,
-//     Fut::Output: Send + 'static,
-// {
-//     let current_span = tracing::Span::current();
-//     p.spawn_pinned(create_task)
-// }
-
-
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
 /// to route it using [leptos_router], serving an in-order HTML stream of your application.
 /// This stream will pause at each `<Suspense/>` node and wait for it to resolve before
@@ -1124,10 +1092,7 @@ pub trait LeptosRoutes {
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for axum::Router {
-      #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-      )]
+    #[tracing::instrument(level = "info", fields(error), skip_all)]
       fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -1140,10 +1105,7 @@ impl LeptosRoutes for axum::Router {
         self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
     }
 
-    #[cfg_attr(
-        any(debug_assertions, feature="ssr"),
-        instrument(level = "info", skip_all,)
-        )]
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
@@ -1211,10 +1173,7 @@ impl LeptosRoutes for axum::Router {
         router
     }
     
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "info", skip_all,)
-      )]
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_handler<H, T>(
         self,
         paths: Vec<RouteListing>,
@@ -1244,10 +1203,7 @@ impl LeptosRoutes for axum::Router {
         router
     }
 }
-#[cfg_attr(
-    any(debug_assertions, feature="ssr"),
-    instrument(level = "info")
-  )]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn get_leptos_pool() -> LocalPoolHandle {
     static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
     LOCAL_POOL

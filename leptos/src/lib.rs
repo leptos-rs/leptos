@@ -191,7 +191,6 @@ pub use tracing;
 pub use transition::*;
 extern crate self as leptos;
 
-// extern crate tracing;
 /// The most common type for the `children` property on components,
 /// which can only be called once.
 pub type Children = Box<dyn FnOnce(Scope) -> Fragment>;

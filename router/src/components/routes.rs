@@ -21,7 +21,7 @@ use std::{
 /// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
+    tracing::instrument(level = "info", skip_all,)
 )]
 #[component]
 pub fn Routes(
@@ -483,7 +483,7 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
 }
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
+    tracing::instrument(level = "info", skip_all,)
 )]
 fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;

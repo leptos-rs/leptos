@@ -5,10 +5,7 @@ use leptos_meta::MetaContext;
 
 extern crate tracing;
 
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn autoreload(options: &LeptosOptions) -> String {
     let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
@@ -45,10 +42,7 @@ fn autoreload(options: &LeptosOptions) -> String {
         false => "".to_string(),
     }
 }
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts(
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
@@ -83,10 +77,8 @@ pub fn html_parts(
     let tail = "</body></html>";
     (head, tail)
 }
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
-)]
+
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts_separated(
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
@@ -127,10 +119,7 @@ pub fn html_parts_separated(
     (head, tail)
 }
 
-#[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "info", skip_all,)
-)]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn build_async_response(
     stream: impl Stream<Item = String> + 'static,
     options: &LeptosOptions,

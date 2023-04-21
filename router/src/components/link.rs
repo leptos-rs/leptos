@@ -44,7 +44,7 @@ where
 ///    different color if it’s a link to the page you’re currently on.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
+    tracing::instrument(level = "info", skip_all,)
 )]
 #[component]
 pub fn A<H>(
