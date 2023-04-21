@@ -191,8 +191,10 @@ impl<T> StoredValue<T> {
     /// the signal is still valid. [`None`] otherwise.
     pub fn try_with_value<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
-            let values = runtime.stored_values.borrow();
-            let value = values.get(self.id)?;
+            let value = {
+                let values = runtime.stored_values.borrow();
+                values.get(self.id)?.clone()
+            };
             let value = value.borrow();
             let value = value.downcast_ref::<T>()?;
             Some(f(value))
@@ -407,6 +409,7 @@ impl<T> StoredValue<T> {
 /// let callback_b = move || data.with(|data| data.value == "b");
 /// # }).dispose();
 /// ```
+#[track_caller]
 pub fn store_value<T>(cx: Scope, value: T) -> StoredValue<T>
 where
     T: 'static,
