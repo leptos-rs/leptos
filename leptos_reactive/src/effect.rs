@@ -153,7 +153,7 @@ where
 {
     pub(crate) f: F,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(any(debug_assertions, feature="ssr"))]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 

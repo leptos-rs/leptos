@@ -57,7 +57,7 @@ where
     T: 'static,
 {
     inner: SignalSetterTypes<T>,
-    #[cfg(any(debug_assertions, feature="ssr"))]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -65,7 +65,7 @@ impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner,
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -76,7 +76,7 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
     fn default() -> Self {
         Self {
             inner: SignalSetterTypes::Default,
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -214,7 +214,7 @@ impl<T> From<RwSignal<T>> for SignalSetter<T> {
     fn from(value: RwSignal<T>) -> Self {
         Self {
             inner: SignalSetterTypes::Write(value.write_only()),
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }

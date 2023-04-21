@@ -55,7 +55,7 @@ pub fn raw_scope_and_disposer(runtime: RuntimeId) -> (Scope, ScopeDisposer) {
 #[cfg_attr(
     any(debug_assertions, features = "ssr"),
     instrument(level = "trace", skip_all,)
-)] 
+)]
 pub fn run_scope<T>(
     runtime: RuntimeId,
     f: impl FnOnce(Scope) -> T + 'static,
@@ -445,7 +445,6 @@ impl Scope {
         with_runtime(self.runtime, |runtime| runtime.pending_resources())
             .unwrap_or_default()
     }
-
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     #[cfg_attr(

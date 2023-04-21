@@ -90,8 +90,8 @@ where
 {
     /// Calls the `async` function with a reference to the input type as its argument.
     #[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    tracing::instrument(level = "trace", skip_all,)
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
         self.0.with_value(|a| a.dispatch(input))

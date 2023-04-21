@@ -66,7 +66,7 @@ where
     T: 'static,
 {
     inner: SignalTypes<T>,
-    #[cfg(any(debug_assertions, feature="ssr"))]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -74,7 +74,7 @@ impl<T> Clone for Signal<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner,
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -360,7 +360,7 @@ where
                 cx,
                 store_value(cx, Box::new(derived_signal)),
             ),
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -380,7 +380,7 @@ impl<T> From<ReadSignal<T>> for Signal<T> {
     fn from(value: ReadSignal<T>) -> Self {
         Self {
             inner: SignalTypes::ReadSignal(value),
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -391,7 +391,7 @@ impl<T> From<RwSignal<T>> for Signal<T> {
     fn from(value: RwSignal<T>) -> Self {
         Self {
             inner: SignalTypes::ReadSignal(value.read_only()),
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -402,7 +402,7 @@ impl<T> From<Memo<T>> for Signal<T> {
     fn from(value: Memo<T>) -> Self {
         Self {
             inner: SignalTypes::Memo(value),
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }

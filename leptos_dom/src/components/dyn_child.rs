@@ -175,7 +175,10 @@ where
 
             let child = component.child.clone();
 
-            #[cfg(any(feature = "ssr", all(debug_assertions, target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                feature = "ssr",
+                all(debug_assertions, target_arch = "wasm32", feature = "web")
+            ))]
             let span = tracing::Span::current();
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]

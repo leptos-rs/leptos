@@ -32,12 +32,10 @@ use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use tracing::Instrument;
 use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
-
-use tracing::instrument;
+use tracing::{instrument, Instrument};
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
 #[derive(Debug, Clone)]
@@ -1093,7 +1091,7 @@ pub trait LeptosRoutes {
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for axum::Router {
     #[tracing::instrument(level = "info", fields(error), skip_all)]
-      fn leptos_routes<IV>(
+    fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
@@ -1172,7 +1170,7 @@ impl LeptosRoutes for axum::Router {
         }
         router
     }
-    
+
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_handler<H, T>(
         self,

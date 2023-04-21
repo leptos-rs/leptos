@@ -496,8 +496,8 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-      #[cfg(any(debug_assertions, feature = "ssr"))]
-          pub(crate) defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
@@ -862,7 +862,8 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-      #[cfg(any(debug_assertions, feature = "ssr"))]    pub(crate) defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T> SignalSetUntracked<T> for WriteSignal<T>
@@ -1179,7 +1180,7 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(any(debug_assertions, feature="ssr"))]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -1714,7 +1715,7 @@ impl<T> RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -1752,7 +1753,7 @@ impl<T> RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -1790,14 +1791,14 @@ impl<T> RwSignal<T> {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-                #[cfg(any(debug_assertions, feature="ssr"))]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-                #[cfg(any(debug_assertions, feature="ssr"))]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
         )
@@ -2027,17 +2028,18 @@ impl NodeId {
 #[track_caller]
 fn format_signal_warning(
     msg: &str,
-    #[cfg(any(debug_assertions, feature="ssr"))] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) -> String {
     let location = std::panic::Location::caller();
 
     let defined_at_msg = {
-        #[cfg(any(debug_assertions, feature="ssr"))]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         {
             format!("signal created here: {defined_at}\n")
         }
 
-        #[cfg(not(any(debug_assertions, feature="ssr")))]
+        #[cfg(not(any(debug_assertions, feature = "ssr")))]
         {
             String::default()
         }
@@ -2050,13 +2052,14 @@ fn format_signal_warning(
 #[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_signal(
-    #[cfg(any(debug_assertions, feature="ssr"))] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) -> ! {
     panic!(
         "{}",
         format_signal_warning(
             "Attempted to get a signal after it was disposed.",
-            #[cfg(any(debug_assertions, feature="ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at,
         )
     )
@@ -2066,11 +2069,12 @@ pub(crate) fn panic_getting_dead_signal(
 #[inline(never)]
 #[track_caller]
 pub(crate) fn warn_updating_dead_signal(
-    #[cfg(any(debug_assertions, feature="ssr"))] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) {
     console_warn(&format_signal_warning(
         "Attempted to update a signal after it was disposed.",
-        #[cfg(any(debug_assertions, feature="ssr"))]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         defined_at,
     ));
 }

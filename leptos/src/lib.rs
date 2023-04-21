@@ -139,7 +139,6 @@
 //! }
 //! # }
 //! ```
-//! 
 
 mod additional_attributes;
 pub use additional_attributes::*;

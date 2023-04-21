@@ -236,7 +236,7 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
-        #[cfg(any(debug_assertions, features="ssr"))]
+        #[cfg(any(debug_assertions, features = "ssr"))]
         defined_at: std::panic::Location::caller(),
     }
 }
@@ -372,7 +372,7 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
-        #[cfg(any(debug_assertions, features="ssr"))]
+        #[cfg(any(debug_assertions, features = "ssr"))]
         defined_at: std::panic::Location::caller(),
     }
 }
@@ -474,7 +474,7 @@ where
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
-      )]
+    )]
     #[track_caller]
     pub fn read(&self, cx: Scope) -> Option<T>
     where
@@ -498,8 +498,8 @@ where
     /// If you want to get the value by cloning it, you can use
     /// [`Resource::read`].
     #[cfg_attr(
-    any(debug_assertions, feature = "ssr"),
-    instrument(level = "info", skip_all,)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
     )]
     #[track_caller]
     pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
@@ -547,7 +547,7 @@ where
     /// yield its [`ResourceId`] and a JSON string.
     #[cfg(any(feature = "ssr", doc))]
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub async fn to_serialization_resolver(
@@ -718,7 +718,7 @@ where
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
-    #[cfg(any(debug_assertions, features="ssr"))]
+    #[cfg(any(debug_assertions, features = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -734,7 +734,7 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     fn clone(&self) -> Self {
@@ -743,7 +743,7 @@ where
             id: self.id,
             source_ty: PhantomData,
             out_ty: PhantomData,
-            #[cfg(any(debug_assertions, features="ssr"))]
+            #[cfg(any(debug_assertions, features = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -794,7 +794,7 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
@@ -810,7 +810,7 @@ where
     }
 
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
@@ -882,14 +882,14 @@ where
         v
     }
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn refetch(&self) {
         self.load(true);
     }
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     fn load(&self, refetching: bool) {
@@ -959,7 +959,7 @@ where
         });
     }
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn resource_to_serialization_resolver(
@@ -1023,7 +1023,7 @@ where
         self
     }
     #[cfg_attr(
-        any(debug_assertions, feature ="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     fn to_serialization_resolver(

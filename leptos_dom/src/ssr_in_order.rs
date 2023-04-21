@@ -217,8 +217,8 @@ async fn handle_chunks(
 
 impl View {
     /// Renders the view into a set of HTML chunks that can be streamed.
-        #[tracing::instrument(level = "trace", skip_all)]
-        pub fn into_stream_chunks(self, cx: Scope) -> VecDeque<StreamChunk> {
+    #[tracing::instrument(level = "trace", skip_all)]
+    pub fn into_stream_chunks(self, cx: Scope) -> VecDeque<StreamChunk> {
         let mut chunks = VecDeque::new();
         self.into_stream_chunks_helper(cx, &mut chunks, false);
         chunks

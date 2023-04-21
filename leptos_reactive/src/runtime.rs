@@ -577,14 +577,14 @@ impl RuntimeId {
                             runtime: self,
                             id,
                             ty: PhantomData,
-                            #[cfg(any(debug_assertions, feature="ssr"))]
+                            #[cfg(any(debug_assertions, feature = "ssr"))]
                             defined_at: std::panic::Location::caller(),
                         },
                         WriteSignal {
                             runtime: self,
                             id,
                             ty: PhantomData,
-                            #[cfg(any(debug_assertions, feature="ssr"))]
+                            #[cfg(any(debug_assertions, feature = "ssr"))]
                             defined_at: std::panic::Location::caller(),
                         },
                     )
@@ -675,7 +675,7 @@ impl RuntimeId {
             Rc::new(Effect {
                 f,
                 ty: PhantomData,
-                #[cfg(any(debug_assertions, feature="ssr"))]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             }),
         )
@@ -697,7 +697,7 @@ impl RuntimeId {
                 Rc::new(MemoState {
                     f,
                     t: PhantomData,
-                    #[cfg(any(debug_assertions, feature="ssr"))]
+                    #[cfg(any(debug_assertions, feature = "ssr"))]
                     defined_at: std::panic::Location::caller(),
                 }),
             ),

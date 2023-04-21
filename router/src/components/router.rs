@@ -146,7 +146,7 @@ impl RouterContext {
         // 2) update the reference (URL)
         // 3) update the state
         // this will trigger the new route match below
-        
+
         create_render_effect(cx, move |_| {
             let LocationChange { value, state, .. } = source.get();
             cx.untrack(move || {

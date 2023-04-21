@@ -27,7 +27,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 /// # }}
 /// ```
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_string<F, N>(f: F) -> String
@@ -60,7 +60,7 @@ where
 /// 3) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream(
@@ -84,7 +84,7 @@ pub fn render_to_stream(
 /// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix(
@@ -113,7 +113,7 @@ pub fn render_to_stream_with_prefix(
 /// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed(
@@ -139,7 +139,7 @@ pub fn render_to_stream_with_prefix_undisposed(
 /// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
 ///    read under that `<Suspense/>` resolve.
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
@@ -230,7 +230,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     (stream, runtime, scope)
 }
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 fn fragments_to_chunks(
@@ -267,15 +267,15 @@ fn fragments_to_chunks(
 impl View {
     /// Consumes the node and renders it into an HTML string.
     #[cfg_attr(
-        any(debug_assertions, feature="ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
         self.render_to_string_helper(false)
     }
 
-  #[cfg_attr(
-        any(debug_assertions, feature="ssr"),
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn render_to_string_helper(
@@ -575,7 +575,7 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
     new_name
 }
 #[cfg_attr(
-    any(debug_assertions, feature="ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 pub(crate) fn render_serializers(
