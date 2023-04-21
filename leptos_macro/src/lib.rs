@@ -696,7 +696,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// 2. Specifying only `slot` without a name (such as in `<HelloSlot slot>`) will default the chosen slot to
 /// the a snake case version of the slot struct name (`hello_slot` for `<HelloSlot>`).
 ///
-/// 3. Currently, event handlers cannot be specified directly on the slot.
+/// 3. Event handlers cannot be specified directly on the slot.
 ///
 /// ```compile_error
 /// // ❌ This won't work
@@ -725,7 +725,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 ///
 /// ```
-/// // ✅ Until fixed, do this instead
+/// // ✅ Do this instead
 /// # use leptos::*;
 ///
 /// #[slot]

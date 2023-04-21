@@ -1221,9 +1221,6 @@ pub(crate) fn slot_to_tokens(
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
 ) {
-    let parent_slots =
-        parent_slots.expect("slots can only be used inside components");
-
     let name = slot.key.to_string();
     let name = name.trim();
     let name = convert_to_snake_case(if name.starts_with("slot:") {
@@ -1234,6 +1231,11 @@ pub(crate) fn slot_to_tokens(
 
     let component_name = ident_from_tag_name(&node.name);
     let span = node.name.span();
+
+    let Some(parent_slots) = parent_slots else {
+        proc_macro_error::emit_error!(span, "slots can only be used inside components");
+        return;
+    };
 
     let attrs = node.attributes.iter().filter_map(|node| {
         if let Node::Attribute(node) = node {
