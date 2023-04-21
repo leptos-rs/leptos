@@ -175,13 +175,15 @@ where
 
             let child = component.child.clone();
 
-            #[cfg(any(
-                feature = "ssr",
+            #[cfg(,
                 all(debug_assertions, target_arch = "wasm32", feature = "web")
-            ))]
+            )]
             let span = tracing::Span::current();
 
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
+            #[cfg(any(
+                feature = "ssr",
+                all(target_arch = "wasm32", feature = "web")
+            ))]
             create_effect(
                 cx,
                 move |prev_run: Option<(
