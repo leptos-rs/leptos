@@ -41,11 +41,11 @@ a[aria-current] {
 }
 
 .slideIn {
-  animation: 0.125s slideIn forwards;
+  animation: 0.25s slideIn forwards;
 }
 
 .slideOut {
-  animation: 0.125s slideOut forwards;
+  animation: 0.25s slideOut forwards;
 }
 
 @keyframes slideIn {
@@ -67,11 +67,11 @@ a[aria-current] {
 }
 
 .slideInBack {
-  animation: 0.125s slideInBack forwards;
+  animation: 0.25s slideInBack forwards;
 }
 
 .slideOutBack {
-  animation: 0.125s slideOutBack forwards;
+  animation: 0.25s slideOutBack forwards;
 }
 
 @keyframes slideInBack {
