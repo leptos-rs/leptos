@@ -446,7 +446,7 @@ pub fn window_event_listener_with_precast<E: ev::EventDescriptor + 'static>(
     E::EventType: JsCast,
 {
     window_event_listener(&event.name(), move |e| {
-        cb(e.dyn_into::<E::EventType>().unwrap())
+        cb(e.unchecked_into::<E::EventType>())
     });
 }
 
