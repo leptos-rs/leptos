@@ -658,14 +658,14 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds a class to an element.
-    /// 
-    /// **Note**: In the builder syntax, this will be overwritten by the `class` 
-    /// attribute if you use `.attr("class", /* */)`. In the `view` macro, they 
+    ///
+    /// **Note**: In the builder syntax, this will be overwritten by the `class`
+    /// attribute if you use `.attr("class", /* */)`. In the `view` macro, they
     /// are automatically re-ordered so that this over-writing does not happen.
-    /// 
+    ///
     /// # Panics
-    /// This directly uses the browser’s `classList` API, which means it will throw 
-    /// a runtime error if you pass more than a single class name. If you want to 
+    /// This directly uses the browser’s `classList` API, which means it will throw
+    /// a runtime error if you pass more than a single class name. If you want to
     /// pass more than one class name at a time, you can use [HtmlElement::classes].
     #[track_caller]
     pub fn class(

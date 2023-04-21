@@ -843,7 +843,9 @@ fn element_to_tokens(
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
                 let name = node.key.to_string();
-                if name.trim().starts_with("class:") || fancy_class_name(&name, cx, node).is_some() {
+                if name.trim().starts_with("class:")
+                    || fancy_class_name(&name, cx, node).is_some()
+                {
                     None
                 } else {
                     Some(attribute_to_tokens(cx, node, global_class))
@@ -857,8 +859,7 @@ fn element_to_tokens(
                 let name = node.key.to_string();
                 if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
                     Some(fancy)
-                }
-                else if name.trim().starts_with("class:") {
+                } else if name.trim().starts_with("class:") {
                     Some(attribute_to_tokens(cx, node, global_class))
                 } else {
                     None
