@@ -77,6 +77,7 @@ install_crate = "cargo-all-features"
 
 [env]
 RUSTFLAGS=""
+LEPTOS_OUTPUT_NAME="ci" # allows examples to check/build without cargo-leptos
 
 [env.github-actions]
 RUSTFLAGS="-D warnings"
