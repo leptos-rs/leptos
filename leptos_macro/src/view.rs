@@ -755,7 +755,7 @@ fn fragment_to_tokens(
                 cx,
                 node,
                 parent_type,
-                if has_slots { Some(&mut slots) } else { None },
+                has_slots.then_some(&mut slots),
                 global_class,
                 None,
             )?;
