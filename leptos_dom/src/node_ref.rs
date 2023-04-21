@@ -99,6 +99,18 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
         self.0.get()
     }
 
+    /// Gets the element that is currently stored in the reference.
+    ///
+    /// This **does not** track reactively.
+    #[track_caller]
+    #[inline(always)]
+    pub fn get_untracked(&self) -> Option<HtmlElement<T>>
+    where
+        T: Clone,
+    {
+        self.0.get_untracked()
+    }
+
     #[doc(hidden)]
     /// Loads an element into the reference. This tracks reactively,
     /// so that effects that use the node reference will rerun once it is loaded,

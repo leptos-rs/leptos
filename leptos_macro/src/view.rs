@@ -842,7 +842,10 @@ fn element_to_tokens(
         };
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
-                if node.key.to_string().trim().starts_with("class:") {
+                let name = node.key.to_string();
+                if name.trim().starts_with("class:")
+                    || fancy_class_name(&name, cx, node).is_some()
+                {
                     None
                 } else {
                     Some(attribute_to_tokens(cx, node, global_class))
@@ -853,7 +856,10 @@ fn element_to_tokens(
         });
         let class_attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
-                if node.key.to_string().trim().starts_with("class:") {
+                let name = node.key.to_string();
+                if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
+                    Some(fancy)
+                } else if name.trim().starts_with("class:") {
                     Some(attribute_to_tokens(cx, node, global_class))
                 } else {
                     None
@@ -874,37 +880,67 @@ fn element_to_tokens(
             }
         };
         let children = node.children.iter().map(|node| {
-            let child = match node {
-                Node::Fragment(fragment) => fragment_to_tokens(
-                    cx,
-                    Span::call_site(),
-                    &fragment.children,
-                    true,
-                    parent_type,
-                    global_class,
-                    None,
+            let (child, is_static) = match node {
+                Node::Fragment(fragment) => (
+                    fragment_to_tokens(
+                        cx,
+                        Span::call_site(),
+                        &fragment.children,
+                        true,
+                        parent_type,
+                        global_class,
+                        None,
+                    ),
+                    false,
                 ),
                 Node::Text(node) => {
-                    let value = node.value.as_ref();
-                    quote! {
-                        #[allow(unused_braces)] #value
+                    if let Some(primitive) = value_to_string(&node.value) {
+                        (quote! { #primitive }, true)
+                    } else {
+                        let value = node.value.as_ref();
+                        (
+                            quote! {
+                                #[allow(unused_braces)] #value
+                            },
+                            false,
+                        )
                     }
                 }
                 Node::Block(node) => {
-                    let value = node.value.as_ref();
-                    quote! {
-                        #[allow(unused_braces)] #value
+                    if let Some(primitive) = value_to_string(&node.value) {
+                        (quote! { #primitive }, true)
+                    } else {
+                        let value = node.value.as_ref();
+                        (
+                            quote! {
+                                #[allow(unused_braces)] #value
+                            },
+                            false,
+                        )
                     }
                 }
-                Node::Element(node) => {
-                    element_to_tokens(cx, node, parent_type, global_class, None)
-                }
+                Node::Element(node) => (
+                    element_to_tokens(
+                        cx,
+                        node,
+                        parent_type,
+                        global_class,
+                        None,
+                    ),
+                    false,
+                ),
                 Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
-                    quote! {}
+                    (quote! {}, false)
                 }
             };
-            quote! {
-                .child((#cx, #child))
+            if is_static {
+                quote! {
+                    .child(#child)
+                }
+            } else {
+                quote! {
+                    .child((#cx, #child))
+                }
             }
         });
         let view_marker = if let Some(marker) = view_marker {

@@ -216,15 +216,13 @@ async fn handle_server_fns_inner(
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            match (server_fn.trait_obj)(cx, data).await {
+                            let res = match (server_fn.trait_obj)(cx, data)
+                                .await
+                            {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
                                         use_context::<ResponseOptions>(cx);
-
-                                    // clean up the scope, which we only needed to run the server fn
-                                    disposer.dispose();
-                                    runtime.dispose();
 
                                     // if this is Accept: application/json then send a serialized JSON response
                                     let accept_header = headers
@@ -305,7 +303,11 @@ async fn handle_server_fns_inner(
                                         serde_json::to_string(&e)
                                             .unwrap_or_else(|_| e.to_string()),
                                     )),
-                            }
+                            };
+                            // clean up the scope
+                            disposer.dispose();
+                            runtime.dispose();
+                            res
                         } else {
                             Response::builder()
                                 .status(StatusCode::BAD_REQUEST)

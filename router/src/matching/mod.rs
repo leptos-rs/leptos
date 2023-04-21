@@ -3,11 +3,12 @@ mod matcher;
 mod resolve_path;
 mod route;
 
-use crate::RouteData;
+use crate::{Branches, RouteData};
 pub use expand_optionals::*;
 pub use matcher::*;
 pub use resolve_path::*;
 pub use route::*;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RouteMatch {
@@ -15,16 +16,36 @@ pub(crate) struct RouteMatch {
     pub route: RouteData,
 }
 
-pub(crate) fn get_route_matches(
-    branches: &Vec<Branch>,
-    location: String,
-) -> Vec<RouteMatch> {
-    for branch in branches {
-        if let Some(matches) = branch.matcher(&location) {
-            return matches;
+pub(crate) fn get_route_matches(location: String) -> Rc<Vec<RouteMatch>> {
+    #[cfg(feature = "ssr")]
+    {
+        use lru::LruCache;
+        use std::{cell::RefCell, num::NonZeroUsize};
+        thread_local! {
+            static ROUTE_MATCH_CACHE: RefCell<LruCache<String, Rc<Vec<RouteMatch>>>> = RefCell::new(LruCache::new(NonZeroUsize::new(32).unwrap()));
         }
+
+        ROUTE_MATCH_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            Rc::clone(cache.get_or_insert(location.clone(), || {
+                build_route_matches(location)
+            }))
+        })
     }
-    vec![]
+
+    #[cfg(not(feature = "ssr"))]
+    build_route_matches(location)
+}
+
+fn build_route_matches(location: String) -> Rc<Vec<RouteMatch>> {
+    Rc::new(Branches::with(|branches| {
+        for branch in branches {
+            if let Some(matches) = branch.matcher(&location) {
+                return matches;
+            }
+        }
+        vec![]
+    }))
 }
 
 /// Describes a branch of the route tree.

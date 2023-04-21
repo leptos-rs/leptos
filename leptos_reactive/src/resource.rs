@@ -5,8 +5,8 @@ use crate::{
     runtime::{with_runtime, RuntimeId},
     serialization::Serializable,
     spawn::spawn_local,
-    use_context, Memo, ReadSignal, Scope, ScopeProperty, SignalUpdate,
-    SignalWith, SuspenseContext, WriteSignal,
+    use_context, Memo, ReadSignal, Scope, ScopeProperty, SignalGetUntracked,
+    SignalSet, SignalUpdate, SignalWith, SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -198,6 +198,7 @@ where
         fetcher,
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
+        preempted: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
         serializable,
     });
@@ -322,6 +323,7 @@ where
         fetcher,
         resolved: Rc::new(Cell::new(resolved)),
         scheduled: Rc::new(Cell::new(false)),
+        preempted: Rc::new(Cell::new(false)),
         suspense_contexts: Default::default(),
         serializable: ResourceSerialization::Local,
     });
@@ -524,6 +526,101 @@ where
     }
 }
 
+impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::update()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn update(&self, f: impl FnOnce(&mut Option<T>)) {
+        self.try_update(f);
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::try_update()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn try_update<O>(&self, f: impl FnOnce(&mut Option<T>) -> O) -> Option<O> {
+        with_runtime(self.runtime, |runtime| {
+            runtime.resource(self.id, |resource: &ResourceState<S, T>| {
+                if resource.loading.get_untracked() {
+                    resource.preempted.set(true);
+                    for suspense_context in
+                        resource.suspense_contexts.borrow().iter()
+                    {
+                        suspense_context.decrement(
+                            resource.serializable
+                                != ResourceSerialization::Local,
+                        );
+                    }
+                }
+                resource.set_loading.set(false);
+                resource.set_value.try_update(f)
+            })
+        })
+        .ok()
+        .flatten()
+    }
+}
+
+impl<S, T> SignalSet<T> for Resource<S, T> {
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::set()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn set(&self, new_value: T) {
+        self.try_set(new_value);
+    }
+
+    #[cfg_attr(
+        debug_assertions,
+        instrument(
+            level = "trace",
+            name = "Resource::try_set()",
+            skip_all,
+            fields(
+                id = ?self.id,
+                defined_at = %self.defined_at,
+                ty = %std::any::type_name::<T>()
+            )
+        )
+    )]
+    #[inline(always)]
+    fn try_set(&self, new_value: T) -> Option<T> {
+        self.update(|n| *n = Some(new_value));
+        None
+    }
+}
+
 /// A signal that reflects the
 /// current state of an asynchronous task, allowing you to integrate `async`
 /// [`Future`]s into the synchronous reactive system.
@@ -626,6 +723,7 @@ where
     fetcher: Rc<dyn Fn(S) -> Pin<Box<dyn Future<Output = T>>>>,
     resolved: Rc<Cell<bool>>,
     scheduled: Rc<Cell<bool>>,
+    preempted: Rc<Cell<bool>>,
     suspense_contexts: Rc<RefCell<HashSet<SuspenseContext>>>,
     serializable: ResourceSerialization,
 }
@@ -738,6 +836,7 @@ where
             return;
         }
 
+        self.preempted.set(false);
         self.scheduled.set(false);
 
         _ = self.source.try_with(|source| {
@@ -772,19 +871,27 @@ where
                 let resolved = self.resolved.clone();
                 let set_value = self.set_value;
                 let set_loading = self.set_loading;
+                let preempted = self.preempted.clone();
                 async move {
                     let res = fut.await;
-
                     resolved.set(true);
 
-                    set_value.update(|n| *n = Some(res));
+                    if !preempted.get() {
+                        set_value.update(|n| *n = Some(res));
+                    }
+
                     set_loading.update(|n| *n = false);
 
-                    for suspense_context in suspense_contexts.borrow().iter() {
-                        suspense_context.decrement(
-                            serializable != ResourceSerialization::Local,
-                        );
+                    if !preempted.get() {
+                        for suspense_context in
+                            suspense_contexts.borrow().iter()
+                        {
+                            suspense_context.decrement(
+                                serializable != ResourceSerialization::Local,
+                            );
+                        }
                     }
+                    preempted.set(false);
                 }
             })
         });

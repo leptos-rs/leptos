@@ -17,6 +17,8 @@ use std::{
 /// Contains route definitions and manages the actual routing process.
 ///
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
+///
+/// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
 #[component]
 pub fn Routes(
     cx: Scope,
@@ -29,44 +31,18 @@ pub fn Routes(
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
 
-    let mut branches = Vec::new();
-    let frag = children(cx);
-    let children = frag
-        .as_children()
-        .iter()
-        .filter_map(|child| {
-            let def = child
-                .as_transparent()
-                .and_then(|t| t.downcast_ref::<RouteDefinition>());
-            if def.is_none() {
-                warn!(
-                    "[NOTE] The <Routes/> component should include *only* \
-                     <Route/>or <ProtectedRoute/> components, or some \
-                     #[component(transparent)] that returns a RouteDefinition."
-                );
-            }
-            def
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    create_branches(
-        &children,
-        &base.unwrap_or_default(),
-        &mut Vec::new(),
-        &mut branches,
-    );
+    Branches::initialize(&base.unwrap_or_default(), children(cx));
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
-        *context.0.borrow_mut() = branches.clone();
+        Branches::with(|branches| *context.0.borrow_mut() = branches.to_vec());
     }
 
     let next_route = router.pathname();
     let current_route = next_route;
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states =
-        route_states(cx, &router, branches, current_route, &root_equal);
+    let route_states = route_states(cx, &router, current_route, &root_equal);
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
@@ -90,6 +66,8 @@ pub fn Routes(
 ///
 /// Each of these properties is optional, and the router will transition to the next correct state
 /// whenever an `animationend` event fires.
+///
+/// **Note:** Your application should only include one `<AnimatedRoutes/>` or `<Routes/>` component.
 #[component]
 pub fn AnimatedRoutes(
     cx: Scope,
@@ -123,36 +101,11 @@ pub fn AnimatedRoutes(
         .expect("<Routes/> component should be nested within a <Router/>.");
     let base_route = router.base();
 
-    let mut branches = Vec::new();
-    let frag = children(cx);
-    let children = frag
-        .as_children()
-        .iter()
-        .filter_map(|child| {
-            let def = child
-                .as_transparent()
-                .and_then(|t| t.downcast_ref::<RouteDefinition>());
-            if def.is_none() {
-                warn!(
-                    "[NOTE] The <Routes/> component should include *only* \
-                     <Route/>or <ProtectedRoute/> components, or some \
-                     #[component(transparent)] that returns a RouteDefinition."
-                );
-            }
-            def
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    create_branches(
-        &children,
-        &base.unwrap_or_default(),
-        &mut Vec::new(),
-        &mut branches,
-    );
+    Branches::initialize(&base.unwrap_or_default(), children(cx));
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
-        *context.0.borrow_mut() = branches.clone();
+        Branches::with(|branches| *context.0.borrow_mut() = branches.to_vec());
     }
 
     let animation = Animation {
@@ -170,16 +123,14 @@ pub fn AnimatedRoutes(
 
     let is_complete = Rc::new(Cell::new(true));
     let animation_and_route = create_memo(cx, {
-        let branches = branches.clone();
         let is_complete = Rc::clone(&is_complete);
+
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
-            let prev_matches = prev
-                .map(|(_, r)| r)
-                .cloned()
-                .map(|prev| get_route_matches(&branches, prev));
-            let matches = get_route_matches(&branches, next_route.clone());
+            let prev_matches =
+                prev.map(|(_, r)| r).cloned().map(get_route_matches);
+            let matches = get_route_matches(next_route.clone());
             let same_route = prev_matches
                 .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
                 == matches.get(0).as_ref().map(|r| r.route.key.clone());
@@ -207,8 +158,7 @@ pub fn AnimatedRoutes(
     let current_route = create_memo(cx, move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states =
-        route_states(cx, &router, branches, current_route, &root_equal);
+    let route_states = route_states(cx, &router, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
     let node_ref = create_node_ref::<html::Div>(cx);
@@ -254,17 +204,70 @@ pub fn AnimatedRoutes(
         .into_view(cx)
 }
 
+pub(crate) struct Branches;
+
+thread_local! {
+    static BRANCHES: RefCell<Option<Vec<Branch>>> = RefCell::new(None);
+}
+
+impl Branches {
+    pub fn initialize(base: &str, children: Fragment) {
+        BRANCHES.with(|branches| {
+            let mut current = branches.borrow_mut();
+            if current.is_none() {
+                let mut branches = Vec::new();
+                let children = children
+                    .as_children()
+                    .iter()
+                    .filter_map(|child| {
+                        let def = child
+                            .as_transparent()
+                            .and_then(|t| t.downcast_ref::<RouteDefinition>());
+                        if def.is_none() {
+                            warn!(
+                                "[NOTE] The <Routes/> component should \
+                                 include *only* <Route/>or <ProtectedRoute/> \
+                                 components, or some \
+                                 #[component(transparent)] that returns a \
+                                 RouteDefinition."
+                            );
+                        }
+                        def
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                create_branches(
+                    &children,
+                    base,
+                    &mut Vec::new(),
+                    &mut branches,
+                );
+                *current = Some(branches);
+            }
+        })
+    }
+
+    pub fn with<T>(cb: impl FnOnce(&[Branch]) -> T) -> T {
+        BRANCHES.with(|branches| {
+            let branches = branches.borrow();
+            let branches = branches.as_ref().expect(
+                "Branches::initialize() should be called before \
+                 Branches::with()",
+            );
+            cb(branches)
+        })
+    }
+}
+
 fn route_states(
     cx: Scope,
     router: &RouterContext,
-    branches: Vec<Branch>,
     current_route: Memo<String>,
     root_equal: &Rc<Cell<bool>>,
 ) -> Memo<RouterState> {
     // whenever path changes, update matches
-    let matches = create_memo(cx, move |_| {
-        get_route_matches(&branches, current_route.get())
-    });
+    let matches =
+        create_memo(cx, move |_| get_route_matches(current_route.get()));
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ

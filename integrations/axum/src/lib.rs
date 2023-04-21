@@ -31,13 +31,9 @@ use leptos::{
 use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::{generate_head_metadata_separated, MetaContext};
 use leptos_router::*;
+use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{
-    io,
-    pin::Pin,
-    sync::{Arc, OnceLock},
-    thread::available_parallelism,
-};
+use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
 
@@ -323,14 +319,10 @@ async fn handle_server_fns_inner(
                     Encoding::Url | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,
                 };
-                match (server_fn.trait_obj)(cx, data).await {
+                let res = match (server_fn.trait_obj)(cx, data).await {
                     Ok(serialized) => {
                         // If ResponseOptions are set, add the headers and status to the request
                         let res_options = use_context::<ResponseOptions>(cx);
-
-                        // clean up the scope, which we only needed to run the server fn
-                        disposer.dispose();
-                        runtime.dispose();
 
                         // if this is Accept: application/json then send a serialized JSON response
                         let accept_header = headers
@@ -396,7 +388,11 @@ async fn handle_server_fns_inner(
                             serde_json::to_string(&e)
                                 .unwrap_or_else(|_| e.to_string()),
                         )),
-                }
+                };
+                // clean up the scope
+                disposer.dispose();
+                runtime.dispose();
+                res
             } else {
                 Response::builder().status(StatusCode::BAD_REQUEST).body(
                     Full::from(format!(
@@ -1193,7 +1189,7 @@ impl LeptosRoutes for axum::Router {
 }
 
 fn get_leptos_pool() -> LocalPoolHandle {
-    static LOCAL_POOL: OnceLock<LocalPoolHandle> = OnceLock::new();
+    static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
     LOCAL_POOL
         .get_or_init(|| {
             tokio_util::task::LocalPoolHandle::new(
