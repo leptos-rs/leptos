@@ -182,10 +182,7 @@ where
             ))]
             let span = tracing::Span::current();
 
-            #[cfg(any(
-                feature = "ssr",
-                all(target_arch = "wasm32", feature = "web")
-            ))]
+            #[cfg(all(target_arch = "wasm32", feature = "web"))]
             create_effect(
                 cx,
                 move |prev_run: Option<(
