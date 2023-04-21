@@ -38,7 +38,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
     };
 
     view! { cx,
-        <>
+        <div>
             <button on:click=add_counter>
                 "Add Counter"
             </button>
@@ -72,7 +72,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                     }
                 />
             </ul>
-        </>
+        </div>
     }
 }
 

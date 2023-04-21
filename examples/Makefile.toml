@@ -7,7 +7,7 @@ CARGO_MAKE_WORKSPACE_EMULATION = true
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
     "counter",
     "counter_isomorphic",
-    #"counters", - FIXME: test compile errors
+    "counters",
     "counters_stable",
     "counter_without_macros",
     "error_boundary",
