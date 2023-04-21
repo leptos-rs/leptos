@@ -11,4 +11,5 @@ console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.0"
-
+wasm-bindgen = "0.2"
+web-sys = "0.3"
