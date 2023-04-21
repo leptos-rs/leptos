@@ -420,6 +420,7 @@ pub fn window_event_listener(
     window_event_listener_untyped(event_name, cb)
 }
 
+/// Adds an event listener to the `Window`, typed as a generic `Event`.
 #[cfg_attr(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
