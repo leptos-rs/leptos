@@ -208,7 +208,6 @@ impl RouterContextInner {
         self: Rc<Self>,
         to: &str,
         options: &NavigateOptions,
-        back: bool,
     ) -> Result<(), NavigationError> {
         let cx = self.cx;
         let this = Rc::clone(&self);
@@ -375,7 +374,6 @@ impl RouterContextInner {
                     scroll: !a.has_attribute("noscroll"),
                     state: State(state),
                 },
-                false,
             ) {
                 leptos::error!("{e:#?}");
             }

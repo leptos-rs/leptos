@@ -81,7 +81,7 @@ pub fn use_navigate(
 ) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
     let router = use_router(cx);
     move |to, options| {
-        Rc::clone(&router.inner).navigate_from_route(to, &options, false)
+        Rc::clone(&router.inner).navigate_from_route(to, &options)
     }
 }
 

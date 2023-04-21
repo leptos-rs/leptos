@@ -1,7 +1,6 @@
 use leptos::*;
 use std::rc::Rc;
-use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
-use web_sys::PopStateEvent;
+use wasm_bindgen::UnwrapThrowExt;
 
 mod location;
 mod params;
@@ -55,8 +54,7 @@ impl History for BrowserIntegration {
 
         let (location, set_location) = create_signal(cx, Self::current());
 
-        leptos::window_event_listener("popstate", move |ev| {
-            let ev = ev.unchecked_into::<PopStateEvent>();
+        leptos::window_event_listener("popstate", move |_| {
             let router = use_context::<RouterContext>(cx);
             if let Some(router) = router {
                 let path_stack = router.inner.path_stack;
@@ -69,7 +67,7 @@ impl History for BrowserIntegration {
                         || stack.get(stack.len() - 2) == Some(&change.value)
                 });
                 if is_navigating_back {
-                    path_stack.update(|stack| {
+                    path_stack.update_value(|stack| {
                         stack.pop();
                     });
                 }
@@ -87,7 +85,6 @@ impl History for BrowserIntegration {
                         scroll: change.scroll,
                         state: change.state,
                     },
-                    is_navigating_back,
                 ) {
                     leptos::error!("{e:#?}");
                 }
