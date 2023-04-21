@@ -35,7 +35,7 @@ use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
-use tracing::{instrument, Instrument};
+use tracing::Instrument;
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
 #[derive(Debug, Clone)]
