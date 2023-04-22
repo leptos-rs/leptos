@@ -43,3 +43,34 @@ pub fn counter(cx: Scope, initial_value: i32, step: u32) -> impl IntoView {
                 .child("+1"),
         )
 }
+
+#[derive(Debug, Clone)]
+pub struct Count {
+    value: i32,
+    step: i32,
+}
+
+impl Count {
+    pub fn new(value: i32, step: u32) -> Self {
+        Count {
+            value,
+            step: step as i32,
+        }
+    }
+
+    pub fn value(&self) -> i32 {
+        self.value
+    }
+
+    pub fn increase(&mut self) {
+        self.value += self.step;
+    }
+
+    pub fn decrease(&mut self) {
+        self.value += -self.step;
+    }
+
+    pub fn clear(&mut self) {
+        self.value = 0;
+    }
+}
