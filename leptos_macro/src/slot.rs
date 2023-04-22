@@ -32,12 +32,12 @@ impl Parse for Model {
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
         drain_filter(&mut item.attrs, |attr| {
-            attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+            attr.path().is_ident("doc") || attr.path().is_ident("prop")
         });
         item.fields.iter_mut().for_each(|arg| {
             drain_filter(&mut arg.attrs, |attr| {
-                attr.path == parse_quote!(doc)
-                    || attr.path == parse_quote!(prop)
+                attr.path().is_ident("doc")
+                    || attr.path().is_ident("prop")
             });
         });
 
