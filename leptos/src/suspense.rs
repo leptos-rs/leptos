@@ -50,6 +50,10 @@ use std::rc::Rc;
 /// # });
 /// # }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component(transparent)]
 pub fn Suspense<F, E>(
     cx: Scope,

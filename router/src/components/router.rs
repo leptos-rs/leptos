@@ -75,6 +75,10 @@ impl std::fmt::Debug for RouterContextInner {
 }
 
 impl RouterContext {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn new(
         cx: Scope,
         base: Option<&'static str>,
@@ -143,6 +147,7 @@ impl RouterContext {
         // 2) update the reference (URL)
         // 3) update the state
         // this will trigger the new route match below
+
         create_render_effect(cx, move |_| {
             let LocationChange { value, state, .. } = source.get();
             cx.untrack(move || {
@@ -204,6 +209,10 @@ impl RouterContext {
 }
 
 impl RouterContextInner {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn navigate_from_route(
         self: Rc<Self>,
         to: &str,

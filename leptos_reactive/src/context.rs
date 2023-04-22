@@ -47,6 +47,10 @@ use std::any::{Any, TypeId};
 ///     todo!()
 /// }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn provide_context<T>(cx: Scope, value: T)
 where
     T: Clone + 'static,
@@ -106,6 +110,10 @@ where
 ///     todo!()
 /// }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn use_context<T>(cx: Scope) -> Option<T>
 where
     T: Clone + 'static,

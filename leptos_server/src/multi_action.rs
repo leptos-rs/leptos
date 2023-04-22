@@ -94,11 +94,19 @@ where
     O: 'static,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn dispatch(&self, input: I) {
         self.0.with_value(|a| a.dispatch(input))
     }
 
     /// The set of all submissions to this multi-action.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn submissions(&self) -> ReadSignal<Vec<Submission<I, O>>> {
         self.0.with_value(|a| a.submissions())
     }
@@ -110,12 +118,20 @@ where
     }
 
     /// How many times an action has successfully resolved.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn version(&self) -> RwSignal<usize> {
         self.0.with_value(|a| a.version)
     }
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `MultiActionForm` component in `leptos_router`.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         let prefix = T::prefix();
         self.0.update_value(|a| {
@@ -195,6 +211,10 @@ where
     O: 'static,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn dispatch(&self, input: I) {
         let cx = self.cx;
         let fut = (self.action_fn)(&input);
@@ -283,6 +303,10 @@ where
 ///     create_multi_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn create_multi_action<I, O, F, Fu>(
     cx: Scope,
     action_fn: F,
@@ -326,6 +350,10 @@ where
 /// let my_server_multi_action = create_server_multi_action::<MyServerFn>(cx);
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn create_server_multi_action<S>(
     cx: Scope,
 ) -> MultiAction<S, Result<S::Output, ServerFnError>>

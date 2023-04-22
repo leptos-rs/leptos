@@ -1,6 +1,5 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -187,11 +186,10 @@ pub use suspense::*;
 mod text_prop;
 mod transition;
 pub use text_prop::TextProp;
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
-
 extern crate self as leptos;
 
 /// The most common type for the `children` property on components,

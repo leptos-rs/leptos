@@ -351,8 +351,8 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "<Each />", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "<Each />", skip_all)
     )]
     fn into_view(self, cx: Scope) -> crate::View {
         let Self {

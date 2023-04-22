@@ -10,6 +10,10 @@ type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 #[component]
 pub fn Form<A>(
     cx: Scope,
@@ -202,6 +206,10 @@ where
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 #[component]
 pub fn ActionForm<I, O>(
     cx: Scope,
@@ -328,6 +336,10 @@ where
 /// Automatically turns a server [MultiAction](leptos_server::MultiAction) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 #[component]
 pub fn MultiActionForm<I, O>(
     cx: Scope,
@@ -408,7 +420,10 @@ where
     }
     form
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 fn extract_form_attributes(
     ev: &web_sys::Event,
 ) -> (web_sys::HtmlFormElement, String, String, String) {
@@ -536,6 +551,10 @@ impl<T> FromFormData for T
 where
     T: serde::de::DeserializeOwned,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     fn from_event(
         ev: &web_sys::Event,
     ) -> Result<Self, serde_urlencoded::de::Error> {
@@ -545,7 +564,10 @@ where
 
         Self::from_form_data(&form_data)
     }
-
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     fn from_form_data(
         form_data: &web_sys::FormData,
     ) -> Result<Self, serde_urlencoded::de::Error> {

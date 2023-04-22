@@ -157,8 +157,8 @@ impl ToTokens for Model {
                     quote! {
                         #[allow(clippy::let_with_type_underscore)]
                         #[cfg_attr(
-                            debug_assertions,
-                            ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                            any(debug_assertions, feature="ssr"),
+                            ::leptos::leptos_dom::tracing::instrument(level = "info", name = #trace_name, skip_all)
                         )]
                     },
                     quote! {

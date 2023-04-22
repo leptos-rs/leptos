@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 //! Provides functions to easily integrate Leptos with Axum.
 //!
 //! For more details on how to use the integrations, see the
@@ -36,7 +35,7 @@ use parking_lot::RwLock;
 use std::{io, pin::Pin, sync::Arc, thread::available_parallelism};
 use tokio::task::LocalSet;
 use tokio_util::task::LocalPoolHandle;
-
+use tracing::Instrument;
 /// A struct to hold the parts of the incoming Request. Since `http::Request` isn't cloneable, we're forced
 /// to construct this for Leptos to use in Axum
 #[derive(Debug, Clone)]
@@ -248,6 +247,7 @@ where
 /// This function always provides context values including the following types:
 /// - [RequestParts]
 /// - [ResponseOptions]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn handle_server_fns(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -271,6 +271,7 @@ pub async fn handle_server_fns(
 /// This function always provides context values including the following types:
 /// - [RequestParts]
 /// - [ResponseOptions]
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn handle_server_fns_with_context(
     Path(fn_name): Path<String>,
     headers: HeaderMap,
@@ -281,7 +282,7 @@ pub async fn handle_server_fns_with_context(
     handle_server_fns_inner(fn_name, headers, query, additional_context, req)
         .await
 }
-
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 async fn handle_server_fns_inner(
     fn_name: String,
     headers: HeaderMap,
@@ -465,6 +466,7 @@ pub type PinnedHtmlStream =
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -538,6 +540,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -583,6 +586,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -611,6 +615,8 @@ where
             let res_options3 = default_res_options.clone();
             let local_pool = get_leptos_pool();
             let (tx, rx) = futures::channel::mpsc::channel(8);
+
+            let current_span = tracing::Span::current();
             local_pool.spawn_pinned(move || async move {
                 let app = {
                     // Need to get the path and query string of the Request
@@ -634,12 +640,12 @@ where
                     );
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
-            });
+            }.instrument(current_span));
             async move { generate_response(res_options3, rx).await }
         })
     }
 }
-
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
@@ -669,7 +675,7 @@ async fn generate_response(
 
     res
 }
-
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
@@ -729,6 +735,7 @@ async fn forward_stream(
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -766,7 +773,8 @@ where
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
                 let local_pool = get_leptos_pool();
-                local_pool.spawn_pinned(move || async move {
+                let current_span = tracing::Span::current();
+                local_pool.spawn_pinned(|| async move {
                     let app = {
                         let full_path = full_path.clone();
                         let (req, req_parts) = generate_request_and_parts(req).await;
@@ -785,14 +793,14 @@ where
                         );
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
-                });
+                }.instrument(current_span));
 
                 generate_response(res_options3, rx).await
             }
         })
     }
 }
-
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn provide_contexts<B: 'static + std::fmt::Debug + std::default::Default>(
     cx: Scope,
     path: String,
@@ -860,6 +868,7 @@ fn provide_contexts<B: 'static + std::fmt::Debug + std::default::Default>(
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async<IV>(
     options: LeptosOptions,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -901,6 +910,7 @@ where
 /// - [ResponseOptions]
 /// - [MetaContext](leptos_meta::MetaContext)
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
@@ -989,6 +999,7 @@ where
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths.
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
 ) -> Vec<RouteListing>
@@ -1079,6 +1090,7 @@ pub trait LeptosRoutes {
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
 impl LeptosRoutes for axum::Router {
+    #[tracing::instrument(level = "info", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
         options: LeptosOptions,
@@ -1091,6 +1103,7 @@ impl LeptosRoutes for axum::Router {
         self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
     }
 
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
         options: LeptosOptions,
@@ -1158,6 +1171,7 @@ impl LeptosRoutes for axum::Router {
         router
     }
 
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_handler<H, T>(
         self,
         paths: Vec<RouteListing>,
@@ -1187,7 +1201,7 @@ impl LeptosRoutes for axum::Router {
         router
     }
 }
-
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn get_leptos_pool() -> LocalPoolHandle {
     static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
     LOCAL_POOL

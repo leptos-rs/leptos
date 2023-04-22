@@ -332,7 +332,7 @@ pub trait SignalDispose {
 /// #
 /// ```
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -354,7 +354,7 @@ pub fn create_signal<T>(
 
 /// Works exactly as [`create_signal`], but creates multiple signals at once.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -374,7 +374,7 @@ pub fn create_many_signals<T>(
 
 /// Works exactly as [`create_many_signals`], but applies the map function to each signal pair.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -404,7 +404,7 @@ where
 /// **Note**: If used on the server side during server rendering, this will return `None`
 /// immediately and not begin driving the stream.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -496,13 +496,13 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::get_untracked()",
@@ -522,14 +522,14 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_get_untracked()",
@@ -553,7 +553,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
 
 impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::with_untracked()",
@@ -571,7 +571,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_with_untracked()",
@@ -617,7 +617,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// ```
 impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::with()",
@@ -641,14 +641,14 @@ impl<T> SignalWith<T> for ReadSignal<T> {
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_with()",
@@ -688,7 +688,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 /// ```
 impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::get()",
@@ -711,14 +711,14 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_get()",
@@ -737,7 +737,7 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
 
 impl<T: Clone> SignalStream<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::to_stream()",
@@ -862,7 +862,7 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -871,7 +871,7 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::set_untracked()",
@@ -889,7 +889,7 @@ where
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::try_set_untracked()",
@@ -913,7 +913,7 @@ where
 
 impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::updated_untracked()",
@@ -931,7 +931,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::update_returning_untracked()",
@@ -978,7 +978,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// ```
 impl<T> SignalUpdate<T> for WriteSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "WriteSignal::update()",
             level = "trace",
@@ -994,14 +994,14 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             );
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "WriteSignal::try_update()",
             level = "trace",
@@ -1038,7 +1038,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// ```
 impl<T> SignalSet<T> for WriteSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::set()",
@@ -1055,7 +1055,7 @@ impl<T> SignalSet<T> for WriteSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::try_set()",
@@ -1113,7 +1113,7 @@ impl<T> Copy for WriteSignal<T> {}
 /// #
 /// ```
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -1180,7 +1180,7 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -1194,7 +1194,7 @@ impl<T> Copy for RwSignal<T> {}
 
 impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::get_untracked()",
@@ -1211,7 +1211,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_get_untracked()",
@@ -1231,7 +1231,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
@@ -1240,7 +1240,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
 
 impl<T> SignalWithUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::with_untracked()",
@@ -1258,7 +1258,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_with_untracked()",
@@ -1286,7 +1286,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
 
 impl<T> SignalSetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::set_untracked()",
@@ -1304,7 +1304,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_set_untracked()",
@@ -1328,7 +1328,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
 
 impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         name = "RwSignal::update_untracked()",
@@ -1346,7 +1346,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         name = "RwSignal::update_returning_untracked()",
@@ -1367,7 +1367,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_update_untracked()",
@@ -1409,7 +1409,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// ```
 impl<T> SignalWith<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::with()",
@@ -1433,14 +1433,14 @@ impl<T> SignalWith<T> for RwSignal<T> {
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_with()",
@@ -1481,7 +1481,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
 /// ```
 impl<T: Clone> SignalGet<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::get()",
@@ -1507,14 +1507,14 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_get()",
@@ -1561,7 +1561,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// ```
 impl<T> SignalUpdate<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::update()",
@@ -1577,14 +1577,14 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             );
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_update()",
@@ -1616,7 +1616,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 /// ```
 impl<T> SignalSet<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::set()",
@@ -1633,7 +1633,7 @@ impl<T> SignalSet<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_set()",
@@ -1697,7 +1697,7 @@ impl<T> RwSignal<T> {
     /// # }).dispose();
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::read_only()",
@@ -1715,7 +1715,7 @@ impl<T> RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -1735,7 +1735,7 @@ impl<T> RwSignal<T> {
     /// # }).dispose();
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::write_only()",
@@ -1753,7 +1753,7 @@ impl<T> RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -1772,7 +1772,7 @@ impl<T> RwSignal<T> {
     /// # }).dispose();
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::split()",
@@ -1791,14 +1791,14 @@ impl<T> RwSignal<T> {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
         )
@@ -2028,17 +2028,18 @@ impl NodeId {
 #[track_caller]
 fn format_signal_warning(
     msg: &str,
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) -> String {
     let location = std::panic::Location::caller();
 
     let defined_at_msg = {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         {
             format!("signal created here: {defined_at}\n")
         }
 
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, feature = "ssr")))]
         {
             String::default()
         }
@@ -2051,13 +2052,14 @@ fn format_signal_warning(
 #[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_signal(
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) -> ! {
     panic!(
         "{}",
         format_signal_warning(
             "Attempted to get a signal after it was disposed.",
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at,
         )
     )
@@ -2067,11 +2069,12 @@ pub(crate) fn panic_getting_dead_signal(
 #[inline(never)]
 #[track_caller]
 pub(crate) fn warn_updating_dead_signal(
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) {
     console_warn(&format_signal_warning(
         "Attempted to update a signal after it was disposed.",
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         defined_at,
     ));
 }

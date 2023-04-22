@@ -19,6 +19,10 @@ use std::{
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 ///
 /// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component]
 pub fn Routes(
     cx: Scope,
@@ -491,7 +495,10 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
         score: routes.last().unwrap().score() * 10000 - (index as i32),
     }
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();

@@ -89,16 +89,28 @@ where
     O: 'static,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn dispatch(&self, input: I) {
         self.0.with_value(|a| a.dispatch(input))
     }
 
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn pending(&self) -> ReadSignal<bool> {
         self.0.with_value(|a| a.pending.read_only())
     }
 
     /// Updates whether the action is currently pending.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn set_pending(&self, pending: bool) {
         self.0.try_with_value(|a| a.pending.set(pending));
     }
@@ -111,6 +123,10 @@ where
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `ActionForm` component in `leptos_router`.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         let prefix = T::prefix();
         self.0.update_value(|state| {
@@ -130,11 +146,19 @@ where
 
     /// The current argument that was dispatched to the `async` function.
     /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn input(&self) -> RwSignal<Option<I>> {
         self.0.with_value(|a| a.input)
     }
 
     /// The most recent return value of the `async` function.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn value(&self) -> RwSignal<Option<O>> {
         self.0.with_value(|a| a.value)
     }
@@ -181,6 +205,10 @@ where
     O: 'static,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn dispatch(&self, input: I) {
         let fut = (self.action_fn)(&input);
         self.input.set(Some(input));
@@ -273,6 +301,10 @@ where
 ///     create_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn create_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> Action<I, O>
 where
     I: 'static,
@@ -316,6 +348,10 @@ where
 /// let my_server_action = create_server_action::<MyServerFn>(cx);
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn create_server_action<S>(
     cx: Scope,
 ) -> Action<S, Result<S::Output, ServerFnError>>
