@@ -901,9 +901,11 @@ async fn render_app_async_helper(
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
 /// create routes in Actix's App without having to use wildcard matching or fallbacks. Takes in your root app Element
-/// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths.
+/// as an argument so it can walk you app tree. This version is tailored to generated Actix compatible paths. Adding excluded_routes
+/// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list<IV>(
     app_fn: impl FnOnce(leptos::Scope) -> IV + 'static,
+    excluded_routes: Option<Vec<String>>
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
@@ -932,7 +934,7 @@ where
     // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
     let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
 
-    let routes = routes
+    let mut routes = routes
         .into_iter()
         .map(|listing| {
             let path = wildcard_re
@@ -946,6 +948,10 @@ where
     if routes.is_empty() {
         vec![RouteListing::new("/", Default::default(), [Method::Get])]
     } else {
+        // Routes to exclude from auto generation
+        if let Some(excluded_routes) = excluded_routes{
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
         routes
     }
 }

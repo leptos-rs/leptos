@@ -946,6 +946,7 @@ where
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
+    excluded_routes: Option<Vec<String>>
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
@@ -973,7 +974,7 @@ where
 
     let routes = routes.0.read().to_owned();
     // Viz's Router defines Root routes as "/" not ""
-    let routes = routes
+    let mut routes = routes
         .into_iter()
         .map(|listing| {
             let path = listing.path();
@@ -996,6 +997,9 @@ where
             [leptos_router::Method::Get],
         )]
     } else {
+        if let Some(excluded_routes) = excluded_routes{
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
         routes
     }
 }
