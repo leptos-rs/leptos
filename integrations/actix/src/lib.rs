@@ -905,7 +905,7 @@ async fn render_app_async_helper(
 /// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Actix path format
 pub fn generate_route_list<IV>(
     app_fn: impl FnOnce(leptos::Scope) -> IV + 'static,
-    excluded_routes: Option<Vec<String>>
+    excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
@@ -949,7 +949,7 @@ where
         vec![RouteListing::new("/", Default::default(), [Method::Get])]
     } else {
         // Routes to exclude from auto generation
-        if let Some(excluded_routes) = excluded_routes{
+        if let Some(excluded_routes) = excluded_routes {
             routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
         }
         routes

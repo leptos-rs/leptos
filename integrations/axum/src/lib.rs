@@ -19,7 +19,10 @@ use futures::{
     channel::mpsc::{Receiver, Sender},
     Future, SinkExt, Stream, StreamExt,
 };
-use http::{header, method::Method, uri::Uri, version::Version, Response, request::Parts};
+use http::{
+    header, method::Method, request::Parts, uri::Uri, version::Version,
+    Response,
+};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
@@ -49,14 +52,14 @@ pub struct RequestParts {
 
 /// Convert http::Parts to RequestParts(and vice versa). Body and Extensions will
 /// be lost in the conversion
-impl From<Parts> for RequestParts{
+impl From<Parts> for RequestParts {
     fn from(parts: Parts) -> Self {
         Self {
-            version: parts.version, 
-            method: parts.method, 
-            uri: parts.uri, 
-            headers: parts.headers, 
-            body: Bytes::default() 
+            version: parts.version,
+            method: parts.method,
+            uri: parts.uri,
+            headers: parts.headers,
+            body: Bytes::default(),
         }
     }
 }
@@ -79,7 +82,6 @@ impl ResponseParts {
         self.headers.append(key, value);
     }
 }
-
 
 /// Adding this Struct to your Scope inside of a Server Fn or Element will allow you to override details of the Response
 /// like status and add Headers/Cookies. Because Elements and Server Fns are lower in the tree than the Response generation
@@ -1019,7 +1021,7 @@ where
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn generate_route_list<IV>(
     app_fn: impl FnOnce(Scope) -> IV + 'static,
-    excluded_routes: Option<Vec<String>>
+    excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
@@ -1071,7 +1073,7 @@ where
         )]
     } else {
         // Routes to exclude from auto generation
-        if let Some(excluded_routes) = excluded_routes{
+        if let Some(excluded_routes) = excluded_routes {
             routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
         }
         routes
