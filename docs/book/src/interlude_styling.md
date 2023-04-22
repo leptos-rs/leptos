@@ -109,4 +109,4 @@ pub fn MyComponent(cx: Scope) -> impl IntoView {
 
 ## Contributions Welcome
 
-Leptos no opinions on how you style your website or app, but we’re very happy to provide support to any tools you’re trying to create to make it easier. If you’re working on a CSS or styling approach that you’d like to add to this list, please let us know!
+Leptos has no opinions on how you style your website or app, but we’re very happy to provide support to any tools you’re trying to create to make it easier. If you’re working on a CSS or styling approach that you’d like to add to this list, please let us know!
