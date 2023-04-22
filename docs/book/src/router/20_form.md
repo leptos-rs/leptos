@@ -24,8 +24,6 @@ async fn fetch_results() {
 }
 
 #[component]
-pub fn Search(cx: Scope) -> impl IntoView {
-#[component]
 pub fn FormExample(cx: Scope) -> impl IntoView {
     // reactive access to URL query strings
     let query = use_query_map(cx);
