@@ -144,3 +144,5 @@ WebAssembly running in the browser is a pretty limited environment. You don’t 
 In particular, you’ll sometimes see errors about the crate `mio` or missing things from `core`. This is generally a sign that you are trying to compile something to WASM that can’t be compiled to WASM. If you’re adding server-only dependencies, you’ll want to mark them `optional = true` in your `Cargo.toml` and then enable them in the `ssr` feature definition. (Check out one of the template `Cargo.toml` files to see more details.)
 
 You can use `create_effect` to specify that something should only run on the client, and not in the server. Is there a way to specify that something should run only on the server, and not the client?
+
+In fact, there is. The next chapter will cover the topic of server functions in some detail. (In the meantime, you can check out their docs [here](https://docs.rs/leptos_server/0.2.5/leptos_server/index.html).)
