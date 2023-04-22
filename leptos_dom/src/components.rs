@@ -54,7 +54,7 @@ pub struct ComponentRepr {
     pub(crate) document_fragment: web_sys::DocumentFragment,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     mounted: Rc<OnceCell<()>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) name: Cow<'static, str>,
     #[cfg(debug_assertions)]
     _opening: Comment,
@@ -142,7 +142,7 @@ impl Mountable for ComponentRepr {
 }
 
 impl IntoView for ComponentRepr {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
+    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
     fn into_view(self, _: Scope) -> View {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         if !HydrationCtx::is_hydrating() {
@@ -207,7 +207,7 @@ impl ComponentRepr {
             #[cfg(debug_assertions)]
             _opening: markers.1,
             closing: markers.0,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             name,
             children: Vec::with_capacity(1),
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]

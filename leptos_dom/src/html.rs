@@ -658,6 +658,15 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Adds a class to an element.
+    ///
+    /// **Note**: In the builder syntax, this will be overwritten by the `class`
+    /// attribute if you use `.attr("class", /* */)`. In the `view` macro, they
+    /// are automatically re-ordered so that this over-writing does not happen.
+    ///
+    /// # Panics
+    /// This directly uses the browser’s `classList` API, which means it will throw
+    /// a runtime error if you pass more than a single class name. If you want to
+    /// pass more than one class name at a time, you can use [HtmlElement::classes].
     #[track_caller]
     pub fn class(
         self,
@@ -968,7 +977,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 }
 
 impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
+    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
     #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
     fn into_view(self, _: Scope) -> View {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -1012,7 +1021,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
 
 impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -1139,7 +1148,7 @@ macro_rules! generate_html_tags {
 
         #[$meta]
       #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
           level = "trace",
           name = "HtmlElement",

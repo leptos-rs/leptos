@@ -57,7 +57,7 @@ where
     T: 'static,
 {
     inner: SignalSetterTypes<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -65,7 +65,7 @@ impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -76,7 +76,7 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
     fn default() -> Self {
         Self {
             inner: SignalSetterTypes::Default,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -138,7 +138,7 @@ where
     /// ```
     #[track_caller]
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             skip_all,
@@ -153,7 +153,7 @@ where
                 cx,
                 store_value(cx, Box::new(mapped_setter)),
             ),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -179,7 +179,7 @@ where
     /// assert_eq!(count(), 8);
     /// # });
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             skip_all,
@@ -203,7 +203,7 @@ impl<T> From<WriteSignal<T>> for SignalSetter<T> {
     fn from(value: WriteSignal<T>) -> Self {
         Self {
             inner: SignalSetterTypes::Write(value),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -214,7 +214,7 @@ impl<T> From<RwSignal<T>> for SignalSetter<T> {
     fn from(value: RwSignal<T>) -> Self {
         Self {
             inner: SignalSetterTypes::Write(value.write_only()),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }

@@ -1,6 +1,5 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-
 //! # About Leptos
 //!
 //! Leptos is a full-stack framework for building web applications in Rust. You can use it to build
@@ -43,6 +42,7 @@
 //!   HTTP request within your reactive code.
 //! - [`router`](https://github.com/leptos-rs/leptos/tree/main/examples/router) shows how to use Leptos’s nested router
 //!   to enable client-side navigation and route-specific, reactive data loading.
+//! - [`slots`](https://github.com/leptos-rs/leptos/tree/main/examples/slots) shows how to use slots on components.
 //! - [`counter_isomorphic`](https://github.com/leptos-rs/leptos/tree/main/examples/counter_isomorphic) shows
 //!   different methods of interaction with a stateful server, including server functions, server actions, forms,
 //!   and server-sent events (SSE).
@@ -160,7 +160,8 @@ pub use leptos_dom::{
         request_animation_frame, request_animation_frame_with_handle,
         request_idle_callback, request_idle_callback_with_handle, set_interval,
         set_interval_with_handle, set_timeout, set_timeout_with_handle,
-        window_event_listener,
+        window_event_listener, window_event_listener_untyped,
+        window_event_listener_with_precast,
     },
     html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
     Class, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
@@ -185,11 +186,10 @@ pub use suspense::*;
 mod text_prop;
 mod transition;
 pub use text_prop::TextProp;
-#[cfg(debug_assertions)]
+#[cfg(any(debug_assertions, feature = "ssr"))]
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
-
 extern crate self as leptos;
 
 /// The most common type for the `children` property on components,
@@ -240,3 +240,24 @@ pub fn component_props_builder<P: Props>(
 ) -> <P as Props>::Builder {
     <P as Props>::builder()
 }
+
+#[cfg(all(not(doc), feature = "csr", feature = "ssr"))]
+compile_error!(
+    "You have both `csr` and `ssr` enabled as features, which may cause \
+     issues like <Suspense/>` failing to work silently. `csr` is enabled by \
+     default on `leptos`, and can be disabled by adding `default-features = \
+     false` to your `leptos` dependency."
+);
+
+#[cfg(all(not(doc), feature = "hydrate", feature = "ssr"))]
+compile_error!(
+    "You have both `hydrate` and `ssr` enabled as features, which may cause \
+     issues like <Suspense/>` failing to work silently."
+);
+
+#[cfg(all(not(doc), feature = "hydrate", feature = "csr"))]
+compile_error!(
+    "You have both `hydrate` and `csr` enabled as features, which may cause \
+     issues. `csr` is enabled by default on `leptos`, and can be disabled by \
+     adding `default-features = false` to your `leptos` dependency."
+);

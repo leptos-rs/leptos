@@ -14,6 +14,10 @@ where
     I: IntoIterator<Item = V>,
     V: IntoView,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     fn into_fragment(self, cx: Scope) -> Fragment {
         self.into_iter().map(|v| v.into_view(cx)).collect()
     }
@@ -86,7 +90,7 @@ impl Fragment {
 }
 
 impl IntoView for Fragment {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
     fn into_view(self, cx: leptos_reactive::Scope) -> View {
         let mut frag = ComponentRepr::new_with_id("", self.id.clone());
 

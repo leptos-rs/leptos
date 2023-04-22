@@ -1,6 +1,6 @@
 //! A variety of DOM utility functions.
 
-use crate::{is_server, window};
+use crate::{events::typed as ev, is_server, window};
 use leptos_reactive::{on_cleanup, Scope};
 use std::time::Duration;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
@@ -196,7 +196,7 @@ impl TimeoutHandle {
 /// Executes the given function after the given duration of time has passed.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
@@ -206,7 +206,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// Executes the given function after the given duration of time has passed, returning a cancelable handle.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -329,7 +329,7 @@ impl IntervalHandle {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[deprecated = "use set_interval_with_handle() instead. In the future, \
@@ -364,7 +364,7 @@ pub fn set_interval(
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -404,11 +404,29 @@ pub fn set_interval_with_handle(
 
 /// Adds an event listener to the `Window`.
 #[cfg_attr(
+  any(debug_assertions, features = "ssr"),
+  instrument(level = "trace", skip_all, fields(event_name = %event_name))
+)]
+#[inline(always)]
+#[deprecated = "In the next release, `window_event_listener` will become \
+                typed. You can switch now to `window_event_listener_untyped` \
+                for the current behavior or use \
+                `window_event_listener_with_precast`, which will become the \
+                new`window_event_listener`."]
+pub fn window_event_listener(
+    event_name: &str,
+    cb: impl Fn(web_sys::Event) + 'static,
+) {
+    window_event_listener_untyped(event_name, cb)
+}
+
+/// Adds an event listener to the `Window`, typed as a generic `Event`.
+#[cfg_attr(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
 )]
 #[inline(always)]
-pub fn window_event_listener(
+pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
 ) {
@@ -436,6 +454,18 @@ pub fn window_event_listener(
 
         wel(Box::new(cb), event_name);
     }
+}
+
+/// Creates a window event listener where the event in the callback is already appropriately cast.
+pub fn window_event_listener_with_precast<E: ev::EventDescriptor + 'static>(
+    event: E,
+    cb: impl Fn(E::EventType) + 'static,
+) where
+    E::EventType: JsCast,
+{
+    window_event_listener_untyped(&event.name(), move |e| {
+        cb(e.unchecked_into::<E::EventType>())
+    });
 }
 
 #[doc(hidden)]

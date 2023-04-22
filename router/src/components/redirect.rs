@@ -14,6 +14,10 @@ use std::rc::Rc;
 /// integrations (`leptos_actix`, `leptos_axum`, and `leptos_viz`). If you’re not using one of those
 /// integrations, you should manually provide a way of redirecting on the server
 /// using [provide_server_redirect].
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 #[component]
 pub fn Redirect<P>(
     cx: Scope,
@@ -74,6 +78,10 @@ impl std::fmt::Debug for ServerRedirectFunction {
 /// Provides a function that can be used to redirect the user to another
 /// absolute path, on the server. This should set a `302` status code and an
 /// appropriate `Location` header.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn provide_server_redirect(cx: Scope, handler: impl Fn(&str) + 'static) {
     provide_context(
         cx,

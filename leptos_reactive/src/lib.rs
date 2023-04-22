@@ -67,7 +67,7 @@
 //! });
 //! ```
 
-#[cfg_attr(debug_assertions, macro_use)]
+#[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 extern crate tracing;
 
 #[macro_use]

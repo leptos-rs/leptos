@@ -47,7 +47,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// # }).dispose();
 /// ```
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -103,7 +103,7 @@ where
 /// # assert_eq!(b(), 2);
 /// # }).dispose();
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -128,7 +128,7 @@ pub fn create_isomorphic_effect<T>(
 
 #[doc(hidden)]
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -153,7 +153,7 @@ where
 {
     pub(crate) f: F,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -167,7 +167,7 @@ where
     F: Fn(Option<T>) -> T,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "Effect::run()",
             level = "debug",

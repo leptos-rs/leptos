@@ -49,6 +49,7 @@ dependencies = [
 	{ name = "check", path = "examples/parent_child" },
 	{ name = "check", path = "examples/router" },
 	{ name = "check", path = "examples/session_auth_axum" },
+	{ name = "check", path = "examples/slots" },
 	{ name = "check", path = "examples/ssr_modes" },
 	{ name = "check", path = "examples/ssr_modes_axum" },
 	{ name = "check", path = "examples/tailwind" },
@@ -75,8 +76,20 @@ command = "cargo"
 args = ["+nightly", "test-all-features"]
 install_crate = "cargo-all-features"
 
+[tasks.test-examples]
+description = "Run all unit and web tests for examples"
+cwd = "examples"
+command = "cargo"
+args = ["make", "test-unit-and-web"]
+
+[tasks.verify-examples]
+description = "Run all quality checks and tests for examples"
+cwd = "examples"
+command = "cargo"
+args = ["make", "verify-flow"]
+
 [env]
-RUSTFLAGS=""
+RUSTFLAGS = ""
 
 [env.github-actions]
-RUSTFLAGS="-D warnings"
+RUSTFLAGS = "-D warnings"

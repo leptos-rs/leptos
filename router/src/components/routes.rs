@@ -19,6 +19,10 @@ use std::{
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 ///
 /// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component]
 pub fn Routes(
     cx: Scope,
@@ -121,7 +125,10 @@ pub fn AnimatedRoutes(
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
 
+    let is_complete = Rc::new(Cell::new(true));
     let animation_and_route = create_memo(cx, {
+        let is_complete = Rc::clone(&is_complete);
+
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
@@ -140,7 +147,7 @@ pub fn AnimatedRoutes(
                         let (next_state, can_advance) = animation
                             .next_state(prev_state, is_back.get_untracked());
 
-                        if can_advance {
+                        if can_advance || !is_complete.get() {
                             (next_state, next_route)
                         } else {
                             (next_state, prev_route.to_owned())
@@ -158,8 +165,10 @@ pub fn AnimatedRoutes(
     let route_states = route_states(cx, &router, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
+    let node_ref = create_node_ref::<html::Div>(cx);
 
     html::div(cx)
+        .node_ref(node_ref)
         .attr(
             "class",
             (cx, move || {
@@ -171,6 +180,7 @@ pub fn AnimatedRoutes(
                     AnimationState::OutroBack => outro_back.unwrap_or_default(),
                     AnimationState::IntroBack => intro_back.unwrap_or_default(),
                 };
+                is_complete.set(animation_class == finally.unwrap_or_default());
                 if let Some(class) = &class {
                     format!("{} {animation_class}", class.get())
                 } else {
@@ -178,13 +188,21 @@ pub fn AnimatedRoutes(
                 }
             }),
         )
-        .on(leptos::ev::animationend, move |_| {
-            let current = current_animation.get();
-            set_animation_state.update(|current_state| {
-                let (next, _) =
-                    animation.next_state(&current, is_back.get_untracked());
-                *current_state = next;
-            })
+        .on(leptos::ev::animationend, move |ev| {
+            use wasm_bindgen::JsCast;
+            if let Some(target) = ev.target() {
+                if target
+                    .unchecked_ref::<web_sys::Node>()
+                    .is_same_node(Some(&*node_ref.get().unwrap()))
+                {
+                    let current = current_animation.get();
+                    set_animation_state.update(|current_state| {
+                        let (next, _) = animation
+                            .next_state(&current, is_back.get_untracked());
+                        *current_state = next;
+                    })
+                }
+            }
         })
         .child(move || root.get())
         .into_view(cx)
@@ -477,7 +495,10 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
         score: routes.last().unwrap().score() * 10000 - (index as i32),
     }
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();

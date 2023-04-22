@@ -158,8 +158,8 @@ where
     N: IntoView,
 {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "<DynChild />", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "<DynChild />", skip_all)
     )]
     #[inline]
     fn into_view(self, cx: Scope) -> View {

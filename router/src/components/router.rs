@@ -55,6 +55,7 @@ pub(crate) struct RouterContextInner {
     state: ReadSignal<State>,
     set_state: WriteSignal<State>,
     pub(crate) is_back: RwSignal<bool>,
+    pub(crate) path_stack: StoredValue<Vec<String>>,
 }
 
 impl std::fmt::Debug for RouterContextInner {
@@ -68,11 +69,16 @@ impl std::fmt::Debug for RouterContextInner {
             .field("referrers", &self.referrers)
             .field("state", &self.state)
             .field("set_state", &self.set_state)
+            .field("path_stack", &self.path_stack)
             .finish()
     }
 }
 
 impl RouterContext {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn new(
         cx: Scope,
         base: Option<&'static str>,
@@ -111,7 +117,6 @@ impl RouterContext {
                     replace: true,
                     scroll: false,
                     state: State(None),
-                    back: false,
                 });
             }
         }
@@ -142,6 +147,7 @@ impl RouterContext {
         // 2) update the reference (URL)
         // 3) update the state
         // this will trigger the new route match below
+
         create_render_effect(cx, move |_| {
             let LocationChange { value, state, .. } = source.get();
             cx.untrack(move || {
@@ -154,6 +160,10 @@ impl RouterContext {
 
         let inner = Rc::new(RouterContextInner {
             base_path: base_path.into_owned(),
+            path_stack: store_value(
+                cx,
+                vec![location.pathname.get_untracked()],
+            ),
             location,
             base,
             history: Box::new(history),
@@ -169,7 +179,7 @@ impl RouterContext {
 
         // handle all click events on anchor tags
         #[cfg(not(feature = "ssr"))]
-        leptos::window_event_listener("click", {
+        leptos::window_event_listener_untyped("click", {
             let inner = Rc::clone(&inner);
             move |ev| inner.clone().handle_anchor_click(ev)
         });
@@ -199,11 +209,14 @@ impl RouterContext {
 }
 
 impl RouterContextInner {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn navigate_from_route(
         self: Rc<Self>,
         to: &str,
         options: &NavigateOptions,
-        back: bool,
     ) -> Result<(), NavigationError> {
         let cx = self.cx;
         let this = Rc::clone(&self);
@@ -231,7 +244,6 @@ impl RouterContextInner {
                                 replace: options.replace,
                                 scroll: options.scroll,
                                 state: self.state.get(),
-                                back,
                             });
                         }
                         let len = self.referrers.borrow().len();
@@ -249,13 +261,17 @@ impl RouterContextInner {
                             let next_state = state.clone();
                             move |state| *state = next_state
                         });
+
+                        self.path_stack.update_value(|stack| {
+                            stack.push(resolved_to.clone())
+                        });
+
                         if referrers.borrow().len() == len {
                             this.navigate_end(LocationChange {
                                 value: resolved_to,
                                 replace: false,
                                 scroll: true,
                                 state,
-                                back,
                             })
                         }
                     }
@@ -280,6 +296,8 @@ impl RouterContextInner {
 
     #[cfg(not(feature = "ssr"))]
     pub(crate) fn handle_anchor_click(self: Rc<Self>, ev: web_sys::Event) {
+        use wasm_bindgen::JsValue;
+
         let ev = ev.unchecked_into::<web_sys::MouseEvent>();
         if ev.default_prevented()
             || ev.button() != 0
@@ -343,7 +361,7 @@ impl RouterContextInner {
                 leptos_dom::helpers::get_property(a.unchecked_ref(), "state")
                     .ok()
                     .and_then(|value| {
-                        if value == wasm_bindgen::JsValue::UNDEFINED {
+                        if value == JsValue::UNDEFINED {
                             None
                         } else {
                             Some(value)
@@ -365,7 +383,6 @@ impl RouterContextInner {
                     scroll: !a.has_attribute("noscroll"),
                     state: State(state),
                 },
-                false,
             ) {
                 leptos::error!("{e:#?}");
             }

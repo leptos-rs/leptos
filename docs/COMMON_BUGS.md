@@ -28,6 +28,52 @@ let (a, set_a) = create_signal(cx, 0);
 let b = move || a () > 5;
 ```
 
+### Nested signal updates/reads triggering panic
+
+Sometimes you have nested signals: for example, hash-map that can change over time, each of whose values can also change over time:
+
+```rust
+#[component]
+pub fn App(cx: Scope) -> impl IntoView {
+    let resources = create_rw_signal(cx, HashMap::new());
+
+    let update = move |id: usize| {
+        resources.update(|resources| {
+            resources
+                .entry(id)
+                .or_insert_with(|| create_rw_signal(cx, 0))
+                .update(|amount| *amount += 1)
+        })
+    };
+
+    view! { cx,
+        <div>
+            <pre>{move || format!("{:#?}", resources.get().into_iter().map(|(id, resource)| (id, resource.get())).collect::<Vec<_>>())}</pre>
+            <button on:click=move |_| update(1)>"+"</button>
+        </div>
+    }
+}
+```
+
+Clicking the button twice will cause a panic, because of the nested signal *read*. Calling the `update` function on `resources` immediately takes out a mutable borrow on `resources`, then updates the `resource` signal—which re-runs the effect that reads from the signals, which tries to immutably access `resources` and panics. It's the nested update here which causes a problem, because the inner update triggers and effect that tries to read both signals while the outer is still updating.
+
+You can fix this fairly easily by using the [`Scope::batch()`](https://docs.rs/leptos/latest/leptos/struct.Scope.html#method.batch) method:
+
+```rust
+    let update = move |id: usize| {
+        cx.batch(move || {
+            resources.update(|resources| {
+                resources
+                    .entry(id)
+                    .or_insert_with(|| create_rw_signal(cx, 0))
+                    .update(|amount| *amount += 1)
+            })
+        });
+    };
+```
+
+This delays running any effects until after both updates are made, preventing the conflict entirely without requiring any other restructuring.
+
 ## Templates and the DOM
 
 ### `<input value=...>` doesn't update or stops updating

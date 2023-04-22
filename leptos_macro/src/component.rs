@@ -90,7 +90,7 @@ impl Parse for Model {
 
 // implemented manually because Vec::drain_filter is nightly only
 // follows std recommended parallel
-fn drain_filter<T>(
+pub fn drain_filter<T>(
     vec: &mut Vec<T>,
     mut some_predicate: impl FnMut(&mut T) -> bool,
 ) {
@@ -104,7 +104,7 @@ fn drain_filter<T>(
     }
 }
 
-fn convert_from_snake_case(name: &Ident) -> Ident {
+pub fn convert_from_snake_case(name: &Ident) -> Ident {
     let name_str = name.to_string();
     if !name_str.is_case(Snake) {
         name.clone()
@@ -156,8 +156,8 @@ impl ToTokens for Model {
                     quote! {
                         #[allow(clippy::let_with_type_underscore)]
                         #[cfg_attr(
-                            debug_assertions,
-                            ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                            any(debug_assertions, feature="ssr"),
+                            ::leptos::leptos_dom::tracing::instrument(level = "info", name = #trace_name, skip_all)
                         )]
                     },
                     quote! {
@@ -284,7 +284,7 @@ impl Prop {
 }
 
 #[derive(Clone)]
-struct Docs(Vec<Attribute>);
+pub struct Docs(Vec<Attribute>);
 
 impl ToTokens for Docs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -299,7 +299,7 @@ impl ToTokens for Docs {
 }
 
 impl Docs {
-    fn new(attrs: &[Attribute]) -> Self {
+    pub fn new(attrs: &[Attribute]) -> Self {
         let attrs = attrs
             .iter()
             .filter(|attr| attr.path().is_ident("doc"))
@@ -309,7 +309,7 @@ impl Docs {
         Self(attrs)
     }
 
-    fn padded(&self) -> TokenStream {
+    pub fn padded(&self) -> TokenStream {
         self.0
             .iter()
             .enumerate()
@@ -346,7 +346,7 @@ impl Docs {
             .collect()
     }
 
-    fn typed_builder(&self) -> String {
+    pub fn typed_builder(&self) -> String {
         #[allow(unstable_name_collisions)]
         let doc_str = self
             .0
@@ -522,7 +522,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     }
 }
 
-fn is_option(ty: &Type) -> bool {
+pub fn is_option(ty: &Type) -> bool {
     if let Type::Path(TypePath {
         path: Path { segments, .. },
         ..
@@ -538,7 +538,7 @@ fn is_option(ty: &Type) -> bool {
     }
 }
 
-fn unwrap_option(ty: &Type) -> Type {
+pub fn unwrap_option(ty: &Type) -> Type {
     const STD_OPTION_MSG: &str =
         "make sure you're not shadowing the `std::option::Option` type that \
          is automatically imported from the standard prelude";

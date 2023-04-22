@@ -60,6 +60,10 @@ use std::{
 /// # });
 /// # }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component(transparent)]
 pub fn Transition<F, E>(
     cx: Scope,

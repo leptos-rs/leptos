@@ -66,7 +66,7 @@ where
     T: 'static,
 {
     inner: SignalTypes<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -74,7 +74,7 @@ impl<T> Clone for Signal<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -87,7 +87,7 @@ impl<T> Copy for Signal<T> {}
 /// `Signal::get_untracked`.
 impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::get_untracked()",
@@ -109,7 +109,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::try_get_untracked()",
@@ -133,7 +133,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
 
 impl<T> SignalWithUntracked<T> for Signal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::with_untracked()",
@@ -159,7 +159,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::try_with_untracked()",
@@ -212,7 +212,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// ```
 impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::with()",
@@ -232,7 +232,7 @@ impl<T> SignalWith<T> for Signal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::try_with()",
@@ -338,7 +338,7 @@ where
     /// ```
     #[track_caller]
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             skip_all,
@@ -360,7 +360,7 @@ where
                 cx,
                 store_value(cx, Box::new(derived_signal)),
             ),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -380,7 +380,7 @@ impl<T> From<ReadSignal<T>> for Signal<T> {
     fn from(value: ReadSignal<T>) -> Self {
         Self {
             inner: SignalTypes::ReadSignal(value),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -391,7 +391,7 @@ impl<T> From<RwSignal<T>> for Signal<T> {
     fn from(value: RwSignal<T>) -> Self {
         Self {
             inner: SignalTypes::ReadSignal(value.read_only()),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -402,7 +402,7 @@ impl<T> From<Memo<T>> for Signal<T> {
     fn from(value: Memo<T>) -> Self {
         Self {
             inner: SignalTypes::Memo(value),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -606,7 +606,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// ```
 impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "MaybeSignal::with()",
@@ -622,7 +622,7 @@ impl<T> SignalWith<T> for MaybeSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "MaybeSignal::try_with()",
@@ -711,7 +711,7 @@ where
     /// # });
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "MaybeSignal::derive()",

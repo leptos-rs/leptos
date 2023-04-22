@@ -41,6 +41,10 @@ use std::hash::Hash;
 ///   }
 /// }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component(transparent)]
 pub fn For<IF, I, T, EF, N, KF, K>(
     cx: Scope,

@@ -62,8 +62,8 @@ pub struct Unit;
 
 impl IntoView for Unit {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "<() />", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "<() />", skip_all)
     )]
     fn into_view(self, _: leptos_reactive::Scope) -> crate::View {
         let component = UnitRepr::default();
