@@ -558,7 +558,9 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     let ranges = find_ranges(from, to, &moved_from, &moved_to);
 
     // Hard part's over, now we just need to apply optimizations
-    let mut move_cmds = ranges.into_iter().map(Into::into).collect();
+
+    // TODO: update `Diff.moved` to use `SmallVec`
+    let mut move_cmds = ranges.into_iter().collect();
 
     Diff {
         removed: removed_cmds.collect(),
@@ -677,21 +679,19 @@ struct Diff {
     clear: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Default, Debug, PartialEq, Eq)]
 #[allow(unused)]
 struct DiffOpMove {
+    /// The index this range is starting relative to `from`.
     from: usize,
+    /// The number of elements included in this range.
     len: usize,
+    /// The starting index this range will be moved to relative to `to`.
     to: usize,
-}
-
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-impl From<Range> for DiffOpMove {
-    fn from(range: Range) -> Self {
-        let Range { from, len, to } = range;
-
-        Self { from, len, to }
-    }
+    /// Set to true when the range is fully contiguous, i.e., does not
+    /// have any inserted items in the middle of the range with respect
+    /// to `to`.
+    is_dense: bool,
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -746,11 +746,6 @@ fn apply_cmds<T, EF, N>(
         children.resize_with(target_size, || None);
     }
 
-    // We need to hold a list of items which will be moved, and
-    // we can only perform the move after all commands have run, otherwise,
-    // we risk overwriting one of the values
-    let mut items_to_move = Vec::with_capacity(cmds.moved.len());
-
     // The order of cmds needs to be:
     // 1. Clear
     // 2. Removed
@@ -786,6 +781,42 @@ fn apply_cmds<T, EF, N>(
         item_to_remove.prepare_for_move();
     }
 
+    let mut added_iter = cmds.added.into_iter();
+
+    for DiffOpMove {
+        from,
+        len,
+        to,
+        is_dense,
+    } in cmds.moved
+    {
+        // Since we will be moving ranges, we need to
+        // check to see if it's possible that an added
+        // item was inserted in the middle of the range.
+        // In this case, what we're going to do is
+        // move each child and insert new item(s).
+        // If we don't do it this way, but rather move
+        // everything and then insert the new children,
+        // we would need to incur the cost of inserting
+        // in the middle of a Vec for each item, this is
+        // no bueno.
+        if is_dense {
+            range.set_start_before(
+                &children[from].as_ref().unwrap().get_opening_node(),
+            );
+            range.set_end_before(
+                &children[from + len - 1]
+                    .as_ref()
+                    .unwrap()
+                    .get_closing_node(),
+            );
+        }
+
+        let contents = range.extract_contents().unwrap();
+
+        todo!();
+    }
+
     todo!();
 
     // Now, remove the holes that might have been left from removing
@@ -795,29 +826,18 @@ fn apply_cmds<T, EF, N>(
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-#[derive(Default, Debug, PartialEq, Eq)]
-struct Range {
-    /// The index the range starts relative to `moved_from`.
-    from: usize,
-    /// The length of the range.
-    len: usize,
-    /// The index the range starts relative to `moved_to`.
-    to: usize,
-}
-
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 fn find_ranges<K: Eq + Hash>(
     from: &FxIndexSet<K>,
     to: &FxIndexSet<K>,
     moved_from: &FxIndexSet<&K>,
     moved_to: &FxIndexSet<&K>,
-) -> smallvec::SmallVec<[Range; 4]> {
+) -> smallvec::SmallVec<[DiffOpMove; 4]> {
     debug_assert_eq!(moved_from.len(), moved_to.len());
     debug_assert!(to.len() >= moved_to.len());
 
-    let mut ranges: smallvec::SmallVec<[Range; 4]> = smallvec::smallvec![];
+    let mut ranges: smallvec::SmallVec<[DiffOpMove; 4]> = smallvec::smallvec![];
 
-    let mut range = Range::default();
+    let mut range = DiffOpMove::default();
 
     for (i, k) in moved_from.iter().enumerate() {
         // Starting a new range
@@ -825,11 +845,18 @@ fn find_ranges<K: Eq + Hash>(
             range.from = i;
             range.to = moved_to.get_index_of(k).unwrap();
             range.len = 1;
+            range.is_dense = true;
         }
         // Is the current `k` contiguous with respect to the
         // last one?
         else if range.to + range.len == moved_to.get_index_of(k).unwrap() {
             range.len += 1;
+
+            // We need to check for density
+            if range.is_dense {
+                range.is_dense =
+                    to.get_index_of(*k).unwrap() == range.to + range.len - 1;
+            }
 
             if i == moved_from.len() - 1 {
                 ranges.push(std::mem::take(&mut range));
@@ -842,6 +869,7 @@ fn find_ranges<K: Eq + Hash>(
             range.from = i;
             range.to = moved_to.get_index_of(k).unwrap();
             range.len = 1;
+            range.is_dense = true;
         }
     }
 
