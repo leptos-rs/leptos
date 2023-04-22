@@ -628,9 +628,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     let is_transparent = if !args.is_empty() {
         let transparent = parse_macro_input!(args as syn::Ident);
 
-        let transparent_token: syn::Ident = syn::parse_quote!(transparent);
-
-        if transparent != transparent_token {
+        if transparent != "transparent" {
             abort!(
                 transparent,
                 "only `transparent` is supported";
