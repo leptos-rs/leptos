@@ -2,7 +2,8 @@ use leptos::{ev, html::*, *};
 
 /// A simple counter view.
 // A component is really just a function call: it runs once to create the DOM and reactive system
-pub fn counter(cx: Scope, initial_value: i32, step: i32) -> impl IntoView {
+pub fn counter(cx: Scope, initial_value: i32, step: u32) -> impl IntoView {
+    let step = step as i32;
     let (value, set_value) = create_signal(cx, initial_value);
 
     // elements are created by calling a function with a Scope argument
