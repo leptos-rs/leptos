@@ -38,7 +38,7 @@ cfg_if! {
             let conf = get_configuration(None).await.unwrap();
 
             let addr = conf.leptos_options.site_addr.clone();
-            let routes = generate_route_list(|cx| view! { cx, <Counters/> });
+            let routes = generate_route_list(|cx| view! { cx, <Counters/> }, None);
 
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;

@@ -70,7 +70,7 @@ if #[cfg(feature = "ssr")] {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }, None).await;
 
         // build our application with a route
         let app = Router::new()
