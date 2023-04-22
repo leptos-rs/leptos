@@ -1239,7 +1239,7 @@ pub(crate) fn slot_to_tokens(
     let span = node.name.span();
 
     let Some(parent_slots) = parent_slots else {
-        proc_macro_error::emit_error!(span, "slots can only be used inside components");
+        proc_macro_error::emit_error!(span, "slots cannot be used inside HTML elements");
         return;
     };
 
@@ -1285,6 +1285,7 @@ pub(crate) fn slot_to_tokens(
         })
         .collect::<Vec<_>>();
 
+    let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
         quote! {}
     } else {
@@ -1303,7 +1304,7 @@ pub(crate) fn slot_to_tokens(
             &node.children,
             true,
             TagType::Unknown,
-            None,
+            Some(&mut slots),
             global_class,
             None,
         );
@@ -1325,9 +1326,24 @@ pub(crate) fn slot_to_tokens(
         }
     };
 
+    let slots = slots.drain().map(|(slot, values)| {
+        let slot = Ident::new(&slot, span);
+        if values.len() > 1 {
+            quote! {
+                .#slot(vec![
+                    #(#values)*
+                ])
+            }
+        } else {
+            let value = &values[0];
+            quote! { .#slot(#value) }
+        }
+    });
+
     let slot = quote! {
         #component_name::builder()
             #(#props)*
+            #(#slots)*
             #children
             .build()
             .into(),
