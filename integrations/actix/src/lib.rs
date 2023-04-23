@@ -26,7 +26,7 @@ use leptos_meta::*;
 use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
-use std::sync::Arc;
+use std::{fmt::Display, future::Future, sync::Arc};
 use tracing::instrument;
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
@@ -1096,53 +1096,92 @@ where
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes
-/// a callback function that takes any valid Actix extractor (or tuple of extractors)
-/// as its argument, and returns its value, converting any Actix errors into server
-/// function errors.
+/// a handler function as its argument. The handler follows similar rules to an Actix 
+/// [Handler](actix_web::Handler): it is an async function that receives arguments that  
+/// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
-/// # use leptos::*;
-/// use leptos_actix::extract;
 /// use serde::Deserialize;
-///
+/// 
 /// #[derive(Deserialize)]
 /// struct Search {
 ///     q: String,
 /// }
-///
-/// #[server(ExtractorServerFn, "/api")]
-/// pub async fn extractor_server_fn(
-///     cx: Scope,
-/// ) -> Result<String, ServerFnError> {
+/// 
+/// #[server(ExtractoServerFn, "/api")]
+/// pub async fn extractor_server_fn(cx: Scope) -> Result<String, ServerFnError> {
+///     use actix_web::dev::ConnectionInfo;
+///     use actix_web::web::{Data, Query};
+/// 
 ///     extract(
 ///         cx,
-///         |(data, search): (
-///             actix_web::web::Data<String>,
-///             actix_web::web::Query<Search>,
-///         )| {
+///         |data: Data<String>, search: Query<Search>, connection: ConnectionInfo| async move {
 ///             format!(
-///                 "data = {} and search = {}",
-///                 data.into_inner().to_string(),
-///                 search.q
+///                 "data = {}\nsearch = {}\nconnection = {:?}",
+///                 data.into_inner(),
+///                 search.q,
+///                 connection
 ///             )
 ///         },
 ///     )
 ///     .await
 /// }
 /// ```
-pub async fn extract<F, E, T>(
-    cx: leptos::Scope,
+pub async fn extract<F, E>(
+    cx: Scope,
     f: F,
-) -> Result<T, ServerFnError>
+) -> Result<<<F as Extractor<E>>::Future as Future>::Output, ServerFnError>
 where
-    F: FnOnce(E) -> T,
+    F: Extractor<E>,
     E: actix_web::FromRequest,
-    <E as actix_web::FromRequest>::Error: std::fmt::Display,
+    <E as actix_web::FromRequest>::Error: Display,
+    <F as Extractor<E>>::Future: Future,
 {
     let req = use_context::<actix_web::HttpRequest>(cx)
         .expect("HttpRequest should have been provided via context");
     let input = E::extract(&req)
         .await
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
-    Ok(f(input))
+    Ok(f.call(input).await)
 }
+
+// Drawn from the Actix Handler implementation
+// https://github.com/actix/actix-web/blob/19c9d858f25e8262e14546f430d713addb397e96/actix-web/src/handler.rs#L124
+pub trait Extractor<T> {
+    type Future;
+
+    fn call(&self, args: T) -> Self::Future;
+}
+macro_rules! factory_tuple ({ $($param:ident)* } => {
+    impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
+    where
+        Func: Fn($($param),*) -> Fut + Clone + 'static,
+        Fut: Future,
+    {
+        type Future = Fut;
+
+        #[inline]
+        #[allow(non_snake_case)]
+        fn call(&self, ($($param,)*): ($($param,)*)) -> Self::Future {
+            (self)($($param,)*)
+        }
+    }
+});
+
+factory_tuple! {}
+factory_tuple! { A }
+factory_tuple! { A B }
+factory_tuple! { A B C }
+factory_tuple! { A B C D }
+factory_tuple! { A B C D E }
+factory_tuple! { A B C D E F }
+factory_tuple! { A B C D E F G }
+factory_tuple! { A B C D E F G H }
+factory_tuple! { A B C D E F G H I }
+factory_tuple! { A B C D E F G H I J }
+factory_tuple! { A B C D E F G H I J K }
+factory_tuple! { A B C D E F G H I J K L }
+factory_tuple! { A B C D E F G H I J K L M }
+factory_tuple! { A B C D E F G H I J K L M N }
+factory_tuple! { A B C D E F G H I J K L M N O }
+factory_tuple! { A B C D E F G H I J K L M N O P }
