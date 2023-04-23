@@ -606,12 +606,11 @@ fn prop_to_doc(
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
                 &if !prop_opts.into {
-                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
+                    format!("- **{}**: [`{pretty_ty}`]", quote!(#name))
                 } else {
                     format!(
-                        "- **{}**: `impl`[`Into<{}>`]",
+                        "- **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
                         quote!(#name),
-                        pretty_ty
                     )
                 },
                 name.ident.span(),
