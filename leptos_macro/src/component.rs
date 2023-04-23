@@ -458,10 +458,18 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 
+            // Children won't need documentation in many cases
+            let allow_missing_docs = if name.ident == "children" {
+                quote!(#[allow(missing_docs)])
+            } else {
+                quote!()
+            };
+
             quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
+                #allow_missing_docs
                 #vis #name: #ty,
             }
         })
