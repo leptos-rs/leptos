@@ -376,7 +376,7 @@ pub enum ServerFnError {
     #[error("error deserializing server function results {0}")]
     Deserialization(String),
     /// Occurs on the client if there is an error serializing the server function arguments.
-    #[error("error serializing server function results {0}")]
+    #[error("error serializing server function arguments {0}")]
     Serialization(String),
     /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
     #[error("error deserializing server function arguments {0}")]
