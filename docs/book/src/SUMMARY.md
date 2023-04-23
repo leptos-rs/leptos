@@ -47,4 +47,4 @@
   - [`<ActionForm/>`s]()
   - [Turning off WebAssembly]()
 - [Advanced Reactivity]()
-- [Appendix: Optimizing WASM Binary Size]()
+- [Appendix: Optimizing WASM Binary Size](./appendix_binary_size.md)
