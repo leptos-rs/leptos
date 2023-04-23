@@ -1096,23 +1096,23 @@ where
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes
-/// a handler function as its argument. The handler follows similar rules to an Actix 
+/// a handler function as its argument. The handler follows similar rules to an Actix
 /// [Handler](actix_web::Handler): it is an async function that receives arguments that  
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
 /// use serde::Deserialize;
-/// 
+///
 /// #[derive(Deserialize)]
 /// struct Search {
 ///     q: String,
 /// }
-/// 
+///
 /// #[server(ExtractoServerFn, "/api")]
 /// pub async fn extractor_server_fn(cx: Scope) -> Result<String, ServerFnError> {
 ///     use actix_web::dev::ConnectionInfo;
 ///     use actix_web::web::{Data, Query};
-/// 
+///
 ///     extract(
 ///         cx,
 ///         |data: Data<String>, search: Query<Search>, connection: ConnectionInfo| async move {
