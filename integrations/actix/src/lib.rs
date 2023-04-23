@@ -1104,7 +1104,7 @@ where
 /// # use leptos::*;
 /// use leptos_actix::extract;
 /// use serde::Deserialize;
-/// 
+///
 /// #[derive(Deserialize)]
 /// struct Search {
 ///     q: String,
@@ -1130,7 +1130,10 @@ where
 ///     .await
 /// }
 /// ```
-pub async fn extract<F, E, T>(cx: leptos::Scope, f: F) -> Result<T, ServerFnError>
+pub async fn extract<F, E, T>(
+    cx: leptos::Scope,
+    f: F,
+) -> Result<T, ServerFnError>
 where
     F: FnOnce(E) -> T,
     E: actix_web::FromRequest,
