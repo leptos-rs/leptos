@@ -1094,3 +1094,43 @@ where
         router
     }
 }
+
+/// A helper to make it easier to use Axum extractors in server functions. This takes
+/// a callback function that takes any valid Actix extractor (or tuple of extractors)
+/// as its argument, and returns its value, converting any Actix errors into server 
+/// function errors.
+/// 
+/// ```rust
+/// #[derive(Deserialize)]
+/// struct Search {
+///     q: String,
+/// }
+/// 
+/// #[server(ExtractoServerFn, "/api")]
+/// pub async fn extractor_server_fn(cx: Scope) -> Result<String, ServerFnError> {
+///     extract(
+///         cx,
+///         |(data, search): (actix_web::web::Data<String>, actix_web::web::Query<Search>)| {
+///             format!(
+///                 "data = {} and search = {}",
+///                 data.into_inner().to_string(),
+///                 search.q
+///             )
+///         },
+///     )
+///     .await
+/// }
+/// ```
+pub async fn extract<F, E, T>(cx: Scope, f: F) -> Result<T, ServerFnError>
+where
+    F: FnOnce(E) -> T,
+    E: actix_web::FromRequest,
+    <E as actix_web::FromRequest>::Error: std::fmt::Display,
+{
+    let req = use_context::<actix_web::HttpRequest>(cx)
+        .expect("HttpRequest should have been provided via context");
+    let input = E::extract(&req)
+        .await
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+    Ok(f(input))
+}
