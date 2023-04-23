@@ -1097,20 +1097,25 @@ where
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes
 /// a callback function that takes any valid Actix extractor (or tuple of extractors)
-/// as its argument, and returns its value, converting any Actix errors into server 
+/// as its argument, and returns its value, converting any Actix errors into server
 /// function errors.
-/// 
+///
 /// ```rust
 /// #[derive(Deserialize)]
 /// struct Search {
 ///     q: String,
 /// }
-/// 
+///
 /// #[server(ExtractoServerFn, "/api")]
-/// pub async fn extractor_server_fn(cx: Scope) -> Result<String, ServerFnError> {
+/// pub async fn extractor_server_fn(
+///     cx: Scope,
+/// ) -> Result<String, ServerFnError> {
 ///     extract(
 ///         cx,
-///         |(data, search): (actix_web::web::Data<String>, actix_web::web::Query<Search>)| {
+///         |(data, search): (
+///             actix_web::web::Data<String>,
+///             actix_web::web::Query<Search>,
+///         )| {
 ///             format!(
 ///                 "data = {} and search = {}",
 ///                 data.into_inner().to_string(),
