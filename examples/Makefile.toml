@@ -24,6 +24,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
     "ssr_modes_axum",
     "tailwind",
     "tailwind_csr_trunk",
+    "timer",
     "todo_app_sqlite",
     "todo_app_sqlite_axum",
     "todo_app_sqlite_viz",
