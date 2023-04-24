@@ -908,7 +908,7 @@ pub fn generate_route_list<IV>(
 where
     IV: IntoView + 'static,
 {
-    generate_route_list_with_exclusions(app_fn, None).await
+    generate_route_list_with_exclusions(app_fn, None)
 }
 
 /// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
