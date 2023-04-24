@@ -15,7 +15,7 @@ async fn main() {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(|cx| view! { cx, <App/> }, None).await;
+    let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
     GetPost::register();
     ListPostMetadata::register();

@@ -23,7 +23,7 @@ cfg_if! {
             let addr = conf.leptos_options.site_addr.clone();
 
             // Generate the list of routes in your Leptos App
-            let routes = generate_route_list(|cx| view! { cx, <App/> }, None);
+            let routes = generate_route_list(|cx| view! { cx, <App/> });
 
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
