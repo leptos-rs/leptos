@@ -13,7 +13,7 @@ use actix_web::{
     web::Bytes,
     *,
 };
-use futures::{Future, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use http::StatusCode;
 use leptos::{
     leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
@@ -1102,6 +1102,7 @@ where
 ///
 /// ```rust,ignore
 /// use serde::Deserialize;
+/// use leptos::*;
 ///
 /// #[derive(Deserialize)]
 /// struct Search {
