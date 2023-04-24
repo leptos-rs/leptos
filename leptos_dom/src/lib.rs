@@ -533,6 +533,12 @@ impl IntoView for &Fragment {
     }
 }
 
+impl FromIterator<View> for View {
+    fn from_iter<T: IntoIterator<Item = View>>(iter: T) -> Self {
+        iter.into_iter().collect::<Fragment>().into()
+    }
+}
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for View {
     fn get_mountable_node(&self) -> web_sys::Node {
