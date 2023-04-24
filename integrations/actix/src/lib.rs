@@ -1101,9 +1101,8 @@ where
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
-/// use serde::Deserialize;
 /// use leptos::*;
-///
+/// use serde::Deserialize;
 /// #[derive(Deserialize)]
 /// struct Search {
 ///     q: String,
@@ -1129,7 +1128,7 @@ where
 /// }
 /// ```
 pub async fn extract<F, E>(
-    cx: Scope,
+    cx: leptos::Scope,
     f: F,
 ) -> Result<<<F as Extractor<E>>::Future as Future>::Output, ServerFnError>
 where
