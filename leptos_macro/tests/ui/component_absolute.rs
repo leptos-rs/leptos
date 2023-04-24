@@ -59,6 +59,7 @@ fn default_with_invalid_value(
 
 #[::leptos::component]
 pub fn using_the_view_macro(cx: ::leptos::Scope) -> impl ::leptos::IntoView {
+    _ = cx;
     ::leptos::view! { cx,
         "ok"
     }
