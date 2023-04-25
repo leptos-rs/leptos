@@ -1,6 +1,9 @@
 [env]
 CARGO_MAKE_WASM_TEST_ARGS = "--headless --chrome"
 
+[tasks.test-all]
+dependencies = ["test", "web-test"]
+
 [tasks.web-test]
 command = "cargo"
 args = ["make", "wasm-pack-test"]
