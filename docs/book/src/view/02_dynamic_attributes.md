@@ -52,6 +52,12 @@ reactively update when the signal changes.
 Now every time I click the button, the text should toggle between red and black as
 the number switches between even and odd.
 
+> If you’re following along, make sure you go into your `index.html` and add something like this:
+> 
+> ```html
+> <style>.red { color: red; }</style>
+> ```
+
 ## Dynamic Attributes
 
 The same applies to plain attributes. Passing a plain string or primitive value to
