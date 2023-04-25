@@ -1,10 +1,9 @@
+extend = [{ path = "./cargo-make/common.toml" }]
+
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_CARGO_BUILD_TEST_FLAGS = ""
-
-# Emulate workspace
 CARGO_MAKE_WORKSPACE_EMULATION = true
-
 CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
     "counter",
     "counter_isomorphic",
@@ -24,7 +23,6 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
     "ssr_modes_axum",
     "tailwind",
     "tailwind_csr_trunk",
-    "timer",
     "todo_app_sqlite",
     "todo_app_sqlite_axum",
     "todo_app_sqlite_viz",
@@ -42,10 +40,6 @@ dependencies = ["check-style", "test-unit-and-web"]
 [tasks.test-unit-and-web]
 description = "Run all unit and web tests"
 dependencies = ["test-flow", "web-test-flow"]
-
-[tasks.check-style]
-description = "Check for style violations"
-dependencies = ["check-format-flow", "clippy-flow"]
 
 [tasks.pre-verify-flow]
 
