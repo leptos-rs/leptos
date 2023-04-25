@@ -19,7 +19,10 @@ use futures::{
     channel::mpsc::{Receiver, Sender},
     Future, SinkExt, Stream, StreamExt,
 };
-use http::{header, method::Method, uri::Uri, version::Version, Response};
+use http::{
+    header, method::Method, request::Parts, uri::Uri, version::Version,
+    Response,
+};
 use hyper::body;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
@@ -46,6 +49,21 @@ pub struct RequestParts {
     pub headers: HeaderMap<HeaderValue>,
     pub body: Bytes,
 }
+
+/// Convert http::Parts to RequestParts(and vice versa). Body and Extensions will
+/// be lost in the conversion
+impl From<Parts> for RequestParts {
+    fn from(parts: Parts) -> Self {
+        Self {
+            version: parts.version,
+            method: parts.method,
+            uri: parts.uri,
+            headers: parts.headers,
+            body: Bytes::default(),
+        }
+    }
+}
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -1006,6 +1024,21 @@ pub async fn generate_route_list<IV>(
 where
     IV: IntoView + 'static,
 {
+    generate_route_list_with_exclusions(app_fn, None).await
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Axum's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Axum compatible paths. Adding excluded_routes
+/// to this function will stop `.leptos_routes()` from generating a route for it, allowing a custom handler. These need to be in Axum path format
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+pub async fn generate_route_list_with_exclusions<IV>(
+    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    excluded_routes: Option<Vec<String>>,
+) -> Vec<RouteListing>
+where
+    IV: IntoView + 'static,
+{
     #[derive(Default, Clone, Debug)]
     pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
 
@@ -1029,7 +1062,7 @@ where
 
     let routes = routes.0.read().to_owned();
     // Axum's Router defines Root routes as "/" not ""
-    let routes = routes
+    let mut routes = routes
         .into_iter()
         .map(|listing| {
             let path = listing.path();
@@ -1052,6 +1085,10 @@ where
             [leptos_router::Method::Get],
         )]
     } else {
+        // Routes to exclude from auto generation
+        if let Some(excluded_routes) = excluded_routes {
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
         routes
     }
 }
