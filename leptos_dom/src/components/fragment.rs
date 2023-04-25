@@ -45,6 +45,21 @@ impl From<View> for Fragment {
     }
 }
 
+impl From<Fragment> for View {
+    fn from(value: Fragment) -> Self {
+        let mut frag = ComponentRepr::new_with_id("", value.id.clone());
+
+        #[cfg(debug_assertions)]
+        {
+            frag.view_marker = value.view_marker;
+        }
+
+        frag.children = value.nodes;
+
+        frag.into()
+    }
+}
+
 impl Fragment {
     /// Creates a new [`Fragment`] from a [`Vec<Node>`].
     #[inline(always)]
@@ -91,16 +106,7 @@ impl Fragment {
 
 impl IntoView for Fragment {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
-    fn into_view(self, cx: leptos_reactive::Scope) -> View {
-        let mut frag = ComponentRepr::new_with_id("", self.id.clone());
-
-        #[cfg(debug_assertions)]
-        {
-            frag.view_marker = self.view_marker;
-        }
-
-        frag.children = self.nodes;
-
-        frag.into_view(cx)
+    fn into_view(self, _: leptos_reactive::Scope) -> View {
+        self.into()
     }
 }
