@@ -209,7 +209,7 @@ impl ToTokens for Model {
             }
 
             impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
-                fn into_view(self, cx: Scope) -> ::leptos::View {
+                fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
                     #name(cx, self).into_view(cx)
                 }
             }
