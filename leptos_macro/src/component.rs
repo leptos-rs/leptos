@@ -208,6 +208,12 @@ impl ToTokens for Model {
                 }
             }
 
+            impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
+                fn into_view(self, cx: Scope) -> ::leptos::View {
+                    #name(cx, self).into_view(cx)
+                }
+            }
+
             #docs
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
