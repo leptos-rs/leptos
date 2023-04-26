@@ -4,12 +4,12 @@ use convert_case::{
     Casing,
 };
 use itertools::Itertools;
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
-    FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaNameValue, Pat, PatIdent,
-    Path, PathArguments, ReturnType, Type, TypePath, Visibility,
+    FnArg, GenericArgument, ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat,
+    PatIdent, Path, PathArguments, ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -316,36 +316,29 @@ impl Docs {
         Self(attrs)
     }
 
+    fn strings(&self) -> impl Iterator<Item = (String, Span)> + '_ {
+        self.0.iter()
+            .map(|attr| {
+                let Ok(Meta::NameValue(MetaNameValue { lit: Lit::Str(doc), .. })) = attr.parse_meta() else {
+                    abort!(attr, "expected doc comment to be string literal");
+                };
+                (doc.value(), doc.span())
+            })
+    }
+
     pub fn padded(&self) -> TokenStream {
-        self.0
-            .iter()
+        self.strings()
             .enumerate()
-            .map(|(idx, attr)| {
-                match attr.parse_meta() {
-                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
-                        let doc_str = quote!(#doc);
+            .map(|(idx, (doc, span))| {
+                let doc = if idx == 0 {
+                    format!("    - {doc}")
+                } else {
+                    format!("      {doc}")
+                };
 
-                        // We need to remove the leading and trailing `"`"
-                        let mut doc_str = doc_str.to_string();
-                        doc_str.pop();
-                        doc_str.remove(0);
+                let doc = LitStr::new(&doc, span);
 
-                        let doc_str = if idx == 0 {
-                            format!("    - {doc_str}")
-                        } else {
-                            format!("      {doc_str}")
-                        };
-
-                        let docs = LitStr::new(&doc_str, doc.span());
-
-                        if !doc_str.is_empty() {
-                            quote! { #[doc = #docs] }
-                        } else {
-                            quote! {}
-                        }
-                    }
-                    _ => abort!(attr, "could not parse attributes"),
-                }
+                quote! { #[doc = #doc] }
             })
             .collect()
     }
@@ -353,22 +346,8 @@ impl Docs {
     pub fn typed_builder(&self) -> String {
         #[allow(unstable_name_collisions)]
         let doc_str = self
-            .0
-            .iter()
-            .map(|attr| {
-                match attr.parse_meta() {
-                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
-                        let mut doc_str = quote!(#doc).to_string();
-
-                        // Remove the leading and trailing `"`
-                        doc_str.pop();
-                        doc_str.remove(0);
-
-                        doc_str
-                    }
-                    _ => abort!(attr, "could not parse attributes"),
-                }
-            })
+            .strings()
+            .map(|s| s.0)
             .intersperse("\n".to_string())
             .collect::<String>();
 
