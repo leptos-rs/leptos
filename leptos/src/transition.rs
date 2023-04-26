@@ -39,18 +39,15 @@ use std::{
 ///     >
 ///       {move || {
 ///           cats.read(cx).map(|data| match data {
-///             None => view! { cx,  <pre>"Error"</pre> }.into_any(),
-///             Some(cats) => view! { cx,
-///               <div>{
-///                 cats.iter()
-///                   .map(|src| {
+///             None => view! { cx,  <pre>"Error"</pre> }.into_view(cx),
+///             Some(cats) => cats
+///                 .iter()
+///                 .map(|src| {
 ///                     view! { cx,
 ///                       <img src={src}/>
 ///                     }
-///                   })
-///                   .collect::<Vec<_>>()
-///               }</div>
-///             }.into_any(),
+///                 })
+///                 .collect_view(cx),
 ///           })
 ///         }
 ///       }

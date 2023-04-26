@@ -209,6 +209,25 @@ where
     }
 }
 
+/// Collects an iterator or collection into a [`View`].
+pub trait CollectView {
+    /// Collects an iterator or collection into a [`View`].
+    fn collect_view(self, cx: Scope) -> View;
+}
+
+impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    fn collect_view(self, cx: Scope) -> View {
+        self.into_iter()
+            .map(|v| v.into_view(cx))
+            .collect::<Fragment>()
+            .into_view(cx)
+    }
+}
+
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     /// HTML element.

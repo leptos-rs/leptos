@@ -97,7 +97,7 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
                         <li><A href=contact.id.to_string()><span>{&contact.first_name} " " {&contact.last_name}</span></A></li>
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect_view(cx)
         })
     };
 

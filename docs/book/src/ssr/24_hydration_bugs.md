@@ -65,7 +65,7 @@ pub fn App(cx: Scope) -> impl IntoView {
     };
     data.into_iter()
         .map(|value| view! { cx, <span>{value}</span> })
-        .collect::<Vec<_>>()
+        .collect_view(cx)
 }
 ```
 
