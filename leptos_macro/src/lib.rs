@@ -817,7 +817,8 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 ///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
 ///   They are serialized as an `application/x-www-form-urlencoded`
 ///   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
-///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
+///   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the 
+///   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
 /// - **The `Scope` comes from the server.** Optionally, the first argument of a server function
 ///   can be a Leptos `Scope`. This scope can be used to inject dependencies like the HTTP request
 ///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
