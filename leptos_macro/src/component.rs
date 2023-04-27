@@ -5,7 +5,7 @@ use convert_case::{
 };
 use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
     FnArg, GenericArgument, ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat,
@@ -291,14 +291,14 @@ impl Prop {
 }
 
 #[derive(Clone)]
-pub struct Docs(Vec<Attribute>);
+pub struct Docs(Vec<(String, Span)>);
 
 impl ToTokens for Docs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let s = self
             .0
             .iter()
-            .map(|attr| attr.to_token_stream())
+            .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
             .collect::<TokenStream>();
 
         tokens.append_all(s);
@@ -307,27 +307,103 @@ impl ToTokens for Docs {
 
 impl Docs {
     pub fn new(attrs: &[Attribute]) -> Self {
-        let attrs = attrs
+        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+        enum ViewCodeFenceState {
+            Outside,
+            Rust,
+            Rsx,
+        }
+        let mut quotes = "```".to_string();
+        let mut quote_ws = "".to_string();
+        let mut view_code_fence_state = ViewCodeFenceState::Outside;
+        const RUST_START: &str =
+            "# ::leptos::create_scope(::leptos::create_runtime(), |cx| {";
+        const RUST_END: &str = "# }).dispose();";
+        const RSX_START: &str = "# ::leptos::view! {cx,";
+        const RSX_END: &str = "# };}).dispose();";
+
+        // Seperated out of chain to allow rustfmt to work
+        let map = |(doc, span): (String, Span)| {
+            doc.lines()
+                .flat_map(|doc| {
+                    let trimmed_doc = doc.trim_start();
+                    let leading_ws = &doc[..doc.len() - trimmed_doc.len()];
+                    let trimmed_doc = trimmed_doc.trim_end();
+                    match view_code_fence_state {
+                        ViewCodeFenceState::Outside
+                            if trimmed_doc.starts_with("```")
+                                && trimmed_doc
+                                    .trim_start_matches('`')
+                                    .starts_with("view") =>
+                        {
+                            view_code_fence_state = ViewCodeFenceState::Rust;
+                            let view = trimmed_doc.find('v').unwrap();
+                            quotes = trimmed_doc[..view].to_owned();
+                            quote_ws = leading_ws.to_owned();
+                            let rust_options = &trimmed_doc
+                                [view + "view".len()..]
+                                .trim_start();
+                            vec![
+                                format!("{leading_ws}{quotes}{rust_options}"),
+                                format!("{leading_ws}{RUST_START}"),
+                            ]
+                        }
+                        ViewCodeFenceState::Rust if trimmed_doc == quotes => {
+                            view_code_fence_state = ViewCodeFenceState::Outside;
+                            vec![
+                                format!("{leading_ws}{RUST_END}"),
+                                doc.to_owned(),
+                            ]
+                        }
+                        ViewCodeFenceState::Rust
+                            if trimmed_doc.starts_with('<') =>
+                        {
+                            view_code_fence_state = ViewCodeFenceState::Rsx;
+                            vec![
+                                format!("{leading_ws}{RSX_START}"),
+                                doc.to_owned(),
+                            ]
+                        }
+                        ViewCodeFenceState::Rsx if trimmed_doc == quotes => {
+                            view_code_fence_state = ViewCodeFenceState::Outside;
+                            vec![
+                                format!("{leading_ws}{RSX_END}"),
+                                doc.to_owned(),
+                            ]
+                        }
+                        _ => vec![doc.to_string()],
+                    }
+                })
+                .map(|l| (l, span))
+                .collect_vec()
+        };
+
+        let mut attrs = attrs
             .iter()
-            .filter(|attr| attr.path == parse_quote!(doc))
-            .cloned()
-            .collect();
-
-        Self(attrs)
-    }
-
-    fn strings(&self) -> impl Iterator<Item = (String, Span)> + '_ {
-        self.0.iter()
-            .map(|attr| {
+            .filter_map(|attr| attr.path.is_ident("doc").then(|| {
                 let Ok(Meta::NameValue(MetaNameValue { lit: Lit::Str(doc), .. })) = attr.parse_meta() else {
                     abort!(attr, "expected doc comment to be string literal");
                 };
                 (doc.value(), doc.span())
-            })
+            }))
+            .flat_map(map)
+            .collect_vec();
+
+        if view_code_fence_state != ViewCodeFenceState::Outside {
+            if view_code_fence_state == ViewCodeFenceState::Rust {
+                attrs.push((format!("{quote_ws}{RUST_END}"), Span::call_site()))
+            } else {
+                attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()))
+            }
+            attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()))
+        }
+
+        Self(attrs)
     }
 
     pub fn padded(&self) -> TokenStream {
-        self.strings()
+        self.0
+            .iter()
             .enumerate()
             .map(|(idx, (doc, span))| {
                 let doc = if idx == 0 {
@@ -336,7 +412,7 @@ impl Docs {
                     format!("      {doc}")
                 };
 
-                let doc = LitStr::new(&doc, span);
+                let doc = LitStr::new(&doc, *span);
 
                 quote! { #[doc = #doc] }
             })
@@ -344,12 +420,7 @@ impl Docs {
     }
 
     pub fn typed_builder(&self) -> String {
-        #[allow(unstable_name_collisions)]
-        let doc_str = self
-            .strings()
-            .map(|s| s.0)
-            .intersperse("\n".to_string())
-            .collect::<String>();
+        let doc_str = self.0.iter().map(|s| s.0.as_str()).join("\n");
 
         if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
             format!("\n\n{doc_str}")
