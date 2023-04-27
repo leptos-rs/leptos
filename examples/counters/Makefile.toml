@@ -1,3 +1,8 @@
+extend = [
+    { path = "../cargo-make/common.toml" },
+    { path = "../cargo-make/wasm-web-test.toml" },
+]
+
 [tasks.build]
 command = "cargo"
 args = ["+nightly", "build-all-features"]
