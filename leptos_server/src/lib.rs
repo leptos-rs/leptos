@@ -73,7 +73,7 @@
 //!   need to deserialize the result to return it to the client.
 //! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
 //!   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
-//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the 
+//!   using [`cbor`](https://docs.rs/cbor/latest/cbor/). **Note**: You should explicitly include `serde` with the
 //!   `derive` feature enabled in your `Cargo.toml`. You can do this by running `cargo add serde --features=derive`.
 //! - **The [Scope](leptos_reactive::Scope) comes from the server.** Optionally, the first argument of a server function
 //!   can be a Leptos [Scope](leptos_reactive::Scope). This scope can be used to inject dependencies like the HTTP request
