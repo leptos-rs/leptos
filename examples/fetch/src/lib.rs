@@ -72,6 +72,7 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
     // and by using the ErrorBoundary fallback to catch Err(_)
     // so we'll just implement our happy path and let the framework handle the rest
     let cats_view = move || {
+        leptos::log!("rendering cats_view");
         cats.read(cx).map(|data| {
             data.map(|data| {
                 data.iter()
@@ -94,13 +95,13 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
                     }
                 />
             </label>
-            <ErrorBoundary fallback>
+            //<ErrorBoundary fallback>
                 <Transition fallback=move || {
                     view! { cx, <div>"Loading (Suspense Fallback)..."</div> }
                 }>
                     {cats_view}
                 </Transition>
-            </ErrorBoundary>
+            //</ErrorBoundary>
         </div>
     }
 }
