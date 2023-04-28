@@ -82,8 +82,9 @@ where
         move || {
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
+                    let child = orig_child(cx).into_view(cx);
                     if context.ready() {
-                        Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
+                        Fragment::lazy(Box::new(|| vec![child.clone()])).into_view(cx)
                     } else {
                         Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
                     }
