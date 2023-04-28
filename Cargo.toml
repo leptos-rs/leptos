@@ -25,22 +25,22 @@ members = [
 exclude = ["benchmarks", "examples"]
 
 [workspace.package]
-version = "0.2.5"
+version = "0.3.0-alpha"
 
 [workspace.dependencies]
-leptos = { path = "./leptos", default-features = false, version = "0.2.5" }
-leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.2.5" }
-leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.2.5" }
-leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.2.5" }
-leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.2.5" }
-leptos_server = { path = "./leptos_server", default-features = false, version = "0.2.5" }
-server_fn = { path = "./server_fn", default-features = false, version = "0.2.5" }
-server_fn_macro = { path = "./server_fn_macro", default-features = false, version = "0.2.5" }
-server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", default-features = false, version = "0.2.5" }
-leptos_config = { path = "./leptos_config", default-features = false, version = "0.2.5" }
-leptos_router = { path = "./router", version = "0.2.5" }
-leptos_meta = { path = "./meta", default-features = false, version = "0.2.5" }
-leptos_integration_utils = { path = "./integrations/utils", version = "0.2.5" }
+leptos = { path = "./leptos", default-features = false, version = "0.3.0-alpha" }
+leptos_dom = { path = "./leptos_dom", default-features = false, version = "0.3.0-alpha" }
+leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.3.0-alpha" }
+leptos_macro = { path = "./leptos_macro", default-features = false, version = "0.3.0-alpha" }
+leptos_reactive = { path = "./leptos_reactive", default-features = false, version = "0.3.0-alpha" }
+leptos_server = { path = "./leptos_server", default-features = false, version = "0.3.0-alpha" }
+server_fn = { path = "./server_fn", default-features = false, version = "0.3.0-alpha" }
+server_fn_macro = { path = "./server_fn_macro", default-features = false, version = "0.3.0-alpha" }
+server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", default-features = false, version = "0.3.0-alpha" }
+leptos_config = { path = "./leptos_config", default-features = false, version = "0.3.0-alpha" }
+leptos_router = { path = "./router", version = "0.3.0-alpha" }
+leptos_meta = { path = "./meta", default-features = false, version = "0.3.0-alpha" }
+leptos_integration_utils = { path = "./integrations/utils", version = "0.3.0-alpha" }
 
 [profile.release]
 codegen-units = 1
