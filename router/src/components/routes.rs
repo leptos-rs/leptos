@@ -9,8 +9,8 @@ use crate::{
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
     cmp::Reverse,
+    collections::HashMap,
     ops::IndexMut,
     rc::Rc,
 };
@@ -42,14 +42,17 @@ pub fn Routes(
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
-        Branches::with(&base, |branches| *context.0.borrow_mut() = branches.to_vec());
+        Branches::with(&base, |branches| {
+            *context.0.borrow_mut() = branches.to_vec()
+        });
     }
 
     let next_route = router.pathname();
     let current_route = next_route;
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(cx, base, &router, current_route, &root_equal);
+    let route_states =
+        route_states(cx, base, &router, current_route, &root_equal);
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
@@ -114,7 +117,9 @@ pub fn AnimatedRoutes(
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
-        Branches::with(&base, |branches| *context.0.borrow_mut() = branches.to_vec());
+        Branches::with(&base, |branches| {
+            *context.0.borrow_mut() = branches.to_vec()
+        });
     }
 
     let animation = Animation {
@@ -138,8 +143,10 @@ pub fn AnimatedRoutes(
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
-            let prev_matches =
-                prev.map(|(_, r)| r).cloned().map(|location| get_route_matches(&base, location));
+            let prev_matches = prev
+                .map(|(_, r)| r)
+                .cloned()
+                .map(|location| get_route_matches(&base, location));
             let matches = get_route_matches(&base, next_route.clone());
             let same_route = prev_matches
                 .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
@@ -168,7 +175,8 @@ pub fn AnimatedRoutes(
     let current_route = create_memo(cx, move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(cx, base, &router, current_route, &root_equal);
+    let route_states =
+        route_states(cx, base, &router, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
     let node_ref = create_node_ref::<html::Div>(cx);

@@ -16,7 +16,10 @@ pub(crate) struct RouteMatch {
     pub route: RouteData,
 }
 
-pub(crate) fn get_route_matches(base: &str, location: String) -> Rc<Vec<RouteMatch>> {
+pub(crate) fn get_route_matches(
+    base: &str,
+    location: String,
+) -> Rc<Vec<RouteMatch>> {
     #[cfg(feature = "ssr")]
     {
         use lru::LruCache;
