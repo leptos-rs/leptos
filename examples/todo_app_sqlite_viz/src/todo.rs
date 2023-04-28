@@ -183,8 +183,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                         </li>
                                                     }
                                                 })
-                                                .collect::<Vec<_>>()
-                                                .into_view(cx)
+                                                .collect_view(cx)
                                         }
                                     }
                                 })
@@ -203,7 +202,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                 <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                             }
                         })
-                        .collect::<Vec<_>>()
+                        .collect_view(cx)
                     };
 
                     view! {

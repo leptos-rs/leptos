@@ -241,11 +241,11 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                             todos.read(cx)
                                 .map(move |todos| match todos {
                                     Err(e) => {
-                                        vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
+                                        view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
                                     }
                                     Ok(todos) => {
                                         if todos.is_empty() {
-                                            vec![view! { cx, <p>"No tasks were found."</p> }.into_any()]
+                                            view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
                                         } else {
                                             todos
                                                 .into_iter()
@@ -266,9 +266,8 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                             </ActionForm>
                                                         </li>
                                                     }
-                                                    .into_any()
                                                 })
-                                                .collect::<Vec<_>>()
+                                                .collect_view(cx)
                                         }
                                     }
                                 })
@@ -287,7 +286,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                 <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                             }
                         })
-                        .collect::<Vec<_>>()
+                        .collect_view(cx)
                     };
 
                     view! {

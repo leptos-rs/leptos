@@ -1,11 +1,10 @@
-use wasm_bindgen_test::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
+use counters::Counters;
 use leptos::*;
 use web_sys::HtmlElement;
-
-use counters::Counters;
 
 #[wasm_bindgen_test]
 fn inc() {
@@ -25,7 +24,26 @@ fn inc() {
     add_counter.click();
 
     // check HTML
-    assert_eq!(div.inner_html(), "<button>Add Counter</button><button>Add 1000 Counters</button><button>Clear Counters</button><p>Total: <span><!-- <DynChild> -->0<!-- </DynChild> --></span> from <span><!-- <DynChild> -->3<!-- </DynChild> --></span> counters.</p><ul><!-- <Each> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->0<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->0<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->0<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- </Each> --></ul>");
+    assert_eq!(
+        div.inner_html(),
+        "<button>Add Counter</button><button>Add 1000 \
+         Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
+         <DynChild> -->0<!-- </DynChild> --></span> from <span><!-- \
+         <DynChild> -->3<!-- </DynChild> --></span> counters.</p><ul><!-- \
+         <Each> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->0<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->0<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->0<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- </Each> --></ul>"
+    );
 
     let counters = div
         .query_selector("ul")
@@ -53,7 +71,26 @@ fn inc() {
         }
     }
 
-    assert_eq!(div.inner_html(), "<button>Add Counter</button><button>Add 1000 Counters</button><button>Clear Counters</button><p>Total: <span><!-- <DynChild> -->6<!-- </DynChild> --></span> from <span><!-- <DynChild> -->3<!-- </DynChild> --></span> counters.</p><ul><!-- <Each> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->1<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->2<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->3<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- </Each> --></ul>");
+    assert_eq!(
+        div.inner_html(),
+        "<button>Add Counter</button><button>Add 1000 \
+         Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
+         <DynChild> -->6<!-- </DynChild> --></span> from <span><!-- \
+         <DynChild> -->3<!-- </DynChild> --></span> counters.</p><ul><!-- \
+         <Each> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->1<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->2<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->3<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- </Each> --></ul>"
+    );
 
     // remove the first counter
     counters
@@ -64,5 +101,20 @@ fn inc() {
         .unchecked_into::<HtmlElement>()
         .click();
 
-    assert_eq!(div.inner_html(), "<button>Add Counter</button><button>Add 1000 Counters</button><button>Clear Counters</button><p>Total: <span><!-- <DynChild> -->5<!-- </DynChild> --></span> from <span><!-- <DynChild> -->2<!-- </DynChild> --></span> counters.</p><ul><!-- <Each> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->2<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> -->3<!-- </DynChild> --></span><button>+1</button><button>x</button></li><!-- </Counter> --><!-- </EachItem> --><!-- </Each> --></ul>");
+    assert_eq!(
+        div.inner_html(),
+        "<button>Add Counter</button><button>Add 1000 \
+         Counters</button><button>Clear Counters</button><p>Total: <span><!-- \
+         <DynChild> -->5<!-- </DynChild> --></span> from <span><!-- \
+         <DynChild> -->2<!-- </DynChild> --></span> counters.</p><ul><!-- \
+         <Each> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->2<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- <EachItem> --><!-- <Counter> \
+         --><li><button>-1</button><input type=\"text\"><span><!-- <DynChild> \
+         -->3<!-- </DynChild> \
+         --></span><button>+1</button><button>x</button></li><!-- </Counter> \
+         --><!-- </EachItem> --><!-- </Each> --></ul>"
+    );
 }
