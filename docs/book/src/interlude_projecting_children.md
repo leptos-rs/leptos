@@ -31,7 +31,7 @@ where
 
 This is pretty straightforward: when the user is logged in, we want to show `children`. Until if the user is not logged in, we want to show `fallback`. And while we’re waiting to find out, we just render `()`, i.e., nothing.
 
-In other words, we want to pass the children of `<WhenLoaded>/` _through_ the `<Suspense/>` component to become the children of the `<Show/>`. This is what I mean by “projection.”
+In other words, we want to pass the children of `<WhenLoaded/>` _through_ the `<Suspense/>` component to become the children of the `<Show/>`. This is what I mean by “projection.”
 
 This won’t compile.
 
@@ -40,7 +40,7 @@ error[E0507]: cannot move out of `fallback`, a captured variable in an `Fn` clos
 error[E0507]: cannot move out of `children`, a captured variable in an `Fn` closure
 ```
 
-The problem here is that both `<Suspense/>` and `<Show/>` need to be able to construct their `children` multiple names. The first time you construct `<Suspense/>`’s children, it would take ownership of `fallback` and `children` to move them into the invocation of `<Show/>`, but then they're not available for future `<Suspense/>` children construction.
+The problem here is that both `<Suspense/>` and `<Show/>` need to be able to construct their `children` multiple times. The first time you construct `<Suspense/>`’s children, it would take ownership of `fallback` and `children` to move them into the invocation of `<Show/>`, but then they're not available for future `<Suspense/>` children construction.
 
 ## The Details
 
@@ -80,13 +80,13 @@ Suspense(
 )
 ```
 
-All components own their props; so the `<Show/>` in this case can’t be called, because it only has captured references to `fallback` and `children`.
+All components own their props; so the `<Show/>` in this case can’t be called because it only has captured references to `fallback` and `children`.
 
 ## Solution
 
 However, both `<Suspense/>` and `<Show/>` take `ChildrenFn`, i.e., their `children` should implement the `Fn` type so they can be called multiple times with only an immutable reference. This means we don’t need to own `children` or `fallback`; we just need to be able to pass `'static` references to them.
 
-We can solve this problem by using the [`store_value`](https://docs.rs/leptos/latest/leptos/fn.store_value.html) primitive. This essentially stores a value in the reactive system, handing ownership off to the framework in exchange for a reference that is, like signals, `Copy` and `'static`, and which we can access or modify through certain methods.
+We can solve this problem by using the [`store_value`](https://docs.rs/leptos/latest/leptos/fn.store_value.html) primitive. This essentially stores a value in the reactive system, handing ownership off to the framework in exchange for a reference that is, like signals, `Copy` and `'static`, which we can access or modify through certain methods.
 
 In this case, it’s really simple:
 
@@ -113,7 +113,7 @@ where
 }
 ```
 
-At the top level, we store both `fallback` and `children` in the reactive scope owned by `LoggedIn`. Now we can simply move those references down through the other layers into the `<Show/>` component, and call them there.
+At the top level, we store both `fallback` and `children` in the reactive scope owned by `LoggedIn`. Now we can simply move those references down through the other layers into the `<Show/>` component and call them there.
 
 ## A Final Note
 
