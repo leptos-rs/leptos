@@ -904,6 +904,22 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         }
     }
 
+    /// Optionally adds an event listener to this element.
+    #[track_caller]
+    #[inline(always)]
+    pub fn optional_event<E: EventDescriptor + 'static>(
+        self,
+        event: E,
+        #[allow(unused_mut)] // used for tracing in debug
+        mut event_handler: Option<Box<dyn FnMut(E::EventType) + 'static>>,
+    ) -> Self {
+        if let Some(event_handler) = event_handler {
+            self.on(event, event_handler)
+        } else {
+            self
+        }
+    }
+
     /// Adds a child to this element.
     #[track_caller]
     pub fn child(self, child: impl IntoView) -> Self {
