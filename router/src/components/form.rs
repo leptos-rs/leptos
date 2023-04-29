@@ -539,12 +539,12 @@ where
     /// Tries to deserialize the data, given only the `submit` event.
     fn from_event(
         ev: &web_sys::Event,
-    ) -> Result<Self, serde_urlencoded::de::Error>;
+    ) -> Result<Self, serde_html_form::de::Error>;
 
     /// Tries to deserialize the data, given the actual form data.
     fn from_form_data(
         form_data: &web_sys::FormData,
-    ) -> Result<Self, serde_urlencoded::de::Error>;
+    ) -> Result<Self, serde_html_form::de::Error>;
 }
 
 impl<T> FromFormData for T
@@ -557,7 +557,7 @@ where
     )]
     fn from_event(
         ev: &web_sys::Event,
-    ) -> Result<Self, serde_urlencoded::de::Error> {
+    ) -> Result<Self, serde_html_form::de::Error> {
         let (form, _, _, _) = extract_form_attributes(ev);
 
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
@@ -570,11 +570,11 @@ where
     )]
     fn from_form_data(
         form_data: &web_sys::FormData,
-    ) -> Result<Self, serde_urlencoded::de::Error> {
+    ) -> Result<Self, serde_html_form::de::Error> {
         let data =
             web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
                 .unwrap_throw();
         let data = data.to_string().as_string().unwrap_or_default();
-        serde_urlencoded::from_str::<Self>(&data)
+        serde_html_form::from_str::<Self>(&data)
     }
 }
