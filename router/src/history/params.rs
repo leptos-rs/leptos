@@ -1,6 +1,6 @@
 use linear_map::LinearMap;
 use serde::{Deserialize, Serialize};
-use std::{rc::Rc, str::FromStr};
+use std::{sync::Arc, str::FromStr};
 use thiserror::Error;
 
 /// A key-value map of the current named route params and their values.
@@ -123,7 +123,7 @@ where
 impl<T> IntoParam for Option<T>
 where
     T: FromStr,
-    <T as FromStr>::Err: std::error::Error + 'static,
+    <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
 {
     fn into_param(
         value: Option<&str>,
@@ -134,8 +134,7 @@ where
             Some(value) => match T::from_str(value) {
                 Ok(value) => Ok(Some(value)),
                 Err(e) => {
-                    eprintln!("{e}");
-                    Err(ParamsError::Params(Rc::new(e)))
+                    Err(ParamsError::Params(Arc::new(e)))
                 }
             },
         }
@@ -154,7 +153,7 @@ cfg_if::cfg_if! {
         {
             fn into_param(value: Option<&str>, name: &str) -> Result<Self, ParamsError> {
                 let value = value.ok_or_else(|| ParamsError::MissingParam(name.to_string()))?;
-                Self::from_str(value).map_err(|e| ParamsError::Params(Rc::new(e)))
+                Self::from_str(value).map_err(|e| ParamsError::Params(Arc::new(e)))
             }
         }
     }
@@ -168,7 +167,7 @@ pub enum ParamsError {
     MissingParam(String),
     /// Something went wrong while deserializing a field.
     #[error("failed to deserialize parameters")]
-    Params(Rc<dyn std::error::Error>),
+    Params(Arc<dyn std::error::Error + Send + Sync>),
 }
 
 impl PartialEq for ParamsError {
