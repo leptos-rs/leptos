@@ -7,9 +7,9 @@ use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
-    FnArg, GenericArgument, ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat,
-    PatIdent, Path, PathArguments, ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute, Expr,
+    ExprLit, FnArg, GenericArgument, ItemFn, Lit, LitStr, Meta, MetaNameValue,
+    Pat, PatIdent, Path, PathArguments, ReturnType, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -379,8 +379,10 @@ impl Docs {
 
         let mut attrs = attrs
             .iter()
-            .filter_map(|attr| attr.path.is_ident("doc").then(|| {
-                let Ok(Meta::NameValue(MetaNameValue { lit: Lit::Str(doc), .. })) = attr.parse_meta() else {
+            .filter_map(|attr| attr.path().is_ident("doc").then(|| {
+                let Meta::NameValue(MetaNameValue {
+                                           value: Expr::Lit(ExprLit {
+                                                                lit: Lit::Str(doc),..}), .. }) = &attr.meta else {
                     abort!(attr, "expected doc comment to be string literal");
                 };
                 (doc.value(), doc.span())
@@ -439,13 +441,13 @@ struct PropOpt {
     #[attribute(conflicts = [optional, optional_no_strip])]
     strip_option: bool,
     #[attribute(example = "5 * 10")]
-    default: Option<syn::Expr>,
+    default: Option<Expr>,
     into: bool,
 }
 
 struct TypedBuilderOpts {
     default: bool,
-    default_with_value: Option<syn::Expr>,
+    default_with_value: Option<Expr>,
     strip_option: bool,
     into: bool,
 }
