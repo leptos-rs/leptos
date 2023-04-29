@@ -1,6 +1,6 @@
 use linear_map::LinearMap;
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, str::FromStr};
+use std::{str::FromStr, sync::Arc};
 use thiserror::Error;
 
 /// A key-value map of the current named route params and their values.
@@ -133,9 +133,7 @@ where
             None => Ok(None),
             Some(value) => match T::from_str(value) {
                 Ok(value) => Ok(Some(value)),
-                Err(e) => {
-                    Err(ParamsError::Params(Arc::new(e)))
-                }
+                Err(e) => Err(ParamsError::Params(Arc::new(e))),
             },
         }
     }
