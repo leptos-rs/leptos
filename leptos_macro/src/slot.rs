@@ -81,8 +81,8 @@ impl ToTokens for Model {
                 #prop_builder_fields
             }
 
-            impl From<#name> for Vec<#name> {
-                fn from(value: #name) -> Self {
+            impl #generics From<#name #generics> for Vec<#name #generics> #where_clause {
+                fn from(value: #name #generics) -> Self {
                     vec![value]
                 }
             }

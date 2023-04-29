@@ -164,8 +164,8 @@ pub use leptos_dom::{
         window_event_listener_with_precast,
     },
     html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
-    Class, Errors, Fragment, HtmlElement, IntoAttribute, IntoClass,
-    IntoProperty, IntoView, NodeRef, Property, View,
+    Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
+    IntoClass, IntoProperty, IntoView, NodeRef, Property, View,
 };
 pub use leptos_macro::*;
 pub use leptos_reactive::*;

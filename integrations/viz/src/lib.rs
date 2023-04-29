@@ -950,6 +950,19 @@ pub async fn generate_route_list<IV>(
 where
     IV: IntoView + 'static,
 {
+    generate_route_list_with_exclusions(app_fn, None).await
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
+pub async fn generate_route_list_with_exclusions<IV>(
+    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    excluded_routes: Option<Vec<String>>,
+) -> Vec<RouteListing>
+where
+    IV: IntoView + 'static,
+{
     #[derive(Default, Clone, Debug)]
     pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
 
@@ -973,7 +986,7 @@ where
 
     let routes = routes.0.read().to_owned();
     // Viz's Router defines Root routes as "/" not ""
-    let routes = routes
+    let mut routes = routes
         .into_iter()
         .map(|listing| {
             let path = listing.path();
@@ -996,6 +1009,9 @@ where
             [leptos_router::Method::Get],
         )]
     } else {
+        if let Some(excluded_routes) = excluded_routes {
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
         routes
     }
 }

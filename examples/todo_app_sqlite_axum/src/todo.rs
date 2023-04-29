@@ -52,7 +52,8 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut conn = db().await?;
 
     let mut todos = Vec::new();
-    let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
+    let mut rows =
+        sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
     while let Some(row) = rows
         .try_next()
         .await
@@ -109,19 +110,25 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct FormData {
-    hi: String
+    hi: String,
 }
 
 #[server(FormDataHandler, "/api")]
 pub async fn form_data(cx: Scope) -> Result<FormData, ServerFnError> {
     use axum::extract::FromRequest;
 
-    let req = use_context::<leptos_axum::LeptosRequest<axum::body::Body>>(cx).and_then(|req| req.take_request()).unwrap();
+    let req = use_context::<leptos_axum::LeptosRequest<axum::body::Body>>(cx)
+        .and_then(|req| req.take_request())
+        .unwrap();
     if req.method() == http::Method::POST {
-        let form = axum::Form::from_request(req, &()).await.map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+        let form = axum::Form::from_request(req, &())
+            .await
+            .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
         Ok(form.0)
     } else {
-        Err(ServerFnError::ServerError("wrong form fields submitted".to_string()))
+        Err(ServerFnError::ServerError(
+            "wrong form fields submitted".to_string(),
+        ))
     }
 }
 
@@ -146,7 +153,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                         </ErrorBoundary>
                     }/> //Route
                     <Route path="weird" methods=&[Method::Get, Method::Post]
-                        ssr=SsrMode::Async 
+                        ssr=SsrMode::Async
                         view=|cx| {
                             let res = create_resource(cx, || (), move |_| async move {
                                 form_data(cx).await
@@ -202,11 +209,11 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                             todos.read(cx)
                                 .map(move |todos| match todos {
                                     Err(e) => {
-                                        vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
+                                        view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
                                     }
                                     Ok(todos) => {
                                         if todos.is_empty() {
-                                            vec![view! { cx, <p>"No tasks were found."</p> }.into_any()]
+                                            view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
                                         } else {
                                             todos
                                                 .into_iter()
@@ -221,9 +228,8 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                             </ActionForm>
                                                         </li>
                                                     }
-                                                    .into_any()
                                                 })
-                                                .collect::<Vec<_>>()
+                                                .collect_view(cx)
                                         }
                                     }
                                 })
@@ -242,7 +248,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                 <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                             }
                         })
-                        .collect::<Vec<_>>()
+                        .collect_view(cx)
                     };
 
                     view! {

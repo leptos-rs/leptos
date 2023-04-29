@@ -49,7 +49,7 @@ fn HomePage(cx: Scope) -> impl IntoView {
             .map(|posts| {
                 posts.iter()
                 .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
-                .collect::<Vec<_>>()
+                .collect_view(cx)
             })
         )
     };
@@ -114,7 +114,7 @@ fn Post(cx: Scope) -> impl IntoView {
                         {move || errors.get()
                             .into_iter()
                             .map(|(_, error)| view! { cx, <li>{error.to_string()} </li> })
-                            .collect::<Vec<_>>()
+                            .collect_view(cx)
                         }
                         </ul>
                     </div>

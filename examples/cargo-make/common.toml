@@ -1,0 +1,11 @@
+[tasks.check-style]
+description = "Check for style violations"
+dependencies = ["check-format-flow", "clippy-flow"]
+
+[tasks.verify-local]
+description = "Run all quality checks and tests from an example directory"
+dependencies = ["check-style", "test-local"]
+
+[tasks.test-local]
+description = "Run all tests from an example directory"
+dependencies = ["test", "web-test"]

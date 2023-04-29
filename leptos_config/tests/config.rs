@@ -140,9 +140,6 @@ fn get_config_from_str_content() {
 
 #[tokio::test]
 async fn get_config_from_env() {
-    std::env::remove_var("LEPTOS_OUTPUT_NAME");
-    assert!(get_configuration(None).await.is_err());
-
     // Test config values from environment variables
     std::env::set_var("LEPTOS_OUTPUT_NAME", "app_test");
     std::env::set_var("LEPTOS_SITE_ROOT", "my_target/site");

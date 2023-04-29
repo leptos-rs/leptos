@@ -103,7 +103,7 @@ pub fn WrapsChildren(cx: Scope, children: Children) -> impl IntoView {
         .nodes
         .into_iter()
         .map(|child| view! { cx, <li>{child}</li> })
-        .collect::<Vec<_>>();
+        .collect_view(cx);
 
     view! { cx,
         <ul>{children}</ul>

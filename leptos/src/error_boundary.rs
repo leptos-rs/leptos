@@ -45,18 +45,20 @@ where
     provide_context(cx, errors);
 
     // Run children so that they render and execute resources
-    let children = children(cx);
+    let children = children(cx).into_view(cx);
+    let errors_empty = create_memo(cx, move |_| errors.with(Errors::is_empty));
 
     move || {
-        match errors.with(Errors::is_empty) {
-            true => children.clone().into_view(cx),
-            false => view! { cx,
+        if errors_empty.get() {
+            children.clone().into_view(cx)
+        } else {
+            view! { cx,
                 <>
                     {fallback(cx, errors)}
                     <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
                 </>
             }
-            .into_view(cx),
+            .into_view(cx)
         }
     }
 }

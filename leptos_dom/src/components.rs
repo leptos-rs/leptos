@@ -140,18 +140,23 @@ impl Mountable for ComponentRepr {
         self.closing.node.clone()
     }
 }
+impl From<ComponentRepr> for View {
+    fn from(value: ComponentRepr) -> Self {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        if !HydrationCtx::is_hydrating() {
+            for child in &value.children {
+                mount_child(MountKind::Before(&value.closing.node), child);
+            }
+        }
+
+        View::Component(value)
+    }
+}
 
 impl IntoView for ComponentRepr {
     #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
     fn into_view(self, _: Scope) -> View {
-        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-        if !HydrationCtx::is_hydrating() {
-            for child in &self.children {
-                mount_child(MountKind::Before(&self.closing.node), child);
-            }
-        }
-
-        View::Component(self)
+        self.into()
     }
 }
 

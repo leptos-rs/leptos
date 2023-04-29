@@ -1,9 +1,7 @@
-[env]
-CARGO_MAKE_WASM_TEST_ARGS = "--headless --chrome"
-
-[tasks.web-test]
-command = "cargo"
-args = ["make", "wasm-pack-test"]
+extend = [
+    { path = "../cargo-make/common.toml" },
+    { path = "../cargo-make/wasm-web-test.toml" },
+]
 
 [tasks.build]
 command = "cargo"

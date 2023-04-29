@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router"
-version = "0.2.5"
+version = "0.3.0-alpha"
 edition = "2021"
 authors = ["Greg Johnston"]
 license = "MIT"
@@ -10,7 +10,7 @@ description = "Router for the Leptos web framework."
 
 [dependencies]
 leptos = { workspace = true }
-cached = { optional = true }
+cached = { version = "0.43.0", optional = true }
 cfg-if = "1"
 common_macros = "0.1"
 gloo-net = { version = "0.2", features = ["http"] }

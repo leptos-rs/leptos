@@ -16,7 +16,10 @@ pub(crate) struct RouteMatch {
     pub route: RouteData,
 }
 
-pub(crate) fn get_route_matches(location: String) -> Rc<Vec<RouteMatch>> {
+pub(crate) fn get_route_matches(
+    base: &str,
+    location: String,
+) -> Rc<Vec<RouteMatch>> {
     #[cfg(feature = "ssr")]
     {
         use lru::LruCache;
@@ -28,17 +31,17 @@ pub(crate) fn get_route_matches(location: String) -> Rc<Vec<RouteMatch>> {
         ROUTE_MATCH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
             Rc::clone(cache.get_or_insert(location.clone(), || {
-                build_route_matches(location)
+                build_route_matches(base, location)
             }))
         })
     }
 
     #[cfg(not(feature = "ssr"))]
-    build_route_matches(location)
+    build_route_matches(base, location)
 }
 
-fn build_route_matches(location: String) -> Rc<Vec<RouteMatch>> {
-    Rc::new(Branches::with(|branches| {
+fn build_route_matches(base: &str, location: String) -> Rc<Vec<RouteMatch>> {
+    Rc::new(Branches::with(base, |branches| {
         for branch in branches {
             if let Some(matches) = branch.matcher(&location) {
                 return matches;
