@@ -9,7 +9,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 fn clear() {
     let document = leptos::document();
     let test_wrapper = document.create_element("section").unwrap();
-    document.body().unwrap().append_child(&test_wrapper);
+    let _ = document.body().unwrap().append_child(&test_wrapper);
 
     // start by rendering our counter and mounting it to the DOM
     // note that we start at the initial value of 10
@@ -38,7 +38,7 @@ fn clear() {
         // test case
         run_scope(create_runtime(), |cx| {
             // it's as if we're creating it with a value of 0, right?
-            let (value, set_value) = create_signal(cx, 0);
+            let (value, _set_value) = create_signal(cx, 0);
 
             // we can remove the event listeners because they're not rendered to HTML
             view! { cx,
@@ -71,7 +71,7 @@ fn clear() {
 fn inc() {
     let document = leptos::document();
     let test_wrapper = document.create_element("section").unwrap();
-    document.body().unwrap().append_child(&test_wrapper);
+    let _ = document.body().unwrap().append_child(&test_wrapper);
 
     mount_to(
         test_wrapper.clone().unchecked_into(),
@@ -79,7 +79,7 @@ fn inc() {
     );
 
     // You can do testing with vanilla DOM operations
-    let document = leptos::document();
+    let _document = leptos::document();
     let div = test_wrapper.query_selector("div").unwrap().unwrap();
     let clear = div
         .first_child()
