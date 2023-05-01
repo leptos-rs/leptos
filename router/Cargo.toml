@@ -21,7 +21,7 @@ regex = { version = "1", optional = true }
 url = { version = "2", optional = true }
 percent-encoding = "2"
 thiserror = "1"
-serde_urlencoded = "0.7"
+serde_html_form = "0.2"
 serde = "1"
 tracing = "0.1"
 js-sys = { version = "0.3" }
