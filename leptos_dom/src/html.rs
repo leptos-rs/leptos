@@ -908,6 +908,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     ///
     /// ## Example
     /// ```rust
+    /// # use leptos::*;
     /// #[component]
     /// pub fn Input(
     ///     cx: Scope,
@@ -920,6 +921,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     ///             value.map(|value| move |ev| value.set(event_target_value(&ev))),
     ///         )
     /// }
+    /// #
     /// ```
     #[track_caller]
     #[inline(always)]
