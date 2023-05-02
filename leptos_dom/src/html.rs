@@ -905,13 +905,26 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     }
 
     /// Optionally adds an event listener to this element.
+    /// 
+    /// ## Example
+    /// ```rust
+    /// #[component]
+    /// pub fn Input(cx: Scope, #[prop(optional)] value: Option<RwSignal<String>>) -> impl IntoView {
+    ///     view! { cx, <input/> }
+    ///     // only add event if `value` is `Some(signal)`
+    ///     .optional_event(
+    ///         ev::input,
+    ///         value.map(|value| move |ev| value.set(event_target_value(&ev))),
+    ///     )
+    /// }
+    /// ```
     #[track_caller]
     #[inline(always)]
     pub fn optional_event<E: EventDescriptor + 'static>(
         self,
         event: E,
         #[allow(unused_mut)] // used for tracing in debug
-        mut event_handler: Option<Box<dyn FnMut(E::EventType) + 'static>>,
+        mut event_handler: Option<impl FnMut(E::EventType) + 'static>,
     ) -> Self {
         if let Some(event_handler) = event_handler {
             self.on(event, event_handler)
