@@ -7,9 +7,10 @@ use itertools::Itertools;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
-    FnArg, GenericArgument, ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat,
-    PatIdent, Path, PathArguments, ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, spanned::Spanned,
+    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
+    ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat, PatIdent, Path,
+    PathArguments, ReturnType, Stmt, Type, TypePath, Visibility,
 };
 
 pub struct Model {
@@ -128,6 +129,25 @@ impl ToTokens for Model {
         } = self;
 
         let mut body = body.to_owned();
+
+        // check for components that end ;
+        if !is_transparent {
+            let ends_semi =
+                body.block.stmts.iter().last().and_then(|stmt| match stmt {
+                    Stmt::Item(Item::Macro(mac)) => mac.semi_token.as_ref(),
+                    _ => None,
+                });
+            if let Some(semi) = ends_semi {
+                proc_macro_error::emit_error!(
+                    semi.span(),
+                    "A component that ends with a `view!` macro followed by a \
+                     semicolon will return (), an empty view. This is usually \
+                     an accident, not intentional, so we prevent it. If you’d \
+                     like to return (), you can do it it explicitly by \
+                     returning () as the last item from the component."
+                );
+            }
+        }
 
         body.sig.ident = format_ident!("__{}", body.sig.ident);
         #[allow(clippy::redundant_clone)] // false positive
