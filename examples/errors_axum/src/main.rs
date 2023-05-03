@@ -37,7 +37,8 @@ async fn custom_handler(
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+    simple_logger::init_with_level(log::Level::Debug)
+        .expect("couldn't initialize logging");
 
     crate::landing::register_server_functions();
 
@@ -51,7 +52,11 @@ async fn main() {
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> })
+        .leptos_routes(
+            leptos_options.clone(),
+            routes,
+            |cx| view! { cx, <App/> },
+        )
         .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));
 
