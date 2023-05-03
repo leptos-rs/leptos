@@ -31,7 +31,7 @@ pub fn User(cx: Scope) -> impl IntoView {
                                 <li>
                                 <span class="label">"Karma: "</span> {user.karma}
                                 </li>
-                                {user.about.as_ref().map(|about| view! { cx,  <li inner_html=about class="about"></li> })}
+                                <li inner_html={user.about} class="about"></li>
                             </ul>
                             <p class="links">
                                 <a href=format!("https://news.ycombinator.com/submitted?id={}", user.id)>"submissions"</a>

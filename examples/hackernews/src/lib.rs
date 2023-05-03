@@ -4,10 +4,7 @@ use leptos_meta::*;
 use leptos_router::*;
 mod api;
 mod routes;
-use routes::nav::*;
-use routes::stories::*;
-use routes::story::*;
-use routes::users::*;
+use routes::{nav::*, stories::*, story::*, users::*};
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {

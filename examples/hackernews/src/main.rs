@@ -7,7 +7,7 @@ cfg_if! {
     if #[cfg(feature = "ssr")] {
         use actix_files::{Files};
         use actix_web::*;
-        use hackernews::{App,AppProps};
+        use hackernews::{App};
         use leptos_actix::{LeptosRoutes, generate_route_list};
 
         #[get("/style.css")]
@@ -46,7 +46,7 @@ cfg_if! {
         }
     } else {
         fn main() {
-            use hackernews::{App, AppProps};
+            use hackernews::{App};
 
             _ = console_log::init_with_level(log::Level::Debug);
             console_error_panic_hook::set_once();
