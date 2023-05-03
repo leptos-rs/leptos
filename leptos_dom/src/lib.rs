@@ -834,6 +834,14 @@ where
     F: FnOnce(Scope) -> N + 'static,
     N: IntoView,
 {
+    #[cfg(all(feature = "web", feature = "ssr"))]
+    crate::console_warn(
+        "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as features, which may cause \
+        issues like <Suspense/>` failing to work silently. `csr` is enabled by \
+        default on `leptos`, and can be disabled by adding `default-features = \
+        false` to your `leptos` dependency."
+    );
+
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         mount_to(crate::document().body().expect("body element to exist"), f)

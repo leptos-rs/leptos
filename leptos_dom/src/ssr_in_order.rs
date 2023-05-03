@@ -55,6 +55,14 @@ pub fn render_to_stream_in_order_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
+    #[cfg(all(feature = "web", feature = "ssr"))]
+        crate::console_error(
+            "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as features, which may cause \
+            issues like <Suspense/>` failing to work silently. `csr` is enabled by \
+            default on `leptos`, and can be disabled by adding `default-features = \
+            false` to your `leptos` dependency.\n"
+        );
+
     let (stream, runtime, _) =
         render_to_stream_in_order_with_prefix_undisposed_with_context(
             view,
