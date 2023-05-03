@@ -1,11 +1,11 @@
 use cfg_if::cfg_if;
-use leptos::*;
 mod counters;
 
 // boilerplate to run in different modes
 cfg_if! {
     // server-only stuff
     if #[cfg(feature = "ssr")] {
+        use leptos::*;
         use actix_files::{Files};
         use actix_web::*;
         use crate::counters::*;
