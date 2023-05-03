@@ -537,9 +537,7 @@ where
     Self: Sized + serde::de::DeserializeOwned,
 {
     /// Tries to deserialize the data, given only the `submit` event.
-    fn from_event(
-        ev: &web_sys::Event,
-    ) -> Result<Self, serde_qs::Error>;
+    fn from_event(ev: &web_sys::Event) -> Result<Self, serde_qs::Error>;
 
     /// Tries to deserialize the data, given the actual form data.
     fn from_form_data(
@@ -555,9 +553,7 @@ where
         any(debug_assertions, feature = "ssr"),
         tracing::instrument(level = "trace", skip_all,)
     )]
-    fn from_event(
-        ev: &web_sys::Event,
-    ) -> Result<Self, serde_qs::Error> {
+    fn from_event(ev: &web_sys::Event) -> Result<Self, serde_qs::Error> {
         let (form, _, _, _) = extract_form_attributes(ev);
 
         let form_data = web_sys::FormData::new_with_form(&form).unwrap_throw();
