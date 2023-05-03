@@ -271,6 +271,15 @@ impl View {
         instrument(level = "info", skip_all,)
     )]
     pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
+        #[cfg(all(feature = "web", feature = "ssr"))]
+        crate::console_error(
+            "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
+             enabled as features, which may cause issues like <Suspense/>` \
+             failing to work silently. `csr` is enabled by default on \
+             `leptos`, and can be disabled by adding `default-features = \
+             false` to your `leptos` dependency.\n",
+        );
+
         self.render_to_string_helper(false)
     }
 
