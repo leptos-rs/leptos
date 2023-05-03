@@ -1,5 +1,4 @@
-use std::{env, sync::Arc};
-
+use api_boundary as json;
 use axum::{
     extract::{State, TypedHeader},
     headers::{authorization::Bearer, Authorization},
@@ -8,9 +7,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use std::{env, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
-
-use api_boundary as json;
 
 mod adapters;
 mod application;
@@ -25,7 +23,10 @@ async fn main() -> anyhow::Result<()> {
                 env::set_var("RUST_LOG", "debug");
             }
             env::VarError::NotUnicode(_) => {
-                return Err(anyhow::anyhow!("The value of 'RUST_LOG' does not contain valid unicode data."));
+                return Err(anyhow::anyhow!(
+                    "The value of 'RUST_LOG' does not contain valid unicode \
+                     data."
+                ));
             }
         }
     }

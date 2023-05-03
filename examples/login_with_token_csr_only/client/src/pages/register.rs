@@ -1,13 +1,11 @@
-use leptos::*;
-use leptos_router::*;
-
-use api_boundary::*;
-
 use crate::{
     api::{self, UnauthorizedApi},
     components::credentials::*,
     Page,
 };
+use api_boundary::*;
+use leptos::*;
+use leptos_router::*;
 
 #[component]
 pub fn Register(cx: Scope, api: UnauthorizedApi) -> impl IntoView {
@@ -52,26 +50,24 @@ pub fn Register(cx: Scope, api: UnauthorizedApi) -> impl IntoView {
     let disabled = Signal::derive(cx, move || wait_for_response.get());
 
     view! { cx,
-      <Show
-        when = move || register_response.get().is_some()
-        fallback = move |_| view!{ cx,
-          <CredentialsForm
-            title = "Please enter the desired credentials"
-            action_label = "Register"
-            action = register_action
-            error = register_error.into()
-            disabled
-          />
-          <p>"Your already have an account?"</p>
-          <A href=Page::Login.path()>"Login"</A>
-        }
-      >
-        <p>"You have successfully registered."</p>
-        <p>
-         "You can now "
-         <A href=Page::Login.path()>"login"</A>
-         " with your new account."
-        </p>
-      </Show>
+        <Show
+            when=move || register_response.get().is_some()
+            fallback=move |_| {
+                view! { cx,
+                    <CredentialsForm
+                        title="Please enter the desired credentials"
+                        action_label="Register"
+                        action=register_action
+                        error=register_error.into()
+                        disabled
+                    />
+                    <p>"Your already have an account?"</p>
+                    <A href=Page::Login.path()>"Login"</A>
+                }
+            }
+        >
+            <p>"You have successfully registered."</p>
+            <p>"You can now " <A href=Page::Login.path()>"login"</A> " with your new account."</p>
+        </Show>
     }
 }

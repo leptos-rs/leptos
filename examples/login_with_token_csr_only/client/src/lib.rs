@@ -1,8 +1,7 @@
+use api_boundary::*;
 use gloo_storage::{LocalStorage, Storage};
 use leptos::*;
 use leptos_router::*;
-
-use api_boundary::*;
 
 mod api;
 mod components;
@@ -86,45 +85,51 @@ pub fn App(cx: Scope) -> impl IntoView {
                     .expect("LocalStorage::set");
             }
             None => {
-                log::debug!("API is no longer authorized: delete token from LocalStorage");
+                log::debug!(
+                    "API is no longer authorized: delete token from \
+                     LocalStorage"
+                );
                 LocalStorage::delete(API_TOKEN_STORAGE_KEY);
             }
         }
     });
 
     view! { cx,
-      <Router>
-        <NavBar logged_in on_logout />
-        <main>
-          <Routes>
-            <Route
-              path=Page::Home.path()
-              view=move |cx| view! { cx,
-                <Home user_info = user_info.into() />
-              }
-            />
-            <Route
-              path=Page::Login.path()
-              view=move |cx| view! { cx,
-                <Login
-                  api = unauthorized_api
-                  on_success = move |api| {
-                      log::info!("Successfully logged in");
-                      authorized_api.update(|v| *v = Some(api));
-                      let navigate = use_navigate(cx);
-                      navigate(Page::Home.path(), Default::default()).expect("Home route");
-                      fetch_user_info.dispatch(());
-                  } />
-              }
-            />
-            <Route
-              path=Page::Register.path()
-              view=move |cx| view! { cx,
-                <Register api = unauthorized_api />
-              }
-            />
-          </Routes>
-        </main>
-      </Router>
+        <Router>
+            <NavBar logged_in on_logout/>
+            <main>
+                <Routes>
+                    <Route
+                        path=Page::Home.path()
+                        view=move |cx| {
+                            view! { cx, <Home user_info=user_info.into()/> }
+                        }
+                    />
+                    <Route
+                        path=Page::Login.path()
+                        view=move |cx| {
+                            view! { cx,
+                                <Login
+                                    api=unauthorized_api
+                                    on_success=move |api| {
+                                        log::info!("Successfully logged in");
+                                        authorized_api.update(|v| *v = Some(api));
+                                        let navigate = use_navigate(cx);
+                                        navigate(Page::Home.path(), Default::default()).expect("Home route");
+                                        fetch_user_info.dispatch(());
+                                    }
+                                />
+                            }
+                        }
+                    />
+                    <Route
+                        path=Page::Register.path()
+                        view=move |cx| {
+                            view! { cx, <Register api=unauthorized_api/> }
+                        }
+                    />
+                </Routes>
+            </main>
+        </Router>
     }
 }
