@@ -11,7 +11,7 @@ readme = "../README.md"
 [dependencies]
 server_fn_macro_default = { workspace = true }
 serde = { version = "1", features = ["derive"] }
-serde_html_form = "0.2"
+serde_qs = "0.12"
 thiserror = "1"
 serde_json = "1"
 quote = "1"
