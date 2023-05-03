@@ -106,7 +106,7 @@ pub fn server_macro_impl(
                 }
                 FnArg::Typed(t) => t,
             };
-            quote! { #[serde(flatten)] pub #typed_arg }
+            quote! { pub #typed_arg }
         });
 
     let cx_arg = body.inputs.iter().next().and_then(|f| {

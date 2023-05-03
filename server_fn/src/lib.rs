@@ -75,7 +75,7 @@
 //!   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 //!   need to deserialize the result to return it to the client.
 //! - **Arguments must be implement [serde::Serialize].** They are serialized as an `application/x-www-form-urlencoded`
-//!   form data using [`serde_html_form`](https://docs.rs/serde_html_form/latest/serde_html_form/) or as `application/cbor`
+//!   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 //!   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 
 // used by the macro
@@ -308,7 +308,7 @@ where
             // decode the args
             let value = match Self::encoding() {
                 Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
-                    serde_html_form::from_bytes(data).map_err(|e| {
+                    serde_qs::from_bytes(data).map_err(|e| {
                         ServerFnError::Deserialization(e.to_string())
                     })
                 }
@@ -408,7 +408,7 @@ where
     }
     let args_encoded = match &enc {
         Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => Payload::Url(
-            serde_html_form::to_string(&args)
+            serde_qs::to_string(&args)
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?,
         ),
         Encoding::Cbor => {
