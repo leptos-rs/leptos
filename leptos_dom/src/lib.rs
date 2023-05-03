@@ -836,10 +836,11 @@ where
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
     crate::console_warn(
-        "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as features, which may cause \
-        issues like <Suspense/>` failing to work silently. `csr` is enabled by \
-        default on `leptos`, and can be disabled by adding `default-features = \
-        false` to your `leptos` dependency."
+        "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as \
+         features, which may cause issues like <Suspense/>` failing to work \
+         silently. `csr` is enabled by default on `leptos`, and can be \
+         disabled by adding `default-features = false` to your `leptos` \
+         dependency.",
     );
 
     cfg_if! {
