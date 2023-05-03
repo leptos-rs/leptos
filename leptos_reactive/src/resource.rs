@@ -842,17 +842,21 @@ where
                 _ = location;
             }
             #[cfg(all(feature = "hydrate", debug_assertions))]
-            crate::macros::debug_warn!(
-                "At {location}, you are reading a resource in `hydrate` mode \
-                 outside a <Suspense/> or <Transition/>. This can cause \
-                 hydration mismatch errors and loses out on a significant \
-                 performance optimization. To fix this issue, you can either: \
-                 \n1. Wrap the place where you read the resource in a \
-                 <Suspense/> or <Transition/> component, or \n2. Switch to \
-                 using create_local_resource(), which will wait to load the \
-                 resource until the app is hydrated on the client side. (This \
-                 will have worse performance in most cases.)",
-            );
+            {
+                if self.serializable != ResourceSerialization::Local {
+                    crate::macros::debug_warn!(
+                        "At {location}, you are reading a resource in `hydrate` mode \
+                        outside a <Suspense/> or <Transition/>. This can cause \
+                        hydration mismatch errors and loses out on a significant \
+                        performance optimization. To fix this issue, you can either: \
+                        \n1. Wrap the place where you read the resource in a \
+                        <Suspense/> or <Transition/> component, or \n2. Switch to \
+                        using create_local_resource(), which will wait to load the \
+                        resource until the app is hydrated on the client side. (This \
+                        will have worse performance in most cases.)",
+                    );
+                }
+            }
         }
 
         let increment = move |_: Option<()>| {
