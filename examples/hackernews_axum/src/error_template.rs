@@ -1,7 +1,4 @@
-use leptos::{
-    signal_prelude::*, view, Errors, For, ForProps, IntoView, RwSignal, Scope,
-    View,
-};
+use leptos::{view, Errors, For, IntoView, RwSignal, Scope, View};
 
 // A basic function to display errors served by the error boundaries. Feel free to do more complicated things
 // here than just displaying them
