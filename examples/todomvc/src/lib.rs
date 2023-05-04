@@ -136,7 +136,7 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
 
     // Handle the three filter modes: All, Active, and Completed
     let (mode, set_mode) = create_signal(cx, Mode::All);
-    window_event_listener("hashchange", move |_| {
+    window_event_listener_untyped("hashchange", move |_| {
         let new_mode =
             location_hash().map(|hash| route(&hash)).unwrap_or_default();
         set_mode(new_mode);
@@ -202,15 +202,15 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
         }
     });
 
-    // focus the main input on load  
+    // focus the main input on load
     create_effect(cx, move |_| {
         if let Some(input) = input_ref.get() {
-            // We use request_animation_frame here because the NodeRef 
-            // is filled when the element is created, but before it's mounted 
+            // We use request_animation_frame here because the NodeRef
+            // is filled when the element is created, but before it's mounted
             // to the DOM. Calling .focus() before it's mounted does nothing.
             // So inside, we wait a tick for the browser to mount it, then .focus()
             request_animation_frame(move || {
-                input.focus();
+                let _ = input.focus();
             });
         }
     });
@@ -348,17 +348,12 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Active,
     Completed,
+    #[default]
     All,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Mode::All
-    }
 }
 
 pub fn route(hash: &str) -> Mode {
