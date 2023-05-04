@@ -8,7 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 actix-files = { version = "0.6.2", optional = true }
-actix-web = { version = "4.2.1", optional = true, features = ["macros"] }
+actix-web = { version = "4.2.1", features = ["macros"] }
 anyhow = "1.0.68"
 broadcaster = "1.0.0"
 console_log = "1.0.0"
@@ -19,7 +19,7 @@ cfg-if = "1.0.0"
 leptos = { path = "../../leptos", default-features = false, features = [
 	"serde",
 ] }
-leptos_actix = { path = "../../integrations/actix", optional = true }
+leptos_actix = { path = "../../integrations/actix" }
 leptos_meta = { path = "../../meta", default-features = false }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4.17"
@@ -36,10 +36,8 @@ default = ["ssr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
 	"dep:actix-files",
-	"dep:actix-web",
 	"dep:sqlx",
 	"leptos/ssr",
-	"leptos_actix",
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]

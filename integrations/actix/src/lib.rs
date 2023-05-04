@@ -16,7 +16,7 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use http::StatusCode;
 use leptos::{
-    leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
+    leptos_dom::{Transparent, ssr::render_to_stream_with_prefix_undisposed_with_context},
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
     *,
@@ -922,7 +922,7 @@ pub fn generate_route_list_with_exclusions<IV>(
 where
     IV: IntoView + 'static,
 {
-    let mut routes = leptos_router::generate_route_list_inner(app_fn);
+    let (mut routes, mut api_routes) = leptos_router::generate_route_list_inner(app_fn);
 
     // Empty strings screw with Actix pathing, they need to be "/"
     routes = routes
@@ -1111,6 +1111,14 @@ where
         }
         router
     }
+}
+
+/// Defines an API route, which mounts the given route handler at this path.
+#[component(transparent)]
+pub fn Api<P>(cx: leptos::Scope, path: P, route: actix_web::Route) -> impl IntoView
+where P: Into<String>
+{
+    Transparent::new(ApiRouteListing::new(path.into(), route))
 }
 
 /// A helper to make it easier to use Axum extractors in server functions. This takes

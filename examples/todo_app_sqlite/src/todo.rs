@@ -107,6 +107,9 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                         cx,
                         <Todos/>
                     }/>
+                    <Api path="bananas" route=web::get().to(|req: HttpRequest| async move {
+                        req.path()
+                    })
                 </Routes>
             </main>
         </Router>

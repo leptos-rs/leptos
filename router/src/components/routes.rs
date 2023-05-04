@@ -5,6 +5,7 @@ use crate::{
         RouteDefinition, RouteMatch,
     },
     use_is_back_navigation, RouteContext, RouterContext,
+    ApiRouteListing
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -43,7 +44,7 @@ pub fn Routes(
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
         Branches::with(&base, |branches| {
-            *context.0.borrow_mut() = branches.to_vec()
+            *context.ui.borrow_mut() = branches.to_vec();
         });
     }
 
@@ -118,7 +119,7 @@ pub fn AnimatedRoutes(
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
         Branches::with(&base, |branches| {
-            *context.0.borrow_mut() = branches.to_vec()
+            *context.ui.borrow_mut() = branches.to_vec()
         });
     }
 
@@ -224,8 +225,12 @@ pub fn AnimatedRoutes(
 
 pub(crate) struct Branches;
 
+type AppRoutes = (Vec<Branch>, Vec<ApiRouteListing>);
+
 thread_local! {
-    static BRANCHES: RefCell<HashMap<String, Vec<Branch>>> = RefCell::new(HashMap::new());
+    // map is indexed by base 
+    // this allows multiple apps per server
+    static BRANCHES: RefCell<HashMap<String, AppRoutes>> = Default::default();
 }
 
 impl Branches {
@@ -233,29 +238,30 @@ impl Branches {
         BRANCHES.with(|branches| {
             let mut current = branches.borrow_mut();
             if !current.contains_key(base) {
-                let mut branches = Vec::new();
-                let children = children
+                let mut branches = (Vec::new(), Vec::new());
+                let mut route_defs = Vec::new();
+                let mut api_routes = Vec::new();
+                for child in children
                     .as_children()
-                    .iter()
-                    .filter_map(|child| {
-                        let def = child
-                            .as_transparent()
-                            .and_then(|t| t.downcast_ref::<RouteDefinition>());
-                        if def.is_none() {
+                    .iter() {
+                        let transparent = child.as_transparent();
+                        if let Some(def) = transparent.and_then(|t| t.downcast_ref::<RouteDefinition>()) {
+                            route_defs.push(def.clone());
+                        } else if let Some(def) = transparent.and_then(|t| t.downcast_ref::<ApiRouteListing>()) {
+                            api_routes.push(def.clone());
+                        } else {
                             warn!(
                                 "[NOTE] The <Routes/> component should \
-                                 include *only* <Route/>or <ProtectedRoute/> \
+                                 include *only* <Route/> or <ProtectedRoute/> or <ApiRoute/> \
                                  components, or some \
                                  #[component(transparent)] that returns a \
                                  RouteDefinition."
                             );
                         }
-                        def
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
+                    }
+
                 create_branches(
-                    &children,
+                    &route_defs,
                     base,
                     &mut Vec::new(),
                     &mut branches,
@@ -272,7 +278,18 @@ impl Branches {
                 "Branches::initialize() should be called before \
                  Branches::with()",
             );
-            cb(branches)
+            cb(&branches.0)
+        })
+    }
+
+    pub fn with_api_routes<T>(base: &str, cb: impl FnOnce(&[ApiRouteListing]) -> T) -> T {
+        BRANCHES.with(|branches| {
+            let branches = branches.borrow();
+            let branches = branches.get(base).expect(
+                "Branches::initialize() should be called before \
+                 Branches::with()",
+            );
+            cb(&branches.1)
         })
     }
 }
@@ -481,7 +498,7 @@ fn create_branches(
     route_defs: &[RouteDefinition],
     base: &str,
     stack: &mut Vec<RouteData>,
-    branches: &mut Vec<Branch>,
+    branches: &mut (Vec<Branch>, Vec<ApiRouteListing>),
 ) {
     for def in route_defs {
         let routes = create_routes(def, base);
@@ -489,8 +506,8 @@ fn create_branches(
             stack.push(route.clone());
 
             if def.children.is_empty() {
-                let branch = create_branch(stack, branches.len());
-                branches.push(branch);
+                let branch = create_branch(stack, branches.0.len());
+                branches.0.push(branch);
             } else {
                 create_branches(&def.children, &route.pattern, stack, branches);
             }
@@ -500,7 +517,7 @@ fn create_branches(
     }
 
     if stack.is_empty() {
-        branches.sort_by_key(|branch| Reverse(branch.score));
+        branches.0.sort_by_key(|branch| Reverse(branch.score));
     }
 }
 
