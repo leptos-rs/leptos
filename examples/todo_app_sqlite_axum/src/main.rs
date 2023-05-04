@@ -1,8 +1,8 @@
 use cfg_if::cfg_if;
-use leptos::*;
 // boilerplate to run in different modes
 cfg_if! {
-if #[cfg(feature = "ssr")] {
+    if #[cfg(feature = "ssr")] {
+    use leptos::*;
     use axum::{
         routing::{post, get},
         extract::{Extension, Path},
