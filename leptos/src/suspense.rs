@@ -1,12 +1,12 @@
 use cfg_if::cfg_if;
 use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
 use leptos_macro::component;
-use leptos_reactive::{provide_context, Scope, SuspenseContext};
-use std::rc::Rc;
-#[cfg(any(feature = "csr", feature = "hydrate"))]
-use std::cell::RefCell;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::ScopeDisposer;
+use leptos_reactive::{provide_context, Scope, SuspenseContext};
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
