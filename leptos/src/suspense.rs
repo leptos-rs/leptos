@@ -3,6 +3,10 @@ use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
 use std::rc::Rc;
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use std::cell::RefCell;
+#[cfg(any(feature = "csr", feature = "hydrate"))]
+use leptos_reactive::ScopeDisposer;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -72,6 +76,8 @@ where
 
     let before_me = HydrationCtx::peek();
     let current_id = HydrationCtx::next_component();
+    #[cfg(any(feature = "csr", feature = "hydrate"))]
+    let prev_disposer = Rc::new(RefCell::new(None::<ScopeDisposer>));
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -79,11 +85,18 @@ where
         move || {
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                    if context.ready() {
+                    if let Some(disposer) = prev_disposer.take() {
+                        disposer.dispose();
+                    }
+                    let (view, disposer) =
+                        cx.run_child_scope(|cx| if context.ready() {
                         Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
                     } else {
                         Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
-                    }
+                    });
+                    *prev_disposer.borrow_mut() = Some(disposer);
+                    view
+
                 } else {
                     use leptos_reactive::signal_prelude::*;
 
