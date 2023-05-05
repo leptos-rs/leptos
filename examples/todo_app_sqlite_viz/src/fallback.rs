@@ -3,7 +3,7 @@ use cfg_if::cfg_if;
 cfg_if! {
 if #[cfg(feature = "ssr")] {
     use crate::{
-        error_template::{ErrorTemplate, ErrorTemplateProps},
+        error_template::ErrorTemplate,
         errors::TodoAppError,
     };
     use http::Uri;
@@ -22,7 +22,7 @@ if #[cfg(feature = "ssr")] {
             Error::Responder(Response::text("missing state type LeptosOptions")),
         )?;
         let root = &options.site_root;
-        let resp = get_static_file(uri, &root, headers, route_info).await?;
+        let resp = get_static_file(uri, root, headers, route_info).await?;
         let status = resp.status();
 
         if status.is_success() || status.is_redirection() {
