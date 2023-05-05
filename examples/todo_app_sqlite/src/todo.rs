@@ -9,7 +9,7 @@ cfg_if! {
         use sqlx::{Connection, SqliteConnection};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-            Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)
+            SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))
         }
 
         pub fn register_server_functions() {
@@ -37,18 +37,18 @@ cfg_if! {
 #[server(GetTodos, "/api")]
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
-    let req =
-        use_context::<actix_web::HttpRequest>(cx);
-    
-    if let Some(req) = req{
-    println!("req.path = {:#?}", req.path());
+    let req = use_context::<actix_web::HttpRequest>(cx);
+
+    if let Some(req) = req {
+        println!("req.path = {:#?}", req.path());
     }
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
 
     let mut todos = Vec::new();
-    let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
+    let mut rows =
+        sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
     while let Some(row) = rows
         .try_next()
         .await
@@ -73,7 +73,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
         .execute(&mut conn)
         .await
     {
-        Ok(row) => Ok(()),
+        Ok(_row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
     }
 }
@@ -130,7 +130,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
         cx,
         <div>
             <MultiActionForm
-                // we can handle client-side validation in the on:submit event 
+                // we can handle client-side validation in the on:submit event
                 // leptos_router implements a `FromFormData` trait that lets you
                 // parse deserializable types from form data and check them
                 on:submit=move |ev| {
