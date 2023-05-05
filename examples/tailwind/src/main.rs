@@ -20,7 +20,7 @@ cfg_if! {
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             let conf = get_configuration(None).await.unwrap();
 
-            let addr = conf.leptos_options.site_addr.clone();
+            let addr = conf.leptos_options.site_addr;
 
             // Generate the list of routes in your Leptos App
             let routes = generate_route_list(|cx| view! { cx, <App/> });
@@ -32,7 +32,7 @@ cfg_if! {
                 App::new()
                     .service(css)
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), |cx| view! { cx, <App/> })
-                    .service(Files::new("/", &site_root))
+                    .service(Files::new("/", site_root))
                     .wrap(middleware::Compress::default())
             })
             .bind(&addr)?
