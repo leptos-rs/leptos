@@ -7,10 +7,7 @@ pub mod error_template;
 pub mod fallback;
 pub mod handlers;
 mod routes;
-use routes::nav::*;
-use routes::stories::*;
-use routes::story::*;
-use routes::users::*;
+use routes::{nav::*, stories::*, story::*, users::*};
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {

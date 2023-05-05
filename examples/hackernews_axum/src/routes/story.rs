@@ -13,11 +13,20 @@ pub fn Story(cx: Scope) -> impl IntoView {
             if id.is_empty() {
                 None
             } else {
-                api::fetch_api::<api::Story>(cx, &api::story(&format!("item/{id}"))).await
+                api::fetch_api::<api::Story>(
+                    cx,
+                    &api::story(&format!("item/{id}")),
+                )
+                .await
             }
         },
     );
-    let meta_description = move || story.read(cx).and_then(|story| story.map(|story| story.title)).unwrap_or_else(|| "Loading story...".to_string());
+    let meta_description = move || {
+        story
+            .read(cx)
+            .and_then(|story| story.map(|story| story.title))
+            .unwrap_or_else(|| "Loading story...".to_string())
+    };
 
     view! { cx,
         <>

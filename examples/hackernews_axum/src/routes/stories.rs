@@ -1,7 +1,6 @@
+use crate::api;
 use leptos::*;
 use leptos_router::*;
-
-use crate::api;
 
 fn category(from: &str) -> &'static str {
     match from {
@@ -37,8 +36,10 @@ pub fn Stories(cx: Scope) -> impl IntoView {
     );
     let (pending, set_pending) = create_signal(cx, false);
 
-    let hide_more_link =
-        move || pending() || stories.read(cx).unwrap_or(None).unwrap_or_default().len() < 28;
+    let hide_more_link = move || {
+        pending()
+            || stories.read(cx).unwrap_or(None).unwrap_or_default().len() < 28
+    };
 
     view! {
         cx,
