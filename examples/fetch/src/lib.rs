@@ -14,7 +14,7 @@ pub enum FetchError {
     #[error("Error loading data from serving.")]
     Request,
     #[error("Error deserializaing cat data from request.")]
-    Json
+    Json,
 }
 
 async fn fetch_cats(count: u32) -> Result<Vec<String>, FetchError> {
