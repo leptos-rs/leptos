@@ -315,10 +315,10 @@ pub trait SignalDispose {
 /// set_count(1);
 /// assert_eq!(count(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you could call the getter within the setter
 /// // set_count(count() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count(), 2);
 ///
@@ -472,10 +472,10 @@ pub fn create_signal_from_stream<T>(
 /// set_count(1);
 /// assert_eq!(count(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you could call the getter within the setter
 /// // set_count(count() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count(), 2);
 ///
@@ -845,10 +845,10 @@ impl<T> Copy for ReadSignal<T> {}
 /// set_count(1);
 /// assert_eq!(count(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you could call the getter within the setter
 /// // set_count(count() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count(), 2);
 /// # }).dispose();
@@ -1103,10 +1103,10 @@ impl<T> Copy for WriteSignal<T> {}
 /// count.set(1);
 /// assert_eq!(count(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you can call the getter within the setter
 /// // count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count(), 2);
 /// # }).dispose();
@@ -1163,10 +1163,10 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// count.set(1);
 /// assert_eq!(count(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you can call the getter within the setter
 /// // count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
 /// assert_eq!(count(), 2);
 /// # }).dispose();
