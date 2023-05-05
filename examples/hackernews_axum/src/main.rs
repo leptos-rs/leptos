@@ -19,7 +19,7 @@ if #[cfg(feature = "ssr")] {
 
         let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
         let leptos_options = conf.leptos_options;
-        let addr = leptos_options.site_addr.clone();
+        let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
