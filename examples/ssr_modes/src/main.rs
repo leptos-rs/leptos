@@ -12,8 +12,8 @@ async fn main() -> std::io::Result<()> {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> });
 
-    GetPost::register();
-    ListPostMetadata::register();
+    let _ = GetPost::register();
+    let _ = ListPostMetadata::register();
 
     HttpServer::new(move || {
         let leptos_options = &conf.leptos_options;
