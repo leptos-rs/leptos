@@ -43,6 +43,7 @@ features = [
   "Comment",
   "Document",
   "DomTokenList",
+  "CssStyleDeclaration",
   "Location",
   "Range",
   "Text",
