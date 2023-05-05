@@ -1068,9 +1068,9 @@ where
             let path = listing.path();
             if path.is_empty() {
                 RouteListing::new(
-                    "/",
-                    Default::default(),
-                    [leptos_router::Method::Get],
+                    "/".to_string(),
+                    listing.mode(),
+                    listing.methods(),
                 )
             } else {
                 listing
