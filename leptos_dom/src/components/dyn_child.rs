@@ -4,7 +4,7 @@ use crate::{
 };
 use cfg_if::cfg_if;
 use leptos_reactive::Scope;
-use std::{borrow::Cow, cell::{RefCell}, fmt, ops::Deref, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
@@ -279,17 +279,31 @@ where
                                     let end = &closing;
 
                                     match child {
-                                        View::CoreComponent(crate::CoreComponent::DynChild(child)) => {
-                                            let start = child.get_opening_node();
+                                        View::CoreComponent(
+                                            crate::CoreComponent::DynChild(
+                                                child,
+                                            ),
+                                        ) => {
+                                            let start =
+                                                child.get_opening_node();
                                             let end = child.closing.node;
-                                            prepare_to_move(&child.document_fragment, &start, &end);
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
                                         }
                                         View::Component(child) => {
-                                            let start = child.get_opening_node();
+                                            let start =
+                                                child.get_opening_node();
                                             let end = child.closing.node;
-                                            prepare_to_move(&child.document_fragment, &start, &end);
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
                                         }
-                                        _ => unmount_child(&start, end)
+                                        _ => unmount_child(&start, end),
                                     }
                                 }
 
