@@ -82,9 +82,17 @@ where
         move || {
             cfg_if! {
                 if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                    let child = orig_child(cx).into_view(cx);
+                    let mut child: Option<crate::View> = None;
                     if context.ready() {
-                        Fragment::lazy(Box::new(|| vec![child.clone()])).into_view(cx)
+                        Fragment::lazy(Box::new(|| vec![{
+                            if let Some(child) = &child {
+                                child.clone()
+                            } else {
+                                let first_run_child = orig_child(cx).into_view(cx);
+                                child = Some(first_run_child.clone());
+                                first_run_child
+                            }
+                        }])).into_view(cx)
                     } else {
                         Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
                     }
