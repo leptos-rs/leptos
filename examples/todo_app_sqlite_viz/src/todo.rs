@@ -1,4 +1,4 @@
-use crate::error_template::{ErrorTemplate, ErrorTemplateProps};
+use crate::error_template::ErrorTemplate;
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;

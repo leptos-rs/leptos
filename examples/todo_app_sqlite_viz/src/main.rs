@@ -1,8 +1,9 @@
 use cfg_if::cfg_if;
-use leptos::*;
+
 // boilerplate to run in different modes
 cfg_if! {
-if #[cfg(feature = "ssr")] {
+    if #[cfg(feature = "ssr")] {
+    use leptos::*;
     use crate::fallback::file_and_error_handler;
     use crate::todo::*;
     use leptos_viz::{generate_route_list, LeptosRoutes};
