@@ -1,11 +1,7 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use axum::{
-        extract::{Extension, Path},
-        routing::{get, post},
-        Router,
-    };
+    use axum::{extract::Extension, routing::post, Router};
     use leptos::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
@@ -17,8 +13,8 @@ async fn main() {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
-    GetPost::register();
-    ListPostMetadata::register();
+    let _ = GetPost::register();
+    let _ = ListPostMetadata::register();
 
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
