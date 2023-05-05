@@ -206,6 +206,12 @@ where
 /// Automatically turns a server [Action](leptos_server::Action) into an HTML
 /// [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form)
 /// progressively enhanced to use client-side routing.
+///
+/// ## Encoding
+/// **Note:** `<ActionForm/>` only works with server functions that use the
+/// default `Url` encoding or the `GetJSON` encoding, not with `CBOR` or other
+/// encoding schemes. This is to ensure that `<ActionForm/>` works correctly
+/// both before and after WASM has loaded.
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
@@ -264,55 +270,61 @@ where
         let resp = resp.clone().expect("couldn't get Response");
         let status = resp.status();
         spawn_local(async move {
-            let body = JsFuture::from(
-                resp.text().expect("couldn't get .text() from Response"),
-            )
-            .await;
-            match body {
-                Ok(json) => {
-                    // 500 just returns text of error, not JSON
-                    if status == 500 {
-                        let err = ServerFnError::ServerError(
-                            json.as_string().unwrap_or_default(),
-                        );
+            let redirected = resp.redirected();
+
+            if !redirected {
+                let body = JsFuture::from(
+                    resp.text().expect("couldn't get .text() from Response"),
+                )
+                .await;
+                match body {
+                    Ok(json) => {
+                        // 500 just returns text of error, not JSON
+                        if status == 500 {
+                            let err = ServerFnError::ServerError(
+                                json.as_string().unwrap_or_default(),
+                            );
+                            if let Some(error) = error {
+                                error.try_set(Some(Box::new(err.clone())));
+                            }
+                            value.try_set(Some(Err(err)));
+                        } else {
+                            match O::de(
+                                &json.as_string().expect(
+                                    "couldn't get String from JsString",
+                                ),
+                            ) {
+                                Ok(res) => {
+                                    value.try_set(Some(Ok(res)));
+                                    if let Some(error) = error {
+                                        error.try_set(None);
+                                    }
+                                }
+                                Err(e) => {
+                                    value.try_set(Some(Err(
+                                        ServerFnError::Deserialization(
+                                            e.to_string(),
+                                        ),
+                                    )));
+                                    if let Some(error) = error {
+                                        error.try_set(Some(Box::new(e)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("{e:?}");
                         if let Some(error) = error {
-                            error.try_set(Some(Box::new(err.clone())));
-                        }
-                        value.try_set(Some(Err(err)));
-                    } else {
-                        match O::de(
-                            &json
-                                .as_string()
-                                .expect("couldn't get String from JsString"),
-                        ) {
-                            Ok(res) => {
-                                value.try_set(Some(Ok(res)));
-                                if let Some(error) = error {
-                                    error.try_set(None);
-                                }
-                            }
-                            Err(e) => {
-                                value.try_set(Some(Err(
-                                    ServerFnError::Deserialization(
-                                        e.to_string(),
-                                    ),
-                                )));
-                                if let Some(error) = error {
-                                    error.try_set(Some(Box::new(e)));
-                                }
-                            }
+                            error.try_set(Some(Box::new(
+                                ServerFnError::Request(
+                                    e.as_string().unwrap_or_default(),
+                                ),
+                            )));
                         }
                     }
-                }
-                Err(e) => {
-                    error!("{e:?}");
-                    if let Some(error) = error {
-                        error.try_set(Some(Box::new(ServerFnError::Request(
-                            e.as_string().unwrap_or_default(),
-                        ))));
-                    }
-                }
-            };
+                };
+            }
             input.try_set(None);
             action.set_pending(false);
         });
