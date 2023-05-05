@@ -1,9 +1,7 @@
-use std::collections::HashSet;
-
 use cfg_if::cfg_if;
 use leptos::*;
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 cfg_if! {
 if #[cfg(feature = "ssr")] {
@@ -168,7 +166,9 @@ pub async fn login(
         .ok_or("User does not exist.")
         .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
 
-    match verify(password, &user.password).map_err(|e| ServerFnError::ServerError(e.to_string()))? {
+    match verify(password, &user.password)
+        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
+    {
         true => {
             auth.login_user(user.id);
             auth.remember_user(remember.is_some());

@@ -1,5 +1,4 @@
-use crate::auth::*;
-use crate::error_template::{ErrorTemplate, ErrorTemplateProps};
+use crate::{auth::*, error_template::ErrorTemplate};
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
@@ -73,7 +72,8 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let pool = pool(cx)?;
 
     let mut todos = Vec::new();
-    let mut rows = sqlx::query_as::<_, SqlTodo>("SELECT * FROM todos").fetch(&pool);
+    let mut rows =
+        sqlx::query_as::<_, SqlTodo>("SELECT * FROM todos").fetch(&pool);
 
     while let Some(row) = rows
         .try_next()
@@ -111,11 +111,13 @@ pub async fn add_todo(cx: Scope, title: String) -> Result<(), ServerFnError> {
     // fake API delay
     std::thread::sleep(std::time::Duration::from_millis(1250));
 
-    match sqlx::query("INSERT INTO todos (title, user_id, completed) VALUES (?, ?, false)")
-        .bind(title)
-        .bind(id)
-        .execute(&pool)
-        .await
+    match sqlx::query(
+        "INSERT INTO todos (title, user_id, completed) VALUES (?, ?, false)",
+    )
+    .bind(title)
+    .bind(id)
+    .execute(&pool)
+    .await
     {
         Ok(_row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
@@ -304,7 +306,10 @@ pub fn Todos(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Login(cx: Scope, action: Action<Login, Result<(), ServerFnError>>) -> impl IntoView {
+pub fn Login(
+    cx: Scope,
+    action: Action<Login, Result<(), ServerFnError>>,
+) -> impl IntoView {
     view! {
         cx,
         <ActionForm action=action>
@@ -330,7 +335,10 @@ pub fn Login(cx: Scope, action: Action<Login, Result<(), ServerFnError>>) -> imp
 }
 
 #[component]
-pub fn Signup(cx: Scope, action: Action<Signup, Result<(), ServerFnError>>) -> impl IntoView {
+pub fn Signup(
+    cx: Scope,
+    action: Action<Signup, Result<(), ServerFnError>>,
+) -> impl IntoView {
     view! {
         cx,
         <ActionForm action=action>
@@ -362,7 +370,10 @@ pub fn Signup(cx: Scope, action: Action<Signup, Result<(), ServerFnError>>) -> i
 }
 
 #[component]
-pub fn Logout(cx: Scope, action: Action<Logout, Result<(), ServerFnError>>) -> impl IntoView {
+pub fn Logout(
+    cx: Scope,
+    action: Action<Logout, Result<(), ServerFnError>>,
+) -> impl IntoView {
     view! {
         cx,
         <div id="loginbox">
