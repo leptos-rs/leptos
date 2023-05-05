@@ -1,7 +1,4 @@
-use crate::{
-    error_template::{ErrorTemplate, ErrorTemplateProps},
-    errors::AppError,
-};
+use crate::{error_template::ErrorTemplate, errors::AppError};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -54,7 +51,8 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn ExampleErrors(cx: Scope) -> impl IntoView {
-    let generate_internal_error = create_server_action::<CauseInternalServerError>(cx);
+    let generate_internal_error =
+        create_server_action::<CauseInternalServerError>(cx);
 
     view! { cx,
         <p>
