@@ -20,15 +20,15 @@ if #[cfg(feature = "ssr")] {
     use sqlx::SqlitePool;
 
     pub fn pool(cx: Scope) -> Result<SqlitePool, ServerFnError> {
-        Ok(use_context::<SqlitePool>(cx)
+       use_context::<SqlitePool>(cx)
             .ok_or("Pool missing.")
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))?)
+            .map_err(|e| ServerFnError::ServerError(e.to_string()))
     }
 
     pub fn auth(cx: Scope) -> Result<AuthSession, ServerFnError> {
-        Ok(use_context::<AuthSession>(cx)
+        use_context::<AuthSession>(cx)
             .ok_or("Auth session missing.")
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))?)
+            .map_err(|e| ServerFnError::ServerError(e.to_string()))
     }
 
     pub fn register_server_functions() {
