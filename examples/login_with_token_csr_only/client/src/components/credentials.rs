@@ -20,54 +20,56 @@ pub fn CredentialsForm(
     });
 
     view! { cx,
-      <form on:submit=|ev|ev.prevent_default()>
-        <p>{ title }</p>
-        {move || error.get().map(|err| view!{ cx,
-          <p style ="color:red;" >{ err }</p>
-        })}
-        <input
-          type = "email"
-          required
-          placeholder = "Email address"
-          prop:disabled = move || disabled.get()
-          on:keyup = move |ev: ev::KeyboardEvent| {
-            let val = event_target_value(&ev);
-            set_email.update(|v|*v = val);
-          }
-          // The `change` event fires when the browser fills the form automatically,
-          on:change = move |ev| {
-            let val = event_target_value(&ev);
-            set_email.update(|v|*v = val);
-          }
-        />
-        <input
-          type = "password"
-          required
-          placeholder = "Password"
-          prop:disabled = move || disabled.get()
-          on:keyup = move |ev: ev::KeyboardEvent| {
-            match &*ev.key() {
-                "Enter" => {
-                   dispatch_action();
+        <form on:submit=|ev| ev.prevent_default()>
+            <p>{title}</p>
+            {move || {
+                error
+                    .get()
+                    .map(|err| {
+                        view! { cx, <p style="color:red;">{err}</p> }
+                    })
+            }}
+            <input
+                type="email"
+                required
+                placeholder="Email address"
+                prop:disabled=move || disabled.get()
+                on:keyup=move |ev: ev::KeyboardEvent| {
+                    let val = event_target_value(&ev);
+                    set_email.update(|v| *v = val);
                 }
-                _=> {
-                   let val = event_target_value(&ev);
-                   set_password.update(|p|*p = val);
+                on:change=move |ev| {
+                    let val = event_target_value(&ev);
+                    set_email.update(|v| *v = val);
                 }
-            }
-          }
-          // The `change` event fires when the browser fills the form automatically,
-          on:change = move |ev| {
-            let val = event_target_value(&ev);
-            set_password.update(|p|*p = val);
-          }
-        />
-        <button
-          prop:disabled = move || button_is_disabled.get()
-          on:click = move |_| dispatch_action()
-        >
-        { action_label }
-        </button>
-      </form>
+            />
+            <input
+                type="password"
+                required
+                placeholder="Password"
+                prop:disabled=move || disabled.get()
+                on:keyup=move |ev: ev::KeyboardEvent| {
+                    match &*ev.key() {
+                        "Enter" => {
+                            dispatch_action();
+                        }
+                        _ => {
+                            let val = event_target_value(&ev);
+                            set_password.update(|p| *p = val);
+                        }
+                    }
+                }
+                on:change=move |ev| {
+                    let val = event_target_value(&ev);
+                    set_password.update(|p| *p = val);
+                }
+            />
+            <button
+                prop:disabled=move || button_is_disabled.get()
+                on:click=move |_| dispatch_action()
+            >
+                {action_label}
+            </button>
+        </form>
     }
 }
