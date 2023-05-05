@@ -39,7 +39,7 @@ default = ["ssr"]
 csr = []
 hydrate = []
 ssr = []
-stable = ["server_fn_macro/stable"]
+nightly = ["server_fn_macro/nightly"]
 tracing = []
 
 [package.metadata.cargo-all-features]

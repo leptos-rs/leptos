@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
-#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
+#![cfg_attr(feature = "nightly", feature(fn_traits))]
+#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 
 //! The DOM implementation for `leptos`.
 
@@ -1125,7 +1125,7 @@ viewable_primitive![
 ];
 
 cfg_if! {
-  if #[cfg(not(feature = "stable"))] {
+  if #[cfg(feature = "nightly")] {
     viewable_primitive! {
         std::backtrace::Backtrace
     }

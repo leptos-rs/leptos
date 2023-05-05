@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 
 #[macro_use]
@@ -353,7 +353,7 @@ pub fn view(tokens: TokenStream) -> TokenStream {
 
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
     cfg_if::cfg_if! {
-        if #[cfg(all(debug_assertions, not(feature = "stable")))] {
+        if #[cfg(all(debug_assertions, feature = "nightly"))] {
             Some(leptos_hot_reload::span_to_stable_id(
                 site.source_file().path(),
                 site.into()
