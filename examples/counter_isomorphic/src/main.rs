@@ -37,7 +37,7 @@ cfg_if! {
             // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
             let conf = get_configuration(None).await.unwrap();
 
-            let addr = conf.leptos_options.site_addr.clone();
+            let addr = conf.leptos_options.site_addr;
             let routes = generate_route_list(|cx| view! { cx, <Counters/> });
 
             HttpServer::new(move || {
@@ -48,7 +48,7 @@ cfg_if! {
                     .service(counter_events)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), |cx| view! { cx, <Counters/> })
-                    .service(Files::new("/", &site_root))
+                    .service(Files::new("/", site_root))
                     //.wrap(middleware::Compress::default())
             })
             .bind(&addr)?
