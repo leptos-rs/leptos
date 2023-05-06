@@ -165,7 +165,7 @@ pub use leptos_dom::{
     },
     html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
     Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
-    IntoClass, IntoProperty, IntoView, NodeRef, Property, View,
+    IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
 pub use leptos_macro::*;
 pub use leptos_reactive::*;

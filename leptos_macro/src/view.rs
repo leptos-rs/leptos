@@ -451,6 +451,7 @@ fn element_to_tokens_ssr(
         holes.push(hydration_id);
 
         set_class_attribute_ssr(cx, node, template, holes, global_class);
+        set_style_attribute_ssr(cx, node, template, holes);
 
         if is_self_closing(node) {
             template.push_str("/>");
@@ -555,9 +556,10 @@ fn attribute_to_tokens_ssr<'a>(
         })
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
+        || name.strip_prefix("style:").is_some()
     {
         // ignore props for SSR
-        // ignore classes: we'll handle these separately
+        // ignore classes and sdtyles: we'll handle these separately
     } else if name == "inner_html" {
         return node.value.as_ref();
     } else {
@@ -575,7 +577,7 @@ fn attribute_to_tokens_ssr<'a>(
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
         };
 
-        if name != "class" {
+        if name != "class" && name != "style" {
             template.push(' ');
 
             if let Some(value) = node.value.as_ref() {
@@ -728,6 +730,113 @@ fn set_class_attribute_ssr(
         if let Some(dyn_global_class) = dyn_global_class {
             template.push_str(" {}");
             holes.push(quote! { #dyn_global_class });
+        }
+
+        template.push('"');
+    }
+}
+
+fn set_style_attribute_ssr(
+    cx: &Ident,
+    node: &NodeElement,
+    template: &mut String,
+    holes: &mut Vec<TokenStream>,
+) {
+    let static_style_attr = node
+        .attributes
+        .iter()
+        .filter_map(|a| match a {
+            Node::Attribute(attr) if attr.key.to_string() == "style" => {
+                attr.value.as_ref().and_then(value_to_string)
+            }
+            _ => None,
+        })
+        .next()
+        .map(|style| format!("{style};"));
+
+    let dyn_style_attr = node
+        .attributes
+        .iter()
+        .filter_map(|a| {
+            if let Node::Attribute(a) = a {
+                if a.key.to_string() == "style" {
+                    if a.value.as_ref().and_then(value_to_string).is_some()
+                        || fancy_style_name(&a.key.to_string(), cx, a).is_some()
+                    {
+                        None
+                    } else {
+                        Some((a.key.span(), &a.value))
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let style_attrs = node
+        .attributes
+        .iter()
+        .filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                let name = node.key.to_string();
+                if name == "style" {
+                    return if let Some((_, name, value)) =
+                        fancy_style_name(&name, cx, node)
+                    {
+                        let span = node.key.span();
+                        Some((span, name, value))
+                    } else {
+                        None
+                    };
+                }
+                if name.starts_with("style:") || name.starts_with("style-") {
+                    let name = if name.starts_with("style:") {
+                        name.replacen("style:", "", 1)
+                    } else if name.starts_with("style-") {
+                        name.replacen("style-", "", 1)
+                    } else {
+                        name
+                    };
+                    let value = attribute_value(node);
+                    let span = node.key.span();
+                    Some((span, name, value))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if static_style_attr.is_some()
+        || !dyn_style_attr.is_empty()
+        || !style_attrs.is_empty()
+    {
+        template.push_str(" style=\"");
+
+        template.push_str(&static_style_attr.unwrap_or_default());
+
+        for (_span, value) in dyn_style_attr {
+            if let Some(value) = value {
+                template.push_str(" {};");
+                let value = value.as_ref();
+                holes.push(quote! {
+                  &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
+                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
+                    .unwrap_or_default()
+                });
+            }
+        }
+
+        for (_span, name, value) in &style_attrs {
+            template.push_str(" {}");
+            holes.push(quote! {
+              (#cx, #value).into_style(#cx).as_value_string(#name).unwrap_or_default()
+            });
         }
 
         template.push('"');
@@ -916,8 +1025,11 @@ fn element_to_tokens(
         let attrs = node.attributes.iter().filter_map(|node| {
             if let Node::Attribute(node) = node {
                 let name = node.key.to_string();
-                if name.trim().starts_with("class:")
-                    || fancy_class_name(&name, cx, node).is_some()
+                let name = name.trim();
+                if name.starts_with("class:")
+                    || fancy_class_name(name, cx, node).is_some()
+                    || name.starts_with("style:")
+                    || fancy_style_name(name, cx, node).is_some()
                 {
                     None
                 } else {
@@ -933,6 +1045,20 @@ fn element_to_tokens(
                 if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
                     Some(fancy)
                 } else if name.trim().starts_with("class:") {
+                    Some(attribute_to_tokens(cx, node, global_class))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+        let style_attrs = node.attributes.iter().filter_map(|node| {
+            if let Node::Attribute(node) = node {
+                let name = node.key.to_string();
+                if let Some((fancy, _, _)) = fancy_style_name(&name, cx, node) {
+                    Some(fancy)
+                } else if name.trim().starts_with("style:") {
                     Some(attribute_to_tokens(cx, node, global_class))
                 } else {
                     None
@@ -1034,6 +1160,7 @@ fn element_to_tokens(
             #name
                 #(#attrs)*
                 #(#class_attrs)*
+                #(#style_attrs)*
                 #global_class_expr
                 #(#children)*
                 #view_marker
@@ -1148,6 +1275,21 @@ fn attribute_to_tokens(
         };
         quote! {
             #class(#name, (#cx, #[allow(unused_braces)] #value))
+        }
+    } else if let Some(name) = name.strip_prefix("style:") {
+        let value = attribute_value(node);
+        let style = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let style = {
+            let span = style.span();
+            quote_spanned! {
+                span => .style
+            }
+        };
+        quote! {
+            #style(#name, (#cx, #[allow(unused_braces)] #value))
         }
     } else {
         let name = name.replacen("attr:", "", 1);
@@ -1793,6 +1935,54 @@ fn fancy_class_name<'a>(
                     proc_macro_error::emit_error!(
                         tuple.span(),
                         "class tuples must have two elements."
+                    )
+                }
+            }
+        }
+    }
+    None
+}
+
+fn fancy_style_name<'a>(
+    name: &str,
+    cx: &Ident,
+    node: &'a NodeAttribute,
+) -> Option<(TokenStream, String, &'a Expr)> {
+    // special case for complex dynamic style names:
+    if name == "style" {
+        if let Some(expr) = node.value.as_ref() {
+            if let syn::Expr::Tuple(tuple) = expr.as_ref() {
+                if tuple.elems.len() == 2 {
+                    let span = node.key.span();
+                    let style = quote_spanned! {
+                        span => .style
+                    };
+                    let style_name = &tuple.elems[0];
+                    let style_name = if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(s),
+                        ..
+                    }) = style_name
+                    {
+                        s.value()
+                    } else {
+                        proc_macro_error::emit_error!(
+                            style_name.span(),
+                            "style name must be a string literal"
+                        );
+                        Default::default()
+                    };
+                    let value = &tuple.elems[1];
+                    return Some((
+                        quote! {
+                            #style(#style_name, (#cx, #value))
+                        },
+                        style_name,
+                        value,
+                    ));
+                } else {
+                    proc_macro_error::emit_error!(
+                        tuple.span(),
+                        "style tuples must have two elements."
                     )
                 }
             }

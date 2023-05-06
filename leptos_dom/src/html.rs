@@ -63,7 +63,7 @@ cfg_if! {
 use crate::{
     ev::EventDescriptor,
     hydration::HydrationCtx,
-    macro_helpers::{IntoAttribute, IntoClass, IntoProperty},
+    macro_helpers::{IntoAttribute, IntoClass, IntoProperty, IntoStyle},
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
 use leptos_reactive::Scope;
@@ -821,6 +821,69 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         .collect::<SmallVec<[_; 4]>>()
                 })
                 .fold(self, |this, class| this.class(class, true))
+        }
+    }
+
+    /// Sets a style on an element.
+    ///
+    /// **Note**: In the builder syntax, this will be overwritten by the `style`
+    /// attribute if you use `.attr("class", /* */)`. In the `view` macro, they
+    /// are automatically re-ordered so that this over-writing does not happen.
+    #[track_caller]
+    pub fn style(
+        self,
+        name: impl Into<Cow<'static, str>>,
+        style: impl IntoStyle,
+    ) -> Self {
+        let name = name.into();
+
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            let el = self.element.as_ref();
+            let value = style.into_style(self.cx);
+            style_helper(el, name, value);
+
+            self
+        }
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            use crate::macro_helpers::Style;
+
+            let mut this = self;
+
+            let style = style.into_style(this.cx);
+
+            let include = match style {
+                Style::Value(value) => Some(value),
+                Style::Option(value) => value,
+                Style::Fn(_, f) => {
+                    let mut value = f();
+                    while let Style::Fn(_, f) = value {
+                        value = f();
+                    }
+                    match value {
+                        Style::Value(value) => Some(value),
+                        Style::Option(value) => value,
+                        _ => unreachable!(),
+                    }
+                }
+            };
+
+            if let Some(style_value) = include {
+                if let Some((_, ref mut value)) =
+                    this.attrs.iter_mut().find(|(name, _)| name == "style")
+                {
+                    *value = format!("{value} {name}: {style_value};").into();
+                } else {
+                    this.attrs.push((
+                        "style".into(),
+                        format!("{name}: {style_value};").into(),
+                    ));
+                }
+            }
+
+            this
         }
     }
 
