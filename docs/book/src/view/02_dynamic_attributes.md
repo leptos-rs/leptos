@@ -80,7 +80,7 @@ view! { cx,
         style="position: absolute"
         style:left=move || format!("{}px", x() + 100)
         style:top=move || format!("{}px", y() + 100)
-        style=("background-color", move || format!("rgb({}, {}, 100)", x(), y()))
+        style:background-color=move || format!("rgb({}, {}, 100)", x(), y())
         style=("--columns", x)
     >
         "Moves when coordinates change"
