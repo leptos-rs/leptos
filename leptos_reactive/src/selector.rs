@@ -3,9 +3,7 @@ use crate::{
     create_isomorphic_effect, create_signal, ReadSignal, Scope, SignalUpdate,
     WriteSignal,
 };
-use std::{
-    cell::RefCell, collections::HashMap, hash::Hash, rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
