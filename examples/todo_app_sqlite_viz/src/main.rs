@@ -35,7 +35,7 @@ cfg_if! {
         simple_logger::init_with_level(log::Level::Debug)
             .expect("couldn't initialize logging");
 
-        let conn = db().await.expect("couldn't connect to DB");
+        let _conn = db().await.expect("couldn't connect to DB");
         /* sqlx::migrate!()
         .run(&mut conn)
         .await

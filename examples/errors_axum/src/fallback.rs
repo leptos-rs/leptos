@@ -11,8 +11,8 @@ cfg_if! { if #[cfg(feature = "ssr")] {
     use tower::ServiceExt;
     use tower_http::services::ServeDir;
     use std::sync::Arc;
-    use leptos::{LeptosOptions, Errors, view};
-    use crate::landing::{App, AppProps};
+    use leptos::{LeptosOptions, view};
+    use crate::landing::App;
 
     pub async fn file_and_error_handler(uri: Uri, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> AxumResponse {
         let options = &*options;
