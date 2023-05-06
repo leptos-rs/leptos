@@ -75,9 +75,9 @@ Individual CSS properties can be directly updated with a similar `style:` syntax
 ```rust
 let (x, set_x) = create_signal(cx, 0);
 let (y, set_y) = create_signal(cx, 0);
-let s = "position: absolute";
 view! { cx,
     <div
+        style="position: absolute"
         style:left=move || format!("{}px", x() + 100)
         style:top=move || format!("{}px", y() + 100)
         style=("background-color", move || format!("rgb({}, {}, 100)", x(), y()))
