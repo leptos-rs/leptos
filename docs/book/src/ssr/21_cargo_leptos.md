@@ -32,6 +32,6 @@ cargo leptos watch
 
 Once your app has compiled you can open up your browser to [`http://localhost:3000`](http://localhost:3000) to see it.
 
-`cargo-leptos` has lots of additional features and built in tools. You can learn more [in its `README`](https://github.com/leptos-rs/leptos/blob/main/examples/hackernews/src/api.rs).
+`cargo-leptos` has lots of additional features and built in tools. You can learn more [in its `README`](https://github.com/leptos-rs/cargo-leptos/blob/main/README.md).
 
 But what exactly is happening when you open our browser to `localhost:3000`? Well, read on to find out.
