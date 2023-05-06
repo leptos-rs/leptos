@@ -201,7 +201,29 @@ mod template;
 /// # });
 /// ```
 ///
-/// 8. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
+/// 8. Individual styles can also be set with `style:` or `style=("property-name", value)` syntax.
+/// ```rust
+/// # use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let (x, set_x) = create_signal(cx, 0);
+/// let (y, set_y) = create_signal(cx, 0);
+/// view! { cx,
+///   <div
+///     style="position: absolute"
+///     style:left=move || format!("{}px", x())
+///     style:top=move || format!("{}px", y())
+///     style=("background-color", move || format!("rgb({}, {}, 100)", x(), y()))
+///   >
+///     "Moves when coordinates change"
+///   </div>
+/// }
+/// # ;
+/// # }
+/// # });
+/// ```
+///
+/// 9. You can use the `node_ref` or `_ref` attribute to store a reference to its DOM element in a
 ///    [NodeRef](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to use later.
 /// ```rust
 /// # use leptos::*;
@@ -218,7 +240,7 @@ mod template;
 /// # });
 /// ```
 ///
-/// 9. You can add the same class to every element in the view by passing in a special
+/// 10. You can add the same class to every element in the view by passing in a special
 ///    `class = {/* ... */},` argument after `cx, `. This is useful for injecting a class
 ///    provided by a scoped styling library.
 /// ```rust
@@ -236,7 +258,7 @@ mod template;
 /// # });
 /// ```
 ///
-/// 10. You can set any HTML element’s `innerHTML` with the `inner_html` attribute on an
+/// 11. You can set any HTML element’s `innerHTML` with the `inner_html` attribute on an
 ///     element. Be careful: this HTML will not be escaped, so you should ensure that it
 ///     only contains trusted input.
 /// ```rust

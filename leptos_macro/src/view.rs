@@ -577,7 +577,7 @@ fn attribute_to_tokens_ssr<'a>(
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
         };
 
-        if name != "class" {
+        if name != "class" && name != "style" {
             template.push(' ');
 
             if let Some(value) = node.value.as_ref() {
@@ -833,8 +833,7 @@ fn set_style_attribute_ssr(
         }
 
         for (_span, name, value) in &style_attrs {
-            template.push_str(name);
-            template.push_str(": {};");
+            template.push_str(" {}");
             holes.push(quote! {
               (#cx, #value).into_style(#cx).as_value_string(#name).unwrap_or_default()
             });

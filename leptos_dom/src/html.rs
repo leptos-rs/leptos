@@ -865,9 +865,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                     match value {
                         Style::Value(value) => Some(value),
                         Style::Option(value) => value,
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     }
-                },
+                }
             };
 
             if let Some(style_value) = include {
@@ -876,7 +876,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 {
                     *value = format!("{value} {name}: {style_value};").into();
                 } else {
-                    this.attrs.push(("style".into(), format!("{name}: {style_value};").into()));
+                    this.attrs.push((
+                        "style".into(),
+                        format!("{name}: {style_value};").into(),
+                    ));
                 }
             }
 
