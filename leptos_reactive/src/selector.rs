@@ -3,9 +3,7 @@ use crate::{
     create_isomorphic_effect, create_signal, ReadSignal, Scope, SignalUpdate,
     WriteSignal,
 };
-use std::{
-    cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
 /// Creates a conditional signal that only notifies subscribers when a change
 /// in the source signal’s value changes whether it is equal to the key value
@@ -52,7 +50,7 @@ pub fn create_selector<T>(
     source: impl Fn() -> T + Clone + 'static,
 ) -> impl Fn(T) -> bool + Clone
 where
-    T: PartialEq + Eq + Debug + Clone + Hash + 'static,
+    T: PartialEq + Eq + Clone + Hash + 'static,
 {
     create_selector_with_fn(cx, source, PartialEq::eq)
 }
@@ -69,7 +67,7 @@ pub fn create_selector_with_fn<T>(
     f: impl Fn(&T, &T) -> bool + Clone + 'static,
 ) -> impl Fn(T) -> bool + Clone
 where
-    T: PartialEq + Eq + Debug + Clone + Hash + 'static,
+    T: PartialEq + Eq + Clone + Hash + 'static,
 {
     #[allow(clippy::type_complexity)]
     let subs: Rc<

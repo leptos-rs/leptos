@@ -36,7 +36,7 @@ pub fn use_params_map(cx: Scope) -> Memo<ParamsMap> {
 /// Returns the current route params, parsed into the given type, or an error.
 pub fn use_params<T: Params>(cx: Scope) -> Memo<Result<T, ParamsError>>
 where
-    T: PartialEq + std::fmt::Debug,
+    T: PartialEq,
 {
     let route = use_route(cx);
     create_memo(cx, move |_| route.params().with(T::from_map))
@@ -50,7 +50,7 @@ pub fn use_query_map(cx: Scope) -> Memo<ParamsMap> {
 /// Returns the current URL search query, parsed into the given type, or an error.
 pub fn use_query<T: Params>(cx: Scope) -> Memo<Result<T, ParamsError>>
 where
-    T: PartialEq + std::fmt::Debug,
+    T: PartialEq,
 {
     let router = use_router(cx);
     create_memo(cx, move |_| {

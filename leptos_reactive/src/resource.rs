@@ -81,7 +81,7 @@ pub fn create_resource<S, T, Fu>(
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -119,7 +119,7 @@ pub fn create_resource_with_initial_value<S, T, Fu>(
     initial_value: Option<T>,
 ) -> Resource<S, T>
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -165,7 +165,7 @@ pub fn create_blocking_resource<S, T, Fu>(
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -186,7 +186,7 @@ fn create_resource_helper<S, T, Fu>(
     serializable: ResourceSerialization,
 ) -> Resource<S, T>
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -290,7 +290,7 @@ pub fn create_local_resource<S, T, Fu>(
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -324,7 +324,7 @@ pub fn create_local_resource_with_initial_value<S, T, Fu>(
     initial_value: Option<T>,
 ) -> Resource<S, T>
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: 'static,
     Fu: Future<Output = T> + 'static,
 {
@@ -380,7 +380,7 @@ where
 #[cfg(not(feature = "hydrate"))]
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: 'static,
 {
     SUPPRESS_RESOURCE_LOAD.with(|s| {
@@ -393,7 +393,7 @@ where
 #[cfg(feature = "hydrate")]
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
-    S: PartialEq + Debug + Clone + 'static,
+    S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
