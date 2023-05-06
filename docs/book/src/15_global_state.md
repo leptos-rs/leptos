@@ -171,4 +171,4 @@ data flow and of fine-grained reactive updates.
 
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/1-basic-component-forked-8bte19?selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs)
 
-<iframe src="https://codesandbox.io/p/sandbox/1-basic-component-forked-8bte19?selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh">
+<iframe src="https://codesandbox.io/p/sandbox/1-basic-component-forked-8bte19?selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
