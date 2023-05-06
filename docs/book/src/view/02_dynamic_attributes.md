@@ -1,10 +1,10 @@
-# `view`: Dynamic Attributes and Classes
+# `view`: Dynamic Classes, Styles and Attributes
 
 So far we’ve seen how to use the `view` macro to create event listeners and to
 create dynamic text by passing a function (such as a signal) into the view.
 
 But of course there are other things you might want to update in your user interface.
-In this section, we’ll look at how to update attributes and classes dynamically,
+In this section, we’ll look at how to update classes, styles and attributes dynamically,
 and we’ll introduce the concept of a **derived signal**.
 
 Let’s start with a simple component that should be familiar: click a button to
