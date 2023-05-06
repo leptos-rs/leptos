@@ -52,11 +52,41 @@ reactively update when the signal changes.
 Now every time I click the button, the text should toggle between red and black as
 the number switches between even and odd.
 
+Some CSS class names can’t be directly parsed by the `view` macro, especially if they include a mix of dashes and numbers or other characters. In that case, you can use a tuple syntax: `class=("name", value)` still directly updates a single class.
+
+```rust
+class=("button-20", move || count() % 2 == 1)
+```
+
 > If you’re following along, make sure you go into your `index.html` and add something like this:
-> 
+>
 > ```html
-> <style>.red { color: red; }</style>
+> <style>
+>   .red {
+>     color: red;
+>   }
+> </style>
 > ```
+
+## Dynamic Styles
+
+Individual CSS properties can be directly updated with a similar `style:` syntax.
+
+```rust
+let (x, set_x) = create_signal(cx, 0);
+let (y, set_y) = create_signal(cx, 0);
+let s = "position: absolute";
+view! { cx,
+    <div
+        style:left=move || format!("{}px", x() + 100)
+        style:top=move || format!("{}px", y() + 100)
+        style=("background-color", move || format!("rgb({}, {}, 100)", x(), y()))
+        style=("--columns", x)
+    >
+        "Moves when coordinates change"
+    </div>
+}
+```
 
 ## Dynamic Attributes
 
