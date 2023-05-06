@@ -135,14 +135,14 @@ impl History for BrowserIntegration {
 
 /// The wrapper type that the [Router](crate::Router) uses to interact with a [History].
 /// This is automatically provided in the browser. For the server, it should be provided
-/// as a context.
+/// as a context. Be sure that it can survive conversion to a URL in the browser.
 ///
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// let integration = ServerIntegration {
-///     path: "insert/current/path/here".to_string(),
+///     path: "http://leptos.rs/".to_string(),
 /// };
 /// provide_context(cx, RouterIntegrationContext::new(integration));
 /// # });
@@ -167,7 +167,24 @@ impl History for RouterIntegrationContext {
     }
 }
 
-/// A generic router integration for the server side. All its need is the current path.
+/// A generic router integration for the server side.
+///
+/// This should match what the browser history will show.
+///
+/// Generally, this will already be provided if your are using the leptos
+/// server integrations.
+///
+/// ```
+/// # use leptos_router::*;
+/// # use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
+/// let integration = ServerIntegration {
+///     // Swap out with your URL if integrating manually.
+///     path: "http://leptos.rs/".to_string(),
+/// };
+/// provide_context(cx, RouterIntegrationContext::new(integration));
+/// # });
+/// ```
 #[derive(Clone, Debug)]
 pub struct ServerIntegration {
     pub path: String,
