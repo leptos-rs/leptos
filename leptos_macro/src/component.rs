@@ -4,12 +4,13 @@ use convert_case::{
     Casing,
 };
 use itertools::Itertools;
+use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned,
     AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
-    ItemFn, Lit, LitStr, Meta, MetaNameValue, Pat, PatIdent, Path,
+    ItemFn, LitStr, Meta, Pat, PatIdent, Path,
     PathArguments, ReturnType, Stmt, Type, TypePath, Visibility,
 };
 
@@ -57,13 +58,21 @@ impl Parse for Model {
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
         drain_filter(&mut item.attrs, |attr| {
-            attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+            
+            match &attr.meta {
+                Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+                Meta::List(attr ) => attr.path == parse_quote!(prop),
+                _ => false
+            }
         });
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
                 drain_filter(&mut ty.attrs, |attr| {
-                    attr.path == parse_quote!(doc)
-                        || attr.path == parse_quote!(prop)
+                    match &attr.meta {
+                        Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+                        Meta::List(attr ) => attr.path == parse_quote!(prop),
+                        _ => false
+                    }
                 });
             }
         });
@@ -400,12 +409,22 @@ impl Docs {
 
         let mut attrs = attrs
             .iter()
-            .filter_map(|attr| attr.path.is_ident("doc").then(|| {
-                let Ok(Meta::NameValue(MetaNameValue { lit: Lit::Str(doc), .. })) = attr.parse_meta() else {
-                    abort!(attr, "expected doc comment to be string literal");
+            .filter_map(|attr| {
+                
+                let Meta::NameValue(attr ) = &attr.meta else {
+                    return None
                 };
-                (doc.value(), doc.span())
-            }))
+                
+                if !attr.path.is_ident("doc") {
+                    return None
+                }
+
+                let Some(val) = value_to_string(&attr.value) else {
+                    abort!(attr, "expected string literal in value of doc comment");
+                };
+
+                Some((val, attr.path.span()))
+            })
             .flat_map(map)
             .collect_vec();
 

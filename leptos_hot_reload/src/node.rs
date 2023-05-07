@@ -1,8 +1,8 @@
-use crate::parsing::{is_component_node, value_to_string};
+use crate::parsing::is_component_node;
 use anyhow::Result;
-use quote::quote;
+use quote::ToTokens;
 use serde::{Deserialize, Serialize};
-use syn_rsx::Node;
+use syn_rsx::{Node, NodeAttribute};
 
 // A lightweight virtual DOM structure we can use to hold
 // the state of a Leptos view macro template. This is because
@@ -58,36 +58,30 @@ impl LNode {
                 }
             }
             Node::Text(text) => {
-                if let Some(value) = value_to_string(&text.value) {
-                    views.push(LNode::Text(value));
-                } else {
-                    let value = text.value.as_ref();
-                    let code = quote! { #value };
-                    let code = code.to_string();
-                    views.push(LNode::DynChild(code));
-                }
+                views.push(LNode::Text(text.value_string()));
             }
             Node::Block(block) => {
-                let value = block.value.as_ref();
-                let code = quote! { #value };
+                let code = block.into_token_stream();
                 let code = code.to_string();
                 views.push(LNode::DynChild(code));
             }
             Node::Element(el) => {
                 if is_component_node(&el) {
+                    let name = el.name().to_string();
                     let mut children = Vec::new();
                     for child in el.children {
                         LNode::parse_node(child, &mut children)?;
                     }
                     views.push(LNode::Component {
-                        name: el.name.to_string(),
+                        name: name,
                         props: el
+                            .open_tag
                             .attributes
                             .into_iter()
                             .filter_map(|attr| match attr {
-                                Node::Attribute(attr) => Some((
+                                NodeAttribute::Attribute(attr) => Some((
                                     attr.key.to_string(),
-                                    format!("{:#?}", attr.value),
+                                    format!("{:#?}", attr.value()),
                                 )),
                                 _ => None,
                             })
@@ -95,14 +89,16 @@ impl LNode {
                         children,
                     });
                 } else {
-                    let name = el.name.to_string();
+                    let name = el.name().to_string();
                     let mut attrs = Vec::new();
 
-                    for attr in el.attributes {
-                        if let Node::Attribute(attr) = attr {
+                    for attr in el
+                            .open_tag
+                            .attributes {
+                        if let NodeAttribute::Attribute(attr) = attr {
                             let name = attr.key.to_string();
                             if let Some(value) =
-                                attr.value.as_ref().and_then(value_to_string)
+                                attr.value_literal_string()
                             {
                                 attrs.push((
                                     name,

@@ -11,7 +11,7 @@ readme = "../README.md"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 quote = "1"
-syn = { version = "1", features = ["full", "parsing", "extra-traits"] }
+syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
 proc-macro2 = "1"
 proc-macro-error = "1"
 xxhash-rust = { version = "0.8.6", features = ["const_xxh64"] }

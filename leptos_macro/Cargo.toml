@@ -12,15 +12,15 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.5", features = ["syn-full"] }
+attribute-derive = { version = "0.6", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.10"
-prettyplease = "0.1"
+prettyplease = "0.2.4"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
-syn = { version = "1", features = ["full"] }
+syn = { version = "2", features = ["full"] }
 syn-rsx = "0.9"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }

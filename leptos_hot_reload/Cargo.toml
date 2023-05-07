@@ -11,7 +11,7 @@ readme = "../README.md"
 [dependencies]
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
-syn = { version = "1", features = [
+syn = { version = "2", features = [
 	"full",
 	"parsing",
 	"extra-traits",

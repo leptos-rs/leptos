@@ -9,7 +9,7 @@ use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
-use syn_rsx::{parse, NodeAttribute};
+use syn_rsx::{parse, KeyedAttribute};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -874,9 +874,9 @@ pub fn params_derive(
     }
 }
 
-pub(crate) fn attribute_value(attr: &NodeAttribute) -> &syn::Expr {
-    match &attr.value {
-        Some(value) => value.as_ref(),
+pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
+    match &attr.possible_value {
+        Some(value) => &value.value,
         None => abort!(attr.key, "attribute should have value"),
     }
 }

@@ -5,7 +5,7 @@ use attribute_derive::Attribute as AttributeDerive;
 use proc_macro2::{Ident, TokenStream};
 use quote::{ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, Field, ItemStruct, LitStr, Type, Visibility,
+    parse::Parse, parse_quote, Field, ItemStruct, LitStr, Type, Visibility, Meta,
 };
 
 pub struct Model {
@@ -32,12 +32,20 @@ impl Parse for Model {
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
         drain_filter(&mut item.attrs, |attr| {
-            attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+            match &attr.meta {
+                Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+                Meta::List(attr ) => attr.path == parse_quote!(prop),
+                _ => false
+            }
         });
         item.fields.iter_mut().for_each(|arg| {
             drain_filter(&mut arg.attrs, |attr| {
-                attr.path == parse_quote!(doc)
-                    || attr.path == parse_quote!(prop)
+                 
+                match &attr.meta {
+                    Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+                    Meta::List(attr ) => attr.path == parse_quote!(prop),
+                    _ => false
+                }
             });
         });
 

@@ -1,9 +1,9 @@
 use crate::attribute_value;
 use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeValueExpr};
+use quote::{quote, quote_spanned, ToTokens};
+use syn::{spanned::Spanned, ExprBlock};
+use syn_rsx::{Node, NodeAttribute, NodeElement, KeyedAttribute, NodeBlock};
 use uuid::Uuid;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
@@ -53,7 +53,7 @@ fn root_element_to_tokens(
                 .unwrap();
         };
 
-        let span = node.name.span();
+        let span = node.name().span();
 
         let navigations = if navigations.is_empty() {
             quote! {}
@@ -67,7 +67,7 @@ fn root_element_to_tokens(
             quote! { #(#expressions;);* }
         };
 
-        let tag_name = node.name.to_string();
+        let tag_name = node.name().to_string();
 
         quote_spanned! {
             span => {
@@ -104,9 +104,9 @@ enum PrevSibChange {
     Skip,
 }
 
-fn attributes(node: &NodeElement) -> impl Iterator<Item = &NodeAttribute> {
-    node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(attribute) = node {
+fn attributes(node: &NodeElement) -> impl Iterator<Item = &KeyedAttribute> {
+    node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(attribute) = node {
             Some(attribute)
         } else {
             None
@@ -129,11 +129,11 @@ fn element_to_tokens(
 ) -> Ident {
     // create this element
     *next_el_id += 1;
-    let this_el_ident = child_ident(*next_el_id, node.name.span());
+    let this_el_ident = child_ident(*next_el_id, node.name().span());
 
     // Open tag
-    let name_str = node.name.to_string();
-    let span = node.name.span();
+    let name_str = node.name().to_string();
+    let span = node.name().span();
 
     // CSR/hydrate, push to template
     template.push('<');
@@ -145,7 +145,7 @@ fn element_to_tokens(
     }
 
     // navigation for this el
-    let debug_name = node.name.to_string();
+    let debug_name = node.name().to_string();
     let this_nav = if is_root_el {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
@@ -247,14 +247,14 @@ fn next_sibling_node(
                 if is_component_node(sibling) {
                     next_sibling_node(children, idx + 1, next_el_id)
                 } else {
-                    Ok(Some(child_ident(*next_el_id + 1, sibling.name.span())))
+                    Ok(Some(child_ident(*next_el_id + 1, sibling.name().span())))
                 }
             }
             Node::Block(sibling) => {
-                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.span())))
             }
             Node::Text(sibling) => {
-                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.span())))
             }
             _ => Err("expected either an element or a block".to_string()),
         }
@@ -263,7 +263,7 @@ fn next_sibling_node(
 
 fn attr_to_tokens(
     cx: &Ident,
-    node: &NodeAttribute,
+    node: &KeyedAttribute,
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
@@ -272,8 +272,8 @@ fn attr_to_tokens(
     let name = name.strip_prefix('_').unwrap_or(&name);
     let name = name.strip_prefix("attr:").unwrap_or(name);
 
-    let value = match &node.value {
-        Some(expr) => match expr.as_ref() {
+    let value = match &node.value() {
+        Some(expr) => match expr {
             syn::Expr::Lit(expr_lit) => {
                 if let syn::Lit::Str(s) = &expr_lit.lit {
                     AttributeValue::Static(s.value())
@@ -367,7 +367,7 @@ fn child_to_tokens(
         Node::Element(node) => {
             if is_component_node(node) {
                 proc_macro_error::emit_error!(
-                    node.name.span(),
+                    node.name().span(),
                     "component children not allowed in template!, use view! \
                      instead"
                 );
@@ -387,9 +387,13 @@ fn child_to_tokens(
                 ))
             }
         }
+        //TODO Should we ewerywhere use syn::expr? 
         Node::Text(node) => block_to_tokens(
             cx,
-            &node.value,
+            &syn::ExprLit{
+                attrs: vec![],
+                lit: node.value.clone().into()
+            }.into(),
             node.value.span(),
             parent,
             prev_sib,
@@ -399,10 +403,28 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        Node::Block(node) => block_to_tokens(
+        Node::Block(NodeBlock::ValidBlock(b)) => block_to_tokens(
             cx,
-            &node.value,
-            node.value.span(),
+            &ExprBlock {
+                attrs: vec![],
+                label: None,
+                block: b.clone()
+            }.into(),
+            b.span(),
+            parent,
+            prev_sib,
+            next_sib,
+            next_el_id,
+            template,
+            expressions,
+            navigations,
+        ),
+
+        // TODO: Do we need to handle invalid blocks?
+        Node::Block(b @ NodeBlock::Invalid{..}) => block_to_tokens(
+            cx,
+            &syn::Expr::Verbatim(b.to_token_stream()),
+            b.span(),
             parent,
             prev_sib,
             next_sib,
@@ -418,7 +440,7 @@ fn child_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn block_to_tokens(
     _cx: &Ident,
-    value: &NodeValueExpr,
+    value: &syn::Expr,
     span: Span,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -428,7 +450,6 @@ fn block_to_tokens(
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
 ) -> PrevSibChange {
-    let value = value.as_ref();
     let str_value = match value {
         syn::Expr::Lit(lit) => match &lit.lit {
             syn::Lit::Str(s) => Some(s.value()),
