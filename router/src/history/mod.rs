@@ -171,7 +171,7 @@ impl History for RouterIntegrationContext {
 ///
 /// This should match what the browser history will show.
 ///
-/// Generally, this will already be provided if your are using the leptos
+/// Generally, this will already be provided if you are using the leptos
 /// server integrations.
 ///
 /// ```
