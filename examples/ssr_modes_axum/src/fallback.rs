@@ -20,7 +20,7 @@ cfg_if! { if #[cfg(feature = "ssr")] {
         let res = get_static_file(uri.clone(), &root).await.unwrap();
 
         if res.status() == StatusCode::OK {
-           res.into_response()
+            res.into_response()
         } else{
             let handler = leptos_axum::render_app_to_stream(
                 options.to_owned(),
