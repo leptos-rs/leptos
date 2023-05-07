@@ -44,6 +44,7 @@ dependencies = ["test-flow", "web-test-flow"]
 [tasks.pre-verify]
 
 [tasks.post-verify]
+dependencies = ["clean-all"]
 
 [tasks.web-test-flow]
 description = "Provides pre and post hooks for web-test"
