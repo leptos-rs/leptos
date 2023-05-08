@@ -45,6 +45,7 @@
 //! which mode your app is operating in.
 
 use cfg_if::cfg_if;
+use indexmap::IndexMap;
 use leptos::{
     leptos_dom::{debug_warn, html::AnyElement},
     *,
@@ -52,7 +53,6 @@ use leptos::{
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
-    collections::HashMap,
     fmt::Debug,
     rc::Rc,
 };
@@ -99,7 +99,7 @@ pub struct MetaTagsContext {
     #[allow(clippy::type_complexity)]
     els: Rc<
         RefCell<
-            HashMap<
+            IndexMap<
                 Cow<'static, str>,
                 (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>),
             >,
