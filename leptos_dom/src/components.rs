@@ -56,8 +56,7 @@ pub struct ComponentRepr {
     mounted: Rc<OnceCell<()>>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) name: Cow<'static, str>,
-    #[cfg(debug_assertions)]
-    _opening: Comment,
+    opening: Comment,
     /// The children of the component.
     pub children: Vec<View>,
     closing: Comment,
@@ -124,15 +123,7 @@ impl Mountable for ComponentRepr {
     }
 
     fn get_opening_node(&self) -> web_sys::Node {
-        #[cfg(debug_assertions)]
-        return self._opening.node.clone();
-
-        #[cfg(not(debug_assertions))]
-        return if let Some(child) = self.children.get(0) {
-            child.get_opening_node()
-        } else {
-            self.closing.node.clone()
-        };
+        return self.opening.node.clone();
     }
 
     #[inline]
@@ -179,7 +170,6 @@ impl ComponentRepr {
     fn new_with_id_concrete(name: Cow<'static, str>, id: HydrationKey) -> Self {
         let markers = (
             Comment::new(Cow::Owned(format!("</{name}>")), &id, true),
-            #[cfg(debug_assertions)]
             Comment::new(Cow::Owned(format!("<{name}>")), &id, false),
         );
 
@@ -191,13 +181,8 @@ impl ComponentRepr {
             // so they can serve as our references when inserting
             // future nodes
             if !HydrationCtx::is_hydrating() {
-                #[cfg(debug_assertions)]
                 fragment
                     .append_with_node_2(&markers.1.node, &markers.0.node)
-                    .expect("append to not err");
-                #[cfg(not(debug_assertions))]
-                fragment
-                    .append_with_node_1(&markers.0.node)
                     .expect("append to not err");
             }
 
@@ -209,8 +194,7 @@ impl ComponentRepr {
             document_fragment,
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             mounted: Default::default(),
-            #[cfg(debug_assertions)]
-            _opening: markers.1,
+            opening: markers.1,
             closing: markers.0,
             #[cfg(any(debug_assertions, feature = "ssr"))]
             name,
