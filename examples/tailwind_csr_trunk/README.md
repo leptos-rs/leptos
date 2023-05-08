@@ -5,7 +5,7 @@ This is a template demonstrating how to integrate [TailwindCSS](https://tailwind
 
 Install Tailwind and build the CSS:
 
-`npx tailwindcss -i ./input.css -o ./style/output.css --watch`
+`Trunk.toml` is configured to build the CSS automatically.
 
 Install trunk to client side render this bundle.
 
