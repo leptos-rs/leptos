@@ -69,7 +69,11 @@ dependencies = [
 
 [tasks.test]
 clear = true
-dependencies = ["test-all", "test-leptos_macro-example", "doc-leptos_macro-example"]
+dependencies = [
+	"test-all",
+	"test-leptos_macro-example",
+	"doc-leptos_macro-example",
+]
 
 [tasks.test-all]
 command = "cargo"
@@ -102,9 +106,15 @@ cwd = "examples"
 command = "cargo"
 args = ["make", "verify-flow"]
 
+[tasks.clean-examples]
+description = "Clean all example projects"
+cwd = "examples"
+command = "cargo"
+args = ["make", "clean-all"]
+
 [env]
 RUSTFLAGS = ""
-LEPTOS_OUTPUT_NAME="ci" # allows examples to check/build without cargo-leptos
+LEPTOS_OUTPUT_NAME = "ci" # allows examples to check/build without cargo-leptos
 
 [env.github-actions]
 RUSTFLAGS = "-D warnings"

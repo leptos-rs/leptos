@@ -31,7 +31,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
 
 [tasks.verify-flow]
 description = "Provides pre and post hooks for verify"
-dependencies = ["pre-verify-flow", "verify", "post-verify-flow"]
+dependencies = ["pre-verify", "verify", "post-verify"]
 
 [tasks.verify]
 description = "Run all quality checks and tests"
@@ -41,16 +41,17 @@ dependencies = ["check-style", "test-unit-and-web"]
 description = "Run all unit and web tests"
 dependencies = ["test-flow", "web-test-flow"]
 
-[tasks.pre-verify-flow]
+[tasks.pre-verify]
 
-[tasks.post-verify-flow]
+[tasks.post-verify]
+dependencies = ["clean-all"]
 
 [tasks.web-test-flow]
 description = "Provides pre and post hooks for web-test"
-dependencies = ["pre-web-test-flow", "web-test", "post-web-test-flow"]
+dependencies = ["pre-web-test", "web-test", "post-web-test"]
 
-[tasks.pre-web-test-flow]
+[tasks.pre-web-test]
 
 [tasks.web-test]
 
-[tasks.post-web-test-flow]
+[tasks.post-web-test]

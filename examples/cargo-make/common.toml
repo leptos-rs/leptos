@@ -12,3 +12,12 @@ dependencies = ["check-style", "test-local"]
 [tasks.test-local]
 description = "Run all tests from an example directory"
 dependencies = ["test", "web-test"]
+
+[tasks.clean-trunk]
+description = "Runs the trunk clean command."
+category = "Cleanup"
+command = "trunk"
+args = ["clean"]
+
+[tasks.clean-all]
+dependencies = ["clean", "clean-trunk"]
