@@ -394,7 +394,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_| {}, app_fn)
+    render_app_to_stream_with_context(options, |_| {}, app_fn, false)
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
@@ -498,6 +498,7 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    replace_blocks: bool
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -1082,6 +1083,22 @@ impl LeptosRoutes for Router {
                         options.clone(),
                         additional_context.clone(),
                         app_fn.clone(),
+                        false
+                    );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
+                    }
+                }
+                SsrMode::PartiallyBlocked => {
+                    let s = render_app_to_stream_with_context(
+                        options.clone(),
+                        additional_context.clone(),
+                        app_fn.clone(),
+                        true
                     );
                     match method {
                         leptos_router::Method::Get => router.get(path, s),

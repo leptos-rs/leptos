@@ -502,7 +502,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_| {}, app_fn)
+    render_app_to_stream_with_context(options, |_| {}, app_fn, false)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -609,6 +609,7 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    replace_blocks: bool
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<
@@ -651,10 +652,11 @@ where
                     }
                 };
                 let (bundle, runtime, scope) =
-                    leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
+                    leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
                         app,
                         |cx| generate_head_metadata_separated(cx).1.into(),
                         add_context,
+                        replace_blocks
                     );
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
@@ -1164,6 +1166,22 @@ impl LeptosRoutes for axum::Router {
                                 options.clone(),
                                 additional_context.clone(),
                                 app_fn.clone(),
+                                false
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::PartiallyBlocked => {
+                            let s = render_app_to_stream_with_context(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                true
                             );
                             match method {
                                 leptos_router::Method::Get => get(s),
