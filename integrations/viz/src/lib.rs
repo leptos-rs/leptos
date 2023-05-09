@@ -498,7 +498,7 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    replace_blocks: bool
+    replace_blocks: bool,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -1083,7 +1083,7 @@ impl LeptosRoutes for Router {
                         options.clone(),
                         additional_context.clone(),
                         app_fn.clone(),
-                        false
+                        false,
                     );
                     match method {
                         leptos_router::Method::Get => router.get(path, s),
@@ -1098,7 +1098,7 @@ impl LeptosRoutes for Router {
                         options.clone(),
                         additional_context.clone(),
                         app_fn.clone(),
-                        true
+                        true,
                     );
                     match method {
                         leptos_router::Method::Get => router.get(path, s),

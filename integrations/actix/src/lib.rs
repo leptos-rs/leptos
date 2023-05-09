@@ -18,7 +18,8 @@ use http::StatusCode;
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
-    *, ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
+    ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
+    *,
 };
 use leptos_integration_utils::{build_async_response, html_parts_separated};
 use leptos_meta::*;
@@ -512,7 +513,7 @@ pub fn render_app_to_stream_with_context<IV>(
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
     method: Method,
-    replace_blocks: bool
+    replace_blocks: bool,
 ) -> Route
 where
     IV: IntoView,
@@ -533,7 +534,14 @@ where
                 }
             };
 
-            stream_app(&options, app, res_options, additional_context, replace_blocks).await
+            stream_app(
+                &options,
+                app,
+                res_options,
+                additional_context,
+                replace_blocks,
+            )
+            .await
         }
     };
     match method {
@@ -781,7 +789,7 @@ async fn stream_app(
     app: impl FnOnce(leptos::Scope) -> View + 'static,
     res_options: ResponseOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    replace_blocks: bool
+    replace_blocks: bool,
 ) -> HttpResponse<BoxBody> {
     let (stream, runtime, scope) =
         render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
@@ -1091,7 +1099,7 @@ where
                                 additional_context.clone(),
                                 app_fn.clone(),
                                 method,
-                                false
+                                false,
                             )
                         }
                         SsrMode::PartiallyBlocked => {
@@ -1100,7 +1108,7 @@ where
                                 additional_context.clone(),
                                 app_fn.clone(),
                                 method,
-                                true
+                                true,
                             )
                         }
                         SsrMode::InOrder => {

@@ -258,7 +258,8 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                 let open = format!("<!--suspense-open-{blocked_id}-->");
                 let close = format!("<!--suspense-open-{blocked_id}-->");
                 let (first, rest) = shell.split_once(&open).unwrap_or_default();
-                let (_fallback, rest) = rest.split_once(&close).unwrap_or_default();
+                let (_fallback, rest) =
+                    rest.split_once(&close).unwrap_or_default();
 
                 shell = format!("{first}{blocked_fragment}{rest}").into();
             }

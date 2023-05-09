@@ -609,7 +609,7 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    replace_blocks: bool
+    replace_blocks: bool,
 ) -> impl Fn(
     Request<Body>,
 ) -> Pin<
@@ -1166,7 +1166,7 @@ impl LeptosRoutes for axum::Router {
                                 options.clone(),
                                 additional_context.clone(),
                                 app_fn.clone(),
-                                false
+                                false,
                             );
                             match method {
                                 leptos_router::Method::Get => get(s),
@@ -1181,7 +1181,7 @@ impl LeptosRoutes for axum::Router {
                                 options.clone(),
                                 additional_context.clone(),
                                 app_fn.clone(),
-                                true
+                                true,
                             );
                             match method {
                                 leptos_router::Method::Get => get(s),
