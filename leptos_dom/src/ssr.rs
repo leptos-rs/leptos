@@ -256,7 +256,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
 
             for (blocked_id, blocked_fragment) in blocks {
                 let open = format!("<!--suspense-open-{blocked_id}-->");
-                let close = format!("<!--suspense-open-{blocked_id}-->");
+                let close = format!("<!--suspense-close-{blocked_id}-->");
                 let (first, rest) = shell.split_once(&open).unwrap_or_default();
                 let (_fallback, rest) =
                     rest.split_once(&close).unwrap_or_default();
