@@ -1,5 +1,6 @@
 use crate::{use_navigate, use_resolved_path, ToHref, Url};
 use leptos::{html::form, *};
+use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -240,7 +241,7 @@ pub fn ActionForm<I, O>(
 ) -> impl IntoView
 where
     I: Clone + ServerFn + 'static,
-    O: Clone + Serializable + 'static,
+    O: Clone + Serialize + DeserializeOwned + 'static,
 {
     let action_url = if let Some(url) = action.url() {
         url
@@ -268,7 +269,6 @@ where
 
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
-        let status = resp.status();
         spawn_local(async move {
             let redirected = resp.redirected();
 
@@ -277,23 +277,33 @@ where
                     resp.text().expect("couldn't get .text() from Response"),
                 )
                 .await;
+                let status = resp.status();
                 match body {
                     Ok(json) => {
-                        // 500 just returns text of error, not JSON
-                        if status == 500 {
-                            let err = ServerFnError::ServerError(
-                                json.as_string().unwrap_or_default(),
-                            );
-                            if let Some(error) = error {
-                                error.try_set(Some(Box::new(err.clone())));
+                        let json = json
+                            .as_string()
+                            .expect("couldn't get String from JsString");
+                        if (500..=599).contains(&status) {
+                            match serde_json::from_str::<ServerFnError>(&json) {
+                                Ok(res) => {
+                                    value.try_set(Some(Err(res)));
+                                    if let Some(error) = error {
+                                        error.try_set(None);
+                                    }
+                                }
+                                Err(e) => {
+                                    value.try_set(Some(Err(
+                                        ServerFnError::Deserialization(
+                                            e.to_string(),
+                                        ),
+                                    )));
+                                    if let Some(error) = error {
+                                        error.try_set(Some(Box::new(e)));
+                                    }
+                                }
                             }
-                            value.try_set(Some(Err(err)));
                         } else {
-                            match O::de(
-                                &json.as_string().expect(
-                                    "couldn't get String from JsString",
-                                ),
-                            ) {
+                            match serde_json::from_str::<O>(&json) {
                                 Ok(res) => {
                                     value.try_set(Some(Ok(res)));
                                     if let Some(error) = error {
