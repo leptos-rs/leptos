@@ -549,10 +549,11 @@ where
                                             };
 
                                             let (bundle, runtime, scope) =
-                                                leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
+                                                leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
                                                     app,
                                                     |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
+                                                    replace_blocks
                                                 );
 
                                                 forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
