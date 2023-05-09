@@ -49,6 +49,3 @@ opt-level = 'z'
 
 [workspace.metadata.cargo-all-features]
 skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
-
-[patch.crates-io]
-syn-rsx = { path = '../syn-rsx' }

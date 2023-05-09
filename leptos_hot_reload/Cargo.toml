@@ -19,7 +19,7 @@ syn = { version = "2", features = [
 	"printing",
 ] }
 quote = "1"
-syn-rsx = "0.9"
+syn-rsx = {git = "https://github.com/vldm/syn-rsx"}
 proc-macro2 = { version = "1", features = ["span-locations", "nightly"] }
 parking_lot = "0.12"
 walkdir = "2"

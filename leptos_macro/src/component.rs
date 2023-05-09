@@ -9,11 +9,11 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned,
-    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
-    ItemFn, LitStr, Meta, Pat, PatIdent, Path,
-    PathArguments, ReturnType, Stmt, Type, TypePath, Visibility,
+    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
+    LitStr, Meta, Pat, PatIdent, Path,
+    PathArguments, ReturnType, Type, TypePath, Visibility,
+    ItemFn, Stmt, Item,
 };
-
 pub struct Model {
     is_transparent: bool,
     docs: Docs,

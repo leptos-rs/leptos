@@ -221,6 +221,7 @@ fn root_node_to_tokens_ssr(
         }
         Node::RawText(r) => {
             let text = r.to_string_best();
+            let text = syn::LitStr::new(&text, r.span());
             quote! {
                 leptos::leptos_dom::html::text(#text)
             }
@@ -258,9 +259,9 @@ fn fragment_to_tokens_ssr(
     });
     quote! {
         {
-            leptos::Fragment::lazy(|| vec![
+            leptos::Fragment::lazy(|| [
                 #(#nodes),*
-            ])
+            ].to_vec())
             #view_marker
         }
     }
@@ -893,18 +894,18 @@ fn fragment_to_tokens(
     let tokens = if lazy {
         quote! {
             {
-                leptos::Fragment::lazy(|| vec![
+                leptos::Fragment::lazy(|| [
                     #(#nodes),*
-                ])
+                ].to_vec())
                 #view_marker
             }
         }
     } else {
         quote! {
             {
-                leptos::Fragment::new(vec![
+                leptos::Fragment::new([
                     #(#nodes),*
-                ])
+                ].to_vec())
                 #view_marker
             }
         }
@@ -951,7 +952,9 @@ fn node_to_tokens(
             Some(quote! { #node })
         }
         Node::RawText(r) => {
-            Some(quote! { #r })
+            let text = r.to_string_best();
+            let text = syn::LitStr::new(&text, r.span());
+            Some(quote! { #text })
         }
         Node::Element(node) => element_to_tokens(
             cx,
@@ -1096,7 +1099,9 @@ fn element_to_tokens(
                 }
                 // TODO: Implement html  escaping?
                 Node::RawText(node) => {
-                    (quote! { #node }, true)
+                    let text = node.to_string_best();
+                    let text = syn::LitStr::new(&text, node.span());
+                    (quote! { #text }, true)
                 }
                 Node::Block(node) => {
                     // TODO: Is there any static string possible in block?
@@ -1104,9 +1109,11 @@ fn element_to_tokens(
                     //     (quote! { #primitive }, true)
                     // } 
                     // else {
+                        // Remove allow(unused_braces) #node
+                        // to make rust-analyzer happy in case of invalid expr
                         (
                             quote! {
-                                #[allow(unused_braces)] #node
+                               #node
                             },
                             false,
                         )
@@ -1457,9 +1464,9 @@ pub(crate) fn slot_to_tokens(
         let slot = Ident::new(&slot, span);
         if values.len() > 1 {
             quote! {
-                .#slot(vec![
+                .#slot([
                     #(#values)*
-                ])
+                ].to_vec())
             }
         } else {
             let value = &values[0];

@@ -351,18 +351,23 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     .chain(tokens)
                     .collect()
             };
-
-            match parse(tokens.into()) {
-                Ok(nodes) => render_view(
-                    &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
+            let config = syn_rsx::ParserConfig::default().recover_block(true);
+            let parser = syn_rsx::Parser::new(config);
+            let (nodes, errors)  = parser.parse_recoverable(tokens).split_vec();
+            let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+            let nodes_output = render_view(
+                    &cx,
                     &nodes,
                     Mode::default(),
                     global_class.as_ref(),
                     normalized_call_site(proc_macro::Span::call_site()),
-                ),
-                Err(error) => error.to_compile_error(),
-            }
-            .into()
+                );
+            quote!{
+                {
+                    #(#errors;)*
+                    #nodes_output
+                }
+            }.into()
         }
         _ => {
             abort_call_site!(
