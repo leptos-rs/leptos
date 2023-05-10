@@ -1190,7 +1190,7 @@ where
                     match listing.mode() {
                         SsrMode::OutOfOrder => {
                             let s = render_app_to_stream_with_context(
-                                options.options().clone(),
+                                options.options(),
                                 additional_context.clone(),
                                 app_fn.clone(),
                             );
@@ -1204,7 +1204,7 @@ where
                         }
                         SsrMode::InOrder => {
                             let s = render_app_to_stream_in_order_with_context(
-                                options.options().clone(),
+                                options.options(),
                                 additional_context.clone(),
                                 app_fn.clone(),
                             );
@@ -1218,7 +1218,7 @@ where
                         }
                         SsrMode::Async => {
                             let s = render_app_async_with_context(
-                                options.options().clone(),
+                                options.options(),
                                 additional_context.clone(),
                                 app_fn.clone(),
                             );
