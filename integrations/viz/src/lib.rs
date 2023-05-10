@@ -394,7 +394,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_| {}, app_fn, false)
+    render_app_to_stream_with_context(options, |_| {}, app_fn)
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
