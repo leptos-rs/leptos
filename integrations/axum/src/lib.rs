@@ -1093,41 +1093,8 @@ where
     }
 }
 
-/// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
-/// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<S> {
-    fn leptos_routes<IV>(
-        self,
-        options: S,
-        paths: Vec<RouteListing>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-        S: LeptosOptionProvider;
-
-    fn leptos_routes_with_context<IV>(
-        self,
-        options: S,
-        paths: Vec<RouteListing>,
-        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
-    ) -> Self
-    where
-        IV: IntoView + 'static,
-        S: LeptosOptionProvider;
-
-    fn leptos_routes_with_handler<H, T>(
-        self,
-        paths: Vec<RouteListing>,
-        handler: H,
-    ) -> Self
-    where
-        H: axum::handler::Handler<T, S, axum::body::Body>,
-        T: 'static;
-}
-
-/// This trait allows you to use your custom state struct in Axum's router.
+/// This trait allows one to use your custom struct in Axum's router, provided it can provide the
+/// `LeptosOptions` to use for the `LeptosRoutes` trait functions.
 pub trait LeptosOptionProvider {
     fn options(&self) -> LeptosOptions;
 }
@@ -1138,16 +1105,51 @@ impl LeptosOptionProvider for LeptosOptions {
     }
 }
 
+/// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
+/// having to use wildcards or manually define all routes in multiple places.
+pub trait LeptosRoutes<OP>
+where
+    OP: LeptosOptionProvider,
+{
+    fn leptos_routes<IV>(
+        self,
+        options: OP,
+        paths: Vec<RouteListing>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: OP,
+        paths: Vec<RouteListing>,
+        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static;
+
+    fn leptos_routes_with_handler<H, T>(
+        self,
+        paths: Vec<RouteListing>,
+        handler: H,
+    ) -> Self
+    where
+        H: axum::handler::Handler<T, OP, axum::body::Body>,
+        T: 'static;
+}
+
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
-impl<S> LeptosRoutes<S> for axum::Router<S>
+impl<OP> LeptosRoutes<OP> for axum::Router<OP>
 where
-    S: LeptosOptionProvider + Clone + Send + Sync + 'static,
+    OP: LeptosOptionProvider + Clone + Send + Sync + 'static,
 {
     #[tracing::instrument(level = "info", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
-        options: S,
+        options: OP,
         paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1160,14 +1162,13 @@ where
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
-        options: S,
+        options: OP,
         paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
-        S: LeptosOptionProvider,
     {
         let mut router = self;
         for listing in paths.iter() {
@@ -1233,7 +1234,7 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, S, axum::body::Body>,
+        H: axum::handler::Handler<T, OP, axum::body::Body>,
         T: 'static,
     {
         let mut router = self;
