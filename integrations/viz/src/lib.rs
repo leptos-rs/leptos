@@ -1125,7 +1125,6 @@ impl LeptosRoutes for Router {
                         options.clone(),
                         additional_context.clone(),
                         app_fn.clone(),
-                        false,
                     );
                     match method {
                         leptos_router::Method::Get => router.get(path, s),
@@ -1136,7 +1135,7 @@ impl LeptosRoutes for Router {
                     }
                 }
                 SsrMode::PartiallyBlocked => {
-                    let s = render_app_to_stream_with_context(
+                    let s = render_app_to_stream_with_context_and_replace_blocks(
                         options.clone(),
                         additional_context.clone(),
                         app_fn.clone(),
