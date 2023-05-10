@@ -623,7 +623,12 @@ pub fn render_app_to_stream_with_context<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context_and_replace_blocks(options, additional_context, app_fn, false)
+    render_app_to_stream_with_context_and_replace_blocks(
+        options,
+        additional_context,
+        app_fn,
+        false,
+    )
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -632,12 +637,12 @@ where
 /// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
 /// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
 /// the data to leptos in a closure.
-/// 
-/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read 
-/// from blocking resources should be retrojected into the HTML that's initially served, rather 
-/// than dynamically inserting them with JavaScript on the client. This means you will have 
+///
+/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read
+/// from blocking resources should be retrojected into the HTML that's initially served, rather
+/// than dynamically inserting them with JavaScript on the client. This means you will have
 /// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
-/// 
+///
 /// Otherwise, this function is identical to [render_app_to_stream_with_context].
 ///
 /// ## Provided Context Types

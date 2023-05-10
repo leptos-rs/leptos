@@ -517,7 +517,13 @@ pub fn render_app_to_stream_with_context<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context_and_replace_blocks(options, additional_context, app_fn, method, false)
+    render_app_to_stream_with_context_and_replace_blocks(
+        options,
+        additional_context,
+        app_fn,
+        method,
+        false,
+    )
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -525,10 +531,10 @@ where
 ///
 /// This function allows you to provide additional information to Leptos for your route.
 /// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
-/// 
-/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read 
-/// from blocking resources should be retrojected into the HTML that's initially served, rather 
-/// than dynamically inserting them with JavaScript on the client. This means you will have 
+///
+/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read
+/// from blocking resources should be retrojected into the HTML that's initially served, rather
+/// than dynamically inserting them with JavaScript on the client. This means you will have
 /// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
 ///
 /// ## Provided Context Types
