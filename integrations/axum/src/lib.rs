@@ -1249,3 +1249,122 @@ fn get_leptos_pool() -> LocalPoolHandle {
         })
         .clone()
 }
+
+pub trait LeptosOptionProvider {
+    fn options(&self) -> LeptosOptions;
+}
+
+/// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
+/// to those paths to Leptos's renderer.
+impl LeptosRoutes for axum::Router<C> where C: LeptosOptionProvider {
+    #[tracing::instrument(level = "info", fields(error), skip_all)]
+    fn leptos_routes<IV>(
+        self,
+        options: C,
+        paths: Vec<RouteListing>,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
+    }
+
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    fn leptos_routes_with_context<IV>(
+        self,
+        options: C,
+        paths: Vec<RouteListing>,
+        additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    ) -> Self
+    where
+        IV: IntoView + 'static,
+    {
+        let mut router = self;
+        for listing in paths.iter() {
+            let path = listing.path();
+
+            for method in listing.methods() {
+                router = router.route(
+                    path,
+                    match listing.mode() {
+                        SsrMode::OutOfOrder => {
+                            let s = render_app_to_stream_with_context(
+                                options.options().clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::InOrder => {
+                            let s = render_app_to_stream_in_order_with_context(
+                                options.options().clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                        SsrMode::Async => {
+                            let s = render_app_async_with_context(
+                                options.options().clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                            );
+                            match method {
+                                leptos_router::Method::Get => get(s),
+                                leptos_router::Method::Post => post(s),
+                                leptos_router::Method::Put => put(s),
+                                leptos_router::Method::Delete => delete(s),
+                                leptos_router::Method::Patch => patch(s),
+                            }
+                        }
+                    },
+                );
+            }
+        }
+        router
+    }
+
+    #[tracing::instrument(level = "trace", fields(error), skip_all)]
+    fn leptos_routes_with_handler<H, T>(
+        self,
+        paths: Vec<RouteListing>,
+        handler: H,
+    ) -> Self
+    where
+        H: axum::handler::Handler<T, (), axum::body::Body>,
+        T: 'static,
+    {
+        let mut router = self;
+        for listing in paths.iter() {
+            for method in listing.methods() {
+                router = router.route(
+                    listing.path(),
+                    match method {
+                        leptos_router::Method::Get => get(handler.clone()),
+                        leptos_router::Method::Post => post(handler.clone()),
+                        leptos_router::Method::Put => put(handler.clone()),
+                        leptos_router::Method::Delete => {
+                            delete(handler.clone())
+                        }
+                        leptos_router::Method::Patch => patch(handler.clone()),
+                    },
+                );
+            }
+        }
+        router
+    }
+}
