@@ -1095,7 +1095,7 @@ where
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<C, S> {
+pub trait LeptosRoutes<C> {
     fn leptos_routes<IV>(
         self,
         options: C,
@@ -1123,7 +1123,7 @@ pub trait LeptosRoutes<C, S> {
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, S, axum::body::Body>,
+        H: axum::handler::Handler<T, C, axum::body::Body>,
         T: 'static;
 }
 
@@ -1151,10 +1151,9 @@ pub trait LeptosOptionProvider {
 
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
-impl<C, S> LeptosRoutes<C, S> for axum::Router<S>
+impl<C> LeptosRoutes<C> for axum::Router<C>
 where
     C: LeptosOptionProvider + Clone + Send + Sync + 'static,
-    S: Clone + Send + Sync + 'static,
 {
     #[tracing::instrument(level = "info", fields(error), skip_all)]
     fn leptos_routes<IV>(
@@ -1245,7 +1244,7 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, S, axum::body::Body>,
+        H: axum::handler::Handler<T, C, axum::body::Body>,
         T: 'static,
     {
         let mut router = self;
