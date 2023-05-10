@@ -1095,27 +1095,27 @@ where
 
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<C> {
+pub trait LeptosRoutes<S> {
     fn leptos_routes<IV>(
         self,
-        options: C,
+        options: S,
         paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
-        C: LeptosOptionProvider;
+        S: LeptosOptionProvider;
 
     fn leptos_routes_with_context<IV>(
         self,
-        options: C,
+        options: S,
         paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
-        C: LeptosOptionProvider;
+        S: LeptosOptionProvider;
 
     fn leptos_routes_with_handler<H, T>(
         self,
@@ -1123,8 +1123,13 @@ pub trait LeptosRoutes<C> {
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, C, axum::body::Body>,
+        H: axum::handler::Handler<T, S, axum::body::Body>,
         T: 'static;
+}
+
+/// This trait allows you to use your custom state struct in Axum's router.
+pub trait LeptosOptionProvider {
+    fn options(&self) -> LeptosOptions;
 }
 
 impl LeptosOptionProvider for LeptosOptions {
@@ -1133,32 +1138,16 @@ impl LeptosOptionProvider for LeptosOptions {
     }
 }
 
-#[tracing::instrument(level = "trace", fields(error), skip_all)]
-fn get_leptos_pool() -> LocalPoolHandle {
-    static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
-    LOCAL_POOL
-        .get_or_init(|| {
-            tokio_util::task::LocalPoolHandle::new(
-                available_parallelism().map(Into::into).unwrap_or(1),
-            )
-        })
-        .clone()
-}
-
-pub trait LeptosOptionProvider {
-    fn options(&self) -> LeptosOptions;
-}
-
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
-impl<C> LeptosRoutes<C> for axum::Router<C>
+impl<S> LeptosRoutes<S> for axum::Router<S>
 where
-    C: LeptosOptionProvider + Clone + Send + Sync + 'static,
+    S: LeptosOptionProvider + Clone + Send + Sync + 'static,
 {
     #[tracing::instrument(level = "info", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
-        options: C,
+        options: S,
         paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1171,14 +1160,14 @@ where
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
-        options: C,
+        options: S,
         paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
-        C: LeptosOptionProvider,
+        S: LeptosOptionProvider,
     {
         let mut router = self;
         for listing in paths.iter() {
@@ -1244,7 +1233,7 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, C, axum::body::Body>,
+        H: axum::handler::Handler<T, S, axum::body::Body>,
         T: 'static,
     {
         let mut router = self;
@@ -1266,4 +1255,16 @@ where
         }
         router
     }
+}
+
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+fn get_leptos_pool() -> LocalPoolHandle {
+    static LOCAL_POOL: OnceCell<LocalPoolHandle> = OnceCell::new();
+    LOCAL_POOL
+        .get_or_init(|| {
+            tokio_util::task::LocalPoolHandle::new(
+                available_parallelism().map(Into::into).unwrap_or(1),
+            )
+        })
+        .clone()
 }
