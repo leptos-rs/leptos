@@ -16,9 +16,9 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use http::StatusCode;
 use leptos::{
-    leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context,
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
+    ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement,
     *,
 };
 use leptos_integration_utils::{build_async_response, html_parts_separated};
@@ -517,6 +517,43 @@ pub fn render_app_to_stream_with_context<IV>(
 where
     IV: IntoView,
 {
+    render_app_to_stream_with_context_and_replace_blocks(
+        options,
+        additional_context,
+        app_fn,
+        method,
+        false,
+    )
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// This function allows you to provide additional information to Leptos for your route.
+/// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
+///
+/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read
+/// from blocking resources should be retrojected into the HTML that's initially served, rather
+/// than dynamically inserting them with JavaScript on the client. This means you will have
+/// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
+    replace_blocks: bool,
+) -> Route
+where
+    IV: IntoView,
+{
     let handler = move |req: HttpRequest| {
         let options = options.clone();
         let app_fn = app_fn.clone();
@@ -533,7 +570,14 @@ where
                 }
             };
 
-            stream_app(&options, app, res_options, additional_context).await
+            stream_app(
+                &options,
+                app,
+                res_options,
+                additional_context,
+                replace_blocks,
+            )
+            .await
         }
     };
     match method {
@@ -746,7 +790,7 @@ where
                 }
             };
 
-            stream_app(&options, app, res_options, |_cx| {}).await
+            stream_app(&options, app, res_options, |_cx| {}, false).await
         }
     })
 }
@@ -781,12 +825,14 @@ async fn stream_app(
     app: impl FnOnce(leptos::Scope) -> View + 'static,
     res_options: ResponseOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    replace_blocks: bool,
 ) -> HttpResponse<BoxBody> {
     let (stream, runtime, scope) =
-        render_to_stream_with_prefix_undisposed_with_context(
+        render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
             app,
             move |cx| generate_head_metadata_separated(cx).1.into(),
             additional_context,
+            replace_blocks
         );
 
     build_stream_response(options, res_options, stream, runtime, scope).await
@@ -1089,6 +1135,15 @@ where
                                 additional_context.clone(),
                                 app_fn.clone(),
                                 method,
+                            )
+                        }
+                        SsrMode::PartiallyBlocked => {
+                            render_app_to_stream_with_context_and_replace_blocks(
+                                options.clone(),
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                method,
+                                true,
                             )
                         }
                         SsrMode::InOrder => {
