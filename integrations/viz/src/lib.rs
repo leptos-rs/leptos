@@ -1135,12 +1135,13 @@ impl LeptosRoutes for Router {
                     }
                 }
                 SsrMode::PartiallyBlocked => {
-                    let s = render_app_to_stream_with_context_and_replace_blocks(
-                        options.clone(),
-                        additional_context.clone(),
-                        app_fn.clone(),
-                        true,
-                    );
+                    let s =
+                        render_app_to_stream_with_context_and_replace_blocks(
+                            options.clone(),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                            true,
+                        );
                     match method {
                         leptos_router::Method::Get => router.get(path, s),
                         leptos_router::Method::Post => router.post(path, s),
