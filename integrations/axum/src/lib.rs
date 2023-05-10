@@ -502,7 +502,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_| {}, app_fn, false)
+    render_app_to_stream_with_context(options, |_| {}, app_fn)
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
@@ -609,6 +609,48 @@ pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+) -> impl Fn(
+    Request<Body>,
+) -> Pin<
+    Box<
+        dyn Future<Output = Response<StreamBody<PinnedHtmlStream>>>
+            + Send
+            + 'static,
+    >,
+> + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView,
+{
+    render_app_to_stream_with_context_and_replace_blocks(options, additional_context, app_fn, false)
+}
+
+/// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// This version allows us to pass Axum State/Extension/Extractor or other infro from Axum or network
+/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
+/// the data to leptos in a closure.
+/// 
+/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read 
+/// from blocking resources should be retrojected into the HTML that's initially served, rather 
+/// than dynamically inserting them with JavaScript on the client. This means you will have 
+/// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
+/// 
+/// Otherwise, this function is identical to [render_app_to_stream_with_context].
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "info", fields(error), skip_all)]
+pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     replace_blocks: bool,
 ) -> impl Fn(
     Request<Body>,
@@ -665,6 +707,7 @@ where
         })
     }
 }
+
 #[tracing::instrument(level = "info", fields(error), skip_all)]
 async fn generate_response(
     res_options: ResponseOptions,
@@ -1166,7 +1209,6 @@ impl LeptosRoutes for axum::Router {
                                 options.clone(),
                                 additional_context.clone(),
                                 app_fn.clone(),
-                                false,
                             );
                             match method {
                                 leptos_router::Method::Get => get(s),
@@ -1177,11 +1219,11 @@ impl LeptosRoutes for axum::Router {
                             }
                         }
                         SsrMode::PartiallyBlocked => {
-                            let s = render_app_to_stream_with_context(
+                            let s = render_app_to_stream_with_context_and_replace_blocks(
                                 options.clone(),
                                 additional_context.clone(),
                                 app_fn.clone(),
-                                true,
+                                true
                             );
                             match method {
                                 leptos_router::Method::Get => get(s),

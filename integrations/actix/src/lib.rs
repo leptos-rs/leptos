@@ -351,7 +351,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_cx| {}, app_fn, method, false)
+    render_app_to_stream_with_context(options, |_cx| {}, app_fn, method)
 }
 
 /// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
@@ -509,6 +509,36 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn render_app_to_stream_with_context<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
+    method: Method,
+) -> Route
+where
+    IV: IntoView,
+{
+    render_app_to_stream_with_context_and_replace_blocks(options, additional_context, app_fn, method, false)
+}
+
+/// Returns an Actix [Route](actix_web::Route) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// This function allows you to provide additional information to Leptos for your route.
+/// It could be used to pass in Path Info, Connection Info, or anything your heart desires.
+/// 
+/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read 
+/// from blocking resources should be retrojected into the HTML that's initially served, rather 
+/// than dynamically inserting them with JavaScript on the client. This means you will have 
+/// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [ResponseOptions]
+/// - [HttpRequest](actix_web::HttpRequest)
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
+pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
     additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
     app_fn: impl Fn(leptos::Scope) -> IV + Clone + 'static,
@@ -1099,11 +1129,10 @@ where
                                 additional_context.clone(),
                                 app_fn.clone(),
                                 method,
-                                false,
                             )
                         }
                         SsrMode::PartiallyBlocked => {
-                            render_app_to_stream_with_context(
+                            render_app_to_stream_with_context_and_replace_blocks(
                                 options.clone(),
                                 additional_context.clone(),
                                 app_fn.clone(),
