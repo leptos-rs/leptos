@@ -7,7 +7,7 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         Router,
         routing::get,
-        extract::Extension,
+        extract::State,
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
@@ -29,7 +29,7 @@ if #[cfg(feature = "ssr")] {
         .route("/favicon.ico", get(file_and_error_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> } )
         .fallback(file_and_error_handler)
-        .layer(Extension(Arc::new(leptos_options)));
+        .with_state(Arc::new(leptos_options));
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

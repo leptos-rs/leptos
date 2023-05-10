@@ -1,7 +1,7 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use axum::{extract::Extension, routing::post, Router};
+    use axum::{extract::State, routing::post, Router};
     use leptos::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
@@ -24,7 +24,7 @@ async fn main() {
             |cx| view! { cx, <App/> },
         )
         .fallback(file_and_error_handler)
-        .layer(Extension(Arc::new(leptos_options)));
+        .with_state(Arc::new(leptos_options));
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
