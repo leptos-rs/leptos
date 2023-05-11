@@ -1244,7 +1244,7 @@ where
                         }
                         SsrMode::PartiallyBlocked => {
                             let s = render_app_to_stream_with_context_and_replace_blocks(
-                                options.clone(),
+                                options.options(),
                                 additional_context.clone(),
                                 app_fn.clone(),
                                 true
