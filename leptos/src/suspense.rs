@@ -1,7 +1,5 @@
 use cfg_if::cfg_if;
-use leptos_dom::{DynChild, HydrationCtx, IntoView};
-#[cfg(not(any(feature = "csr", feature = "hydrate")))]
-use leptos_dom::Fragment;
+use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::ScopeDisposer;
