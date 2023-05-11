@@ -1,5 +1,7 @@
 use cfg_if::cfg_if;
-use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
+use leptos_dom::{DynChild, HydrationCtx, IntoView};
+#[cfg(not(feature = "csr", feature = "hydrate"))]
+use leptos_dom::Fragment;
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::ScopeDisposer;
@@ -56,16 +58,17 @@ use std::rc::Rc;
     tracing::instrument(level = "info", skip_all)
 )]
 #[component(transparent)]
-pub fn Suspense<F, E>(
+pub fn Suspense<F, E, V>(
     cx: Scope,
     /// Returns a fallback UI that will be shown while `async` [Resources](leptos_reactive::Resource) are still loading.
     fallback: F,
     /// Children will be displayed once all `async` [Resources](leptos_reactive::Resource) have resolved.
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn Fn(Scope) -> V>,
 ) -> impl IntoView
 where
     F: Fn() -> E + 'static,
     E: IntoView,
+    V: IntoView + 'static
 {
     let context = SuspenseContext::new(cx);
 
@@ -91,7 +94,7 @@ where
                         cx.run_child_scope(|cx| if context.ready() {
                         Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
                     } else {
-                        Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
+                        Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
                     });
                     *prev_disposer.borrow_mut() = Some(disposer);
                     view
