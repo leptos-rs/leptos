@@ -66,7 +66,7 @@ pub fn Suspense<F, E, V>(
 where
     F: Fn() -> E + 'static,
     E: IntoView,
-    V: IntoView + 'static
+    V: IntoView + 'static,
 {
     let context = SuspenseContext::new(cx);
 
