@@ -78,7 +78,7 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    let prev_children = Rc::new(RefCell::new(None::<Vec<View>>));
+    let prev_children = Rc::new(RefCell::new(None::<View>));
 
     let first_run = Rc::new(std::cell::Cell::new(true));
     let child_runs = Cell::new(0);
@@ -112,13 +112,13 @@ where
                 }
             })
             .children(Box::new(move |cx| {
-                let frag = children(cx);
+                let frag = children(cx).into_view(cx);
 
                 let suspense_context = use_context::<SuspenseContext>(cx)
                     .expect("there to be a SuspenseContext");
 
                 if cfg!(feature = "hydrate") || !first_run.get() {
-                    *prev_children.borrow_mut() = Some(frag.nodes.clone());
+                    *prev_children.borrow_mut() = Some(frag.clone());
                 }
                 if is_first_run(&first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
