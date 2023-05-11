@@ -74,7 +74,6 @@ where
 
     let orig_child = Rc::new(children);
 
-    let before_me = HydrationCtx::peek();
     let current_id = HydrationCtx::next_component();
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     let prev_disposer = Rc::new(RefCell::new(None::<ScopeDisposer>));
@@ -161,7 +160,7 @@ where
         _ => unreachable!(),
     };
 
-    HydrationCtx::continue_from(before_me);
+    HydrationCtx::continue_from(current_id.clone());
 
     leptos_dom::View::Suspense(current_id, core_component)
 }

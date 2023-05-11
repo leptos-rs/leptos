@@ -147,6 +147,44 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
     additional_context: impl FnOnce(Scope) + 'static,
 ) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
+    render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
+        view,
+        prefix,
+        additional_context,
+        false,
+    )
+}
+
+/// Renders a function to a stream of HTML strings and returns the [Scope] and [RuntimeId] that were created, so
+/// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
+/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+///
+/// If `replace_blocks` is true, this will wait for any fragments with blocking resources and
+/// actually replace them in the initial HTML. This is slower to render (as it requires walking
+/// back over the HTML for string replacement) but has the advantage of never including those fallbacks
+/// in the HTML.
+///
+/// This renders:
+/// 1) the prefix
+/// 2) the application shell
+///   a) HTML for everything that is not under a `<Suspense/>`,
+///   b) the `fallback` for any `<Suspense/>` component that is not already resolved, and
+///   c) JavaScript necessary to receive streaming [Resource](leptos_reactive::Resource) data.
+/// 3) streaming [Resource](leptos_reactive::Resource) data. Resources begin loading on the
+///    server and are sent down to the browser to resolve. On the browser, if the app sees that
+///    it is waiting for a resource to resolve from the server, it doesn't run it initially.
+/// 4) HTML fragments to replace each `<Suspense/>` fallback with its actual data as the resources
+///    read under that `<Suspense/>` resolve.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
+pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
+    view: impl FnOnce(Scope) -> View + 'static,
+    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+    additional_context: impl FnOnce(Scope) + 'static,
+    replace_blocks: bool,
+) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
     HydrationCtx::reset_id();
 
     // create the runtime
@@ -177,7 +215,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     });
     let cx = Scope { runtime, id: scope };
 
-    let blocking_fragments = FuturesUnordered::new();
+    let mut blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
 
     for (fragment_id, data) in pending_fragments {
@@ -198,24 +236,46 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 
     // HTML for the view function and script to store resources
     let stream = futures::stream::once(async move {
-        let mut blocking = String::new();
-        let mut blocking_fragments = fragments_to_chunks(blocking_fragments);
-        while let Some(fragment) = blocking_fragments.next().await {
-            blocking.push_str(&fragment);
+        let resolvers = format!(
+            "<script>__LEPTOS_PENDING_RESOURCES = \
+             {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
+             Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
+        );
+
+        if replace_blocks {
+            let mut blocks = Vec::with_capacity(blocking_fragments.len());
+            while let Some((blocked_id, blocked_fragment)) =
+                blocking_fragments.next().await
+            {
+                blocks.push((blocked_id, blocked_fragment));
+            }
+
+            let prefix = prefix(cx);
+
+            let mut shell = shell;
+
+            for (blocked_id, blocked_fragment) in blocks {
+                let open = format!("<!--suspense-open-{blocked_id}-->");
+                let close = format!("<!--suspense-close-{blocked_id}-->");
+                let (first, rest) = shell.split_once(&open).unwrap_or_default();
+                let (_fallback, rest) =
+                    rest.split_once(&close).unwrap_or_default();
+
+                shell = format!("{first}{blocked_fragment}{rest}").into();
+            }
+
+            format!("{prefix}{shell}{resolvers}")
+        } else {
+            let mut blocking = String::new();
+            let mut blocking_fragments =
+                fragments_to_chunks(blocking_fragments);
+
+            while let Some(fragment) = blocking_fragments.next().await {
+                blocking.push_str(&fragment);
+            }
+            let prefix = prefix(cx);
+            format!("{prefix}{shell}{resolvers}{blocking}")
         }
-        let prefix = prefix(cx);
-        format!(
-            r#"
-                {prefix}
-                {shell}
-                <script>
-                    __LEPTOS_PENDING_RESOURCES = {pending_resources};
-                    __LEPTOS_RESOLVED_RESOURCES = new Map();
-                    __LEPTOS_RESOURCE_RESOLVERS = new Map();
-                </script>
-                {blocking}
-            "#
-        )
     })
     // TODO these should be combined again in a way that chains them appropriately
     // such that individual resources can resolve before all fragments are done
@@ -229,6 +289,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
 
     (stream, runtime, scope)
 }
+
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
