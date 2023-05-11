@@ -92,7 +92,7 @@ where
                         cx.run_child_scope(|cx| if context.ready() {
                         Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
                     } else {
-                        Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
+                        Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
                     });
                     *prev_disposer.borrow_mut() = Some(disposer);
                     view
