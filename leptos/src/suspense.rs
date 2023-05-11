@@ -1,6 +1,6 @@
 use cfg_if::cfg_if;
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
-#[cfg(not(feature = "csr", feature = "hydrate"))]
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
 use leptos_dom::Fragment;
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
