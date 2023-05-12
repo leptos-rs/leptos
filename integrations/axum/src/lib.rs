@@ -1149,9 +1149,21 @@ pub trait LeptosOptionProvider {
     fn options(&self) -> LeptosOptions;
 }
 
+/// Implement `LeptosOptionProvider` trait for `LeptosOptions` itself.
 impl LeptosOptionProvider for LeptosOptions {
     fn options(&self) -> LeptosOptions {
         self.clone()
+    }
+}
+
+/// Implement `LeptosOptionProvider` trait for any type wrapped in an Arc, if that type implements
+/// `LeptosOptionProvider` as states in axum are often provided wrapped in an Arc.
+impl<T> LeptosOptionProvider for Arc<T>
+where
+    T: LeptosOptionProvider,
+{
+    fn options(&self) -> LeptosOptions {
+        (**self).options()
     }
 }
 
