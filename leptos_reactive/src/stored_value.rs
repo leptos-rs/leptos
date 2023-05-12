@@ -56,8 +56,8 @@ impl<T> StoredValue<T> {
     /// }
     /// let data = store_value(cx, MyCloneableData { value: "a".into() });
     ///
-    /// // calling .get() clones and returns the value
-    /// assert_eq!(data.get().value, "a");
+    /// // calling .get_value() clones and returns the value
+    /// assert_eq!(data.get_value().value, "a");
     /// // there's a short-hand getter form
     /// assert_eq!(data().value, "a");
     /// # });
@@ -94,8 +94,8 @@ impl<T> StoredValue<T> {
     /// }
     /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
     ///
-    /// // calling .with() to extract the value
-    /// assert_eq!(data.with(|data| data.value.clone()), "a");
+    /// // calling .with_value() to extract the value
+    /// assert_eq!(data.with_value(|data| data.value.clone()), "a");
     /// # });
     /// ```
     #[track_caller]
@@ -132,8 +132,8 @@ impl<T> StoredValue<T> {
     ///   pub value: String
     /// }
     /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// data.update(|data| data.value = "b".into());
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// data.update_value(|data| data.value = "b".into());
+    /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
     /// });
     /// ```
     ///
@@ -151,7 +151,7 @@ impl<T> StoredValue<T> {
     ///     data.value.clone()
     /// });
     ///
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
     /// assert_eq!(updated, Some(String::from("b")));
     /// # });
     /// ```
@@ -160,6 +160,7 @@ impl<T> StoredValue<T> {
         self.try_update_value(f)
             .expect("could not set stored value");
     }
+
 
     /// Same as [`Self::update`], but returns [`Some(O)`] if the
     /// signal is still valid, [`None`] otherwise.
@@ -186,8 +187,8 @@ impl<T> StoredValue<T> {
     ///     pub value: String,
     /// }
     /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// data.set(MyUncloneableData { value: "b".into() });
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
+    /// data.set_value(MyUncloneableData { value: "b".into() });
+    /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
     /// # });
     /// ```
     #[track_caller]
@@ -244,10 +245,10 @@ impl<T> StoredValue<T> {
 ///     pub value: String,
 /// }
 ///
-/// // ✅ you can move the `StoredValue` and access it with .with()
+/// // ✅ you can move the `StoredValue` and access it with .with_value()
 /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-/// let callback_a = move || data.with(|data| data.value == "a");
-/// let callback_b = move || data.with(|data| data.value == "b");
+/// let callback_a = move || data.with_value(|data| data.value == "a");
+/// let callback_b = move || data.with_value(|data| data.value == "b");
 /// # }).dispose();
 /// ```
 #[track_caller]
