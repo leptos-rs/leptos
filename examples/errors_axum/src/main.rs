@@ -44,7 +44,7 @@ async fn main() {
 
     // Setting this to None means we'll be using cargo-leptos and its env vars
     let conf = get_configuration(None).await.unwrap();
-    let leptos_options = conf.leptos_options;
+    let leptos_options = Arc::new(conf.leptos_options);
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
@@ -58,7 +58,7 @@ async fn main() {
             |cx| view! { cx, <App/> },
         )
         .fallback(file_and_error_handler)
-        .with_state(Arc::new(leptos_options));
+        .with_state(leptos_options);
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
