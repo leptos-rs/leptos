@@ -79,12 +79,6 @@ pub fn create_node_ref<T: ElementDescriptor + 'static>(
 }
 
 impl<T: ElementDescriptor + 'static> NodeRef<T> {
-    /// Creates an empty reference.
-    #[deprecated = "Use `create_node_ref` instead of `NodeRef::new()`."]
-    pub fn new(cx: Scope) -> Self {
-        Self(create_rw_signal(cx, None))
-    }
-
     /// Gets the element that is currently stored in the reference.
     ///
     /// This tracks reactively, so that node references can be used in effects.

@@ -173,18 +173,6 @@ pub trait SignalUpdate<T> {
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
-    #[deprecated = "Please use `try_update` instead. This method will be \
-                    removed in a future version of this crate"]
-    fn update_returning<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.try_update(f)
-    }
-
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed. Returns
-    /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
 }
 
@@ -248,19 +236,6 @@ pub trait SignalUpdateUntracked<T> {
     /// value without notifying dependents.
     #[track_caller]
     fn update_untracked(&self, f: impl FnOnce(&mut T));
-
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents and returns
-    /// the value the closure returned.
-    #[deprecated = "Please use `try_update_untracked` instead. This method \
-                    will be removed in a future version of `leptos`"]
-    #[inline(always)]
-    fn update_returning_untracked<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.try_update_untracked(f)
-    }
 
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
@@ -930,27 +905,6 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
         self.id.update_with_no_effect(self.runtime, f);
     }
 
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(
-            level = "trace",
-            name = "WriteSignal::update_returning_untracked()",
-            skip_all,
-            fields(
-                id = ?self.id,
-                defined_at = %self.defined_at,
-                ty = %std::any::type_name::<T>()
-            )
-        )
-    )]
-    #[inline(always)]
-    fn update_returning_untracked<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.id.update_with_no_effect(self.runtime, f)
-    }
-
     #[inline(always)]
     fn try_update_untracked<O>(
         &self,
@@ -1343,27 +1297,6 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
-    }
-
-    #[cfg_attr(
- any(debug_assertions, features="ssr"),
-    instrument(
-        level = "trace",
-        name = "RwSignal::update_returning_untracked()",
-        skip_all,
-        fields(
-            id = ?self.id,
-            defined_at = %self.defined_at,
-            ty = %std::any::type_name::<T>()
-        )
-    )
-    )]
-    #[inline(always)]
-    fn update_returning_untracked<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.id.update_with_no_effect(self.runtime, f)
     }
 
     #[cfg_attr(
