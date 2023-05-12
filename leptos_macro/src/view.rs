@@ -301,10 +301,12 @@ fn root_element_to_tokens_ssr(
         let chunks = chunks.into_iter().map(|chunk| match chunk {
             SsrElementChunks::String { template, holes } => {
                 if holes.is_empty() {
+                    let template = template.replace("\\{", "{").replace("\\}", "}");
                     quote! {
                         leptos::leptos_dom::html::StringOrView::String(#template.into())
                     }
                 } else {
+                let template = template.replace("\\{", "{{").replace("\\}", "}}");
                     quote! {
                         leptos::leptos_dom::html::StringOrView::String(
                             format!(
@@ -490,8 +492,8 @@ fn element_to_tokens_ssr(
                                 };
                                 template.push_str(
                                     &value
-                                        .replace('{', "{{")
-                                        .replace('}', "}}"),
+                                        .replace('{', "\\{")
+                                        .replace('}', "\\}"),
                                 );
                             } else {
                                 template.push_str("{}");
