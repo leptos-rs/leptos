@@ -68,16 +68,58 @@ use crate::{
 /// // setting name only causes name to log, not count
 /// set_name("Bob".into());
 /// ```
-pub fn create_slice<T, O>(
+pub fn create_slice<T, O, S>(
     cx: Scope,
     signal: RwSignal<T>,
     getter: impl Fn(&T) -> O + Clone + Copy + 'static,
-    setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
-) -> (Signal<O>, SignalSetter<O>)
+    setter: impl Fn(&mut T, S) + Clone + Copy + 'static,
+) -> (Signal<O>, SignalSetter<S>)
 where
     O: PartialEq,
 {
-    let getter = create_memo(cx, move |_| signal.with(getter));
+  (create_read_slice(cx,signal,getter),create_write_slice(cx,signal,setter))
+}
+
+/// create_read_slice Is a read only version of create_slice. It's memoized just like create_slice.
+/// In fact, create_slice uses create_read_slice to construct it's read portion.
+/// ```
+/// # use leptos_reactive::*;
+/// # use std::collections::HashMap;
+/// # let (cx, disposer) = raw_scope_and_disposer(create_runtime());
+///
+/// // Some state    
+/// #[derive(Default, Clone, Debug)]
+/// struct State{
+///     char_map:HashMap<i32,char>    
+///    }
+///
+/// let state = create_rw_signal(cx, State{
+///     char_map:HashMap::from(vec![(0,'a')])
+/// });
+/// 
+/// let get_state = |key:i32| create_read_slice(cx, state,
+///        move |state| state.get(&key).cloned()
+///    ).get();
+///
+/// assert_eq!('a',get_state(0));
+/// ```
+pub fn create_read_slice<T, O>(
+    cx: Scope,
+    signal: RwSignal<T>,
+    getter: impl Fn(&T) -> O + Clone + Copy + 'static,
+) -> Signal<O>
+where
+    O: PartialEq,
+{
+    create_memo(cx, move |_| signal.with(getter)).into()
+}
+/// create_write_slice is the write portion of create_slice
+/// use it when you want to write to a state, but not subscribe to changes.
+pub fn create_write_slice<T, O>(
+    cx: Scope,
+    signal: RwSignal<T>,
+    setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
+) -> SignalSetter<O> {
     let setter = move |value| signal.update(|x| setter(x, value));
-    (getter.into(), setter.mapped_signal_setter(cx))
+    setter.mapped_signal_setter(cx)
 }
