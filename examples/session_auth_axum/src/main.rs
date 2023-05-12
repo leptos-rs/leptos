@@ -68,7 +68,7 @@ if #[cfg(feature = "ssr")] {
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
-        let leptos_options = conf.leptos_options;
+        let leptos_options = Arc::new(conf.leptos_options);
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
 
@@ -81,7 +81,7 @@ if #[cfg(feature = "ssr")] {
                     .with_config(auth_config))
         .layer(SessionLayer::new(session_store))
         .layer(Extension(pool))
-        .with_state(Arc::new(leptos_options));
+        .with_state(leptos_options);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
