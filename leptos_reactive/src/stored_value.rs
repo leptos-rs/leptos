@@ -63,40 +63,6 @@ impl<T> StoredValue<T> {
     /// # });
     /// ```
     #[track_caller]
-    #[deprecated = "Please use `get_value` instead, as this method does not \
-                    track the stored value. This method will also be removed \
-                    in a future version of `leptos`"]
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.get_value()
-    }
-
-    /// Returns a clone of the signals current value, subscribing the effect
-    /// to this signal.
-    ///
-    /// # Panics
-    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
-    ///
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// #[derive(Clone)]
-    /// pub struct MyCloneableData {
-    ///     pub value: String,
-    /// }
-    /// let data = store_value(cx, MyCloneableData { value: "a".into() });
-    ///
-    /// // calling .get() clones and returns the value
-    /// assert_eq!(data.get().value, "a");
-    /// // there's a short-hand getter form
-    /// assert_eq!(data().value, "a");
-    /// # });
-    /// ```
-    #[track_caller]
     pub fn get_value(&self) -> T
     where
         T: Clone,
@@ -106,50 +72,11 @@ impl<T> StoredValue<T> {
 
     /// Same as [`StoredValue::get`] but will not panic by default.
     #[track_caller]
-    #[deprecated = "Please use `try_get_value` instead, as this method does \
-                    not track the stored value. This method will also be \
-                    removed in a future version of `leptos`"]
-    pub fn try_get(&self) -> Option<T>
-    where
-        T: Clone,
-    {
-        self.try_get_value()
-    }
-
-    /// Same as [`StoredValue::get`] but will not panic by default.
-    #[track_caller]
     pub fn try_get_value(&self) -> Option<T>
     where
         T: Clone,
     {
         self.try_with_value(T::clone)
-    }
-
-    /// Applies a function to the current stored value.
-    ///
-    /// # Panics
-    /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
-    ///
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// pub struct MyUncloneableData {
-    ///   pub value: String
-    /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    ///
-    /// // calling .with() to extract the value
-    /// assert_eq!(data.with(|data| data.value.clone()), "a");
-    /// });
-    /// ```
-    #[track_caller]
-    #[deprecated = "Please use `with_value` instead, as this method does not \
-                    track the stored value. This method will also be removed \
-                    in a future version of `leptos`"]
-    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.with_value(f)
     }
 
     /// Applies a function to the current stored value.
@@ -176,15 +103,6 @@ impl<T> StoredValue<T> {
     //               a future version of `leptos`"]
     pub fn with_value<U>(&self, f: impl FnOnce(&T) -> U) -> U {
         self.try_with_value(f).expect("could not get stored value")
-    }
-
-    /// Same as [`StoredValue::with`] but returns [`Some(O)]` only if
-    /// the signal is still valid. [`None`] otherwise.
-    #[deprecated = "Please use `try_with_value` instead, as this method does \
-                    not track the stored value. This method will also be \
-                    removed in a future version of `leptos`"]
-    pub fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        self.try_with_value(f)
     }
 
     /// Same as [`StoredValue::with`] but returns [`Some(O)]` only if
@@ -238,63 +156,9 @@ impl<T> StoredValue<T> {
     /// # });
     /// ```
     #[track_caller]
-    #[deprecated = "Please use `update_value` instead, as this method does not \
-                    track the stored value. This method will also be removed \
-                    in a future version of `leptos`"]
-    pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.update_value(f);
-    }
-
-    /// Updates the stored value.
-    ///
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// pub struct MyUncloneableData {
-    ///   pub value: String
-    /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// data.update(|data| data.value = "b".into());
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
-    /// });
-    /// ```
-    ///
-    /// ```
-    /// use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// pub struct MyUncloneableData {
-    ///     pub value: String,
-    /// }
-    ///
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// let updated = data.update_returning(|data| {
-    ///     data.value = "b".into();
-    ///     data.value.clone()
-    /// });
-    ///
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
-    /// assert_eq!(updated, Some(String::from("b")));
-    /// # });
-    /// ```
-    #[track_caller]
     pub fn update_value(&self, f: impl FnOnce(&mut T)) {
         self.try_update_value(f)
             .expect("could not set stored value");
-    }
-
-    /// Updates the stored value.
-    #[track_caller]
-    #[deprecated = "Please use `try_update_value` instead, as this method does \
-                    not track the stored value. This method will also be \
-                    removed in a future version of `leptos`"]
-    pub fn update_returning<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.try_update_value(f)
     }
 
     /// Same as [`Self::update`], but returns [`Some(O)`] if the
@@ -309,29 +173,6 @@ impl<T> StoredValue<T> {
         })
         .ok()
         .flatten()
-    }
-
-    /// Sets the stored value.
-    ///
-    /// # Examples
-    /// ```
-    /// # use leptos_reactive::*;
-    /// # create_scope(create_runtime(), |cx| {
-    ///
-    /// pub struct MyUncloneableData {
-    ///   pub value: String
-    /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// data.set(MyUncloneableData { value: "b".into() });
-    /// assert_eq!(data.with(|data| data.value.clone()), "b");
-    /// });
-    /// ```
-    #[track_caller]
-    #[deprecated = "Please use `set_value` instead, as this method does not \
-                    track the stored value. This method will also be removed \
-                    in a future version of `leptos`"]
-    pub fn set(&self, value: T) {
-        self.set_value(value);
     }
 
     /// Sets the stored value.

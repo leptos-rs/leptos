@@ -384,26 +384,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
     #[doc(hidden)]
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    #[deprecated = "Use HtmlElement::from_chunks() instead."]
-    pub fn from_html(
-        cx: Scope,
-        element: El,
-        html: impl Into<Cow<'static, str>>,
-    ) -> Self {
-        Self {
-            cx,
-            attrs: smallvec![],
-            children: ElementChildren::Chunks(vec![StringOrView::String(
-                html.into(),
-            )]),
-            element,
-            #[cfg(debug_assertions)]
-            view_marker: None,
-        }
-    }
-
-    #[doc(hidden)]
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub fn from_chunks(
         cx: Scope,
         element: El,
