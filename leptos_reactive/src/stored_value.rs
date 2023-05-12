@@ -146,7 +146,7 @@ impl<T> StoredValue<T> {
     /// }
     ///
     /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
-    /// let updated = data.update_returning(|data| {
+    /// let updated = data.try_update(|data| {
     ///     data.value = "b".into();
     ///     data.value.clone()
     /// });
