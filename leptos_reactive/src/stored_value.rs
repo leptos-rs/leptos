@@ -161,7 +161,6 @@ impl<T> StoredValue<T> {
             .expect("could not set stored value");
     }
 
-
     /// Same as [`Self::update`], but returns [`Some(O)`] if the
     /// signal is still valid, [`None`] otherwise.
     pub fn try_update_value<O>(self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
