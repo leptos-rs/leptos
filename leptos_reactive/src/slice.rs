@@ -77,32 +77,14 @@ pub fn create_slice<T, O, S>(
 where
     O: PartialEq,
 {
-  (create_read_slice(cx,signal,getter),create_write_slice(cx,signal,setter))
+    (
+        create_read_slice(cx, signal, getter),
+        create_write_slice(cx, signal, setter),
+    )
 }
 
 /// create_read_slice Is a read only version of create_slice. It's memoized just like create_slice.
 /// In fact, create_slice uses create_read_slice to construct it's read portion.
-/// ```
-/// # use leptos_reactive::*;
-/// # use std::collections::HashMap;
-/// # let (cx, disposer) = raw_scope_and_disposer(create_runtime());
-///
-/// // Some state    
-/// #[derive(Default, Clone, Debug)]
-/// struct State{
-///     char_map:HashMap<i32,char>    
-///    }
-///
-/// let state = create_rw_signal(cx, State{
-///     char_map:HashMap::from(vec![(0,'a')])
-/// });
-/// 
-/// let get_state = |key:i32| create_read_slice(cx, state,
-///        move |state| state.get(&key).cloned()
-///    ).get();
-///
-/// assert_eq!('a',get_state(0));
-/// ```
 pub fn create_read_slice<T, O>(
     cx: Scope,
     signal: RwSignal<T>,
