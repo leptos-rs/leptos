@@ -83,8 +83,8 @@ where
     )
 }
 
-/// create_read_slice Is a read only version of create_slice. It's memoized just like create_slice.
-/// In fact, create_slice uses create_read_slice to construct it's read portion.
+/// Takes a memoized, read-only slice of a signal. This is equivalent to the 
+/// read-only half of [`create_slice`].
 pub fn create_read_slice<T, O>(
     cx: Scope,
     signal: RwSignal<T>,
@@ -95,8 +95,9 @@ where
 {
     create_memo(cx, move |_| signal.with(getter)).into()
 }
-/// create_write_slice is the write portion of create_slice
-/// use it when you want to write to a state, but not subscribe to changes.
+
+/// Creates a setter to access one slice of a signal. This is equivalent to the
+/// write-only half of [`create_slice`].
 pub fn create_write_slice<T, O>(
     cx: Scope,
     signal: RwSignal<T>,
