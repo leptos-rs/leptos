@@ -83,7 +83,7 @@ where
     )
 }
 
-/// Takes a memoized, read-only slice of a signal. This is equivalent to the 
+/// Takes a memoized, read-only slice of a signal. This is equivalent to the
 /// read-only half of [`create_slice`].
 pub fn create_read_slice<T, O>(
     cx: Scope,
