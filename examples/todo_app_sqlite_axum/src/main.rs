@@ -5,7 +5,7 @@ cfg_if! {
     use leptos::*;
     use axum::{
         routing::{post, get},
-        extract::{Extension, Path},
+        extract::{State, Path},
         http::Request,
         response::{IntoResponse, Response},
         Router,
@@ -18,7 +18,7 @@ cfg_if! {
     use std::sync::Arc;
 
     //Define a handler to test extractor with state
-    async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
+    async fn custom_handler(Path(id): Path<String>, State(options): State<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
             let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
             move |cx| {
                 provide_context(cx, id.clone());
@@ -42,7 +42,7 @@ cfg_if! {
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
-        let leptos_options = conf.leptos_options;
+        let leptos_options = Arc::new(conf.leptos_options);
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
 
@@ -52,7 +52,7 @@ cfg_if! {
         .route("/special/:id", get(custom_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
         .fallback(file_and_error_handler)
-        .layer(Extension(Arc::new(leptos_options)));
+        .with_state(leptos_options);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

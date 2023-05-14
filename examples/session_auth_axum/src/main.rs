@@ -6,7 +6,7 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         response::{Response, IntoResponse},
         routing::get,
-        extract::{Path, Extension, RawQuery},
+        extract::{Path, State, Extension, RawQuery},
         http::{Request, header::HeaderMap},
         body::Body as AxumBody,
         Router,
@@ -33,7 +33,7 @@ if #[cfg(feature = "ssr")] {
         }, request).await
     }
 
-    async fn leptos_routes_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
+    async fn leptos_routes_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, State(options): State<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
             let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
             move |cx| {
                 provide_context(cx, auth_session.clone());
@@ -68,7 +68,7 @@ if #[cfg(feature = "ssr")] {
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
-        let leptos_options = conf.leptos_options;
+        let leptos_options = Arc::new(conf.leptos_options);
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
 
@@ -80,8 +80,8 @@ if #[cfg(feature = "ssr")] {
         .layer(AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(Some(pool.clone()))
                     .with_config(auth_config))
         .layer(SessionLayer::new(session_store))
-        .layer(Extension(Arc::new(leptos_options)))
-        .layer(Extension(pool));
+        .layer(Extension(pool))
+        .with_state(leptos_options);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

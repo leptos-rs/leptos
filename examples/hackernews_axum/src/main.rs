@@ -7,7 +7,6 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         Router,
         routing::get,
-        extract::Extension,
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use std::sync::Arc;
@@ -18,7 +17,7 @@ if #[cfg(feature = "ssr")] {
         use hackernews_axum::*;
 
         let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-        let leptos_options = conf.leptos_options;
+        let leptos_options = Arc::new(conf.leptos_options);
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
@@ -29,7 +28,7 @@ if #[cfg(feature = "ssr")] {
         .route("/favicon.ico", get(file_and_error_handler))
         .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> } )
         .fallback(file_and_error_handler)
-        .layer(Extension(Arc::new(leptos_options)));
+        .with_state(leptos_options);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`
