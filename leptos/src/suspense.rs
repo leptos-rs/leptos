@@ -107,7 +107,11 @@ where
                     let initial = {
                         // no resources were read under this, so just return the child
                         if context.pending_resources.get() == 0 {
-                            child
+                            let orig_child = Rc::clone(&orig_child);
+                            HydrationCtx::continue_from(current_id.clone());
+                            Fragment::lazy(Box::new(move || {
+                                vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
+                            })).into_view(cx)
                         }
                         // show the fallback, but also prepare to stream HTML
                         else {

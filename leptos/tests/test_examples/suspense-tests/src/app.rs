@@ -56,6 +56,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                         <Route path="single" view=|cx| view! { cx, <Single/> }/>
                         <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
                         <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
+                        <Route path="none" view=|cx| view! { cx, <None/> }/>
                     </Route>
                     // in-order
                     <Route
@@ -71,6 +72,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                         <Route path="single" view=|cx| view! { cx, <Single/> }/>
                         <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
                         <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
+                        <Route path="none" view=|cx| view! { cx, <None/> }/>
                     </Route>
                     // async
                     <Route
@@ -86,6 +88,7 @@ pub fn App(cx: Scope) -> impl IntoView {
                         <Route path="single" view=|cx| view! { cx, <Single/> }/>
                         <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
                         <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
+                        <Route path="none" view=|cx| view! { cx, <None/> }/>
                     </Route>
                 </Routes>
             </main>
@@ -101,6 +104,7 @@ fn SecondaryNav(cx: Scope) -> impl IntoView {
             <A href="single">"Single"</A>
             <A href="parallel">"Parallel"</A>
             <A href="inside-component">"Inside Component"</A>
+            <A href="none">"No Resources"</A>
         </nav>
     }
 }
@@ -215,5 +219,27 @@ fn InsideComponentChild(cx: Scope) -> impl IntoView {
                 one_second.read(cx).map(|_| "Loaded 1!")
             }}
         </Suspense>
+    }
+}
+
+#[component]
+fn None(cx: Scope) -> impl IntoView {
+    let (count, set_count) = create_signal(cx, 0);
+
+    view! { cx,
+        <div>
+            <Suspense fallback=|| "Loading 1...">
+                <div>"Children inside Suspense should hydrate properly."</div>
+                <button on:click=move |_| set_count.update(|n| *n += 1)>
+                    {count}
+                </button>
+            </Suspense>
+            <p>"Children following " <code>"<Suspense/>"</code> " should hydrate properly."</p>
+            <div>
+                <button on:click=move |_| set_count.update(|n| *n += 1)>
+                    {count}
+                </button>
+            </div>
+        </div>
     }
 }
