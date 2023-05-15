@@ -1028,7 +1028,7 @@ where
     }
 }
 
-/// A helper to make it easier to use Axum extractors in server functions. This takes
+/// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
 /// [Handler](actix_web::Handler): it is an async function that receives arguments that  
 /// will be extracted from the request and returns some value.
