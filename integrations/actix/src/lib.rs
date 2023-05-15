@@ -27,7 +27,9 @@ use leptos_router::*;
 use parking_lot::RwLock;
 use regex::Regex;
 use std::{fmt::Display, future::Future, sync::Arc};
+#[cfg(any(debug_assertions, feature = "ssr"))]
 use tracing::instrument;
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -1030,12 +1032,13 @@ where
 
 /// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler](actix_web::Handler): it is an async function that receives arguments that  
+/// [Handler](actix_web::Handler): it is an async function that receives arguments that
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
 /// use leptos::*;
 /// use serde::Deserialize;
+/// use tracing::instrument;
 /// #[derive(Deserialize)]
 /// struct Search {
 ///     q: String,
