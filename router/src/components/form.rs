@@ -2,7 +2,7 @@ use crate::{use_navigate, use_resolved_path, ToHref, Url};
 use leptos::{html::form, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
-use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::RequestRedirect;
 
