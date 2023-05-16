@@ -15,7 +15,7 @@ You _could_ do this by just creating two `<progress>` elements:
 let (count, set_count) = create_signal(cx, 0);
 let double_count = move || count() * 2;
 
-view! {
+view! { cx,
     <progress
         max="50"
         value=count
