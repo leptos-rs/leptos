@@ -39,8 +39,7 @@ impl<T> Clone for StoredValue<T> {
 impl<T> Copy for StoredValue<T> {}
 
 impl<T> StoredValue<T> {
-    /// Returns a clone of the signals current value, subscribing the effect
-    /// to this signal.
+    /// Returns a clone of the current stored value.
     ///
     /// # Panics
     /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
@@ -70,7 +69,7 @@ impl<T> StoredValue<T> {
         self.try_get_value().expect("could not get stored value")
     }
 
-    /// Same as [`StoredValue::get`] but will not panic by default.
+    /// Same as [`StoredValue::get_value`] but will not panic by default.
     #[track_caller]
     pub fn try_get_value(&self) -> Option<T>
     where
@@ -79,7 +78,7 @@ impl<T> StoredValue<T> {
         self.try_with_value(T::clone)
     }
 
-    /// Applies a function to the current stored value.
+    /// Applies a function to the current stored value and returns the result.
     ///
     /// # Panics
     /// Panics if you try to access a value stored in a [`Scope`] that has been disposed.
@@ -105,8 +104,8 @@ impl<T> StoredValue<T> {
         self.try_with_value(f).expect("could not get stored value")
     }
 
-    /// Same as [`StoredValue::with`] but returns [`Some(O)]` only if
-    /// the signal is still valid. [`None`] otherwise.
+    /// Same as [`StoredValue::with_value`] but returns [`Some(O)]` only if
+    /// the stored value has not yet been disposed. [`None`] otherwise.
     pub fn try_with_value<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
             let value = {
@@ -161,8 +160,8 @@ impl<T> StoredValue<T> {
             .expect("could not set stored value");
     }
 
-    /// Same as [`Self::update`], but returns [`Some(O)`] if the
-    /// signal is still valid, [`None`] otherwise.
+    /// Same as [`Self::update_value`], but returns [`Some(O)`] if the
+    /// stored value has not yet been disposed, [`None`] otherwise.
     pub fn try_update_value<O>(self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
             let values = runtime.stored_values.borrow();
@@ -195,8 +194,8 @@ impl<T> StoredValue<T> {
         self.try_set_value(value);
     }
 
-    /// Same as [`Self::set`], but returns [`None`] if the signal is
-    /// still valid, [`Some(T)`] otherwise.
+    /// Same as [`Self::set_value`], but returns [`None`] if the
+    /// stored value has not yet been disposed, [`Some(T)`] otherwise.
     pub fn try_set_value(&self, value: T) -> Option<T> {
         with_runtime(self.runtime, |runtime| {
             let values = runtime.stored_values.borrow();
