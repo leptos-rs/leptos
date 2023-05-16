@@ -198,10 +198,23 @@ pub fn handle_server_fns_with_context(
                     provide_context(cx, req.clone());
                     provide_context(cx, res_options.clone());
 
-                    // provide a clone of the original payload
-                    // we consume it here (using the web::Bytes extractor),
-                    // but it is required for things like MultipartForm
-                    provide_context(cx, body.clone());
+                    // we consume the body here (using the web::Bytes extractor), but it is required for things
+                    // like MultipartForm
+                    if req
+                        .headers()
+                        .get("Content-Type")
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(|value| {
+                            Some(
+                                value.starts_with(
+                                    "multipart/form-data; boundary=",
+                                ),
+                            )
+                        })
+                        == Some(true)
+                    {
+                        provide_context(cx, body.clone());
+                    }
 
                     let query = req.query_string().as_bytes();
 
@@ -1077,15 +1090,16 @@ where
 {
     let req = use_context::<actix_web::HttpRequest>(cx)
         .expect("HttpRequest should have been provided via context");
-    let body = use_context::<Bytes>(cx)
-        .expect("web::Bytes should have been provided via context");
 
-    let (_, mut payload) = actix_http::h1::Payload::create(false);
-    payload.unread_data(body);
-
-    let input = E::from_request(&req, &mut dev::Payload::from(payload))
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+    let input = if let Some(body) = use_context::<Bytes>(cx) {
+        let (_, mut payload) = actix_http::h1::Payload::create(false);
+        payload.unread_data(body);
+        E::from_request(&req, &mut dev::Payload::from(payload))
+    } else {
+        E::extract(&req)
+    }
+    .await
+    .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
 
     Ok(f.call(input).await)
 }
