@@ -672,7 +672,7 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// Annotates a struct so that it can be used with your Component as a `slot`.
 ///
 /// The `#[slot]` macro allows you to annotate plain Rust struct as component slots and use them
-/// within your Leptos [component](crate::component!) properties. The struct can contain any number
+/// within your Leptos [`component`](macro@crate::component) properties. The struct can contain any number
 /// of fields. When you use the component somewhere else, the names of the slot fields are the
 /// names of the properties you use in the [view](crate::view!) macro.
 ///
