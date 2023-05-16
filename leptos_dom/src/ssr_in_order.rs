@@ -248,9 +248,12 @@ impl View {
                         should_block: data.should_block,
                     });
                 } else {
-                    // if not registered, means it was already resolved 
-                    View::CoreComponent(view)
-                    .into_stream_chunks_helper(cx, chunks, dont_escape_text);
+                    // if not registered, means it was already resolved
+                    View::CoreComponent(view).into_stream_chunks_helper(
+                        cx,
+                        chunks,
+                        dont_escape_text,
+                    );
                 }
             }
             View::Text(node) => {
