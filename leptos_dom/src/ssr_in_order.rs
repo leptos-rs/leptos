@@ -240,13 +240,20 @@ impl View {
         dont_escape_text: bool,
     ) {
         match self {
-            View::Suspense(id, _) => {
+            View::Suspense(id, view) => {
                 let id = id.to_string();
                 if let Some(data) = cx.take_pending_fragment(&id) {
                     chunks.push_back(StreamChunk::Async {
                         chunks: data.in_order,
                         should_block: data.should_block,
                     });
+                } else {
+                    // if not registered, means it was already resolved
+                    View::CoreComponent(view).into_stream_chunks_helper(
+                        cx,
+                        chunks,
+                        dont_escape_text,
+                    );
                 }
             }
             View::Text(node) => {
