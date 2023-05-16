@@ -2,7 +2,7 @@ use crate::{use_navigate, use_resolved_path, ToHref, Url};
 use leptos::{html::form, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
-use wasm_bindgen::{JsCast, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::RequestRedirect;
 
@@ -95,8 +95,63 @@ where
             let action = use_resolved_path(cx, move || action.clone())
                 .get()
                 .unwrap_or_default();
+            // multipart POST (setting Context-Type breaks the request)
+            if method == "post" && enctype == "multipart/form-data" {
+                ev.prevent_default();
+                ev.stop_propagation();
+
+                let on_response = on_response.clone();
+                spawn_local(async move {
+                    let res = gloo_net::http::Request::post(&action)
+                        .header("Accept", "application/json")
+                        .redirect(RequestRedirect::Follow)
+                        .body(form_data)
+                        .send()
+                        .await;
+                    match res {
+                        Err(e) => {
+                            error!("<Form/> error while POSTing: {e:#?}");
+                            if let Some(error) = error {
+                                error.set(Some(Box::new(e)));
+                            }
+                        }
+                        Ok(resp) => {
+                            if let Some(version) = action_version {
+                                version.update(|n| *n += 1);
+                            }
+                            if let Some(error) = error {
+                                error.set(None);
+                            }
+                            if let Some(on_response) = on_response.clone() {
+                                on_response(resp.as_raw());
+                            }
+                            // Check all the logical 3xx responses that might
+                            // get returned from a server function
+                            if resp.redirected() {
+                                let resp_url = &resp.url();
+                                match Url::try_from(resp_url.as_str()) {
+                                    Ok(url) => {
+                                        request_animation_frame(move || {
+                                            if let Err(e) = navigate(
+                                                &format!(
+                                                    "{}{}",
+                                                    url.pathname, url.search,
+                                                ),
+                                                Default::default(),
+                                            ) {
+                                                warn!("{}", e);
+                                            }
+                                        });
+                                    }
+                                    Err(e) => warn!("{}", e),
+                                }
+                            }
+                        }
+                    }
+                });
+            }
             // POST
-            if method == "post" {
+            else if method == "post" {
                 ev.prevent_default();
                 ev.stop_propagation();
 
