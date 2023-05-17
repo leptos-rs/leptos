@@ -12,7 +12,7 @@
 //!
 //! And you can do all three of these **using the same Leptos code.**
 //!
-//! Take a look at the [Lepto's Book](https://leptos-rs.github.io/leptos/) for a walkthrough of the framework.
+//! Take a look at the [Leptos Book](https://leptos-rs.github.io/leptos/) for a walkthrough of the framework.
 //! Join us on our [Discord Channel](https://discord.gg/v38Eef6sWG) to see what the community is building.
 //! Explore our [Examples](https://github.com/leptos-rs/leptos/tree/main/examples) to see Leptos in action.
 //!
