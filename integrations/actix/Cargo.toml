@@ -8,6 +8,7 @@ repository = "https://github.com/leptos-rs/leptos"
 description = "Actix integrations for the Leptos web framework."
 
 [dependencies]
+actix-http = "3"
 actix-web = "4"
 futures = "0.3"
 leptos = { workspace = true, features = ["ssr"] }

@@ -185,7 +185,7 @@ pub fn handle_server_fns_with_context(
                     .and_then(|value| value.to_str().ok());
 
                 if let Some(server_fn) = server_fn_by_path(path.as_str()) {
-                    let body: &[u8] = &body;
+                    let body_ref: &[u8] = &body;
 
                     let runtime = create_runtime();
                     let (cx, disposer) = raw_scope_and_disposer(runtime);
@@ -198,10 +198,28 @@ pub fn handle_server_fns_with_context(
                     provide_context(cx, req.clone());
                     provide_context(cx, res_options.clone());
 
+                    // we consume the body here (using the web::Bytes extractor), but it is required for things
+                    // like MultipartForm
+                    if req
+                        .headers()
+                        .get("Content-Type")
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(|value| {
+                            Some(
+                                value.starts_with(
+                                    "multipart/form-data; boundary=",
+                                ),
+                            )
+                        })
+                        == Some(true)
+                    {
+                        provide_context(cx, body.clone());
+                    }
+
                     let query = req.query_string().as_bytes();
 
                     let data = match &server_fn.encoding {
-                        Encoding::Url | Encoding::Cbor => body,
+                        Encoding::Url | Encoding::Cbor => body_ref,
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
                     let res = match (server_fn.trait_obj)(cx, data).await {
@@ -1072,9 +1090,17 @@ where
 {
     let req = use_context::<actix_web::HttpRequest>(cx)
         .expect("HttpRequest should have been provided via context");
-    let input = E::extract(&req)
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+
+    let input = if let Some(body) = use_context::<Bytes>(cx) {
+        let (_, mut payload) = actix_http::h1::Payload::create(false);
+        payload.unread_data(body);
+        E::from_request(&req, &mut dev::Payload::from(payload))
+    } else {
+        E::extract(&req)
+    }
+    .await
+    .map_err(|e| ServerFnError::ServerError(e.to_string()))?;
+
     Ok(f.call(input).await)
 }
 
