@@ -21,7 +21,7 @@ proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
-syn-rsx = {git = "https://github.com/vldm/syn-rsx"}
+rstml = "0.10.6"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"

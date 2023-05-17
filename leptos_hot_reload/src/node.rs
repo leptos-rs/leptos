@@ -2,7 +2,7 @@ use crate::parsing::is_component_node;
 use anyhow::Result;
 use quote::ToTokens;
 use serde::{Deserialize, Serialize};
-use syn_rsx::{Node, NodeAttribute};
+use rstml::node::{Node, NodeAttribute};
 
 // A lightweight virtual DOM structure we can use to hold
 // the state of a Leptos view macro template. This is because

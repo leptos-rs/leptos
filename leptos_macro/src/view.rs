@@ -5,7 +5,7 @@ use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, KeyedAttribute};
+use rstml::node::{Node, NodeAttribute, NodeElement, NodeName, KeyedAttribute};
 
 #[derive(Clone, Copy)]
 enum TagType {

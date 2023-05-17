@@ -3,7 +3,7 @@ use leptos_hot_reload::parsing::is_component_node;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{spanned::Spanned, ExprBlock};
-use syn_rsx::{Node, NodeAttribute, NodeElement, KeyedAttribute, NodeBlock};
+use rstml::node::{Node, NodeAttribute, NodeElement, KeyedAttribute, NodeBlock};
 use uuid::Uuid;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {

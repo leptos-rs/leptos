@@ -9,7 +9,7 @@ use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
-use syn_rsx::{parse, KeyedAttribute};
+use rstml::{parse, node::KeyedAttribute};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -351,8 +351,8 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     .chain(tokens)
                     .collect()
             };
-            let config = syn_rsx::ParserConfig::default().recover_block(true);
-            let parser = syn_rsx::Parser::new(config);
+            let config = rstml::ParserConfig::default().recover_block(true);
+            let parser = rstml::Parser::new(config);
             let (nodes, errors)  = parser.parse_recoverable(tokens).split_vec();
             let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
             let nodes_output = render_view(

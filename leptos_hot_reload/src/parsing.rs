@@ -1,4 +1,4 @@
-use syn_rsx::NodeElement;
+use rstml::node::NodeElement;
 
 pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     match &value {
