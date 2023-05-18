@@ -56,3 +56,22 @@ args = ["make", "wasm-pack-test"]
 description = "Runs end to end tests with cargo leptos"
 command = "cargo"
 args = ["leptos", "end-to-end"]
+
+[tasks.setup]
+description = "Setup e2e dependencies"
+cwd = "${END2END_DIR}"
+script = '''
+    BOLD="\e[1m"
+    GREEN="\e[0;32m"
+    RED="\e[0;31m"
+    RESET="\e[0m"
+
+    if command -v pnpm; then
+        pnpm install
+    elif command -v npm; then
+        npm install
+    else
+        echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
+        exit 1
+    fi
+'''
