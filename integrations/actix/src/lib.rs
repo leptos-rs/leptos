@@ -207,7 +207,9 @@ pub fn handle_server_fns_with_context(
                     let query = req.query_string().as_bytes();
 
                     let data = match &server_fn.encoding {
-                        Encoding::Url | Encoding::FormData | Encoding::Cbor => body_ref,
+                        Encoding::Url | Encoding::FormData | Encoding::Cbor => {
+                            body_ref
+                        }
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
                     let res = match (server_fn.trait_obj)(cx, data).await {

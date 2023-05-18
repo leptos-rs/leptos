@@ -59,7 +59,9 @@ fn server_formdata_macro_impl(
             .and_then(|ctx| fn_arg_is_cx(f, ctx).then_some(f))
     });
 
-    if (cx_arg.is_some() && body.inputs.len() > 1) || (cx_arg.is_none() && body.inputs.len() > 0) {
+    if (cx_arg.is_some() && body.inputs.len() > 1)
+        || (cx_arg.is_none() && body.inputs.len() > 0)
+    {
         abort!(
             if cx_arg.is_some() {
                 body.inputs.iter().nth(1)
@@ -210,7 +212,13 @@ pub fn server_macro_impl(
     } = syn::parse2::<ServerFnName>(args)?;
 
     if encoding == syn::parse_quote!(Encoding::FormData) {
-        return server_formdata_macro_impl(struct_name, prefix, body, server_context, server_fn_path);
+        return server_formdata_macro_impl(
+            struct_name,
+            prefix,
+            body,
+            server_context,
+            server_fn_path,
+        );
     }
 
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));

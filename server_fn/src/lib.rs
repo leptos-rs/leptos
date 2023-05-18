@@ -426,9 +426,10 @@ where
     };
 
     let content_type_header = match &enc {
-        Encoding::Url | Encoding::FormData | Encoding::GetJSON | Encoding::GetCBOR => {
-            "application/x-www-form-urlencoded"
-        }
+        Encoding::Url
+        | Encoding::FormData
+        | Encoding::GetJSON
+        | Encoding::GetCBOR => "application/x-www-form-urlencoded",
         Encoding::Cbor => "application/cbor",
     };
 
@@ -441,26 +442,28 @@ where
 
     #[cfg(target_arch = "wasm32")]
     let resp = match &enc {
-        Encoding::Url | Encoding::Cbor | Encoding::FormData => match args_encoded {
-            Payload::Binary(b) => {
-                let slice_ref: &[u8] = &b;
-                let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
-                gloo_net::http::Request::post(url)
+        Encoding::Url | Encoding::Cbor | Encoding::FormData => {
+            match args_encoded {
+                Payload::Binary(b) => {
+                    let slice_ref: &[u8] = &b;
+                    let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
+                    gloo_net::http::Request::post(url)
+                        .header("Content-Type", content_type_header)
+                        .header("Accept", accept_header)
+                        .body(js_array)
+                        .send()
+                        .await
+                        .map_err(|e| ServerFnError::Request(e.to_string()))?
+                }
+                Payload::Url(s) => gloo_net::http::Request::post(url)
                     .header("Content-Type", content_type_header)
                     .header("Accept", accept_header)
-                    .body(js_array)
+                    .body(s)
                     .send()
                     .await
-                    .map_err(|e| ServerFnError::Request(e.to_string()))?
+                    .map_err(|e| ServerFnError::Request(e.to_string()))?,
             }
-            Payload::Url(s) => gloo_net::http::Request::post(url)
-                .header("Content-Type", content_type_header)
-                .header("Accept", accept_header)
-                .body(s)
-                .send()
-                .await
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        },
+        }
         Encoding::GetCBOR | Encoding::GetJSON => match args_encoded {
             Payload::Binary(_) => panic!(
                 "Binary data cannot be transferred via GET request in a query \
@@ -479,24 +482,26 @@ where
     };
     #[cfg(not(target_arch = "wasm32"))]
     let resp = match &enc {
-        Encoding::Url | Encoding::Cbor | Encoding::FormData => match args_encoded {
-            Payload::Binary(b) => CLIENT
-                .post(url)
-                .header("Content-Type", content_type_header)
-                .header("Accept", accept_header)
-                .body(b)
-                .send()
-                .await
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
-            Payload::Url(s) => CLIENT
-                .post(url)
-                .header("Content-Type", content_type_header)
-                .header("Accept", accept_header)
-                .body(s)
-                .send()
-                .await
-                .map_err(|e| ServerFnError::Request(e.to_string()))?,
-        },
+        Encoding::Url | Encoding::Cbor | Encoding::FormData => {
+            match args_encoded {
+                Payload::Binary(b) => CLIENT
+                    .post(url)
+                    .header("Content-Type", content_type_header)
+                    .header("Accept", accept_header)
+                    .body(b)
+                    .send()
+                    .await
+                    .map_err(|e| ServerFnError::Request(e.to_string()))?,
+                Payload::Url(s) => CLIENT
+                    .post(url)
+                    .header("Content-Type", content_type_header)
+                    .header("Accept", accept_header)
+                    .body(s)
+                    .send()
+                    .await
+                    .map_err(|e| ServerFnError::Request(e.to_string()))?,
+            }
+        }
         Encoding::GetJSON | Encoding::GetCBOR => match args_encoded {
             Payload::Binary(_) => panic!(
                 "Binary data cannot be transferred via GET request in a query \

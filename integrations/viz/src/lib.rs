@@ -210,9 +210,9 @@ async fn handle_server_fns_inner(
                             provide_context(cx, ResponseOptions::default());
 
                             let data = match &server_fn.encoding {
-                                Encoding::Url | Encoding::FormData | Encoding::Cbor => {
-                                    &req_parts.body
-                                }
+                                Encoding::Url
+                                | Encoding::FormData
+                                | Encoding::Cbor => &req_parts.body,
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
