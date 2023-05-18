@@ -218,7 +218,7 @@ pub fn server_fn_by_path(path: &str) -> Option<ServerFunction> {
 ///     if let Some(server_fn) = server_fn_by_path(path.as_str()) {
 ///         let query = req.query_string().as_bytes();
 ///         let data = match &server_fn.encoding {
-///             Encoding::Url | Encoding::Cbor => &body,
+///             Encoding::Url | Encoding::FormData | Encoding::Cbor => &body,
 ///             Encoding::GetJSON | Encoding::GetCBOR => query,
 ///         };
 ///         match (server_fn.trait_obj)(data).await {

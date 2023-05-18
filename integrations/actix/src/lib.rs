@@ -200,26 +200,14 @@ pub fn handle_server_fns_with_context(
 
                     // we consume the body here (using the web::Bytes extractor), but it is required for things
                     // like MultipartForm
-                    if req
-                        .headers()
-                        .get("Content-Type")
-                        .and_then(|value| value.to_str().ok())
-                        .and_then(|value| {
-                            Some(
-                                value.starts_with(
-                                    "multipart/form-data; boundary=",
-                                ),
-                            )
-                        })
-                        == Some(true)
-                    {
+                    if server_fn.encoding == Encoding::FormData {
                         provide_context(cx, body.clone());
                     }
 
                     let query = req.query_string().as_bytes();
 
                     let data = match &server_fn.encoding {
-                        Encoding::Url | Encoding::Cbor => body_ref,
+                        Encoding::Url | Encoding::FormData | Encoding::Cbor => body_ref,
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
                     let res = match (server_fn.trait_obj)(cx, data).await {

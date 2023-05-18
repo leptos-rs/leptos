@@ -318,7 +318,7 @@ async fn handle_server_fns_inner(
 
                 let query: &Bytes = &query.unwrap_or("".to_string()).into();
                 let data = match &server_fn.encoding {
-                    Encoding::Url | Encoding::Cbor => &req_parts.body,
+                    Encoding::Url | Encoding::FormData | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,
                 };
                 let res = match (server_fn.trait_obj)(cx, data).await {

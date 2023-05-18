@@ -223,6 +223,8 @@ pub enum Encoding {
     /// The Default URL-encoded encoding method
     #[default]
     Url,
+    /// Encoding method for form data. Assumes that the request may contain non-UTF8 data.
+    FormData,
     /// Pass arguments to server fns as part of the query string. Cacheable. Returns JSON
     GetJSON,
     /// Pass arguments to server fns as part of the query string. Cacheable. Returns CBOR
@@ -235,6 +237,7 @@ impl FromStr for Encoding {
     fn from_str(input: &str) -> Result<Encoding, Self::Err> {
         match input {
             "URL" => Ok(Encoding::Url),
+            "FormData" => Ok(Encoding::FormData),
             "Cbor" => Ok(Encoding::Cbor),
             "GetCbor" => Ok(Encoding::GetCBOR),
             "GetJson" => Ok(Encoding::GetJSON),
@@ -248,6 +251,7 @@ impl quote::ToTokens for Encoding {
         let option: syn::Ident = match *self {
             Encoding::Cbor => parse_quote!(Cbor),
             Encoding::Url => parse_quote!(Url),
+            Encoding::FormData => parse_quote!(FormData),
             Encoding::GetJSON => parse_quote!(GetJSON),
             Encoding::GetCBOR => parse_quote!(GetCBOR),
         };
@@ -269,7 +273,7 @@ impl quote::ToTokens for Encoding {
 /// Technically, the trait is implemented on a type that describes the server function's arguments.
 pub trait ServerFn<T: 'static>
 where
-    Self: Serialize + DeserializeOwned + Sized + 'static,
+    Self: Serialize + DeserializeOwned + Default + Sized + 'static,
 {
     /// The return type of the function.
     type Output: Serialize;
@@ -314,6 +318,7 @@ where
                 }
                 Encoding::Cbor => ciborium::de::from_reader(data)
                     .map_err(|e| ServerFnError::Deserialization(e.to_string())),
+                Encoding::FormData => Ok(Self::default()),
             };
             Box::pin(async move {
                 let value: Self = match value {
@@ -329,7 +334,7 @@ where
 
                 // serialize the output
                 let result = match Self::encoding() {
-                    Encoding::Url | Encoding::GetJSON => {
+                    Encoding::Url | Encoding::FormData | Encoding::GetJSON => {
                         match serde_json::to_string(&result).map_err(|e| {
                             ServerFnError::Serialization(e.to_string())
                         }) {
@@ -417,17 +422,18 @@ where
                 .map_err(|e| ServerFnError::Serialization(e.to_string()))?;
             Payload::Binary(buffer)
         }
+        Encoding::FormData => Payload::Binary(Vec::new()),
     };
 
     let content_type_header = match &enc {
-        Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
+        Encoding::Url | Encoding::FormData | Encoding::GetJSON | Encoding::GetCBOR => {
             "application/x-www-form-urlencoded"
         }
         Encoding::Cbor => "application/cbor",
     };
 
     let accept_header = match &enc {
-        Encoding::Url | Encoding::GetJSON => {
+        Encoding::Url | Encoding::FormData | Encoding::GetJSON => {
             "application/x-www-form-urlencoded"
         }
         Encoding::Cbor | Encoding::GetCBOR => "application/cbor",
@@ -435,7 +441,7 @@ where
 
     #[cfg(target_arch = "wasm32")]
     let resp = match &enc {
-        Encoding::Url | Encoding::Cbor => match args_encoded {
+        Encoding::Url | Encoding::Cbor | Encoding::FormData => match args_encoded {
             Payload::Binary(b) => {
                 let slice_ref: &[u8] = &b;
                 let js_array = js_sys::Uint8Array::from(slice_ref).buffer();
@@ -473,7 +479,7 @@ where
     };
     #[cfg(not(target_arch = "wasm32"))]
     let resp = match &enc {
-        Encoding::Url | Encoding::Cbor => match args_encoded {
+        Encoding::Url | Encoding::Cbor | Encoding::FormData => match args_encoded {
             Payload::Binary(b) => CLIENT
                 .post(url)
                 .header("Content-Type", content_type_header)

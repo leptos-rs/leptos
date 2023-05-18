@@ -38,6 +38,137 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
     }
 }
 
+fn server_formdata_macro_impl(
+    struct_name: Ident,
+    prefix: Option<Literal>,
+    body: TokenStream2,
+    server_context: Option<ServerContext>,
+    server_fn_path: Option<Path>,
+) -> Result<TokenStream2> {
+    let prefix = prefix.unwrap_or_else(|| Literal::string(""));
+
+    let body = syn::parse::<ServerFnBody>(body.into())?;
+    let fn_name = &body.ident;
+    let fn_name_as_str = body.ident.to_string();
+    let vis = body.vis;
+    let block = body.block;
+
+    let cx_arg = body.inputs.iter().next().and_then(|f| {
+        server_context
+            .as_ref()
+            .and_then(|ctx| fn_arg_is_cx(f, ctx).then_some(f))
+    });
+
+    if (cx_arg.is_some() && body.inputs.len() > 1) || (cx_arg.is_none() && body.inputs.len() > 0) {
+        abort!(
+            if cx_arg.is_some() {
+                body.inputs.iter().nth(1)
+            } else {
+                body.inputs.iter().next()
+            },
+            "form-data server fns cannot have arguments"
+        );
+    }
+
+    let cx_fn_arg = if cx_arg.is_some() {
+        quote! { cx, }
+    } else {
+        quote! {}
+    };
+
+    let cx_arg = if let Some(arg) = cx_arg {
+        quote! { #arg }
+    } else {
+        quote! {}
+    };
+
+    let output_arrow = body.output_arrow;
+    let return_ty = body.return_ty;
+
+    let output_ty = 'output_ty: {
+        if let syn::Type::Path(pat) = &return_ty {
+            if pat.path.segments[0].ident == "Result" {
+                if let PathArguments::AngleBracketed(args) =
+                    &pat.path.segments[0].arguments
+                {
+                    break 'output_ty &args.args[0];
+                }
+            }
+        }
+
+        abort!(
+            return_ty,
+            "server functions should return Result<T, ServerFnError>"
+        );
+    };
+
+    let server_ctx_path = if let Some(ctx) = &server_context {
+        let path = &ctx.path;
+        quote!(#path)
+    } else {
+        quote!(())
+    };
+
+    let server_fn_path = server_fn_path
+        .map(|path| quote!(#path))
+        .unwrap_or_else(|| quote! { server_fn });
+
+    let key_env_var = match option_env!("SERVER_FN_OVERRIDE_KEY") {
+        Some(_) => "SERVER_FN_OVERRIDE_KEY",
+        None => "CARGO_MANIFEST_DIR",
+    };
+
+    Ok(quote::quote! {
+        #[derive(Clone, Debug, Default, ::serde::Serialize, ::serde::Deserialize)]
+        pub struct #struct_name;
+
+        impl #server_fn_path::ServerFn<#server_ctx_path> for #struct_name {
+            type Output = #output_ty;
+
+            fn prefix() -> &'static str {
+                #prefix
+            }
+
+            fn url() -> &'static str {
+                #server_fn_path::const_format::concatcp!(#fn_name_as_str, #server_fn_path::xxhash_rust::const_xxh64::xxh64(concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
+            }
+
+            fn encoding() -> #server_fn_path::Encoding {
+                #server_fn_path::Encoding::FormData
+            }
+
+            #[cfg(feature = "ssr")]
+            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
+                Box::pin(async move { #fn_name(#cx_fn_arg).await })
+            }
+
+            #[cfg(not(feature = "ssr"))]
+            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
+                Box::pin(async move { #fn_name(#cx_fn_arg).await })
+            }
+        }
+
+        #[cfg(feature = "ssr")]
+        #vis async fn #fn_name(#cx_arg) #output_arrow #return_ty {
+            #block
+        }
+
+        #[cfg(not(feature = "ssr"))]
+        #[allow(unused_variables)]
+        #vis async fn #fn_name(#cx_arg) #output_arrow #return_ty {
+
+            #server_fn_path::call_server_fn(
+                &{
+                    let prefix = #struct_name::prefix().to_string();
+                    prefix + "/" + #struct_name::url()
+                },
+                #struct_name,
+                #server_fn_path::Encoding::FormData
+            ).await
+        }
+    })
+}
+
 /// The implementation of the server_fn macro.
 /// To allow the macro to accept a custom context from the server, pass a custom server context to this function.
 /// **The Context comes from the server.** Optionally, the first argument of a server function
@@ -77,6 +208,11 @@ pub fn server_macro_impl(
         encoding,
         ..
     } = syn::parse2::<ServerFnName>(args)?;
+
+    if encoding == syn::parse_quote!(Encoding::FormData) {
+        return server_formdata_macro_impl(struct_name, prefix, body, server_context, server_fn_path);
+    }
+
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
     let encoding = quote!(#server_fn_path::#encoding);
 
@@ -200,7 +336,7 @@ pub fn server_macro_impl(
     };
 
     Ok(quote::quote! {
-        #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
+        #[derive(Clone, Debug, Default, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
         }
@@ -273,6 +409,7 @@ impl Parse for ServerFnName {
             .map(|encoding| {
                 match encoding.to_string().to_lowercase().as_str() {
                     "\"url\"" => syn::parse_quote!(Encoding::Url),
+                    "\"formdata\"" => syn::parse_quote!(Encoding::FormData),
                     "\"cbor\"" => syn::parse_quote!(Encoding::Cbor),
                     "\"getcbor\"" => syn::parse_quote!(Encoding::GetCBOR),
                     "\"getjson\"" => syn::parse_quote!(Encoding::GetJSON),
