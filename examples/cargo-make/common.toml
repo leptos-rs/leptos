@@ -5,6 +5,9 @@ env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings" }
 description = "Check for style violations"
 dependencies = ["check-format-flow", "clippy-flow"]
 
+[tasks.check-format]
+args = ["fmt", "--", "--check", "--config-path", "../../"]
+
 [tasks.verify-local]
 description = "Run all quality checks and tests from an example directory"
 dependencies = ["check-style", "test-local"]
