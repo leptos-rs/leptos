@@ -83,9 +83,9 @@ impl Todos {
         self.0.retain(|todo| {
             let retain = f(todo);
             // because these signals are created at the top level,
-            // they are owned by the <TodoMVC/> component and not 
-            // by the individual <Todo/> components. This means 
-            // that if they are not manually disposed when removed, they 
+            // they are owned by the <TodoMVC/> component and not
+            // by the individual <Todo/> components. This means
+            // that if they are not manually disposed when removed, they
             // will be held onto until the <TodoMVC/> is unmounted.
             if !retain {
                 todo.title.dispose();
