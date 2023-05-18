@@ -4,7 +4,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    use_is_back_navigation, RouteContext, RouterContext,
+    use_is_back_navigation, RouteContext, RouterContext, SetIsRouting,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -56,6 +56,7 @@ pub fn Routes(
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
+
     leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
         .into_view(cx)
 }
@@ -408,7 +409,7 @@ fn root_route(
 ) -> Memo<Option<View>> {
     let root_cx = RefCell::new(None);
 
-    create_memo(cx, move |prev| {
+    let root_view = create_memo(cx, move |prev| {
         provide_context(cx, route_states);
         route_states.with(|state| {
             if state.routes.borrow().is_empty() {
@@ -438,7 +439,34 @@ fn root_route(
                 }
             }
         })
-    })
+    });
+
+    if cfg!(any(feature = "csr", feature = "hydrate")) && use_context::<SetIsRouting>(cx).is_some() {
+        let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
+        let is_fallback = create_memo(cx, move |_| {
+            !global_suspense.as_inner().ready()
+        });
+
+        let last_two_views = create_memo(cx, move |prev: Option<&(Option<View>, Option<View>)>| {
+            match prev {
+                None => (root_view.get(), None),
+                Some((curr, _)) => (root_view.get(), curr.clone())
+            }
+        });
+
+        create_memo(cx, move |_| {
+            let (curr, prev) = last_two_views.get();
+            if is_fallback.get() {
+                leptos::log!("prev {prev:?}");
+                prev
+            } else {
+                leptos::log!("curr {curr:?}");
+                curr
+            }
+        })
+    } else {
+        root_view
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -3,10 +3,10 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_rw_signal, create_signal, queue_microtask, store_value, ReadSignal,
-    RwSignal, Scope, SignalUpdate, StoredValue, WriteSignal,
+    RwSignal, Scope, SignalUpdate, StoredValue, WriteSignal, create_isomorphic_effect, signal::SignalGet, SignalSet
 };
 use futures::Future;
-use std::{borrow::Cow, collections::VecDeque, pin::Pin};
+use std::{borrow::Cow, cell::RefCell, collections::VecDeque, pin::Pin};
 
 /// Tracks [`Resource`](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.
@@ -20,6 +20,25 @@ pub struct SuspenseContext {
     pub(crate) should_block: StoredValue<bool>,
 }
 
+/// A single, global suspense context that will be checked when resources 
+/// are read. This won’t be “blocked” by lower suspense components. This is 
+/// useful for e.g., holding route transitions.
+#[derive(Copy, Clone, Debug)]
+pub struct GlobalSuspenseContext(SuspenseContext);
+
+impl GlobalSuspenseContext {
+    /// Creates an empty global suspense context.
+    pub fn new(cx: Scope) -> Self {
+        Self(SuspenseContext::new(cx))
+    }
+
+    /// Returns a reference to the underlying suspense context.
+    pub fn as_inner(&self) -> &SuspenseContext {
+        &self.0
+    }
+ }
+
+
 impl SuspenseContext {
     /// Whether the suspense contains local resources at this moment,
     /// and therefore can't be serialized
@@ -31,6 +50,25 @@ impl SuspenseContext {
     /// meaning the HTML stream should not begin until it has resolved.
     pub fn should_block(&self) -> bool {
         self.should_block.get_value()
+    }
+
+    /// Returns a `Future` that resolves when this suspense is resolved.
+    pub fn to_future(&self, cx: Scope) -> impl Future<Output = ()> {
+        use futures::StreamExt; 
+
+        let pending_resources = self.pending_resources;
+        let (tx, mut rx) = futures::channel::mpsc::channel(1);
+        let tx = RefCell::new(tx);
+        queue_microtask(move || {
+            create_isomorphic_effect(cx, move |_| {
+                if pending_resources.get() == 0 {
+                    _ = tx.borrow_mut().try_send(());
+                }
+            })
+        });
+        async move { 
+            rx.next().await;
+        }
     }
 }
 
@@ -96,6 +134,12 @@ impl SuspenseContext {
                 });
             }
         });
+    }
+
+    /// Resets the counter of pending resources.
+    pub fn clear(&self) {
+        self.set_pending_resources.set(0);
+        self.pending_serializable_resources.set(0);
     }
 
     /// Tests whether all of the pending resources have resolved.
