@@ -1,0 +1,2 @@
+[tasks.clean-all]
+dependencies = ["clean-cargo", "clean-node_modules", "clean-playwright"]
