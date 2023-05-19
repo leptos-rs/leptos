@@ -1,4 +1,7 @@
-extend = [{ path = "../cargo-make/common.toml" }]
+extend = [
+    { path = "../cargo-make/common.toml" },
+    { path = "../cargo-make/cargo-leptos-web-test.toml" },
+]
 
 [tasks.build]
 command = "cargo"
