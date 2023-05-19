@@ -291,7 +291,6 @@ impl Parse for ServerFnName {
         let _comma3 = input.parse()?;
         let fn_path = input.parse()?;
 
-
         Ok(Self {
             struct_name,
             _comma,
@@ -299,7 +298,7 @@ impl Parse for ServerFnName {
             _comma2,
             encoding,
             _comma3,
-            fn_path
+            fn_path,
         })
     }
 }
