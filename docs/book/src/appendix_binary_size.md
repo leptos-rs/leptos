@@ -37,6 +37,7 @@ To do this, create a file in your project at `.cargo/config.toml`
 
 ```toml
 [unstable]
+[target.'cfg(target_arch = "wasm32")']
 build-std = ["std", "panic_abort", "core", "alloc"]
 build-std-features = ["panic_immediate_abort"]
 ```
