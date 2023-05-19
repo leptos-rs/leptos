@@ -76,6 +76,16 @@ pub fn use_resolved_path(
 }
 
 /// Returns a function that can be used to navigate to a new route.
+/// If you are getting a BorrowMut error while you are using `use_navigate`
+/// try wrapping it in a `request_animation_frame`.
+/// ```
+/// let navigate = leptos_router::use_navigate(cx);
+/// request_animation_frame(cx,
+/// _ = navigate(
+///     &href,
+///     Default::default()).unwrap()
+/// );
+/// ```
 pub fn use_navigate(
     cx: Scope,
 ) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
