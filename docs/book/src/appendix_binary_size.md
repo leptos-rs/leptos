@@ -37,10 +37,17 @@ To do this, create a file in your project at `.cargo/config.toml`
 
 ```toml
 [unstable]
-[target.'cfg(target_arch = "wasm32")']
 build-std = ["std", "panic_abort", "core", "alloc"]
 build-std-features = ["panic_immediate_abort"]
 ```
+
+Note that if you're using this with SSR too, the same Cargo profile will be applied. You'll need to explicitly specify your target:
+```toml
+[build]
+target = "x86_64-unknown-linux-gnu" # or whatever
+```
+
+And you'll need to add `panic = "abort"` to `[profile.release]` in `Cargo.toml`. Note that this applies the same `build-std` and panic settings to your server binary, which may not be desirable. Some further exploration is probably needed here.
 
 5. One of the sources of binary size in WASM binaries can be `serde` serialization/deserialization code. Leptos uses `serde` by default to serialize and deserialize resources created with `create_resource`. You might try experimenting with the `miniserde` and `serde-lite` features, which allow you to use those crates for serialization and deserialization instead; each only implements a subset of `serde`’s functionality, but typically optimizes for size over speed.
 
