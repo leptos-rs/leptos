@@ -78,3 +78,10 @@ script = '''
         exit 1
     fi
 '''
+
+[tasks.auto-setup]
+script = '''
+  if [ ! -d "${END2END_DIR}/node_modules" ]; then
+    cargo make setup
+  fi
+'''
