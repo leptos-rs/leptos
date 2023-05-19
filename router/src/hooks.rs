@@ -80,9 +80,9 @@ pub fn use_resolved_path(
 /// try wrapping it in a `request_animation_frame`.
 /// ```
 /// let navigate = leptos_router::use_navigate(cx);
-/// request_animation_frame(cx,
-/// _ = navigate(
-///     &href,
+/// request_animation_frame(
+///     cx,
+///     _ = navigate(&href, Default::default()).unwrap(),
 ///     Default::default()).unwrap()
 /// );
 /// ```
