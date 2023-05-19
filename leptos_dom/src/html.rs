@@ -807,7 +807,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Sets a style on an element.
     ///
     /// **Note**: In the builder syntax, this will be overwritten by the `style`
-    /// attribute if you use `.attr("class", /* */)`. In the `view` macro, they
+    /// attribute if you use `.attr("style", /* */)`. In the `view` macro, they
     /// are automatically re-ordered so that this over-writing does not happen.
     #[track_caller]
     pub fn style(
