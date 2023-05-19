@@ -44,7 +44,7 @@ error: unexpected end of input, expected assignment `=`
 45 |     #[prop(default)] default: bool,
    |                   ^
 
-error: unexpected end of input, expected one of: `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
 
        = help: try `#[prop(default=5 * 10)]`
   --> tests/ui/component_absolute.rs:54:22

@@ -1,9 +1,14 @@
 use crate::attribute_value;
-use leptos_hot_reload::parsing::is_component_node;
+use itertools::Either;
+use leptos_hot_reload::parsing::{
+    block_to_primitive_expression, is_component_node, value_to_string,
+};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, ExprBlock};
-use rstml::node::{Node, NodeAttribute, NodeElement, KeyedAttribute, NodeBlock};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement,
+};
+use syn::spanned::Spanned;
 use uuid::Uuid;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
@@ -247,7 +252,10 @@ fn next_sibling_node(
                 if is_component_node(sibling) {
                     next_sibling_node(children, idx + 1, next_el_id)
                 } else {
-                    Ok(Some(child_ident(*next_el_id + 1, sibling.name().span())))
+                    Ok(Some(child_ident(
+                        *next_el_id + 1,
+                        sibling.name().span(),
+                    )))
                 }
             }
             Node::Block(sibling) => {
@@ -387,13 +395,9 @@ fn child_to_tokens(
                 ))
             }
         }
-        //TODO Should we ewerywhere use syn::expr? 
         Node::Text(node) => block_to_tokens(
             cx,
-            &syn::ExprLit{
-                attrs: vec![],
-                lit: node.value.clone().into()
-            }.into(),
+            Either::Left(node.value_string()),
             node.value.span(),
             parent,
             prev_sib,
@@ -403,14 +407,10 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        Node::Block(NodeBlock::ValidBlock(b)) => block_to_tokens(
+        Node::RawText(node) => block_to_tokens(
             cx,
-            &ExprBlock {
-                attrs: vec![],
-                label: None,
-                block: b.clone()
-            }.into(),
-            b.span(),
+            Either::Left(node.to_string_best()),
+            node.span(),
             parent,
             prev_sib,
             next_sib,
@@ -419,11 +419,29 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-
-        // TODO: Do we need to handle invalid blocks?
-        Node::Block(b @ NodeBlock::Invalid{..}) => block_to_tokens(
+        Node::Block(NodeBlock::ValidBlock(b)) => {
+            let value = match block_to_primitive_expression(b)
+                .and_then(value_to_string)
+            {
+                Some(v) => Either::Left(v),
+                None => Either::Right(b.into_token_stream()),
+            };
+            block_to_tokens(
+                cx,
+                value,
+                b.span(),
+                parent,
+                prev_sib,
+                next_sib,
+                next_el_id,
+                template,
+                expressions,
+                navigations,
+            )
+        }
+        Node::Block(b @ NodeBlock::Invalid { .. }) => block_to_tokens(
             cx,
-            &syn::Expr::Verbatim(b.to_token_stream()),
+            Either::Right(b.into_token_stream()),
             b.span(),
             parent,
             prev_sib,
@@ -440,7 +458,7 @@ fn child_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn block_to_tokens(
     _cx: &Ident,
-    value: &syn::Expr,
+    value: Either<String, TokenStream>,
     span: Span,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -450,17 +468,6 @@ fn block_to_tokens(
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
 ) -> PrevSibChange {
-    let str_value = match value {
-        syn::Expr::Lit(lit) => match &lit.lit {
-            syn::Lit::Str(s) => Some(s.value()),
-            syn::Lit::Char(c) => Some(c.value().to_string()),
-            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
-            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
-            _ => None,
-        },
-        _ => None,
-    };
-
     // code to navigate to this text node
 
     let (name, location) = /* if is_first_child && mode == Mode::Client {
@@ -494,27 +501,30 @@ fn block_to_tokens(
         }
     };
 
-    if let Some(v) = str_value {
-        navigations.push(location);
-        template.push_str(&v);
+    match value {
+        Either::Left(v) => {
+            navigations.push(location);
+            template.push_str(&v);
 
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
+            if let Some(name) = name {
+                PrevSibChange::Sib(name)
+            } else {
+                PrevSibChange::Parent
+            }
         }
-    } else {
-        template.push_str("<!>");
-        navigations.push(location);
+        Either::Right(value) => {
+            template.push_str("<!>");
+            navigations.push(location);
 
-        expressions.push(quote! {
-			leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
-        });
+            expressions.push(quote! {
+                leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
+            });
 
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
+            if let Some(name) = name {
+                PrevSibChange::Sib(name)
+            } else {
+                PrevSibChange::Parent
+            }
         }
     }
 }

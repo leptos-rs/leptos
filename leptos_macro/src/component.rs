@@ -9,10 +9,9 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
     parse::Parse, parse_quote, spanned::Spanned,
-    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
-    LitStr, Meta, Pat, PatIdent, Path,
-    PathArguments, ReturnType, Type, TypePath, Visibility,
-    ItemFn, Stmt, Item,
+    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
+    ItemFn, LitStr, Meta, Pat, PatIdent, Path, PathArguments, ReturnType, Stmt,
+    Type, TypePath, Visibility,
 };
 pub struct Model {
     is_transparent: bool,
@@ -57,22 +56,17 @@ impl Parse for Model {
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
-        drain_filter(&mut item.attrs, |attr| {
-            
-            match &attr.meta {
-                Meta::NameValue(attr) => attr.path == parse_quote!(doc),
-                Meta::List(attr ) => attr.path == parse_quote!(prop),
-                _ => false
-            }
+        drain_filter(&mut item.attrs, |attr| match &attr.meta {
+            Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+            Meta::List(attr) => attr.path == parse_quote!(prop),
+            _ => false,
         });
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
-                drain_filter(&mut ty.attrs, |attr| {
-                    match &attr.meta {
-                        Meta::NameValue(attr) => attr.path == parse_quote!(doc),
-                        Meta::List(attr ) => attr.path == parse_quote!(prop),
-                        _ => false
-                    }
+                drain_filter(&mut ty.attrs, |attr| match &attr.meta {
+                    Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+                    Meta::List(attr) => attr.path == parse_quote!(prop),
+                    _ => false,
                 });
             }
         });
@@ -410,11 +404,9 @@ impl Docs {
         let mut attrs = attrs
             .iter()
             .filter_map(|attr| {
-                
                 let Meta::NameValue(attr ) = &attr.meta else {
                     return None
                 };
-                
                 if !attr.path.is_ident("doc") {
                     return None
                 }

@@ -1,11 +1,15 @@
 use crate::{attribute_value, Mode};
 use convert_case::{Case::Snake, Casing};
-use leptos_hot_reload::parsing::{is_component_node, value_to_string};
+use leptos_hot_reload::parsing::{
+    block_to_primitive_expression, is_component_node, value_to_string,
+};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
+};
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
-use rstml::node::{Node, NodeAttribute, NodeElement, NodeName, KeyedAttribute};
 
 #[derive(Clone, Copy)]
 enum TagType {
@@ -228,7 +232,6 @@ fn root_node_to_tokens_ssr(
         }
         Node::Block(node) => {
             quote! {
-                #[allow(unused_braces)]
                 #node
             }
         }
@@ -489,35 +492,39 @@ fn element_to_tokens_ssr(
                             );
                         }
                         Node::Text(text) => {
-                            let value = text.value_string() ;
+                            let value = text.value_string();
                             let value = if is_script_or_style {
                                 value.into()
                             } else {
                                 html_escape::encode_safe(&value)
                             };
                             template.push_str(
-                                &value
-                                    .replace('{', "\\{")
-                                    .replace('}', "\\}"),
+                                &value.replace('{', "\\{").replace('}', "\\}"),
                             );
                         }
-                        Node::Block(block) => {
-                            // TODO: Is it was string? Original syn-rsx parse block with braces,
-                            // but value_to_string expect it without braces.
-                            // if let Some(value) = value_to_string(&block.value) {
-                            //     template.push_str(&value);
-                            // } else {
-
-                            if !template.is_empty() {
-                                chunks.push(SsrElementChunks::String {
-                                    template: std::mem::take(template),
-                                    holes: std::mem::take(holes),
-                                })
+                        Node::Block(NodeBlock::ValidBlock(block)) => {
+                            if let Some(value) =
+                                block_to_primitive_expression(block)
+                                    .and_then(value_to_string)
+                            {
+                                template.push_str(&value);
+                            } else {
+                                if !template.is_empty() {
+                                    chunks.push(SsrElementChunks::String {
+                                        template: std::mem::take(template),
+                                        holes: std::mem::take(holes),
+                                    })
+                                }
+                                chunks.push(SsrElementChunks::View(quote! {
+                                    {#block}.into_view(#cx)
+                                }));
                             }
+                        }
+                        // Keep invalid blocks for faster IDE diff (on user type)
+                        Node::Block(block @ NodeBlock::Invalid { .. }) => {
                             chunks.push(SsrElementChunks::View(quote! {
                                 {#block}.into_view(#cx)
                             }));
-                            
                         }
                         Node::Fragment(_) => abort!(
                             Span::call_site(),
@@ -630,7 +637,9 @@ fn set_class_attribute_ssr(
         .attributes()
         .iter()
         .filter_map(|a| match a {
-            NodeAttribute::Attribute(attr) if attr.key.to_string() == "class" => {
+            NodeAttribute::Attribute(attr)
+                if attr.key.to_string() == "class" =>
+            {
                 attr.value().and_then(value_to_string)
             }
             _ => None,
@@ -744,7 +753,9 @@ fn set_style_attribute_ssr(
         .attributes()
         .iter()
         .filter_map(|a| match a {
-            NodeAttribute::Attribute(attr) if attr.key.to_string() == "style" => {
+            NodeAttribute::Attribute(attr)
+                if attr.key.to_string() == "style" =>
+            {
                 attr.value().and_then(value_to_string)
             }
             _ => None,
@@ -943,14 +954,10 @@ fn node_to_tokens(
             view_marker,
         ),
         Node::Comment(_) | Node::Doctype(_) => Some(quote! {}),
-        Node::Text(node) => {
-            Some(quote! {
-                leptos::leptos_dom::html::text(#node)
-            })
-        }
-        Node::Block(node) => {
-            Some(quote! { #node })
-        }
+        Node::Text(node) => Some(quote! {
+            leptos::leptos_dom::html::text(#node)
+        }),
+        Node::Block(node) => Some(quote! { #node }),
         Node::RawText(r) => {
             let text = r.to_string_best();
             let text = syn::LitStr::new(&text, r.span());
@@ -975,7 +982,6 @@ fn element_to_tokens(
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
-
     let name = node.name();
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
@@ -1094,31 +1100,18 @@ fn element_to_tokens(
                     }),
                     false,
                 ),
-                Node::Text(node) => {
-                    (quote! { #node }, true)
-                }
-                // TODO: Implement html  escaping?
+                Node::Text(node) => (quote! { #node }, true),
                 Node::RawText(node) => {
                     let text = node.to_string_best();
                     let text = syn::LitStr::new(&text, node.span());
                     (quote! { #text }, true)
                 }
-                Node::Block(node) => {
-                    // TODO: Is there any static string possible in block?
-                    // if let Some(primitive) = value_to_string(&node.) {
-                    //     (quote! { #primitive }, true)
-                    // } 
-                    // else {
-                        // Remove allow(unused_braces) #node
-                        // to make rust-analyzer happy in case of invalid expr
-                        (
-                            quote! {
-                               #node
-                            },
-                            false,
-                        )
-                    // }
-                }
+                Node::Block(node) => (
+                    quote! {
+                       #node
+                    },
+                    false,
+                ),
                 Node::Element(node) => (
                     element_to_tokens(
                         cx,
@@ -1131,9 +1124,7 @@ fn element_to_tokens(
                     .unwrap_or_default(),
                     false,
                 ),
-                Node::Comment(_) | Node::Doctype(_)  => {
-                    (quote! {}, false)
-                }
+                Node::Comment(_) | Node::Doctype(_) => (quote! {}, false),
             };
             if is_static {
                 quote! {
@@ -1307,8 +1298,6 @@ fn attribute_to_tokens(
         // all other attributes
         let value = match node.value() {
             Some(value) => {
-                let value = value;
-
                 quote! { #value }
             }
             None => quote_spanned! { span => "" },

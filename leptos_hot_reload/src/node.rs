@@ -1,8 +1,8 @@
 use crate::parsing::is_component_node;
 use anyhow::Result;
 use quote::ToTokens;
-use serde::{Deserialize, Serialize};
 use rstml::node::{Node, NodeAttribute};
+use serde::{Deserialize, Serialize};
 
 // A lightweight virtual DOM structure we can use to hold
 // the state of a Leptos view macro template. This is because
@@ -92,14 +92,10 @@ impl LNode {
                     let name = el.name().to_string();
                     let mut attrs = Vec::new();
 
-                    for attr in el
-                            .open_tag
-                            .attributes {
+                    for attr in el.open_tag.attributes {
                         if let NodeAttribute::Attribute(attr) = attr {
                             let name = attr.key.to_string();
-                            if let Some(value) =
-                                attr.value_literal_string()
-                            {
+                            if let Some(value) = attr.value_literal_string() {
                                 attrs.push((
                                     name,
                                     LAttributeValue::Static(value),

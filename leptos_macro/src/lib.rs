@@ -7,9 +7,9 @@ extern crate proc_macro_error;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
+use rstml::{node::KeyedAttribute, parse};
 use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
-use rstml::{parse, node::KeyedAttribute};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -353,21 +353,22 @@ pub fn view(tokens: TokenStream) -> TokenStream {
             };
             let config = rstml::ParserConfig::default().recover_block(true);
             let parser = rstml::Parser::new(config);
-            let (nodes, errors)  = parser.parse_recoverable(tokens).split_vec();
+            let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
             let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
             let nodes_output = render_view(
-                    &cx,
-                    &nodes,
-                    Mode::default(),
-                    global_class.as_ref(),
-                    normalized_call_site(proc_macro::Span::call_site()),
-                );
-            quote!{
+                &cx,
+                &nodes,
+                Mode::default(),
+                global_class.as_ref(),
+                normalized_call_site(proc_macro::Span::call_site()),
+            );
+            quote! {
                 {
                     #(#errors;)*
                     #nodes_output
                 }
-            }.into()
+            }
+            .into()
         }
         _ => {
             abort_call_site!(
