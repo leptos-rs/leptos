@@ -409,58 +409,61 @@ fn root_route(
 ) -> Memo<Option<View>> {
     let root_cx = RefCell::new(None);
 
-    let root_view = create_memo(cx, move |prev| {
-        provide_context(cx, route_states);
-        route_states.with(|state| {
-            if state.routes.borrow().is_empty() {
-                Some(base_route.outlet(cx).into_view(cx))
-            } else {
-                let root = state.routes.borrow();
-                let root = root.get(0);
-                if let Some(route) = root {
-                    provide_context(cx, route.clone());
-                }
-
-                if prev.is_none() || !root_equal.get() {
-                    let (root_view, _) = cx.run_child_scope(|cx| {
-                        let prev_cx = std::mem::replace(
-                            &mut *root_cx.borrow_mut(),
-                            Some(cx),
-                        );
-                        if let Some(prev_cx) = prev_cx {
-                            prev_cx.dispose();
-                        }
-                        root.as_ref()
-                            .map(|route| route.outlet(cx).into_view(cx))
-                    });
-                    root_view
+    let root_view = create_memo(cx, {
+        let root_equal = Rc::clone(&root_equal);
+        move |prev| {
+            provide_context(cx, route_states);
+            route_states.with(|state| {
+                if state.routes.borrow().is_empty() {
+                    Some(base_route.outlet(cx).into_view(cx))
                 } else {
-                    prev.cloned().unwrap()
+                    let root = state.routes.borrow();
+                    let root = root.get(0);
+                    if let Some(route) = root {
+                        provide_context(cx, route.clone());
+                    }
+
+                    if prev.is_none() || !root_equal.get() {
+                        let (root_view, _) = cx.run_child_scope(|cx| {
+                            let prev_cx = std::mem::replace(
+                                &mut *root_cx.borrow_mut(),
+                                Some(cx),
+                            );
+                            if let Some(prev_cx) = prev_cx {
+                                prev_cx.dispose();
+                            }
+                            root.as_ref()
+                                .map(|route| route.outlet(cx).into_view(cx))
+                        });
+                        root_view
+                    } else {
+                        prev.cloned().unwrap()
+                    }
                 }
-            }
-        })
+            })
+        }
     });
 
-    if cfg!(any(feature = "csr", feature = "hydrate")) && use_context::<SetIsRouting>(cx).is_some() {
+    if cfg!(any(feature = "csr", feature = "hydrate"))
+        && use_context::<SetIsRouting>(cx).is_some()
+    {
         let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
-        let is_fallback = create_memo(cx, move |_| {
-            !global_suspense.as_inner().ready()
-        });
+        let is_fallback =
+            create_memo(cx, move |_| !global_suspense.as_inner().ready());
 
-        let last_two_views = create_memo(cx, move |prev: Option<&(Option<View>, Option<View>)>| {
-            match prev {
+        let last_two_views = create_memo(
+            cx,
+            move |prev: Option<&(Option<View>, Option<View>)>| match prev {
                 None => (root_view.get(), None),
-                Some((curr, _)) => (root_view.get(), curr.clone())
-            }
-        });
+                Some((curr, _)) => (root_view.get(), curr.clone()),
+            },
+        );
 
         create_memo(cx, move |_| {
             let (curr, prev) = last_two_views.get();
-            if is_fallback.get() {
-                leptos::log!("prev {prev:?}");
+            if is_fallback.get() && prev.is_some() && !root_equal.get() {
                 prev
             } else {
-                leptos::log!("curr {curr:?}");
                 curr
             }
         })

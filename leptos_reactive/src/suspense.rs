@@ -2,8 +2,9 @@
 
 #![forbid(unsafe_code)]
 use crate::{
-    create_rw_signal, create_signal, queue_microtask, store_value, ReadSignal,
-    RwSignal, Scope, SignalUpdate, StoredValue, WriteSignal, create_isomorphic_effect, signal::SignalGet, SignalSet
+    create_isomorphic_effect, create_rw_signal, create_signal, queue_microtask,
+    signal::SignalGet, store_value, ReadSignal, RwSignal, Scope, SignalSet,
+    SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, pin::Pin};
@@ -20,8 +21,8 @@ pub struct SuspenseContext {
     pub(crate) should_block: StoredValue<bool>,
 }
 
-/// A single, global suspense context that will be checked when resources 
-/// are read. This won’t be “blocked” by lower suspense components. This is 
+/// A single, global suspense context that will be checked when resources
+/// are read. This won’t be “blocked” by lower suspense components. This is
 /// useful for e.g., holding route transitions.
 #[derive(Copy, Clone, Debug)]
 pub struct GlobalSuspenseContext(SuspenseContext);
@@ -36,8 +37,7 @@ impl GlobalSuspenseContext {
     pub fn as_inner(&self) -> &SuspenseContext {
         &self.0
     }
- }
-
+}
 
 impl SuspenseContext {
     /// Whether the suspense contains local resources at this moment,
@@ -54,7 +54,7 @@ impl SuspenseContext {
 
     /// Returns a `Future` that resolves when this suspense is resolved.
     pub fn to_future(&self, cx: Scope) -> impl Future<Output = ()> {
-        use futures::StreamExt; 
+        use futures::StreamExt;
 
         let pending_resources = self.pending_resources;
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
@@ -66,7 +66,7 @@ impl SuspenseContext {
                 }
             })
         });
-        async move { 
+        async move {
             rx.next().await;
         }
     }

@@ -25,7 +25,8 @@ pub fn Router(
     #[prop(optional)]
     fallback: Option<fn(Scope) -> View>,
     /// A signal that will be set while the navigation process is underway.
-    #[prop(optional, into)] set_is_routing: Option<SignalSetter<bool>>,
+    #[prop(optional, into)]
+    set_is_routing: Option<SignalSetter<bool>>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
@@ -238,7 +239,9 @@ impl RouterContextInner {
             };
 
             // reset count of pending resources at global level
-            expect_context::<GlobalSuspenseContext>(cx).as_inner().clear();
+            expect_context::<GlobalSuspenseContext>(cx)
+                .as_inner()
+                .clear();
 
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
@@ -274,11 +277,12 @@ impl RouterContextInner {
                             move |state| *state = next_state
                         });
 
-                        let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
+                        let global_suspense =
+                            expect_context::<GlobalSuspenseContext>(cx);
                         let path_stack = self.path_stack;
-                            path_stack.update_value(|stack| {
-                                stack.push(resolved_to.clone())
-                            });
+                        path_stack.update_value(|stack| {
+                            stack.push(resolved_to.clone())
+                        });
 
                         let set_is_routing = use_context::<SetIsRouting>(cx);
                         if let Some(set_is_routing) = set_is_routing {

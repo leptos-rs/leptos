@@ -3,10 +3,11 @@ use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
     queue_microtask,
     runtime::{with_runtime, RuntimeId},
-    serialization::Serializable, GlobalSuspenseContext,
+    serialization::Serializable,
     spawn::spawn_local,
-    use_context, Memo, ReadSignal, Scope, ScopeProperty, SignalGetUntracked,
-    SignalSet, SignalUpdate, SignalWith, SuspenseContext, WriteSignal,
+    use_context, GlobalSuspenseContext, Memo, ReadSignal, Scope, ScopeProperty,
+    SignalGetUntracked, SignalSet, SignalUpdate, SignalWith, SuspenseContext,
+    WriteSignal,
 };
 use std::{
     any::Any,
