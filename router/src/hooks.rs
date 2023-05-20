@@ -79,11 +79,15 @@ pub fn use_resolved_path(
 /// If you are getting a BorrowMut error while you are using `use_navigate`
 /// try wrapping it in a `request_animation_frame`.
 /// ```
+/// # leptos::request_animation_frame
+/// # create_scope(create_runtime(), |cx| { 
 /// let navigate = leptos_router::use_navigate(cx);
 /// request_animation_frame(move || {
 ///     _ = navigate("/", Default::default()).unwrap();
 /// });
+/// # });
 /// ```
+///
 pub fn use_navigate(
     cx: Scope,
 ) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
@@ -92,7 +96,7 @@ pub fn use_navigate(
         Rc::clone(&router.inner).navigate_from_route(to, &options)
     }
 }
-
+///
 /// Returns a signal that tells you whether you are currently navigating backwards.
 pub(crate) fn use_is_back_navigation(cx: Scope) -> ReadSignal<bool> {
     let router = use_router(cx);
