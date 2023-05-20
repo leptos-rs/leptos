@@ -81,9 +81,7 @@ pub fn use_resolved_path(
 /// ```
 /// let navigate = leptos_router::use_navigate(cx);
 /// request_animation_frame(move || {
-///     _ = navigate(&href, Default::default()).unwrap();
-///         &href,
-///         Default::default()).unwrap();
+///     _ = navigate("/", Default::default()).unwrap();
 /// });
 /// ```
 pub fn use_navigate(
