@@ -5,8 +5,9 @@ use crate::{
     runtime::{with_runtime, RuntimeId},
     serialization::Serializable,
     spawn::spawn_local,
-    use_context, Memo, ReadSignal, Scope, ScopeProperty, SignalGetUntracked,
-    SignalSet, SignalUpdate, SignalWith, SuspenseContext, WriteSignal,
+    use_context, GlobalSuspenseContext, Memo, ReadSignal, Scope, ScopeProperty,
+    SignalGetUntracked, SignalSet, SignalUpdate, SignalWith, SuspenseContext,
+    WriteSignal,
 };
 use std::{
     any::Any,
@@ -820,6 +821,7 @@ where
         f: impl FnOnce(&T) -> U,
         location: &'static Location<'static>,
     ) -> Option<U> {
+        let global_suspense_cx = use_context::<GlobalSuspenseContext>(cx);
         let suspense_cx = use_context::<SuspenseContext>(cx);
 
         let v = self
@@ -878,6 +880,22 @@ where
                             if serializable == ResourceSerialization::Blocking {
                                 s.should_block.set_value(true);
                             }
+                        }
+                    }
+                }
+            }
+
+            if let Some(g) = &global_suspense_cx {
+                if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
+                {
+                    let s = g.as_inner();
+                    if !contexts.contains(s) {
+                        contexts.insert(*s);
+
+                        if !has_value {
+                            s.increment(
+                                serializable != ResourceSerialization::Local,
+                            );
                         }
                     }
                 }

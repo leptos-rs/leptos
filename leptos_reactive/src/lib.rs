@@ -110,7 +110,7 @@ pub use slice::*;
 pub use spawn::*;
 pub use spawn_microtask::*;
 pub use stored_value::*;
-pub use suspense::SuspenseContext;
+pub use suspense::{GlobalSuspenseContext, SuspenseContext};
 pub use trigger::*;
 
 mod macros {
