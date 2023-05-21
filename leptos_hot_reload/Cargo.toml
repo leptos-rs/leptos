@@ -11,7 +11,7 @@ readme = "../README.md"
 [dependencies]
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
-syn = { version = "1", features = [
+syn = { version = "2", features = [
 	"full",
 	"parsing",
 	"extra-traits",
@@ -19,7 +19,7 @@ syn = { version = "1", features = [
 	"printing",
 ] }
 quote = "1"
-syn-rsx = "0.9"
+rstml = "0.10.6"
 proc-macro2 = { version = "1", features = ["span-locations", "nightly"] }
 parking_lot = "0.12"
 walkdir = "2"

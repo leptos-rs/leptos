@@ -1,9 +1,14 @@
 use crate::attribute_value;
-use leptos_hot_reload::parsing::is_component_node;
+use itertools::Either;
+use leptos_hot_reload::parsing::{
+    block_to_primitive_expression, is_component_node, value_to_string,
+};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement,
+};
 use syn::spanned::Spanned;
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeValueExpr};
 use uuid::Uuid;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
@@ -53,7 +58,7 @@ fn root_element_to_tokens(
                 .unwrap();
         };
 
-        let span = node.name.span();
+        let span = node.name().span();
 
         let navigations = if navigations.is_empty() {
             quote! {}
@@ -67,7 +72,7 @@ fn root_element_to_tokens(
             quote! { #(#expressions;);* }
         };
 
-        let tag_name = node.name.to_string();
+        let tag_name = node.name().to_string();
 
         quote_spanned! {
             span => {
@@ -104,9 +109,9 @@ enum PrevSibChange {
     Skip,
 }
 
-fn attributes(node: &NodeElement) -> impl Iterator<Item = &NodeAttribute> {
-    node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(attribute) = node {
+fn attributes(node: &NodeElement) -> impl Iterator<Item = &KeyedAttribute> {
+    node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(attribute) = node {
             Some(attribute)
         } else {
             None
@@ -129,11 +134,11 @@ fn element_to_tokens(
 ) -> Ident {
     // create this element
     *next_el_id += 1;
-    let this_el_ident = child_ident(*next_el_id, node.name.span());
+    let this_el_ident = child_ident(*next_el_id, node.name().span());
 
     // Open tag
-    let name_str = node.name.to_string();
-    let span = node.name.span();
+    let name_str = node.name().to_string();
+    let span = node.name().span();
 
     // CSR/hydrate, push to template
     template.push('<');
@@ -145,7 +150,7 @@ fn element_to_tokens(
     }
 
     // navigation for this el
-    let debug_name = node.name.to_string();
+    let debug_name = node.name().to_string();
     let this_nav = if is_root_el {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
@@ -247,14 +252,17 @@ fn next_sibling_node(
                 if is_component_node(sibling) {
                     next_sibling_node(children, idx + 1, next_el_id)
                 } else {
-                    Ok(Some(child_ident(*next_el_id + 1, sibling.name.span())))
+                    Ok(Some(child_ident(
+                        *next_el_id + 1,
+                        sibling.name().span(),
+                    )))
                 }
             }
             Node::Block(sibling) => {
-                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.span())))
             }
             Node::Text(sibling) => {
-                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.span())))
             }
             _ => Err("expected either an element or a block".to_string()),
         }
@@ -263,7 +271,7 @@ fn next_sibling_node(
 
 fn attr_to_tokens(
     cx: &Ident,
-    node: &NodeAttribute,
+    node: &KeyedAttribute,
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
@@ -272,8 +280,8 @@ fn attr_to_tokens(
     let name = name.strip_prefix('_').unwrap_or(&name);
     let name = name.strip_prefix("attr:").unwrap_or(name);
 
-    let value = match &node.value {
-        Some(expr) => match expr.as_ref() {
+    let value = match &node.value() {
+        Some(expr) => match expr {
             syn::Expr::Lit(expr_lit) => {
                 if let syn::Lit::Str(s) = &expr_lit.lit {
                     AttributeValue::Static(s.value())
@@ -367,7 +375,7 @@ fn child_to_tokens(
         Node::Element(node) => {
             if is_component_node(node) {
                 proc_macro_error::emit_error!(
-                    node.name.span(),
+                    node.name().span(),
                     "component children not allowed in template!, use view! \
                      instead"
                 );
@@ -389,7 +397,7 @@ fn child_to_tokens(
         }
         Node::Text(node) => block_to_tokens(
             cx,
-            &node.value,
+            Either::Left(node.value_string()),
             node.value.span(),
             parent,
             prev_sib,
@@ -399,10 +407,42 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        Node::Block(node) => block_to_tokens(
+        Node::RawText(node) => block_to_tokens(
             cx,
-            &node.value,
-            node.value.span(),
+            Either::Left(node.to_string_best()),
+            node.span(),
+            parent,
+            prev_sib,
+            next_sib,
+            next_el_id,
+            template,
+            expressions,
+            navigations,
+        ),
+        Node::Block(NodeBlock::ValidBlock(b)) => {
+            let value = match block_to_primitive_expression(b)
+                .and_then(value_to_string)
+            {
+                Some(v) => Either::Left(v),
+                None => Either::Right(b.into_token_stream()),
+            };
+            block_to_tokens(
+                cx,
+                value,
+                b.span(),
+                parent,
+                prev_sib,
+                next_sib,
+                next_el_id,
+                template,
+                expressions,
+                navigations,
+            )
+        }
+        Node::Block(b @ NodeBlock::Invalid { .. }) => block_to_tokens(
+            cx,
+            Either::Right(b.into_token_stream()),
+            b.span(),
             parent,
             prev_sib,
             next_sib,
@@ -418,7 +458,7 @@ fn child_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn block_to_tokens(
     _cx: &Ident,
-    value: &NodeValueExpr,
+    value: Either<String, TokenStream>,
     span: Span,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -428,18 +468,6 @@ fn block_to_tokens(
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
 ) -> PrevSibChange {
-    let value = value.as_ref();
-    let str_value = match value {
-        syn::Expr::Lit(lit) => match &lit.lit {
-            syn::Lit::Str(s) => Some(s.value()),
-            syn::Lit::Char(c) => Some(c.value().to_string()),
-            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
-            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
-            _ => None,
-        },
-        _ => None,
-    };
-
     // code to navigate to this text node
 
     let (name, location) = /* if is_first_child && mode == Mode::Client {
@@ -473,27 +501,30 @@ fn block_to_tokens(
         }
     };
 
-    if let Some(v) = str_value {
-        navigations.push(location);
-        template.push_str(&v);
+    match value {
+        Either::Left(v) => {
+            navigations.push(location);
+            template.push_str(&v);
 
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
+            if let Some(name) = name {
+                PrevSibChange::Sib(name)
+            } else {
+                PrevSibChange::Parent
+            }
         }
-    } else {
-        template.push_str("<!>");
-        navigations.push(location);
+        Either::Right(value) => {
+            template.push_str("<!>");
+            navigations.push(location);
 
-        expressions.push(quote! {
-			leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
-        });
+            expressions.push(quote! {
+                leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
+            });
 
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
+            if let Some(name) = name {
+                PrevSibChange::Sib(name)
+            } else {
+                PrevSibChange::Parent
+            }
         }
     }
 }
