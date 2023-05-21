@@ -1005,6 +1005,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub(crate) enum AnyResource {
     Unserializable(Rc<dyn UnserializableResource>),
     Serializable(Rc<dyn SerializableResource>),
