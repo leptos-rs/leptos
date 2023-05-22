@@ -79,7 +79,7 @@ pub fn use_resolved_path(
 /// If you are getting a BorrowMut error while you are using `use_navigate`
 /// try wrapping it in a `request_animation_frame`.
 /// ```
-/// # leptos::request_animation_frame
+/// # use leptos::{request_animation_frame,create_scope,create_runtime};
 /// # create_scope(create_runtime(), |cx| {
 /// let navigate = leptos_router::use_navigate(cx);
 /// request_animation_frame(move || {
