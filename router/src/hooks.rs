@@ -80,14 +80,13 @@ pub fn use_resolved_path(
 /// try wrapping it in a `request_animation_frame`.
 /// ```
 /// # leptos::request_animation_frame
-/// # create_scope(create_runtime(), |cx| { 
+/// # create_scope(create_runtime(), |cx| {
 /// let navigate = leptos_router::use_navigate(cx);
 /// request_animation_frame(move || {
 ///     _ = navigate("/", Default::default()).unwrap();
 /// });
 /// # });
 /// ```
-///
 pub fn use_navigate(
     cx: Scope,
 ) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
