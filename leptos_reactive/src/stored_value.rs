@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 use crate::{with_runtime, RuntimeId, Scope, ScopeProperty};
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc, hash::{Hash, Hasher}, fmt};
 
 slotmap::new_key_type! {
     /// Unique ID assigned to a [`StoredValue`].
@@ -16,7 +16,6 @@ slotmap::new_key_type! {
 /// and [`RwSignal`](crate::RwSignal)), it is `Copy` and `'static`. Unlike the signal
 /// types, it is not reactive; accessing it does not cause effects to subscribe, and
 /// updating it does not notify anything else.
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StoredValue<T>
 where
     T: 'static,
@@ -37,6 +36,32 @@ impl<T> Clone for StoredValue<T> {
 }
 
 impl<T> Copy for StoredValue<T> {}
+
+impl<T> fmt::Debug for StoredValue<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StoredValue")
+            .field("runtime", &self.runtime)
+            .field("id", &self.id)
+            .field("ty", &self.ty)
+            .finish()
+    }
+}
+
+impl<T> Eq for StoredValue<T> {}
+
+impl<T> PartialEq for StoredValue<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id && self.ty == other.ty
+    }
+}
+
+impl<T> Hash for StoredValue<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+        self.ty.hash(state);
+    }
+}
 
 impl<T> StoredValue<T> {
     /// Returns a clone of the current stored value.
