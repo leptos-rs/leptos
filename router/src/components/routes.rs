@@ -406,7 +406,7 @@ fn root_route(
     base_route: RouteContext,
     route_states: Memo<RouterState>,
     root_equal: Rc<Cell<bool>>,
-) -> Memo<Option<View>> {
+) -> Signal<Option<View>> {
     let root_cx = RefCell::new(None);
 
     let root_view = create_memo(cx, {
@@ -451,24 +451,66 @@ fn root_route(
         let is_fallback =
             create_memo(cx, move |_| !global_suspense.as_inner().ready());
 
-        let last_two_views = create_memo(
-            cx,
-            move |prev: Option<&(Option<View>, Option<View>)>| match prev {
-                None => (root_view.get(), None),
-                Some((curr, _)) => (root_view.get(), curr.clone()),
-            },
-        );
+        let (current_view, set_current_view) = create_signal(cx, None);
 
-        create_memo(cx, move |_| {
-            let (curr, prev) = last_two_views.get();
+        create_effect(cx, move |prev| {
+            let root = root_view.get();
+            is_fallback.track();
+            if !is_fallback.get_untracked() {
+            set_timeout({
+                let root = root.clone();
+                move || {
+                    let is_fallback = is_fallback.get_untracked();
+                    leptos::log!("is_fallback = {is_fallback}");
+                    if is_fallback {
+                        leptos::log!("fallback state, do nothing");
+                    } else {
+                        leptos::log!("returning root {root:?}");
+                        set_current_view.set(root);
+                    }
+                }
+            }, std::time::Duration::from_millis(1));
+        }
+            current_view.get_untracked().unwrap_or_default()
+        });
+
+        /* let last_three_views = create_memo(
+            cx,
+            move |prev: Option<&(Option<View>, Option<View>, Option<View>)>| match prev {
+                None => {
+                    leptos::log!("initial run {:?}", root_view.get());
+                    (root_view.get(), None, None)
+                },
+                Some((curr, prev, super_prev)) => {
+                    if is_fallback.get() {
+                        leptos::log!("still in fallback:\n\nroot_view = {:?}\n\ncurr = {:?}\n\nprev = {:?}\n\nsuper_prev = {:?}", root_view.get(), curr, prev, super_prev);
+                        (root_view.get(), prev.clone(), None)
+                    } else {
+                        leptos::log!("not in fallback\n\nroot_view = {:?}\n\ncurr = {:?}\n\nsuper_prev = {:?}", root_view.get(), curr, super_prev);
+                        (root_view.get(), curr.clone(), prev.clone())
+                    }
+                }
+            },
+        ); */
+
+        current_view.into()
+
+        /* create_memo(cx, move |_| {
+            let (curr, prev, super_prev) = last_three_views.get();
             if is_fallback.get() && prev.is_some() && !root_equal.get() {
-                prev
+                leptos::log!("branch A");
+                if let Some(super_prev) = super_prev {
+                    Some(super_prev)
+                } else {
+                    prev
+                }
             } else {
+                leptos::log!("branch B");
                 curr
             }
-        })
+        }).into() */
     } else {
-        root_view
+        root_view.into()
     }
 }
 
