@@ -205,7 +205,7 @@ impl EachItem {
                 Some(Comment::new(Cow::Borrowed("<EachItem>"), &id, false))
             } else {
                 None
-            }
+            },
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -219,7 +219,10 @@ impl EachItem {
             if !HydrationCtx::is_hydrating() {
                 #[cfg(debug_assertions)]
                 fragment
-                    .append_with_node_2(&markers.1.as_ref().unwrap().node, &closing.node)
+                    .append_with_node_2(
+                        &markers.1.as_ref().unwrap().node,
+                        &closing.node,
+                    )
                     .unwrap();
                 fragment.append_with_node_1(&closing.node).unwrap();
             }
@@ -674,8 +677,14 @@ fn apply_cmds<T, EF, N>(
     if cmds.clear {
         cmds.removed.clear();
         crate::log!("clearing list");
-        web_sys::console::log_2(&wasm_bindgen::JsValue::from_str("open"), opening);
-        web_sys::console::log_2(&wasm_bindgen::JsValue::from_str("closing"), closing);
+        web_sys::console::log_2(
+            &wasm_bindgen::JsValue::from_str("open"),
+            opening,
+        );
+        web_sys::console::log_2(
+            &wasm_bindgen::JsValue::from_str("closing"),
+            closing,
+        );
 
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
