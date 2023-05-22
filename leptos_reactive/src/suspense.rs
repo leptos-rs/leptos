@@ -7,7 +7,9 @@ use crate::{
     SignalUpdate, StoredValue, WriteSignal,
 };
 use futures::Future;
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc};
+use std::{
+    borrow::Cow, cell::RefCell, collections::VecDeque, pin::Pin, rc::Rc,
+};
 
 /// Tracks [`Resource`](crate::Resource)s that are read under a suspense context,
 /// i.e., within a [`Suspense`](https://docs.rs/leptos_core/latest/leptos_core/fn.Suspense.html) component.

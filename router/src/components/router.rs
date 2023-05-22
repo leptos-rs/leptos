@@ -239,8 +239,7 @@ impl RouterContextInner {
             };
 
             // reset count of pending resources at global level
-            expect_context::<GlobalSuspenseContext>(cx)
-                .reset(cx);
+            expect_context::<GlobalSuspenseContext>(cx).reset(cx);
 
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
@@ -289,7 +288,9 @@ impl RouterContextInner {
                         }
                         spawn_local(async move {
                             if let Some(set_is_routing) = set_is_routing {
-                                global_suspense.with_inner(|s| s.to_future(cx)).await;
+                                global_suspense
+                                    .with_inner(|s| s.to_future(cx))
+                                    .await;
                                 set_is_routing.0.set(false);
                             }
 

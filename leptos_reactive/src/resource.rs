@@ -889,15 +889,16 @@ where
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
                 {
                     g.with_inner(|s| {
-                    if !contexts.contains(s) {
-                        contexts.insert(*s);
+                        if !contexts.contains(s) {
+                            contexts.insert(*s);
 
-                        if !has_value {
-                            s.increment(
-                                serializable != ResourceSerialization::Local,
-                            );
+                            if !has_value {
+                                s.increment(
+                                    serializable
+                                        != ResourceSerialization::Local,
+                                );
+                            }
                         }
-                    }
                     })
                 }
             }
