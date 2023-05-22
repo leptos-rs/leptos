@@ -805,9 +805,7 @@ impl<T> Eq for ReadSignal<T> {}
 
 impl<T> PartialEq for ReadSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime
-            && self.id == other.id
-            && self.ty == other.ty
+        self.runtime == other.runtime && self.id == other.id
     }
 }
 
@@ -815,7 +813,6 @@ impl<T> Hash for ReadSignal<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.runtime.hash(state);
         self.id.hash(state);
-        self.ty.hash(state);
     }
 }
 
@@ -1095,9 +1092,7 @@ impl<T> Eq for WriteSignal<T> {}
 
 impl<T> PartialEq for WriteSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime
-            && self.id == other.id
-            && self.ty == other.ty
+        self.runtime == other.runtime && self.id == other.id
     }
 }
 
@@ -1105,7 +1100,6 @@ impl<T> Hash for WriteSignal<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.runtime.hash(state);
         self.id.hash(state);
-        self.ty.hash(state);
     }
 }
 
@@ -1225,9 +1219,7 @@ impl<T> Eq for RwSignal<T> {}
 
 impl<T> PartialEq for RwSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime
-            && self.id == other.id
-            && self.ty == other.ty
+        self.runtime == other.runtime && self.id == other.id
     }
 }
 
@@ -1235,7 +1227,6 @@ impl<T> Hash for RwSignal<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.runtime.hash(state);
         self.id.hash(state);
-        self.ty.hash(state);
     }
 }
 

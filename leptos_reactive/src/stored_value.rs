@@ -57,9 +57,7 @@ impl<T> Eq for StoredValue<T> {}
 
 impl<T> PartialEq for StoredValue<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime
-            && self.id == other.id
-            && self.ty == other.ty
+        self.runtime == other.runtime && self.id == other.id
     }
 }
 
@@ -67,7 +65,6 @@ impl<T> Hash for StoredValue<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.runtime.hash(state);
         self.id.hash(state);
-        self.ty.hash(state);
     }
 }
 

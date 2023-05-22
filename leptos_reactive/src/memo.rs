@@ -195,9 +195,7 @@ impl<T> Eq for Memo<T> {}
 
 impl<T> PartialEq for Memo<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime
-            && self.id == other.id
-            && self.ty == other.ty
+        self.runtime == other.runtime && self.id == other.id
     }
 }
 
