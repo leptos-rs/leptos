@@ -10,8 +10,13 @@ use crate::{
 };
 use futures::Stream;
 use std::{
-    any::Any, cell::RefCell, fmt, marker::PhantomData, pin::Pin, rc::Rc,
-    hash::{Hash, Hasher}
+    any::Any,
+    cell::RefCell,
+    fmt,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    pin::Pin,
+    rc::Rc,
 };
 use thiserror::Error;
 
@@ -786,12 +791,13 @@ impl<T> Copy for ReadSignal<T> {}
 
 impl<T> fmt::Debug for ReadSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ReadSignal")
-            .field("runtime", &self.runtime)
-            .field("id", &self.id)
-            .field("ty", &self.ty)
-            .field("defined_at", &self.defined_at)
-            .finish()
+        let mut s = f.debug_struct("ReadSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
     }
 }
 
@@ -799,7 +805,9 @@ impl<T> Eq for ReadSignal<T> {}
 
 impl<T> PartialEq for ReadSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id && self.ty == other.ty && self.defined_at == other.defined_at
+        self.runtime == other.runtime
+            && self.id == other.id
+            && self.ty == other.ty
     }
 }
 
@@ -808,7 +816,6 @@ impl<T> Hash for ReadSignal<T> {
         self.runtime.hash(state);
         self.id.hash(state);
         self.ty.hash(state);
-        self.defined_at.hash(state);
     }
 }
 
@@ -1074,12 +1081,13 @@ impl<T> Copy for WriteSignal<T> {}
 
 impl<T> fmt::Debug for WriteSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("WriteSignal")
-            .field("runtime", &self.runtime)
-            .field("id", &self.id)
-            .field("ty", &self.ty)
-            .field("defined_at", &self.defined_at)
-            .finish()
+        let mut s = f.debug_struct("WriteSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
     }
 }
 
@@ -1087,7 +1095,9 @@ impl<T> Eq for WriteSignal<T> {}
 
 impl<T> PartialEq for WriteSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id && self.ty == other.ty && self.defined_at == other.defined_at
+        self.runtime == other.runtime
+            && self.id == other.id
+            && self.ty == other.ty
     }
 }
 
@@ -1096,7 +1106,6 @@ impl<T> Hash for WriteSignal<T> {
         self.runtime.hash(state);
         self.id.hash(state);
         self.ty.hash(state);
-        self.defined_at.hash(state);
     }
 }
 
@@ -1202,12 +1211,13 @@ impl<T> Copy for RwSignal<T> {}
 
 impl<T> fmt::Debug for RwSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RwSignal")
-            .field("runtime", &self.runtime)
-            .field("id", &self.id)
-            .field("ty", &self.ty)
-            .field("defined_at", &self.defined_at)
-            .finish()
+        let mut s = f.debug_struct("RwSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
     }
 }
 
@@ -1215,7 +1225,9 @@ impl<T> Eq for RwSignal<T> {}
 
 impl<T> PartialEq for RwSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id && self.ty == other.ty && self.defined_at == other.defined_at
+        self.runtime == other.runtime
+            && self.id == other.id
+            && self.ty == other.ty
     }
 }
 
@@ -1224,7 +1236,6 @@ impl<T> Hash for RwSignal<T> {
         self.runtime.hash(state);
         self.id.hash(state);
         self.ty.hash(state);
-        self.defined_at.hash(state);
     }
 }
 

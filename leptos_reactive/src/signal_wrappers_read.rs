@@ -83,10 +83,11 @@ impl<T> Copy for Signal<T> {}
 
 impl<T> std::fmt::Debug for Signal<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Signal")
-            .field("inner", &self.inner)
-            .field("defined_at", &self.defined_at)
-            .finish()
+        let mut s = f.debug_struct("Signal");
+        s.field("inner", &self.inner);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
     }
 }
 
@@ -94,7 +95,7 @@ impl<T> Eq for Signal<T> {}
 
 impl<T> PartialEq for Signal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner && self.defined_at == other.defined_at
+        self.inner == other.inner
     }
 }
 

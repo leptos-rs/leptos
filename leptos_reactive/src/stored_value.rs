@@ -1,6 +1,12 @@
 #![forbid(unsafe_code)]
 use crate::{with_runtime, RuntimeId, Scope, ScopeProperty};
-use std::{cell::RefCell, marker::PhantomData, rc::Rc, hash::{Hash, Hasher}, fmt};
+use std::{
+    cell::RefCell,
+    fmt,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    rc::Rc,
+};
 
 slotmap::new_key_type! {
     /// Unique ID assigned to a [`StoredValue`].
@@ -51,7 +57,9 @@ impl<T> Eq for StoredValue<T> {}
 
 impl<T> PartialEq for StoredValue<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id && self.ty == other.ty
+        self.runtime == other.runtime
+            && self.id == other.id
+            && self.ty == other.ty
     }
 }
 
