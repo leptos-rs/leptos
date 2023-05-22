@@ -45,34 +45,41 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
         }
     });
 
-    let outlet: Signal<Option<View>> =
-        if cfg!(any(feature = "csr", feature = "hydrate"))
-            && use_context::<SetIsRouting>(cx).is_some()
-        {
-            let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
-            let is_fallback =
-                create_memo(cx, move |_| !global_suspense.as_inner().ready());
+    let outlet: Signal<Option<View>> = if cfg!(any(feature = "csr", feature = "hydrate"))
+        && use_context::<SetIsRouting>(cx).is_some()
+    {
+        let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
 
-            let last_two_views = create_memo(
-                cx,
-                move |prev: Option<&(Option<View>, Option<View>)>| match prev {
-                    None => (outlet.get(), None),
-                    Some((curr, _)) => (outlet.get(), curr.clone()),
-                },
-            );
+        let (current_view, set_current_view) = create_signal(cx, None);
 
-            create_memo(cx, move |_| {
-                let (curr, prev) = last_two_views.get();
-                if is_fallback.get() && prev.is_some() {
-                    prev
-                } else {
-                    curr
+        create_effect(cx, {
+            let global_suspense = global_suspense.clone();
+            move |prev| {
+                let outlet = outlet.get();
+                let is_fallback =
+                    !global_suspense.with_inner(SuspenseContext::ready);
+                if prev.is_none() {
+                    set_current_view.set(outlet);
+                } else if !is_fallback {
+                    queue_microtask({
+                        let global_suspense = global_suspense.clone();
+                        move || {
+                            let is_fallback = cx.untrack(move || {
+                                !global_suspense
+                                    .with_inner(SuspenseContext::ready)
+                            });
+                            if !is_fallback {
+                                set_current_view.set(outlet);
+                            }
+                        }
+                    });
                 }
-            })
-            .into()
-        } else {
-            outlet.into()
-        };
+            }
+        });
+        current_view.into()
+    } else {
+        outlet.into()
+    };
 
     leptos::leptos_dom::DynChild::new_with_id(id, move || outlet.get())
 }

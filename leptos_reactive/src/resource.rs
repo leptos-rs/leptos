@@ -888,7 +888,7 @@ where
             if let Some(g) = &global_suspense_cx {
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
                 {
-                    let s = g.as_inner();
+                    g.with_inner(|s| {
                     if !contexts.contains(s) {
                         contexts.insert(*s);
 
@@ -898,6 +898,7 @@ where
                             );
                         }
                     }
+                    })
                 }
             }
         };

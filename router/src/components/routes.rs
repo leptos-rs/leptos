@@ -448,67 +448,34 @@ fn root_route(
         && use_context::<SetIsRouting>(cx).is_some()
     {
         let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
-        let is_fallback =
-            create_memo(cx, move |_| !global_suspense.as_inner().ready());
 
         let (current_view, set_current_view) = create_signal(cx, None);
 
-        create_effect(cx, move |prev| {
-            let root = root_view.get();
-            is_fallback.track();
-            if !is_fallback.get_untracked() {
-            set_timeout({
-                let root = root.clone();
-                move || {
-                    let is_fallback = is_fallback.get_untracked();
-                    leptos::log!("is_fallback = {is_fallback}");
-                    if is_fallback {
-                        leptos::log!("fallback state, do nothing");
-                    } else {
-                        leptos::log!("returning root {root:?}");
-                        set_current_view.set(root);
-                    }
+        create_effect(cx, {
+            let global_suspense = global_suspense.clone();
+            move |prev| {
+                let root = root_view.get();
+                let is_fallback =
+                    !global_suspense.with_inner(SuspenseContext::ready);
+                if prev.is_none() {
+                    set_current_view.set(root);
+                } else if !is_fallback {
+                    queue_microtask({
+                        let global_suspense = global_suspense.clone();
+                        move || {
+                            let is_fallback = cx.untrack(move || {
+                                !global_suspense
+                                    .with_inner(SuspenseContext::ready)
+                            });
+                            if !is_fallback {
+                                set_current_view.set(root);
+                            }
+                        }
+                    });
                 }
-            }, std::time::Duration::from_millis(1));
-        }
-            current_view.get_untracked().unwrap_or_default()
-        });
-
-        /* let last_three_views = create_memo(
-            cx,
-            move |prev: Option<&(Option<View>, Option<View>, Option<View>)>| match prev {
-                None => {
-                    leptos::log!("initial run {:?}", root_view.get());
-                    (root_view.get(), None, None)
-                },
-                Some((curr, prev, super_prev)) => {
-                    if is_fallback.get() {
-                        leptos::log!("still in fallback:\n\nroot_view = {:?}\n\ncurr = {:?}\n\nprev = {:?}\n\nsuper_prev = {:?}", root_view.get(), curr, prev, super_prev);
-                        (root_view.get(), prev.clone(), None)
-                    } else {
-                        leptos::log!("not in fallback\n\nroot_view = {:?}\n\ncurr = {:?}\n\nsuper_prev = {:?}", root_view.get(), curr, super_prev);
-                        (root_view.get(), curr.clone(), prev.clone())
-                    }
-                }
-            },
-        ); */
-
-        current_view.into()
-
-        /* create_memo(cx, move |_| {
-            let (curr, prev, super_prev) = last_three_views.get();
-            if is_fallback.get() && prev.is_some() && !root_equal.get() {
-                leptos::log!("branch A");
-                if let Some(super_prev) = super_prev {
-                    Some(super_prev)
-                } else {
-                    prev
-                }
-            } else {
-                leptos::log!("branch B");
-                curr
             }
-        }).into() */
+        });
+        current_view.into()
     } else {
         root_view.into()
     }
