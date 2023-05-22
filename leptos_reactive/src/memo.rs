@@ -5,7 +5,7 @@ use crate::{
     SignalDispose, SignalGet, SignalGetUntracked, SignalStream, SignalWith,
     SignalWithUntracked,
 };
-use std::{any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc};
+use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 
 /// Creates an efficient derived reactive value based on other reactive values.
 ///
@@ -151,7 +151,6 @@ where
 /// });
 /// # }).dispose();
 /// ```
-#[derive(Debug, PartialEq, Eq)]
 pub struct Memo<T>
 where
     T: 'static,
@@ -179,6 +178,26 @@ where
 }
 
 impl<T> Copy for Memo<T> {}
+
+impl<T> fmt::Debug for Memo<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("Memo");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for Memo<T> {}
+
+impl<T> PartialEq for Memo<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
 
 impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
