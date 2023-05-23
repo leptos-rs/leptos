@@ -49,7 +49,7 @@ cfg_if! {
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
+        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <TodoApp/> } )
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 
