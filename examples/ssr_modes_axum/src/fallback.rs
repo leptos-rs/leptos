@@ -14,8 +14,7 @@ cfg_if! { if #[cfg(feature = "ssr")] {
     use leptos::{LeptosOptions, view};
     use crate::app::App;
 
-    pub async fn file_and_error_handler(uri: Uri, State(options): State<Arc<LeptosOptions>>, req: Request<Body>) -> AxumResponse {
-        let options = &*options;
+    pub async fn file_and_error_handler(uri: Uri, State(options): State<LeptosOptions>, req: Request<Body>) -> AxumResponse {
         let root = options.site_root.clone();
         let res = get_static_file(uri.clone(), &root).await.unwrap();
 
