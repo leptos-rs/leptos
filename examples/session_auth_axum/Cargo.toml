@@ -22,7 +22,7 @@ leptos_router = { path = "../../router", default-features = false }
 log = "0.4.17"
 simple_logger = "4.0.0"
 serde = { version = "1.0.148", features = ["derive"] }
-axum = { version = "0.6.1", optional = true }
+axum = { version = "0.6.1", optional = true, features=["macros"] }
 tower = { version = "0.4.13", optional = true }
 tower-http = { version = "0.4", features = ["fs"], optional = true }
 tokio = { version = "1.22.0", features = ["full"], optional = true }
