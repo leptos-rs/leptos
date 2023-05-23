@@ -451,28 +451,24 @@ fn root_route(
 
         let (current_view, set_current_view) = create_signal(cx, None);
 
-        create_effect(cx, {
-            let global_suspense = global_suspense.clone();
-            move |prev| {
-                let root = root_view.get();
-                let is_fallback =
-                    !global_suspense.with_inner(SuspenseContext::ready);
-                if prev.is_none() {
-                    set_current_view.set(root);
-                } else if !is_fallback {
-                    queue_microtask({
-                        let global_suspense = global_suspense.clone();
-                        move || {
-                            let is_fallback = cx.untrack(move || {
-                                !global_suspense
-                                    .with_inner(SuspenseContext::ready)
-                            });
-                            if !is_fallback {
-                                set_current_view.set(root);
-                            }
+        create_effect(cx, move |prev| {
+            let root = root_view.get();
+            let is_fallback =
+                !global_suspense.with_inner(SuspenseContext::ready);
+            if prev.is_none() {
+                set_current_view.set(root);
+            } else if !is_fallback {
+                queue_microtask({
+                    let global_suspense = global_suspense.clone();
+                    move || {
+                        let is_fallback = cx.untrack(move || {
+                            !global_suspense.with_inner(SuspenseContext::ready)
+                        });
+                        if !is_fallback {
+                            set_current_view.set(root);
                         }
-                    });
-                }
+                    }
+                });
             }
         });
         current_view.into()
