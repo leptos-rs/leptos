@@ -15,7 +15,6 @@ if #[cfg(feature = "ssr")] {
     use crate::error_template::error_template;
 
     pub async fn file_and_error_handler(uri: Uri, State(options): State<LeptosOptions>, req: Request<Body>) -> AxumResponse {
-        let options = &*options;
         let root = options.site_root.clone();
         let res = get_static_file(uri.clone(), &root).await.unwrap();
 
