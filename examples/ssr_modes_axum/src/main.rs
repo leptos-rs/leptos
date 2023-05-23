@@ -5,11 +5,10 @@ async fn main() {
     use leptos::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
-    use std::sync::Arc;
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
-    let leptos_options = Arc::new(conf.leptos_options);
+    let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 

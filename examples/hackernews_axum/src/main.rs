@@ -9,7 +9,6 @@ if #[cfg(feature = "ssr")] {
         routing::get,
     };
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use std::sync::Arc;
     use hackernews_axum::fallback::file_and_error_handler;
 
     #[tokio::main]
@@ -17,7 +16,7 @@ if #[cfg(feature = "ssr")] {
         use hackernews_axum::*;
 
         let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
-        let leptos_options = Arc::new(conf.leptos_options);
+        let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
