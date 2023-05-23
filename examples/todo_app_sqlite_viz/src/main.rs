@@ -16,7 +16,7 @@ cfg_if! {
     //Define a handler to test extractor with state
     async fn custom_handler(req: Request) -> Result<Response> {
         let id = req.params::<String>()?;
-        let options = &*req
+        let options = req
             .state::<LeptosOptions>()
             .ok_or(StateError::new::<LeptosOptions>())?;
         let handler = leptos_viz::render_app_to_stream_with_context(
@@ -53,7 +53,7 @@ cfg_if! {
             .post("/api/:fn_name*", leptos_viz::handle_server_fns)
             .get("/special/:id", custom_handler)
             .leptos_routes(
-                &leptos_options,
+                leptos_options,
                 routes,
                 |cx| view! { cx, <TodoApp/> },
             )
