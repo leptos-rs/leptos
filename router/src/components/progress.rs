@@ -33,7 +33,7 @@ pub fn RoutingProgress(
     let (progress, set_progress) = create_signal(cx, 0.0);
 
     create_effect(cx, move |prev: Option<Option<IntervalHandle>>| {
-        if is_routing.get() {
+        if is_routing.get() && !is_showing.get() {
             set_is_showing.set(true);
             set_interval_with_handle(
                 move || {
@@ -42,6 +42,9 @@ pub fn RoutingProgress(
                 std::time::Duration::from_millis(INCREMENT_EVERY_MS as u64),
             )
             .ok()
+        } else if is_routing.get() && is_showing.get() {
+            set_progress.set(0.0);
+            prev?
         } else {
             set_progress.set(100.0);
             set_timeout(

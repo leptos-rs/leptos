@@ -406,7 +406,7 @@ fn root_route(
     base_route: RouteContext,
     route_states: Memo<RouterState>,
     root_equal: Rc<Cell<bool>>,
-) -> Memo<Option<View>> {
+) -> Signal<Option<View>> {
     let root_cx = RefCell::new(None);
 
     let root_view = create_memo(cx, {
@@ -448,27 +448,32 @@ fn root_route(
         && use_context::<SetIsRouting>(cx).is_some()
     {
         let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
-        let is_fallback =
-            create_memo(cx, move |_| !global_suspense.as_inner().ready());
 
-        let last_two_views = create_memo(
-            cx,
-            move |prev: Option<&(Option<View>, Option<View>)>| match prev {
-                None => (root_view.get(), None),
-                Some((curr, _)) => (root_view.get(), curr.clone()),
-            },
-        );
+        let (current_view, set_current_view) = create_signal(cx, None);
 
-        create_memo(cx, move |_| {
-            let (curr, prev) = last_two_views.get();
-            if is_fallback.get() && prev.is_some() && !root_equal.get() {
-                prev
-            } else {
-                curr
+        create_effect(cx, move |prev| {
+            let root = root_view.get();
+            let is_fallback =
+                !global_suspense.with_inner(SuspenseContext::ready);
+            if prev.is_none() {
+                set_current_view.set(root);
+            } else if !is_fallback {
+                queue_microtask({
+                    let global_suspense = global_suspense.clone();
+                    move || {
+                        let is_fallback = cx.untrack(move || {
+                            !global_suspense.with_inner(SuspenseContext::ready)
+                        });
+                        if !is_fallback {
+                            set_current_view.set(root);
+                        }
+                    }
+                });
             }
-        })
+        });
+        current_view.into()
     } else {
-        root_view
+        root_view.into()
     }
 }
 

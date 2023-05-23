@@ -888,16 +888,18 @@ where
             if let Some(g) = &global_suspense_cx {
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
                 {
-                    let s = g.as_inner();
-                    if !contexts.contains(s) {
-                        contexts.insert(*s);
+                    g.with_inner(|s| {
+                        if !contexts.contains(s) {
+                            contexts.insert(*s);
 
-                        if !has_value {
-                            s.increment(
-                                serializable != ResourceSerialization::Local,
-                            );
+                            if !has_value {
+                                s.increment(
+                                    serializable
+                                        != ResourceSerialization::Local,
+                                );
+                            }
                         }
-                    }
+                    })
                 }
             }
         };
