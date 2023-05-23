@@ -7,7 +7,7 @@
 
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    extract::{Path, RawQuery},
+    extract::{Path, RawQuery, FromRef},
     http::{
         header::{HeaderName, HeaderValue},
         HeaderMap, Request, StatusCode,
@@ -1126,39 +1126,16 @@ where
     }
 }
 
-/// This trait allows one to use your custom struct in Axum's router, provided it can provide the
-/// `LeptosOptions` to use for the `LeptosRoutes` trait functions.
-pub trait LeptosOptionProvider {
-    fn options(&self) -> LeptosOptions;
-}
-
-/// Implement `LeptosOptionProvider` trait for `LeptosOptions` itself.
-impl LeptosOptionProvider for LeptosOptions {
-    fn options(&self) -> LeptosOptions {
-        self.clone()
-    }
-}
-
-/// Implement `LeptosOptionProvider` trait for any type wrapped in an Arc, if that type implements
-/// `LeptosOptionProvider` as states in axum are often provided wrapped in an Arc.
-impl<T> LeptosOptionProvider for Arc<T>
-where
-    T: LeptosOptionProvider,
-{
-    fn options(&self) -> LeptosOptions {
-        (**self).options()
-    }
-}
-
 /// This trait allows one to pass a list of routes and a render function to Axum's router, letting us avoid
 /// having to use wildcards or manually define all routes in multiple places.
-pub trait LeptosRoutes<OP>
+pub trait LeptosRoutes<S>
 where
-    OP: LeptosOptionProvider,
+    LeptosOptions: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
 {
     fn leptos_routes<IV>(
         self,
-        options: OP,
+        options: &S,
         paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1167,7 +1144,7 @@ where
 
     fn leptos_routes_with_context<IV>(
         self,
-        options: OP,
+        options: &S,
         paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -1181,20 +1158,21 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, OP, axum::body::Body>,
+        H: axum::handler::Handler<T, S, axum::body::Body>,
         T: 'static;
 }
 
 /// The default implementation of `LeptosRoutes` which takes in a list of paths, and dispatches GET requests
 /// to those paths to Leptos's renderer.
-impl<OP> LeptosRoutes<OP> for axum::Router<OP>
+impl<S> LeptosRoutes<S> for axum::Router<S>
 where
-    OP: LeptosOptionProvider + Clone + Send + Sync + 'static,
+    LeptosOptions: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
 {
     #[tracing::instrument(level = "info", fields(error), skip_all)]
     fn leptos_routes<IV>(
         self,
-        options: OP,
+        options: &S,
         paths: Vec<RouteListing>,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
     ) -> Self
@@ -1207,7 +1185,7 @@ where
     #[tracing::instrument(level = "trace", fields(error), skip_all)]
     fn leptos_routes_with_context<IV>(
         self,
-        options: OP,
+        options: &S,
         paths: Vec<RouteListing>,
         additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
         app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
@@ -1225,7 +1203,7 @@ where
                     match listing.mode() {
                         SsrMode::OutOfOrder => {
                             let s = render_app_to_stream_with_context(
-                                options.options(),
+                                LeptosOptions::from_ref(options),
                                 additional_context.clone(),
                                 app_fn.clone(),
                             );
@@ -1239,7 +1217,7 @@ where
                         }
                         SsrMode::PartiallyBlocked => {
                             let s = render_app_to_stream_with_context_and_replace_blocks(
-                                options.options(),
+                                LeptosOptions::from_ref(options),
                                 additional_context.clone(),
                                 app_fn.clone(),
                                 true
@@ -1254,7 +1232,7 @@ where
                         }
                         SsrMode::InOrder => {
                             let s = render_app_to_stream_in_order_with_context(
-                                options.options(),
+                                LeptosOptions::from_ref(options),
                                 additional_context.clone(),
                                 app_fn.clone(),
                             );
@@ -1268,7 +1246,7 @@ where
                         }
                         SsrMode::Async => {
                             let s = render_app_async_with_context(
-                                options.options(),
+                                LeptosOptions::from_ref(&options),
                                 additional_context.clone(),
                                 app_fn.clone(),
                             );
@@ -1294,7 +1272,7 @@ where
         handler: H,
     ) -> Self
     where
-        H: axum::handler::Handler<T, OP, axum::body::Body>,
+        H: axum::handler::Handler<T, S, axum::body::Body>,
         T: 'static,
     {
         let mut router = self;

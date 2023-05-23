@@ -33,8 +33,8 @@ if #[cfg(feature = "ssr")] {
         }, request).await
     }
 
-    async fn leptos_routes_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, State(options): State<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+    async fn leptos_routes_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, State(options): State<LeptosOptions>, req: Request<AxumBody>) -> Response{
+            let handler = leptos_axum::render_app_to_stream_with_context((options).clone(),
             move |cx| {
                 provide_context(cx, auth_session.clone());
                 provide_context(cx, pool.clone());
@@ -68,7 +68,7 @@ if #[cfg(feature = "ssr")] {
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
-        let leptos_options = Arc::new(conf.leptos_options);
+        let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
 
@@ -78,7 +78,7 @@ if #[cfg(feature = "ssr")] {
         .leptos_routes_with_handler(routes, get(leptos_routes_handler) )
         .fallback(file_and_error_handler)
         .layer(AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(Some(pool.clone()))
-                    .with_config(auth_config))
+        .with_config(auth_config))
         .layer(SessionLayer::new(session_store))
         .layer(Extension(pool))
         .with_state(leptos_options);
