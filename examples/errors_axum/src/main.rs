@@ -52,7 +52,7 @@ async fn main() {
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
         .leptos_routes(
-            leptos_options.clone(),
+            &leptos_options,
             routes,
             |cx| view! { cx, <App/> },
         )
