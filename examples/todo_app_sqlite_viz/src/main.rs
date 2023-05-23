@@ -53,7 +53,7 @@ cfg_if! {
             .post("/api/:fn_name*", leptos_viz::handle_server_fns)
             .get("/special/:id", custom_handler)
             .leptos_routes(
-                leptos_options.clone(),
+                &leptos_options,
                 routes,
                 |cx| view! { cx, <TodoApp/> },
             )
