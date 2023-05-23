@@ -14,18 +14,17 @@ cfg_if! { if #[cfg(feature = "ssr")] {
     use errors_axum::*;
     use leptos::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use std::sync::Arc;
 }}
 
 //Define a handler to test extractor with state
 #[cfg(feature = "ssr")]
 async fn custom_handler(
     Path(id): Path<String>,
-    State(options): State<Arc<LeptosOptions>>,
+    State(options): State<LeptosOptions>,
     req: Request<AxumBody>,
 ) -> Response {
     let handler = leptos_axum::render_app_to_stream_with_context(
-        (*options).clone(),
+        options.leptos_options.clone(),
         move |cx| {
             provide_context(cx, id.clone());
         },
@@ -44,7 +43,7 @@ async fn main() {
 
     // Setting this to None means we'll be using cargo-leptos and its env vars
     let conf = get_configuration(None).await.unwrap();
-    let leptos_options = Arc::new(conf.leptos_options);
+    let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
