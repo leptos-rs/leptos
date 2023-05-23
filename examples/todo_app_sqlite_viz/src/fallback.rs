@@ -18,7 +18,7 @@ if #[cfg(feature = "ssr")] {
         let uri = req.uri().clone();
         let headers = req.headers().clone();
         let route_info = req.route_info().clone();
-        let options = &*req.state::<LeptosOptions>().ok_or(
+        let options = req.state::<LeptosOptions>().ok_or(
             Error::Responder(Response::text("missing state type LeptosOptions")),
         )?;
         let root = &options.site_root;
