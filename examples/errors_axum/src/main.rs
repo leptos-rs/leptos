@@ -24,7 +24,7 @@ async fn custom_handler(
     req: Request<AxumBody>,
 ) -> Response {
     let handler = leptos_axum::render_app_to_stream_with_context(
-        options.leptos_options.clone(),
+        options.clone(),
         move |cx| {
             provide_context(cx, id.clone());
         },
