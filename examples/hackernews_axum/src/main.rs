@@ -25,7 +25,7 @@ if #[cfg(feature = "ssr")] {
         // build our application with a route
         let app = Router::new()
         .route("/favicon.ico", get(file_and_error_handler))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> } )
+        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> } )
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 
