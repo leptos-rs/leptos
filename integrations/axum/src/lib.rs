@@ -7,7 +7,7 @@
 
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    extract::{Path, RawQuery, FromRef},
+    extract::{FromRef, Path, RawQuery},
     http::{
         header::{HeaderName, HeaderValue},
         HeaderMap, Request, StatusCode,
