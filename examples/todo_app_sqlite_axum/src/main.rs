@@ -18,7 +18,7 @@ cfg_if! {
 
     //Define a handler to test extractor with state
     async fn custom_handler(Path(id): Path<String>, State(options): State<LeptosOptions>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+            let handler = leptos_axum::render_app_to_stream_with_context(options,
             move |cx| {
                 provide_context(cx, id.clone());
             },
