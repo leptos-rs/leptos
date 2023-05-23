@@ -254,11 +254,15 @@ pub fn handle_server_fns_with_context(
                             }
 
                             // Use provided ResponseParts headers if they exist
+                            let mut last_key = None;
                             let _count = res_parts
                                 .headers
                                 .drain()
                                 .map(|(k, v)| {
                                     if let Some(k) = k {
+                                        last_key = Some(k.clone());
+                                        res.append_header((k, v));
+                                    } else if let Some(k) = last_key.clone() {
                                         res.append_header((k, v));
                                     }
                                 })
@@ -817,12 +821,18 @@ async fn build_stream_response(
     let mut res = HttpResponse::Ok()
         .content_type("text/html")
         .streaming(complete_stream);
+
     // Add headers manipulated in the response
+    let mut last_key = None;
     for (key, value) in headers.drain() {
         if let Some(key) = key {
+            last_key = Some(key.clone());
+            res.headers_mut().append(key, value);
+        } else if let Some(key) = last_key.clone() {
             res.headers_mut().append(key, value);
         }
     }
+
     // Set status to what is returned in the function
     let res_status = res.status_mut();
     *res_status = status;
@@ -854,11 +864,16 @@ async fn render_app_async_helper(
     let mut res = HttpResponse::Ok().content_type("text/html").body(html);
 
     // Add headers manipulated in the response
+    let mut last_key = None;
     for (key, value) in headers.drain() {
         if let Some(key) = key {
+            last_key = Some(key.clone());
+            res.headers_mut().append(key, value);
+        } else if let Some(key) = last_key.clone() {
             res.headers_mut().append(key, value);
         }
     }
+
     // Set status to what is returned in the function
     let res_status = res.status_mut();
     *res_status = status;
