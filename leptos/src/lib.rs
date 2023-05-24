@@ -147,6 +147,8 @@
 
 mod additional_attributes;
 pub use additional_attributes::*;
+mod await_;
+pub use await_::*;
 pub use leptos_config::{self, get_configuration, LeptosOptions};
 #[cfg(not(all(
     target_arch = "wasm32",
