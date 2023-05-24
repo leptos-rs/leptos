@@ -19,8 +19,8 @@ if #[cfg(feature = "ssr")] {
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
     use leptos::{log, view, provide_context, get_configuration};
     use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
-    use axum_database_sessions::{SessionConfig, SessionLayer, SessionStore};
-    use axum_sessions_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
+    use axum_session::{SessionConfig, SessionLayer, SessionStore};
+    use axum_session_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
 
     async fn server_fn_handler(State(app_state): State<AppState>, auth_session: AuthSession, path: Path<String>, headers: HeaderMap, raw_query: RawQuery,
     request: Request<AxumBody>) -> impl IntoResponse {

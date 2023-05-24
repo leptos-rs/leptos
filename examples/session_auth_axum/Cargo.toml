@@ -33,10 +33,10 @@ sqlx = { version = "0.6.2", features = [
 ], optional = true }
 thiserror = "1.0.38"
 wasm-bindgen = "0.2"
-axum_sessions_auth = { version = "7.0.0", features = [
+axum_session_auth = { version = "0.2.1", features = [
 	"sqlite-rustls",
 ], optional = true }
-axum_database_sessions = { version = "7.0.0", features = [
+axum_session = { version = "0.2.3", features = [
 	"sqlite-rustls",
 ], optional = true }
 bcrypt = { version = "0.14", optional = true }
@@ -49,8 +49,8 @@ ssr = [
 	"dep:tower",
 	"dep:tower-http",
 	"dep:tokio",
-	"dep:axum_sessions_auth",
-	"dep:axum_database_sessions",
+	"dep:axum_session_auth",
+	"dep:axum_session",
 	"dep:async-trait",
 	"dep:sqlx",
 	"dep:bcrypt",
