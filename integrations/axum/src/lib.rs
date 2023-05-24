@@ -7,7 +7,7 @@
 
 use axum::{
     body::{Body, Bytes, Full, StreamBody},
-    extract::{FromRef, Path, RawQuery, FromRequestParts},
+    extract::{FromRef, FromRequestParts, Path, RawQuery},
     http::{
         header::{HeaderName, HeaderValue},
         HeaderMap, Request, StatusCode,
@@ -1284,7 +1284,7 @@ impl<B> From<Request<B>> for ExtractorHelper {
 /// pub async fn query_extract(cx: Scope) -> Result<String, ServerFnError> {
 ///     use axum::{extract::Query, http::Method};
 ///     use leptos_axum::extract;
-/// 
+///
 ///     extract(cx, |method: Method, res: Query<MyQuery>| async move {
 ///             format!("{method:?} and {}", res.q)
 ///         },
@@ -1332,7 +1332,6 @@ macro_rules! factory_tuple ({ $($param:ident)* } => {
         }
     }
 });
-
 
 factory_tuple! { A }
 factory_tuple! { A B }
