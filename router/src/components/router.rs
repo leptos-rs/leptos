@@ -385,7 +385,10 @@ impl RouterContextInner {
                 return;
             }
 
-            let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
+            let to = path_name
+                + if url.search.is_empty() { "" } else { "?" }
+                + &unescape(&url.search)
+                + &unescape(&url.hash);
             let state =
                 leptos_dom::helpers::get_property(a.unchecked_ref(), "state")
                     .ok()
