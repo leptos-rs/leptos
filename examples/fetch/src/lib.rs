@@ -78,7 +78,7 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
         cats.read(cx).map(|data| {
             data.map(|data| {
                 data.iter()
-                    .map(|s| view! { cx, <span>{s}</span> })
+                    .map(|s| view! { cx, <p><img src={s}/></p> })
                     .collect_view(cx)
             })
         })
@@ -101,7 +101,9 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
                 <Transition fallback=move || {
                     view! { cx, <div>"Loading (Suspense Fallback)..."</div> }
                 }>
+                <div>
                     {cats_view}
+                </div>
                 </Transition>
             </ErrorBoundary>
         </div>
