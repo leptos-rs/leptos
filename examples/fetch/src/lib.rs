@@ -17,7 +17,9 @@ pub enum FetchError {
     Json,
 }
 
-async fn fetch_cats(count: u32) -> Result<Vec<String>, FetchError> {
+type CatCount = usize;
+
+async fn fetch_cats(count: CatCount) -> Result<Vec<String>, FetchError> {
     if count > 0 {
         // make the request
         let res = reqwasm::http::Request::get(&format!(
@@ -32,6 +34,7 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, FetchError> {
         .map_err(|_| FetchError::Json)?
         // extract the URL field for each cat
         .into_iter()
+        .take(count)
         .map(|cat| cat.url)
         .collect::<Vec<_>>();
         Ok(res)
@@ -41,7 +44,7 @@ async fn fetch_cats(count: u32) -> Result<Vec<String>, FetchError> {
 }
 
 pub fn fetch_example(cx: Scope) -> impl IntoView {
-    let (cat_count, set_cat_count) = create_signal::<u32>(cx, 0);
+    let (cat_count, set_cat_count) = create_signal::<CatCount>(cx, 0);
 
     // we use local_resource here because
     // 1) our error type isn't serializable/deserializable
@@ -89,7 +92,7 @@ pub fn fetch_example(cx: Scope) -> impl IntoView {
                     type="number"
                     prop:value=move || cat_count.get().to_string()
                     on:input=move |ev| {
-                        let val = event_target_value(&ev).parse::<u32>().unwrap_or(0);
+                        let val = event_target_value(&ev).parse::<CatCount>().unwrap_or(0);
                         set_cat_count(val);
                     }
                 />
