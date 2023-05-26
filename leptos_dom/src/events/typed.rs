@@ -297,6 +297,8 @@ generate_event_types! {
   resize: UiEvent,
   #[does_not_bubble]
   scroll: Event,
+  #[does_not_bubble]
+  scrollend: Event,
   securitypolicyviolation: SecurityPolicyViolationEvent,
   #[does_not_bubble]
   seeked: Event,
