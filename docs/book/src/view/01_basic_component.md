@@ -78,8 +78,7 @@ This returns a `(getter, setter)` tuple. To access the current value, you’ll
 use `count.get()` (or, on `nightly` Rust, the shorthand `count()`). To set the
 current value, you’ll call `set_count.set(...)` (or `set_count(...)`).
 
-> `.get()` clones the value and `.set()` overwrites it. In many cases, it’s more
-> efficient to use `.with()` or `.update()`; check out the docs for [`ReadSignal`](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) and [`WriteSignal`](https://docs.rs/leptos/latest/leptos/struct.WriteSignal.html) if you’d like to learn more about those trade-offs at this point.
+> `.get()` clones the value and `.set()` overwrites it. In many cases, it’s more efficient to use `.with()` or `.update()`; check out the docs for [`ReadSignal`](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) and [`WriteSignal`](https://docs.rs/leptos/latest/leptos/struct.WriteSignal.html) if you’d like to learn more about those trade-offs at this point.
 
 ## The View
 
