@@ -77,11 +77,11 @@ fn root_element_to_tokens(
         quote_spanned! {
             span => {
                 thread_local! {
-                    static #template_uid: web_sys::HtmlTemplateElement = {
+                    static #template_uid: leptos::web_sys::HtmlTemplateElement = {
                         let document = leptos::document();
                         let el = document.create_element("template").unwrap();
                         el.set_inner_html(#template);
-                        el.unchecked_into()
+                        leptos::wasm_bindgen::JsCast::unchecked_into(el)
                     };
                 }
 
@@ -93,7 +93,7 @@ fn root_element_to_tokens(
                 leptos::leptos_dom::View::Element(leptos::leptos_dom::Element {
                     #[cfg(debug_assertions)]
                     name: #tag_name.into(),
-                    element: root.unchecked_into(),
+                    element: leptos::wasm_bindgen::JsCast::unchecked_into(root),
                     #[cfg(debug_assertions)]
                     view_marker: None
                 })
@@ -154,7 +154,8 @@ fn element_to_tokens(
     let this_nav = if is_root_el {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
-                let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
+                let #this_el_ident =
+                leptos::wasm_bindgen::JsCast::unchecked_into::<leptos::web_sys::Node>(#parent.clone());
                 //debug!("=> got {}", #this_el_ident.node_name());
         }
     } else if let Some(prev_sib) = &prev_sib {
@@ -305,7 +306,7 @@ fn attr_to_tokens(
         let (event_type, handler) =
             crate::view::event_from_attribute_node(node, false);
         expressions.push(quote! {
-            leptos::leptos_dom::add_event_helper(#el_id.unchecked_ref(), #event_type, #handler);
+            leptos::leptos_dom::add_event_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #event_type, #handler);
         })
     }
     // Properties
@@ -313,7 +314,7 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
+            span => leptos::leptos_dom::property(#cx, leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name, #value.into_property(#cx))
         });
     }
     // Classes
@@ -321,7 +322,7 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => leptos::leptos_dom::class_helper(#el_id.unchecked_ref(), #name.into(), #value.into_class(#cx))
+            span => leptos::leptos_dom::class_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), #value.into_class(#cx))
         });
     }
     // Attributes
@@ -345,7 +346,7 @@ fn attr_to_tokens(
                 // For client-side rendering, dynamic attributes don't need to be rendered in the template
                 // They'll immediately be set synchronously before the cloned template is mounted
                 expressions.push(quote_spanned! {
-                    span => leptos::leptos_dom::attribute_helper(#el_id.unchecked_ref(), #name.into(), {#value}.into_attribute(#cx))
+                    span => leptos::leptos_dom::attribute_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), {#value}.into_attribute(#cx))
                 });
             }
         }
