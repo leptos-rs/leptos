@@ -32,7 +32,7 @@
   - [`<A/>`](./router/19_a.md)
   - [`<Form/>`](./router/20_form.md)
 - [Interlude: Styling](./interlude_styling.md)
-- [Metadata]()
+- [Metadata](./metadata.md)
 - [Server Side Rendering](./ssr/README.md)
   - [`cargo-leptos`](./ssr/21_cargo_leptos.md)
   - [The Life of a Page Load](./ssr/22_life_cycle.md)
