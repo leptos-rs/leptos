@@ -218,7 +218,9 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
     let mut blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
 
+    eprintln!("\n\n");
     for (fragment_id, data) in pending_fragments {
+        eprintln!("pending fragment {fragment_id:?}");
         if data.should_block {
             blocking_fragments
                 .push(async move { (fragment_id, data.out_of_order.await) });
