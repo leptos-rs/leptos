@@ -676,20 +676,10 @@ fn apply_cmds<T, EF, N>(
     // 4. Add
     if cmds.clear {
         cmds.removed.clear();
-        crate::log!("clearing list");
-        web_sys::console::log_2(
-            &wasm_bindgen::JsValue::from_str("open"),
-            opening,
-        );
-        web_sys::console::log_2(
-            &wasm_bindgen::JsValue::from_str("closing"),
-            closing,
-        );
 
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
         {
-            crate::log!("no siblings");
             let parent = closing
                 .parent_node()
                 .expect("could not get closing node")
@@ -702,7 +692,6 @@ fn apply_cmds<T, EF, N>(
             #[cfg(not(debug_assertions))]
             parent.append_with_node_1(closing).unwrap();
         } else {
-            crate::log!("yes siblings");
             range.set_start_before(opening).unwrap();
             range.set_end_before(closing).unwrap();
 
