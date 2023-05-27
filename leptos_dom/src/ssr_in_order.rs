@@ -147,12 +147,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         )
     })
     .chain(rx)
-    .chain(render_serializers(serializers))
-    // dispose of the scope
-    .chain(futures::stream::once(async move {
-        disposer.dispose();
-        Default::default()
-    }));
+    .chain(render_serializers(serializers));
 
     (stream, runtime, scope_id)
 }

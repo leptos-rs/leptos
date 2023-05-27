@@ -193,7 +193,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
     let (
         (shell, pending_resources, pending_fragments, serializers),
         scope,
-        disposer,
+        _,
     ) = run_scope_undisposed(runtime, {
         move |cx| {
             // Add additional context items
