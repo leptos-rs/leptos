@@ -38,6 +38,8 @@ impl VecExt for Vec<Option<EachItem>> {
         start_at: usize,
         or: web_sys::Node,
     ) -> web_sys::Node {
+        // TODO remove, this is just for debugging
+        crate::log!("get_next_closest_mounted_sibling {self:?} \n\n start_at = {start_at}");
         self[start_at..]
             .iter()
             .find_map(|s| s.as_ref().map(|s| s.get_opening_node()))
@@ -171,8 +173,11 @@ pub(crate) struct EachItem {
     cx: Scope,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     document_fragment: Option<web_sys::DocumentFragment>,
+    // there were several issues caused by the discrepancy 
+    // between an optional closing and non-optional opening 
+    // in debug mode
     #[cfg(debug_assertions)]
-    opening: Comment,
+    opening: Option<Comment>,
     pub(crate) child: View,
     closing: Option<Comment>,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -196,7 +201,10 @@ impl fmt::Debug for EachItem {
 impl EachItem {
     fn new(cx: Scope, child: View) -> Self {
         let id = HydrationCtx::id();
-        let needs_closing = !matches!(child, View::Element(_));
+
+        // TODO fix this -- something caused it to break moves
+        // in the new algorithm
+        let needs_closing = true; // !matches!(child, View::Element(_));
 
         let markers = (
             if needs_closing {
@@ -205,7 +213,11 @@ impl EachItem {
                 None
             },
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Borrowed("<EachItem>"), &id, false),
+            if needs_closing {
+                Some(Comment::new(Cow::Borrowed("<EachItem>"), &id, false))
+            } else {
+                None
+            },
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -219,7 +231,10 @@ impl EachItem {
             if !HydrationCtx::is_hydrating() {
                 #[cfg(debug_assertions)]
                 fragment
-                    .append_with_node_2(&markers.1.node, &closing.node)
+                    .append_with_node_2(
+                        &markers.1.as_ref().unwrap().node,
+                        &closing.node,
+                    )
                     .unwrap();
                 fragment.append_with_node_1(&closing.node).unwrap();
             }
@@ -264,10 +279,6 @@ impl Mountable for EachItem {
 
     #[inline(always)]
     fn get_opening_node(&self) -> web_sys::Node {
-        #[cfg(debug_assertions)]
-        return self.opening.node.clone();
-
-        #[cfg(not(debug_assertions))]
         return self.child.get_opening_node();
     }
 
@@ -736,6 +747,10 @@ fn apply_cmds<T, EF, N>(
     N: IntoView,
 {
     let range = RANGE.with(|range| (*range).clone());
+    let parent = closing
+        .parent_node()
+        .expect("`Each` to have a parent node")
+        .unchecked_into::<web_sys::Element>();
 
     // Resize children if needed
     if cmds.added.len().checked_sub(cmds.removed.len()).is_some() {
@@ -749,17 +764,15 @@ fn apply_cmds<T, EF, N>(
     // The order of cmds needs to be:
     // 1. Clear
     // 2. Removed
-    // 4. Moves and adds must be applied together interleaved
+    // 3. Dense moves
+    // 4. Non-dense moves and adds must be applied together interleaved
+    // TODO Jose can check my logic on #3 and #4 being separate
     if cmds.clear {
         cmds.removed.clear();
 
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
         {
-            let parent = closing
-                .parent_node()
-                .expect("`Each` to have a parent node")
-                .unchecked_into::<web_sys::Element>();
             parent.set_text_content(Some(""));
 
             #[cfg(debug_assertions)]
@@ -781,7 +794,14 @@ fn apply_cmds<T, EF, N>(
         item_to_remove.prepare_for_move();
     }
 
+    // TODO remove, debugging
+    crate::log!("adds = {:?}", cmds.added);
+
     let mut added_iter = cmds.added.into_iter();
+    let mut unrelated_adds = Vec::new();
+
+    // TODO remove, debugging
+    crate::log!("moves = {:?}", cmds.moved);
 
     for DiffOpMove {
         from,
@@ -801,6 +821,7 @@ fn apply_cmds<T, EF, N>(
         // in the middle of a Vec for each item, this is
         // no bueno.
         if is_dense {
+            // TODO optimize for case of a move of len 1 of a single Element?
             range.set_start_before(
                 &children[from].as_ref().unwrap().get_opening_node(),
             );
@@ -810,19 +831,91 @@ fn apply_cmds<T, EF, N>(
                     .unwrap()
                     .get_closing_node(),
             );
+
+            let contents = range.extract_contents().unwrap();
+
+            let opening = children
+                .get_next_closest_mounted_sibling(to + 1, closing.to_owned());
+
+            opening
+                .unchecked_ref::<web_sys::Element>()
+                .before_with_node_1(&contents);
+
+            // TODO update children... so that subsequent adds are against correct index
         }
+        // non-dense moves
+        else {
+            let move_range = (from..from + len);
+            // there may be additional adds that are not the one
+            // inserted into this move, lets iterate through them
+            while let Some(next_add) = added_iter.next() {
+                let next_add_at = next_add.at;
+                if move_range.contains(&next_add_at) {
+                    // TODO do the non-dense move
 
-        let contents = range.extract_contents().unwrap();
+                    // TODO do the add
+                    crate::log!("add {next_add:?} during this move");
 
-        todo!();
+                    // break out so we stop consuming iterator of adds
+                    break;
+                } else {
+                    // if the add is not actually included in this move,
+                    // handle it with the other adds below
+                    unrelated_adds.push(next_add);
+                }
+            }
+        }
     }
 
-    todo!();
+    // handle all "add items" commands remaining
+    for DiffOpAdd { at, mode } in added_iter.chain(unrelated_adds) {
+        add_item(cx, &mut items, children, each_fn, at, mode, closing);
+    }
 
     // Now, remove the holes that might have been left from removing
     // items
     #[allow(unstable_name_collisions)]
     children.drain_filter(|c| c.is_none());
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+fn add_item<T, EF, N>(
+    cx: Scope,
+    items: &mut Vec<Option<T>>,
+    children: &mut Vec<Option<EachItem>>,
+    each_fn: &EF,
+    at: usize,
+    mode: DiffOpAddMode,
+    closing: &web_sys::Node
+) where EF: Fn(Scope, T) -> N, N: IntoView, {
+    let item = items[at].take().unwrap();
+
+    let (each_item, _) = cx.run_child_scope(|cx| {
+        let child = each_fn(cx, item).into_view(cx);
+        EachItem::new(cx, child)
+    });
+
+    match mode {
+        DiffOpAddMode::Normal => {
+            let opening = children
+                .get_next_closest_mounted_sibling(at, closing.to_owned());
+            crate::log!("adding at {at} with mode {mode:?} => {each_item:?} \n\nbefore {:?}\n\nchildren are {children:?}", opening.text_content());
+            mount_child(MountKind::Before(&opening), &each_item);
+
+            // shift subsequent items, so that subsequent adds are inserted in the right place
+            let mut at = at;
+            let mut old = std::mem::replace(&mut children[at], Some(each_item));
+            while let Some(displaced) = old {
+                old = std::mem::replace(&mut children[at + 1], Some(displaced));
+                at += 1;
+            }
+        }
+        DiffOpAddMode::Append => {
+            mount_child(MountKind::Before(closing), &each_item);
+            children[at] = Some(each_item);
+        }
+        DiffOpAddMode::_Prepend => todo!(),
+    }
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
