@@ -280,12 +280,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
     // TODO these should be combined again in a way that chains them appropriately
     // such that individual resources can resolve before all fragments are done
     .chain(fragments)
-    .chain(resources)
-    // dispose of the root scope
-    .chain(futures::stream::once(async move {
-        disposer.dispose();
-        Default::default()
-    }));
+    .chain(resources);
 
     (stream, runtime, scope)
 }
