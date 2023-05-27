@@ -56,7 +56,7 @@ where
     IV: IntoView + 'static,
 {
     let runtime = create_runtime();
-    run_scope(runtime, move |cx| {
+    let routes = run_scope(runtime, move |cx| {
         let integration = ServerIntegration {
             path: "http://leptos.rs/".to_string(),
         };
@@ -94,5 +94,7 @@ where
                 })
             })
             .collect()
-    })
+    });
+    runtime.dispose();
+    routes
 }
