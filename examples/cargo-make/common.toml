@@ -60,9 +60,10 @@ description = "Runs end to end tests with cargo leptos"
 command = "cargo"
 args = ["leptos", "end-to-end"]
 
-[tasks.setup]
-description = "Setup e2e dependencies"
+[tasks.setup-playwright]
+description = "Setup playwright and install browsers"
 cwd = "${END2END_DIR}"
+env = { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1" }
 script = '''
     BOLD="\e[1m"
     GREEN="\e[0;32m"
@@ -71,17 +72,19 @@ script = '''
 
     if command -v pnpm; then
         pnpm install
+        pnpm playwright install
     elif command -v npm; then
         npm install
+        npx playwright install
     else
         echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
         exit 1
     fi
 '''
 
-[tasks.auto-setup]
+[tasks.auto-playwright-setup]
 script = '''
   if [ ! -d "${END2END_DIR}/node_modules" ]; then
-    cargo make setup
+    cargo make setup-playwright
   fi
 '''
