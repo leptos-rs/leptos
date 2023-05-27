@@ -791,7 +791,7 @@ where
                             add_context,
                         );
 
-                    runtime_tx.send(runtime).expect("should be able to send runtime");;
+                    runtime_tx.send(runtime).expect("should be able to send runtime");
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
                 }.instrument(current_span));
