@@ -631,7 +631,9 @@ where
             }.instrument(current_span));
 
             async move {
-                let runtime = runtime_rx.await.expect("runtime should be sent by renderer");
+                let runtime = runtime_rx
+                    .await
+                    .expect("runtime should be sent by renderer");
                 generate_response(res_options3, rx, runtime).await
             }
         })
@@ -642,7 +644,7 @@ where
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
-    runtime: RuntimeId
+    runtime: RuntimeId,
 ) -> Response<StreamBody<PinnedHtmlStream>> {
     let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
@@ -768,7 +770,8 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
-                let (runtime_tx, runtime_rx) = futures::channel::oneshot::channel();
+                let (runtime_tx, runtime_rx) =
+                    futures::channel::oneshot::channel();
                 let local_pool = get_leptos_pool();
                 let current_span = tracing::Span::current();
                 local_pool.spawn_pinned(|| async move {
@@ -793,7 +796,9 @@ where
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
                 }.instrument(current_span));
 
-                let runtime = runtime_rx.await.expect("runtime should be sent by renderer");
+                let runtime = runtime_rx
+                    .await
+                    .expect("runtime should be sent by renderer");
                 generate_response(res_options3, rx, runtime).await
             }
         })
