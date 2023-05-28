@@ -12,10 +12,10 @@ pub fn TimerDemo(cx: Scope) -> impl IntoView {
     let (interval, set_interval) = create_signal(cx, 1000);
 
     use_interval(cx, 1000, move || {
-        set_count_a.update(|c| *c = *c + 1);
+        set_count_a.update(|c| *c += 1);
     });
     use_interval(cx, interval, move || {
-        set_count_b.update(|c| *c = *c + 1);
+        set_count_b.update(|c| *c += 1);
     });
 
     view! { cx,
