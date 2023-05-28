@@ -51,17 +51,26 @@ fn view_fn(cx: Scope) -> impl IntoView {
         <Test from=&[2] to=&[1, 2, 3]/>
         <Test from=&[1] to=&[1, 2, 3]/>
         <Test from=&[3] to=&[1, 2, 3]/>
+        <Test from=&[3, 1] to=&[1, 2, 3]/>
         <Test from=&[1, 3, 2] to=&[1, 2, 3]/>
         <Test from=&[2, 1, 3] to=&[1, 2, 3]/>
+        <Test from=&[2, 1, 3] to=&[1, 2, 3]/>
+        <Test from=&[3, 2, 1] to=&[1, 2, 3]/>  
+         
+        <Test from=&[1, 4, 3, 2, 5] to=&[1, 2, 3, 4, 5]/>
       </ul>
-      <hr/>
       <h2>"Broken Tests"</h2>
       <ul>
-        // TODO diffing broken on the one below 
-        <Test from=&[3, 2, 1] to=&[1, 2, 3]/>
-
-        // dealing with move and then add is not yet complete
-        <Test from=&[3, 1] to=&[1, 2, 3]/>
+        // TODO remove followed by move
+        // seems to None-ify it in children but now the indices are off,
+        // am probably missing a search for next non-None at one or more points
+        <Test from=&[3, 2, 4, 1] to=&[1, 2, 3]/> 
+      </ul>
+      <h2>"Todo (non-dense moves)"</h2>
+      <ul>
+        // TODO these generate both a dense anda non-dense move
+        <Test from=&[1, 4, 2, 3] to=&[1, 2, 3, 4]/>   
+        <Test from=&[4, 5, 3, 1, 2] to=&[1, 2, 3, 4, 5]/>           
       </ul>
   }
 }

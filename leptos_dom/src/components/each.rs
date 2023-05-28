@@ -788,6 +788,9 @@ fn apply_cmds<T, EF, N>(
         }
     }
 
+    // TODO remove, debugging
+    crate::log!("removes = {:?}", cmds.removed);
+
     for DiffOpRemove { at } in cmds.removed {
         let item_to_remove = std::mem::take(&mut children[at]).unwrap();
 
@@ -798,10 +801,18 @@ fn apply_cmds<T, EF, N>(
     crate::log!("adds = {:?}", cmds.added);
 
     let mut added_iter = cmds.added.into_iter();
-    let mut unrelated_adds = Vec::new();
 
     // TODO remove, debugging
     crate::log!("moves = {:?}", cmds.moved);
+
+    // TODO so this needs to change of course: adds and moves need to 
+    // be merged into a single iterator, or iterated over simultaneously 
+    // it seems like adds should run before dense moves, in general 
+    // but that non-dense moves change that?
+    // handle all "add items" commands
+    for DiffOpAdd { at, mode } in added_iter {
+        add_item(cx, &mut items, children, each_fn, at, mode, closing);
+    }
 
     for DiffOpMove {
         from,
@@ -821,34 +832,16 @@ fn apply_cmds<T, EF, N>(
         // in the middle of a Vec for each item, this is
         // no bueno.
         if is_dense {
-            // TODO optimize for case of a move of len 1 of a single Element?
-            range.set_start_before(
-                &children[from].as_ref().unwrap().get_opening_node(),
-            );
-            range.set_end_before(
-                &children[from + len - 1]
-                    .as_ref()
-                    .unwrap()
-                    .get_closing_node(),
-            );
-
-            let contents = range.extract_contents().unwrap();
-
-            let opening = children
-                .get_next_closest_mounted_sibling(to + 1, closing.to_owned());
-
-            opening
-                .unchecked_ref::<web_sys::Element>()
-                .before_with_node_1(&contents);
-
-            // TODO update children... so that subsequent adds are against correct index
+            swap_ranges(from, to, len, children, closing);            
         }
         // non-dense moves
         else {
             let move_range = (from..from + len);
             // there may be additional adds that are not the one
             // inserted into this move, lets iterate through them
-            while let Some(next_add) = added_iter.next() {
+
+            // TODO non-dense moves
+            /* while let Some(next_add) = added_iter.next() {
                 let next_add_at = next_add.at;
                 if move_range.contains(&next_add_at) {
                     // TODO do the non-dense move
@@ -863,19 +856,62 @@ fn apply_cmds<T, EF, N>(
                     // handle it with the other adds below
                     unrelated_adds.push(next_add);
                 }
-            }
+            } */
         }
-    }
-
-    // handle all "add items" commands remaining
-    for DiffOpAdd { at, mode } in added_iter.chain(unrelated_adds) {
-        add_item(cx, &mut items, children, each_fn, at, mode, closing);
     }
 
     // Now, remove the holes that might have been left from removing
     // items
     #[allow(unstable_name_collisions)]
     children.drain_filter(|c| c.is_none());
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+fn swap_ranges(from: usize, to: usize, len: usize, children: &mut Vec<Option<EachItem>>, closing: &web_sys::Node) {
+    // TODO optimize for case of a move of len 1 of a single Element?
+    let anchor_to = children
+        .get_next_closest_mounted_sibling(to + 1, closing.to_owned());
+    let anchor_from = children
+        .get_next_closest_mounted_sibling(to.saturating_sub(1), closing.to_owned());
+
+        let range1 = RANGE.with(|range| (*range).clone());
+        range1.set_start_before(
+            &children[from].as_ref().unwrap().get_opening_node(),
+        );
+        range1.set_end_before(
+            &children[from + len - 1]
+                .as_ref()
+                .unwrap()
+                .get_closing_node(),
+        );
+
+        let contents_1 = range1.extract_contents().unwrap();
+
+        let range2 = RANGE.with(|range| (*range).clone());
+        range2.set_start_before(
+            &children[to].as_ref().map(EachItem::get_opening_node).unwrap_or_else(|| closing.clone()),
+        );
+        range2.set_end_before(
+            &children[to + len - 1]
+                .as_ref()
+                .map(EachItem::get_closing_node)
+                .unwrap_or_else(|| closing.clone())
+        );
+        let contents_2 = range2.extract_contents().unwrap();
+
+        // update children now, so that subsequent adds are mounted relative to the 
+        // correct child
+        // for a single item, we can use a single-element swap
+        for i in 0..len {
+            children.swap(from + i, to + i);
+        }
+
+    anchor_to
+        .unchecked_ref::<web_sys::Element>()
+        .before_with_node_1(&contents_1);
+    anchor_from
+        .unchecked_ref::<web_sys::Element>()
+        .before_with_node_1(&contents_2);
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -906,6 +942,7 @@ fn add_item<T, EF, N>(
             let mut at = at;
             let mut old = std::mem::replace(&mut children[at], Some(each_item));
             while let Some(displaced) = old {
+                crate::log!("replacing child at {}", at + 1);
                 old = std::mem::replace(&mut children[at + 1], Some(displaced));
                 at += 1;
             }
