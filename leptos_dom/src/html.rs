@@ -449,7 +449,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               element: AnyElement {
                 name: element.name(),
                 is_void: element.is_void(),
-                id: element.hydration_id()
+                id: *element.hydration_id()
               },
               #[cfg(debug_assertions)]
               view_marker
@@ -1072,7 +1072,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
                 ..
             } = self;
 
-            let id = element.hydration_id();
+            let id = *element.hydration_id();
 
             let mut element = Element::new(element);
             let children = children;
@@ -1116,7 +1116,7 @@ pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             element: el.as_ref().clone(),
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-            id: el.hydration_id(),
+            id: *el.hydration_id(),
         },
     )
 }
