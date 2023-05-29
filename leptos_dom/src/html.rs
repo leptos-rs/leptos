@@ -1116,7 +1116,7 @@ pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             element: el.as_ref().clone(),
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-            id: el.hydration_id()
+            id: el.hydration_id(),
         },
     )
 }
