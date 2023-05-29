@@ -134,8 +134,14 @@ where
                                         request_animation_frame(move || {
                                             if let Err(e) = navigate(
                                                 &format!(
-                                                    "{}{}",
-                                                    url.pathname, url.search,
+                                                    "{}{}{}",
+                                                    url.pathname,
+                                                    if url.search.is_empty() {
+                                                        ""
+                                                    } else {
+                                                        "?"
+                                                    },
+                                                    url.search,
                                                 ),
                                                 Default::default(),
                                             ) {
@@ -190,8 +196,14 @@ where
                                         request_animation_frame(move || {
                                             if let Err(e) = navigate(
                                                 &format!(
-                                                    "{}{}",
-                                                    url.pathname, url.search,
+                                                    "{}{}{}",
+                                                    url.pathname,
+                                                    if url.search.is_empty() {
+                                                        ""
+                                                    } else {
+                                                        "?"
+                                                    },
+                                                    url.search,
                                                 ),
                                                 Default::default(),
                                             ) {

@@ -6,38 +6,38 @@ if #[cfg(feature = "ssr")] {
     use axum::{
         response::{Response, IntoResponse},
         routing::get,
-        extract::{Path, State, Extension, RawQuery},
+        extract::{Path, State, RawQuery},
         http::{Request, header::HeaderMap},
         body::Body as AxumBody,
         Router,
     };
     use session_auth_axum::todo::*;
     use session_auth_axum::auth::*;
+    use session_auth_axum::state::AppState;
     use session_auth_axum::*;
     use session_auth_axum::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
-    use leptos::{log, view, provide_context, LeptosOptions, get_configuration};
-    use std::sync::Arc;
+    use leptos::{log, view, provide_context, get_configuration};
     use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
-    use axum_database_sessions::{SessionConfig, SessionLayer, SessionStore};
-    use axum_sessions_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
+    use axum_session::{SessionConfig, SessionLayer, SessionStore};
+    use axum_session_auth::{AuthSessionLayer, AuthConfig, SessionSqlitePool};
 
-    async fn server_fn_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, path: Path<String>, headers: HeaderMap, raw_query: RawQuery,
+    async fn server_fn_handler(State(app_state): State<AppState>, auth_session: AuthSession, path: Path<String>, headers: HeaderMap, raw_query: RawQuery,
     request: Request<AxumBody>) -> impl IntoResponse {
 
         log!("{:?}", path);
 
         handle_server_fns_with_context(path, headers, raw_query, move |cx| {
             provide_context(cx, auth_session.clone());
-            provide_context(cx, pool.clone());
+            provide_context(cx, app_state.pool.clone());
         }, request).await
     }
 
-    async fn leptos_routes_handler(Extension(pool): Extension<SqlitePool>, auth_session: AuthSession, State(options): State<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+    async fn leptos_routes_handler(auth_session: AuthSession, State(app_state): State<AppState>, req: Request<AxumBody>) -> Response{
+            let handler = leptos_axum::render_app_to_stream_with_context(app_state.leptos_options.clone(),
             move |cx| {
                 provide_context(cx, auth_session.clone());
-                provide_context(cx, pool.clone());
+                provide_context(cx, app_state.pool.clone());
             },
             |cx| view! { cx, <TodoApp/> }
         );
@@ -68,9 +68,14 @@ if #[cfg(feature = "ssr")] {
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
-        let leptos_options = Arc::new(conf.leptos_options);
+        let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+
+        let app_state = AppState{
+            leptos_options,
+            pool: pool.clone(),
+        };
 
         // build our application with a route
         let app = Router::new()
@@ -78,10 +83,9 @@ if #[cfg(feature = "ssr")] {
         .leptos_routes_with_handler(routes, get(leptos_routes_handler) )
         .fallback(file_and_error_handler)
         .layer(AuthSessionLayer::<User, i64, SessionSqlitePool, SqlitePool>::new(Some(pool.clone()))
-                    .with_config(auth_config))
+        .with_config(auth_config))
         .layer(SessionLayer::new(session_store))
-        .layer(Extension(pool))
-        .with_state(leptos_options);
+        .with_state(app_state);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

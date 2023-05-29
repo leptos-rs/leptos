@@ -278,7 +278,33 @@ where
                                     let start = child.get_opening_node();
                                     let end = &closing;
 
-                                    unmount_child(&start, end);
+                                    match child {
+                                        View::CoreComponent(
+                                            crate::CoreComponent::DynChild(
+                                                child,
+                                            ),
+                                        ) => {
+                                            let start =
+                                                child.get_opening_node();
+                                            let end = child.closing.node;
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
+                                        }
+                                        View::Component(child) => {
+                                            let start =
+                                                child.get_opening_node();
+                                            let end = child.closing.node;
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
+                                        }
+                                        _ => unmount_child(&start, end),
+                                    }
                                 }
 
                                 // Mount the new child

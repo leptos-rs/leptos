@@ -208,6 +208,7 @@ pub fn server_macro_impl(
         struct_name,
         prefix,
         encoding,
+        fn_path,
         ..
     } = syn::parse2::<ServerFnName>(args)?;
 
@@ -222,6 +223,7 @@ pub fn server_macro_impl(
     }
 
     let prefix = prefix.unwrap_or_else(|| Literal::string(""));
+    let fn_path = fn_path.unwrap_or_else(|| Literal::string(""));
     let encoding = quote!(#server_fn_path::#encoding);
 
     let body = syn::parse::<ServerFnBody>(body.into())?;
@@ -357,7 +359,11 @@ pub fn server_macro_impl(
             }
 
             fn url() -> &'static str {
+                if !#fn_path.is_empty(){
+                    #fn_path
+                } else {
                 #server_fn_path::const_format::concatcp!(#fn_name_as_str, #server_fn_path::xxhash_rust::const_xxh64::xxh64(concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
+                }
             }
 
             fn encoding() -> #server_fn_path::Encoding {
@@ -404,6 +410,8 @@ struct ServerFnName {
     prefix: Option<Literal>,
     _comma2: Option<Token![,]>,
     encoding: Path,
+    _comma3: Option<Token![,]>,
+    fn_path: Option<Literal>,
 }
 
 impl Parse for ServerFnName {
@@ -425,6 +433,8 @@ impl Parse for ServerFnName {
                 }
             })
             .unwrap_or_else(|_| syn::parse_quote!(Encoding::Url));
+        let _comma3 = input.parse()?;
+        let fn_path = input.parse()?;
 
         Ok(Self {
             struct_name,
@@ -432,6 +442,8 @@ impl Parse for ServerFnName {
             prefix,
             _comma2,
             encoding,
+            _comma3,
+            fn_path,
         })
     }
 }

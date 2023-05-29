@@ -60,7 +60,6 @@ where
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// # });
 /// ```
-#[derive(Debug, PartialEq, Eq)]
 pub struct Signal<T>
 where
     T: 'static,
@@ -81,6 +80,24 @@ impl<T> Clone for Signal<T> {
 }
 
 impl<T> Copy for Signal<T> {}
+
+impl<T> std::fmt::Debug for Signal<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("Signal");
+        s.field("inner", &self.inner);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for Signal<T> {}
+
+impl<T> PartialEq for Signal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
 
 /// Please note that using `Signal::with_untracked` still clones the inner value,
 /// so there's no benefit to using it as opposed to calling
@@ -431,10 +448,7 @@ impl<T> Clone for SignalTypes<T> {
 
 impl<T> Copy for SignalTypes<T> {}
 
-impl<T> std::fmt::Debug for SignalTypes<T>
-where
-    T: std::fmt::Debug,
-{
+impl<T> std::fmt::Debug for SignalTypes<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ReadSignal(arg0) => {
@@ -448,10 +462,7 @@ where
     }
 }
 
-impl<T> PartialEq for SignalTypes<T>
-where
-    T: PartialEq,
-{
+impl<T> PartialEq for SignalTypes<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,

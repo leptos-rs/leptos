@@ -10,7 +10,13 @@ use crate::{
 };
 use futures::Stream;
 use std::{
-    any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc,
+    any::Any,
+    cell::RefCell,
+    fmt,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    pin::Pin,
+    rc::Rc,
 };
 use thiserror::Error;
 
@@ -463,7 +469,6 @@ pub fn create_signal_from_stream<T>(
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ReadSignal<T>
 where
     T: 'static,
@@ -784,6 +789,33 @@ impl<T> Clone for ReadSignal<T> {
 
 impl<T> Copy for ReadSignal<T> {}
 
+impl<T> fmt::Debug for ReadSignal<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("ReadSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for ReadSignal<T> {}
+
+impl<T> PartialEq for ReadSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
+
+impl<T> Hash for ReadSignal<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+    }
+}
+
 /// The setter for a reactive signal.
 ///
 /// A signal is a piece of data that may change over time,
@@ -829,7 +861,6 @@ impl<T> Copy for ReadSignal<T> {}
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct WriteSignal<T>
 where
     T: 'static,
@@ -1045,6 +1076,33 @@ impl<T> Clone for WriteSignal<T> {
 
 impl<T> Copy for WriteSignal<T> {}
 
+impl<T> fmt::Debug for WriteSignal<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("WriteSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for WriteSignal<T> {}
+
+impl<T> PartialEq for WriteSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
+
+impl<T> Hash for WriteSignal<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+    }
+}
+
 /// Creates a reactive signal with the getter and setter unified in one value.
 /// You may prefer this style, or it may be easier to pass around in a context
 /// or as a function argument.
@@ -1126,7 +1184,6 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct RwSignal<T>
 where
     T: 'static,
@@ -1145,6 +1202,33 @@ impl<T> Clone for RwSignal<T> {
 }
 
 impl<T> Copy for RwSignal<T> {}
+
+impl<T> fmt::Debug for RwSignal<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("RwSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for RwSignal<T> {}
+
+impl<T> PartialEq for RwSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
+
+impl<T> Hash for RwSignal<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+    }
+}
 
 impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(

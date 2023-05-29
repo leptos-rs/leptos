@@ -218,7 +218,7 @@ pub fn handle_server_fns_with_context(
                                 use_context::<ResponseOptions>(cx).unwrap();
 
                             let mut res: HttpResponseBuilder;
-                            let mut res_parts = res_options.0.write();
+                            let res_parts = res_options.0.write();
 
                             if accept_header == Some("application/json")
                                 || accept_header
@@ -246,11 +246,10 @@ pub fn handle_server_fns_with_context(
                             // Use provided ResponseParts headers if they exist
                             let _count = res_parts
                                 .headers
-                                .drain()
+                                .clone()
+                                .into_iter()
                                 .map(|(k, v)| {
-                                    if let Some(k) = k {
-                                        res.append_header((k, v));
-                                    }
+                                    res.append_header((k, v));
                                 })
                                 .count();
 
@@ -797,8 +796,7 @@ async fn build_stream_response(
 
     let res_options = res_options.0.read();
 
-    let (status, mut headers) =
-        (res_options.status, res_options.headers.clone());
+    let (status, headers) = (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
 
     let complete_stream =
@@ -807,12 +805,12 @@ async fn build_stream_response(
     let mut res = HttpResponse::Ok()
         .content_type("text/html")
         .streaming(complete_stream);
+
     // Add headers manipulated in the response
-    for (key, value) in headers.drain() {
-        if let Some(key) = key {
-            res.headers_mut().append(key, value);
-        }
+    for (key, value) in headers.into_iter() {
+        res.headers_mut().append(key, value);
     }
+
     // Set status to what is returned in the function
     let res_status = res.status_mut();
     *res_status = status;
@@ -837,18 +835,16 @@ async fn render_app_async_helper(
 
     let res_options = res_options.0.read();
 
-    let (status, mut headers) =
-        (res_options.status, res_options.headers.clone());
+    let (status, headers) = (res_options.status, res_options.headers.clone());
     let status = status.unwrap_or_default();
 
     let mut res = HttpResponse::Ok().content_type("text/html").body(html);
 
     // Add headers manipulated in the response
-    for (key, value) in headers.drain() {
-        if let Some(key) = key {
-            res.headers_mut().append(key, value);
-        }
+    for (key, value) in headers.into_iter() {
+        res.headers_mut().append(key, value);
     }
+
     // Set status to what is returned in the function
     let res_status = res.status_mut();
     *res_status = status;

@@ -7,7 +7,6 @@ cfg_if! {
     use crate::fallback::file_and_error_handler;
     use crate::todo::*;
     use leptos_viz::{generate_route_list, LeptosRoutes};
-    use std::sync::Arc;
     use todo_app_sqlite_viz::*;
     use viz::{
         types::{State, StateError},
@@ -17,8 +16,8 @@ cfg_if! {
     //Define a handler to test extractor with state
     async fn custom_handler(req: Request) -> Result<Response> {
         let id = req.params::<String>()?;
-        let options = &*req
-            .state::<Arc<LeptosOptions>>()
+        let options = req
+            .state::<LeptosOptions>()
             .ok_or(StateError::new::<LeptosOptions>())?;
         let handler = leptos_viz::render_app_to_stream_with_context(
             options.clone(),
@@ -59,7 +58,7 @@ cfg_if! {
                 |cx| view! { cx, <TodoApp/> },
             )
             .get("/*", file_and_error_handler)
-            .with(State(Arc::new(leptos_options)));
+            .with(State(leptos_options));
 
         // run our app with hyper
         // `viz::Server` is a re-export of `hyper::Server`

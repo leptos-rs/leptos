@@ -147,6 +147,8 @@
 
 mod additional_attributes;
 pub use additional_attributes::*;
+mod await_;
+pub use await_::*;
 pub use leptos_config::{self, get_configuration, LeptosOptions};
 #[cfg(not(all(
     target_arch = "wasm32",
@@ -169,7 +171,9 @@ pub use leptos_dom::{
     Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
     IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
-pub use leptos_macro::*;
+#[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
+pub use leptos_macro::view as template;
+pub use leptos_macro::{component, server, slot, view, Params};
 pub use leptos_reactive::*;
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
@@ -177,6 +181,8 @@ pub use leptos_server::{
 };
 pub use server_fn::{self, ServerFn as _};
 pub use typed_builder;
+#[cfg(all(target_arch = "wasm32", feature = "template_macro"))]
+pub use {leptos_macro::template, wasm_bindgen, web_sys};
 mod error_boundary;
 pub use error_boundary::*;
 mod for_loop;

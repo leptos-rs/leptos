@@ -15,11 +15,10 @@ cfg_if! {
     use todo_app_sqlite_axum::*;
     use crate::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use std::sync::Arc;
 
     //Define a handler to test extractor with state
-    async fn custom_handler(Path(id): Path<String>, State(options): State<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+    async fn custom_handler(Path(id): Path<String>, State(options): State<LeptosOptions>, req: Request<AxumBody>) -> Response{
+            let handler = leptos_axum::render_app_to_stream_with_context(options,
             move |cx| {
                 provide_context(cx, id.clone());
             },
@@ -42,7 +41,7 @@ cfg_if! {
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
-        let leptos_options = Arc::new(conf.leptos_options);
+        let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
         let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
 
@@ -50,7 +49,7 @@ cfg_if! {
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
+        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <TodoApp/> } )
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 

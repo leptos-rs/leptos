@@ -7,9 +7,9 @@ extern crate proc_macro_error;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
+use rstml::{node::KeyedAttribute, parse};
 use server_fn_macro::{server_macro_impl, ServerContext};
 use syn::parse_macro_input;
-use syn_rsx::{parse, NodeAttribute};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Mode {
@@ -351,16 +351,22 @@ pub fn view(tokens: TokenStream) -> TokenStream {
                     .chain(tokens)
                     .collect()
             };
-
-            match parse(tokens.into()) {
-                Ok(nodes) => render_view(
-                    &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
-                    &nodes,
-                    Mode::default(),
-                    global_class.as_ref(),
-                    normalized_call_site(proc_macro::Span::call_site()),
-                ),
-                Err(error) => error.to_compile_error(),
+            let config = rstml::ParserConfig::default().recover_block(true);
+            let parser = rstml::Parser::new(config);
+            let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
+            let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+            let nodes_output = render_view(
+                &cx,
+                &nodes,
+                Mode::default(),
+                global_class.as_ref(),
+                normalized_call_site(proc_macro::Span::call_site()),
+            );
+            quote! {
+                {
+                    #(#errors;)*
+                    #nodes_output
+                }
             }
             .into()
         }
@@ -874,9 +880,9 @@ pub fn params_derive(
     }
 }
 
-pub(crate) fn attribute_value(attr: &NodeAttribute) -> &syn::Expr {
-    match &attr.value {
-        Some(value) => value.as_ref(),
+pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
+    match &attr.possible_value {
+        Some(value) => &value.value,
         None => abort!(attr.key, "attribute should have value"),
     }
 }

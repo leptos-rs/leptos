@@ -43,21 +43,22 @@ fn HomePage(cx: Scope) -> impl IntoView {
     // load the posts
     let posts =
         create_resource(cx, || (), |_| async { list_post_metadata().await });
-    let posts_view = move || {
-        posts.with(cx, |posts| posts
-            .clone()
-            .map(|posts| {
-                posts.iter()
-                .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
-                .collect_view(cx)
-            })
-        )
-    };
 
     view! { cx,
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { cx, <p>"Loading posts..."</p> }>
-            <ul>{posts_view}</ul>
+            <ul>
+                {move || {
+                    posts.with(cx, |posts| posts
+                        .clone()
+                        .map(|posts| {
+                            posts.iter()
+                            .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
+                            .collect_view(cx)
+                        })
+                    )
+                }}
+            </ul>
         </Suspense>
     }
 }

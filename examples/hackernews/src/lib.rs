@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos::{component, view, IntoView, Scope};
+use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 mod api;
@@ -9,23 +9,25 @@ use routes::{nav::*, stories::*, story::*, users::*};
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
     provide_meta_context(cx);
-    view! {
-        cx,
-        <>
-            <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
-            <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
-            <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
-            <Router>
-                <Nav />
-                <main>
-                    <Routes>
-                        <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
-                        <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
-                        <Route path=":stories?" view=|cx| view! { cx,  <Stories/> }/>
-                    </Routes>
-                </main>
-            </Router>
-        </>
+    let (is_routing, set_is_routing) = create_signal(cx, false);
+
+    view! { cx,
+        <Stylesheet id="leptos" href="/pkg/hackernews.css"/>
+        <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
+        <Meta name="description" content="Leptos implementation of a HackerNews demo."/>
+        // adding `set_is_routing` causes the router to wait for async data to load on new pages
+        <Router set_is_routing>
+            // shows a progress bar while async data are loading
+            <RoutingProgress is_routing max_time=std::time::Duration::from_millis(250)/>
+            <Nav />
+            <main>
+                <Routes>
+                    <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
+                    <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
+                    <Route path=":stories?" view=|cx| view! { cx,  <Stories/> }/>
+                </Routes>
+            </main>
+        </Router>
     }
 }
 

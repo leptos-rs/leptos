@@ -743,7 +743,7 @@ impl Runtime {
         S: 'static,
         T: 'static,
     {
-        let resources = self.resources.borrow();
+        let resources = { self.resources.borrow().clone() };
         let res = resources.get(id);
         if let Some(res) = res {
             let res_state = match res {
@@ -796,7 +796,8 @@ impl Runtime {
         cx: Scope,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
         let f = FuturesUnordered::new();
-        for (id, resource) in self.resources.borrow().iter() {
+        let resources = { self.resources.borrow().clone() };
+        for (id, resource) in resources.iter() {
             if let AnyResource::Serializable(resource) = resource {
                 f.push(resource.to_serialization_resolver(cx, id));
             }

@@ -168,7 +168,7 @@ pub(crate) struct EachItem {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     document_fragment: Option<web_sys::DocumentFragment>,
     #[cfg(debug_assertions)]
-    opening: Comment,
+    opening: Option<Comment>,
     pub(crate) child: View,
     closing: Option<Comment>,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -201,7 +201,11 @@ impl EachItem {
                 None
             },
             #[cfg(debug_assertions)]
-            Comment::new(Cow::Borrowed("<EachItem>"), &id, false),
+            if needs_closing {
+                Some(Comment::new(Cow::Borrowed("<EachItem>"), &id, false))
+            } else {
+                None
+            },
         );
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -215,7 +219,10 @@ impl EachItem {
             if !HydrationCtx::is_hydrating() {
                 #[cfg(debug_assertions)]
                 fragment
-                    .append_with_node_2(&markers.1.node, &closing.node)
+                    .append_with_node_2(
+                        &markers.1.as_ref().unwrap().node,
+                        &closing.node,
+                    )
                     .unwrap();
                 fragment.append_with_node_1(&closing.node).unwrap();
             }
@@ -260,10 +267,6 @@ impl Mountable for EachItem {
 
     #[inline(always)]
     fn get_opening_node(&self) -> web_sys::Node {
-        #[cfg(debug_assertions)]
-        return self.opening.node.clone();
-
-        #[cfg(not(debug_assertions))]
         return self.child.get_opening_node();
     }
 

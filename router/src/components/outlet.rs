@@ -1,6 +1,6 @@
 use crate::{
     animation::{Animation, AnimationState},
-    use_is_back_navigation, use_route,
+    use_is_back_navigation, use_route, SetIsRouting,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{cell::Cell, rc::Rc};
@@ -44,6 +44,43 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
             }
         }
     });
+
+    let outlet: Signal<Option<View>> =
+        if cfg!(any(feature = "csr", feature = "hydrate"))
+            && use_context::<SetIsRouting>(cx).is_some()
+        {
+            let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
+
+            let (current_view, set_current_view) = create_signal(cx, None);
+
+            create_effect(cx, {
+                let global_suspense = global_suspense.clone();
+                move |prev| {
+                    let outlet = outlet.get();
+                    let is_fallback =
+                        !global_suspense.with_inner(SuspenseContext::ready);
+                    if prev.is_none() {
+                        set_current_view.set(outlet);
+                    } else if !is_fallback {
+                        queue_microtask({
+                            let global_suspense = global_suspense.clone();
+                            move || {
+                                let is_fallback = cx.untrack(move || {
+                                    !global_suspense
+                                        .with_inner(SuspenseContext::ready)
+                                });
+                                if !is_fallback {
+                                    set_current_view.set(outlet);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+            current_view.into()
+        } else {
+            outlet.into()
+        };
 
     leptos::leptos_dom::DynChild::new_with_id(id, move || outlet.get())
 }

@@ -11,7 +11,7 @@ use crate::{
 /// Reactive Trigger, notifies reactive code to rerun.
 ///
 /// See [`create_trigger`] for more.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Trigger {
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,

@@ -4,7 +4,7 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    use_is_back_navigation, RouteContext, RouterContext,
+    use_is_back_navigation, RouteContext, RouterContext, SetIsRouting,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
@@ -56,6 +56,7 @@ pub fn Routes(
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
+
     leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
         .into_view(cx)
 }
@@ -405,40 +406,75 @@ fn root_route(
     base_route: RouteContext,
     route_states: Memo<RouterState>,
     root_equal: Rc<Cell<bool>>,
-) -> Memo<Option<View>> {
+) -> Signal<Option<View>> {
     let root_cx = RefCell::new(None);
 
-    create_memo(cx, move |prev| {
-        provide_context(cx, route_states);
-        route_states.with(|state| {
-            if state.routes.borrow().is_empty() {
-                Some(base_route.outlet(cx).into_view(cx))
-            } else {
-                let root = state.routes.borrow();
-                let root = root.get(0);
-                if let Some(route) = root {
-                    provide_context(cx, route.clone());
-                }
-
-                if prev.is_none() || !root_equal.get() {
-                    let (root_view, _) = cx.run_child_scope(|cx| {
-                        let prev_cx = std::mem::replace(
-                            &mut *root_cx.borrow_mut(),
-                            Some(cx),
-                        );
-                        if let Some(prev_cx) = prev_cx {
-                            prev_cx.dispose();
-                        }
-                        root.as_ref()
-                            .map(|route| route.outlet(cx).into_view(cx))
-                    });
-                    root_view
+    let root_view = create_memo(cx, {
+        let root_equal = Rc::clone(&root_equal);
+        move |prev| {
+            provide_context(cx, route_states);
+            route_states.with(|state| {
+                if state.routes.borrow().is_empty() {
+                    Some(base_route.outlet(cx).into_view(cx))
                 } else {
-                    prev.cloned().unwrap()
+                    let root = state.routes.borrow();
+                    let root = root.get(0);
+                    if let Some(route) = root {
+                        provide_context(cx, route.clone());
+                    }
+
+                    if prev.is_none() || !root_equal.get() {
+                        let (root_view, _) = cx.run_child_scope(|cx| {
+                            let prev_cx = std::mem::replace(
+                                &mut *root_cx.borrow_mut(),
+                                Some(cx),
+                            );
+                            if let Some(prev_cx) = prev_cx {
+                                prev_cx.dispose();
+                            }
+                            root.as_ref()
+                                .map(|route| route.outlet(cx).into_view(cx))
+                        });
+                        root_view
+                    } else {
+                        prev.cloned().unwrap()
+                    }
                 }
+            })
+        }
+    });
+
+    if cfg!(any(feature = "csr", feature = "hydrate"))
+        && use_context::<SetIsRouting>(cx).is_some()
+    {
+        let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
+
+        let (current_view, set_current_view) = create_signal(cx, None);
+
+        create_effect(cx, move |prev| {
+            let root = root_view.get();
+            let is_fallback =
+                !global_suspense.with_inner(SuspenseContext::ready);
+            if prev.is_none() {
+                set_current_view.set(root);
+            } else if !is_fallback {
+                queue_microtask({
+                    let global_suspense = global_suspense.clone();
+                    move || {
+                        let is_fallback = cx.untrack(move || {
+                            !global_suspense.with_inner(SuspenseContext::ready)
+                        });
+                        if !is_fallback {
+                            set_current_view.set(root);
+                        }
+                    }
+                });
             }
-        })
-    })
+        });
+        current_view.into()
+    } else {
+        root_view.into()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

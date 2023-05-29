@@ -1,11 +1,15 @@
 use crate::{attribute_value, Mode};
 use convert_case::{Case::Snake, Casing};
-use leptos_hot_reload::parsing::{is_component_node, value_to_string};
+use leptos_hot_reload::parsing::{
+    block_to_primitive_expression, is_component_node, value_to_string,
+};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
+};
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
 
 #[derive(Clone, Copy)]
 enum TagType {
@@ -213,18 +217,22 @@ fn root_node_to_tokens_ssr(
             global_class,
             view_marker,
         ),
-        Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
+        Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
-            let value = node.value.as_ref();
             quote! {
-                leptos::leptos_dom::html::text(#value)
+                leptos::leptos_dom::html::text(#node)
+            }
+        }
+        Node::RawText(r) => {
+            let text = r.to_string_best();
+            let text = syn::LitStr::new(&text, r.span());
+            quote! {
+                leptos::leptos_dom::html::text(#text)
             }
         }
         Node::Block(node) => {
-            let value = node.value.as_ref();
             quote! {
-                #[allow(unused_braces)]
-                #value
+                #node
             }
         }
         Node::Element(node) => {
@@ -254,9 +262,9 @@ fn fragment_to_tokens_ssr(
     });
     quote! {
         {
-            leptos::Fragment::lazy(|| vec![
+            leptos::Fragment::lazy(|| [
                 #(#nodes),*
-            ])
+            ].to_vec())
             #view_marker
         }
     }
@@ -329,15 +337,15 @@ fn root_element_to_tokens_ssr(
             },
         });
 
-        let tag_name = node.name.to_string();
+        let tag_name = node.name().to_string();
         let is_custom_element = is_custom_element(&tag_name);
         let typed_element_name = if is_custom_element {
-            Ident::new("Custom", node.name.span())
+            Ident::new("Custom", node.name().span())
         } else {
             let camel_cased = camel_case_tag_name(
                 &tag_name.replace("svg::", "").replace("math::", ""),
             );
-            Ident::new(&camel_cased, node.name.span())
+            Ident::new(&camel_cased, node.name().span())
         };
         let typed_element_name = if is_svg_element(&tag_name) {
             quote! { svg::#typed_element_name }
@@ -409,7 +417,7 @@ fn element_to_tokens_ssr(
         }));
     } else {
         let tag_name = node
-            .name
+            .name()
             .to_string()
             .replace("svg::", "")
             .replace("math::", "");
@@ -419,8 +427,8 @@ fn element_to_tokens_ssr(
 
         let mut inner_html = None;
 
-        for attr in &node.attributes {
-            if let Node::Attribute(attr) = attr {
+        for attr in node.attributes() {
+            if let NodeAttribute::Attribute(attr) = attr {
                 inner_html = attribute_to_tokens_ssr(
                     cx,
                     attr,
@@ -439,9 +447,9 @@ fn element_to_tokens_ssr(
             quote! { leptos::leptos_dom::HydrationCtx::id() }
         };
         match node
-            .attributes
+            .attributes()
             .iter()
-            .find(|node| matches!(node, Node::Attribute(attr) if attr.key.to_string() == "id"))
+            .find(|node| matches!(node, NodeAttribute::Attribute(attr) if attr.key.to_string() == "id"))
         {
             Some(_) => {
                 template.push_str(" leptos-hk=\"_{}\"");
@@ -462,7 +470,7 @@ fn element_to_tokens_ssr(
 
             if let Some(inner_html) = inner_html {
                 template.push_str("{}");
-                let value = inner_html.as_ref();
+                let value = inner_html;
 
                 holes.push(quote! {
                   (#value).into_attribute(#cx).as_nameless_value_string().unwrap_or_default()
@@ -484,32 +492,23 @@ fn element_to_tokens_ssr(
                             );
                         }
                         Node::Text(text) => {
-                            if let Some(value) = value_to_string(&text.value) {
-                                let value = if is_script_or_style {
-                                    value.into()
-                                } else {
-                                    html_escape::encode_safe(&value)
-                                };
-                                template.push_str(
-                                    &value
-                                        .replace('{', "\\{")
-                                        .replace('}', "\\}"),
-                                );
+                            let value = text.value_string();
+                            let value = if is_script_or_style {
+                                value.into()
                             } else {
-                                template.push_str("{}");
-                                let value = text.value.as_ref();
-
-                                holes.push(quote! {
-                                  #value.into_view(#cx).render_to_string(#cx)
-                                })
-                            }
+                                html_escape::encode_safe(&value)
+                            };
+                            template.push_str(
+                                &value.replace('{', "\\{").replace('}', "\\}"),
+                            );
                         }
-                        Node::Block(block) => {
-                            if let Some(value) = value_to_string(&block.value) {
+                        Node::Block(NodeBlock::ValidBlock(block)) => {
+                            if let Some(value) =
+                                block_to_primitive_expression(block)
+                                    .and_then(value_to_string)
+                            {
                                 template.push_str(&value);
                             } else {
-                                let value = block.value.as_ref();
-
                                 if !template.is_empty() {
                                     chunks.push(SsrElementChunks::String {
                                         template: std::mem::take(template),
@@ -517,9 +516,15 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                  {#value}.into_view(#cx)
+                                    {#block}.into_view(#cx)
                                 }));
                             }
+                        }
+                        // Keep invalid blocks for faster IDE diff (on user type)
+                        Node::Block(block @ NodeBlock::Invalid { .. }) => {
+                            chunks.push(SsrElementChunks::View(quote! {
+                                {#block}.into_view(#cx)
+                            }));
                         }
                         Node::Fragment(_) => abort!(
                             Span::call_site(),
@@ -531,7 +536,7 @@ fn element_to_tokens_ssr(
             }
 
             template.push_str("</");
-            template.push_str(&node.name.to_string());
+            template.push_str(&node.name().to_string());
             template.push('>');
         }
     }
@@ -540,17 +545,17 @@ fn element_to_tokens_ssr(
 // returns `inner_html`
 fn attribute_to_tokens_ssr<'a>(
     cx: &Ident,
-    node: &'a NodeAttribute,
+    attr: &'a KeyedAttribute,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
     global_class: Option<&TokenTree>,
-) -> Option<&'a NodeValueExpr> {
-    let name = node.key.to_string();
+) -> Option<&'a syn::Expr> {
+    let name = attr.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         // ignore refs on SSR
     } else if let Some(name) = name.strip_prefix("on:") {
-        let handler = attribute_value(node);
+        let handler = attribute_value(attr);
         let (event_type, _, _) = parse_event_name(name);
 
         exprs_for_compiler.push(quote! {
@@ -563,16 +568,16 @@ fn attribute_to_tokens_ssr<'a>(
         // ignore props for SSR
         // ignore classes and sdtyles: we'll handle these separately
     } else if name == "inner_html" {
-        return node.value.as_ref();
+        return attr.value();
     } else {
         let name = name.replacen("attr:", "", 1);
 
         // special case of global_class and class attribute
         if name == "class"
             && global_class.is_some()
-            && node.value.as_ref().and_then(value_to_string).is_none()
+            && attr.value().and_then(value_to_string).is_none()
         {
-            let span = node.key.span();
+            let span = attr.key.span();
             proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
@@ -582,7 +587,7 @@ fn attribute_to_tokens_ssr<'a>(
         if name != "class" && name != "style" {
             template.push(' ');
 
-            if let Some(value) = node.value.as_ref() {
+            if let Some(value) = attr.value() {
                 if let Some(value) = value_to_string(value) {
                     template.push_str(&name);
                     template.push_str("=\"");
@@ -590,7 +595,6 @@ fn attribute_to_tokens_ssr<'a>(
                     template.push('"');
                 } else {
                     template.push_str("{}");
-                    let value = value.as_ref();
                     holes.push(quote! {
                         &{#value}.into_attribute(#cx)
                             .as_nameless_value_string()
@@ -630,11 +634,13 @@ fn set_class_attribute_ssr(
         Some(val) => (String::new(), Some(val)),
     };
     let static_class_attr = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|a| match a {
-            Node::Attribute(attr) if attr.key.to_string() == "class" => {
-                attr.value.as_ref().and_then(value_to_string)
+            NodeAttribute::Attribute(attr)
+                if attr.key.to_string() == "class" =>
+            {
+                attr.value().and_then(value_to_string)
             }
             _ => None,
         })
@@ -644,17 +650,17 @@ fn set_class_attribute_ssr(
         .join(" ");
 
     let dyn_class_attr = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|a| {
-            if let Node::Attribute(a) = a {
+            if let NodeAttribute::Attribute(a) = a {
                 if a.key.to_string() == "class" {
-                    if a.value.as_ref().and_then(value_to_string).is_some()
+                    if a.value().and_then(value_to_string).is_some()
                         || fancy_class_name(&a.key.to_string(), cx, a).is_some()
                     {
                         None
                     } else {
-                        Some((a.key.span(), &a.value))
+                        Some((a.key.span(), a.value()))
                     }
                 } else {
                     None
@@ -666,10 +672,10 @@ fn set_class_attribute_ssr(
         .collect::<Vec<_>>();
 
     let class_attrs = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|node| {
-            if let Node::Attribute(node) = node {
+            if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
                 if name == "class" {
                     return if let Some((_, name, value)) =
@@ -713,7 +719,6 @@ fn set_class_attribute_ssr(
         for (_span, value) in dyn_class_attr {
             if let Some(value) = value {
                 template.push_str(" {}");
-                let value = value.as_ref();
                 holes.push(quote! {
                   &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
                     .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
@@ -745,11 +750,13 @@ fn set_style_attribute_ssr(
     holes: &mut Vec<TokenStream>,
 ) {
     let static_style_attr = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|a| match a {
-            Node::Attribute(attr) if attr.key.to_string() == "style" => {
-                attr.value.as_ref().and_then(value_to_string)
+            NodeAttribute::Attribute(attr)
+                if attr.key.to_string() == "style" =>
+            {
+                attr.value().and_then(value_to_string)
             }
             _ => None,
         })
@@ -757,17 +764,17 @@ fn set_style_attribute_ssr(
         .map(|style| format!("{style};"));
 
     let dyn_style_attr = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|a| {
-            if let Node::Attribute(a) = a {
+            if let NodeAttribute::Attribute(a) = a {
                 if a.key.to_string() == "style" {
-                    if a.value.as_ref().and_then(value_to_string).is_some()
+                    if a.value().and_then(value_to_string).is_some()
                         || fancy_style_name(&a.key.to_string(), cx, a).is_some()
                     {
                         None
                     } else {
-                        Some((a.key.span(), &a.value))
+                        Some((a.key.span(), a.value()))
                     }
                 } else {
                     None
@@ -779,10 +786,10 @@ fn set_style_attribute_ssr(
         .collect::<Vec<_>>();
 
     let style_attrs = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|node| {
-            if let Node::Attribute(node) = node {
+            if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
                 if name == "style" {
                     return if let Some((_, name, value)) =
@@ -825,7 +832,6 @@ fn set_style_attribute_ssr(
         for (_span, value) in dyn_style_attr {
             if let Some(value) = value {
                 template.push_str(" {};");
-                let value = value.as_ref();
                 holes.push(quote! {
                   &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
                     .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
@@ -899,18 +905,18 @@ fn fragment_to_tokens(
     let tokens = if lazy {
         quote! {
             {
-                leptos::Fragment::lazy(|| vec![
+                leptos::Fragment::lazy(|| [
                     #(#nodes),*
-                ])
+                ].to_vec())
                 #view_marker
             }
         }
     } else {
         quote! {
             {
-                leptos::Fragment::new(vec![
+                leptos::Fragment::new([
                     #(#nodes),*
-                ])
+                ].to_vec())
                 #view_marker
             }
         }
@@ -948,18 +954,14 @@ fn node_to_tokens(
             view_marker,
         ),
         Node::Comment(_) | Node::Doctype(_) => Some(quote! {}),
-        Node::Text(node) => {
-            let value = node.value.as_ref();
-            Some(quote! {
-                leptos::leptos_dom::html::text(#value)
-            })
-        }
-        Node::Block(node) => {
-            let value = node.value.as_ref();
-            Some(quote! { #value })
-        }
-        Node::Attribute(node) => {
-            Some(attribute_to_tokens(cx, node, global_class))
+        Node::Text(node) => Some(quote! {
+            leptos::leptos_dom::html::text(#node)
+        }),
+        Node::Block(node) => Some(quote! { #node }),
+        Node::RawText(r) => {
+            let text = r.to_string_best();
+            let text = syn::LitStr::new(&text, r.span());
+            Some(quote! { #text })
         }
         Node::Element(node) => element_to_tokens(
             cx,
@@ -980,6 +982,7 @@ fn element_to_tokens(
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
+    let name = node.name();
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             slot_to_tokens(cx, node, slot, parent_slots, global_class);
@@ -988,20 +991,17 @@ fn element_to_tokens(
             Some(component_to_tokens(cx, node, global_class))
         }
     } else {
-        let tag = node.name.to_string();
+        let tag = name.to_string();
         let name = if is_custom_element(&tag) {
-            let name = node.name.to_string();
+            let name = node.name().to_string();
             quote! { leptos::leptos_dom::html::custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
-            let name = &node.name;
             parent_type = TagType::Svg;
             quote! { leptos::leptos_dom::svg::#name(#cx) }
         } else if is_math_ml_element(&tag) {
-            let name = &node.name;
             parent_type = TagType::Math;
             quote! { leptos::leptos_dom::math::#name(#cx) }
         } else if is_ambiguous_element(&tag) {
-            let name = &node.name;
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
@@ -1020,12 +1020,11 @@ fn element_to_tokens(
                 }
             }
         } else {
-            let name = &node.name;
             parent_type = TagType::Html;
             quote! { leptos::leptos_dom::html::#name(#cx) }
         };
-        let attrs = node.attributes.iter().filter_map(|node| {
-            if let Node::Attribute(node) = node {
+        let attrs = node.attributes().iter().filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
                 let name = name.trim();
                 if name.starts_with("class:")
@@ -1041,8 +1040,8 @@ fn element_to_tokens(
                 None
             }
         });
-        let class_attrs = node.attributes.iter().filter_map(|node| {
-            if let Node::Attribute(node) = node {
+        let class_attrs = node.attributes().iter().filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
                 if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
                     Some(fancy)
@@ -1055,8 +1054,8 @@ fn element_to_tokens(
                 None
             }
         });
-        let style_attrs = node.attributes.iter().filter_map(|node| {
-            if let Node::Attribute(node) = node {
+        let style_attrs = node.attributes().iter().filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
                 if let Some((fancy, _, _)) = fancy_style_name(&name, cx, node) {
                     Some(fancy)
@@ -1101,32 +1100,18 @@ fn element_to_tokens(
                     }),
                     false,
                 ),
-                Node::Text(node) => {
-                    if let Some(primitive) = value_to_string(&node.value) {
-                        (quote! { #primitive }, true)
-                    } else {
-                        let value = node.value.as_ref();
-                        (
-                            quote! {
-                                #[allow(unused_braces)] #value
-                            },
-                            false,
-                        )
-                    }
+                Node::Text(node) => (quote! { #node }, true),
+                Node::RawText(node) => {
+                    let text = node.to_string_best();
+                    let text = syn::LitStr::new(&text, node.span());
+                    (quote! { #text }, true)
                 }
-                Node::Block(node) => {
-                    if let Some(primitive) = value_to_string(&node.value) {
-                        (quote! { #primitive }, true)
-                    } else {
-                        let value = node.value.as_ref();
-                        (
-                            quote! {
-                                #[allow(unused_braces)] #value
-                            },
-                            false,
-                        )
-                    }
-                }
+                Node::Block(node) => (
+                    quote! {
+                       #node
+                    },
+                    false,
+                ),
                 Node::Element(node) => (
                     element_to_tokens(
                         cx,
@@ -1139,9 +1124,7 @@ fn element_to_tokens(
                     .unwrap_or_default(),
                     false,
                 ),
-                Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
-                    (quote! {}, false)
-                }
+                Node::Comment(_) | Node::Doctype(_) => (quote! {}, false),
             };
             if is_static {
                 quote! {
@@ -1172,7 +1155,7 @@ fn element_to_tokens(
 
 fn attribute_to_tokens(
     cx: &Ident,
-    node: &NodeAttribute,
+    node: &KeyedAttribute,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let span = node.key.span();
@@ -1303,7 +1286,7 @@ fn attribute_to_tokens(
         // special case of global_class and class attribute
         if name == "class"
             && global_class.is_some()
-            && node.value.as_ref().and_then(value_to_string).is_none()
+            && node.value().and_then(value_to_string).is_none()
         {
             let span = node.key.span();
             proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
@@ -1313,10 +1296,8 @@ fn attribute_to_tokens(
         };
 
         // all other attributes
-        let value = match node.value.as_ref() {
+        let value = match node.value() {
             Some(value) => {
-                let value = value.as_ref();
-
                 quote! { #value }
             }
             None => quote_spanned! { span => "" },
@@ -1367,7 +1348,7 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
 pub(crate) fn slot_to_tokens(
     cx: &Ident,
     node: &NodeElement,
-    slot: &NodeAttribute,
+    slot: &KeyedAttribute,
     parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
 ) {
@@ -1376,19 +1357,19 @@ pub(crate) fn slot_to_tokens(
     let name = convert_to_snake_case(if name.starts_with("slot:") {
         name.replacen("slot:", "", 1)
     } else {
-        node.name.to_string()
+        node.name().to_string()
     });
 
-    let component_name = ident_from_tag_name(&node.name);
-    let span = node.name.span();
+    let component_name = ident_from_tag_name(node.name());
+    let span = node.name().span();
 
     let Some(parent_slots) = parent_slots else {
         proc_macro_error::emit_error!(span, "slots cannot be used inside HTML elements");
         return;
     };
 
-    let attrs = node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(node) = node {
+    let attrs = node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(node) = node {
             if is_slot(node) {
                 None
             } else {
@@ -1406,10 +1387,8 @@ pub(crate) fn slot_to_tokens(
             let name = &attr.key;
 
             let value = attr
-                .value
-                .as_ref()
+                .value()
                 .map(|v| {
-                    let v = v.as_ref();
                     quote! { #v }
                 })
                 .unwrap_or_else(|| quote! { #name });
@@ -1474,9 +1453,9 @@ pub(crate) fn slot_to_tokens(
         let slot = Ident::new(&slot, span);
         if values.len() > 1 {
             quote! {
-                .#slot(vec![
+                .#slot([
                     #(#values)*
-                ])
+                ].to_vec())
             }
         } else {
             let value = &values[0];
@@ -1504,12 +1483,12 @@ pub(crate) fn component_to_tokens(
     node: &NodeElement,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
-    let name = &node.name;
-    let component_name = ident_from_tag_name(&node.name);
-    let span = node.name.span();
+    let name = node.name();
+    let component_name = ident_from_tag_name(node.name());
+    let span = node.name().span();
 
-    let attrs = node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(node) = node {
+    let attrs = node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(node) = node {
             Some(node)
         } else {
             None
@@ -1526,10 +1505,8 @@ pub(crate) fn component_to_tokens(
             let name = &attr.key;
 
             let value = attr
-                .value
-                .as_ref()
+                .value()
                 .map(|v| {
-                    let v = v.as_ref();
                     quote! { #v }
                 })
                 .unwrap_or_else(|| quote! { #name });
@@ -1637,7 +1614,7 @@ pub(crate) fn component_to_tokens(
 }
 
 pub(crate) fn event_from_attribute_node(
-    attr: &NodeAttribute,
+    attr: &KeyedAttribute,
     force_undelegated: bool,
 ) -> (TokenStream, &Expr) {
     let event_name = attr
@@ -1697,7 +1674,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
 fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
     match expr {
         syn::Expr::Block(block) => block.block.stmts.last().and_then(|stmt| {
-            if let syn::Stmt::Expr(expr) = stmt {
+            if let syn::Stmt::Expr(expr, ..) = stmt {
                 expr_to_ident(expr)
             } else {
                 None
@@ -1708,15 +1685,15 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
     }
 }
 
-fn is_slot(node: &NodeAttribute) -> bool {
+fn is_slot(node: &KeyedAttribute) -> bool {
     let key = node.key.to_string();
     let key = key.trim();
     key == "slot" || key.starts_with("slot:")
 }
 
-fn get_slot(node: &NodeElement) -> Option<&NodeAttribute> {
-    node.attributes.iter().find_map(|node| {
-        if let Node::Attribute(node) = node {
+fn get_slot(node: &NodeElement) -> Option<&KeyedAttribute> {
+    node.attributes().iter().find_map(|node| {
+        if let NodeAttribute::Attribute(node) = node {
             if is_slot(node) {
                 Some(node)
             } else {
@@ -1744,7 +1721,7 @@ fn is_self_closing(node: &NodeElement) -> bool {
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
     matches!(
-        node.name.to_string().as_str(),
+        node.name().to_string().as_str(),
         "area"
             | "base"
             | "br"
@@ -1899,13 +1876,13 @@ fn parse_event(event_name: &str) -> (&str, bool) {
 fn fancy_class_name<'a>(
     name: &str,
     cx: &Ident,
-    node: &'a NodeAttribute,
+    node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex class names:
     // e.g., Tailwind `class=("mt-[calc(100vh_-_3rem)]", true)`
     if name == "class" {
-        if let Some(expr) = node.value.as_ref() {
-            if let syn::Expr::Tuple(tuple) = expr.as_ref() {
+        if let Some(expr) = node.value() {
+            if let syn::Expr::Tuple(tuple) = expr {
                 if tuple.elems.len() == 2 {
                     let span = node.key.span();
                     let class = quote_spanned! {
@@ -1948,12 +1925,12 @@ fn fancy_class_name<'a>(
 fn fancy_style_name<'a>(
     name: &str,
     cx: &Ident,
-    node: &'a NodeAttribute,
+    node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex dynamic style names:
     if name == "style" {
-        if let Some(expr) = node.value.as_ref() {
-            if let syn::Expr::Tuple(tuple) = expr.as_ref() {
+        if let Some(expr) = node.value() {
+            if let syn::Expr::Tuple(tuple) = expr {
                 if tuple.elems.len() == 2 {
                     let span = node.key.span();
                     let style = quote_spanned! {
