@@ -81,9 +81,7 @@ impl Display for HydrationKey {
 
 impl Default for HydrationKey {
     fn default() -> Self {
-        Self {
-            id: 0
-        }
+        Self { id: 0 }
     }
 }
 
