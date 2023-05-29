@@ -50,13 +50,13 @@ cfg_if! {
 
       static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
         #[cfg(debug_assertions)]
-        return crate::document().get_element_by_id("_0-0-0").is_some()
-          || crate::document().get_element_by_id("_0-0-0o").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-0o").is_some());
+        return crate::document().get_element_by_id("_1").is_some()
+          || crate::document().get_element_by_id("_1o").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_1o").is_some());
 
         #[cfg(not(debug_assertions))]
-        return crate::document().get_element_by_id("_0-0-0").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-0-0").is_some());
+        return crate::document().get_element_by_id("_1").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_1").is_some());
       }));
     }
 
@@ -69,23 +69,20 @@ cfg_if! {
 /// A stable identifier within the server-rendering or hydration process.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HydrationKey {
-    /// The key of the previous component.
-    pub previous: String,
-    /// The element offset within the current component.
-    pub offset: usize,
+    /// ID of the current key.
+    pub id: usize,
 }
 
 impl Display for HydrationKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.previous, self.offset)
+        write!(f, "{}", self.id)
     }
 }
 
 impl Default for HydrationKey {
     fn default() -> Self {
         Self {
-            previous: "0-".to_string(),
-            offset: 0,
+            id: 0
         }
     }
 }
@@ -105,7 +102,7 @@ impl HydrationCtx {
     pub fn id() -> HydrationKey {
         ID.with(|id| {
             let mut id = id.borrow_mut();
-            id.offset = id.offset.wrapping_add(1);
+            id.id = id.id.wrapping_add(1);
             id.clone()
         })
     }
@@ -114,10 +111,7 @@ impl HydrationCtx {
     pub fn next_component() -> HydrationKey {
         ID.with(|id| {
             let mut id = id.borrow_mut();
-            let offset = id.offset;
-            id.previous.push_str(&offset.to_string());
-            id.previous.push('-');
-            id.offset = 0;
+            id.id = id.id.wrapping_add(1);
             id.clone()
         })
     }
