@@ -1,4 +1,4 @@
-[tasks.web-test]
+[tasks.test-e2e]
 dependencies = ["auto-playwright-setup", "cargo-leptos-e2e"]
 
 [tasks.clean-all]

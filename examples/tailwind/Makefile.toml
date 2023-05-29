@@ -1,6 +1,6 @@
 extend = [
     { path = "../cargo-make/main.toml" },
-    { path = "../cargo-make/cargo-leptos-web-test.toml" },
+    { path = "../cargo-make/cargo-leptos-test.toml" },
 ]
 
 [tasks.build]
