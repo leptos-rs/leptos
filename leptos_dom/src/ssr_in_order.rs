@@ -374,7 +374,7 @@ impl View {
             View::CoreComponent(node) => {
                 let (id, name, wrap, content) = match node {
                     CoreComponent::Unit(u) => (
-                        u.id.clone(),
+                        u.id,
                         "",
                         false,
                         Box::new(move |chunks: &mut VecDeque<StreamChunk>| {

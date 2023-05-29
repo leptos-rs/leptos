@@ -67,7 +67,7 @@ cfg_if! {
 }
 
 /// A stable identifier within the server-rendering or hydration process.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct HydrationKey {
     /// ID of the current key.
     pub id: usize,
@@ -79,12 +79,6 @@ impl Display for HydrationKey {
     }
 }
 
-impl Default for HydrationKey {
-    fn default() -> Self {
-        Self { id: 0 }
-    }
-}
-
 thread_local!(static ID: RefCell<HydrationKey> = Default::default());
 
 /// Control and utility methods for hydration.
@@ -93,7 +87,7 @@ pub struct HydrationCtx;
 impl HydrationCtx {
     /// Get the next `id` without incrementing it.
     pub fn peek() -> HydrationKey {
-        ID.with(|id| id.borrow().clone())
+        ID.with(|id| *id.borrow())
     }
 
     /// Increments the current hydration `id` and returns it
@@ -101,16 +95,7 @@ impl HydrationCtx {
         ID.with(|id| {
             let mut id = id.borrow_mut();
             id.id = id.id.wrapping_add(1);
-            id.clone()
-        })
-    }
-
-    /// Resets the hydration `id` for the next component, and returns it
-    pub fn next_component() -> HydrationKey {
-        ID.with(|id| {
-            let mut id = id.borrow_mut();
-            id.id = id.id.wrapping_add(1);
-            id.clone()
+            *id
         })
     }
 
