@@ -52,11 +52,11 @@ fn ssr_test_with_components() {
         };
 
         assert!(rendered.into_view(cx).render_to_string(cx).contains(
-            "<div id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span \
-             id=\"_0-1-3\">Value: \
-             <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!\
-             --hk=_0-1-4c|leptos-dyn-child-end-->!</span><button \
-             id=\"_0-1-5\">+1</button></div>"
+            "<div id=\"_0-3\"><button id=\"_0-4\">-1</button><span \
+             id=\"_0-5\">Value: \
+             <!--hk=_0-6o|leptos-dyn-child-start-->1<!\
+             --hk=_0-6c|leptos-dyn-child-end-->!</span><button \
+             id=\"_0-7\">+1</button></div>"
         ));
     });
 }
@@ -89,11 +89,11 @@ fn ssr_test_with_snake_case_components() {
         };
 
         assert!(rendered.into_view(cx).render_to_string(cx).contains(
-            "<div id=\"_0-1-1\"><button id=\"_0-1-2\">-1</button><span \
-             id=\"_0-1-3\">Value: \
-             <!--hk=_0-1-4o|leptos-dyn-child-start-->1<!\
-             --hk=_0-1-4c|leptos-dyn-child-end-->!</span><button \
-             id=\"_0-1-5\">+1</button></div>"
+            "<div id=\"_0-3\"><button id=\"_0-4\">-1</button><span \
+             id=\"_0-5\">Value: \
+             <!--hk=_0-6o|leptos-dyn-child-start-->1<!\
+             --hk=_0-6c|leptos-dyn-child-end-->!</span><button \
+             id=\"_0-7\">+1</button></div>"
         ));
     });
 }
