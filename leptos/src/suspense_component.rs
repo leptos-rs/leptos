@@ -75,7 +75,7 @@ where
 
     let orig_child = Rc::new(children);
 
-    let current_id = HydrationCtx::next_component();
+    let current_id = HydrationCtx::id();
     #[cfg(any(feature = "csr", feature = "hydrate"))]
     let prev_disposer = Rc::new(RefCell::new(None::<ScopeDisposer>));
 
