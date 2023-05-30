@@ -1,6 +1,3 @@
-[env]
-END2END_DIR = "end2end"
-
 [tasks.pre-clippy]
 env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings" }
 
@@ -33,9 +30,12 @@ find . -type d -name node_modules | xargs rm -rf
 [tasks.clean-playwright]
 description = "Delete playwright directories"
 category = "Cleanup"
-cwd = "${END2END_DIR}"
-command = "rm"
-args = ["-rf", "playwright", "playwright/.cache", "test-results"]
+script = '''
+for pw_dir in $(find . -name playwright.config.ts | xargs dirname)
+do
+  rm -rf $pw_dir/playwright-report
+done
+'''
 
 [tasks.clean-all]
 description = "Delete all temporary directories"
