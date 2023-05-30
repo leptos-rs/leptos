@@ -52,31 +52,44 @@ description = "Runs end to end tests with cargo leptos"
 command = "cargo"
 args = ["leptos", "end-to-end"]
 
-[tasks.setup-playwright]
-description = "Setup playwright and install browsers"
-cwd = "${END2END_DIR}"
+[tasks.setup-node]
+description = "Install node dependencies and playwright browsers"
 env = { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1" }
 script = '''
-    BOLD="\e[1m"
-    GREEN="\e[0;32m"
-    RED="\e[0;31m"
-    RESET="\e[0m"
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+RED="\e[0;31m"
+RESET="\e[0m"
 
-    if command -v pnpm; then
-        pnpm install
-        pnpm playwright install
-    elif command -v npm; then
-        npm install
-        npx playwright install
-    else
-        echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
-        exit 1
-    fi
-'''
+project_dir=$CARGO_MAKE_WORKING_DIRECTORY
 
-[tasks.auto-playwright-setup]
-script = '''
-  if [ ! -d "${END2END_DIR}/node_modules" ]; then
-    cargo make setup-playwright
-  fi
+# Discover commands
+if command -v pnpm; then
+    NODE_CMD=pnpm
+    PLAYWRIGHT_CMD=pnpm
+elif command -v npm; then
+    NODE_CMD=npm
+    PLAYWRIGHT_CMD=npx
+else
+    echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
+    exit 1
+fi
+
+# Install node dependencies
+for node_dir in $(find . -name package.json -not -path '*/node_modules/*' | xargs dirname)
+do
+  echo Install node dependencies for $node_dir
+  cd $node_dir
+  ${NODE_CMD} install
+  cd ${project_dir}
+done
+
+# Install playwright browsers
+for pw_dir in $(find . -name playwright.config.ts | xargs dirname)
+do
+  echo Install playwright browsers for $pw_dir
+  cd $pw_dir
+  ${PLAYWRIGHT_CMD} playwright install
+  cd $project_dir
+done
 '''
