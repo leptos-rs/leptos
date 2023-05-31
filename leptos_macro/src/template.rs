@@ -1,4 +1,4 @@
-use crate::attribute_value;
+use crate::{attribute_value, view::IdeTagHelper};
 use itertools::Either;
 use leptos_hot_reload::parsing::{
     block_to_primitive_expression, is_component_node, value_to_string,
@@ -32,6 +32,7 @@ fn root_element_to_tokens(
 ) -> TokenStream {
     let mut template = String::new();
     let mut navigations = Vec::new();
+    let mut stmts_for_ide = IdeTagHelper::new();
     let mut expressions = Vec::new();
 
     if is_component_node(node) {
@@ -46,6 +47,7 @@ fn root_element_to_tokens(
             &mut 0,
             &mut template,
             &mut navigations,
+            &mut stmts_for_ide,
             &mut expressions,
             true,
         );
@@ -58,37 +60,24 @@ fn root_element_to_tokens(
                 .unwrap();
         };
 
-        let span = node.name().span();
-
-        let navigations = if navigations.is_empty() {
-            quote! {}
-        } else {
-            quote! { #(#navigations);* }
-        };
-
-        let expressions = if expressions.is_empty() {
-            quote! {}
-        } else {
-            quote! { #(#expressions;);* }
-        };
-
         let tag_name = node.name().to_string();
-
-        quote_spanned! {
-            span => {
+        let stmts_for_ide = stmts_for_ide.into_iter();
+        quote! {
+            {
                 thread_local! {
                     static #template_uid: leptos::web_sys::HtmlTemplateElement = {
                         let document = leptos::document();
                         let el = document.create_element("template").unwrap();
                         el.set_inner_html(#template);
                         leptos::wasm_bindgen::JsCast::unchecked_into(el)
-                    };
+                    }
                 }
 
+                #(#stmts_for_ide)*
                 #generate_root
 
-                #navigations
-                #expressions
+                #(#navigations)*
+                #(#expressions;)*
 
                 leptos::leptos_dom::View::Element(leptos::leptos_dom::Element {
                     #[cfg(debug_assertions)]
@@ -129,16 +118,21 @@ fn element_to_tokens(
     next_co_id: &mut usize,
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
+    stmts_for_ide: &mut IdeTagHelper,
     expressions: &mut Vec<TokenStream>,
     is_root_el: bool,
 ) -> Ident {
     // create this element
     *next_el_id += 1;
-    let this_el_ident = child_ident(*next_el_id, node.name().span());
+
+    // Use any other span instead of node.name.span(), to avoid missundestanding in IDE helpers.
+    // same as view::root_element_to_tokens_ssr::typed_element_name
+    let this_el_ident = child_ident(*next_el_id, Span::call_site());
 
     // Open tag
     let name_str = node.name().to_string();
-    let span = node.name().span();
+    // Span for diagnostic message in case of error in quote_spanned! macro
+    let span = node.open_tag.span();
 
     // CSR/hydrate, push to template
     template.push('<');
@@ -174,7 +168,8 @@ fn element_to_tokens(
         }
     };
     navigations.push(this_nav);
-
+    // emit ide helper info
+    stmts_for_ide.save_element_completion(node);
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
     if matches!(
@@ -220,6 +215,7 @@ fn element_to_tokens(
             next_co_id,
             template,
             navigations,
+            stmts_for_ide,
             expressions,
         );
 
@@ -370,6 +366,7 @@ fn child_to_tokens(
     next_co_id: &mut usize,
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
+    stmts_for_ide: &mut IdeTagHelper,
     expressions: &mut Vec<TokenStream>,
 ) -> PrevSibChange {
     match node {
@@ -391,6 +388,7 @@ fn child_to_tokens(
                     next_co_id,
                     template,
                     navigations,
+                    stmts_for_ide,
                     expressions,
                     false,
                 ))
