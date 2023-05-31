@@ -15,6 +15,7 @@ dependencies = ["test-flow", "test-e2e-flow"]
 [tasks.pre-verify]
 
 [tasks.post-verify]
+condition = { profiles = ["local"] }
 dependencies = ["clean-all"]
 
 [tasks.test-e2e-flow]
