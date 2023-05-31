@@ -50,8 +50,8 @@ jobs:
         with:
           node-version: 18
 
-        name: Install pnpm
       - uses: pnpm/action-setup@v2
+        name: Install pnpm
         id: pnpm-install
         with:
           version: 8
