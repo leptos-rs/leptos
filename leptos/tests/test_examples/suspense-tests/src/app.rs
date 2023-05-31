@@ -113,6 +113,7 @@ fn SecondaryNav(cx: Scope) -> impl IntoView {
 fn Nested(cx: Scope) -> impl IntoView {
     let one_second = create_resource(cx, || (), one_second_fn);
     let two_second = create_resource(cx, || (), two_second_fn);
+    let (count, set_count) = create_signal(cx, 0);
 
     view! { cx,
         <div>
@@ -125,7 +126,12 @@ fn Nested(cx: Scope) -> impl IntoView {
                 <Suspense fallback=|| "Loading 2...">
                     "Two Second: "
                     {move || {
-                        two_second.read(cx).map(|_| "Loaded 2!")
+                        two_second.read(cx).map(|_| view! { cx,
+                            "Loaded 2!"
+                            <button on:click=move |_| set_count.update(|n| *n += 1)>
+                                {count}
+                            </button>
+                        })
                     }}
                 </Suspense>
             </Suspense>
