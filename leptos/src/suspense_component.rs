@@ -102,7 +102,7 @@ where
 
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let _child = orig_child(cx).into_view(cx);
-                    let after_original_child = HydrationCtx::id();
+                    let after_original_child = HydrationCtx::peek();
 
                     let initial = {
                         // no resources were read under this, so just return the child
@@ -116,13 +116,13 @@ where
                         // show the fallback, but also prepare to stream HTML
                         else {
                             let orig_child = Rc::clone(&orig_child);
+                            HydrationCtx::continue_from(current_id);
 
                             cx.register_suspense(
                                 context,
                                 &current_id.to_string(),
                                 // out-of-order streaming
                                 {
-                                    let current_id = current_id.clone();
                                     let orig_child = Rc::clone(&orig_child);
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
@@ -136,7 +136,6 @@ where
                                 },
                                 // in-order streaming
                                 {
-                                    let current_id = current_id.clone();
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
                                         Fragment::lazy(Box::new(move || {
@@ -166,6 +165,7 @@ where
     };
 
     HydrationCtx::continue_from(current_id);
+    HydrationCtx::next_component();
 
     leptos_dom::View::Suspense(current_id, core_component)
 }
