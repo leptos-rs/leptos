@@ -41,6 +41,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install Trunk
+      - uses: jetli/trunk-action@v0.4.0
+        with:
+        version: "latest"
+
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
