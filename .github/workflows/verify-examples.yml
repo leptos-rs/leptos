@@ -44,15 +44,15 @@ jobs:
       - name: Install Trunk
       - uses: jetli/trunk-action@v0.4.0
         with:
-        version: "latest"
+          version: "latest"
 
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - uses: pnpm/action-setup@v2
         name: Install pnpm
+      - uses: pnpm/action-setup@v2
         id: pnpm-install
         with:
           version: 8
@@ -72,5 +72,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Run cargo check on all examples
+      - name: Run verify-flow on all web examples
         run: cargo make --profile=github-actions verify-examples
