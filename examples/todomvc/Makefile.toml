@@ -1,5 +1,9 @@
 extend = { path = "../cargo-make/main.toml" }
 
+[tasks.setup-node]
+env = { SETUP_NODE = false }
+condition = { env_true = ["SETUP_NODE"] }
+
 [tasks.build]
 command = "cargo"
 args = ["+nightly", "build-all-features"]
