@@ -46,7 +46,7 @@ fn App(cx: Scope) -> impl IntoView {
 
 Like all component definitions, this begins with the [`#[component]`](https://docs.rs/leptos/latest/leptos/attr.component.html) macro. `#[component]` annotates a function so it can be
 used as a component in your Leptos application. We’ll see some of the other features of
-this macro in a couple chapters.
+this macro in a couple of chapters.
 
 ```rust
 fn App(cx: Scope) -> impl IntoView
