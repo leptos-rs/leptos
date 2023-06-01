@@ -47,7 +47,7 @@ impl From<View> for Fragment {
 
 impl From<Fragment> for View {
     fn from(value: Fragment) -> Self {
-        let mut frag = ComponentRepr::new_with_id("", value.id.clone());
+        let mut frag = ComponentRepr::new_with_id("", value.id);
 
         #[cfg(debug_assertions)]
         {

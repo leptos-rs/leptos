@@ -242,7 +242,7 @@ where
     /// Creates a new component.
     pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
         Self {
-            id: HydrationCtx::next_component(),
+            id: HydrationCtx::id(),
             name: name.into(),
             children_fn: f,
         }
