@@ -57,7 +57,7 @@ Every component is a function with the following characteristics
 1. It takes a reactive [`Scope`](https://docs.rs/leptos/latest/leptos/struct.Scope.html)
    as its first argument. This `Scope` is our entrypoint into the reactive system.
    By convention, it’s usually named `cx`.
-2. You can include other arguments, which will be available as component “props.”
+2. You can include other arguments, which will be available as component “props”.
 3. Component functions return `impl IntoView`, which is an opaque type that includes
    anything you could return from a Leptos `view`.
 
