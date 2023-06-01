@@ -76,8 +76,9 @@ else
 fi
 
 # Install node dependencies
-for node_dir in $(find . -name package.json -not -path '*/node_modules/*' | xargs dirname)
+for node_path in $(find . -name package.json -not -path '*/node_modules/*')
 do
+  node_dir=$(dirname $node_path)
   echo Install node dependencies for $node_dir
   cd $node_dir
   ${NODE_CMD} install
@@ -85,8 +86,9 @@ do
 done
 
 # Install playwright browsers
-for pw_dir in $(find . -name playwright.config.ts | xargs dirname)
+for pw_path in $(find . -name playwright.config.ts)
 do
+  pw_dir=$(dirname $pw_path)
   echo Install playwright browsers for $pw_dir
   cd $pw_dir
   ${PLAYWRIGHT_CMD} playwright install
