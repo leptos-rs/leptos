@@ -16,7 +16,6 @@ use actix_web::{
 use futures::{Stream, StreamExt};
 use http::StatusCode;
 use lazy_static::lazy_static;
-
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
@@ -33,7 +32,7 @@ use tracing::instrument;
 
 const WILDCARD_PATTERN: &str = r"\*.*";
 const CAPTURE_PATTERN: &str = r":((?:[^.,/]+)+)[^/]?";
-lazy_static!{
+lazy_static! {
   // Actix's Router doesn't follow Leptos's
   // Match `*` or `*someword` to replace with replace it with "/{tail.*}
   static ref WILDCARD_RE: Regex = Regex::new(WILDCARD_PATTERN).unwrap();
