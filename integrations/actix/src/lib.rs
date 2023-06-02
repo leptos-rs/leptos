@@ -15,6 +15,8 @@ use actix_web::{
 };
 use futures::{Stream, StreamExt};
 use http::StatusCode;
+use lazy_static::lazy_static;
+
 use leptos::{
     leptos_server::{server_fn_by_path, Payload},
     server_fn::Encoding,
@@ -28,6 +30,17 @@ use parking_lot::RwLock;
 use regex::Regex;
 use std::{fmt::Display, future::Future, sync::Arc};
 use tracing::instrument;
+
+const WILDCARD_PATTERN: &str = r"\*.*";
+const CAPTURE_PATTERN: &str = r":((?:[^.,/]+)+)[^/]?";
+lazy_static!{
+  // Actix's Router doesn't follow Leptos's
+  // Match `*` or `*someword` to replace with replace it with "/{tail.*}
+  static ref WILDCARD_RE: Regex = Regex::new(WILDCARD_PATTERN).unwrap();
+  // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
+  static ref CAPTURE_RE:  Regex = Regex::new(CAPTURE_PATTERN).unwrap();
+}
+
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
 /// Typically contained inside of a ResponseOptions. Setting this is useful for cookies and custom responses.
 #[derive(Debug, Clone, Default)]
@@ -903,19 +916,13 @@ where
         })
         .collect();
 
-    // Actix's Router doesn't follow Leptos's
-    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
-    let wildcard_re = Regex::new(r"\*.*").unwrap();
-    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
-    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-
     let mut routes = routes
         .into_iter()
         .map(|listing| {
-            let path = wildcard_re
+            let path = WILDCARD_RE
                 .replace_all(listing.path(), "{tail:.*}")
                 .to_string();
-            let path = capture_re.replace_all(&path, "{$1}").to_string();
+            let path = CAPTURE_RE.replace_all(&path, "{$1}").to_string();
             RouteListing::new(path, listing.mode(), listing.methods())
         })
         .collect::<Vec<_>>();
@@ -1044,7 +1051,7 @@ where
 
 /// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler](actix_web::Handler): it is an async function that receives arguments that  
+/// [Handler](actix_web::Handler): it is an async function that receives arguments that
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
