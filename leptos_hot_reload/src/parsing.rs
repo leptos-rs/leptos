@@ -43,8 +43,10 @@ pub fn value_to_string(value: &syn::Expr) -> Option<String> {
     }
 }
 
+pub fn is_component_tag_name(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_uppercase())
+}
+
 pub fn is_component_node(node: &NodeElement) -> bool {
-    node.name()
-        .to_string()
-        .starts_with(|c: char| c.is_ascii_uppercase())
+    is_component_tag_name(&node.name().to_string())
 }
