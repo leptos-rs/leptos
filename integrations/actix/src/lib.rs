@@ -203,9 +203,10 @@ pub fn handle_server_fns_with_context(
                     if req
                         .headers()
                         .get("Content-Type")
-                        .and_then(|value| value.to_str().ok()).map(|value| value.starts_with(
-                                    "multipart/form-data; boundary=",
-                                ))
+                        .and_then(|value| value.to_str().ok())
+                        .map(|value| {
+                            value.starts_with("multipart/form-data; boundary=")
+                        })
                         == Some(true)
                     {
                         provide_context(cx, body.clone());
