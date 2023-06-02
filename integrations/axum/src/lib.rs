@@ -685,11 +685,14 @@ async fn forward_stream(
     mut tx: Sender<String>,
 ) {
     let cx = Scope { runtime, id: scope };
+    let mut shell = Box::pin(bundle);
+    let first_app_chunk = shell.next().await.unwrap_or_default();
+
     let (head, tail) =
         html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     _ = tx.send(head).await;
-    let mut shell = Box::pin(bundle);
+    _ = tx.send(first_app_chunk).await;
     while let Some(fragment) = shell.next().await {
         _ = tx.send(fragment).await;
     }
