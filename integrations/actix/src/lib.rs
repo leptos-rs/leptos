@@ -787,12 +787,20 @@ async fn build_stream_response(
     scope: ScopeId,
 ) -> HttpResponse {
     let cx = leptos::Scope { runtime, id: scope };
+    let mut stream = Box::pin(stream);
+
+    // wait for any blocking resources to load before pulling metadata
+    let first_app_chunk = stream.next().await.unwrap_or_default();
+
     let (head, tail) =
         html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })
-            .chain(stream)
+            .chain(
+                futures::stream::once(async move { first_app_chunk })
+                    .chain(stream),
+            )
             .chain(futures::stream::once(async move {
                 runtime.dispose();
                 tail.to_string()
