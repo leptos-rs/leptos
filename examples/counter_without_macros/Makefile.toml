@@ -1,6 +1,6 @@
 extend = [
-    { path = "../cargo-make/common.toml" },
-    { path = "../cargo-make/wasm-web-test.toml" },
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/wasm-test.toml" },
 ]
 
 [tasks.build]
