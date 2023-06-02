@@ -797,7 +797,10 @@ async fn build_stream_response(
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })
-            .chain(futures::stream::once(async move { first_app_chunk }).chain(stream))
+            .chain(
+                futures::stream::once(async move { first_app_chunk })
+                    .chain(stream),
+            )
             .chain(futures::stream::once(async move {
                 runtime.dispose();
                 tail.to_string()
