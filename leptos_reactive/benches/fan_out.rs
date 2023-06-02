@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 fn rs_fan_out(c: &mut Criterion) {
     use reactive_signals::{
-        runtimes::ClientRuntime, signal, types::Func, Signal,
+        runtimes::ClientRuntime, signal,
     };
 
     c.bench_function("rs_fan_out", |b| {

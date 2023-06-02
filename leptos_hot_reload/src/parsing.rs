@@ -20,7 +20,7 @@ pub fn block_to_primitive_expression(block: &syn::Block) -> Option<&syn::Expr> {
         return None;
     }
     match &block.stmts[0] {
-        syn::Stmt::Expr(e, None) => return Some(&e),
+        syn::Stmt::Expr(e, None) => return Some(e),
         _ => {}
     }
     None
