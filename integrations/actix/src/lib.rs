@@ -891,6 +891,12 @@ where
 {
     let mut routes = leptos_router::generate_route_list_inner(app_fn);
 
+    // Actix's Router doesn't follow Leptos's
+    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
+    let wildcard_re = Regex::new(r"\*.*").unwrap();
+    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
+    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
+
     // Empty strings screw with Actix pathing, they need to be "/"
     routes = routes
         .into_iter()
@@ -905,16 +911,6 @@ where
             }
             RouteListing::new(listing.path(), listing.mode(), listing.methods())
         })
-        .collect();
-
-    // Actix's Router doesn't follow Leptos's
-    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
-    let wildcard_re = Regex::new(r"\*.*").unwrap();
-    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
-    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-
-    let mut routes = routes
-        .into_iter()
         .map(|listing| {
             let path = wildcard_re
                 .replace_all(listing.path(), "{tail:.*}")
@@ -1048,7 +1044,7 @@ where
 
 /// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler](actix_web::Handler): it is an async function that receives arguments that  
+/// [Handler](actix_web::Handler): it is an async function that receives arguments that
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
