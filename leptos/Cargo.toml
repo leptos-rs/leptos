@@ -60,7 +60,7 @@ rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 
 [package.metadata.cargo-all-features]
-denylist = ["stable", "tracing"]
+denylist = ["stable", "tracing", "template_macro"]
 skip_feature_sets = [
   [
     "csr",

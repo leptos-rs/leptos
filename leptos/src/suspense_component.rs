@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
+use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::ScopeDisposer;
@@ -90,9 +90,9 @@ where
                     }
                     let (view, disposer) =
                         cx.run_child_scope(|cx| if context.ready() {
-                        Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
+                        orig_child(cx).into_view(cx)
                     } else {
-                        Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
+                        fallback().into_view(cx)
                     });
                     *prev_disposer.borrow_mut() = Some(disposer);
                     view
@@ -102,33 +102,29 @@ where
 
                     // run the child; we'll probably throw this away, but it will register resource reads
                     let _child = orig_child(cx).into_view(cx);
-                    let after_original_child = HydrationCtx::id();
+                    let after_original_child = HydrationCtx::peek();
 
                     let initial = {
                         // no resources were read under this, so just return the child
                         if context.pending_resources.get() == 0 {
                             let orig_child = Rc::clone(&orig_child);
                             HydrationCtx::continue_from(current_id.clone());
-                            Fragment::lazy(Box::new(move || {
-                                vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
-                            })).into_view(cx)
+                            DynChild::new(move || orig_child(cx)).into_view(cx)
                         }
                         // show the fallback, but also prepare to stream HTML
                         else {
                             let orig_child = Rc::clone(&orig_child);
+                            HydrationCtx::continue_from(current_id);
 
                             cx.register_suspense(
                                 context,
                                 &current_id.to_string(),
                                 // out-of-order streaming
                                 {
-                                    let current_id = current_id.clone();
                                     let orig_child = Rc::clone(&orig_child);
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        Fragment::lazy(Box::new(move || {
-                                            vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
-                                        }))
+                                        DynChild::new(move || orig_child(cx))
                                         .into_view(cx)
                                         .render_to_string(cx)
                                         .to_string()
@@ -136,12 +132,9 @@ where
                                 },
                                 // in-order streaming
                                 {
-                                    let current_id = current_id.clone();
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        Fragment::lazy(Box::new(move || {
-                                            vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
-                                        }))
+                                        DynChild::new(move || orig_child(cx))
                                         .into_view(cx)
                                         .into_stream_chunks(cx)
                                     }
@@ -165,7 +158,8 @@ where
         _ => unreachable!(),
     };
 
-    HydrationCtx::continue_from(current_id.clone());
+    HydrationCtx::continue_from(current_id);
+    HydrationCtx::next_component();
 
     leptos_dom::View::Suspense(current_id, core_component)
 }
