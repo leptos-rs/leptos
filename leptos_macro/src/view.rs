@@ -1410,7 +1410,10 @@ pub(crate) fn slot_to_tokens(
 
     let props = attrs
         .clone()
-        .filter(|attr| !attr.key.to_string().starts_with("clone:"))
+        .filter(|attr| {
+            !attr.key.to_string().starts_with("bind:")
+                && !attr.key.to_string().starts_with("clone:")
+        })
         .map(|attr| {
             let name = &attr.key;
 
@@ -1425,6 +1428,16 @@ pub(crate) fn slot_to_tokens(
                 .#name(#[allow(unused_braces)] #value)
             }
         });
+
+    let items_to_bind = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("bind:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
 
     let items_to_clone = attrs
         .clone()
@@ -1461,16 +1474,29 @@ pub(crate) fn slot_to_tokens(
         );
 
         if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
+
             let clonables = items_to_clone
                 .iter()
                 .map(|ident| quote! { let #ident = #ident.clone(); });
 
-            quote! {
-                .children({
-                    #(#clonables)*
+            if bindables.len() > 0 {
+                quote! {
+                    .children({
+                        #(#clonables)*
 
-                    Box::new(move |#cx| #children #view_marker)
-                })
+                        move |#cx, #(#bindables)*| #children #view_marker
+                    })
+                }
+            } else {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        Box::new(move |#cx| #children #view_marker)
+                    })
+                }
             }
         } else {
             quote! {}
@@ -1526,7 +1552,8 @@ pub(crate) fn component_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("clone:")
+            !attr.key.to_string().starts_with("bind:")
+                && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
         })
         .map(|attr| {
@@ -1543,6 +1570,16 @@ pub(crate) fn component_to_tokens(
                 .#name(#[allow(unused_braces)] #value)
             }
         });
+
+    let items_to_bind = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("bind:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
 
     let items_to_clone = attrs
         .clone()
@@ -1590,16 +1627,29 @@ pub(crate) fn component_to_tokens(
         );
 
         if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
+
             let clonables = items_to_clone
                 .iter()
                 .map(|ident| quote! { let #ident = #ident.clone(); });
 
-            quote! {
-                .children({
-                    #(#clonables)*
+            if bindables.len() > 0 {
+                quote! {
+                    .children({
+                        #(#clonables)*
 
-                    Box::new(move |#cx| #children #view_marker)
-                })
+                        move |#cx, #(#bindables)*| #children #view_marker
+                    })
+                }
+            } else {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        Box::new(move |#cx| #children #view_marker)
+                    })
+                }
             }
         } else {
             quote! {}
