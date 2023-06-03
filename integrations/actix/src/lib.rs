@@ -204,12 +204,8 @@ pub fn handle_server_fns_with_context(
                         .headers()
                         .get("Content-Type")
                         .and_then(|value| value.to_str().ok())
-                        .and_then(|value| {
-                            Some(
-                                value.starts_with(
-                                    "multipart/form-data; boundary=",
-                                ),
-                            )
+                        .map(|value| {
+                            value.starts_with("multipart/form-data; boundary=")
                         })
                         == Some(true)
                     {

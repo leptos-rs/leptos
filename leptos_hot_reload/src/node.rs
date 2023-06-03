@@ -73,7 +73,7 @@ impl LNode {
                         LNode::parse_node(child, &mut children)?;
                     }
                     views.push(LNode::Component {
-                        name: name,
+                        name,
                         props: el
                             .open_tag
                             .attributes

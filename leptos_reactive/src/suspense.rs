@@ -37,7 +37,7 @@ impl GlobalSuspenseContext {
 
     /// Runs a function with a reference to the underlying suspense context.
     pub fn with_inner<T>(&self, f: impl FnOnce(&SuspenseContext) -> T) -> T {
-        f(&*self.0.borrow())
+        f(&self.0.borrow())
     }
 
     /// Runs a function with a reference to the underlying suspense context.
