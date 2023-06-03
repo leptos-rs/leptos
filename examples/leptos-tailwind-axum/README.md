@@ -1,18 +1,6 @@
-# Leptos with axum + tailwindcss template
+# Leptos with Axum + TailwindCSS Tempate
 
-## Preface
-
-This template was taken from [Leptos' axum starter template](https://github.com/leptos-rs/start-axum).
-I wanted to try to integrate tailwindcss with the project,Since in the case of server side rendering(ssr),
-the example used only the [actix](https://github.com/actix/actix),I decided to extend it to the use of [axum](https://github.com/tokio-rs/axum),the web framework considered by many(including myself) to be the most promising.
-
-Also in the example with tailwind and actix the author assumed you have installed leptos locally.
-This template aims to solve the problems previosuly described.
-
-Currently this project is set up to run a full-stack leptos app, running leptos version 0.3.0, and rust nightly.
-All the original instructions are reproduced below.
-
-
+This is a template demonstrating how to integrate [TailwindCSS](https://tailwindcss.com/) with the [Leptos](https://github.com/leptos-rs/leptos) web framework, Axum server, and the [cargo-leptos](https://github.com/akesson/cargo-leptos) tool.
 
 To use it first of all you need to have `cargo-leptos` installed on your machine
 
@@ -112,7 +100,3 @@ You'll need to install trunk to client side render this bundle.
 
 1. `cargo install trunk`
    Then the site can be served with `trunk serve --open`
-
-## Final notes
-
-this template should then later be added to the leptos sample repository.
