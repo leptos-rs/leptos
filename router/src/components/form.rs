@@ -93,7 +93,7 @@ where
                 )
                 .unwrap_throw();
             let action = use_resolved_path(cx, move || action.clone())
-                .get()
+                .get_untracked()
                 .unwrap_or_default();
             // multipart POST (setting Context-Type breaks the request)
             if method == "post" && enctype == "multipart/form-data" {
