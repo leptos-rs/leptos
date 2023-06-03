@@ -34,7 +34,7 @@ use leptos_router::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-  view! {
+  view! { cx,
     <Router>
       <nav>
         /* ... */
@@ -59,7 +59,7 @@ use leptos_router::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-  view! {
+  view! { cx,
     <Router>
       <nav>
         /* ... */
