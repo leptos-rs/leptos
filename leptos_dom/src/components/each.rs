@@ -1,45 +1,48 @@
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
-use cfg_if::cfg_if;
-cfg_if! {
-  if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+use leptos_reactive::Scope;
+use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
+
+#[apply(web)]
+mod web {
     use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
-    use once_cell::unsync::OnceCell;
+    use drain_filter_polyfill::VecExt as VecDrainFilterExt;
     use leptos_reactive::create_effect;
+    use once_cell::unsync::OnceCell;
     use rustc_hash::FxHasher;
     use std::hash::BuildHasherDefault;
     use wasm_bindgen::JsCast;
-    use drain_filter_polyfill::VecExt as VecDrainFilterExt;
 
     type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    trait VecExt {
-      fn get_next_closest_mounted_sibling(
-        &self,
-        start_at: usize,
-        or: web_sys::Node,
-      ) -> web_sys::Node;
-    }
-
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    impl VecExt for Vec<Option<EachItem>> {
-      fn get_next_closest_mounted_sibling(
-        &self,
-        start_at: usize,
-        or: web_sys::Node,
-      ) -> web_sys::Node {
-        self[start_at..]
-          .iter()
-          .find_map(|s| s.as_ref().map(|s| s.get_opening_node()))
-          .unwrap_or(or)
-      }
-    }
-  } else {
-    use crate::hydration::HydrationKey;
-  }
 }
-use leptos_reactive::Scope;
-use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
+
+#[apply(web)]
+use web::*;
+
+#[apply(not_web)]
+use crate::hydration::HydrationKey;
+
+#[apply(web)]
+trait VecExt {
+    fn get_next_closest_mounted_sibling(
+        &self,
+        start_at: usize,
+        or: web_sys::Node,
+    ) -> web_sys::Node;
+}
+
+#[apply(web)]
+impl VecExt for Vec<Option<EachItem>> {
+    fn get_next_closest_mounted_sibling(
+        &self,
+        start_at: usize,
+        or: web_sys::Node,
+    ) -> web_sys::Node {
+        self[start_at..]
+            .iter()
+            .find_map(|s| s.as_ref().map(|s| s.get_opening_node()))
+            .unwrap_or(or)
+    }
+}
 
 /// The internal representation of the [`Each`] core-component.
 #[derive(Clone, PartialEq, Eq)]
@@ -119,7 +122,7 @@ impl Default for EachRepr {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[apply(web)]
 impl Mountable for EachRepr {
     fn get_mountable_node(&self) -> web_sys::Node {
         if self.mounted.get().is_none() {
@@ -248,14 +251,14 @@ impl EachItem {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[apply(web)]
 impl Drop for EachItem {
     fn drop(&mut self) {
         self.cx.dispose();
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[apply(web)]
 impl Mountable for EachItem {
     fn get_mountable_node(&self) -> web_sys::Node {
         if let Some(fragment) = &self.document_fragment {
@@ -282,7 +285,7 @@ impl Mountable for EachItem {
 impl EachItem {
     /// Moves all child nodes into its' `DocumentFragment` in
     /// order to be reinserted somewhere else.
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    #[apply(web)]
     fn prepare_for_move(&self) {
         if let Some(fragment) = &self.document_fragment {
             let start = self.get_opening_node();
@@ -373,81 +376,96 @@ where
         let (children, closing) =
             (component.children.clone(), component.closing.node.clone());
 
-        cfg_if::cfg_if! {
-          if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-            create_effect(cx, move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
-              let mut children_borrow = children.borrow_mut();
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        create_effect(
+            cx,
+            move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
+                let mut children_borrow = children.borrow_mut();
 
-              #[cfg(all(target_arch = "wasm32", feature = "web"))]
-              let opening = if let Some(Some(child)) = children_borrow.get(0) {
-                child.get_opening_node()
-              } else {
-                closing.clone()
-              };
+                #[apply(web)]
+                let opening = if let Some(Some(child)) = children_borrow.get(0)
+                {
+                    child.get_opening_node()
+                } else {
+                    closing.clone()
+                };
 
                 let items_iter = items_fn().into_iter();
 
                 let (capacity, _) = items_iter.size_hint();
                 let mut hashed_items = FxIndexSet::with_capacity_and_hasher(
                     capacity,
-                    BuildHasherDefault::<FxHasher>::default()
+                    BuildHasherDefault::<FxHasher>::default(),
                 );
 
-              if let Some(HashRun(prev_hash_run)) = prev_hash_run {
-                if !prev_hash_run.is_empty() {
-                    let mut items = Vec::with_capacity(capacity);
-                    for item in items_iter {
-                        hashed_items.insert(key_fn(&item));
-                        items.push(Some(item));
+                if let Some(HashRun(prev_hash_run)) = prev_hash_run {
+                    if !prev_hash_run.is_empty() {
+                        let mut items = Vec::with_capacity(capacity);
+                        for item in items_iter {
+                            hashed_items.insert(key_fn(&item));
+                            items.push(Some(item));
+                        }
+
+                        let cmds = diff(&prev_hash_run, &hashed_items);
+
+                        apply_cmds(
+                            cx,
+                            #[apply(web)]
+                            &opening,
+                            #[apply(web)]
+                            &closing,
+                            cmds,
+                            &mut children_borrow,
+                            items,
+                            &each_fn,
+                        );
+                        return HashRun(hashed_items);
                     }
-
-                    let cmds = diff(&prev_hash_run, &hashed_items);
-
-                    apply_cmds(
-                        cx,
-                        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                        &opening,
-                        #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                        &closing,
-                        cmds,
-                        &mut children_borrow,
-                        items,
-                        &each_fn
-                    );
-                    return HashRun(hashed_items);
                 }
-            }
 
                 // if previous run is empty
                 *children_borrow = Vec::with_capacity(capacity);
-                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                #[apply(web)]
                 let fragment = crate::document().create_document_fragment();
 
                 for item in items_iter {
-                  hashed_items.insert(key_fn(&item));
-                  let (each_item, _) = cx.run_child_scope(|cx| EachItem::new(cx, each_fn(cx, item).into_view(cx)));
-                #[cfg(all(target_arch = "wasm32", feature = "web"))]
-                {
-                  _ = fragment.append_child(&each_item.get_mountable_node());
+                    hashed_items.insert(key_fn(&item));
+                    let (each_item, _) = cx.run_child_scope(|cx| {
+                        EachItem::new(cx, each_fn(cx, item).into_view(cx))
+                    });
+                    #[apply(web)]
+                    {
+                        _ = fragment
+                            .append_child(&each_item.get_mountable_node());
+                    }
+
+                    children_borrow.push(Some(each_item));
                 }
 
-                  children_borrow.push(Some(each_item));
-                }
-
-                #[cfg(all(target_arch = "wasm32", feature = "web"))]
+                #[apply(web)]
                 closing
-                .unchecked_ref::<web_sys::Element>()
-                .before_with_node_1(&fragment)
-                .expect("before to not err");
+                    .unchecked_ref::<web_sys::Element>()
+                    .before_with_node_1(&fragment)
+                    .expect("before to not err");
 
-              HashRun(hashed_items)
-            });
-          } else {
+                HashRun(hashed_items)
+            },
+        );
+
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
             *component.children.borrow_mut() = (items_fn)()
-              .into_iter()
-              .map(|child| cx.run_child_scope(|cx| Some(EachItem::new(cx, (each_fn)(cx, child).into_view(cx)))).0)
-              .collect();
-          }
+                .into_iter()
+                .map(|child| {
+                    cx.run_child_scope(|cx| {
+                        Some(EachItem::new(
+                            cx,
+                            (each_fn)(cx, child).into_view(cx),
+                        ))
+                    })
+                    .0
+                })
+                .collect();
         }
 
         View::CoreComponent(CoreComponent::Each(component))
@@ -459,7 +477,7 @@ where
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[apply(web)]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     if from.is_empty() && to.is_empty() {
         return Diff::default();
@@ -562,7 +580,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     diffs
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[apply(web)]
 fn apply_opts<K: Eq + Hash>(
     from: &FxIndexSet<K>,
     to: &FxIndexSet<K>,
@@ -640,7 +658,7 @@ impl Default for DiffOpAddMode {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+#[apply(web)]
 fn apply_cmds<T, EF, N>(
     cx: Scope,
     opening: &web_sys::Node,
