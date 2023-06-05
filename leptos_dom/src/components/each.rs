@@ -653,9 +653,8 @@ fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
             moves.pop();
         }
     }
-    // Interestingly enough, the ONLY configuration that is possible
-    // for ranges of 3 is C, B, A, because all others would have
-    // been removed due to ranges not being moved.
+    // Interestingly enough, there are NO configuration that are possible
+    // for ranges of 3.
     //
     // For example, take A, B, C. Here are all possible configurations and
     // reasons for why they are impossible:
@@ -664,16 +663,8 @@ fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
     // - B A C  # `C` would be removed, thus it's a case of length 2
     // - B C A  # `B C` are congiguous, so this is would have been a single range
     // - C A B  # `A B` are congiguous, so this is would have been a single range
-    // - C B A  # THE ONLY POSSIBLE CASE
-    else if moves.len() == 3 {
-        // We don't want to move the largest range, only the
-        // two smallest ones
-        moves.sort_unstable_by_key(|range| range.len);
-
-        moves.pop();
-
-        optimize_moves(moves);
-    }
+    // - C B A  # `B` would be removed, thus it's a case of length 2
+    //
     // We can add more pre-computed tables here if benchmarking or
     // user demand needs it...nevertheless, it is unlikely for us
     // to implement this algorithm to handle N ranges, because this
@@ -1107,6 +1098,41 @@ mod find_ranges_tests {
                     is_dense: true
                 },
             ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod optimize_moves {
+    use super::*;
+
+    #[test]
+    fn swap() {
+        let mut moves = vec![
+            DiffOpMove {
+                from: 0,
+                to: 6,
+                len: 2,
+                ..Default::default()
+            },
+            DiffOpMove {
+                from: 6,
+                to: 0,
+                len: 7,
+                ..Default::default()
+            },
+        ];
+
+        optimize_moves(&mut moves);
+
+        assert_eq!(
+            moves,
+            vec![DiffOpMove {
+                from: 0,
+                to: 6,
+                len: 2,
+                ..Default::default()
+            }]
         );
     }
 }
