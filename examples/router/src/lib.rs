@@ -36,15 +36,15 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                     <ContactRoutes/>
                     <Route
                         path="about"
-                        view=move |cx| view! { cx,  <About/> }
+                        view=About
                     />
                     <Route
                         path="settings"
-                        view=move |cx| view! { cx,  <Settings/> }
+                        view=Settings
                     />
                     <Route
                         path="redirect-home"
-                        view=move |cx| view! { cx, <Redirect path="/"/> }
+                        view=|cx| view! { cx, <Redirect path="/"/>
                     />
                 </AnimatedRoutes>
             </main>
@@ -59,11 +59,11 @@ pub fn ContactRoutes(cx: Scope) -> impl IntoView {
     view! { cx,
         <Route
             path=""
-            view=move |cx| view! { cx,  <ContactList/> }
+            view=ContactList
         >
             <Route
                 path=":id"
-                view=move |cx| view! { cx,  <Contact/> }
+                view=Contact
             />
             <Route
                 path="/"

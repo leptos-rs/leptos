@@ -251,46 +251,25 @@ impl ToTokens for Model {
             }
         };
 
-        let props_code = if no_props {
-            quote! {
-                #[doc = #builder_name_doc]
-                #[doc = ""]
-                #docs
-                #component_fn_prop_docs
-                #[builder(doc)]
-                #vis struct #props_name #generics #where_clause { }
-
-                impl #generics #props_name #generics #where_clause {
-                    fn builder() -> ::leptos::EmptyPropsBuilder {
-                        Default::default()
-                    }
-                }
-            }
-        } else {
-            quote! { 
-                #[doc = #builder_name_doc]
-                #[doc = ""]
-                #docs
-                #component_fn_prop_docs
-                #[derive(::leptos::typed_builder::TypedBuilder)]
-                #[builder(doc)]
-                #vis struct #props_name #generics #where_clause {
-                    #prop_builder_fields
-                }
-
-                impl #generics ::leptos::Props for #props_name #generics #where_clause {
-                    type Builder = #props_builder_name #generics;
-                    fn builder() -> Self::Builder {
-                        #props_name::builder()
-                    }
-                }
-
-                #into_view
-            }
-        };
-
         let output = quote! {
-            #props_code
+            #[doc = #builder_name_doc]
+            #[doc = ""]
+            #docs
+            #component_fn_prop_docs
+            #[derive(::leptos::typed_builder::TypedBuilder)]
+            #[builder(doc)]
+            #vis struct #props_name #generics #where_clause {
+                #prop_builder_fields
+            }
+
+            impl #generics ::leptos::Props for #props_name #generics #where_clause {
+                type Builder = #props_builder_name #generics;
+                fn builder() -> Self::Builder {
+                    #props_name::builder()
+                }
+            }
+
+            #into_view
 
             #docs
             #component_fn_prop_docs
