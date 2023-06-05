@@ -67,7 +67,7 @@ pub fn ContactRoutes(cx: Scope) -> impl IntoView {
             />
             <Route
                 path="/"
-                view=move |_| view! { cx,  <p>"Select a contact."</p> }
+                view=|cx| view! { cx,  <p>"Select a contact."</p> }
             />
         </Route>
     }
