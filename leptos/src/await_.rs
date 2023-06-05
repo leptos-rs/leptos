@@ -58,9 +58,9 @@ where
         create_resource(cx, || (), move |_| future(cx))
     };
     let view = store_value(cx, view);
-    view! { cx,
+    /* view! { cx,
         <Suspense fallback=|| ()>
             {move || res.with(cx, |data| view.with_value(|view| view(cx, data)))}
         </Suspense>
-    }
+    } */
 }

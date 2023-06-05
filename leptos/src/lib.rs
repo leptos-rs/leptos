@@ -250,26 +250,11 @@ pub fn component_props_builder<P: Props>(
 }
 
 #[doc(hidden)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct EmptyPropsBuilder {}
 
 impl EmptyPropsBuilder {
     pub fn build(self) { }
-}
-
-impl Props for () {
-    type Builder = EmptyPropsBuilder;
-
-    fn builder() -> Self::Builder {
-        EmptyPropsBuilder {}
-    }
-}
-
-impl<P: Props> Props for (P,) {
-    type Builder = P::Builder;
-
-    fn builder() -> Self::Builder {
-        P::builder()
-    }
 }
 
 #[doc(hidden)]
@@ -296,13 +281,13 @@ where
     }
 }
 
-impl<Func, V, A> ComponentConstructor<(A,)> for Func
+impl<Func, V, P> ComponentConstructor<P> for Func
 where
-    Func: FnOnce(Scope, A) -> V,
+    Func: FnOnce(Scope, P) -> V,
     V: IntoView,
-    A: Props
+    P: Props
 {
-    fn construct(self, cx: Scope, (props,): (A,)) -> View {
+    fn construct(self, cx: Scope, props: P) -> View {
         (self)(cx, props).into_view(cx)
     }
 }
