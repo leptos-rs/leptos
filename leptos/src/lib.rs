@@ -251,9 +251,8 @@ pub trait PropsOrNoPropsBuilder {
 pub struct EmptyPropsBuilder {}
 
 impl EmptyPropsBuilder {
-    pub fn build(self) { }
+    pub fn build(self) {}
 }
-
 
 impl<P: Props> PropsOrNoPropsBuilder for P {
     type Builder = <P as Props>::Builder;
@@ -269,9 +268,17 @@ impl PropsOrNoPropsBuilder for EmptyPropsBuilder {
     }
 }
 
-impl<F, R> Component<EmptyPropsBuilder> for F where F: FnOnce(::leptos::Scope) -> R {}
+impl<F, R> Component<EmptyPropsBuilder> for F where
+    F: FnOnce(::leptos::Scope) -> R
+{
+}
 
-impl<P, F, R> Component<P> for F where F: FnOnce(::leptos::Scope, P) -> R, P: Props {}
+impl<P, F, R> Component<P> for F
+where
+    F: FnOnce(::leptos::Scope, P) -> R,
+    P: Props,
+{
+}
 
 #[doc(hidden)]
 pub fn component_props_builder<P: PropsOrNoPropsBuilder>(
@@ -284,7 +291,7 @@ pub fn component_props_builder<P: PropsOrNoPropsBuilder>(
 pub fn component_view<P>(
     f: impl ComponentConstructor<P>,
     cx: Scope,
-    props: P
+    props: P,
 ) -> View {
     f.construct(cx, props)
 }
@@ -308,7 +315,7 @@ impl<Func, V, P> ComponentConstructor<P> for Func
 where
     Func: FnOnce(Scope, P) -> V,
     V: IntoView,
-    P: PropsOrNoPropsBuilder
+    P: PropsOrNoPropsBuilder,
 {
     fn construct(self, cx: Scope, props: P) -> View {
         (self)(cx, props).into_view(cx)
