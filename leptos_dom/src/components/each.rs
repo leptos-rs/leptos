@@ -508,7 +508,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     // Get removed items
     let mut removed = from.difference(to);
 
-    let removed_cmds = removed
+    let remove_cmds = removed
         .clone()
         .map(|k| from.get_full(k).unwrap().0)
         .map(|idx| DiffOpRemove { at: idx });
@@ -516,7 +516,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     // Get added items
     let mut added = to.difference(from);
 
-    let added_cmds =
+    let add_cmds =
         added
             .clone()
             .map(|k| to.get_full(k).unwrap().0)
@@ -529,11 +529,12 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     let from_moved = from.intersection(&to).collect::<FxIndexSet<_>>();
     let to_moved = to.intersection(&from).collect::<FxIndexSet<_>>();
 
-    let ranges = find_ranges(from_moved, to_moved, from, to);
+    let move_cmds = find_ranges(from_moved, to_moved, from, to);
+
     let mut diffs = Diff {
-        removed: removed_cmds.collect(),
-        moved: todo!(),
-        added: added_cmds.collect(),
+        removed: remove_cmds.collect(),
+        moved: move_cmds,
+        added: add_cmds.collect(),
         clear: false,
     };
 
@@ -550,6 +551,8 @@ fn find_ranges<K: Eq + Hash>(
     to: &FxIndexSet<K>,
 ) -> Vec<DiffOpMove> {
     // let mut ranges = vec![];
+
+    use drain_filter_polyfill::VecExt;
 
     let mut ranges = Vec::with_capacity(from.len());
     let mut prev_to_moved_index = 0;
@@ -588,7 +591,19 @@ fn find_ranges<K: Eq + Hash>(
 
     ranges.push(std::mem::take(&mut range));
 
-    ranges
+    // We need to remove ranges that didn't move relative to each other
+    let mut to_ranges = ranges.clone();
+    to_ranges.sort_by_key(|range| range.to);
+
+    let mut filtered_ranges = vec![];
+
+    for (i, range) in ranges.into_iter().enumerate() {
+        if range != to_ranges[i] {
+            filtered_ranges.push(range);
+        }
+    }
+
+    filtered_ranges
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
@@ -622,6 +637,13 @@ fn apply_opts<K: Eq + Hash>(
             .iter_mut()
             .for_each(|op| op.mode = DiffOpAddMode::Append);
     }
+
+    optimize_moves(&mut cmds.moved);
+}
+
+#[cfg(any(test, all(target_arch = "was32", feature = "web")))]
+fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
+    todo!()
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
@@ -634,7 +656,7 @@ struct Diff {
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct DiffOpMove {
     /// The index this range is starting relative to `from`.
     from: usize,
@@ -838,6 +860,8 @@ use test_utils::*;
 mod find_ranges_tests {
     use super::*;
 
+    // Single range tests will be empty because of removing ranges
+    // that didn't move
     #[test]
     fn single_range() {
         let ranges = find_ranges(
@@ -847,15 +871,7 @@ mod find_ranges_tests {
             &[1, 2, 3, 4].into_fx_index_set(),
         );
 
-        assert_eq!(
-            ranges,
-            vec![DiffOpMove {
-                from: 0,
-                to: 0,
-                len: 4,
-                is_dense: true
-            }]
-        );
+        assert_eq!(ranges, vec![]);
     }
 
     #[test]
@@ -867,15 +883,7 @@ mod find_ranges_tests {
             &[1, 2, 5, 3, 4].into_fx_index_set(),
         );
 
-        assert_eq!(
-            ranges,
-            vec![DiffOpMove {
-                from: 0,
-                to: 0,
-                len: 4,
-                is_dense: false
-            }]
-        );
+        assert_eq!(ranges, vec![]);
     }
 
     #[test]
@@ -887,15 +895,7 @@ mod find_ranges_tests {
             &[1, 2, 3, 4].into_fx_index_set(),
         );
 
-        assert_eq!(
-            ranges,
-            vec![DiffOpMove {
-                from: 0,
-                to: 0,
-                len: 4,
-                is_dense: true
-            }]
-        );
+        assert_eq!(ranges, vec![]);
     }
 
     #[test]
@@ -977,6 +977,83 @@ mod find_ranges_tests {
                     len: 2,
                     is_dense: true
                 }
+            ]
+        );
+    }
+
+    #[test]
+    fn remove_ranges_that_did_not_move() {
+        // Here, 'C' doesn't change
+        let ranges = find_ranges(
+            ['A', 'B', 'C', 'D'].iter().into_fx_index_set(),
+            ['B', 'D', 'C', 'A'].iter().into_fx_index_set(),
+            &['A', 'B', 'C', 'D'].into_fx_index_set(),
+            &['B', 'D', 'C', 'A'].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![
+                DiffOpMove {
+                    from: 0,
+                    to: 3,
+                    len: 1,
+                    is_dense: true,
+                },
+                DiffOpMove {
+                    from: 1,
+                    to: 0,
+                    len: 1,
+                    is_dense: true
+                },
+                DiffOpMove {
+                    from: 3,
+                    to: 1,
+                    len: 1,
+                    is_dense: true
+                },
+            ]
+        );
+
+        // Now we're going to to the same as above, just with more items
+        //
+        // A = 1
+        // B = 2, 3
+        // C = 4, 5, 6
+        // D = 7, 8, 9, 0
+
+        let ranges = find_ranges(
+            //A  B     C        D
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].iter().into_fx_index_set(),
+            //B     D           C        A
+            [2, 3, 7, 8, 9, 0, 4, 5, 6, 1].iter().into_fx_index_set(),
+            //A  B     C        D
+            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].into_fx_index_set(),
+            //B     D           C        A
+            &[2, 3, 7, 8, 9, 0, 4, 5, 6, 1].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![
+                DiffOpMove {
+                    from: 0,
+                    to: 9,
+                    len: 1,
+                    is_dense: true,
+                },
+                DiffOpMove {
+                    from: 1,
+                    to: 0,
+                    len: 2,
+                    is_dense: true
+                },
+                DiffOpMove {
+                    from: 6,
+                    to: 2,
+                    len: 4,
+                    is_dense: true
+                },
             ]
         );
     }
