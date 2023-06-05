@@ -593,7 +593,7 @@ fn find_ranges<K: Eq + Hash>(
 
     // We need to remove ranges that didn't move relative to each other
     let mut to_ranges = ranges.clone();
-    to_ranges.sort_by_key(|range| range.to);
+    to_ranges.sort_unstable_by_key(|range| range.to);
 
     let mut filtered_ranges = vec![];
 
@@ -643,7 +643,59 @@ fn apply_opts<K: Eq + Hash>(
 
 #[cfg(any(test, all(target_arch = "was32", feature = "web")))]
 fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
-    todo!()
+    // This is the easiest optimal move case, which is to
+    // simply swap the 2 ranges. We only need to move the range
+    // that is smallest.
+    if moves.len() == 2 {
+        if moves[1].len < moves[0].len {
+            moves.remove(0);
+        } else {
+            moves.pop();
+        }
+    }
+    // Interestingly enough, the ONLY configuration that is possible
+    // for ranges of 3 is C, B, A, because all others would have
+    // been removed due to ranges not being moved.
+    //
+    // For example, take A, B, C. Here are all possible configurations and
+    // reasons for why they are impossible:
+    // - A B C  # identity, would be removed by ranges that didn't move
+    // - A C B  # `A` would be removed, thus it's a case of length 2
+    // - B A C  # `C` would be removed, thus it's a case of length 2
+    // - B C A  # `B C` are congiguous, so this is would have been a single range
+    // - C A B  # `A B` are congiguous, so this is would have been a single range
+    // - C B A  # THE ONLY POSSIBLE CASE
+    else if moves.len() == 3 {
+        // We don't want to move the largest range, only the
+        // two smallest ones
+        moves.sort_unstable_by_key(|range| range.len);
+
+        moves.pop();
+
+        optimize_moves(moves);
+    }
+    // We can add more pre-computed tables here if benchmarking or
+    // user demand needs it...nevertheless, it is unlikely for us
+    // to implement this algorithm to handle N ranges, because this
+    // becomes exponentially more expensive to compute. It's faster,
+    // for the most part, to assume the ranges are random and move
+    // all the ranges around than to try and figure out the best way
+    // to move them
+    else {
+        // The idea here is that for N ranges, we never need to
+        // move the largest range, rather, have all ranges move
+        // around it. It might be deemed faster to remove this
+        // if benchmarking shows to be too slow for large N, because
+        // this statement here makes worst case O(n * log(n)) because
+        // of sorting, whereas without it, it's O(n).
+        //
+        // Although O(n * log(n)) sounds worse than O(n), for small
+        // n, this is going to be faster, because updating the DOM
+        // is expensive. We should benchmark to find the crossover point,
+        // and add this condition here
+        moves.sort_unstable_by_key(|range| range.len);
+        moves.pop();
+    }
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
