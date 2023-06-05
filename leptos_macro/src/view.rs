@@ -2097,11 +2097,11 @@ impl IdeTagHelper {
     }
 
     /// Add completion to the closing tag of the component.
-    /// 
-    /// In order to ensure that generics are passed through correctly in the 
+    ///
+    /// In order to ensure that generics are passed through correctly in the
     /// current builder pattern, this clones the whole component constructor,
     /// but it will never be used.
-    /// 
+    ///
     /// ```no_build
     /// if false {
     ///     close_tag(cx, unreachable!())

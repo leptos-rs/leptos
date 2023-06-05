@@ -216,7 +216,7 @@ impl ToTokens for Model {
         };
 
         let props_arg = if no_props {
-            quote! { }
+            quote! {}
         } else {
             quote! {
                 props: #props_name #generics
@@ -224,7 +224,7 @@ impl ToTokens for Model {
         };
 
         let destructure_props = if no_props {
-            quote! { }
+            quote! {}
         } else {
             quote! {
                 let #props_name {
