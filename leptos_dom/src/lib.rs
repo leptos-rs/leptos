@@ -9,11 +9,6 @@
 #[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
-#[macro_use]
-extern crate macro_rules_attribute;
-
-#[macro_use]
-mod cfg_aliases;
 mod components;
 mod events;
 pub mod helpers;

@@ -1,27 +1,26 @@
+#[cfg(not(all(target_arch = "was32", feature = "web")))]
+use crate::hydration::HydrationKey;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use leptos_reactive::Scope;
 use std::{borrow::Cow, cell::RefCell, fmt, hash::Hash, ops::Deref, rc::Rc};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use web::*;
 
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 mod web {
     use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
     use drain_filter_polyfill::VecExt as VecDrainFilterExt;
     use leptos_reactive::create_effect;
     use once_cell::unsync::OnceCell;
-    use rustc_hash::FxHasher;
-    use std::hash::BuildHasherDefault;
-    use wasm_bindgen::JsCast;
 
-    type FxIndexSet<T> = indexmap::IndexSet<T, BuildHasherDefault<FxHasher>>;
+    use wasm_bindgen::JsCast;
 }
 
-#[apply(web)]
-use web::*;
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+type FxIndexSet<T> =
+    indexmap::IndexSet<T, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
-#[apply(not_web)]
-use crate::hydration::HydrationKey;
-
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 trait VecExt {
     fn get_next_closest_mounted_sibling(
         &self,
@@ -30,7 +29,7 @@ trait VecExt {
     ) -> web_sys::Node;
 }
 
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl VecExt for Vec<Option<EachItem>> {
     fn get_next_closest_mounted_sibling(
         &self,
@@ -122,7 +121,7 @@ impl Default for EachRepr {
     }
 }
 
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for EachRepr {
     fn get_mountable_node(&self) -> web_sys::Node {
         if self.mounted.get().is_none() {
@@ -251,14 +250,14 @@ impl EachItem {
     }
 }
 
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Drop for EachItem {
     fn drop(&mut self) {
         self.cx.dispose();
     }
 }
 
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Mountable for EachItem {
     fn get_mountable_node(&self) -> web_sys::Node {
         if let Some(fragment) = &self.document_fragment {
@@ -285,7 +284,7 @@ impl Mountable for EachItem {
 impl EachItem {
     /// Moves all child nodes into its' `DocumentFragment` in
     /// order to be reinserted somewhere else.
-    #[apply(web)]
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
     fn prepare_for_move(&self) {
         if let Some(fragment) = &self.document_fragment {
             let start = self.get_opening_node();
@@ -382,7 +381,7 @@ where
             move |prev_hash_run: Option<HashRun<FxIndexSet<K>>>| {
                 let mut children_borrow = children.borrow_mut();
 
-                #[apply(web)]
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 let opening = if let Some(Some(child)) = children_borrow.get(0)
                 {
                     child.get_opening_node()
@@ -410,9 +409,15 @@ where
 
                         apply_cmds(
                             cx,
-                            #[apply(web)]
+                            #[cfg(all(
+                                target_arch = "wasm32",
+                                feature = "web"
+                            ))]
                             &opening,
-                            #[apply(web)]
+                            #[cfg(all(
+                                target_arch = "wasm32",
+                                feature = "web"
+                            ))]
                             &closing,
                             cmds,
                             &mut children_borrow,
@@ -425,7 +430,7 @@ where
 
                 // if previous run is empty
                 *children_borrow = Vec::with_capacity(capacity);
-                #[apply(web)]
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 let fragment = crate::document().create_document_fragment();
 
                 for item in items_iter {
@@ -433,7 +438,7 @@ where
                     let (each_item, _) = cx.run_child_scope(|cx| {
                         EachItem::new(cx, each_fn(cx, item).into_view(cx))
                     });
-                    #[apply(web)]
+                    #[cfg(all(target_arch = "wasm32", feature = "web"))]
                     {
                         _ = fragment
                             .append_child(&each_item.get_mountable_node());
@@ -442,7 +447,7 @@ where
                     children_borrow.push(Some(each_item));
                 }
 
-                #[apply(web)]
+                #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 closing
                     .unchecked_ref::<web_sys::Element>()
                     .before_with_node_1(&fragment)
@@ -477,7 +482,7 @@ where
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
-#[apply(web)]
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     if from.is_empty() && to.is_empty() {
         return Diff::default();
@@ -520,57 +525,14 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
                 mode: Default::default(),
             });
 
-    // Get moved items
-    let mut normalized_idx = 0;
-    let mut move_cmds = Vec::new();
-    let mut added_idx = added.next().map(|k| to.get_full(k).unwrap().0);
-    let mut removed_idx = removed.next().map(|k| from.get_full(k).unwrap().0);
+    // Get items that might have moved
+    let from_moved = from.intersection(&to).collect::<FxIndexSet<_>>();
+    let to_moved = to.intersection(&from).collect::<FxIndexSet<_>>();
 
-    for (idx, k) in to.iter().enumerate() {
-        if let Some(added_idx) = added_idx.as_mut().filter(|r_i| **r_i == idx) {
-            if let Some(next_added) =
-                added.next().map(|k| to.get_full(k).unwrap().0)
-            {
-                *added_idx = next_added;
-
-                normalized_idx = usize::wrapping_sub(normalized_idx, 1);
-            }
-        }
-
-        if let Some(removed_idx) =
-            removed_idx.as_mut().filter(|r_i| **r_i == idx)
-        {
-            normalized_idx = normalized_idx.wrapping_add(1);
-
-            if let Some(next_removed) =
-                removed.next().map(|k| from.get_full(k).unwrap().0)
-            {
-                *removed_idx = next_removed;
-            }
-        }
-
-        if let Some((from_idx, _)) = from.get_full(k) {
-            if from_idx != normalized_idx {
-                move_cmds.push(DiffOpMove {
-                    from: from_idx,
-                    to: idx,
-                    move_in_dom: true,
-                });
-            } else if from_idx != idx {
-                move_cmds.push(DiffOpMove {
-                    from: from_idx,
-                    to: idx,
-                    move_in_dom: false,
-                });
-            }
-        }
-
-        normalized_idx = normalized_idx.wrapping_add(1);
-    }
-
+    let ranges = find_ranges(from_moved, to_moved, from, to);
     let mut diffs = Diff {
         removed: removed_cmds.collect(),
-        moved: move_cmds,
+        moved: todo!(),
         added: added_cmds.collect(),
         clear: false,
     };
@@ -580,7 +542,56 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     diffs
 }
 
-#[apply(web)]
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+fn find_ranges<K: Eq + Hash>(
+    from_moved: FxIndexSet<&K>,
+    to_moved: FxIndexSet<&K>,
+    from: &FxIndexSet<K>,
+    to: &FxIndexSet<K>,
+) -> Vec<DiffOpMove> {
+    // let mut ranges = vec![];
+
+    let mut ranges = Vec::with_capacity(from.len());
+    let mut prev_to_moved_index = 0;
+    let mut range = DiffOpMove::default();
+
+    for (i, k) in from_moved.into_iter().enumerate() {
+        let to_moved_index = to_moved.get_index_of(k).unwrap();
+
+        if i == 0 {
+            range.from = from.get_index_of(k).unwrap();
+            range.to = to.get_index_of(k).unwrap();
+        }
+        // The range continues
+        else if to_moved_index == prev_to_moved_index + 1 {
+            range.len += 1;
+
+            // Are we still dense?
+            if !(range.is_dense
+                && to.get_index_of(k).unwrap() == range.to + range.len - 1)
+            {
+                range.is_dense = false;
+            }
+        }
+        // We're done with this range, start a new one
+        else {
+            ranges.push(std::mem::take(&mut range));
+
+            range.from = from.get_index_of(k).unwrap();
+            range.to = to.get_index_of(k).unwrap();
+        }
+
+        prev_to_moved_index = to_moved_index;
+
+        &range;
+    }
+
+    ranges.push(std::mem::take(&mut range));
+
+    ranges
+}
+
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 fn apply_opts<K: Eq + Hash>(
     from: &FxIndexSet<K>,
     to: &FxIndexSet<K>,
@@ -613,8 +624,8 @@ fn apply_opts<K: Eq + Hash>(
     }
 }
 
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 #[derive(Debug, Default)]
-#[allow(unused)]
 struct Diff {
     removed: Vec<DiffOpRemove>,
     moved: Vec<DiffOpMove>,
@@ -622,29 +633,48 @@ struct Diff {
     clear: bool,
 }
 
-#[derive(Debug)]
-#[allow(unused)]
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[derive(Debug, PartialEq, Eq)]
 struct DiffOpMove {
+    /// The index this range is starting relative to `from`.
     from: usize,
+    /// The number of elements included in this range.
+    len: usize,
+    /// The starting index this range will be moved to relative to `to`.
     to: usize,
-    move_in_dom: bool,
+    /// Set to true when the range is fully contiguous, i.e., does not
+    /// have any inserted items in the middle of the range with respect
+    /// to `to`.
+    is_dense: bool,
 }
 
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+impl Default for DiffOpMove {
+    fn default() -> Self {
+        Self {
+            from: 0,
+            to: 0,
+            len: 1,
+            is_dense: true,
+        }
+    }
+}
+
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 #[derive(Debug)]
-#[allow(unused)]
 struct DiffOpAdd {
     at: usize,
     mode: DiffOpAddMode,
 }
 
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 #[derive(Debug)]
-#[allow(unused)]
 struct DiffOpRemove {
     at: usize,
 }
 
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 #[derive(Debug)]
-#[allow(unused)]
 enum DiffOpAddMode {
     Normal,
     Append,
@@ -652,13 +682,14 @@ enum DiffOpAddMode {
     _Prepend,
 }
 
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 impl Default for DiffOpAddMode {
     fn default() -> Self {
         Self::Normal
     }
 }
 
-#[apply(web)]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn apply_cmds<T, EF, N>(
     cx: Scope,
     opening: &web_sys::Node,
@@ -779,4 +810,174 @@ fn apply_cmds<T, EF, N>(
     // items
     #[allow(unstable_name_collisions)]
     children.drain_filter(|c| c.is_none());
+}
+
+#[cfg(test)]
+mod test_utils {
+    use super::*;
+
+    pub trait IntoFxIndexSet<K> {
+        fn into_fx_index_set(self) -> FxIndexSet<K>;
+    }
+
+    impl<T, K> IntoFxIndexSet<K> for T
+    where
+        T: IntoIterator<Item = K>,
+        K: Eq + Hash,
+    {
+        fn into_fx_index_set(self) -> FxIndexSet<K> {
+            self.into_iter().collect()
+        }
+    }
+}
+
+#[cfg(test)]
+use test_utils::*;
+
+#[cfg(test)]
+mod find_ranges_tests {
+    use super::*;
+
+    #[test]
+    fn single_range() {
+        let ranges = find_ranges(
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            &[1, 2, 3, 4].into_fx_index_set(),
+            &[1, 2, 3, 4].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![DiffOpMove {
+                from: 0,
+                to: 0,
+                len: 4,
+                is_dense: true
+            }]
+        );
+    }
+
+    #[test]
+    fn single_range_with_adds() {
+        let ranges = find_ranges(
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            &[1, 2, 3, 4].into_fx_index_set(),
+            &[1, 2, 5, 3, 4].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![DiffOpMove {
+                from: 0,
+                to: 0,
+                len: 4,
+                is_dense: false
+            }]
+        );
+    }
+
+    #[test]
+    fn single_range_with_removals() {
+        let ranges = find_ranges(
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            &[1, 2, 5, 3, 4].into_fx_index_set(),
+            &[1, 2, 3, 4].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![DiffOpMove {
+                from: 0,
+                to: 0,
+                len: 4,
+                is_dense: true
+            }]
+        );
+    }
+
+    #[test]
+    fn two_ranges() {
+        let ranges = find_ranges(
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            [3, 4, 1, 2].iter().into_fx_index_set(),
+            &[1, 2, 3, 4].into_fx_index_set(),
+            &[3, 4, 1, 2].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![
+                DiffOpMove {
+                    from: 0,
+                    to: 2,
+                    len: 2,
+                    is_dense: true
+                },
+                DiffOpMove {
+                    from: 2,
+                    to: 0,
+                    len: 2,
+                    is_dense: true
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn two_ranges_with_adds() {
+        let ranges = find_ranges(
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            [3, 4, 1, 2].iter().into_fx_index_set(),
+            &[1, 2, 3, 4].into_fx_index_set(),
+            &[3, 4, 5, 1, 6, 2].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![
+                DiffOpMove {
+                    from: 0,
+                    to: 3,
+                    len: 2,
+                    is_dense: false,
+                },
+                DiffOpMove {
+                    from: 2,
+                    to: 0,
+                    len: 2,
+                    is_dense: true
+                }
+            ]
+        );
+    }
+    #[test]
+    fn two_ranges_with_removals() {
+        let ranges = find_ranges(
+            [1, 2, 3, 4].iter().into_fx_index_set(),
+            [3, 4, 1, 2].iter().into_fx_index_set(),
+            &[1, 5, 2, 6, 3, 4].into_fx_index_set(),
+            &[3, 4, 1, 2].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            ranges,
+            vec![
+                DiffOpMove {
+                    from: 0,
+                    to: 2,
+                    len: 2,
+                    is_dense: true,
+                },
+                DiffOpMove {
+                    from: 4,
+                    to: 0,
+                    len: 2,
+                    is_dense: true
+                }
+            ]
+        );
+    }
 }
