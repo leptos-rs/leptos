@@ -1671,13 +1671,14 @@ pub(crate) fn component_to_tokens(
     });
 
     let mut component = quote! {
-        #name(
+        ::leptos::component_view(
+            #name,
             #cx,
-            ::leptos::component_props_builder(&#name)
+            (::leptos::component_props_builder(&#name)
                 #(#props)*
                 #(#slots)*
                 #children
-                .build()
+                .build(),)
         )
     };
 

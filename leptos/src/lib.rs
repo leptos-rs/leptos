@@ -248,3 +248,61 @@ pub fn component_props_builder<P: Props>(
 ) -> <P as Props>::Builder {
     <P as Props>::builder()
 }
+
+#[doc(hidden)]
+pub struct EmptyPropsBuilder {}
+
+impl EmptyPropsBuilder {
+    pub fn build(self) { }
+}
+
+impl Props for () {
+    type Builder = EmptyPropsBuilder;
+
+    fn builder() -> Self::Builder {
+        EmptyPropsBuilder {}
+    }
+}
+
+impl<P: Props> Props for (P,) {
+    type Builder = P::Builder;
+
+    fn builder() -> Self::Builder {
+        P::builder()
+    }
+}
+
+#[doc(hidden)]
+pub fn component_view<P: Props>(
+    f: impl ComponentConstructor<P>,
+    cx: Scope,
+    props: P
+) -> View {
+    f.construct(cx, props)
+}
+
+#[doc(hidden)]
+pub trait ComponentConstructor<P> {
+    fn construct(self, cx: Scope, props: P) -> View;
+}
+
+impl<Func, V> ComponentConstructor<()> for Func
+where
+    Func: FnOnce(Scope) -> V,
+    V: IntoView,
+{
+    fn construct(self, cx: Scope, (): ()) -> View {
+        (self)(cx).into_view(cx)
+    }
+}
+
+impl<Func, V, A> ComponentConstructor<(A,)> for Func
+where
+    Func: FnOnce(Scope, A) -> V,
+    V: IntoView,
+    A: Props
+{
+    fn construct(self, cx: Scope, (props,): (A,)) -> View {
+        (self)(cx, props).into_view(cx)
+    }
+}
