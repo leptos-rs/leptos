@@ -1023,9 +1023,9 @@ mod find_ranges_tests {
         // D = 7, 8, 9, 0
 
         let ranges = find_ranges(
-            //A  B     C        D
+            //A B     C        D
             [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].iter().into_fx_index_set(),
-            //B     D           C        A
+            //B    D           C        A
             [2, 3, 7, 8, 9, 0, 4, 5, 6, 1].iter().into_fx_index_set(),
             //A  B     C        D
             &[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].into_fx_index_set(),
