@@ -44,7 +44,7 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                     />
                     <Route
                         path="redirect-home"
-                        view=|cx| view! { cx, <Redirect path="/"/>
+                        view=|cx| view! { cx, <Redirect path="/"/> }
                     />
                 </AnimatedRoutes>
             </main>
