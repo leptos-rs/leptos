@@ -502,13 +502,11 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///
 /// // PascalCase: Generated component will be called MyComponent
 /// #[component]
-/// fn MyComponent(cx: Scope) -> impl IntoView {
-/// }
+/// fn MyComponent(cx: Scope) -> impl IntoView {}
 ///
 /// // snake_case: Generated component will be called MySnakeCaseComponent
 /// #[component]
-/// fn my_snake_case_component(cx: Scope) -> impl IntoView {
-/// }
+/// fn my_snake_case_component(cx: Scope) -> impl IntoView {}
 /// ```
 ///
 /// 3. The macro generates a type `ComponentProps` for every `Component` (so, `HomePage` generates `HomePageProps`,
@@ -524,8 +522,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///     use leptos::*;
 ///
 ///     #[component]
-///     pub fn MyComponent(cx: Scope) -> impl IntoView {
-///     }
+///     pub fn MyComponent(cx: Scope) -> impl IntoView {}
 /// }
 /// ```
 /// ```
@@ -539,8 +536,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///     use leptos::*;
 ///
 ///     #[component]
-///     pub fn my_snake_case_component(cx: Scope) -> impl IntoView {
-///     }
+///     pub fn my_snake_case_component(cx: Scope) -> impl IntoView {}
 /// }
 /// ```
 ///
