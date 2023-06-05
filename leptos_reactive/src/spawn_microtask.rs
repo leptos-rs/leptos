@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 use cfg_if::cfg_if;
+use wasm_bindgen::JsValue;
 
 cfg_if! {
     if #[cfg(all(target_arch = "wasm32", any(feature = "csr", feature = "hydrate")))] {
@@ -30,5 +31,23 @@ cfg_if! {
         pub fn queue_microtask(task: impl FnOnce() + 'static) {
             task();
         }
+    }
+}
+
+pub fn queue_microtask(task: impl FnOnce() + 'static) {
+    #[cfg(not(any(feature = "hydrate", feature = "csr")))]
+    task();
+    #[cfg(any(feature = "hydrate", feature = "csr"))]
+    {
+        use js_sys::{Function, Reflect};
+        use wasm_bindgen::prelude::*;
+
+        let task = Closure::once_into_js(task);
+        let window = web_sys::window().expect("window not available");
+        let queue_microtask =
+            Reflect::get(&window, &JsValue::from_str("queueMicrotask"))
+                .expect("queueMicrotask not available");
+        let queue_microtask = queue_microtask.unchecked_into::<Function>();
+        _ = queue_microtask.call1(&JsValue::UNDEFINED, &task);
     }
 }
