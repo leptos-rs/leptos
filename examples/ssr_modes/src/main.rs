@@ -12,7 +12,7 @@ async fn main() -> std::io::Result<()> {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> });
 
-    // Explicit server function registration is no longer required 
+    // Explicit server function registration is no longer required
     // on the main branch. On 0.3.0 and earlier, uncomment the lines
     // below to register the server functions.
     // _ = GetPost::register();
