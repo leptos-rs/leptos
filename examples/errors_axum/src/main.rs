@@ -39,7 +39,7 @@ async fn main() {
     simple_logger::init_with_level(log::Level::Debug)
         .expect("couldn't initialize logging");
 
-    // Explicit server function registration is no longer required 
+    // Explicit server function registration is no longer required
     // on the main branch. On 0.3.0 and earlier, uncomment the lines
     // below to register the server functions.
     // _ = CauseInternalServerError::register();
