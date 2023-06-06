@@ -1,0 +1,48 @@
+name: Verify Changed Examples
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  call-with-matrix:
+    name: Verify Changed Examples
+    strategy:
+      matrix:
+        project_dir: [counter,
+counter_isomorphic,
+counters,
+counters_stable,
+counter_without_macros,
+error_boundary,
+errors_axum,
+fetch,
+hackernews,
+hackernews_axum,
+js-framework-benchmark,
+leptos-tailwind-axum,
+login_with_token_csr_only,
+Makefile.toml,
+parent_child,
+README.md,
+router,
+session_auth_axum,
+slots,
+ssr_modes,
+ssr_modes_axum,
+tailwind,
+tailwind_csr_trunk,
+timer,
+todo_app_sqlite,
+todo_app_sqlite_axum,
+todo_app_sqlite_viz,
+todomvc]
+    uses: ./.github/workflows/verify-example.yml
+    with:
+      project_dir: ${{ matrix.project_dir }}
+      verify_unchanged: false
+

@@ -1,0 +1,131 @@
+name: Verify Example Subflow
+
+on:
+  workflow_call:
+    inputs:
+      project_dir:
+        required: true
+        type: string
+      verify_unchanged:
+        required: true
+        type: boolean
+
+jobs:
+  test:
+    name: Verify ${{ inputs.project_dir }} example [${{ matrix.os }}, rustc ${{ matrix.rust }}]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust:
+          - nightly
+        os:
+          - ubuntu-latest
+
+    steps:
+      # Setup environment
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt
+
+      - name: Add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Setup cargo-make
+        uses: davidB/rust-cargo-make@v1
+
+      - name: Cargo generate-lockfile
+        run: cargo generate-lockfile
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Trunk
+        uses: jetli/trunk-action@v0.4.0
+        with:
+          version: "latest"
+
+      - name: Print Trunk Version
+        run: trunk --version
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # Assess changes
+      - name: Get files that changed
+        id: changed-files
+        uses: tj-actions/changed-files@v36
+
+      - name: Show files that changed
+        run: |
+          echo '${{ toJSON(steps.changed-files.outputs.all_changed_files) }}'
+        shell: bash
+
+      - name: Get example files that changed
+        id: changed-example-files
+        uses: tj-actions/changed-files@v36
+        with:
+          files: examples
+
+      - name: Show example files that changed
+        run: |
+          echo '${{ toJSON(steps.changed-example-files.outputs.all_changed_files) }}'
+        shell: bash
+
+      - name: Get ${{ inputs.project_dir }} files that changed
+        id: changed-project-files
+        uses: tj-actions/changed-files@v36
+        with:
+          files: examples/${{ inputs.project_dir }}
+
+      - name: Show ${{ inputs.project_dir }} files that changed
+        run: |
+          echo '${{ toJSON(steps.changed-project-files.outputs.all_changed_files) }}'
+        shell: bash
+
+      # Verify example project
+      - name: Verifying ${{ inputs.project_dir }}
+        run: |
+          if ${{ inputs.verify_unchanged }}; then
+            echo "Verify regardless of change"
+            echo Move to examples/${{ inputs.project_dir }}
+            cd examples/${{ inputs.project_dir }}
+            ls .
+          else
+            echo "Verifying because something changed"
+            if ${{ steps.changed-project-files.outputs.any_changed }}; then
+              echo Move to examples/${{ inputs.project_dir }}
+              cd examples/${{ inputs.project_dir }}
+              ls .
+              echo cargo make --profile=github-actions verify-examples
+            else
+              echo "Skip verification because no changes were found"
+            fi
+          fi
+        shell: bash
