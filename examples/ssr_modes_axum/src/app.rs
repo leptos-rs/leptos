@@ -18,18 +18,18 @@ pub fn App(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path="" view=|cx| view! { cx, <HomePage/> }/>
+                    <Route path="" view=HomePage/>
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
                     <Route
                         path="/post/:id"
-                        view=|cx| view! { cx, <Post/> }
+                        view=Post
                         ssr=SsrMode::Async
                     />
                     <Route
                         path="/post_in_order/:id"
-                        view=|cx| view! { cx, <Post/> }
+                        view=Post
                         ssr=SsrMode::InOrder
                     />
                 </Routes>
