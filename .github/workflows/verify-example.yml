@@ -12,15 +12,8 @@ on:
 
 jobs:
   test:
-    name: Verify ${{ inputs.project_dir }} example [${{ matrix.os }}, rustc ${{ matrix.rust }}]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        rust:
-          - nightly
-        os:
-          - ubuntu-latest
-
+    name: Verify ${{ inputs.project_dir }} example
+    runs-on: ubuntu-latest
     steps:
       # Setup environment
       - uses: actions/checkout@v3
@@ -28,7 +21,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: nightly
           override: true
           components: rustfmt
 
