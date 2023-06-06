@@ -213,7 +213,7 @@ pub fn server_macro_impl(
                     #server_fn_path::const_format::concatcp!(
                     #fn_name_as_str,
                     #server_fn_path::xxhash_rust::const_xxh64::xxh64(
-                        concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 
+                        concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
                         0
                     )
                 )

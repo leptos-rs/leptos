@@ -90,7 +90,7 @@ use quote::TokenStreamExt;
 // used by the macro
 #[doc(hidden)]
 pub use serde;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use server_fn_macro_default::server;
 use std::{future::Future, pin::Pin, str::FromStr};
 #[cfg(any(feature = "ssr", doc))]
@@ -100,7 +100,7 @@ use thiserror::Error;
 #[doc(hidden)]
 pub use xxhash_rust;
 
-/// Default server function registry 
+/// Default server function registry
 pub mod default;
 
 /// Something that can register a server function.
@@ -109,16 +109,18 @@ pub trait ServerFunctionRegistry<T> {
     type Error: std::error::Error;
 
     /// Registers a server function at the given URL.
-    #[deprecated = "Explicit server function registration is no longer required on most platforms \
-    (including Linux, macOS, iOS, FreeBSD, Android, and Windows). If you are on another platform \
-    and need to explicitly register server functions, call ServerFn::register_explicit() instead."]
+    #[deprecated = "Explicit server function registration is no longer \
+                    required on most platforms (including Linux, macOS, iOS, \
+                    FreeBSD, Android, and Windows). If you are on another \
+                    platform and need to explicitly register server functions, \
+                    call ServerFn::register_explicit() instead."]
     fn register(
         url: &'static str,
         server_function: SerializedFnTraitObj<T>,
         encoding: Encoding,
     ) -> Result<(), Self::Error>;
 
-    /// Server functions are automatically registered on most platforms, (including Linux, macOS, 
+    /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
     /// this will explicitly register server functions.
     fn register_explicit(
@@ -312,7 +314,7 @@ impl FromStr for Encoding {
 
 #[cfg(any(feature = "ssr", doc))]
 impl quote::ToTokens for Encoding {
-    fn to_tokens(&self, tokens: &mut TokenStream) {        
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let option: syn::Ident = match *self {
             Encoding::Cbor => parse_quote!(Cbor),
             Encoding::Url => parse_quote!(Url),
@@ -373,9 +375,8 @@ where
         // decode the args
         let value = match Self::encoding() {
             Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
-                serde_qs::from_bytes(data).map_err(|e| {
-                    ServerFnError::Deserialization(e.to_string())
-                })
+                serde_qs::from_bytes(data)
+                    .map_err(|e| ServerFnError::Deserialization(e.to_string()))
             }
             Encoding::Cbor => ciborium::de::from_reader(data)
                 .map_err(|e| ServerFnError::Deserialization(e.to_string())),
@@ -420,24 +421,32 @@ where
     }
 
     /// Registers the server function, allowing the server to query it by URL.
-    /// 
+    ///
     /// This function is deprecated, as server functions are now registered automatically.
     #[cfg(any(feature = "ssr", doc,))]
-    #[deprecated = "Explicit server function registration is no longer required on most platforms \
-    (including Linux, macOS, iOS, FreeBSD, Android, and Windows). If you are on another platform \
-    and need to explicitly register server functions, call ServerFn::register_explicit() instead."]
-    fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError> {
+    #[deprecated = "Explicit server function registration is no longer \
+                    required on most platforms (including Linux, macOS, iOS, \
+                    FreeBSD, Android, and Windows). If you are on another \
+                    platform and need to explicitly register server functions, \
+                    call ServerFn::register_explicit() instead."]
+    fn register_in<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
+    {
         Ok(())
     }
 
-    /// Registers the server function explicitly on platforms that require it, 
+    /// Registers the server function explicitly on platforms that require it,
     /// allowing the server to query it by URL.
     #[cfg(any(feature = "ssr", doc,))]
-    fn register_in_explicit<R: ServerFunctionRegistry<T>>() -> Result<(), ServerFnError>
-    {
+    fn register_in_explicit<R: ServerFunctionRegistry<T>>(
+    ) -> Result<(), ServerFnError> {
         // store it in the hashmap
-        R::register_explicit(Self::prefix(), Self::url(), Self::call_from_bytes, Self::encoding())
-            .map_err(|e| ServerFnError::Registration(e.to_string()))
+        R::register_explicit(
+            Self::prefix(),
+            Self::url(),
+            Self::call_from_bytes,
+            Self::encoding(),
+        )
+        .map_err(|e| ServerFnError::Registration(e.to_string()))
     }
 }
 

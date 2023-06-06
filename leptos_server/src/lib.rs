@@ -143,14 +143,14 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
     type Error = ServerRegistrationFnError;
 
     fn register(
-            _url: &'static str,
-            _server_function: server_fn::SerializedFnTraitObj<Scope>,
-            _encoding: Encoding,
-        ) -> Result<(), Self::Error> {
+        _url: &'static str,
+        _server_function: server_fn::SerializedFnTraitObj<Scope>,
+        _encoding: Encoding,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    /// Server functions are automatically registered on most platforms, (including Linux, macOS, 
+    /// Server functions are automatically registered on most platforms, (including Linux, macOS,
     /// iOS, FreeBSD, Android, and Windows). If you are on another platform, like a WASM server runtime,
     /// you should register server functions by calling this `T::register_explicit()`.
     fn register_explicit(
@@ -169,8 +169,8 @@ impl server_fn::ServerFunctionRegistry<Scope> for LeptosServerFnRegistry {
                 prefix,
                 url,
                 encoding,
-                server_function
-            ))
+                server_function,
+            )),
         );
 
         // if there was already a server function with this key,
@@ -293,9 +293,7 @@ pub fn server_fn_by_path(path: &str) -> Option<ServerFnTraitObj> {
 /// }
 /// ```
 #[cfg(any(feature = "ssr", doc))]
-pub fn server_fn_trait_obj_by_path(
-    path: &str,
-) -> Option<ServerFnTraitObj> {
+pub fn server_fn_trait_obj_by_path(path: &str) -> Option<ServerFnTraitObj> {
     server_fn::server_fn_trait_obj_by_path::<Scope, LeptosServerFnRegistry>(
         path,
     )
@@ -329,9 +327,11 @@ pub fn server_fns_by_path() -> Vec<&'static str> {
 pub trait ServerFn: server_fn::ServerFn<Scope> {
     /// Registers the server function, allowing the server to query it by URL.
     #[cfg(any(feature = "ssr", doc))]
-    #[deprecated = "Explicit server function registration is no longer required on most platforms \
-    (including Linux, macOS, iOS, FreeBSD, Android, and Windows). If you are on another platform \
-    and need to explicitly register server functions, call ServerFn::register_explicit() instead."]
+    #[deprecated = "Explicit server function registration is no longer \
+                    required on most platforms (including Linux, macOS, iOS, \
+                    FreeBSD, Android, and Windows). If you are on another \
+                    platform and need to explicitly register server functions, \
+                    call ServerFn::register_explicit() instead."]
     fn register() -> Result<(), ServerFnError> {
         Ok(())
     }
@@ -339,7 +339,7 @@ pub trait ServerFn: server_fn::ServerFn<Scope> {
     #[cfg(any(feature = "ssr", doc))]
     /// Explicitly registers the server function on platforms that require it,
     /// allowing the server to query it by URL.
-    /// 
+    ///
     /// Explicit server function registration is no longer required on most platforms
     /// (including Linux, macOS, iOS, FreeBSD, Android, and Windows)
     fn register_explicit() -> Result<(), ServerFnError> {

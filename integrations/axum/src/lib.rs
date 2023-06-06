@@ -336,8 +336,8 @@ async fn handle_server_fns_inner(
                     Full::from(format!(
                         "Could not find a server function at the route \
                          {fn_name}. \n\nIt's likely that you need to call \
-                         ServerFn::register_explicit() on the server function type, \
-                         somewhere in your `main` function."
+                         ServerFn::register_explicit() on the server function \
+                         type, somewhere in your `main` function."
                     )),
                 )
             }

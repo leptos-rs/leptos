@@ -289,8 +289,8 @@ pub fn handle_server_fns_with_context(
                     HttpResponse::BadRequest().body(format!(
                         "Could not find a server function at the route {:?}. \
                          \n\nIt's likely that you need to call \
-                         ServerFn::register_explicit() on the server function type, \
-                         somewhere in your `main` function.",
+                         ServerFn::register_explicit() on the server function \
+                         type, somewhere in your `main` function.",
                         req.path()
                     ))
                 }
