@@ -14,7 +14,6 @@ if #[cfg(feature = "ssr")] {
     use session_auth_axum::todo::*;
     use session_auth_axum::auth::*;
     use session_auth_axum::state::AppState;
-    use session_auth_axum::*;
     use session_auth_axum::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes, handle_server_fns_with_context};
     use leptos::{log, view, provide_context, get_configuration};
