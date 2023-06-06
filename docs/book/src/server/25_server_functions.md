@@ -43,15 +43,6 @@ pub fn BusyButton(cx: Scope) -> impl IntoView {
         </button>
 	}
 }
-
-// somewhere in main.rs
-fn main() {
-	// ...
-
-	AddTodo::register();
-
-	// ...
-}
 ```
 
 You’ll notice a couple things here right away:
@@ -75,7 +66,7 @@ move |_| {
 There are a few things to note about the way you define a server function, too.
 
 - Server functions are created by using the [`#[server]` macro](https://docs.rs/leptos_server/latest/leptos_server/index.html#server) to annotate a top-level function, which can be defined anywhere.
-- We provide the macro a type name. The type name is used to register the server function (in `main.rs`), and it’s used internally as a container to hold, serialize, and deserialize the arguments.
+- We provide the macro a type name. The type name is used internally as a container to hold, serialize, and deserialize the arguments.
 - We provide the macro a path. This is a prefix for the path at which we’ll mount a server function handler on our server. (See examples for [Actix](https://github.com/leptos-rs/leptos/blob/main/examples/todo_app_sqlite/src/main.rs#L44) and [Axum](https://github.com/leptos-rs/leptos/blob/598523cd9d0d775b017cb721e41ebae9349f01e2/examples/todo_app_sqlite_axum/src/main.rs#L51).)
 - You’ll need to have `serde` as a dependency with the `derive` featured enabled for the macro to work properly. You can easily add it to `Cargo.toml` with `cargo add serde --features=derive`.
 

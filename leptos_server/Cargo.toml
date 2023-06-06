@@ -15,6 +15,7 @@ lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tracing = "0.1"
+inventory = "0.3"
 
 [dev-dependencies]
 leptos = { path = "../leptos" }

@@ -31,17 +31,6 @@ if #[cfg(feature = "ssr")] {
             .map_err(|e| ServerFnError::ServerError(e.to_string()))
     }
 
-    pub fn register_server_functions() {
-        _ = GetTodos::register();
-        _ = AddTodo::register();
-        _ = DeleteTodo::register();
-        _ = Login::register();
-        _ = Logout::register();
-        _ = Signup::register();
-        _ = GetUser::register();
-        _ = Foo::register();
-    }
-
     #[derive(sqlx::FromRow, Clone)]
     pub struct SqlTodo {
         id: u32,

@@ -12,13 +12,6 @@ cfg_if! {
         lazy_static::lazy_static! {
             pub static ref COUNT_CHANNEL: BroadcastChannel<i32> = BroadcastChannel::new();
         }
-
-        pub fn register_server_functions() {
-            _ = GetServerCount::register();
-            _ = AdjustServerCount::register();
-            _ = ClearServerCount::register();
-        }
-
     }
 }
 

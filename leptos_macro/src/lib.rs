@@ -850,6 +850,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
+        syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
         Some(context),
         Some(syn::parse_quote!(::leptos::server_fn)),
     ) {

@@ -64,7 +64,17 @@ if #[cfg(feature = "ssr")] {
             .await
             .expect("could not run SQLx migrations");
 
-        crate::todo::register_server_functions();
+        // Explicit server function registration is no longer required 
+        // on the main branch. On 0.3.0 and earlier, uncomment the lines
+        // below to register the server functions.
+        // _ = GetTodos::register();
+        // _ = AddTodo::register();
+        // _ = DeleteTodo::register();
+        // _ = Login::register();
+        // _ = Logout::register();
+        // _ = Signup::register();
+        // _ = GetUser::register();
+        // _ = Foo::register();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();

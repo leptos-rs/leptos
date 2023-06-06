@@ -214,11 +214,11 @@ pub fn handle_server_fns_with_context(
 
                     let query = req.query_string().as_bytes();
 
-                    let data = match &server_fn.encoding {
+                    let data = match &server_fn.encoding() {
                         Encoding::Url | Encoding::Cbor => body_ref,
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
-                    let res = match (server_fn.trait_obj)(cx, data).await {
+                    let res = match server_fn.call(cx, data).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
@@ -289,7 +289,7 @@ pub fn handle_server_fns_with_context(
                     HttpResponse::BadRequest().body(format!(
                         "Could not find a server function at the route {:?}. \
                          \n\nIt's likely that you need to call \
-                         ServerFn::register() on the server function type, \
+                         ServerFn::register_explicit() on the server function type, \
                          somewhere in your `main` function.",
                         req.path()
                     ))
