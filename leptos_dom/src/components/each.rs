@@ -1,4 +1,4 @@
-#[cfg(not(all(target_arch = "was32", feature = "web")))]
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use crate::hydration::HydrationKey;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use leptos_reactive::Scope;
@@ -8,12 +8,13 @@ use web::*;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 mod web {
-    use crate::{mount_child, prepare_to_move, MountKind, Mountable, RANGE};
-    use drain_filter_polyfill::VecExt as VecDrainFilterExt;
-    use leptos_reactive::create_effect;
-    use once_cell::unsync::OnceCell;
-
-    use wasm_bindgen::JsCast;
+    pub(crate) use crate::{
+        mount_child, prepare_to_move, MountKind, Mountable, RANGE,
+    };
+    pub use drain_filter_polyfill::VecExt as VecDrainFilterExt;
+    pub use leptos_reactive::create_effect;
+    pub use std::cell::OnceCell;
+    pub use wasm_bindgen::JsCast;
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
@@ -394,7 +395,7 @@ where
                 let (capacity, _) = items_iter.size_hint();
                 let mut hashed_items = FxIndexSet::with_capacity_and_hasher(
                     capacity,
-                    BuildHasherDefault::<FxHasher>::default(),
+                    Default::default(),
                 );
 
                 if let Some(HashRun(prev_hash_run)) = prev_hash_run {
@@ -641,7 +642,7 @@ fn apply_opts<K: Eq + Hash>(
     optimize_moves(&mut cmds.moved);
 }
 
-#[cfg(any(test, all(target_arch = "was32", feature = "web")))]
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
     // This is the easiest optimal move case, which is to
     // simply swap the 2 ranges. We only need to move the range
@@ -726,7 +727,7 @@ impl Default for DiffOpMove {
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct DiffOpAdd {
     at: usize,
     mode: DiffOpAddMode,
@@ -755,7 +756,7 @@ impl Default for DiffOpAddMode {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-fn apply_cmds<T, EF, N>(
+fn apply_cmds<T, EF, V>(
     cx: Scope,
     opening: &web_sys::Node,
     closing: &web_sys::Node,
@@ -764,30 +765,16 @@ fn apply_cmds<T, EF, N>(
     mut items: Vec<Option<T>>,
     each_fn: &EF,
 ) where
-    EF: Fn(Scope, T) -> N,
-    N: IntoView,
+    EF: Fn(Scope, T) -> V,
+    V: IntoView,
 {
     let range = RANGE.with(|range| (*range).clone());
 
-    // Resize children if needed
-    if cmds.added.len().checked_sub(cmds.removed.len()).is_some() {
-        let target_size = children.len()
-            + (cmds.added.len() as isize - cmds.removed.len() as isize)
-                as usize;
-
-        children.resize_with(target_size, || None);
-    }
-
-    // We need to hold a list of items which will be moved, and
-    // we can only perform the move after all commands have run, otherwise,
-    // we risk overwriting one of the values
-    let mut items_to_move = Vec::with_capacity(cmds.moved.len());
-
     // The order of cmds needs to be:
     // 1. Clear
-    // 2. Removed
-    // 3. Moved
-    // 4. Add
+    // 2. Removals
+    // 3. Remove holes left from removals
+    // 4. Moves + Add
     if cmds.clear {
         cmds.removed.clear();
 
@@ -813,68 +800,157 @@ fn apply_cmds<T, EF, N>(
         }
     }
 
-    for DiffOpRemove { at } in cmds.removed {
-        let item_to_remove = std::mem::take(&mut children[at]).unwrap();
+    for DiffOpRemove { at } in &cmds.removed {
+        let item_to_remove = std::mem::take(&mut children[*at]).unwrap();
 
         item_to_remove.prepare_for_move();
-    }
-
-    for DiffOpMove {
-        from,
-        to,
-        move_in_dom,
-    } in cmds.moved
-    {
-        let item = std::mem::take(&mut children[from]).unwrap();
-
-        if move_in_dom {
-            item.prepare_for_move()
-        }
-
-        items_to_move.push((move_in_dom, to, item));
-    }
-
-    for DiffOpAdd { at, mode } in cmds.added {
-        let item = items[at].take().unwrap();
-
-        let (each_item, _) = cx.run_child_scope(|cx| {
-            let child = each_fn(cx, item).into_view(cx);
-            EachItem::new(cx, child)
-        });
-
-        match mode {
-            DiffOpAddMode::Normal => {
-                let opening = children.get_next_closest_mounted_sibling(
-                    at + 1,
-                    closing.to_owned(),
-                );
-
-                mount_child(MountKind::Before(&opening), &each_item);
-            }
-            DiffOpAddMode::Append => {
-                mount_child(MountKind::Before(closing), &each_item);
-            }
-            DiffOpAddMode::_Prepend => todo!(),
-        }
-
-        children[at] = Some(each_item);
-    }
-
-    for (move_in_dom, to, each_item) in items_to_move {
-        if move_in_dom {
-            let opening = children
-                .get_next_closest_mounted_sibling(to + 1, closing.to_owned());
-
-            mount_child(MountKind::Before(&opening), &each_item);
-        }
-
-        children[to] = Some(each_item);
     }
 
     // Now, remove the holes that might have been left from removing
     // items
     #[allow(unstable_name_collisions)]
     children.drain_filter(|c| c.is_none());
+
+    // Resize children if needed
+    if let Some(added) = cmds.added.len().checked_sub(cmds.removed.len()) {
+        let target_size = children.len() + added;
+
+        children.resize_with(target_size, || None);
+    }
+
+    // Since ranges can have adds in the middle of them, we need to make
+    // sure moves and adds happen at the same time in the same order,
+    // otherwise, items won't go to the right places
+    let mut moves = cmds.moved;
+    // TODO: Future optimization, we can get rid of this sort
+    // if we change `moves` to be collected from `to` rather than
+    // `from`...but I'm too lazy to do it now. If not, let Tom do it,
+    // he's a genius.
+    moves.sort_unstable_by_key(|range| range.to);
+
+    // We first need to move moves out of children, then we can place
+    // them where they need to go, otherwise, we risk overwriting them
+    let mut moved_children = Vec::with_capacity(moves.len());
+
+    moves.iter().for_each(|range| {
+        for i in range.from..range.from + range.len {
+            let child = children[i].take().unwrap();
+            child.prepare_for_move();
+
+            moved_children.push(Some(child));
+        }
+    });
+
+    let mut added_iter = cmds.added.into_iter();
+    let mut moves_iter = moves.into_iter();
+
+    let mut added_next = added_iter.next();
+    let mut move_next = moves_iter.next();
+
+    loop {
+        let mut add_item =
+            |add: DiffOpAdd, children: &mut Vec<Option<EachItem>>| {
+                let item = items[add.at].take();
+
+                let child = each_fn(cx, item.unwrap()).into_view(cx);
+
+                let each_item = EachItem::new(cx, child);
+
+                match add.mode {
+                    DiffOpAddMode::Normal => {
+                        let sibling_node = children
+                            .get_next_closest_mounted_sibling(
+                                add.at,
+                                closing.to_owned(),
+                            );
+
+                        mount_child(
+                            MountKind::Before(&sibling_node),
+                            &each_item,
+                        );
+                    }
+                    DiffOpAddMode::Append => {
+                        mount_child(MountKind::Before(closing), &each_item);
+                    }
+                    DiffOpAddMode::_Prepend => todo!(),
+                }
+
+                children[add.at] = Some(each_item);
+            };
+
+        match (added_iter.next(), moves_iter.next()) {
+            (Some(add), Some(move_)) => {
+                let mut add = add;
+                let mut move_ = move_;
+
+                // Add items that need to be added before the first range,
+                // if any
+                if add.at < move_.to {
+                    add = added_iter.next().unwrap_or_default();
+
+                    added_next = added_iter.next();
+                } else {
+                    if move_.is_dense {
+                        for i in move_.from..move_.len {
+                            let child = moved_children[i].take().unwrap();
+
+                            let sibling_node = children
+                                .get_next_closest_mounted_sibling(
+                                    move_.to,
+                                    closing.to_owned(),
+                                );
+
+                            mount_child(
+                                MountKind::Before(&sibling_node),
+                                &child,
+                            );
+
+                            children[i] = Some(child);
+                        }
+
+                        move_next = moves_iter.next();
+                    } else {
+                        let each_item =
+                            moved_children[move_.from].take().unwrap();
+
+                        let sibling_node = children
+                            .get_next_closest_mounted_sibling(
+                                move_.to,
+                                closing.to_owned(),
+                            );
+
+                        mount_child(
+                            MountKind::Before(&sibling_node),
+                            &each_item,
+                        );
+
+                        children[move_.to] = Some(each_item);
+
+                        move_.from += 1;
+                        move_.to += 1;
+                        move_.len -= 1;
+
+                        if move_.len == 0 {
+                            move_next = moves_iter.next();
+                        }
+                    }
+                }
+            }
+            (Some(add), None) => {
+                add_item(add, children);
+
+                added_next = added_iter.next();
+            }
+            (None, Some(move_)) => {
+                let each_item = moved_children[move_.from].take();
+
+                children[move_.to] = each_item;
+
+                move_next = moves_iter.next();
+            }
+            (None, None) => break,
+        }
+    }
 }
 
 #[cfg(test)]
