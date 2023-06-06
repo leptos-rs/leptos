@@ -62,6 +62,16 @@ If you’re using server-side rendering, the synchronous mode is almost never wh
   - Able to show the fallback loading state and dynamically replace it, instead of showing blank sections for un-loaded data.
 - _Cons_: Requires JavaScript to be enabled for suspended fragments to appear in correct order. (This small chunk of JS streamed down in a `<script>` tag alongside the `<template>` tag that contains the rendered `<Suspense/>` fragment, so it does not need to load any additional JS files.)
 
+5. **Partially-blocked streaming**: “Partially-blocked” streaming is useful when you have multiple separate `<Suspense/>` components on the page. If one of them reads from one or more “blocking resources” (see below), the fallback will not be sent; rather, the server will wait until that `<Suspense/>` has resolved and then replace the fallback with the resolved fragment on the server, which means that it is included in the initial HTML response and appears even if JavaScript is disabled or not supported. Other `<Suspense/>` stream in out of order as usual.
+
+This is useful when you have multiple `<Suspense/>` on the page, and one is more important than the other: think of a blog post and comments, or product information and reviews. It is *not* useful if there’s only one `<Suspense/>`, or if every `<Suspense/>` reads from blocking resources. In those cases it is a slower form of `async` rendering.
+
+- _Pros_: Works if JavaScript is disabled or not supported on the user’s device.
+- _Cons_
+  - Slower initial response time than out-of-order.
+  - Marginally overall response due to additional work on the server.
+  - No fallback state shown.
+
 ## Using SSR Modes
 
 Because it offers the best blend of performance characteristics, Leptos defaults to out-of-order streaming. But it’s really simple to opt into these different modes. You do it by adding an `ssr` property onto one or more of your `<Route/>` components, like in the [`ssr_modes` example](https://github.com/leptos-rs/leptos/blob/main/examples/ssr_modes/src/app.rs).
