@@ -606,6 +606,8 @@ fn find_ranges<K: Eq + Hash>(
 
     let mut filtered_ranges = vec![];
 
+    let to_ranges_len = to_ranges.len();
+
     for (i, range) in to_ranges.into_iter().enumerate() {
         if range != ranges[i] {
             filtered_ranges.push(range);
@@ -621,7 +623,7 @@ fn find_ranges<K: Eq + Hash>(
         // optimizations we can do, but we're skipping this right now
         // until we figure out a way to handle moving around ranges
         // that did not move
-        else {
+        else if to_ranges_len > 2 {
             filtered_ranges.push(range);
         }
     }
@@ -911,6 +913,7 @@ fn apply_diff<T, EF, V>(
 /// Unpacks adds and moves into a sequence of interleaved
 /// add and move commands. Move commands will always return
 /// with a `len == 1` and `is_dense = true`.
+#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     let mut moves = Vec::with_capacity(diff.items_to_move);
     let mut adds = Vec::with_capacity(diff.added.len());
