@@ -912,11 +912,8 @@ impl AddOrMove {
 
         let mut adds_next = adds_iter.next();
         let mut moves_next = moves_iter.next().copied();
-    
-        let mut i = 0;
 
         loop {
-            i += 1;
             match (adds_next, &mut moves_next) {
                 (Some(add), Some(move_)) => {
                     if add.at < move_.to {
