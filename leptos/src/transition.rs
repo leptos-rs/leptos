@@ -104,7 +104,7 @@ where
                         if is_first_run {
                             fallback().into_view(cx)
                         } else {
-                            prev_children.clone().into_view(cx)
+                            prev_children.clone()
                         }
                     } else {
                         fallback().into_view(cx)
@@ -117,7 +117,7 @@ where
                 let suspense_context = use_context::<SuspenseContext>(cx)
                     .expect("there to be a SuspenseContext");
 
-                if cfg!(feature = "hydrate") || !first_run.get() {
+                if cfg!(feature = "hydrate") || !first_run.get() || (cfg!(feature = "csr") && first_run.get()) {
                     *prev_children.borrow_mut() = Some(frag.clone());
                 }
                 if is_first_run(&first_run, &suspense_context) {
