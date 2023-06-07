@@ -5,3 +5,5 @@ This example is the same like the `counter` but it's written without using macro
 To run it, just issue the `trunk serve --open` command in the example root. This will build the app, run it, and open a new browser to serve it.
 
 Issue the `cargo make test-flow` command to run unit and wasm tests.
+
+SIMULATE CHANGE
