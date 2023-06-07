@@ -917,11 +917,16 @@ impl AddOrMove {
         let mut adds_next = adds_iter.next();
         let mut moves_next = moves_iter.next().copied();
 
+        let mut i = 0;
+
         loop {
             match (adds_next, &mut moves_next) {
                 (Some(add), Some(move_)) => {
-                    if add.at < move_.to {
+                    if add.at == i {
                         cmds.push(AddOrMove::Add(*add));
+
+                        move_.from += 1;
+                        move_.to += 1;
 
                         adds_next = adds_iter.next();
                     } else {
@@ -948,7 +953,7 @@ impl AddOrMove {
                     let mut single_move = *move_;
                     single_move.len = 1;
 
-                    cmds.push(AddOrMove::Move(single_move));
+                    cmds.push(dbg!(AddOrMove::Move(single_move)));
 
                     move_.len -= 1;
                     move_.from += 1;
@@ -960,6 +965,8 @@ impl AddOrMove {
                 }
                 (None, None) => break,
             }
+
+            i += 1;
         }
 
         cmds
