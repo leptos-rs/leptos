@@ -827,6 +827,8 @@ fn apply_cmds<T, EF, V>(
         })
         .collect::<Vec<_>>();
 
+    let mut moved_index = 0;
+
     for cmd in cmds {
         match cmd {
             AddOrMove::Add(DiffOpAdd { at, mode }) => {
@@ -858,7 +860,7 @@ fn apply_cmds<T, EF, V>(
                 children[at] = Some(each_item);
             }
             AddOrMove::Move(DiffOpMove { from, to, .. }) => {
-                let each_item = moved_children[from].take().unwrap();
+                let each_item = moved_children[moved_index].take().unwrap();
 
                 let sibling_node = children
                     .get_next_closest_mounted_sibling(to, closing.to_owned());
@@ -866,6 +868,8 @@ fn apply_cmds<T, EF, V>(
                 mount_child(MountKind::Before(&sibling_node), &each_item);
 
                 children[to] = Some(each_item);
+
+                moved_index += 1;
             }
         }
     }
