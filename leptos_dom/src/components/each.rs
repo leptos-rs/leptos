@@ -408,7 +408,7 @@ where
 
                         let cmds = diff(&prev_hash_run, &hashed_items);
 
-                        apply_cmds(
+                        apply_diff(
                             cx,
                             #[cfg(all(
                                 target_arch = "wasm32",
@@ -532,7 +532,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
 
     let move_cmds = find_ranges(from_moved, to_moved, from, to);
 
-    let mut diffs = Diff {
+    let mut diff = Diff {
         removed: remove_cmds.collect(),
         items_to_move: move_cmds.iter().map(|range| range.len).sum(),
         moved: move_cmds,
@@ -540,9 +540,22 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
         clear: false,
     };
 
-    apply_opts(from, to, &mut diffs);
+    apply_opts(from, to, &mut diff);
 
-    diffs
+    #[cfg(test)]
+    {
+        let mut adds_sorted = diff.added.clone();
+        adds_sorted.sort_unstable_by_key(|add| add.at);
+
+        assert_eq!(diff.added, adds_sorted, "adds must be sorted");
+
+        let mut moves_sorted = diff.moved.clone();
+        moves_sorted.sort_unstable_by_key(|move_| move_.to);
+
+        assert_eq!(diff.moved, moves_sorted, "moves must be sorted by `to`");
+    }
+
+    diff
 }
 
 /// Builds and returns the ranges of items that need to
@@ -587,6 +600,7 @@ fn find_ranges<K: Eq + Hash>(
     ranges.push(std::mem::take(&mut range));
 
     // We need to remove ranges that didn't move relative to each other
+    // as well as marking items that don't need to move in the DOM
     let mut to_ranges = ranges.clone();
     to_ranges.sort_unstable_by_key(|range| range.to);
 
@@ -594,6 +608,20 @@ fn find_ranges<K: Eq + Hash>(
 
     for (i, range) in to_ranges.into_iter().enumerate() {
         if range != ranges[i] {
+            filtered_ranges.push(range);
+        }
+        // The item did move, just not in the DOM
+        else if range.from != range.to {
+            filtered_ranges.push(DiffOpMove {
+                move_in_dom: false,
+                ..range
+            });
+        }
+        // TODO: Remove this else case...this is one of the biggest
+        // optimizations we can do, but we're skipping this right now
+        // until we figure out a way to handle moving around ranges
+        // that did not move
+        else {
             filtered_ranges.push(range);
         }
     }
@@ -638,17 +666,20 @@ fn apply_opts<K: Eq + Hash>(
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
 fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
+    if moves.is_empty() || moves.len() == 1 {
+        // Do nothing
+    }
     // This is the easiest optimal move case, which is to
     // simply swap the 2 ranges. We only need to move the range
     // that is smallest.
-    if moves.len() == 2 {
+    else if moves.len() == 2 {
         if moves[1].len < moves[0].len {
-            moves.remove(0);
+            moves[0].move_in_dom = false;
         } else {
-            moves.pop();
+            moves[1].move_in_dom = false;
         }
     }
-    // Interestingly enough, there are NO configuration that are possible
+    // Interestingly enoughs, there are NO configuration that are possible
     // for ranges of 3.
     //
     // For example, take A, B, C. Here are all possible configurations and
@@ -670,22 +701,15 @@ fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
     else {
         // The idea here is that for N ranges, we never need to
         // move the largest range, rather, have all ranges move
-        // around it. It might be deemed faster to remove this
-        // if benchmarking shows to be too slow for large N, because
-        // this statement here makes worst case O(n * log(n)) because
-        // of sorting, whereas without it, it's O(n).
-        //
-        // Although O(n * log(n)) sounds worse than O(n), for small
-        // n, this is going to be faster, because updating the DOM
-        // is expensive. We should benchmark to find the crossover point,
-        // and add this condition here
-        moves.sort_unstable_by_key(|range| range.len);
-        moves.pop();
+        // around it.
+        let move_ = moves.iter_mut().max_by_key(|move_| move_.len).unwrap();
+
+        move_.move_in_dom = false;
     }
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 struct Diff {
     removed: Vec<DiffOpRemove>,
     moved: Vec<DiffOpMove>,
@@ -703,6 +727,9 @@ struct DiffOpMove {
     len: usize,
     /// The starting index this range will be moved to relative to `to`.
     to: usize,
+    /// Marks this move to be applied to the DOM, or just to the underlying
+    /// storage
+    move_in_dom: bool,
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
@@ -712,6 +739,7 @@ impl Default for DiffOpMove {
             from: 0,
             to: 0,
             len: 1,
+            move_in_dom: true,
         }
     }
 }
@@ -724,7 +752,7 @@ struct DiffOpAdd {
 }
 
 #[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 struct DiffOpRemove {
     at: usize,
 }
@@ -746,11 +774,11 @@ impl Default for DiffOpAddMode {
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
-fn apply_cmds<T, EF, V>(
+fn apply_diff<T, EF, V>(
     cx: Scope,
     opening: &web_sys::Node,
     closing: &web_sys::Node,
-    cmds: Diff,
+    diff: Diff,
     children: &mut Vec<Option<EachItem>>,
     mut items: Vec<Option<T>>,
     each_fn: &EF,
@@ -758,6 +786,8 @@ fn apply_cmds<T, EF, V>(
     EF: Fn(Scope, T) -> V,
     V: IntoView,
 {
+    debug!("{diff:#?}");
+
     let range = RANGE.with(|range| (*range).clone());
 
     // The order of cmds needs to be:
@@ -765,7 +795,7 @@ fn apply_cmds<T, EF, V>(
     // 2. Removals
     // 3. Remove holes left from removals
     // 4. Moves + Add
-    if cmds.clear {
+    if diff.clear {
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
         {
@@ -790,7 +820,7 @@ fn apply_cmds<T, EF, V>(
         return;
     }
 
-    for DiffOpRemove { at } in &cmds.removed {
+    for DiffOpRemove { at } in &diff.removed {
         let item_to_remove = std::mem::take(&mut children[*at]).unwrap();
 
         item_to_remove.prepare_for_move();
@@ -802,158 +832,107 @@ fn apply_cmds<T, EF, V>(
     children.drain_filter(|c| c.is_none());
 
     // Resize children if needed
-    if let Some(added) = cmds.added.len().checked_sub(cmds.removed.len()) {
+    if let Some(added) = diff.added.len().checked_sub(diff.removed.len()) {
         let target_size = children.len() + added;
         children.resize_with(target_size, || None);
     }
 
-    let cmds = AddOrMove::from_cmds(&cmds);
+    let (move_cmds, add_cmds) = unpack_moves(&diff);
 
-    let mut moved_children = cmds
+    debug!("\n{move_cmds:#?}\n{add_cmds:#?}");
+
+    let mut moved_children = move_cmds
         .iter()
-        .filter_map(|cmd| {
-            if let AddOrMove::Move(move_) = cmd {
-                Some(move_)
-            } else {
-                None
-            }
-        })
         .map(|move_| {
             let each_item = children[move_.from].take().unwrap();
 
-            each_item.prepare_for_move();
+            if move_.move_in_dom {
+                each_item.prepare_for_move();
+            }
 
             Some(each_item)
         })
         .collect::<Vec<_>>();
 
-    let mut moved_index = 0;
+    for (i, DiffOpMove { to, .. }) in move_cmds
+        .iter()
+        .enumerate()
+        .filter(|(_, move_)| !move_.move_in_dom)
+    {
+        children[*to] = moved_children[i].take();
+    }
 
-    for cmd in cmds {
-        match cmd {
-            AddOrMove::Add(DiffOpAdd { at, mode }) => {
-                let view = each_fn(cx, items[at].take().unwrap()).into_view(cx);
+    for (i, DiffOpMove { to, .. }) in move_cmds
+        .into_iter()
+        .enumerate()
+        .filter(|(_, move_)| move_.move_in_dom)
+    {
+        let each_item = moved_children[i].take().unwrap();
 
-                let each_item = EachItem::new(cx, view);
+        let sibling_node =
+            children.get_next_closest_mounted_sibling(to, closing.to_owned());
 
-                match mode {
-                    DiffOpAddMode::Normal => {
-                        let sibling_node = children
-                            .get_next_closest_mounted_sibling(
-                                at,
-                                closing.to_owned(),
-                            );
+        debug!(
+            "\nto: {to:#?}\n{}",
+            sibling_node
+                .unchecked_ref::<web_sys::HtmlElement>()
+                .outer_html()
+        );
 
-                        mount_child(
-                            MountKind::Before(&sibling_node),
-                            &each_item,
-                        );
-                    }
-                    DiffOpAddMode::Append => {
-                        mount_child(MountKind::Before(closing), &each_item);
-                    }
-                    DiffOpAddMode::_Prepend => {
-                        todo!("Prepends are not yet implemented")
-                    }
-                }
+        mount_child(MountKind::Before(&sibling_node), &each_item);
 
-                children[at] = Some(each_item);
-            }
-            AddOrMove::Move(DiffOpMove { from, to, .. }) => {
-                let each_item = moved_children[moved_index].take().unwrap();
+        children[to] = Some(each_item);
+    }
 
+    for DiffOpAdd { at, mode } in add_cmds {
+        let view = each_fn(cx, items[at].take().unwrap()).into_view(cx);
+
+        let each_item = EachItem::new(cx, view);
+
+        match mode {
+            DiffOpAddMode::Normal => {
                 let sibling_node = children
-                    .get_next_closest_mounted_sibling(to, closing.to_owned());
+                    .get_next_closest_mounted_sibling(at, closing.to_owned());
 
                 mount_child(MountKind::Before(&sibling_node), &each_item);
-
-                children[to] = Some(each_item);
-
-                moved_index += 1;
+            }
+            DiffOpAddMode::Append => {
+                mount_child(MountKind::Before(closing), &each_item);
+            }
+            DiffOpAddMode::_Prepend => {
+                todo!("Prepends are not yet implemented")
             }
         }
+
+        children[at] = Some(each_item);
     }
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AddOrMove {
-    Add(DiffOpAdd),
-    Move(DiffOpMove),
-}
+/// Unpacks adds and moves into a sequence of interleaved
+/// add and move commands. Move commands will always return
+/// with a `len == 1` and `is_dense = true`.
+fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
+    let mut moves = Vec::with_capacity(diff.items_to_move);
+    let mut adds = Vec::with_capacity(diff.added.len());
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-impl PartialEq<DiffOpAdd> for AddOrMove {
-    fn eq(&self, other: &DiffOpAdd) -> bool {
-        match self {
-            Self::Add(add) => add.eq(other),
-            _ => false,
-        }
-    }
-}
+    let mut adds_iter = diff.added.iter();
+    let mut moves_iter = diff.moved.iter();
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-impl PartialEq<DiffOpMove> for AddOrMove {
-    fn eq(&self, other: &DiffOpMove) -> bool {
-        match self {
-            Self::Move(move_) => move_.eq(other),
-            _ => false,
-        }
-    }
-}
+    let mut adds_next = adds_iter.next();
+    let mut moves_next = moves_iter.next().copied();
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
-impl AddOrMove {
-    /// Unpacks adds and moves into a sequence of interleaved
-    /// add and move commands. Move commands will always return
-    /// with a `len == 1` and `is_dense = true`.
-    fn from_cmds(diff: &Diff) -> Vec<Self> {
-        let mut cmds =
-            Vec::with_capacity(diff.items_to_move + diff.added.len());
-
-        let mut adds_iter = diff.added.iter();
-        let mut moves_iter = diff.moved.iter();
-
-        let mut adds_next = adds_iter.next();
-        let mut moves_next = moves_iter.next().copied();
-
-        let mut i = 0;
-
-        loop {
-            match (adds_next, &mut moves_next) {
-                (Some(add), Some(move_)) => {
-                    if add.at == i {
-                        cmds.push(AddOrMove::Add(*add));
-
-                        move_.from += 1;
-                        move_.to += 1;
-
-                        adds_next = adds_iter.next();
-                    } else {
-                        let mut single_move = *move_;
-                        single_move.len = 1;
-
-                        cmds.push(AddOrMove::Move(single_move));
-
-                        move_.len -= 1;
-                        move_.from += 1;
-                        move_.to += 1;
-
-                        if move_.len == 0 {
-                            moves_next = moves_iter.next().copied();
-                        }
-                    }
-                }
-                (Some(add), None) => {
-                    cmds.push(AddOrMove::Add(*add));
+    for i in 0..diff.items_to_move + diff.added.len() {
+        match (adds_next, &mut moves_next) {
+            (Some(add), Some(move_)) => {
+                if add.at == i {
+                    adds.push(*add);
 
                     adds_next = adds_iter.next();
-                }
-                (None, Some(move_)) => {
+                } else {
                     let mut single_move = *move_;
                     single_move.len = 1;
 
-                    cmds.push(dbg!(AddOrMove::Move(single_move)));
+                    moves.push(single_move);
 
                     move_.len -= 1;
                     move_.from += 1;
@@ -963,14 +942,31 @@ impl AddOrMove {
                         moves_next = moves_iter.next().copied();
                     }
                 }
-                (None, None) => break,
             }
+            (Some(add), None) => {
+                adds.push(*add);
 
-            i += 1;
+                adds_next = adds_iter.next();
+            }
+            (None, Some(move_)) => {
+                let mut single_move = *move_;
+                single_move.len = 1;
+
+                moves.push(single_move);
+
+                move_.len -= 1;
+                move_.from += 1;
+                move_.to += 1;
+
+                if move_.len == 0 {
+                    moves_next = moves_iter.next().copied();
+                }
+            }
+            (None, None) => break,
         }
-
-        cmds
     }
+
+    (moves, adds)
 }
 
 #[cfg(test)]
@@ -996,7 +992,7 @@ mod test_utils {
 use test_utils::*;
 
 #[cfg(test)]
-mod find_ranges_tests {
+mod find_ranges {
     use super::*;
 
     // Single range tests will be empty because of removing ranges
@@ -1053,11 +1049,13 @@ mod find_ranges_tests {
                     from: 2,
                     to: 0,
                     len: 2,
+                    move_in_dom: true,
                 },
                 DiffOpMove {
                     from: 0,
                     to: 2,
                     len: 2,
+                    move_in_dom: true,
                 },
             ]
         );
@@ -1227,7 +1225,7 @@ mod add_or_move {
 
     #[test]
     fn simple_range() {
-        let cmds = AddOrMove::from_cmds(&Diff {
+        let cmds = AddOrMove::from_diff(&Diff {
             moved: vec![DiffOpMove {
                 from: 0,
                 to: 0,
@@ -1260,11 +1258,12 @@ mod add_or_move {
 
     #[test]
     fn range_with_add() {
-        let cmds = AddOrMove::from_cmds(&Diff {
+        let cmds = AddOrMove::from_diff(&Diff {
             moved: vec![DiffOpMove {
                 from: 0,
                 to: 0,
                 len: 3,
+                move_in_dom: true,
             }],
             added: vec![DiffOpAdd {
                 at: 2,
@@ -1279,12 +1278,14 @@ mod add_or_move {
                 AddOrMove::Move(DiffOpMove {
                     from: 0,
                     to: 0,
-                    len: 1
+                    len: 1,
+                    move_in_dom: true,
                 }),
                 AddOrMove::Move(DiffOpMove {
                     from: 1,
                     to: 1,
-                    len: 1
+                    len: 1,
+                    move_in_dom: true,
                 }),
                 AddOrMove::Add(DiffOpAdd {
                     at: 2,
@@ -1293,9 +1294,79 @@ mod add_or_move {
                 AddOrMove::Move(DiffOpMove {
                     from: 3,
                     to: 3,
-                    len: 1
+                    len: 1,
+                    move_in_dom: true,
                 }),
             ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod diff {
+    use super::*;
+
+    #[test]
+    fn only_adds() {
+        let diff =
+            diff(&[].into_fx_index_set(), &[1, 2, 3].into_fx_index_set());
+
+        assert_eq!(
+            diff,
+            Diff {
+                added: vec![
+                    DiffOpAdd {
+                        at: 0,
+                        mode: DiffOpAddMode::Append
+                    },
+                    DiffOpAdd {
+                        at: 1,
+                        mode: DiffOpAddMode::Append
+                    },
+                    DiffOpAdd {
+                        at: 2,
+                        mode: DiffOpAddMode::Append
+                    },
+                ],
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn only_removes() {
+        let diff =
+            diff(&[1, 2, 3].into_fx_index_set(), &[3].into_fx_index_set());
+
+        assert_eq!(
+            diff,
+            Diff {
+                removed: vec![DiffOpRemove { at: 0 }, DiffOpRemove { at: 1 }],
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn adds_with_no_move() {
+        let diff =
+            diff(&[3].into_fx_index_set(), &[1, 2, 3].into_fx_index_set());
+
+        assert_eq!(
+            diff,
+            Diff {
+                added: vec![
+                    DiffOpAdd {
+                        at: 0,
+                        ..Default::default()
+                    },
+                    DiffOpAdd {
+                        at: 1,
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }
         );
     }
 }
