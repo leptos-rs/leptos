@@ -804,7 +804,6 @@ fn apply_cmds<T, EF, V>(
     // Resize children if needed
     if let Some(added) = cmds.added.len().checked_sub(cmds.removed.len()) {
         let target_size = children.len() + added;
-
         children.resize_with(target_size, || None);
     }
 
@@ -913,8 +912,11 @@ impl AddOrMove {
 
         let mut adds_next = adds_iter.next();
         let mut moves_next = moves_iter.next().copied();
+    
+        let mut i = 0;
 
         loop {
+            i += 1;
             match (adds_next, &mut moves_next) {
                 (Some(add), Some(move_)) => {
                     if add.at < move_.to {
@@ -937,6 +939,7 @@ impl AddOrMove {
                     }
                 }
                 (Some(add), None) => {
+                    adds_next = adds_iter.next();
                     cmds.push(AddOrMove::Add(*add));
                 }
                 (None, Some(move_)) => {
