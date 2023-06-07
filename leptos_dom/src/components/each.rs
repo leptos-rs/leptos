@@ -936,8 +936,9 @@ impl AddOrMove {
                     }
                 }
                 (Some(add), None) => {
-                    adds_next = adds_iter.next();
                     cmds.push(AddOrMove::Add(*add));
+
+                    adds_next = adds_iter.next();
                 }
                 (None, Some(move_)) => {
                     let mut single_move = *move_;
