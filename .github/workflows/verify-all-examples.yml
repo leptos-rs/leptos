@@ -1,11 +1,11 @@
-name: Verify All Examples
+name: Verify Examples
 
 on:
   workflow_dispatch:
 
 jobs:
   call-with-matrix:
-    name: Verify All Examples
+    name: Verify
     strategy:
       matrix:
         project_dir: [counter,

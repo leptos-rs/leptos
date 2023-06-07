@@ -1,4 +1,4 @@
-name: Verify Changed Examples
+name: CI Examples
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   call-with-matrix:
-    name: Verify Changed Examples
+    name: CI
     strategy:
       matrix:
         project_dir: [counter,
