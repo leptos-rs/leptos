@@ -109,16 +109,15 @@ jobs:
             echo "Verify regardless of change"
             echo Move to examples/${{ inputs.project_dir }}
             cd examples/${{ inputs.project_dir }}
-            ls .
+            cargo make --profile=github-actions verify-flow
           else
-            echo "Verifying because something changed"
             if ${{ steps.changed-project-files.outputs.any_changed }}; then
+              echo "Verify because something changed"
               echo Move to examples/${{ inputs.project_dir }}
               cd examples/${{ inputs.project_dir }}
-              ls .
-              echo cargo make --profile=github-actions verify-examples
+              cargo make --profile=github-actions verify-flow
             else
-              echo "Skip verification because no changes were found"
+              echo "Skip verification because nothing changed"
             fi
           fi
         shell: bash
