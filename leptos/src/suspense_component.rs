@@ -119,7 +119,8 @@ where
                                         current_id.clone(),
                                     );
                                     DynChild::new({
-                                        let orig_children = orig_children(cx).into_view(cx);
+                                        let orig_children =
+                                            orig_children(cx).into_view(cx);
                                         move || orig_children.clone()
                                     })
                                     .into_view(cx)
@@ -135,7 +136,8 @@ where
                                         current_id.clone(),
                                     );
                                     DynChild::new({
-                                        let orig_children = orig_children(cx).into_view(cx);
+                                        let orig_children =
+                                            orig_children(cx).into_view(cx);
                                         move || orig_children.clone()
                                     })
                                     .into_view(cx)

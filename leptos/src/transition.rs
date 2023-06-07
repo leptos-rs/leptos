@@ -117,7 +117,10 @@ where
                 let suspense_context = use_context::<SuspenseContext>(cx)
                     .expect("there to be a SuspenseContext");
 
-                if cfg!(feature = "hydrate") || !first_run.get() || (cfg!(feature = "csr") && first_run.get()) {
+                if cfg!(feature = "hydrate")
+                    || !first_run.get()
+                    || (cfg!(feature = "csr") && first_run.get())
+                {
                     *prev_children.borrow_mut() = Some(frag.clone());
                 }
                 if is_first_run(&first_run, &suspense_context) {
