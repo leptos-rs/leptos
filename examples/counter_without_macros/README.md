@@ -6,4 +6,3 @@ To run it, just issue the `trunk serve --open` command in the example root. This
 
 Issue the `cargo make test-flow` command to run unit and wasm tests.
 
-SIMULATE CHANGE
