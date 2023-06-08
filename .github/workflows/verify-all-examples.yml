@@ -37,3 +37,4 @@ todomvc]
     uses: ./.github/workflows/verify-example.yml
     with:
       project_dir: ${{ matrix.project_dir }}
+      verify_unchanged: true
