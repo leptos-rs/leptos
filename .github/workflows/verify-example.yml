@@ -7,9 +7,21 @@ on:
         required: true
         type: string
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
 jobs:
   test:
-    name: Verify
+    name: Verify ${{ matrix.os }} (using rustc ${{ matrix.rust }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust:
+          - nightly
+        os:
+          - ubuntu-latest
+
     runs-on: ubuntu-latest
     steps:
       # Setup environment
@@ -18,7 +30,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain:  ${{ matrix.rust }}
           override: true
           components: rustfmt
 
