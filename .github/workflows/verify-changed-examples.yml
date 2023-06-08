@@ -9,38 +9,39 @@ on:
       - main
 
 jobs:
-  call-with-matrix:
-    name: CI
+  changed-dirs:
+    name: Get Changed Examples
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get changed examples
+        id: changed-dirs
+        uses: tj-actions/changed-files@v36
+        with:
+          dir_names: true
+          files: |
+            examples
+            !examples/common
+          json: true
+          quotepath: false
+      - name: List changed directories
+        run: echo '${{ steps.changed-dirs.outputs.all_changed_files }}'
+      - id: set-matrix
+        run: echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
+
+  matrix-job:
+    name: Verify
+    runs-on: ubuntu-latest
+    needs: [changed-dirs]
     strategy:
-      matrix:
-        project_dir: [counter,
-counter_isomorphic,
-counters,
-counters_stable,
-counter_without_macros,
-error_boundary,
-errors_axum,
-fetch,
-hackernews,
-hackernews_axum,
-js-framework-benchmark,
-leptos-tailwind-axum,
-login_with_token_csr_only,
-parent_child,
-router,
-session_auth_axum,
-slots,
-ssr_modes,
-ssr_modes_axum,
-tailwind,
-tailwind_csr_trunk,
-timer,
-todo_app_sqlite,
-todo_app_sqlite_axum,
-todo_app_sqlite_viz,
-todomvc]
+      matrix: ${{ fromJSON(needs.changed-dirs.outputs.matrix) }}
+      max-parallel: 4
+      fail-fast: false
     uses: ./.github/workflows/verify-example.yml
     with:
-      project_dir: ${{ matrix.project_dir }}
-      verify_unchanged: false
-
+      project_dir: ${{ matrix.directory }}
