@@ -2,6 +2,12 @@ name: Verify All Examples
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   call-with-matrix:
@@ -34,6 +40,7 @@ todo_app_sqlite,
 todo_app_sqlite_axum,
 todo_app_sqlite_viz,
 todomvc]
+        fail-fast: false
     uses: ./.github/workflows/verify-example.yml
     with:
       project_dir: ${{ matrix.project_dir }}
