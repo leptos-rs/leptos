@@ -13,6 +13,7 @@ jobs:
   call-with-matrix:
     name: Verify
     strategy:
+      fail-fast: false
       matrix:
         project_dir: [counter,
 counter_isomorphic,
@@ -40,7 +41,6 @@ todo_app_sqlite,
 todo_app_sqlite_axum,
 todo_app_sqlite_viz,
 todomvc]
-        fail-fast: false
     uses: ./.github/workflows/verify-example.yml
     with:
       project_dir: ${{ matrix.project_dir }}
