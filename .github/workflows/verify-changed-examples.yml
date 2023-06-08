@@ -26,7 +26,8 @@ jobs:
           dir_names: true
           files: |
             examples
-            !examples/common
+            !examples/cargo-make
+            !examples/gtk
           json: true
           quotepath: false
       - name: List changed directories
