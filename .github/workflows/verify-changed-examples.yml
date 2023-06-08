@@ -1,4 +1,4 @@
-name: CI Examples
+name: Verify Changed Examples
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   changed-dirs:
-    name: Get Changed Examples
+    name: Get Changes
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}

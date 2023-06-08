@@ -1,4 +1,4 @@
-name: Verify Examples
+name: Verify All Examples
 
 on:
   workflow_dispatch:

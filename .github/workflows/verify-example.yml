@@ -1,4 +1,4 @@
-name: Verify Example Subflow
+name: Verify Example
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    name: Verify ${{ inputs.project_dir }}
+    name: Verify
     runs-on: ubuntu-latest
     steps:
       # Setup environment
@@ -66,9 +66,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # Verify example project
-      - name: Run verify-flow
+      # Verify project
+      - name: Run verify-flow from ${{ inputs.project_dir }}
         run: |
-          echo Move to ${{ inputs.project_dir }}
           cd ${{ inputs.project_dir }}
-          echo cargo make --profile=github-actions verify-flow
+          cargo make --profile=github-actions verify-flow
