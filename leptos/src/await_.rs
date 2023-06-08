@@ -51,7 +51,13 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// This can be passed in the `view` children of the `<Await/>` by using the
     /// `bind:` syntax to specify the name for the data variable.
     ///
-    /// ```rust,ignore
+    /// ```rust
+    /// # use leptos::*;
+    /// # if false {
+    /// # run_scope(create_runtime(), |cx| {
+    /// # async fn fetch_monkeys(monkey: i32) -> i32 {
+    /// #    3
+    /// # }
     /// view! { cx,
     ///     <Await
     ///         future=|cx| fetch_monkeys(3)
@@ -63,7 +69,13 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// # }
     /// ```
     /// is the same as
-    ///  ```rust,ignore
+    ///  ```rust
+    /// # use leptos::*;
+    /// # if false {
+    /// # run_scope(create_runtime(), |cx| {
+    /// # async fn fetch_monkeys(monkey: i32) -> i32 {
+    /// #    3
+    /// # }
     /// view! { cx,
     ///     <Await
     ///         future=|cx| fetch_monkeys(3)
@@ -72,6 +84,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///         }
     ///     />
     /// }
+    /// # }
     /// ```
     children: VF,
 ) -> impl IntoView
