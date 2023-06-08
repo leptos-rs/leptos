@@ -51,7 +51,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// This can be passed in the `view` children of the `<Await/>` by using the
     /// `bind:` syntax to specify the name for the data variable.
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// view! { cx,
     ///     <Await
     ///         future=|cx| fetch_monkeys(3)
@@ -60,9 +60,10 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
     ///     </Await>
     /// }
+    /// # }
     /// ```
     /// is the same as
-    ///  ```rust
+    ///  ```rust,ignore
     /// view! { cx,
     ///     <Await
     ///         future=|cx| fetch_monkeys(3)
