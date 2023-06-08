@@ -10,8 +10,8 @@ use leptos_reactive::{
 /// server function directly into your view. This is the equivalent of combining a
 /// [`create_resource`] that only loads once (i.e., with a source signal `|| ()`) with
 /// a [`Suspense`] with no `fallback`.
-/// 
-/// Adding `bind:{variable name}` to the props makes the data available in the children 
+///
+/// Adding `bind:{variable name}` to the props makes the data available in the children
 /// that variable name, when resolved.
 /// ```
 /// # use leptos_reactive::*;
@@ -46,11 +46,11 @@ pub fn Await<T, Fut, FF, VF, V>(
     blocking: bool,
     /// A function that takes a [`Scope`] and a reference to the resolved data from the `future`
     /// renders a view.
-    /// 
+    ///
     /// ## Syntax
-    /// This can be passed in the `view` children of the `<Await/>` by using the 
+    /// This can be passed in the `view` children of the `<Await/>` by using the
     /// `bind:` syntax to specify the name for the data variable.
-    /// 
+    ///
     /// ```rust
     /// view! { cx,
     ///     <Await
@@ -60,7 +60,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
     ///     </Await>
     /// }
-    /// ``` 
+    /// ```
     /// is the same as
     ///  ```rust
     /// view! { cx,
@@ -71,7 +71,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///         }
     ///     />
     /// }
-    /// ``` 
+    /// ```
     children: VF,
 ) -> impl IntoView
 where
