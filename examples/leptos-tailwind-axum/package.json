@@ -1,0 +1,16 @@
+{
+  "name": "leptos-tailwind",
+  "version": "1.0.0",
+  "description": "<picture>\r     <source srcset=\"https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_Solid_White.svg\" media=\"(prefers-color-scheme: dark)\">\r     <img src=\"https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_RGB.svg\" alt=\"Leptos Logo\">\r </picture>",
+  "main": "index.js",
+  "scripts": {
+    "build":"npx tailwindcss -i ./input.css -o ./style/output.css",
+    "watch":"npx tailwindcss -i ./input.css -o ./style/output.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tailwindcss": "^3.3.2"
+  }
+}

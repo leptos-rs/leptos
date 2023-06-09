@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use leptos_dom::{DynChild, Fragment, HydrationCtx, IntoView};
+use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
 #[cfg(any(feature = "csr", feature = "hydrate"))]
 use leptos_reactive::ScopeDisposer;
@@ -90,9 +90,9 @@ where
                     }
                     let (view, disposer) =
                         cx.run_child_scope(|cx| if context.ready() {
-                        Fragment::lazy(Box::new(|| vec![orig_child(cx).into_view(cx)])).into_view(cx)
+                        orig_child(cx).into_view(cx)
                     } else {
-                        Fragment::lazy(Box::new(|| vec![fallback().into_view(cx)])).into_view(cx)
+                        fallback().into_view(cx)
                     });
                     *prev_disposer.borrow_mut() = Some(disposer);
                     view
@@ -109,9 +109,7 @@ where
                         if context.pending_resources.get() == 0 {
                             let orig_child = Rc::clone(&orig_child);
                             HydrationCtx::continue_from(current_id.clone());
-                            Fragment::lazy(Box::new(move || {
-                                vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
-                            })).into_view(cx)
+                            DynChild::new(move || orig_child(cx)).into_view(cx)
                         }
                         // show the fallback, but also prepare to stream HTML
                         else {
@@ -126,9 +124,7 @@ where
                                     let orig_child = Rc::clone(&orig_child);
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        Fragment::lazy(Box::new(move || {
-                                            vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
-                                        }))
+                                        DynChild::new(move || orig_child(cx))
                                         .into_view(cx)
                                         .render_to_string(cx)
                                         .to_string()
@@ -138,9 +134,7 @@ where
                                 {
                                     move || {
                                         HydrationCtx::continue_from(current_id.clone());
-                                        Fragment::lazy(Box::new(move || {
-                                            vec![DynChild::new(move || orig_child(cx)).into_view(cx)]
-                                        }))
+                                        DynChild::new(move || orig_child(cx))
                                         .into_view(cx)
                                         .into_stream_chunks(cx)
                                     }

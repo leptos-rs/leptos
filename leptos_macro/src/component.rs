@@ -131,6 +131,8 @@ impl ToTokens for Model {
             ret,
         } = self;
 
+        let no_props = props.len() == 1;
+
         let mut body = body.to_owned();
 
         // check for components that end ;
@@ -213,6 +215,42 @@ impl ToTokens for Model {
             }
         };
 
+        let props_arg = if no_props {
+            quote! {}
+        } else {
+            quote! {
+                props: #props_name #generics
+            }
+        };
+
+        let destructure_props = if no_props {
+            quote! {}
+        } else {
+            quote! {
+                let #props_name {
+                    #prop_names
+                } = props;
+            }
+        };
+
+        let into_view = if no_props {
+            quote! {
+                impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
+                    fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
+                        #name(cx).into_view(cx)
+                    }
+                }
+            }
+        } else {
+            quote! {
+                impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
+                    fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
+                        #name(cx, self).into_view(cx)
+                    }
+                }
+            }
+        };
+
         let output = quote! {
             #[doc = #builder_name_doc]
             #[doc = ""]
@@ -231,11 +269,7 @@ impl ToTokens for Model {
                 }
             }
 
-            impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
-                fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
-                    #name(cx, self).into_view(cx)
-                }
-            }
+            #into_view
 
             #docs
             #component_fn_prop_docs
@@ -244,15 +278,13 @@ impl ToTokens for Model {
             #vis fn #name #generics (
                 #[allow(unused_variables)]
                 #scope_name: ::leptos::Scope,
-                props: #props_name #generics
+                #props_arg
             ) #ret #(+ #lifetimes)*
             #where_clause
             {
                 #body
 
-                let #props_name {
-                    #prop_names
-                } = props;
+                #destructure_props
 
                 #tracing_span_expr
 

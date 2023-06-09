@@ -43,8 +43,6 @@ use std::any::{Any, TypeId};
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
-///
-///     todo!()
 /// }
 /// ```
 #[cfg_attr(
@@ -107,7 +105,6 @@ where
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
 ///
-///     todo!()
 /// }
 /// ```
 #[cfg_attr(

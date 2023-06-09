@@ -1,1 +1,1 @@
-extend = { path = "../../cargo-make/common.toml" }
+extend = { path = "../../cargo-make/main.toml" }
