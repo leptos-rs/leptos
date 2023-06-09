@@ -6,7 +6,8 @@ description = "Check for style violations"
 dependencies = ["check-format-flow", "clippy-flow"]
 
 [tasks.check-format]
-args = ["fmt", "--", "--check", "--config-path", "../../"]
+env = { LEPTOS_PROJECT_DIRECTORY = "../../" }
+args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]
 
 [tasks.clean-cargo]
 description = "Runs the cargo clean command."
