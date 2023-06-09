@@ -32,6 +32,7 @@ use leptos_reactive::{
 ///         <p>{*data} " little monkeys, jumping on the bed."</p>
 ///     </Await>
 /// }
+/// # ;
 /// # });
 /// # }
 /// ```
@@ -66,6 +67,8 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///         <p>{*data} " little monkeys, jumping on the bed."</p>
     ///     </Await>
     /// }
+    /// # ;
+    /// # })
     /// # }
     /// ```
     /// is the same as
@@ -84,6 +87,8 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///         }
     ///     />
     /// }
+    /// # ;
+    /// # })
     /// # }
     /// ```
     children: VF,
