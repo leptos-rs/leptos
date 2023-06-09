@@ -25,7 +25,7 @@ jobs:
         with:
           dir_names: true
           files: |
-            examples
+            examples/*
             !examples/cargo-make
             !examples/gtk
           json: true
