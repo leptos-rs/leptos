@@ -4,10 +4,9 @@ fn resource_returns_last_future() {
     {
         use futures::{channel::oneshot::channel, FutureExt};
         use leptos_reactive::{
-            create_resource, create_runtime, create_signal, raw_scope_and_disposer,
-            SignalGet, SignalSet,
+            create_resource, create_runtime, create_signal,
+            raw_scope_and_disposer, SignalGet, SignalSet,
         };
-
         use tokio::task;
         use tokio_test::block_on;
 
