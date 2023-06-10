@@ -3,10 +3,13 @@ use leptos_reactive::{
     create_resource, create_runtime, create_signal, raw_scope_and_disposer,
     SignalGet, SignalSet,
 };
+
+#[cfg(feature = "ssr")]
 use tokio::task;
+#[cfg(feature = "ssr")]
 use tokio_test::block_on;
 
-#[test]
+#[cfg_attr(feature = "ssr", test)]
 fn resource_returns_last_future() {
     block_on(task::LocalSet::new().run_until(async move {
         let (cx, disposer) = raw_scope_and_disposer(create_runtime());
