@@ -4,62 +4,63 @@ use leptos_reactive::{
     SignalGet, SignalSet,
 };
 
-#[cfg(feature = "ssr")]
-use tokio::task;
-#[cfg(feature = "ssr")]
-use tokio_test::block_on;
-
-#[cfg_attr(feature = "ssr", test)]
+#[test]
 fn resource_returns_last_future() {
-    block_on(task::LocalSet::new().run_until(async move {
-        let (cx, disposer) = raw_scope_and_disposer(create_runtime());
-        task::spawn_local(async move {
-            // Set up a resource that can listen to two different futures that we can resolve independently
-            let (tx_1, rx_1) = channel::<()>();
-            let (tx_2, rx_2) = channel::<()>();
-            let rx_1 = rx_1.shared();
-            let rx_2 = rx_2.shared();
+    #[cfg(feature = "ssr")]
+    {
+        use tokio::task;
+        use tokio_test::block_on;
 
-            let (channel_number, set_channel_number) = create_signal(cx, 1);
+        block_on(task::LocalSet::new().run_until(async move {
+            let (cx, disposer) = raw_scope_and_disposer(create_runtime());
+            task::spawn_local(async move {
+                // Set up a resource that can listen to two different futures that we can resolve independently
+                let (tx_1, rx_1) = channel::<()>();
+                let (tx_2, rx_2) = channel::<()>();
+                let rx_1 = rx_1.shared();
+                let rx_2 = rx_2.shared();
 
-            let resource = create_resource(
-                cx,
-                move || channel_number.get(),
-                move |channel_number| {
-                    let rx_1 = rx_1.clone();
-                    let rx_2 = rx_2.clone();
-                    async move {
-                        match channel_number {
-                            1 => rx_1.await,
-                            2 => rx_2.await,
-                            _ => unreachable!(),
+                let (channel_number, set_channel_number) = create_signal(cx, 1);
+
+                let resource = create_resource(
+                    cx,
+                    move || channel_number.get(),
+                    move |channel_number| {
+                        let rx_1 = rx_1.clone();
+                        let rx_2 = rx_2.clone();
+                        async move {
+                            match channel_number {
+                                1 => rx_1.await,
+                                2 => rx_2.await,
+                                _ => unreachable!(),
+                            }
+                            .unwrap();
+
+                            channel_number
                         }
-                        .unwrap();
+                    },
+                );
 
-                        channel_number
-                    }
-                },
-            );
+                // Switch to waiting to second future while first is still loading
+                set_channel_number.set(2);
 
-            // Switch to waiting to second future while first is still loading
-            set_channel_number.set(2);
+                // Resolve first future
+                tx_1.send(()).unwrap();
+                task::yield_now().await;
 
-            // Resolve first future
-            tx_1.send(()).unwrap();
-            task::yield_now().await;
+                // Resource should still be loading
+                assert_eq!(resource.read(cx), None);
 
-            // Resource should still be loading
-            assert_eq!(resource.read(cx), None);
+                // Resolve second future
+                tx_2.send(()).unwrap();
+                task::yield_now().await;
 
-            // Resolve second future
-            tx_2.send(()).unwrap();
-            task::yield_now().await;
-
-            // Resource should now be loaded
-            assert_eq!(resource.read(cx), Some(2));
-        })
-        .await
-        .unwrap();
-        disposer.dispose();
-    }));
+                // Resource should now be loaded
+                assert_eq!(resource.read(cx), Some(2));
+            })
+            .await
+            .unwrap();
+            disposer.dispose();
+        }));
+    }
 }
