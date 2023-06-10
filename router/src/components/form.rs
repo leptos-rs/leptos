@@ -93,7 +93,7 @@ where
                 )
                 .unwrap_throw();
             let action = use_resolved_path(cx, move || action.clone())
-                .get()
+                .get_untracked()
                 .unwrap_or_default();
             // multipart POST (setting Context-Type breaks the request)
             if method == "post" && enctype == "multipart/form-data" {
@@ -131,23 +131,39 @@ where
                                 let resp_url = &resp.url();
                                 match Url::try_from(resp_url.as_str()) {
                                     Ok(url) => {
-                                        request_animation_frame(move || {
-                                            if let Err(e) = navigate(
-                                                &format!(
-                                                    "{}{}{}",
-                                                    url.pathname,
-                                                    if url.search.is_empty() {
-                                                        ""
-                                                    } else {
-                                                        "?"
-                                                    },
-                                                    url.search,
-                                                ),
-                                                Default::default(),
-                                            ) {
-                                                warn!("{}", e);
-                                            }
-                                        });
+                                        if url.origin
+                                            != window()
+                                                .location()
+                                                .origin()
+                                                .unwrap_or_default()
+                                        {
+                                            _ = window()
+                                                .location()
+                                                .set_href(resp_url.as_str());
+                                        } else {
+                                            request_animation_frame(
+                                                move || {
+                                                    if let Err(e) = navigate(
+                                                        &format!(
+                                                            "{}{}{}",
+                                                            url.pathname,
+                                                            if url
+                                                                .search
+                                                                .is_empty()
+                                                            {
+                                                                ""
+                                                            } else {
+                                                                "?"
+                                                            },
+                                                            url.search,
+                                                        ),
+                                                        Default::default(),
+                                                    ) {
+                                                        warn!("{}", e);
+                                                    }
+                                                },
+                                            );
+                                        }
                                     }
                                     Err(e) => warn!("{}", e),
                                 }
@@ -193,23 +209,39 @@ where
                                 let resp_url = &resp.url();
                                 match Url::try_from(resp_url.as_str()) {
                                     Ok(url) => {
-                                        request_animation_frame(move || {
-                                            if let Err(e) = navigate(
-                                                &format!(
-                                                    "{}{}{}",
-                                                    url.pathname,
-                                                    if url.search.is_empty() {
-                                                        ""
-                                                    } else {
-                                                        "?"
-                                                    },
-                                                    url.search,
-                                                ),
-                                                Default::default(),
-                                            ) {
-                                                warn!("{}", e);
-                                            }
-                                        });
+                                        if url.origin
+                                            != window()
+                                                .location()
+                                                .hostname()
+                                                .unwrap_or_default()
+                                        {
+                                            _ = window()
+                                                .location()
+                                                .set_href(resp_url.as_str());
+                                        } else {
+                                            request_animation_frame(
+                                                move || {
+                                                    if let Err(e) = navigate(
+                                                        &format!(
+                                                            "{}{}{}",
+                                                            url.pathname,
+                                                            if url
+                                                                .search
+                                                                .is_empty()
+                                                            {
+                                                                ""
+                                                            } else {
+                                                                "?"
+                                                            },
+                                                            url.search,
+                                                        ),
+                                                        Default::default(),
+                                                    ) {
+                                                        warn!("{}", e);
+                                                    }
+                                                },
+                                            );
+                                        }
                                     }
                                     Err(e) => warn!("{}", e),
                                 }

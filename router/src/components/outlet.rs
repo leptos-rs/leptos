@@ -54,7 +54,6 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
             let (current_view, set_current_view) = create_signal(cx, None);
 
             create_effect(cx, {
-                let global_suspense = global_suspense.clone();
                 move |prev| {
                     let outlet = outlet.get();
                     let is_fallback =

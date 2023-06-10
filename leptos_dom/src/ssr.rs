@@ -190,29 +190,27 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
     // create the runtime
     let runtime = create_runtime();
 
-    let (
-        (shell, pending_resources, pending_fragments, serializers),
-        scope,
-        disposer,
-    ) = run_scope_undisposed(runtime, {
-        move |cx| {
-            // Add additional context items
-            additional_context(cx);
-            // the actual app body/template code
-            // this does NOT contain any of the data being loaded asynchronously in resources
-            let shell = view(cx).render_to_string(cx);
+    let ((shell, pending_resources, pending_fragments, serializers), scope, _) =
+        run_scope_undisposed(runtime, {
+            move |cx| {
+                // Add additional context items
+                additional_context(cx);
+                // the actual app body/template code
+                // this does NOT contain any of the data being loaded asynchronously in resources
+                let shell = view(cx).render_to_string(cx);
 
-            let resources = cx.pending_resources();
-            let pending_resources = serde_json::to_string(&resources).unwrap();
+                let resources = cx.pending_resources();
+                let pending_resources =
+                    serde_json::to_string(&resources).unwrap();
 
-            (
-                shell,
-                pending_resources,
-                cx.pending_fragments(),
-                cx.serialization_resolvers(),
-            )
-        }
-    });
+                (
+                    shell,
+                    pending_resources,
+                    cx.pending_fragments(),
+                    cx.serialization_resolvers(),
+                )
+            }
+        });
     let cx = Scope { runtime, id: scope };
 
     let mut blocking_fragments = FuturesUnordered::new();
@@ -280,12 +278,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
     // TODO these should be combined again in a way that chains them appropriately
     // such that individual resources can resolve before all fragments are done
     .chain(fragments)
-    .chain(resources)
-    // dispose of the root scope
-    .chain(futures::stream::once(async move {
-        disposer.dispose();
-        Default::default()
-    }));
+    .chain(resources);
 
     (stream, runtime, scope)
 }
@@ -400,7 +393,7 @@ impl View {
             View::CoreComponent(node) => {
                 let (id, name, wrap, content) = match node {
                     CoreComponent::Unit(u) => (
-                        u.id.clone(),
+                        u.id,
                         "",
                         false,
                         Box::new(move || {

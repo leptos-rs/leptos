@@ -170,7 +170,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                         Err(e) => view! {cx,
                             <A href="/signup">"Signup"</A>", "
                             <A href="/login">"Login"</A>", "
-                            <span>{format!("Login error: {}", e.to_string())}</span>
+                            <span>{format!("Login error: {}", e)}</span>
                         }.into_view(cx),
                         Ok(None) => view! {cx,
                             <A href="/signup">"Signup"</A>", "

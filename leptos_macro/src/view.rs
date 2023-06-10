@@ -1,7 +1,8 @@
 use crate::{attribute_value, Mode};
 use convert_case::{Case::Snake, Casing};
 use leptos_hot_reload::parsing::{
-    block_to_primitive_expression, is_component_node, value_to_string,
+    block_to_primitive_expression, is_component_node, is_component_tag_name,
+    value_to_string,
 };
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
@@ -276,6 +277,7 @@ fn root_element_to_tokens_ssr(
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
 ) -> Option<TokenStream> {
+    // TODO: simplify, this is checked twice, second time in `element_to_tokens_ssr` body
     if is_component_node(node) {
         if let Some(slot) = get_slot(node) {
             slot_to_tokens(cx, node, slot, None, global_class);
@@ -284,6 +286,7 @@ fn root_element_to_tokens_ssr(
             Some(component_to_tokens(cx, node, global_class))
         }
     } else {
+        let mut stmts_for_ide = IdeTagHelper::new();
         let mut exprs_for_compiler = Vec::<TokenStream>::new();
 
         let mut template = String::new();
@@ -296,6 +299,7 @@ fn root_element_to_tokens_ssr(
             &mut template,
             &mut holes,
             &mut chunks,
+            &mut stmts_for_ide,
             &mut exprs_for_compiler,
             true,
             global_class,
@@ -339,13 +343,17 @@ fn root_element_to_tokens_ssr(
 
         let tag_name = node.name().to_string();
         let is_custom_element = is_custom_element(&tag_name);
+
+        // Use any other span instead of node.name.span(), to avoid missundestanding in IDE.
+        // We can use open_tag.span(), to provide simmilar(to name span) diagnostic
+        // in case of expansion error, but it will also higlight "<" token.
         let typed_element_name = if is_custom_element {
-            Ident::new("Custom", node.name().span())
+            Ident::new("Custom", Span::call_site())
         } else {
             let camel_cased = camel_case_tag_name(
                 &tag_name.replace("svg::", "").replace("math::", ""),
             );
-            Ident::new(&camel_cased, node.name().span())
+            Ident::new(&camel_cased, Span::call_site())
         };
         let typed_element_name = if is_svg_element(&tag_name) {
             quote! { svg::#typed_element_name }
@@ -368,8 +376,10 @@ fn root_element_to_tokens_ssr(
         } else {
             quote! {}
         };
+        let stmts_for_ide = stmts_for_ide.into_iter();
         Some(quote! {
         {
+            #(#stmts_for_ide)*
             #(#exprs_for_compiler)*
             ::leptos::HtmlElement::from_chunks(#cx, #full_name, [#(#chunks),*])#view_marker
         }
@@ -393,6 +403,7 @@ fn element_to_tokens_ssr(
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     chunks: &mut Vec<SsrElementChunks>,
+    stmts_for_ide: &mut IdeTagHelper,
     exprs_for_compiler: &mut Vec<TokenStream>,
     is_root: bool,
     global_class: Option<&TokenTree>,
@@ -424,6 +435,9 @@ fn element_to_tokens_ssr(
         let is_script_or_style = tag_name == "script" || tag_name == "style";
         template.push('<');
         template.push_str(&tag_name);
+
+        #[cfg(debug_assertions)]
+        stmts_for_ide.save_element_completion(node);
 
         let mut inner_html = None;
 
@@ -486,6 +500,7 @@ fn element_to_tokens_ssr(
                                 template,
                                 holes,
                                 chunks,
+                                stmts_for_ide,
                                 exprs_for_compiler,
                                 false,
                                 global_class,
@@ -992,9 +1007,14 @@ fn element_to_tokens(
         }
     } else {
         let tag = name.to_string();
+        // collect close_tag name to emit semantic information for IDE.
+        let mut ide_helper_close_tag = IdeTagHelper::new();
+        let close_tag = node.close_tag.as_ref().map(|c| &c.name);
         let name = if is_custom_element(&tag) {
             let name = node.name().to_string();
-            quote! { leptos::leptos_dom::html::custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
+            // link custom ident to name span for IDE docs
+            let custom = Ident::new("custom", name.span());
+            quote! { leptos::leptos_dom::html::#custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
             parent_type = TagType::Svg;
             quote! { leptos::leptos_dom::svg::#name(#cx) }
@@ -1023,6 +1043,11 @@ fn element_to_tokens(
             parent_type = TagType::Html;
             quote! { leptos::leptos_dom::html::#name(#cx) }
         };
+
+        if let Some(close_tag) = close_tag {
+            ide_helper_close_tag.save_tag_completion(close_tag)
+        }
+
         let attrs = node.attributes().iter().filter_map(|node| {
             if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
@@ -1141,7 +1166,10 @@ fn element_to_tokens(
         } else {
             quote! {}
         };
+        let ide_helper_close_tag = ide_helper_close_tag.into_iter();
         Some(quote! {
+            {
+            #(#ide_helper_close_tag)*
             #name
                 #(#attrs)*
                 #(#class_attrs)*
@@ -1149,6 +1177,7 @@ fn element_to_tokens(
                 #global_class_expr
                 #(#children)*
                 #view_marker
+            }
         })
     }
 }
@@ -1382,7 +1411,10 @@ pub(crate) fn slot_to_tokens(
 
     let props = attrs
         .clone()
-        .filter(|attr| !attr.key.to_string().starts_with("clone:"))
+        .filter(|attr| {
+            !attr.key.to_string().starts_with("bind:")
+                && !attr.key.to_string().starts_with("clone:")
+        })
         .map(|attr| {
             let name = &attr.key;
 
@@ -1397,6 +1429,16 @@ pub(crate) fn slot_to_tokens(
                 .#name(#[allow(unused_braces)] #value)
             }
         });
+
+    let items_to_bind = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("bind:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
 
     let items_to_clone = attrs
         .clone()
@@ -1433,16 +1475,29 @@ pub(crate) fn slot_to_tokens(
         );
 
         if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
+
             let clonables = items_to_clone
                 .iter()
                 .map(|ident| quote! { let #ident = #ident.clone(); });
 
-            quote! {
-                .children({
-                    #(#clonables)*
+            if bindables.len() > 0 {
+                quote! {
+                    .children({
+                        #(#clonables)*
 
-                    Box::new(move |#cx| #children #view_marker)
-                })
+                        move |#cx, #(#bindables)*| #children #view_marker
+                    })
+                }
+            } else {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        Box::new(move |#cx| #children #view_marker)
+                    })
+                }
             }
         } else {
             quote! {}
@@ -1498,7 +1553,8 @@ pub(crate) fn component_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("clone:")
+            !attr.key.to_string().starts_with("bind:")
+                && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
         })
         .map(|attr| {
@@ -1515,6 +1571,16 @@ pub(crate) fn component_to_tokens(
                 .#name(#[allow(unused_braces)] #value)
             }
         });
+
+    let items_to_bind = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("bind:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
 
     let items_to_clone = attrs
         .clone()
@@ -1562,16 +1628,29 @@ pub(crate) fn component_to_tokens(
         );
 
         if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
+
             let clonables = items_to_clone
                 .iter()
                 .map(|ident| quote! { let #ident = #ident.clone(); });
 
-            quote! {
-                .children({
-                    #(#clonables)*
+            if bindables.len() > 0 {
+                quote! {
+                    .children({
+                        #(#clonables)*
 
-                    Box::new(move |#cx| #children #view_marker)
-                })
+                        move |#cx, #(#bindables)*| #children #view_marker
+                    })
+                }
+            } else {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        Box::new(move |#cx| #children #view_marker)
+                    })
+                }
             }
         } else {
             quote! {}
@@ -1592,8 +1671,9 @@ pub(crate) fn component_to_tokens(
         }
     });
 
-    let component = quote! {
-        #name(
+    let mut component = quote! {
+        ::leptos::component_view(
+            &#name,
             #cx,
             ::leptos::component_props_builder(&#name)
                 #(#props)*
@@ -1602,6 +1682,9 @@ pub(crate) fn component_to_tokens(
                 .build()
         )
     };
+
+    #[cfg(debug_assertions)]
+    IdeTagHelper::add_component_completion(&mut component, node);
 
     if events.is_empty() {
         component
@@ -1968,4 +2051,138 @@ fn fancy_style_name<'a>(
         }
     }
     None
+}
+
+/// Helper type to emit semantic info about tags, for IDE.
+/// Implement `IntoIterator` with `Item="let _ = foo::docs;"`.
+///
+/// `IdeTagHelper` uses warning instead of errors everywhere,
+/// it's aim is to add usability, not introduce additional typecheck in `view`/`template` code.
+/// On stable `emit_warning` don't produce anything.
+pub(crate) struct IdeTagHelper(Vec<TokenStream>);
+
+// TODO: Unhandled cases:
+// - svg::div, my_elements::foo - tags with custom paths, that doesnt look like component
+// - my_component::Foo - components with custom paths
+// - html:div - tags punctuated by `:`
+// - {div}, {"div"} - any rust expression
+impl IdeTagHelper {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+    /// Save stmts for tag name.
+    /// Emit warning if tag is component.
+    pub fn save_tag_completion(&mut self, name: &NodeName) {
+        let tag_name = name.to_string();
+        if is_component_tag_name(&tag_name) {
+            proc_macro_error::emit_warning!(
+                name.span(),
+                "BUG: Component tag is used in regular tag completion."
+            );
+        }
+        for path in Self::completion_stmts(name) {
+            self.0.push(quote! {
+                    let _ = #path;
+            });
+        }
+    }
+
+    /// Save stmts for open and close tags.
+    /// Emit warning if tag is component.
+    pub fn save_element_completion(&mut self, node: &NodeElement) {
+        self.save_tag_completion(node.name());
+        if let Some(close_tag) = node.close_tag.as_ref().map(|c| &c.name) {
+            self.save_tag_completion(close_tag)
+        }
+    }
+
+    /// Add completion to the closing tag of the component.
+    ///
+    /// In order to ensure that generics are passed through correctly in the
+    /// current builder pattern, this clones the whole component constructor,
+    /// but it will never be used.
+    ///
+    /// ```no_build
+    /// if false {
+    ///     close_tag(cx, unreachable!())
+    /// }
+    /// else {
+    ///     open_tag(open_tag.props().slots().children().build())
+    /// }
+    /// ```
+    pub fn add_component_completion(
+        component: &mut TokenStream,
+        node: &NodeElement,
+    ) {
+        // emit ide helper info
+        if node.close_tag.is_some() {
+            let constructor = component.clone();
+            *component = quote! {
+                if false {
+                    #[allow(unreachable_code)]
+                    #constructor
+                } else {
+                    #component
+                }
+            }
+        }
+    }
+
+    /// Returns `syn::Path`-like `TokenStream` to the fn in docs.
+    /// If tag name is `Component` returns `None`.
+    fn create_regular_tag_fn_path(name: &Ident) -> TokenStream {
+        let tag_name = name.to_string();
+        let namespace = if crate::view::is_svg_element(&tag_name) {
+            quote! { leptos::leptos_dom::svg }
+        } else if crate::view::is_math_ml_element(&tag_name) {
+            quote! { leptos::leptos_dom::math }
+        } else {
+            // todo: check is html, and emit_warning in case of custom tag
+            quote! { leptos::leptos_dom::html }
+        };
+        quote!( #namespace::#name)
+    }
+
+    /// Returns `syn::Path`-like `TokenStream` to the `custom` section in docs.
+    fn create_custom_tag_fn_path(span: Span) -> TokenStream {
+        let custom_ident = Ident::new("custom", span);
+        quote! {leptos::leptos_dom::html::#custom_ident::<leptos::leptos_dom::html::Custom>}
+    }
+
+    // Extract from NodeName completion idents.
+    // Custom tags (like foo-bar-baz) is mapped
+    // to vec!["custom", "custom",.. ] for each token in tag, even for "-".
+    // Only last ident from `Path` is used.
+    fn completion_stmts(name: &NodeName) -> Vec<TokenStream> {
+        match name {
+            NodeName::Block(_) => vec![],
+            NodeName::Punctuated(c) => c
+                .pairs()
+                .flat_map(|c| {
+                    let mut idents =
+                        vec![Self::create_custom_tag_fn_path(c.value().span())];
+                    if let Some(p) = c.punct() {
+                        idents.push(Self::create_custom_tag_fn_path(p.span()))
+                    }
+                    idents
+                })
+                .collect(),
+            NodeName::Path(e) => e
+                .path
+                .segments
+                .last()
+                .map(|p| &p.ident)
+                .map(Self::create_regular_tag_fn_path)
+                .into_iter()
+                .collect(),
+        }
+    }
+}
+
+impl IntoIterator for IdeTagHelper {
+    type Item = TokenStream;
+    type IntoIter = <Vec<TokenStream> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
 }

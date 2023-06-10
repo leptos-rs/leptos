@@ -600,6 +600,7 @@ where
             let res_options3 = default_res_options.clone();
             let local_pool = get_leptos_pool();
             let (tx, rx) = futures::channel::mpsc::channel(8);
+            let (runtime_tx, runtime_rx) = futures::channel::oneshot::channel();
 
             let current_span = tracing::Span::current();
             local_pool.spawn_pinned(move || async move {
@@ -624,9 +625,17 @@ where
                         replace_blocks
                     );
 
+                    runtime_tx.send(runtime).expect("should be able to send runtime");
+
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
             }.instrument(current_span));
-            async move { generate_response(res_options3, rx).await }
+
+            async move {
+                let runtime = runtime_rx
+                    .await
+                    .expect("runtime should be sent by renderer");
+                generate_response(res_options3, rx, runtime).await
+            }
         })
     }
 }
@@ -635,6 +644,7 @@ where
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
+    runtime: RuntimeId,
 ) -> Response<StreamBody<PinnedHtmlStream>> {
     let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
@@ -647,7 +657,11 @@ async fn generate_response(
 
     let complete_stream =
         futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-            .chain(stream);
+            .chain(stream)
+            .chain(futures::stream::once(async move {
+                runtime.dispose();
+                Ok(Default::default())
+            }));
 
     let mut res = Response::new(StreamBody::new(
         Box::pin(complete_stream) as PinnedHtmlStream
@@ -671,11 +685,14 @@ async fn forward_stream(
     mut tx: Sender<String>,
 ) {
     let cx = Scope { runtime, id: scope };
+    let mut shell = Box::pin(bundle);
+    let first_app_chunk = shell.next().await.unwrap_or_default();
+
     let (head, tail) =
         html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
 
     _ = tx.send(head).await;
-    let mut shell = Box::pin(bundle);
+    _ = tx.send(first_app_chunk).await;
     while let Some(fragment) = shell.next().await {
         _ = tx.send(fragment).await;
     }
@@ -688,8 +705,6 @@ async fn forward_stream(
 
     let mut writable = res_options2.0.write();
     *writable = new_res_parts;
-
-    runtime.dispose();
 
     tx.close_channel();
 }
@@ -758,6 +773,8 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
+                let (runtime_tx, runtime_rx) =
+                    futures::channel::oneshot::channel();
                 let local_pool = get_leptos_pool();
                 let current_span = tracing::Span::current();
                 local_pool.spawn_pinned(|| async move {
@@ -777,10 +794,15 @@ where
                             add_context,
                         );
 
+                    runtime_tx.send(runtime).expect("should be able to send runtime");
+
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
                 }.instrument(current_span));
 
-                generate_response(res_options3, rx).await
+                let runtime = runtime_rx
+                    .await
+                    .expect("runtime should be sent by renderer");
+                generate_response(res_options3, rx, runtime).await
             }
         })
     }

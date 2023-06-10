@@ -10,7 +10,6 @@ cfg_if! { if #[cfg(feature = "ssr")] {
     use axum::response::Response as AxumResponse;
     use tower::ServiceExt;
     use tower_http::services::ServeDir;
-    use std::sync::Arc;
     use leptos::{LeptosOptions, view};
     use crate::app::App;
 

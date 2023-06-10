@@ -36,6 +36,5 @@ pub fn TestComponent(
     and_another: usize,
 ) -> impl IntoView {
     _ = (key, another, and_another);
-    todo!()
 }
 
