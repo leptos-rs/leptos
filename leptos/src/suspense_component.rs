@@ -1,11 +1,6 @@
-use cfg_if::cfg_if;
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
-#[cfg(any(feature = "csr", feature = "hydrate"))]
-use leptos_reactive::ScopeDisposer;
 use leptos_reactive::{provide_context, Scope, SuspenseContext};
-#[cfg(any(feature = "csr", feature = "hydrate"))]
-use std::cell::RefCell;
 use std::rc::Rc;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
@@ -68,87 +63,95 @@ where
     E: IntoView,
     V: IntoView + 'static,
 {
+    let orig_children = Rc::new(children);
     let context = SuspenseContext::new(cx);
 
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    let orig_child = Rc::new(children);
-
     let current_id = HydrationCtx::next_component();
-    #[cfg(any(feature = "csr", feature = "hydrate"))]
-    let prev_disposer = Rc::new(RefCell::new(None::<ScopeDisposer>));
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         let current_id = current_id.clone();
+
+        let children = Rc::new(orig_children(cx).into_view(cx));
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        let orig_children = Rc::clone(&orig_children);
         move || {
-            cfg_if! {
-                if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                    if let Some(disposer) = prev_disposer.take() {
-                        disposer.dispose();
-                    }
-                    let (view, disposer) =
-                        cx.run_child_scope(|cx| if context.ready() {
-                        orig_child(cx).into_view(cx)
-                    } else {
-                        fallback().into_view(cx)
-                    });
-                    *prev_disposer.borrow_mut() = Some(disposer);
-                    view
-
+            #[cfg(any(feature = "csr", feature = "hydrate"))]
+            {
+                if context.ready() {
+                    (*children).clone()
                 } else {
-                    use leptos_reactive::signal_prelude::*;
-
-                    // run the child; we'll probably throw this away, but it will register resource reads
-                    let _child = orig_child(cx).into_view(cx);
-                    let after_original_child = HydrationCtx::peek();
-
-                    let initial = {
-                        // no resources were read under this, so just return the child
-                        if context.pending_resources.get() == 0 {
-                            let orig_child = Rc::clone(&orig_child);
-                            HydrationCtx::continue_from(current_id.clone());
-                            DynChild::new(move || orig_child(cx)).into_view(cx)
-                        }
-                        // show the fallback, but also prepare to stream HTML
-                        else {
-                            let orig_child = Rc::clone(&orig_child);
-                            HydrationCtx::continue_from(current_id);
-
-                            cx.register_suspense(
-                                context,
-                                &current_id.to_string(),
-                                // out-of-order streaming
-                                {
-                                    let orig_child = Rc::clone(&orig_child);
-                                    move || {
-                                        HydrationCtx::continue_from(current_id.clone());
-                                        DynChild::new(move || orig_child(cx))
-                                        .into_view(cx)
-                                        .render_to_string(cx)
-                                        .to_string()
-                                    }
-                                },
-                                // in-order streaming
-                                {
-                                    move || {
-                                        HydrationCtx::continue_from(current_id.clone());
-                                        DynChild::new(move || orig_child(cx))
-                                        .into_view(cx)
-                                        .into_stream_chunks(cx)
-                                    }
-                                },
-                            );
-
-                            // return the fallback for now, wrapped in fragment identifier
-                            fallback().into_view(cx)
-                        }
-                    };
-
-                    HydrationCtx::continue_from(after_original_child);
-                    initial
+                    fallback().into_view(cx)
                 }
+            }
+            #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+            {
+                use leptos_reactive::signal_prelude::*;
+
+                // run the child; we'll probably throw this away, but it will register resource reads
+                //let after_original_child = HydrationCtx::peek();
+
+                let initial = {
+                    // no resources were read under this, so just return the child
+                    if context.pending_resources.get() == 0 {
+                        HydrationCtx::continue_from(current_id.clone());
+                        DynChild::new({
+                            let children = Rc::clone(&children);
+                            move || (*children).clone()
+                        })
+                        .into_view(cx)
+                    }
+                    // show the fallback, but also prepare to stream HTML
+                    else {
+                        HydrationCtx::continue_from(current_id);
+
+                        cx.register_suspense(
+                            context,
+                            &current_id.to_string(),
+                            // out-of-order streaming
+                            {
+                                let orig_children = Rc::clone(&orig_children);
+                                move || {
+                                    HydrationCtx::continue_from(
+                                        current_id.clone(),
+                                    );
+                                    DynChild::new({
+                                        let orig_children =
+                                            orig_children(cx).into_view(cx);
+                                        move || orig_children.clone()
+                                    })
+                                    .into_view(cx)
+                                    .render_to_string(cx)
+                                    .to_string()
+                                }
+                            },
+                            // in-order streaming
+                            {
+                                let orig_children = Rc::clone(&orig_children);
+                                move || {
+                                    HydrationCtx::continue_from(
+                                        current_id.clone(),
+                                    );
+                                    DynChild::new({
+                                        let orig_children =
+                                            orig_children(cx).into_view(cx);
+                                        move || orig_children.clone()
+                                    })
+                                    .into_view(cx)
+                                    .into_stream_chunks(cx)
+                                }
+                            },
+                        );
+
+                        // return the fallback for now, wrapped in fragment identifier
+                        fallback().into_view(cx)
+                    }
+                };
+
+                initial
             }
         }
     })
