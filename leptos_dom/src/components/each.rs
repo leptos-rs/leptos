@@ -385,7 +385,10 @@ where
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 let opening = if let Some(Some(child)) = children_borrow.get(0)
                 {
-                    child.get_opening_node()
+                    // correctly remove opening <!--<EachItem/>-->
+                    use crate::components::dyn_child::NonViewMarkerSibling;
+                    let child_opening = child.get_opening_node();
+                    child.get_opening_node().previous_non_view_marker_sibling().unwrap_or(child_opening)
                 } else {
                     closing.clone()
                 };
@@ -507,7 +510,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     }
 
     // Get removed items
-    let mut removed = from.difference(to);
+    let removed = from.difference(to);
 
     let remove_cmds = removed
         .clone()
@@ -515,7 +518,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
         .map(|idx| DiffOpRemove { at: idx });
 
     // Get added items
-    let mut added = to.difference(from);
+    let added = to.difference(from);
 
     let add_cmds =
         added
@@ -567,8 +570,6 @@ fn find_ranges<K: Eq + Hash>(
     from: &FxIndexSet<K>,
     to: &FxIndexSet<K>,
 ) -> Vec<DiffOpMove> {
-    use drain_filter_polyfill::VecExt;
-
     let mut ranges = Vec::with_capacity(from.len());
     let mut prev_to_moved_index = 0;
     let mut range = DiffOpMove::default();
@@ -593,8 +594,6 @@ fn find_ranges<K: Eq + Hash>(
         }
 
         prev_to_moved_index = to_moved_index;
-
-        &range;
     }
 
     ranges.push(std::mem::take(&mut range));
@@ -619,11 +618,11 @@ fn find_ranges<K: Eq + Hash>(
                 ..range
             });
         }
-        // TODO: Remove this else case...this is one of the biggest
-        // optimizations we can do, but we're skipping this right now
-        // until we figure out a way to handle moving around ranges
-        // that did not move
         else if to_ranges_len > 2 {
+            // TODO: Remove this else case...this is one of the biggest
+            // optimizations we can do, but we're skipping this right now
+            // until we figure out a way to handle moving around ranges
+            // that did not move
             filtered_ranges.push(range);
         }
     }
