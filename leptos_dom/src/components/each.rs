@@ -887,7 +887,9 @@ fn apply_diff<T, EF, V>(
     }
 
     for DiffOpAdd { at, mode } in add_cmds {
-        let view = each_fn(cx, items[at].take().unwrap()).into_view(cx);
+        let (view, _) = cx.run_child_scope(|cx| {
+            each_fn(cx, items[at].take().unwrap()).into_view(cx)
+        });
 
         let each_item = EachItem::new(cx, view);
 
