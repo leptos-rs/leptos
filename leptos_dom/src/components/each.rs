@@ -386,9 +386,18 @@ where
                 let opening = if let Some(Some(child)) = children_borrow.get(0)
                 {
                     // correctly remove opening <!--<EachItem/>-->
-                    use crate::components::dyn_child::NonViewMarkerSibling;
                     let child_opening = child.get_opening_node();
-                    child.get_opening_node().previous_non_view_marker_sibling().unwrap_or(child_opening)
+                    #[cfg(debug_assertions)]
+                    {
+                        use crate::components::dyn_child::NonViewMarkerSibling;
+                        child_opening
+                            .previous_non_view_marker_sibling()
+                            .unwrap_or(child_opening)
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        child_opening
+                    }
                 } else {
                     closing.clone()
                 };
@@ -617,8 +626,7 @@ fn find_ranges<K: Eq + Hash>(
                 move_in_dom: false,
                 ..range
             });
-        }
-        else if to_ranges_len > 2 {
+        } else if to_ranges_len > 2 {
             // TODO: Remove this else case...this is one of the biggest
             // optimizations we can do, but we're skipping this right now
             // until we figure out a way to handle moving around ranges
