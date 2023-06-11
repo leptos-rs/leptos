@@ -788,8 +788,6 @@ fn apply_diff<T, EF, V>(
     EF: Fn(Scope, T) -> V,
     V: IntoView,
 {
-    debug!("{diff:#?}");
-
     let range = RANGE.with(|range| (*range).clone());
 
     // The order of cmds needs to be:
@@ -841,8 +839,6 @@ fn apply_diff<T, EF, V>(
 
     let (move_cmds, add_cmds) = unpack_moves(&diff);
 
-    debug!("\n{move_cmds:#?}\n{add_cmds:#?}");
-
     let mut moved_children = move_cmds
         .iter()
         .map(|move_| {
@@ -873,13 +869,6 @@ fn apply_diff<T, EF, V>(
 
         let sibling_node =
             children.get_next_closest_mounted_sibling(to, closing.to_owned());
-
-        debug!(
-            "\nto: {to:#?}\n{}",
-            sibling_node
-                .unchecked_ref::<web_sys::HtmlElement>()
-                .outer_html()
-        );
 
         mount_child(MountKind::Before(&sibling_node), &each_item);
 
