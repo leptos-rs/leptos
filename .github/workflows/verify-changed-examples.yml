@@ -20,22 +20,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changed files
+      - name: Get all example files that changed
         id: changed-files
         uses: tj-actions/changed-files@v36
         with:
           files: |
             examples
-            !examples/cargo-make
-            !examples/gtk
-          json: true
-          quotepath: false
 
-      - name: List changed files
+      - name: List all example files that changed
         run: echo '${{ steps.changed-files.outputs.all_changed_files }}'
 
-      - name: Get changed examples
-        id: changed-files
+      - name: Get example project directories that changed
+        id: changed-dirs
         uses: tj-actions/changed-files@v36
         with:
           dir_names: true
@@ -47,15 +43,17 @@ jobs:
           json: true
           quotepath: false
 
-      - name: List changed directories
+      - name: List example project directories that changed
         run: echo '${{ steps.changed-dirs.outputs.all_changed_files }}'
 
       - name: Set Matrix
         id: set-matrix
         run: |
           if [ ${{ steps.changed-dirs.outputs.any_changed }} == 'true' ]; then
+            # Create matrix with changed directories
             echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
           else
+            # Create matrix with one item to prevent an empty vector error
             echo "matrix={\"directory\":[\"INTERNAL\"]}" >> "$GITHUB_OUTPUT"
           fi
 

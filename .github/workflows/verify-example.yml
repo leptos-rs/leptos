@@ -78,7 +78,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       # Verify project
-      - name: Run verify-flow from ${{ inputs.project_dir }}
+      - name: Verify
         run: |
           if [ "${{ inputs.project_dir }}" = "INTERNAL" ]; then
             echo No verification required
