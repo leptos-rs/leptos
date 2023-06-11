@@ -17,7 +17,7 @@ mod web {
     pub use wasm_bindgen::JsCast;
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 type FxIndexSet<T> =
     indexmap::IndexSet<T, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
@@ -495,7 +495,7 @@ where
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
 /// Calculates the operations need to get from `a` to `b`.
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     if from.is_empty() && to.is_empty() {
         return Diff::default();
@@ -572,7 +572,7 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
 
 /// Builds and returns the ranges of items that need to
 /// move sorted by `to`.
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn find_ranges<K: Eq + Hash>(
     from_moved: FxIndexSet<&K>,
     to_moved: FxIndexSet<&K>,
@@ -638,7 +638,7 @@ fn find_ranges<K: Eq + Hash>(
     filtered_ranges
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn apply_opts<K: Eq + Hash>(
     from: &FxIndexSet<K>,
     to: &FxIndexSet<K>,
@@ -673,7 +673,7 @@ fn apply_opts<K: Eq + Hash>(
     }
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
     if moves.is_empty() || moves.len() == 1 {
         // Do nothing
@@ -717,7 +717,7 @@ fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
     }
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Diff {
     removed: Vec<DiffOpRemove>,
@@ -727,7 +727,7 @@ struct Diff {
     clear: bool,
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct DiffOpMove {
     /// The index this range is starting relative to `from`.
@@ -741,7 +741,7 @@ struct DiffOpMove {
     move_in_dom: bool,
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Default for DiffOpMove {
     fn default() -> Self {
         Self {
@@ -753,20 +753,20 @@ impl Default for DiffOpMove {
     }
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct DiffOpAdd {
     at: usize,
     mode: DiffOpAddMode,
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug, PartialEq, Eq)]
 struct DiffOpRemove {
     at: usize,
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DiffOpAddMode {
     Normal,
@@ -775,7 +775,7 @@ enum DiffOpAddMode {
     _Prepend,
 }
 
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Default for DiffOpAddMode {
     fn default() -> Self {
         Self::Normal
@@ -911,7 +911,7 @@ fn apply_diff<T, EF, V>(
 /// Unpacks adds and moves into a sequence of interleaved
 /// add and move commands. Move commands will always return
 /// with a `len == 1` and `is_dense = true`.
-#[cfg(any(test, all(target_arch = "wasm32", feature = "web")))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     let mut moves = Vec::with_capacity(diff.items_to_move);
     let mut adds = Vec::with_capacity(diff.added.len());
