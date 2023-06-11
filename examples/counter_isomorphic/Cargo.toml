@@ -27,7 +27,7 @@ leptos_meta = { path = "../../meta", default-features = false }
 leptos_router = { path = "../../router", default-features = false }
 log = "0.4"
 gloo-net = { git = "https://github.com/rustwasm/gloo" }
-wasm-bindgen = "0.2"
+wasm-bindgen = "=0.2.86"
 serde = { version = "1", features = ["derive"] }
 
 [features]

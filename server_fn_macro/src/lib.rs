@@ -69,6 +69,7 @@ fn fn_arg_is_cx(f: &syn::FnArg, server_context: &ServerContext) -> bool {
 pub fn server_macro_impl(
     args: TokenStream2,
     body: TokenStream2,
+    trait_obj_wrapper: Type,
     server_context: Option<ServerContext>,
     server_fn_path: Option<Path>,
 ) -> Result<TokenStream2> {
@@ -219,38 +220,60 @@ pub fn server_macro_impl(
     Ok(quote::quote! {
         #args_docs
         #docs
-        #[derive(Clone, Debug, ::serde::Serialize, ::serde::Deserialize)]
+        #[derive(Clone, Debug, #server_fn_path::serde::Serialize, #server_fn_path::serde::Deserialize)]
         pub struct #struct_name {
             #(#fields),*
+        }
+
+        impl #struct_name {
+            const URL: &str = if #fn_path.is_empty() {
+                    #server_fn_path::const_format::concatcp!(
+                    #fn_name_as_str,
+                    #server_fn_path::xxhash_rust::const_xxh64::xxh64(
+                        concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(),
+                        0
+                    )
+                )
+            } else {
+                #fn_path
+            };
+            const PREFIX: &str = #prefix;
+            const ENCODING: #server_fn_path::Encoding = #encoding;
+        }
+
+        #[cfg(feature = "ssr")]
+        #server_fn_path::inventory::submit! {
+            #trait_obj_wrapper::from_generic_server_fn(#server_fn_path::ServerFnTraitObj::new(
+                #struct_name::PREFIX,
+                #struct_name::URL,
+                #struct_name::ENCODING,
+                <#struct_name as #server_fn_path::ServerFn<#server_ctx_path>>::call_from_bytes,
+            ))
         }
 
         impl #server_fn_path::ServerFn<#server_ctx_path> for #struct_name {
             type Output = #output_ty;
 
             fn prefix() -> &'static str {
-                #prefix
+                Self::PREFIX
             }
 
             fn url() -> &'static str {
-                if !#fn_path.is_empty(){
-                    #fn_path
-                } else {
-                #server_fn_path::const_format::concatcp!(#fn_name_as_str, #server_fn_path::xxhash_rust::const_xxh64::xxh64(concat!(env!(#key_env_var), ":", file!(), ":", line!(), ":", column!()).as_bytes(), 0))
-                }
+                Self::URL
             }
 
             fn encoding() -> #server_fn_path::Encoding {
-                #encoding
+                Self::ENCODING
             }
 
             #[cfg(feature = "ssr")]
-            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
+            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
                 let #struct_name { #(#field_names),* } = self;
                 Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
             }
 
             #[cfg(not(feature = "ssr"))]
-            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, server_fn::ServerFnError>>>> {
+            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
                 let #struct_name { #(#field_names_3),* } = self;
                 Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_4),*).await })
             }
@@ -266,11 +289,10 @@ pub fn server_macro_impl(
         #[cfg(not(feature = "ssr"))]
         #[allow(unused_variables)]
         #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-
             #server_fn_path::call_server_fn(
                 &{
-                    let prefix = #struct_name::prefix().to_string();
-                    prefix + "/" + #struct_name::url()
+                    let prefix = #struct_name::PREFIX.to_string();
+                    prefix + "/" + #struct_name::URL
                 },
                 #struct_name { #(#field_names_5),* },
                 #encoding

@@ -3,11 +3,6 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-#[cfg(feature = "ssr")]
-pub fn register_server_functions() {
-    _ = CauseInternalServerError::register();
-}
-
 #[server(CauseInternalServerError, "/api")]
 pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
     // fake API delay

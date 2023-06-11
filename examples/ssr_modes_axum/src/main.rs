@@ -12,8 +12,11 @@ async fn main() {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
-    let _ = GetPost::register();
-    let _ = ListPostMetadata::register();
+    // Explicit server function registration is no longer required
+    // on the main branch. On 0.3.0 and earlier, uncomment the lines
+    // below to register the server functions.
+    // _ = GetPost::register();
+    // _ = ListPostMetadata::register();
 
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
