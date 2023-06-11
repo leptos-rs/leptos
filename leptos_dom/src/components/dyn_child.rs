@@ -402,7 +402,7 @@ cfg_if! {
     if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         use web_sys::Node;
 
-        trait NonViewMarkerSibling {
+        pub(crate) trait NonViewMarkerSibling {
             fn next_non_view_marker_sibling(&self) -> Option<Node>;
 
             fn previous_non_view_marker_sibling(&self) -> Option<Node>;
