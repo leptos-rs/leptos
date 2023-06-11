@@ -80,5 +80,9 @@ jobs:
       # Verify project
       - name: Run verify-flow from ${{ inputs.project_dir }}
         run: |
-          cd ${{ inputs.project_dir }}
-          cargo make --profile=github-actions verify-flow
+          if [ "${{ inputs.project_dir }}" = "INTERNAL" ]; then
+            echo No verification required
+          else
+            cd ${{ inputs.project_dir }}
+            cargo make --profile=github-actions verify-flow
+          fi
