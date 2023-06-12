@@ -42,7 +42,7 @@ if names().is_empty() {
 }
 ```
 
-In terms of logically, this is simple enough, but it’s hiding some significant inefficiencies. Remember that `names().is_empty()` is sugar for `names.get().is_empty()`, which clones the value (it’s `names.with(|n| n.clone()).is_empty()`). This means we clone the whole `Vec<String>`, run `is_empty()`, and then immediately throw away the clone.
+In terms of logic, this is simple enough, but it’s hiding some significant inefficiencies. Remember that `names().is_empty()` is sugar for `names.get().is_empty()`, which clones the value (it’s `names.with(|n| n.clone()).is_empty()`). This means we clone the whole `Vec<String>`, run `is_empty()`, and then immediately throw away the clone.
 
 Likewise, `set_names` replaces the value with a whole new `Vec<_>`. This is fine, but we might as well just mutate the original `Vec<_>` in place.
 
