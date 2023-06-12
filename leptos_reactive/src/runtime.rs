@@ -188,7 +188,6 @@ impl Runtime {
         }
     }
 
-    #[allow(clippy::await_holding_refcell_ref)] // not using this part of ouroboros
     pub(crate) fn mark_dirty(&self, node: NodeId) {
         //crate::macros::debug_warn!("marking {node:?} dirty");
         let mut nodes = self.nodes.borrow_mut();
@@ -217,23 +216,24 @@ impl Runtime {
              * `Check` or `DirtyMarked`.
              *
              * Because `RefCell`, borrowing the iterators all at once is difficult,
-             * so a self-referential struct is used instead. ouroboros produces safe
+             * so a self-referential struct is used instead. self_cell produces safe
              * code, but it would not be recommended to use this outside of this
              * algorithm.
              */
 
-            #[ouroboros::self_referencing]
-            struct RefIter<'a> {
-                set: std::cell::Ref<'a, FxIndexSet<NodeId>>,
+            type Dependent<'a> = indexmap::set::Iter<'a, NodeId>;
 
-                // Boxes the iterator internally
-                #[borrows(set)]
-                #[covariant]
-                iter: indexmap::set::Iter<'this, NodeId>,
+            self_cell::self_cell! {
+                struct RefIter<'a> {
+                    owner: std::cell::Ref<'a, FxIndexSet<NodeId>>,
+
+                    #[not_covariant] // avoids extra codegen, harmless to mark it as such
+                    dependent: Dependent,
+                }
             }
 
-            /// Due to the limitations of ouroboros, we cannot borrow the
-            /// stack and iter simultaneously, or directly within the loop,
+            /// Due to the limitations of self-referencing, we cannot borrow the
+            /// stack and iter simultaneously within the closure or the loop,
             /// therefore this must be used to command the outside scope
             /// of what to do.
             enum IterResult<'a> {
@@ -251,7 +251,7 @@ impl Runtime {
             }
 
             while let Some(iter) = stack.last_mut() {
-                let res = iter.with_iter_mut(|iter| {
+                let res = iter.with_dependent_mut(|_, iter| {
                     let Some(mut child) = iter.next().copied() else {
                         return IterResult::Empty;
                     };
