@@ -844,7 +844,7 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ## Server Function Encodings
 ///
 /// By default, the server function call is a `POST` request that serializes the arguments as URL-encoded form data in the body
-/// of the request. But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]` 
+/// of the request. But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]`
 /// macro to specify an alternate encoding:
 ///
 /// ```rust
