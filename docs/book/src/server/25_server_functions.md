@@ -97,6 +97,14 @@ In other words, you have two choices:
 
 **But remember**: Leptos will handle all the details of this encoding and decoding for you. When you use a server function, it looks just like calling any other asynchronous function!
 
+> **Why not `PUT` or `DELETE`? Why URL/form encoding, and not JSON?**
+>
+> These are reasonable questions. Much of the web is built on REST API patterns that encourage the use of semantic HTTP methods like `DELETE` to delete an item from a database, and many devs are accustomed to sending data to APIs in the JSON format.
+> 
+> The reason we use `POST` or `GET` with URL-encoded data by default is the `<form>` support. For better or for worse, HTML forms don’t support `PUT` or `DELETE`, and they don’t support sending JSON. This means that if you use anything but a `GET` or `POST` request with URL-encoded data, it can only work once WASM has loaded. As we’ll see [in a later chapter](../progressive_enhancement), this isn’t always a great idea.
+> 
+> The CBOR encoding is suported for historical reasons; an earlier version of server functions used a URL encoding that didn’t support nested objects like structs or vectors as server function arguments, which CBOR did. But note that the CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of your app is not available.
+
 ## An Important Note on Security
 
 Server functions are a cool technology, but it’s very important to remember. **Server functions are not magic; they’re syntax sugar for defining a public API.** The _body_ of a server function is never made public; it’s just part of your server binary. But the server function is a publicly accessible API endpoint, and it’s return value is just a JSON or similar blob. You should _never_ return something sensitive from a server function.
