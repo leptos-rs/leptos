@@ -77,7 +77,7 @@
 //! of the request. But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]`
 //! macro to specify an alternate encoding:
 //!
-//! ```rust
+//! ```rust,ignore
 //! #[server(AddTodo, "/api", "Url")]
 //! #[server(AddTodo, "/api", "GetJson")]
 //! #[server(AddTodo, "/api", "Cbor")]
