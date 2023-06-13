@@ -828,7 +828,7 @@ fn apply_diff<T, EF, V>(
     }
 
     for DiffOpRemove { at } in &diff.removed {
-        let item_to_remove = std::mem::take(&mut children[*at]).unwrap();
+        let item_to_remove = children[*at].take().unwrap();
 
         item_to_remove.prepare_for_move();
     }
@@ -910,21 +910,34 @@ fn apply_diff<T, EF, V>(
 
 /// Unpacks adds and moves into a sequence of interleaved
 /// add and move commands. Move commands will always return
-/// with a `len == 1` and `is_dense = true`.
+/// with a `len == 1`.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     let mut moves = Vec::with_capacity(diff.items_to_move);
     let mut adds = Vec::with_capacity(diff.added.len());
 
+    let mut removes_iter = diff.removed.iter();
     let mut adds_iter = diff.added.iter();
     let mut moves_iter = diff.moved.iter();
 
+    let mut removes_next = removes_iter.next();
     let mut adds_next = adds_iter.next();
     let mut moves_next = moves_iter.next().copied();
 
-    for i in 0..diff.items_to_move + diff.added.len() {
+    let mut from_offset: usize = 0;
+
+    for i in 0..diff.items_to_move + diff.added.len() + diff.removed.len() {
         match (adds_next, &mut moves_next) {
             (Some(add), Some(move_)) => {
+                if let Some(DiffOpRemove { at }) = removes_next {
+                    if *at == i {
+                        from_offset += 1;
+                        removes_next = removes_iter.next();
+
+                        continue;
+                    }
+                }
+
                 if add.at == i {
                     adds.push(*add);
 
@@ -932,6 +945,7 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
                 } else {
                     let mut single_move = *move_;
                     single_move.len = 1;
+                    single_move.from -= from_offset;
 
                     moves.push(single_move);
 
@@ -950,8 +964,18 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
                 adds_next = adds_iter.next();
             }
             (None, Some(move_)) => {
+                if let Some(DiffOpRemove { at }) = removes_next {
+                    if *at == i {
+                        from_offset += 1;
+                        removes_next = removes_iter.next();
+
+                        continue;
+                    }
+                }
+
                 let mut single_move = *move_;
                 single_move.len = 1;
+                single_move.from -= from_offset;
 
                 moves.push(single_move);
 
