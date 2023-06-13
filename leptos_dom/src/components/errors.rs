@@ -111,7 +111,6 @@ where
                             use leptos_reactive::{on_cleanup, queue_microtask};
                             on_cleanup(cx, move || {
                               queue_microtask(move || {
-                                crate::log!("removing error at {id:?}");
                                 errors.update(|errors: &mut Errors| {
                                   errors.remove(&id);
                                 });
