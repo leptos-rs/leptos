@@ -74,9 +74,8 @@
 //! ## Server Function Encodings
 //!
 //! By default, the server function call is a `POST` request that serializes the arguments as URL-encoded form data in the body
-//! of the request. (This means that server functions can be called from HTML forms, which we’ll see in a future chapter.) But
-//! there are a few other methods supported. Optionally, we can provide another argument to the `#[server]` macro to
-//! specify an alternate encoding:
+//! of the request. But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]` 
+//! macro to specify an alternate encoding:
 //!
 //! ```rust
 //! #[server(AddTodo, "/api", "Url")]
