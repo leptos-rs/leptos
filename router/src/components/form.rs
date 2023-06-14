@@ -692,6 +692,6 @@ where
             web_sys::UrlSearchParams::new_with_str_sequence_sequence(form_data)
                 .unwrap_throw();
         let data = data.to_string().as_string().unwrap_or_default();
-        serde_qs::from_str::<Self>(&data)
+        serde_qs::Config::default().deserialize_str::<Self>(&data)
     }
 }
