@@ -40,6 +40,8 @@ jobs:
             examples
             !examples/cargo-make
             !examples/gtk
+            !examples/Makefile.toml
+            !examples/README.md
           json: true
           quotepath: false
 
