@@ -820,7 +820,7 @@ fn apply_diff<T, EF, V>(
             #[cfg(not(debug_assertions))]
             parent.append_with_node_1(closing).unwrap();
         } else {
-            range.set_start_before(opening).unwrap();
+            range.set_start_after(opening).unwrap();
             range.set_end_before(closing).unwrap();
 
             range.delete_contents().unwrap();
