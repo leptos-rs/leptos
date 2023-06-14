@@ -818,13 +818,15 @@ fn apply_diff<T, EF, V>(
             #[cfg(not(debug_assertions))]
             parent.append_with_node_1(closing).unwrap();
         } else {
-            range.set_start_before(opening).unwrap();
+            range.set_start_after(opening).unwrap();
             range.set_end_before(closing).unwrap();
 
             range.delete_contents().unwrap();
         }
 
-        return;
+        if diff.added.is_empty() {
+            return;
+        }
     }
 
     for DiffOpRemove { at } in &diff.removed {
@@ -838,11 +840,8 @@ fn apply_diff<T, EF, V>(
     #[allow(unstable_name_collisions)]
     children.drain_filter(|c| c.is_none());
 
-    // Resize children if needed
-    if let Some(added) = diff.added.len().checked_sub(diff.removed.len()) {
-        let target_size = children.len() + added;
-        children.resize_with(target_size, || None);
-    }
+    // Resize children
+    children.resize_with(children.len() + diff.added.len(), || None);
 
     let (move_cmds, add_cmds) = unpack_moves(&diff);
 
