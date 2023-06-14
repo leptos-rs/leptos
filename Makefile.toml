@@ -54,6 +54,7 @@ dependencies = [
 	{ name = "check", path = "examples/ssr_modes_axum" },
 	{ name = "check", path = "examples/tailwind" },
 	{ name = "check", path = "examples/tailwind_csr_trunk" },
+	{ name = "check", path = "examples/todo_app_basic" },
 	{ name = "check", path = "examples/todo_app_sqlite" },
 	{ name = "check", path = "examples/todo_app_sqlite_axum" },
 	{ name = "check", path = "examples/todo_app_sqlite_viz" },
