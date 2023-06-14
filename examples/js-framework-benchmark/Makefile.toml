@@ -3,6 +3,9 @@ extend = [
     { path = "../cargo-make/wasm-test.toml" },
 ]
 
+[tasks.pre-clippy]
+env = { CARGO_MAKE_CLIPPY_ARGS = "--target wasm32-unknown-unknown --all-targets --all-features -- -D warnings" }
+
 [tasks.build]
 command = "cargo"
 args = ["+nightly", "build-all-features"]
