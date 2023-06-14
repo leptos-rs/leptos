@@ -795,8 +795,6 @@ fn apply_diff<T, EF, V>(
     EF: Fn(Scope, T) -> V,
     V: IntoView,
 {
-    debug!("\n{diff:#?}");
-
     let range = RANGE.with(|range| (*range).clone());
 
     // The order of cmds needs to be:
@@ -846,8 +844,6 @@ fn apply_diff<T, EF, V>(
     children.resize_with(children.len() + diff.added.len(), || None);
 
     let (move_cmds, add_cmds) = unpack_moves(&diff);
-
-    debug!("\n{move_cmds:#?}\n{add_cmds:#?}");
 
     let mut moved_children = move_cmds
         .iter()
