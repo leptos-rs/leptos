@@ -1,5 +1,5 @@
-[tasks.pre-clippy]
-env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings" }
+[env]
+CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings"
 
 [tasks.check-style]
 description = "Check for style violations"
