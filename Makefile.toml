@@ -102,6 +102,7 @@ args = ["make", "test-unit-and-web"]
 
 [tasks.verify-examples]
 description = "Run all quality checks and tests for examples"
+env = { CLEAN_AFTER_VERIFY = "true" }
 cwd = "examples"
 command = "cargo"
 args = ["make", "verify-flow"]

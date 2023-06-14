@@ -1,17 +1,19 @@
-name: Verify Examples
+name: Verify Example
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_call:
+    inputs:
+      project_dir:
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
   test:
-    name: Verify examples ${{ matrix.os }} (using rustc ${{ matrix.rust }}
+    name: Verify ${{ matrix.os }} (using rustc ${{ matrix.rust }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -21,6 +23,7 @@ jobs:
           - ubuntu-latest
 
     steps:
+      # Setup environment
       - uses: actions/checkout@v3
 
       - name: Setup Rust
@@ -63,7 +66,6 @@ jobs:
 
       - name: Get pnpm store directory
         id: pnpm-cache
-        shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
@@ -75,5 +77,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Run verify-flow on all web examples
-        run: cargo make --profile=github-actions verify-examples
+      # Verify project
+      - name: Verify
+        run: |
+          if [ "${{ inputs.project_dir }}" = "INTERNAL" ]; then
+            echo No verification required
+          else
+            cd ${{ inputs.project_dir }}
+            cargo make --profile=github-actions verify-flow
+          fi

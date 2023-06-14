@@ -15,7 +15,11 @@ dependencies = ["test-flow", "test-e2e-flow"]
 [tasks.pre-verify]
 
 [tasks.post-verify]
-dependencies = ["clean-all"]
+dependencies = ["maybe-clean-all"]
+
+[tasks.maybe-clean-all]
+description = "Used to clean up locally after call to verify-examples"
+condition = { env_true = ["CLEAN_AFTER_VERIFY"] }
 
 [tasks.test-e2e-flow]
 description = "Provides pre and post hooks for test-e2e"

@@ -1,0 +1,43 @@
+name: Verify All Examples
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - v*
+
+jobs:
+  call-with-matrix:
+    name: Verify
+    strategy:
+      fail-fast: false
+      matrix:
+        project_dir: [examples/counter,
+examples/counter_isomorphic,
+examples/counters,
+examples/counters_stable,
+examples/counter_without_macros,
+examples/error_boundary,
+examples/errors_axum,
+examples/fetch,
+examples/hackernews,
+examples/hackernews_axum,
+examples/js-framework-benchmark,
+examples/leptos-tailwind-axum,
+examples/login_with_token_csr_only,
+examples/parent_child,
+examples/router,
+examples/session_auth_axum,
+examples/slots,
+examples/ssr_modes,
+examples/ssr_modes_axum,
+examples/tailwind,
+examples/tailwind_csr_trunk,
+examples/timer,
+examples/todo_app_sqlite,
+examples/todo_app_sqlite_axum,
+examples/todo_app_sqlite_viz,
+examples/todomvc]
+    uses: ./.github/workflows/verify-example.yml
+    with:
+      project_dir: ${{ matrix.project_dir }}

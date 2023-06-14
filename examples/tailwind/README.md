@@ -108,4 +108,4 @@ Many thanks to GreatGreg for putting together this guide. You can find the origi
 ## Playwright Testing
 
 - Run `cargo make setup` to install dependencies
-- Run `cargo leptos test` or `cargo leptos end-to-end` to run the tests
+- Run `cargo leptos test` or `cargo leptos end-to-end` to run the test
