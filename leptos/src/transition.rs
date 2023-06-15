@@ -1,6 +1,6 @@
 use leptos_dom::{Fragment, IntoView, View};
 use leptos_macro::component;
-use leptos_reactive::{use_context, Scope, SignalSetter, SuspenseContext};
+use leptos_reactive::{use_context, Scope, SignalSetter, SuspenseContext, SignalGet, create_isomorphic_effect};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -97,9 +97,6 @@ where
                         is_first_run(&first_run, &suspense_context);
                     first_run.set(is_first_run);
 
-                    if let Some(set_pending) = &set_pending {
-                        set_pending.set(true);
-                    }
                     if let Some(prev_children) = &*prev_child.borrow() {
                         if is_first_run {
                             fallback().into_view(cx)
@@ -132,9 +129,12 @@ where
                 }
                 child_runs.set(child_runs.get() + 1);
 
-                if let Some(set_pending) = &set_pending {
-                    set_pending.set(false);
-                }
+                let pending = suspense_context.pending_resources;
+                create_isomorphic_effect(cx, move |_| {
+                    if let Some(set_pending) = set_pending {
+                        set_pending.set(pending.get() > 0)
+                    }
+                });
                 frag
             }))
             .build(),
