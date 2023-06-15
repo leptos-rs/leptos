@@ -375,7 +375,8 @@ where
         // decode the args
         let value = match Self::encoding() {
             Encoding::Url | Encoding::GetJSON | Encoding::GetCBOR => {
-                serde_qs::from_bytes(data)
+                serde_qs::Config::new(5, false)
+                    .deserialize_bytes(data)
                     .map_err(|e| ServerFnError::Deserialization(e.to_string()))
             }
             Encoding::Cbor => ciborium::de::from_reader(data)
