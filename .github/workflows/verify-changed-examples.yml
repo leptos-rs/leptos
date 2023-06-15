@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  changed-dirs:
+  setup-matrix-job:
     name: Get Changes
     runs-on: ubuntu-latest
     outputs:
@@ -61,9 +61,9 @@ jobs:
 
   matrix-job:
     name: Verify
-    needs: [changed-dirs]
+    needs: [setup-matrix-job]
     strategy:
-      matrix: ${{ fromJSON(needs.changed-dirs.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.setup-matrix-job.outputs.matrix) }}
       fail-fast: false
     uses: ./.github/workflows/run-example-task.yml
     with:
