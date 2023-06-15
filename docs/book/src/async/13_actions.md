@@ -11,7 +11,6 @@ Actions and resources seem similar, but they represent fundamentally different t
 Say we have some `async` function we want to run.
 
 ```rust
-#[server(AddTodoRequest,"/api")]
 async fn add_todo_request(new_title: &str) -> Uuid {
     /* do some stuff on the server to add a new todo */
 }
