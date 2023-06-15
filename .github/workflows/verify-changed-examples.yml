@@ -65,6 +65,7 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.changed-dirs.outputs.matrix) }}
       fail-fast: false
-    uses: ./.github/workflows/verify-example.yml
+    uses: ./.github/workflows/run-example-task.yml
     with:
-      project_dir: ${{ matrix.directory }}
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "verify-flow"

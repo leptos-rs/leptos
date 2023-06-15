@@ -5,6 +5,9 @@ on:
   push:
     tags:
       - v*
+  pull_request:
+    branches:
+      - main
 
 jobs:
   call-with-matrix:
@@ -12,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project_dir: [examples/counter,
+        directory: [examples/counter,
 examples/counter_isomorphic,
 examples/counters,
 examples/counters_stable,
@@ -38,6 +41,7 @@ examples/todo_app_sqlite,
 examples/todo_app_sqlite_axum,
 examples/todo_app_sqlite_viz,
 examples/todomvc]
-    uses: ./.github/workflows/verify-example.yml
+    uses: ./.github/workflows/run-example-task.yml
     with:
-      project_dir: ${{ matrix.project_dir }}
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "verify-flow"
