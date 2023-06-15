@@ -795,13 +795,18 @@ fn apply_diff<T, EF, V>(
     EF: Fn(Scope, T) -> V,
     V: IntoView,
 {
+    debug!("starting children:\n{children:#?}");
+
     let range = RANGE.with(|range| (*range).clone());
 
     // The order of cmds needs to be:
     // 1. Clear
     // 2. Removals
-    // 3. Remove holes left from removals
-    // 4. Moves + Add
+    // 3. Move out
+    // 4. Resize
+    // 5. Move in
+    // 6. Additions
+    // 7. Removes holes
     if diff.clear {
         if opening.previous_sibling().is_none()
             && closing.next_sibling().is_none()
@@ -824,6 +829,8 @@ fn apply_diff<T, EF, V>(
             range.delete_contents().unwrap();
         }
 
+        children.clear();
+
         if diff.added.is_empty() {
             return;
         }
@@ -835,15 +842,10 @@ fn apply_diff<T, EF, V>(
         item_to_remove.prepare_for_move();
     }
 
-    // Now, remove the holes that might have been left from removing
-    // items
-    #[allow(unstable_name_collisions)]
-    children.drain_filter(|c| c.is_none());
-
-    // Resize children
-    children.resize_with(children.len() + diff.added.len(), || None);
-
     let (move_cmds, add_cmds) = unpack_moves(&diff);
+
+    debug!("\n{diff:#?}");
+    debug!("\n{move_cmds:#?}\n{add_cmds:#?}");
 
     let mut moved_children = move_cmds
         .iter()
@@ -857,6 +859,8 @@ fn apply_diff<T, EF, V>(
             Some(each_item)
         })
         .collect::<Vec<_>>();
+
+    children.resize_with(children.len() + diff.added.len(), || None);
 
     for (i, DiffOpMove { to, .. }) in move_cmds
         .iter()
@@ -905,6 +909,11 @@ fn apply_diff<T, EF, V>(
 
         children[at] = Some(each_item);
     }
+
+    debug!("ending children:\n{children:#?}");
+
+    #[allow(unstable_name_collisions)]
+    children.drain_filter(|c| c.is_none());
 }
 
 /// Unpacks adds and moves into a sequence of interleaved
@@ -923,20 +932,17 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     let mut adds_next = adds_iter.next();
     let mut moves_next = moves_iter.next().copied();
 
-    let mut from_offset: usize = 0;
-
     for i in 0..diff.items_to_move + diff.added.len() + diff.removed.len() {
+        if let Some(DiffOpRemove { at, .. }) = removes_next {
+            if i == *at {
+                removes_next = removes_iter.next();
+
+                continue;
+            }
+        }
+
         match (adds_next, &mut moves_next) {
             (Some(add), Some(move_)) => {
-                if let Some(DiffOpRemove { at }) = removes_next {
-                    if *at == i {
-                        from_offset += 1;
-                        removes_next = removes_iter.next();
-
-                        continue;
-                    }
-                }
-
                 if add.at == i {
                     adds.push(*add);
 
@@ -944,7 +950,6 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
                 } else {
                     let mut single_move = *move_;
                     single_move.len = 1;
-                    single_move.from -= from_offset;
 
                     moves.push(single_move);
 
@@ -963,18 +968,8 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
                 adds_next = adds_iter.next();
             }
             (None, Some(move_)) => {
-                if let Some(DiffOpRemove { at }) = removes_next {
-                    if *at == i {
-                        from_offset += 1;
-                        removes_next = removes_iter.next();
-
-                        continue;
-                    }
-                }
-
                 let mut single_move = *move_;
                 single_move.len = 1;
-                single_move.from -= from_offset;
 
                 moves.push(single_move);
 
