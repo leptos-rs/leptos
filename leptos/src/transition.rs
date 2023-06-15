@@ -1,6 +1,9 @@
 use leptos_dom::{Fragment, IntoView, View};
 use leptos_macro::component;
-use leptos_reactive::{use_context, Scope, SignalSetter, SuspenseContext, SignalGet, create_isomorphic_effect};
+use leptos_reactive::{
+    create_isomorphic_effect, use_context, Scope, SignalGet, SignalSetter,
+    SuspenseContext,
+};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
