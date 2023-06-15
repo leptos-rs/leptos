@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  setup-matrix-job:
+  setup:
     name: Get Changes
     runs-on: ubuntu-latest
     outputs:
@@ -61,10 +61,10 @@ jobs:
 
   matrix-job:
     name: Verify
-    needs: [setup-matrix-job]
+    needs: [setup]
     strategy:
-      matrix: ${{ fromJSON(needs.setup-matrix-job.outputs.matrix) }}
-      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+      fail-fast: true
     uses: ./.github/workflows/run-example-task.yml
     with:
       directory: ${{ matrix.directory }}
