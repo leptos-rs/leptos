@@ -28,7 +28,7 @@
 //! ## Example
 //!
 //! ```rust
-//! 
+//!
 //! use leptos::*;
 //! use leptos_router::*;
 //!
