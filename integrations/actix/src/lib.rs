@@ -1105,19 +1105,19 @@ where
 pub trait Extractor<T> {
     type Future;
 
-    fn call(&self, args: T) -> Self::Future;
+    fn call(self, args: T) -> Self::Future;
 }
 macro_rules! factory_tuple ({ $($param:ident)* } => {
     impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
     where
-        Func: Fn($($param),*) -> Fut + Clone + 'static,
+        Func: FnOnce($($param),*) -> Fut + Clone + 'static,
         Fut: Future,
     {
         type Future = Fut;
 
         #[inline]
         #[allow(non_snake_case)]
-        fn call(&self, ($($param,)*): ($($param,)*)) -> Self::Future {
+        fn call(self, ($($param,)*): ($($param,)*)) -> Self::Future {
             (self)($($param,)*)
         }
     }

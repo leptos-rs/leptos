@@ -1337,19 +1337,19 @@ pub trait Extractor<T, U>
 where
     T: FromRequestParts<()>,
 {
-    fn call(&self, args: T) -> Pin<Box<dyn Future<Output = U>>>;
+    fn call(self, args: T) -> Pin<Box<dyn Future<Output = U>>>;
 }
 
 macro_rules! factory_tuple ({ $($param:ident)* } => {
     impl<Func, Fut, U, $($param,)*> Extractor<($($param,)*), U> for Func
     where
         $($param: FromRequestParts<()> + Send,)*
-        Func: Fn($($param),*) -> Fut + 'static,
+        Func: FnOnce($($param),*) -> Fut + 'static,
         Fut: Future<Output = U> + 'static,
     {
         #[inline]
         #[allow(non_snake_case)]
-        fn call(&self, ($($param,)*): ($($param,)*)) -> Pin<Box<dyn Future<Output = U>>> {
+        fn call(self, ($($param,)*): ($($param,)*)) -> Pin<Box<dyn Future<Output = U>>> {
             Box::pin((self)($($param,)*))
         }
     }
