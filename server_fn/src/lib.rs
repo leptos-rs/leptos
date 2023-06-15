@@ -80,7 +80,7 @@
 #[doc(hidden)]
 pub use const_format;
 // used by the macro
-#[cfg(any(feature = "ssr"))]
+#[cfg(feature = "ssr")]
 #[doc(hidden)]
 pub use inventory;
 #[cfg(any(feature = "ssr", doc))]

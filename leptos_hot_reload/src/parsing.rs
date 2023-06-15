@@ -20,10 +20,9 @@ pub fn block_to_primitive_expression(block: &syn::Block) -> Option<&syn::Expr> {
         return None;
     }
     match &block.stmts[0] {
-        syn::Stmt::Expr(e, None) => return Some(e),
-        _ => {}
+        syn::Stmt::Expr(e, None) => Some(e),
+        _ => None,
     }
-    None
 }
 
 /// Converts simple literals to its string representation.

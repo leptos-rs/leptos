@@ -10,7 +10,7 @@ use rstml::node::{
     KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
 };
 use std::collections::HashMap;
-use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
+use syn::{spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprPath, Lit};
 
 #[derive(Clone, Copy)]
 enum TagType {
@@ -1964,41 +1964,39 @@ fn fancy_class_name<'a>(
     // special case for complex class names:
     // e.g., Tailwind `class=("mt-[calc(100vh_-_3rem)]", true)`
     if name == "class" {
-        if let Some(expr) = node.value() {
-            if let syn::Expr::Tuple(tuple) = expr {
-                if tuple.elems.len() == 2 {
-                    let span = node.key.span();
-                    let class = quote_spanned! {
-                        span => .class
-                    };
-                    let class_name = &tuple.elems[0];
-                    let class_name = if let Expr::Lit(ExprLit {
-                        lit: Lit::Str(s),
-                        ..
-                    }) = class_name
-                    {
-                        s.value()
-                    } else {
-                        proc_macro_error::emit_error!(
-                            class_name.span(),
-                            "class name must be a string literal"
-                        );
-                        Default::default()
-                    };
-                    let value = &tuple.elems[1];
-                    return Some((
-                        quote! {
-                            #class(#class_name, (#cx, #value))
-                        },
-                        class_name,
-                        value,
-                    ));
+        if let Some(Tuple(tuple)) = node.value() {
+            if tuple.elems.len() == 2 {
+                let span = node.key.span();
+                let class = quote_spanned! {
+                    span => .class
+                };
+                let class_name = &tuple.elems[0];
+                let class_name = if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s),
+                    ..
+                }) = class_name
+                {
+                    s.value()
                 } else {
                     proc_macro_error::emit_error!(
-                        tuple.span(),
-                        "class tuples must have two elements."
-                    )
-                }
+                        class_name.span(),
+                        "class name must be a string literal"
+                    );
+                    Default::default()
+                };
+                let value = &tuple.elems[1];
+                return Some((
+                    quote! {
+                        #class(#class_name, (#cx, #value))
+                    },
+                    class_name,
+                    value,
+                ));
+            } else {
+                proc_macro_error::emit_error!(
+                    tuple.span(),
+                    "class tuples must have two elements."
+                )
             }
         }
     }
@@ -2012,41 +2010,39 @@ fn fancy_style_name<'a>(
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex dynamic style names:
     if name == "style" {
-        if let Some(expr) = node.value() {
-            if let syn::Expr::Tuple(tuple) = expr {
-                if tuple.elems.len() == 2 {
-                    let span = node.key.span();
-                    let style = quote_spanned! {
-                        span => .style
-                    };
-                    let style_name = &tuple.elems[0];
-                    let style_name = if let Expr::Lit(ExprLit {
-                        lit: Lit::Str(s),
-                        ..
-                    }) = style_name
-                    {
-                        s.value()
-                    } else {
-                        proc_macro_error::emit_error!(
-                            style_name.span(),
-                            "style name must be a string literal"
-                        );
-                        Default::default()
-                    };
-                    let value = &tuple.elems[1];
-                    return Some((
-                        quote! {
-                            #style(#style_name, (#cx, #value))
-                        },
-                        style_name,
-                        value,
-                    ));
+        if let Some(Tuple(tuple)) = node.value() {
+            if tuple.elems.len() == 2 {
+                let span = node.key.span();
+                let style = quote_spanned! {
+                    span => .style
+                };
+                let style_name = &tuple.elems[0];
+                let style_name = if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s),
+                    ..
+                }) = style_name
+                {
+                    s.value()
                 } else {
                     proc_macro_error::emit_error!(
-                        tuple.span(),
-                        "style tuples must have two elements."
-                    )
-                }
+                        style_name.span(),
+                        "style name must be a string literal"
+                    );
+                    Default::default()
+                };
+                let value = &tuple.elems[1];
+                return Some((
+                    quote! {
+                        #style(#style_name, (#cx, #value))
+                    },
+                    style_name,
+                    value,
+                ));
+            } else {
+                proc_macro_error::emit_error!(
+                    tuple.span(),
+                    "style tuples must have two elements."
+                )
             }
         }
     }
