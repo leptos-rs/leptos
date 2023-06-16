@@ -11,7 +11,7 @@ Actions and resources seem similar, but they represent fundamentally different t
 Say we have some `async` function we want to run.
 
 ```rust
-async fn add_todo(new_title: &str) -> Uuid {
+async fn add_todo_request(new_title: &str) -> Uuid {
     /* do some stuff on the server to add a new todo */
 }
 ```
@@ -41,16 +41,16 @@ async fn add_todo(new_title: &str) -> Uuid {
 So in this case, all we need to do to create an action is
 
 ```rust
-let add_todo = create_action(cx, |input: &String| {
+let add_todo_action = create_action(cx, |input: &String| {
     let input = input.to_owned();
-    async move { add_todo(&input).await }
+    async move { add_todo_request(&input).await }
 });
 ```
 
-Rather than calling `add_todo` directly, we’ll call it with `.dispatch()`, as in
+Rather than calling `add_todo_action` directly, we’ll call it with `.dispatch()`, as in
 
 ```rust
-add_todo.dispatch("Some value".to_string());
+add_todo_action.dispatch("Some value".to_string());
 ```
 
 You can do this from an event listener, a timeout, or anywhere; because `.dispatch()` isn’t an `async` function, it can be called from a synchronous context.
@@ -58,9 +58,9 @@ You can do this from an event listener, a timeout, or anywhere; because `.dispat
 Actions provide access to a few signals that synchronize between the asynchronous action you’re calling and the synchronous reactive system:
 
 ```rust
-let submitted = add_todo.input(); // RwSignal<Option<String>>
-let pending = add_todo.pending(); // ReadSignal<bool>
-let todo_id = add_todo.value(); // RwSignal<Option<Uuid>>
+let submitted = add_todo_action.input(); // RwSignal<Option<String>>
+let pending = add_todo_action.pending(); // ReadSignal<bool>
+let todo_id = add_todo_action.value(); // RwSignal<Option<Uuid>>
 ```
 
 This makes it easy to track the current state of your request, show a loading indicator, or do “optimistic UI” based on the assumption that the submission will succeed.
@@ -73,7 +73,7 @@ view! { cx,
         on:submit=move |ev| {
             ev.prevent_default(); // don't reload the page...
             let input = input_ref.get().expect("input to exist");
-            add_todo.dispatch(input.value());
+            add_todo_action.dispatch(input.value());
         }
     >
         <label>
