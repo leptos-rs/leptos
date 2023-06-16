@@ -161,7 +161,7 @@ impl ServerFnTraitObj {
     }
 }
 
-#[cfg(any(feature = "ssr"))]
+#[cfg(feature = "ssr")]
 inventory::collect!(ServerFnTraitObj);
 
 #[allow(unused)]
