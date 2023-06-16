@@ -1,4 +1,4 @@
-name: Check examples
+name: Check Examples
 
 on:
   push:
@@ -6,41 +6,39 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-
 jobs:
-  test:
-    name: Check examples ${{ matrix.os }} (using rustc ${{ matrix.rust }})
-    runs-on: ${{ matrix.os }}
+  call-with-matrix:
+    name: Check
     strategy:
+      fail-fast: false
       matrix:
-        rust:
-          - nightly
-        os:
-          - ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rustfmt
-
-      - name: Add wasm32-unknown-unknown
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Setup cargo-make
-        uses: davidB/rust-cargo-make@v1
-
-      - name: Cargo generate-lockfile
-        run: cargo generate-lockfile
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Run cargo check on all examples
-        run: cargo make check-examples
+        directory: [examples/counter,
+examples/counter_isomorphic,
+examples/counters,
+examples/counters_stable,
+examples/counter_without_macros,
+examples/error_boundary,
+examples/errors_axum,
+examples/fetch,
+examples/hackernews,
+examples/hackernews_axum,
+examples/js-framework-benchmark,
+examples/leptos-tailwind-axum,
+examples/login_with_token_csr_only,
+examples/parent_child,
+examples/router,
+examples/session_auth_axum,
+examples/slots,
+examples/ssr_modes,
+examples/ssr_modes_axum,
+examples/tailwind,
+examples/tailwind_csr_trunk,
+examples/timer,
+examples/todo_app_sqlite,
+examples/todo_app_sqlite_axum,
+examples/todo_app_sqlite_viz,
+examples/todomvc]
+    uses: ./.github/workflows/run-example-task.yml
+    with:
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "check"

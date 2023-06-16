@@ -1,19 +1,21 @@
-name: Verify Example
+name: Run Example Task
 
 on:
   workflow_call:
     inputs:
-      project_dir:
+      directory:
         required: true
         type: string
-
+      cargo_make_task:
+        required: true
+        type: string
 env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 jobs:
   test:
-    name: Verify ${{ matrix.os }} (using rustc ${{ matrix.rust }})
+    name: Run ${{ matrix.os }} (using rustc ${{ matrix.rust }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -78,11 +80,11 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       # Verify project
-      - name: Verify
+      - name: ${{ inputs.cargo_make_task }}
         run: |
-          if [ "${{ inputs.project_dir }}" = "INTERNAL" ]; then
+          if [ "${{ inputs.directory }}" = "INTERNAL" ]; then
             echo No verification required
           else
-            cd ${{ inputs.project_dir }}
-            cargo make --profile=github-actions verify-flow
+            cd ${{ inputs.directory }}
+            cargo make --profile=github-actions ${{ inputs.cargo_make_task }}
           fi
