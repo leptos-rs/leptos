@@ -47,6 +47,12 @@ Note that if you're using this with SSR too, the same Cargo profile will be appl
 target = "x86_64-unknown-linux-gnu" # or whatever
 ```
 
+Also note that in some cases, the cfg feature `has_std` will not be set, which may cause build errors with some dependencies which check for `has_std`. You may fix any build errors due to this by adding:
+```toml
+[build]
+rustflags = ["--cfg=has_std"]
+```
+
 And you'll need to add `panic = "abort"` to `[profile.release]` in `Cargo.toml`. Note that this applies the same `build-std` and panic settings to your server binary, which may not be desirable. Some further exploration is probably needed here.
 
 5. One of the sources of binary size in WASM binaries can be `serde` serialization/deserialization code. Leptos uses `serde` by default to serialize and deserialize resources created with `create_resource`. You might try experimenting with the `miniserde` and `serde-lite` features, which allow you to use those crates for serialization and deserialization instead; each only implements a subset of `serde`’s functionality, but typically optimizes for size over speed.
