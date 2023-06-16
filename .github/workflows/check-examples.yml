@@ -39,7 +39,7 @@ jobs:
     needs: [setup]
     strategy:
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
-      fail-fast: true
+      fail-fast: false
     uses: ./.github/workflows/run-example-task.yml
     with:
       directory: ${{ matrix.directory }}
