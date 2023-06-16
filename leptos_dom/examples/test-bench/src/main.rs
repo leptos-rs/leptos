@@ -30,37 +30,42 @@ fn view_fn(cx: Scope) -> impl IntoView {
     view! { cx,
         <h2>"Passing Tests"</h2>
         <ul>
-          /* These work! */
-          <Test from=[1] to=[] />
-          <Test from=[1, 2] to=[] />
-          <Test from=[1, 2, 3] to=[] />
-          <hr/>
-          <Test from=[] to=[1] />
-          <Test from=[1, 2] to=[1] />
-          <Test from=[2, 1] to=[1] />
-          <hr/>
-          <Test from=[1, 2, 3] to=[1, 2] />
-          <Test from=[2] to=[1, 2] />
-          <Test from=[1] to=[1, 2] />
-          <Test from=[] to=[1, 2, 3] />
-          <Test from=[2] to=[1, 2, 3] />
-          <Test from=[1] to=[1, 2, 3] />
-          <Test from=[1, 3, 2] to=[1, 2, 3] />
-          <Test from=[2, 1, 3] to=[1, 2, 3] />
-          <Test from=[3] to=[1, 2, 3] />
-          <Test from=[3, 1] to=[1, 2, 3] />
-          <Test from=[3, 2, 1] to=[1, 2, 3] />
-         <hr/>
-          <Test from=[1, 4, 2, 3] to=[1, 2, 3, 4] />
-          <hr/>
-          <Test from=[1, 4, 3, 2, 5] to=[1, 2, 3, 4, 5] />
-          <Test from=[4, 5, 3, 1, 2] to=[1, 2, 3, 4, 5] />
+            <Test from=[1] to=[]/>
+            <Test from=[1, 2] to=[3, 2] then=vec![2]/>
+            <Test from=[1, 2] to=[]/>
+            <Test from=[1, 2, 3] to=[]/>
+            <hr/>
+            <Test from=[] to=[1]/>
+            <Test from=[1, 2] to=[1]/>
+            <Test from=[2, 1] to=[1]/>
+            <hr/>
+            <Test from=[1, 2, 3] to=[1, 2]/>
+            <Test from=[2] to=[1, 2]/>
+            <Test from=[1] to=[1, 2]/>
+            <Test from=[] to=[1, 2, 3]/>
+            <Test from=[2] to=[1, 2, 3]/>
+            <Test from=[1] to=[1, 2, 3]/>
+            <Test from=[1, 3, 2] to=[1, 2, 3]/>
+            <Test from=[2, 1, 3] to=[1, 2, 3]/>
+            <Test from=[3] to=[1, 2, 3]/>
+            <Test from=[3, 1] to=[1, 2, 3]/>
+            <Test from=[3, 2, 1] to=[1, 2, 3]/>
+            <hr/>
+            <Test from=[1, 4, 2, 3] to=[1, 2, 3, 4]/>
+            <hr/>
+            <Test from=[1, 4, 3, 2, 5] to=[1, 2, 3, 4, 5]/>
+            <Test from=[4, 5, 3, 1, 2] to=[1, 2, 3, 4, 5]/>
         </ul>
     }
 }
 
 #[component]
-fn Test<From, To>(cx: Scope, from: From, to: To) -> impl IntoView
+fn Test<From, To>(
+    cx: Scope,
+    from: From,
+    to: To,
+    #[prop(optional)] then: Option<Vec<usize>>,
+) -> impl IntoView
 where
     From: IntoIterator<Item = usize>,
     To: IntoIterator<Item = usize>,
@@ -71,49 +76,48 @@ where
     let (list, set_list) = create_signal(cx, from.clone());
     request_animation_frame({
         let to = to.clone();
+        let then = then.clone();
         move || {
             set_list(to);
+
+            if let Some(then) = then {
+                request_animation_frame({
+                    move || {
+                        set_list(then);
+                    }
+                });
+            }
         }
     });
 
     view! { cx,
-      <li>
-          "from: [" {move ||
-            from
-              .iter()
-              .map(ToString::to_string)
-              .intersperse(", ".to_string())
-              .collect::<String>()
-          } "]"
-          <br />
-          "to: [" {move ||
-            to
-              .iter()
-              .map(ToString::to_string)
-              .intersperse(", ".to_string())
-              .collect::<String>()
-          } "]"
-          <br />
-          "result: ["
-          <For
-              each=list
-              key=|i| *i
-              view=|cx, i| {
-                  view! { cx, <span>{i} ", "</span> }
-              }
-          /> "]"
-        /* <p>
-          "Pre | "
-          <For
-              each=list
-              key=|i| *i
-              view=|cx, i| {
-                  view! { cx, <span>{i}</span> }
-              }
-          />
-          " | Post"
-        </p> */
-      </li>
+        <li>
+            "from: [" {move || {
+                from
+                    .iter()
+                    .map(ToString::to_string)
+                    .intersperse(", ".to_string())
+                    .collect::<String>()
+            }} "]" <br/> "to: [" {
+                let then = then.clone();
+                move || {
+                    then
+                        .clone()
+                        .unwrap_or(to.iter().copied().collect())
+                        .iter()
+                        .map(ToString::to_string)
+                        .intersperse(", ".to_string())
+                        .collect::<String>()
+                }
+            } "]" <br/> "result: ["
+            <For
+                each=list
+                key=|i| *i
+                view=|cx, i| {
+                    view! { cx, <span>{i} ", "</span> }
+                }
+            /> "]"
+        </li>
     }
 }
 
