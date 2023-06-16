@@ -9,6 +9,11 @@ on:
     # Run once a day at 3:00 AM EST
     - cron: "0 8 * * *"
 
+  # Enable to test workflow
+  pull_request:
+    branches:
+      - main
+
 jobs:
   setup:
     name: Get Examples
