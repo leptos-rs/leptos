@@ -5,9 +5,9 @@ on:
   push:
     tags:
       - v*
-  pull_request:
-    branches:
-      - main
+  schedule:
+  # Run once a day at 3:00 AM EST
+  - cron: "0 8 * * *"
 
 jobs:
   call-with-matrix:
