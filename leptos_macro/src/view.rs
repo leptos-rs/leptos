@@ -427,10 +427,9 @@ fn element_to_tokens_ssr(
           {#component}.into_view(#cx)
         }));
     } else {
-        let tag_name = node
-            .name()
-            .to_string();
-        let tag_name = tag_name.trim_start_matches("svg::")
+        let tag_name = node.name().to_string();
+        let tag_name = tag_name
+            .trim_start_matches("svg::")
             .trim_start_matches("math::")
             .trim_end_matches('_');
         let is_script_or_style = tag_name == "script" || tag_name == "style";
