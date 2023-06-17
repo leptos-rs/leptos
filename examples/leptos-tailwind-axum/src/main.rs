@@ -4,13 +4,13 @@ async fn main() {
     use axum::{extract::Extension, routing::post, Router};
     use leptos::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_tailwind::{app::*, fileserv::file_and_error_handler};
     use log::info;
-    use leptos_tailwind::app::*;
-    use leptos_tailwind::fileserv::file_and_error_handler;
     use std::sync::Arc;
 
-    simple_logger::init_with_level(log::Level::Info).expect("couldn't initialize logging");
-   
+    simple_logger::init_with_level(log::Level::Info)
+        .expect("couldn't initialize logging");
+
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:
     // <https://github.com/leptos-rs/start-axum#executing-a-server-on-a-remote-machine-without-the-toolchain>
@@ -24,7 +24,11 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> })
+        .leptos_routes(
+            leptos_options.clone(),
+            routes,
+            |cx| view! { cx, <App/> },
+        )
         .fallback(file_and_error_handler)
         .layer(Extension(Arc::new(leptos_options)));
 

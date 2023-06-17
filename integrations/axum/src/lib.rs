@@ -253,11 +253,11 @@ async fn handle_server_fns_inner(
                 provide_context(cx, ResponseOptions::default());
 
                 let query: &Bytes = &query.unwrap_or("".to_string()).into();
-                let data = match &server_fn.encoding {
+                let data = match &server_fn.encoding() {
                     Encoding::Url | Encoding::Cbor => &req_parts.body,
                     Encoding::GetJSON | Encoding::GetCBOR => query,
                 };
-                let res = match (server_fn.trait_obj)(cx, data).await {
+                let res = match server_fn.call(cx, data).await {
                     Ok(serialized) => {
                         // If ResponseOptions are set, add the headers and status to the request
                         let res_options = use_context::<ResponseOptions>(cx);
@@ -336,8 +336,8 @@ async fn handle_server_fns_inner(
                     Full::from(format!(
                         "Could not find a server function at the route \
                          {fn_name}. \n\nIt's likely that you need to call \
-                         ServerFn::register() on the server function type, \
-                         somewhere in your `main` function."
+                         ServerFn::register_explicit() on the server function \
+                         type, somewhere in your `main` function."
                     )),
                 )
             }
@@ -1337,19 +1337,19 @@ pub trait Extractor<T, U>
 where
     T: FromRequestParts<()>,
 {
-    fn call(&self, args: T) -> Pin<Box<dyn Future<Output = U>>>;
+    fn call(self, args: T) -> Pin<Box<dyn Future<Output = U>>>;
 }
 
 macro_rules! factory_tuple ({ $($param:ident)* } => {
     impl<Func, Fut, U, $($param,)*> Extractor<($($param,)*), U> for Func
     where
         $($param: FromRequestParts<()> + Send,)*
-        Func: Fn($($param),*) -> Fut + 'static,
+        Func: FnOnce($($param),*) -> Fut + 'static,
         Fut: Future<Output = U> + 'static,
     {
         #[inline]
         #[allow(non_snake_case)]
-        fn call(&self, ($($param,)*): ($($param,)*)) -> Pin<Box<dyn Future<Output = U>>> {
+        fn call(self, ($($param,)*): ($($param,)*)) -> Pin<Box<dyn Future<Output = U>>> {
             Box::pin((self)($($param,)*))
         }
     }

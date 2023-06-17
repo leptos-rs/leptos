@@ -45,6 +45,8 @@ dependencies = [
 	{ name = "check", path = "examples/fetch" },
 	{ name = "check", path = "examples/hackernews" },
 	{ name = "check", path = "examples/hackernews_axum" },
+	{ name = "check", path = "examples/js-framework-benchmark" },
+	{ name = "check", path = "examples/leptos-tailwind-axum" },
 	{ name = "check", path = "examples/login_with_token_csr_only" },
 	{ name = "check", path = "examples/parent_child" },
 	{ name = "check", path = "examples/router" },
@@ -54,6 +56,7 @@ dependencies = [
 	{ name = "check", path = "examples/ssr_modes_axum" },
 	{ name = "check", path = "examples/tailwind" },
 	{ name = "check", path = "examples/tailwind_csr_trunk" },
+	{ name = "check", path = "examples/timer" },
 	{ name = "check", path = "examples/todo_app_sqlite" },
 	{ name = "check", path = "examples/todo_app_sqlite_axum" },
 	{ name = "check", path = "examples/todo_app_sqlite_viz" },
@@ -102,6 +105,7 @@ args = ["make", "test-unit-and-web"]
 
 [tasks.verify-examples]
 description = "Run all quality checks and tests for examples"
+env = { CLEAN_AFTER_VERIFY = "true" }
 cwd = "examples"
 command = "cargo"
 args = ["make", "verify-flow"]

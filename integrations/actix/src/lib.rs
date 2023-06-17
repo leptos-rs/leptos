@@ -214,11 +214,11 @@ pub fn handle_server_fns_with_context(
 
                     let query = req.query_string().as_bytes();
 
-                    let data = match &server_fn.encoding {
+                    let data = match &server_fn.encoding() {
                         Encoding::Url | Encoding::Cbor => body_ref,
                         Encoding::GetJSON | Encoding::GetCBOR => query,
                     };
-                    let res = match (server_fn.trait_obj)(cx, data).await {
+                    let res = match server_fn.call(cx, data).await {
                         Ok(serialized) => {
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
@@ -289,8 +289,8 @@ pub fn handle_server_fns_with_context(
                     HttpResponse::BadRequest().body(format!(
                         "Could not find a server function at the route {:?}. \
                          \n\nIt's likely that you need to call \
-                         ServerFn::register() on the server function type, \
-                         somewhere in your `main` function.",
+                         ServerFn::register_explicit() on the server function \
+                         type, somewhere in your `main` function.",
                         req.path()
                     ))
                 }
@@ -891,6 +891,12 @@ where
 {
     let mut routes = leptos_router::generate_route_list_inner(app_fn);
 
+    // Actix's Router doesn't follow Leptos's
+    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
+    let wildcard_re = Regex::new(r"\*.*").unwrap();
+    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
+    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
+
     // Empty strings screw with Actix pathing, they need to be "/"
     routes = routes
         .into_iter()
@@ -905,16 +911,6 @@ where
             }
             RouteListing::new(listing.path(), listing.mode(), listing.methods())
         })
-        .collect();
-
-    // Actix's Router doesn't follow Leptos's
-    // Match `*` or `*someword` to replace with replace it with "/{tail.*}
-    let wildcard_re = Regex::new(r"\*.*").unwrap();
-    // Match `:some_word` but only capture `some_word` in the groups to replace with `{some_word}`
-    let capture_re = Regex::new(r":((?:[^.,/]+)+)[^/]?").unwrap();
-
-    let mut routes = routes
-        .into_iter()
         .map(|listing| {
             let path = wildcard_re
                 .replace_all(listing.path(), "{tail:.*}")
@@ -1048,7 +1044,7 @@ where
 
 /// A helper to make it easier to use Actix extractors in server functions. This takes
 /// a handler function as its argument. The handler follows similar rules to an Actix
-/// [Handler](actix_web::Handler): it is an async function that receives arguments that  
+/// [Handler](actix_web::Handler): it is an async function that receives arguments that
 /// will be extracted from the request and returns some value.
 ///
 /// ```rust,ignore
@@ -1109,19 +1105,19 @@ where
 pub trait Extractor<T> {
     type Future;
 
-    fn call(&self, args: T) -> Self::Future;
+    fn call(self, args: T) -> Self::Future;
 }
 macro_rules! factory_tuple ({ $($param:ident)* } => {
     impl<Func, Fut, $($param,)*> Extractor<($($param,)*)> for Func
     where
-        Func: Fn($($param),*) -> Fut + Clone + 'static,
+        Func: FnOnce($($param),*) -> Fut + Clone + 'static,
         Fut: Future,
     {
         type Future = Fut;
 
         #[inline]
         #[allow(non_snake_case)]
-        fn call(&self, ($($param,)*): ($($param,)*)) -> Self::Future {
+        fn call(self, ($($param,)*): ($($param,)*)) -> Self::Future {
             (self)($($param,)*)
         }
     }

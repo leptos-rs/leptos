@@ -158,7 +158,9 @@ impl ToTokens for Model {
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
-        let (_, generics, where_clause) = body.sig.generics.split_for_impl();
+        let (impl_generics, generics, where_clause) =
+            body.sig.generics.split_for_impl();
+
         let lifetimes = body.sig.generics.lifetimes();
 
         let props_name = format_ident!("{name}Props");
@@ -235,7 +237,7 @@ impl ToTokens for Model {
 
         let into_view = if no_props {
             quote! {
-                impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
+                impl #impl_generics ::leptos::IntoView for #props_name #generics #where_clause {
                     fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
                         #name(cx).into_view(cx)
                     }
@@ -243,7 +245,7 @@ impl ToTokens for Model {
             }
         } else {
             quote! {
-                impl #generics ::leptos::IntoView for #props_name #generics #where_clause {
+                impl #impl_generics ::leptos::IntoView for #props_name #generics #where_clause {
                     fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
                         #name(cx, self).into_view(cx)
                     }
@@ -258,11 +260,11 @@ impl ToTokens for Model {
             #component_fn_prop_docs
             #[derive(::leptos::typed_builder::TypedBuilder)]
             #[builder(doc)]
-            #vis struct #props_name #generics #where_clause {
+            #vis struct #props_name #impl_generics #where_clause {
                 #prop_builder_fields
             }
 
-            impl #generics ::leptos::Props for #props_name #generics #where_clause {
+            impl #impl_generics ::leptos::Props for #props_name #generics #where_clause {
                 type Builder = #props_builder_name #generics;
                 fn builder() -> Self::Builder {
                     #props_name::builder()
@@ -275,7 +277,7 @@ impl ToTokens for Model {
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #tracing_instrument_attr
-            #vis fn #name #generics (
+            #vis fn #name #impl_generics (
                 #[allow(unused_variables)]
                 #scope_name: ::leptos::Scope,
                 #props_arg

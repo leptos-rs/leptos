@@ -1,6 +1,9 @@
 use leptos_dom::{Fragment, IntoView, View};
 use leptos_macro::component;
-use leptos_reactive::{use_context, Scope, SignalSetter, SuspenseContext};
+use leptos_reactive::{
+    create_isomorphic_effect, use_context, Scope, SignalGet, SignalSetter,
+    SuspenseContext,
+};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -61,7 +64,7 @@ use std::{
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all)
 )]
-#[component(transparent)]
+#[component]
 pub fn Transition<F, E>(
     cx: Scope,
     /// Will be displayed while resources are pending.
@@ -97,14 +100,11 @@ where
                         is_first_run(&first_run, &suspense_context);
                     first_run.set(is_first_run);
 
-                    if let Some(set_pending) = &set_pending {
-                        set_pending.set(true);
-                    }
                     if let Some(prev_children) = &*prev_child.borrow() {
                         if is_first_run {
                             fallback().into_view(cx)
                         } else {
-                            prev_children.clone().into_view(cx)
+                            prev_children.clone()
                         }
                     } else {
                         fallback().into_view(cx)
@@ -117,7 +117,10 @@ where
                 let suspense_context = use_context::<SuspenseContext>(cx)
                     .expect("there to be a SuspenseContext");
 
-                if cfg!(feature = "hydrate") || !first_run.get() {
+                if cfg!(feature = "hydrate")
+                    || !first_run.get()
+                    || (cfg!(feature = "csr") && first_run.get())
+                {
                     *prev_children.borrow_mut() = Some(frag.clone());
                 }
                 if is_first_run(&first_run, &suspense_context) {
@@ -129,9 +132,12 @@ where
                 }
                 child_runs.set(child_runs.get() + 1);
 
-                if let Some(set_pending) = &set_pending {
-                    set_pending.set(false);
-                }
+                let pending = suspense_context.pending_resources;
+                create_isomorphic_effect(cx, move |_| {
+                    if let Some(set_pending) = set_pending {
+                        set_pending.set(pending.get() > 0)
+                    }
+                });
                 frag
             }))
             .build(),

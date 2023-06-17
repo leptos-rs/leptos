@@ -31,7 +31,12 @@ cfg_if! {
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
 
-            crate::counters::register_server_functions();
+            // Explicit server function registration is no longer required
+            // on the main branch. On 0.3.0 and earlier, uncomment the lines
+            // below to register the server functions.
+            // _ = GetServerCount::register();
+            // _ = AdjustServerCount::register();
+            // _ = ClearServerCount::register();
 
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             // when not using cargo-leptos None must be replaced with Some("Cargo.toml")

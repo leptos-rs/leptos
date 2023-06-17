@@ -1,14 +1,17 @@
-name: Check Examples
+name: Verify All Examples
 
 on:
+  workflow_dispatch:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - v*
+  schedule:
+  # Run once a day at 3:00 AM EST
+  - cron: "0 8 * * *"
 
 jobs:
   call-with-matrix:
-    name: Check
+    name: Verify
     strategy:
       fail-fast: false
       matrix:
@@ -41,4 +44,4 @@ examples/todomvc]
     uses: ./.github/workflows/run-example-task.yml
     with:
       directory: ${{ matrix.directory }}
-      cargo_make_task: "check"
+      cargo_make_task: "verify-flow"

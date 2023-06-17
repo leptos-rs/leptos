@@ -209,16 +209,14 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            let data = match &server_fn.encoding {
+                            let data = match &server_fn.encoding() {
                                 Encoding::Url | Encoding::Cbor => {
                                     &req_parts.body
                                 }
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            let res = match (server_fn.trait_obj)(cx, data)
-                                .await
-                            {
+                            let res = match server_fn.call(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -314,9 +312,10 @@ async fn handle_server_fns_inner(
                                 .body(Body::from(format!(
                                     "Could not find a server function at the \
                                      route {fn_name}. \n\nIt's likely that \
-                                     you need to call ServerFn::register() on \
-                                     the server function type, somewhere in \
-                                     your `main` function."
+                                     you need to call \
+                                     ServerFn::register_explicit() on the \
+                                     server function type, somewhere in your \
+                                     `main` function."
                                 )))
                         }
                         .expect("could not build Response");

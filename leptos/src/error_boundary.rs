@@ -1,5 +1,5 @@
 use crate::Children;
-use leptos_dom::{Errors, IntoView};
+use leptos_dom::{Errors, HydrationCtx, IntoView};
 use leptos_macro::{component, view};
 use leptos_reactive::{
     create_rw_signal, provide_context, signal_prelude::*, RwSignal, Scope,
@@ -28,7 +28,7 @@ use leptos_reactive::{
 /// }
 /// # });
 /// ```
-#[component(transparent)]
+#[component]
 pub fn ErrorBoundary<F, IV>(
     cx: Scope,
     /// The components inside the tag which will get rendered
@@ -40,6 +40,7 @@ where
     F: Fn(Scope, RwSignal<Errors>) -> IV + 'static,
     IV: IntoView,
 {
+    _ = HydrationCtx::next_component();
     let errors: RwSignal<Errors> = create_rw_signal(cx, Errors::default());
 
     provide_context(cx, errors);

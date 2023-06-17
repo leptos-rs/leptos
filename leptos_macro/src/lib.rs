@@ -840,6 +840,50 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - **The `Scope` comes from the server.** Optionally, the first argument of a server function
 ///   can be a Leptos `Scope`. This scope can be used to inject dependencies like the HTTP request
 ///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
+///
+/// ## Server Function Encodings
+///
+/// By default, the server function call is a `POST` request that serializes the arguments as URL-encoded form data in the body
+/// of the request. But there are a few other methods supported. Optionally, we can provide another argument to the `#[server]`
+/// macro to specify an alternate encoding:
+///
+/// ```rust,ignore
+/// #[server(AddTodo, "/api", "Url")]
+/// #[server(AddTodo, "/api", "GetJson")]
+/// #[server(AddTodo, "/api", "Cbor")]
+/// #[server(AddTodo, "/api", "GetCbor")]
+/// ```
+///
+/// The four options use different combinations of HTTP verbs and encoding methods:
+///
+/// | Name              | Method | Request     | Response |
+/// | ----------------- | ------ | ----------- | -------- |
+/// | **Url** (default) | POST   | URL encoded | JSON     |
+/// | **GetJson**       | GET    | URL encoded | JSON     |
+/// | **Cbor**          | POST   | CBOR        | CBOR     |
+/// | **GetCbor**       | GET    | URL encoded | CBOR     |
+///
+/// In other words, you have two choices:
+///
+/// - `GET` or `POST`? This has implications for things like browser or CDN caching; while `POST` requests should not be cached,
+/// `GET` requests can be.
+/// - Plain text (arguments sent with URL/form encoding, results sent as JSON) or a binary format (CBOR, encoded as a base64
+/// string)?
+///
+/// ## Why not `PUT` or `DELETE`? Why URL/form encoding, and not JSON?**
+///
+/// These are reasonable questions. Much of the web is built on REST API patterns that encourage the use of semantic HTTP
+/// methods like `DELETE` to delete an item from a database, and many devs are accustomed to sending data to APIs in the
+/// JSON format.
+///
+/// The reason we use `POST` or `GET` with URL-encoded data by default is the `<form>` support. For better or for worse,
+/// HTML forms don’t support `PUT` or `DELETE`, and they don’t support sending JSON. This means that if you use anything
+/// but a `GET` or `POST` request with URL-encoded data, it can only work once WASM has loaded.
+///
+/// The CBOR encoding is suported for historical reasons; an earlier version of server functions used a URL encoding that
+/// didn’t support nested objects like structs or vectors as server function arguments, which CBOR did. But note that the
+/// CBOR forms encounter the same issue as `PUT`, `DELETE`, or JSON: they do not degrade gracefully if the WASM version of
+/// your app is not available.
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
@@ -850,6 +894,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
+        syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
         Some(context),
         Some(syn::parse_quote!(::leptos::server_fn)),
     ) {

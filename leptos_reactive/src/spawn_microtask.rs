@@ -9,12 +9,18 @@
 ///
 /// [MDN queueMicrotask](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask)
 pub fn queue_microtask(task: impl FnOnce() + 'static) {
-    #[cfg(not(any(feature = "hydrate", feature = "csr")))]
+    #[cfg(not(all(
+        target_arch = "wasm32",
+        any(feature = "hydrate", feature = "csr")
+    )))]
     {
         task();
     }
 
-    #[cfg(any(feature = "hydrate", feature = "csr"))]
+    #[cfg(all(
+        target_arch = "wasm32",
+        any(feature = "hydrate", feature = "csr")
+    ))]
     {
         use js_sys::{Function, Reflect};
         use wasm_bindgen::prelude::*;

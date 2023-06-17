@@ -80,7 +80,7 @@ where
     E: Error + Send + Sync + 'static,
 {
     fn into_view(self, cx: leptos_reactive::Scope) -> crate::View {
-        let id = ErrorKey(HydrationCtx::peek().id.to_string().into());
+        let id = ErrorKey(HydrationCtx::peek().fragment.to_string().into());
         let errors = use_context::<RwSignal<Errors>>(cx);
         match self {
             Ok(stuff) => {

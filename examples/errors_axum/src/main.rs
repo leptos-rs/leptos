@@ -39,7 +39,10 @@ async fn main() {
     simple_logger::init_with_level(log::Level::Debug)
         .expect("couldn't initialize logging");
 
-    crate::landing::register_server_functions();
+    // Explicit server function registration is no longer required
+    // on the main branch. On 0.3.0 and earlier, uncomment the lines
+    // below to register the server functions.
+    // _ = CauseInternalServerError::register();
 
     // Setting this to None means we'll be using cargo-leptos and its env vars
     let conf = get_configuration(None).await.unwrap();

@@ -42,10 +42,10 @@ web-sys = { version = "0.3", optional = true, features = [
 ] }
 cfg-if = "1"
 indexmap = "1"
-ouroboros = { version = "0.15.6", default-features = false }
+self_cell = "1.0.0"
 
 [dev-dependencies]
-criterion = { version = "0.4.0", features = ["html_reports"] }
+criterion = { version = "0.5.1", features = ["html_reports"] }
 reactive-signals = { version = "0.1.0-alpha.4", features = ["profile"] }
 l021 = { package = "leptos", version = "0.2.1" }
 sycamore = { version = "0.8", features = ["ssr"] }
