@@ -64,7 +64,9 @@ impl History for BrowserIntegration {
 
                 let is_navigating_back = path_stack.with_value(|stack| {
                     stack.len() == 1
-                        || stack.get(stack.len() - 2) == Some(&change.value)
+                        || (stack.len() >= 2
+                            && stack.get(stack.len() - 2)
+                                == Some(&change.value))
                 });
                 if is_navigating_back {
                     path_stack.update_value(|stack| {
