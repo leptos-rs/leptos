@@ -278,9 +278,12 @@ impl RouterContextInner {
                         let global_suspense =
                             expect_context::<GlobalSuspenseContext>(cx);
                         let path_stack = self.path_stack;
-                        path_stack.update_value(|stack| {
-                            stack.push(resolved_to.clone())
-                        });
+                        let is_navigating_back = self.is_back.get_untracked();
+                        if !is_navigating_back {
+                            path_stack.update_value(|stack| {
+                                stack.push(resolved_to.clone())
+                            });
+                        }
 
                         let set_is_routing = use_context::<SetIsRouting>(cx);
                         if let Some(set_is_routing) = set_is_routing {
