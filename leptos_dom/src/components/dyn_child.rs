@@ -273,7 +273,8 @@ where
                             // I can imagine some edge case that the child changes while
                             // hydration is ongoing
                             if !HydrationCtx::is_hydrating() {
-                                if !was_child_moved && child != new_child {
+                                let same_child = child == new_child;
+                                if !was_child_moved && !same_child {
                                     // Remove the child
                                     let start = child.get_opening_node();
                                     let end = &closing;
@@ -308,10 +309,13 @@ where
                                 }
 
                                 // Mount the new child
-                                mount_child(
-                                    MountKind::Before(&closing),
-                                    &new_child,
-                                );
+                                // If it's the same child, don't re-mount
+                                if !same_child {
+                                    mount_child(
+                                        MountKind::Before(&closing),
+                                        &new_child,
+                                    );
+                                }
                             }
 
                             // We want to reuse text nodes, so hold onto it if
