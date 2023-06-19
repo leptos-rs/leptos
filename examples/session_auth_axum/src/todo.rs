@@ -177,12 +177,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             <hr/>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! {
-                        cx,
-                        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
-                            <Todos/>
-                        </ErrorBoundary>
-                    }/> //Route
+                    <Route path="" view=|cx| view! { cx, <Todos/> }/> //Route
                     <Route path="signup" view=move |cx| view! {
                         cx,
                         <Signup action=signup/>
@@ -226,69 +221,71 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 <input type="submit" value="Add"/>
             </MultiActionForm>
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
-                {move || {
-                    let existing_todos = {
-                        move || {
-                            todos.read(cx)
-                                .map(move |todos| match todos {
-                                    Err(e) => {
-                                        view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
-                                    }
-                                    Ok(todos) => {
-                                        if todos.is_empty() {
-                                            view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
-                                        } else {
-                                            todos
-                                                .into_iter()
-                                                .map(move |todo| {
-                                                    view! {
-                                                        cx,
-                                                        <li>
-                                                            {todo.title}
-                                                            ": Created at "
-                                                            {todo.created_at}
-                                                            " by "
-                                                            {
-                                                                todo.user.unwrap_or_default().username
-                                                            }
-                                                            <ActionForm action=delete_todo>
-                                                                <input type="hidden" name="id" value={todo.id}/>
-                                                                <input type="submit" value="X"/>
-                                                            </ActionForm>
-                                                        </li>
-                                                    }
-                                                })
-                                                .collect_view(cx)
+                <ErrorBoundary fallback=|cx, errors| view!{ cx, <ErrorTemplate errors=errors/>}>
+                    {move || {
+                        let existing_todos = {
+                            move || {
+                                todos.read(cx)
+                                    .map(move |todos| match todos {
+                                        Err(e) => {
+                                            view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
                                         }
-                                    }
-                                })
-                                .unwrap_or_default()
-                        }
-                    };
-
-                    let pending_todos = move || {
-                        submissions
-                        .get()
-                        .into_iter()
-                        .filter(|submission| submission.pending().get())
-                        .map(|submission| {
-                            view! {
-                                cx,
-                                <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                        Ok(todos) => {
+                                            if todos.is_empty() {
+                                                view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
+                                            } else {
+                                                todos
+                                                    .into_iter()
+                                                    .map(move |todo| {
+                                                        view! {
+                                                            cx,
+                                                            <li>
+                                                                {todo.title}
+                                                                ": Created at "
+                                                                {todo.created_at}
+                                                                " by "
+                                                                {
+                                                                    todo.user.unwrap_or_default().username
+                                                                }
+                                                                <ActionForm action=delete_todo>
+                                                                    <input type="hidden" name="id" value={todo.id}/>
+                                                                    <input type="submit" value="X"/>
+                                                                </ActionForm>
+                                                            </li>
+                                                        }
+                                                    })
+                                                    .collect_view(cx)
+                                            }
+                                        }
+                                    })
+                                    .unwrap_or_default()
                             }
-                        })
-                        .collect_view(cx)
-                    };
+                        };
 
-                    view! {
-                        cx,
-                        <ul>
-                            {existing_todos}
-                            {pending_todos}
-                        </ul>
+                        let pending_todos = move || {
+                            submissions
+                            .get()
+                            .into_iter()
+                            .filter(|submission| submission.pending().get())
+                            .map(|submission| {
+                                view! {
+                                    cx,
+                                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                }
+                            })
+                            .collect_view(cx)
+                        };
+
+                        view! {
+                            cx,
+                            <ul>
+                                {existing_todos}
+                                {pending_todos}
+                            </ul>
+                        }
                     }
                 }
-            }
+                </ErrorBoundary>
             </Transition>
         </div>
     }
