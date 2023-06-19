@@ -28,19 +28,19 @@ use leptos_reactive::{
 /// }
 /// # });
 /// ```
-/// 
+///
 /// ## Interaction with `<Suspense/>`
-/// If you use this with a `<Suspense/>` or `<Transition/>` component, note that the 
+/// If you use this with a `<Suspense/>` or `<Transition/>` component, note that the
 /// `<ErrorBoundary/>` should go inside the `<Suspense/>`, not the other way around,
-/// if there’s a chance that the `<ErrorBoundary/>` will begin in the error state. 
-/// This is a limitation of the current design of the two components and the way they 
-/// hydrate. Placing the `<ErrorBoundary/>` outside the `<Suspense/>` means that 
-/// it is rendered on the server without any knowledge of the suspended view, so it 
-/// will always be rendered on the server as if there were no errors, but might need 
+/// if there’s a chance that the `<ErrorBoundary/>` will begin in the error state.
+/// This is a limitation of the current design of the two components and the way they
+/// hydrate. Placing the `<ErrorBoundary/>` outside the `<Suspense/>` means that
+/// it is rendered on the server without any knowledge of the suspended view, so it
+/// will always be rendered on the server as if there were no errors, but might need
 /// to be hydrated with errors, depending on the actual result.
-/// 
+///
 /// ```rust,ignore
-/// view! { cx, 
+/// view! { cx,
 ///   <Suspense fallback=move || view! {cx, <p>"Loading..."</p> }>
 ///     <ErrorBoundary fallback=|cx, errors| view!{ cx, <ErrorTemplate errors=errors/>}>
 ///       {move || {
