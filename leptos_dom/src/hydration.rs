@@ -8,7 +8,7 @@ cfg_if! {
     use wasm_bindgen::JsCast;
 
     // We can tell if we start in hydration mode by checking to see if the
-    // id "_0-0-0" is present in the DOM. If it is, we know we are hydrating from
+    // id "_0-1" is present in the DOM. If it is, we know we are hydrating from
     // the server, if not, we are starting off in CSR
     thread_local! {
       static HYDRATION_COMMENTS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {

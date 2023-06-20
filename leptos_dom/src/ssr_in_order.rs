@@ -130,7 +130,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         let remaining_chunks = handle_blocking_chunks(tx.clone(), chunks).await;
         let prefix = prefix(cx);
         prefix_tx.send(prefix).expect("to send prefix");
-        handle_chunks(tx, remaining_chunks).await;
+        handle_chunks(cx, tx, remaining_chunks).await;
     });
 
     let stream = futures::stream::once(async move {
@@ -196,6 +196,7 @@ async fn handle_blocking_chunks(
 #[tracing::instrument(level = "trace", skip_all)]
 #[async_recursion(?Send)]
 async fn handle_chunks(
+    cx: Scope,
     tx: UnboundedSender<String>,
     chunks: VecDeque<StreamChunk>,
 ) {
@@ -210,7 +211,7 @@ async fn handle_chunks(
 
                 // send the inner stream
                 let suspended = chunks.await;
-                handle_chunks(tx.clone(), suspended).await;
+                handle_chunks(cx, tx.clone(), suspended).await;
             }
         }
     }
