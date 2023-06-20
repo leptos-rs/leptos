@@ -1,4 +1,3 @@
-use crate::{attribute_value, view::IdeTagHelper};
 use itertools::Either;
 use leptos_hot_reload::parsing::{
     block_to_primitive_expression, is_component_node, value_to_string,
@@ -10,6 +9,11 @@ use rstml::node::{
 };
 use syn::spanned::Spanned;
 use uuid::Uuid;
+use super::{
+    IdeTagHelper,
+    component_builder::component_to_tokens,
+};
+use crate::attribute_value;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
     let template_uid = Ident::new(
@@ -36,7 +40,7 @@ fn root_element_to_tokens(
     let mut expressions = Vec::new();
 
     if is_component_node(node) {
-        crate::view::component_to_tokens(cx, node, None)
+        component_to_tokens(cx, node, None)
     } else {
         element_to_tokens(
             cx,
