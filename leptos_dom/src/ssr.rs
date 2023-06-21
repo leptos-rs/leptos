@@ -222,12 +222,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                 .push(async move { (fragment_id, data.out_of_order.await) });
         } else {
             fragments.push(Box::pin(async move {
-                (fragment_id.clone(), {
-                    println!("waiting for {fragment_id:?}");
-                    let data = data.out_of_order.await;
-                    println!("{fragment_id:?} resolved w/ {data:?}");
-                    data
-                })
+                (fragment_id.clone(), data.out_of_order.await)
             })
                 as Pin<Box<dyn Future<Output = (String, String)>>>);
         }

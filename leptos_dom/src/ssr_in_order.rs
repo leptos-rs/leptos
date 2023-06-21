@@ -99,7 +99,6 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             chunks,
             prefix,
             pending_resources,
-            serializers,
         ),
         scope_id,
         _,
@@ -115,7 +114,6 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             view.into_stream_chunks(cx),
             prefix,
             serde_json::to_string(&cx.pending_resources()).unwrap(),
-            cx.serialization_resolvers(),
         )
     });
     let cx = Scope {
@@ -147,7 +145,10 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         )
     })
     .chain(rx)
-    .chain(render_serializers(serializers));
+    .chain(futures::stream::once(async move {
+        let serializers = cx.serialization_resolvers();
+        render_serializers(serializers)
+    }).flatten());
 
     (stream, runtime, scope_id)
 }

@@ -114,9 +114,6 @@ where
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
-                                    leptos::log!(
-                                        "continuing from {current_id:?}"
-                                    );
                                     HydrationCtx::continue_from(
                                         current_id.clone(),
                                     );
@@ -134,9 +131,6 @@ where
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
-                                    leptos::log!(
-                                        "continuing from {current_id:?}"
-                                    );
                                     HydrationCtx::continue_from(
                                         current_id.clone(),
                                     );
