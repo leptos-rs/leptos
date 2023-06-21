@@ -97,6 +97,7 @@ where
                 let initial = {
                     // no resources were read under this, so just return the child
                     if context.pending_resources.get() == 0 {
+                        HydrationCtx::continue_from(current_id.clone());
                         DynChild::new({
                             let children = Rc::clone(&children);
                             move || (*children).clone()
