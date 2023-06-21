@@ -221,66 +221,105 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
             blocking_fragments
                 .push(async move { (fragment_id, data.out_of_order.await) });
         } else {
-            fragments
-                .push(async move { (fragment_id, data.out_of_order.await) });
+            fragments.push(Box::pin(async move {
+                (fragment_id.clone(), data.out_of_order.await)
+            })
+                as Pin<Box<dyn Future<Output = (String, String)>>>);
         }
     }
 
+    let stream = futures::stream::once(
+        // HTML for the view function and script to store resources
+        async move {
+            let resolvers = format!(
+                "<script>__LEPTOS_PENDING_RESOURCES = \
+                 {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
+                 Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
+            );
+
+            if replace_blocks {
+                let mut blocks = Vec::with_capacity(blocking_fragments.len());
+                while let Some((blocked_id, blocked_fragment)) =
+                    blocking_fragments.next().await
+                {
+                    blocks.push((blocked_id, blocked_fragment));
+                }
+
+                let prefix = prefix(cx);
+
+                let mut shell = shell;
+
+                for (blocked_id, blocked_fragment) in blocks {
+                    let open = format!("<!--suspense-open-{blocked_id}-->");
+                    let close = format!("<!--suspense-close-{blocked_id}-->");
+                    let (first, rest) =
+                        shell.split_once(&open).unwrap_or_default();
+                    let (_fallback, rest) =
+                        rest.split_once(&close).unwrap_or_default();
+
+                    shell = format!("{first}{blocked_fragment}{rest}").into();
+                }
+
+                format!("{prefix}{shell}{resolvers}")
+            } else {
+                let mut blocking = String::new();
+                let mut blocking_fragments =
+                    fragments_to_chunks(blocking_fragments);
+
+                while let Some(fragment) = blocking_fragments.next().await {
+                    blocking.push_str(&fragment);
+                }
+                let prefix = prefix(cx);
+                format!("{prefix}{shell}{resolvers}{blocking}")
+            }
+        },
+    )
+    .chain(ooo_body_stream_recurse(cx, fragments, serializers));
+
+    (stream, runtime, scope)
+}
+
+fn ooo_body_stream_recurse(
+    cx: Scope,
+    fragments: FuturesUnordered<PinnedFuture<(String, String)>>,
+    serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
+) -> Pin<Box<dyn Stream<Item = String>>> {
     // resources and fragments
     // stream HTML for each <Suspense/> as it resolves
     let fragments = fragments_to_chunks(fragments);
     // stream data for each Resource as it resolves
     let resources = render_serializers(serializers);
 
-    // HTML for the view function and script to store resources
-    let stream = futures::stream::once(async move {
-        let resolvers = format!(
-            "<script>__LEPTOS_PENDING_RESOURCES = \
-             {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
-             Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
-        );
-
-        if replace_blocks {
-            let mut blocks = Vec::with_capacity(blocking_fragments.len());
-            while let Some((blocked_id, blocked_fragment)) =
-                blocking_fragments.next().await
-            {
-                blocks.push((blocked_id, blocked_fragment));
-            }
-
-            let prefix = prefix(cx);
-
-            let mut shell = shell;
-
-            for (blocked_id, blocked_fragment) in blocks {
-                let open = format!("<!--suspense-open-{blocked_id}-->");
-                let close = format!("<!--suspense-close-{blocked_id}-->");
-                let (first, rest) = shell.split_once(&open).unwrap_or_default();
-                let (_fallback, rest) =
-                    rest.split_once(&close).unwrap_or_default();
-
-                shell = format!("{first}{blocked_fragment}{rest}").into();
-            }
-
-            format!("{prefix}{shell}{resolvers}")
-        } else {
-            let mut blocking = String::new();
-            let mut blocking_fragments =
-                fragments_to_chunks(blocking_fragments);
-
-            while let Some(fragment) = blocking_fragments.next().await {
-                blocking.push_str(&fragment);
-            }
-            let prefix = prefix(cx);
-            format!("{prefix}{shell}{resolvers}{blocking}")
-        }
-    })
-    // TODO these should be combined again in a way that chains them appropriately
-    // such that individual resources can resolve before all fragments are done
-    .chain(fragments)
-    .chain(resources);
-
-    (stream, runtime, scope)
+    Box::pin(
+        // TODO these should be combined again in a way that chains them appropriately
+        // such that individual resources can resolve before all fragments are done
+        fragments.chain(resources).chain(
+            futures::stream::once(async move {
+                let pending = cx.pending_fragments();
+                if pending.len() > 0 {
+                    let fragments = FuturesUnordered::new();
+                    let serializers = cx.serialization_resolvers();
+                    for (fragment_id, data) in pending {
+                        fragments.push(Box::pin(async move {
+                            (fragment_id.clone(), data.out_of_order.await)
+                        })
+                            as Pin<Box<dyn Future<Output = (String, String)>>>);
+                    }
+                    Box::pin(ooo_body_stream_recurse(
+                        cx,
+                        fragments,
+                        serializers,
+                    ))
+                        as Pin<Box<dyn Stream<Item = String>>>
+                } else {
+                    Box::pin(futures::stream::once(async move {
+                        Default::default()
+                    }))
+                }
+            })
+            .flatten(),
+        ),
+    )
 }
 
 #[cfg_attr(

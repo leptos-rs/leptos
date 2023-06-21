@@ -94,13 +94,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     let runtime = create_runtime();
 
     let (
-        (
-            blocking_fragments_ready,
-            chunks,
-            prefix,
-            pending_resources,
-            serializers,
-        ),
+        (blocking_fragments_ready, chunks, prefix, pending_resources),
         scope_id,
         _,
     ) = run_scope_undisposed(runtime, |cx| {
@@ -115,7 +109,6 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             view.into_stream_chunks(cx),
             prefix,
             serde_json::to_string(&cx.pending_resources()).unwrap(),
-            cx.serialization_resolvers(),
         )
     });
     let cx = Scope {
@@ -130,7 +123,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         let remaining_chunks = handle_blocking_chunks(tx.clone(), chunks).await;
         let prefix = prefix(cx);
         prefix_tx.send(prefix).expect("to send prefix");
-        handle_chunks(tx, remaining_chunks).await;
+        handle_chunks(cx, tx, remaining_chunks).await;
     });
 
     let stream = futures::stream::once(async move {
@@ -147,7 +140,13 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         )
     })
     .chain(rx)
-    .chain(render_serializers(serializers));
+    .chain(
+        futures::stream::once(async move {
+            let serializers = cx.serialization_resolvers();
+            render_serializers(serializers)
+        })
+        .flatten(),
+    );
 
     (stream, runtime, scope_id)
 }
@@ -196,6 +195,7 @@ async fn handle_blocking_chunks(
 #[tracing::instrument(level = "trace", skip_all)]
 #[async_recursion(?Send)]
 async fn handle_chunks(
+    cx: Scope,
     tx: UnboundedSender<String>,
     chunks: VecDeque<StreamChunk>,
 ) {
@@ -210,7 +210,7 @@ async fn handle_chunks(
 
                 // send the inner stream
                 let suspended = chunks.await;
-                handle_chunks(tx.clone(), suspended).await;
+                handle_chunks(cx, tx.clone(), suspended).await;
             }
         }
     }
