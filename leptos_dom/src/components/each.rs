@@ -653,6 +653,7 @@ fn apply_opts<K: Eq + Hash>(
         && cmds.moved.is_empty()
     {
         cmds.clear = true;
+        cmds.removed.clear();
 
         cmds.added
             .iter_mut()
