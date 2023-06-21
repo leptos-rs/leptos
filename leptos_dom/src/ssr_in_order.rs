@@ -94,12 +94,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     let runtime = create_runtime();
 
     let (
-        (
-            blocking_fragments_ready,
-            chunks,
-            prefix,
-            pending_resources,
-        ),
+        (blocking_fragments_ready, chunks, prefix, pending_resources),
         scope_id,
         _,
     ) = run_scope_undisposed(runtime, |cx| {
@@ -145,10 +140,13 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         )
     })
     .chain(rx)
-    .chain(futures::stream::once(async move {
-        let serializers = cx.serialization_resolvers();
-        render_serializers(serializers)
-    }).flatten());
+    .chain(
+        futures::stream::once(async move {
+            let serializers = cx.serialization_resolvers();
+            render_serializers(serializers)
+        })
+        .flatten(),
+    );
 
     (stream, runtime, scope_id)
 }
