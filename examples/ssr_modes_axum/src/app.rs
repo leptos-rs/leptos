@@ -87,25 +87,27 @@ fn Post(cx: Scope) -> impl IntoView {
         }
     });
 
-    // this view needs to take the `Scope` from the `<Suspense/>`, not 
-    // from the parent component, so we take that as an argument and 
+    // this view needs to take the `Scope` from the `<Suspense/>`, not
+    // from the parent component, so we take that as an argument and
     // pass it in under the `<Suspense/>` so that it is correct
-    let post_view = move |cx| move || {
-        post.with(cx, |post| {
-            post.clone().map(|post| {
-                view! { cx,
-                    // render content
-                    <h1>{&post.title}</h1>
-                    <p>{&post.content}</p>
+    let post_view = move |cx| {
+        move || {
+            post.with(cx, |post| {
+                post.clone().map(|post| {
+                    view! { cx,
+                        // render content
+                        <h1>{&post.title}</h1>
+                        <p>{&post.content}</p>
 
-                    // since we're using async rendering for this page,
-                    // this metadata should be included in the actual HTML <head>
-                    // when it's first served
-                    <Title text=post.title/>
-                    <Meta name="description" content=post.content/>
-                }
+                        // since we're using async rendering for this page,
+                        // this metadata should be included in the actual HTML <head>
+                        // when it's first served
+                        <Title text=post.title/>
+                        <Meta name="description" content=post.content/>
+                    }
+                })
             })
-        })
+        }
     };
 
     view! { cx,
