@@ -15,6 +15,32 @@ fn basic_memo() {
 
 #[cfg(not(feature = "stable"))]
 #[test]
+fn signal_with_untracked() {
+    use leptos_reactive::SignalWithUntracked;
+
+    create_scope(create_runtime(), |cx| {
+        let m = create_memo(cx, move |_| 5);
+        let copied_out = m.with_untracked(|value| *value);
+        assert_eq!(copied_out, 5);
+    })
+    .dispose()
+}
+
+#[cfg(not(feature = "stable"))]
+#[test]
+fn signal_get_untracked() {
+    use leptos_reactive::SignalGetUntracked;
+
+    create_scope(create_runtime(), |cx| {
+        let m = create_memo(cx, move |_| "memo".to_owned());
+        let cloned_out = m.get_untracked();
+        assert_eq!(cloned_out, "memo".to_owned());
+    })
+    .dispose()
+}
+
+#[cfg(not(feature = "stable"))]
+#[test]
 fn memo_with_computed_value() {
     create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, 0);

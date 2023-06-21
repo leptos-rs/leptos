@@ -42,7 +42,7 @@ Leptos, as a framework, reflects certain technical values:
 - **Embrace Rust semantics.** Especially in things like UI templating, use Rust
   semantics or extend them in a predictable way with control-flow components
   rather than overloading the meaning of Rust terms like `if` or `for` in a
-  framework-speciic way.
+  framework-specific way.
 - **Enhance ergonomics without obfuscating what’s happening.** This is by far
   the hardest to achieve. It’s often the case that adding additional layers to
   improve DX (like a custom build tool and starter templates) comes across as
@@ -67,7 +67,7 @@ are a few guidelines that will make it a better experience for everyone:
 - Our CI tests every PR against all the existing examples, sometimes requiring
   compilation for both server and client side, etc. It’s thorough but slow. If
   you want to run CI locally to reduce frustration, you can do that by installing
-  `cargo-make` and using `cargo make check && cargo make test && cargo make 
+  `cargo-make` and using `cargo make check && cargo make test && cargo make
 check-examples`.
 
 ## Architecture
