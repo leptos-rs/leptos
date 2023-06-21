@@ -13,8 +13,8 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 // when it is accessed, if the value is stale. This means that the value is stored
 // internally as Option<T>, even though it can always be accessed by the user as T.
 // This means the inner value can be unwrapped in circumstances in which we know
-// `Runtime::update_if_necessary()` has already been called, e.g., in the 
-// `.try_with_no_subscription()` calls below that are unwrapped with 
+// `Runtime::update_if_necessary()` has already been called, e.g., in the
+// `.try_with_no_subscription()` calls below that are unwrapped with
 // `.expect("invariant: must have already been initialized")`.
 
 /// Creates an efficient derived reactive value based on other reactive values.
