@@ -64,7 +64,25 @@ where
     provide_context(cx, errors);
 
     // Run children so that they render and execute resources
-    let children = children(cx).into_view(cx);
+    let children = children(cx);
+
+    #[cfg(all(debug_assertions, feature = "hydrate"))]
+    {
+        use leptos_dom::View;
+        if children.nodes.iter().any(|child| {
+            matches!(child, View::Suspense(_, _))
+            || matches!(child, View::Component(repr) if repr.name() == "Transition")
+        }) {
+            crate::debug_warn!("You are using a <Suspense/> or \
+            <Transition/> as the direct child of an <ErrorBoundary/>. To ensure correct \
+            hydration, these should be reorganized so that the <ErrorBoundary/> is a child \
+            of the <Suspense/> or <Transition/> instead: \n\
+            \nview! {{ cx,\
+            \n  <Suspense fallback=todo!()>\n    <ErrorBoundary fallback=todo!()>\n      {{move || {{ /* etc. */")
+        }
+    }
+
+    let children = children.into_view(cx);
     let errors_empty = create_memo(cx, move |_| errors.with(Errors::is_empty));
 
     move || {

@@ -87,7 +87,10 @@ fn Post(cx: Scope) -> impl IntoView {
         }
     });
 
-    let post_view = move || {
+    // this view needs to take the `Scope` from the `<Suspense/>`, not 
+    // from the parent component, so we take that as an argument and 
+    // pass it in under the `<Suspense/>` so that it is correct
+    let post_view = move |cx| move || {
         post.with(cx, |post| {
             post.clone().map(|post| {
                 view! { cx,
@@ -121,7 +124,7 @@ fn Post(cx: Scope) -> impl IntoView {
                     </div>
                 }
             }>
-                {post_view}
+                {post_view(cx)}
             </ErrorBoundary>
         </Suspense>
     }
