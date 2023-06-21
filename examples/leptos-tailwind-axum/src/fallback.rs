@@ -3,29 +3,27 @@ use cfg_if::cfg_if;
 cfg_if! { if #[cfg(feature = "ssr")] {
     use axum::{
         body::{boxed, Body, BoxBody},
-        extract::Extension,
+        extract::State,
         response::IntoResponse,
         http::{Request, Response, StatusCode, Uri},
     };
     use axum::response::Response as AxumResponse;
     use tower::ServiceExt;
     use tower_http::services::ServeDir;
-    use std::sync::Arc;
-    use leptos::*;
-    use crate::error_template::ErrorTemplate;
-    use crate::error_template::AppError;
+    use leptos::{LeptosOptions, view};
+    use crate::app::App;
 
-    pub async fn file_and_error_handler(uri: Uri, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> AxumResponse {
-        let options = &*options;
+    pub async fn file_and_error_handler(uri: Uri, State(options): State<LeptosOptions>, req: Request<Body>) -> AxumResponse {
         let root = options.site_root.clone();
         let res = get_static_file(uri.clone(), &root).await.unwrap();
 
         if res.status() == StatusCode::OK {
-           res.into_response()
-        } else {
-            let mut errors = Errors::default();
-            errors.insert_with_default_key(AppError::NotFound);
-            let handler = leptos_axum::render_app_to_stream(options.to_owned(), move |cx| view!{cx, <ErrorTemplate outside_errors=errors.clone()/>});
+            res.into_response()
+        } else{
+            let handler = leptos_axum::render_app_to_stream(
+                options.to_owned(),
+                move |cx| view!{ cx, <App/> }
+            );
             handler(req).await.into_response()
         }
     }
