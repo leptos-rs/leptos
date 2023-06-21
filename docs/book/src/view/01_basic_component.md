@@ -28,7 +28,7 @@ fn App(cx: Scope) -> impl IntoView {
     view! { cx,
         <button
             on:click=move |_| {
-                set_count.update(|n| *n += 1);
+                set_count(3);
             }
         >
             "Click me: "
@@ -142,7 +142,7 @@ in a function, telling the framework to update the view every time `count` chang
 `{count()}` access the value of `count` once, and passes an `i32` into the view,
 rendering it once, unreactively. You can see the difference in the CodeSandbox below!
 
-Let’s make one final change. `set_count(3)` is a pretty useless thing for a click handler to do. Let’s replacing “set this value to 3” with “increment this value by 1”:
+Let’s make one final change. `set_count(3)` is a pretty useless thing for a click handler to do. Let’s replace “set this value to 3” with “increment this value by 1”:
 
 ```rust
 move |_| {
