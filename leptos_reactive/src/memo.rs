@@ -7,6 +7,16 @@ use crate::{
 };
 use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 
+// IMPLEMENTATION NOTE:
+// Memos are implemented "lazily," i.e., the inner computation is not run
+// when the memo is created or when its value is marked as stale, but on demand
+// when it is accessed, if the value is stale. This means that the value is stored
+// internally as Option<T>, even though it can always be accessed by the user as T.
+// This means the inner value can be unwrapped in circumstances in which we know
+// `Runtime::update_if_necessary()` has already been called, e.g., in the
+// `.try_with_no_subscription()` calls below that are unwrapped with
+// `.expect("invariant: must have already been initialized")`.
+
 /// Creates an efficient derived reactive value based on other reactive values.
 ///
 /// Unlike a "derived signal," a memo comes with two guarantees:
@@ -199,6 +209,17 @@ impl<T> PartialEq for Memo<T> {
     }
 }
 
+fn forward_ref_to<T, O, F: FnOnce(&T) -> O>(
+    f: F,
+) -> impl FnOnce(&Option<T>) -> O {
+    |maybe_value: &Option<T>| {
+        let ref_t = maybe_value
+            .as_ref()
+            .expect("invariant: must have already been initialized");
+        f(ref_t)
+    }
+}
+
 impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
@@ -215,7 +236,11 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
     )]
     fn get_untracked(&self) -> T {
         with_runtime(self.runtime, move |runtime| {
-            let f = move |maybe_value: &Option<T>| maybe_value.clone().unwrap();
+            let f = |maybe_value: &Option<T>| {
+                maybe_value
+                    .clone()
+                    .expect("invariant: must have already been initialized")
+            };
             match self.id.try_with_no_subscription(runtime, f) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
@@ -261,10 +286,8 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
         )
     )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        // Unwrapping here is fine for the same reasons as <Memo as
-        // UntrackedSignal>::get_untracked
         with_runtime(self.runtime, |runtime| {
-            match self.id.try_with_no_subscription(runtime, |v: &T| f(v)) {
+            match self.id.try_with_no_subscription(runtime, forward_ref_to(f)) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
                     #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -394,15 +417,13 @@ impl<T> SignalWith<T> for Memo<T> {
     )]
     #[track_caller]
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        // memo is stored as Option<T>, but will always have T available
-        // after latest_value() called, so we can unwrap safely
-        let f = move |maybe_value: &Option<T>| f(maybe_value.as_ref().unwrap());
-
         let diagnostics = diagnostics!(self);
 
         with_runtime(self.runtime, |runtime| {
             self.id.subscribe(runtime, diagnostics);
-            self.id.try_with_no_subscription(runtime, f).ok()
+            self.id
+                .try_with_no_subscription(runtime, forward_ref_to(f))
+                .ok()
         })
         .ok()
         .flatten()

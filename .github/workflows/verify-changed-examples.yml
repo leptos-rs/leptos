@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  changed-dirs:
+  setup:
     name: Get Changes
     runs-on: ubuntu-latest
     outputs:
@@ -51,7 +51,7 @@ jobs:
       - name: Set Matrix
         id: set-matrix
         run: |
-          if [ ${{ steps.changed-dirs.outputs.any_changed }} == 'true' ]; then
+          if [ ${{ steps.changed-files.outputs.any_changed }} == 'true' ]; then
             # Create matrix with changed directories
             echo "matrix={\"directory\":${{ steps.changed-dirs.outputs.all_changed_files }}}" >> "$GITHUB_OUTPUT"
           else
@@ -61,10 +61,11 @@ jobs:
 
   matrix-job:
     name: Verify
-    needs: [changed-dirs]
+    needs: [setup]
     strategy:
-      matrix: ${{ fromJSON(needs.changed-dirs.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
       fail-fast: false
-    uses: ./.github/workflows/verify-example.yml
+    uses: ./.github/workflows/run-example-task.yml
     with:
-      project_dir: ${{ matrix.directory }}
+      directory: ${{ matrix.directory }}
+      cargo_make_task: "verify-flow"
