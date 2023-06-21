@@ -221,6 +221,12 @@ impl ComponentRepr {
             view_marker: None,
         }
     }
+
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    /// Returns the name of the component.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 /// A user-defined `leptos` component.
