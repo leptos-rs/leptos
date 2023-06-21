@@ -24,7 +24,7 @@ That’s where the [`leptos_meta`](https://docs.rs/leptos_meta/latest/leptos_met
 
 `leptos_meta` also provides a [`<Script/>`](https://docs.rs/leptos_meta/latest/leptos_meta/fn.Script.html) component, and it’s worth pausing here for a second. All of the other components we’ve considered inject `<head>`-only elements in the `<head>`. But a `<script>` can also be included in the body.
 
-There’s a very simple way to determine whether you should use a capital-S `<Script/>` component or a lowercase-s `<script>` element: the `<Script/>` component will be rendered in the `<head>`, and the `<script>` element will be rendered wherever in your the `<body>` of your user interface you put in, alongside other normal HTML elements. These cause JavaScript to load and run at different times, so use whichever is appropriate to your needs.
+There’s a very simple way to determine whether you should use a capital-S `<Script/>` component or a lowercase-s `<script>` element: the `<Script/>` component will be rendered in the `<head>`, and the `<script>` element will be rendered wherever in the `<body>` of your user interface you put it in, alongside other normal HTML elements. These cause JavaScript to load and run at different times, so use whichever is appropriate to your needs.
 
 ## `<Body/>` and `<Html/>`
 

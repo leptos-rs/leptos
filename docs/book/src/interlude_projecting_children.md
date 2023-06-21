@@ -29,9 +29,9 @@ where
 }
 ```
 
-This is pretty straightforward: when the user is logged in, we want to show `children`. Until if the user is not logged in, we want to show `fallback`. And while we’re waiting to find out, we just render `()`, i.e., nothing.
+This is pretty straightforward: when the user is logged in, we want to show `children`. If the user is not logged in, we want to show `fallback`. And while we’re waiting to find out, we just render `()`, i.e., nothing.
 
-In other words, we want to pass the children of `<WhenLoaded/>` _through_ the `<Suspense/>` component to become the children of the `<Show/>`. This is what I mean by “projection.”
+In other words, we want to pass the children of `<LoggedIn/>` _through_ the `<Suspense/>` component to become the children of the `<Show/>`. This is what I mean by “projection.”
 
 This won’t compile.
 

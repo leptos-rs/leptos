@@ -22,7 +22,7 @@ Leptos, as a framework, reflects certain technical values:
 - **Expose primitives rather than imposing patterns.** Provide building blocks
   that users can combine together to build up more complex behavior, rather than
   requiring users follow certain templates, file formats, etc. e.g., components
-  are defined as functions, rather than a bespoke single-file comonent format.
+  are defined as functions, rather than a bespoke single-file component format.
   The reactive system feeds into the rendering system, rather than being defined
   by it.
 - **Bottom-up over top-down.** If you envision a user’s application as a tree
