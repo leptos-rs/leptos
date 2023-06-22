@@ -1,0 +1,8 @@
+{
+  "name": "grip",
+  "private": "true",
+  "scripts": {},
+  "devDependencies": {
+    "@playwright/test": "^1.33.0"
+  }
+}

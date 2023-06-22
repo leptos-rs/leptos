@@ -1,0 +1,22 @@
+[tasks.build]
+command = "trunk"
+args = ["build"]
+
+[tasks.clean-trunk]
+command = "trunk"
+args = ["clean"]
+
+[tasks.start-trunk]
+command = "trunk"
+args = ["serve", "--open"]
+
+[tasks.stop-trunk]
+script = '''
+  pkill -f "cargo-make"
+  pkill -f "trunk"
+'''
+
+# ALIASES
+
+[tasks.dev]
+dependencies = ["start-trunk"]
