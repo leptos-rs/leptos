@@ -1,5 +1,4 @@
-use leptos::*;
-use leptos::error::Result;
+use leptos::{error::Result, *};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
