@@ -171,6 +171,11 @@ pub use leptos_dom::{
     Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
     IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
 };
+
+/// Types to make it easier to handle errors in your application.
+pub mod error {
+    pub use leptos_dom::{Error, Result};
+}
 #[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
 pub use leptos_macro::{component, server, slot, view, Params};
