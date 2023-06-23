@@ -5,9 +5,10 @@ export class CountersPage {
   private addCounterButton: Locator;
   private addOneThousandCountersButton: Locator;
   private clearCountersButton: Locator;
+  private decrementCountButton: Locator;
+  private incrementCountButton: Locator;
   readonly total: Locator;
   readonly counters: Locator;
-  private incrementCountButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -17,6 +18,9 @@ export class CountersPage {
     });
     this.clearCountersButton = page.locator("button", {
       hasText: "Clear Counters",
+    });
+    this.decrementCountButton = page.locator("button", {
+      hasText: "-1",
     });
     this.incrementCountButton = page.locator("button", {
       hasText: "+1",
@@ -39,6 +43,10 @@ export class CountersPage {
 
   async clearCounters() {
     this.clearCountersButton.first().click();
+  }
+
+  async decrementCount() {
+    this.decrementCountButton.first().click();
   }
 
   async incrementCount() {
