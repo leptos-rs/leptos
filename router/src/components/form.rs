@@ -8,6 +8,7 @@ use web_sys::RequestRedirect;
 
 type OnFormData = Rc<dyn Fn(&web_sys::FormData)>;
 type OnResponse = Rc<dyn Fn(&web_sys::Response)>;
+type OnError = Rc<dyn Fn(&gloo_net::Error)>;
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
@@ -47,6 +48,9 @@ pub fn Form<A>(
     /// to a form submission.
     #[prop(optional)]
     on_response: Option<OnResponse>,
+    /// A callback will be called if the attempt to submit the form results in an error.
+    #[prop(optional)]
+    on_error: Option<OnError>,
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<html::Form>>,
@@ -68,196 +72,216 @@ where
         error: Option<RwSignal<Option<Box<dyn Error>>>>,
         on_form_data: Option<OnFormData>,
         on_response: Option<OnResponse>,
+        on_error: Option<OnError>,
         class: Option<Attribute>,
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
         attributes: Option<MaybeSignal<AdditionalAttributes>>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
-        let on_submit = move |ev: web_sys::SubmitEvent| {
-            if ev.default_prevented() {
-                return;
-            }
-            let navigate = use_navigate(cx);
+        let on_submit = {
+            move |ev: web_sys::SubmitEvent| {
+                if ev.default_prevented() {
+                    return;
+                }
+                let navigate = use_navigate(cx);
 
-            let (form, method, action, enctype) = extract_form_attributes(&ev);
+                let (form, method, action, enctype) =
+                    extract_form_attributes(&ev);
 
-            let form_data =
-                web_sys::FormData::new_with_form(&form).unwrap_throw();
-            if let Some(on_form_data) = on_form_data.clone() {
-                on_form_data(&form_data);
-            }
-            let params =
-                web_sys::UrlSearchParams::new_with_str_sequence_sequence(
-                    &form_data,
-                )
-                .unwrap_throw();
-            let action = use_resolved_path(cx, move || action.clone())
-                .get_untracked()
-                .unwrap_or_default();
-            // multipart POST (setting Context-Type breaks the request)
-            if method == "post" && enctype == "multipart/form-data" {
-                ev.prevent_default();
-                ev.stop_propagation();
-
-                let on_response = on_response.clone();
-                spawn_local(async move {
-                    let res = gloo_net::http::Request::post(&action)
-                        .header("Accept", "application/json")
-                        .redirect(RequestRedirect::Follow)
-                        .body(form_data)
-                        .send()
-                        .await;
-                    match res {
-                        Err(e) => {
-                            error!("<Form/> error while POSTing: {e:#?}");
-                            if let Some(error) = error {
-                                error.set(Some(Box::new(e)));
-                            }
-                        }
-                        Ok(resp) => {
-                            if let Some(version) = action_version {
-                                version.update(|n| *n += 1);
-                            }
-                            if let Some(error) = error {
-                                error.set(None);
-                            }
-                            if let Some(on_response) = on_response.clone() {
-                                on_response(resp.as_raw());
-                            }
-                            // Check all the logical 3xx responses that might
-                            // get returned from a server function
-                            if resp.redirected() {
-                                let resp_url = &resp.url();
-                                match Url::try_from(resp_url.as_str()) {
-                                    Ok(url) => {
-                                        if url.origin
-                                            != window()
-                                                .location()
-                                                .origin()
-                                                .unwrap_or_default()
-                                        {
-                                            _ = window()
-                                                .location()
-                                                .set_href(resp_url.as_str());
-                                        } else {
-                                            request_animation_frame(
-                                                move || {
-                                                    if let Err(e) = navigate(
-                                                        &format!(
-                                                            "{}{}{}",
-                                                            url.pathname,
-                                                            if url
-                                                                .search
-                                                                .is_empty()
-                                                            {
-                                                                ""
-                                                            } else {
-                                                                "?"
-                                                            },
-                                                            url.search,
-                                                        ),
-                                                        Default::default(),
-                                                    ) {
-                                                        warn!("{}", e);
-                                                    }
-                                                },
-                                            );
-                                        }
-                                    }
-                                    Err(e) => warn!("{}", e),
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            // POST
-            else if method == "post" {
-                ev.prevent_default();
-                ev.stop_propagation();
-
-                let on_response = on_response.clone();
-                spawn_local(async move {
-                    let res = gloo_net::http::Request::post(&action)
-                        .header("Accept", "application/json")
-                        .header("Content-Type", &enctype)
-                        .redirect(RequestRedirect::Follow)
-                        .body(params)
-                        .send()
-                        .await;
-                    match res {
-                        Err(e) => {
-                            error!("<Form/> error while POSTing: {e:#?}");
-                            if let Some(error) = error {
-                                error.set(Some(Box::new(e)));
-                            }
-                        }
-                        Ok(resp) => {
-                            if let Some(version) = action_version {
-                                version.update(|n| *n += 1);
-                            }
-                            if let Some(error) = error {
-                                error.set(None);
-                            }
-                            if let Some(on_response) = on_response.clone() {
-                                on_response(resp.as_raw());
-                            }
-                            // Check all the logical 3xx responses that might
-                            // get returned from a server function
-                            if resp.redirected() {
-                                let resp_url = &resp.url();
-                                match Url::try_from(resp_url.as_str()) {
-                                    Ok(url) => {
-                                        if url.origin
-                                            != window()
-                                                .location()
-                                                .hostname()
-                                                .unwrap_or_default()
-                                        {
-                                            _ = window()
-                                                .location()
-                                                .set_href(resp_url.as_str());
-                                        } else {
-                                            request_animation_frame(
-                                                move || {
-                                                    if let Err(e) = navigate(
-                                                        &format!(
-                                                            "{}{}{}",
-                                                            url.pathname,
-                                                            if url
-                                                                .search
-                                                                .is_empty()
-                                                            {
-                                                                ""
-                                                            } else {
-                                                                "?"
-                                                            },
-                                                            url.search,
-                                                        ),
-                                                        Default::default(),
-                                                    ) {
-                                                        warn!("{}", e);
-                                                    }
-                                                },
-                                            );
-                                        }
-                                    }
-                                    Err(e) => warn!("{}", e),
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            // otherwise, GET
-            else {
-                let params = params.to_string().as_string().unwrap_or_default();
-                if navigate(&format!("{action}?{params}"), Default::default())
-                    .is_ok()
-                {
+                let form_data =
+                    web_sys::FormData::new_with_form(&form).unwrap_throw();
+                if let Some(on_form_data) = on_form_data.clone() {
+                    on_form_data(&form_data);
+                }
+                let params =
+                    web_sys::UrlSearchParams::new_with_str_sequence_sequence(
+                        &form_data,
+                    )
+                    .unwrap_throw();
+                let action = use_resolved_path(cx, move || action.clone())
+                    .get_untracked()
+                    .unwrap_or_default();
+                // multipart POST (setting Context-Type breaks the request)
+                if method == "post" && enctype == "multipart/form-data" {
                     ev.prevent_default();
                     ev.stop_propagation();
+
+                    let on_response = on_response.clone();
+                    let on_error = on_error.clone();
+                    spawn_local(async move {
+                        let res = gloo_net::http::Request::post(&action)
+                            .header("Accept", "application/json")
+                            .redirect(RequestRedirect::Follow)
+                            .body(form_data)
+                            .send()
+                            .await;
+                        match res {
+                            Err(e) => {
+                                error!("<Form/> error while POSTing: {e:#?}");
+                                if let Some(on_error) = on_error {
+                                    on_error(&e);
+                                }
+                                if let Some(error) = error {
+                                    error.try_set(Some(Box::new(e)));
+                                }
+                            }
+                            Ok(resp) => {
+                                if let Some(version) = action_version {
+                                    version.update(|n| *n += 1);
+                                }
+                                if let Some(error) = error {
+                                    error.try_set(None);
+                                }
+                                if let Some(on_response) = on_response.clone() {
+                                    on_response(resp.as_raw());
+                                }
+                                // Check all the logical 3xx responses that might
+                                // get returned from a server function
+                                if resp.redirected() {
+                                    let resp_url = &resp.url();
+                                    match Url::try_from(resp_url.as_str()) {
+                                        Ok(url) => {
+                                            if url.origin
+                                                != window()
+                                                    .location()
+                                                    .origin()
+                                                    .unwrap_or_default()
+                                            {
+                                                _ = window()
+                                                    .location()
+                                                    .set_href(
+                                                        resp_url.as_str(),
+                                                    );
+                                            } else {
+                                                request_animation_frame(
+                                                    move || {
+                                                        if let Err(e) = navigate(
+                                                            &format!(
+                                                                "{}{}{}",
+                                                                url.pathname,
+                                                                if url
+                                                                    .search
+                                                                    .is_empty()
+                                                                {
+                                                                    ""
+                                                                } else {
+                                                                    "?"
+                                                                },
+                                                                url.search,
+                                                            ),
+                                                            Default::default(),
+                                                        ) {
+                                                            warn!("{}", e);
+                                                        }
+                                                    },
+                                                );
+                                            }
+                                        }
+                                        Err(e) => warn!("{}", e),
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                // POST
+                else if method == "post" {
+                    ev.prevent_default();
+                    ev.stop_propagation();
+
+                    let on_response = on_response.clone();
+                    let on_error = on_error.clone();
+                    spawn_local(async move {
+                        let res = gloo_net::http::Request::post(&action)
+                            .header("Accept", "application/json")
+                            .header("Content-Type", &enctype)
+                            .redirect(RequestRedirect::Follow)
+                            .body(params)
+                            .send()
+                            .await;
+                        match res {
+                            Err(e) => {
+                                error!("<Form/> error while POSTing: {e:#?}");
+                                if let Some(on_error) = on_error {
+                                    on_error(&e);
+                                }
+                                if let Some(error) = error {
+                                    error.try_set(Some(Box::new(e)));
+                                }
+                            }
+                            Ok(resp) => {
+                                if let Some(version) = action_version {
+                                    version.update(|n| *n += 1);
+                                }
+                                if let Some(error) = error {
+                                    error.try_set(None);
+                                }
+                                if let Some(on_response) = on_response.clone() {
+                                    on_response(resp.as_raw());
+                                }
+                                // Check all the logical 3xx responses that might
+                                // get returned from a server function
+                                if resp.redirected() {
+                                    let resp_url = &resp.url();
+                                    match Url::try_from(resp_url.as_str()) {
+                                        Ok(url) => {
+                                            if url.origin
+                                                != window()
+                                                    .location()
+                                                    .hostname()
+                                                    .unwrap_or_default()
+                                            {
+                                                _ = window()
+                                                    .location()
+                                                    .set_href(
+                                                        resp_url.as_str(),
+                                                    );
+                                            } else {
+                                                request_animation_frame(
+                                                    move || {
+                                                        if let Err(e) = navigate(
+                                                            &format!(
+                                                                "{}{}{}",
+                                                                url.pathname,
+                                                                if url
+                                                                    .search
+                                                                    .is_empty()
+                                                                {
+                                                                    ""
+                                                                } else {
+                                                                    "?"
+                                                                },
+                                                                url.search,
+                                                            ),
+                                                            Default::default(),
+                                                        ) {
+                                                            warn!("{}", e);
+                                                        }
+                                                    },
+                                                );
+                                            }
+                                        }
+                                        Err(e) => warn!("{}", e),
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                // otherwise, GET
+                else {
+                    let params =
+                        params.to_string().as_string().unwrap_or_default();
+                    if navigate(
+                        &format!("{action}?{params}"),
+                        Default::default(),
+                    )
+                    .is_ok()
+                    {
+                        ev.prevent_default();
+                        ev.stop_propagation();
+                    }
                 }
             }
         };
@@ -296,6 +320,7 @@ where
         error,
         on_form_data,
         on_response,
+        on_error,
         class,
         children,
         node_ref,
@@ -355,14 +380,36 @@ where
     let value = action.value();
     let input = action.input();
 
+    let on_error = Rc::new(move |e: &gloo_net::Error| {
+        cx.batch(move || {
+            action.set_pending(false);
+            let e = ServerFnError::Request(e.to_string());
+            value.try_set(Some(Err(e.clone())));
+            if let Some(error) = error {
+                error.try_set(Some(Box::new(e)));
+            }
+        });
+    });
+
     let on_form_data = Rc::new(move |form_data: &web_sys::FormData| {
         let data = I::from_form_data(form_data);
         match data {
             Ok(data) => {
-                input.set(Some(data));
-                action.set_pending(true);
+                cx.batch(move || {
+                    input.try_set(Some(data));
+                    action.set_pending(true);
+                });
             }
-            Err(e) => error!("{e}"),
+            Err(e) => {
+                error!("{e}");
+                let e = ServerFnError::Serialization(e.to_string());
+                cx.batch(move || {
+                    value.try_set(Some(Err(e.clone())));
+                    if let Some(error) = error {
+                        error.try_set(Some(Box::new(e)));
+                    }
+                });
+            }
         }
     });
 
@@ -370,7 +417,6 @@ where
         let resp = resp.clone().expect("couldn't get Response");
         spawn_local(async move {
             let redirected = resp.redirected();
-
             if !redirected {
                 let body = JsFuture::from(
                     resp.text().expect("couldn't get .text() from Response"),
@@ -434,8 +480,10 @@ where
                     }
                 };
             }
-            input.try_set(None);
-            action.set_pending(false);
+            cx.batch(move || {
+                input.try_set(None);
+                action.set_pending(false);
+            });
         });
     });
     let class = class.map(|bx| bx.into_attribute_boxed(cx));
@@ -444,6 +492,7 @@ where
         .version(version)
         .on_form_data(on_form_data)
         .on_response(on_response)
+        .on_error(on_error)
         .method("post")
         .class(class)
         .children(children)
@@ -507,7 +556,7 @@ where
             Err(e) => {
                 error!("{e}");
                 if let Some(error) = error {
-                    error.set(Some(Box::new(e)));
+                    error.try_set(Some(Box::new(e)));
                 }
             }
             Ok(input) => {
@@ -515,7 +564,7 @@ where
                 ev.stop_propagation();
                 multi_action.dispatch(input);
                 if let Some(error) = error {
-                    error.set(None);
+                    error.try_set(None);
                 }
             }
         }
