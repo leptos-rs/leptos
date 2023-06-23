@@ -1,12 +1,13 @@
 import { expect, Locator, Page } from "@playwright/test";
 
 export class CountersPage {
-  readonly page: Page;
-  readonly addCounterButton: Locator;
-  readonly addOneThousandCountersButton: Locator;
-  readonly clearCountersButton: Locator;
+  private page: Page;
+  private addCounterButton: Locator;
+  private addOneThousandCountersButton: Locator;
+  private clearCountersButton: Locator;
   readonly total: Locator;
   readonly counters: Locator;
+  private incrementCountButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -16,6 +17,9 @@ export class CountersPage {
     });
     this.clearCountersButton = page.locator("button", {
       hasText: "Clear Counters",
+    });
+    this.incrementCountButton = page.locator("button", {
+      hasText: "+1",
     });
     this.total = page.locator("#total");
     this.counters = page.locator("#counters");
@@ -35,5 +39,9 @@ export class CountersPage {
 
   async clearCounters() {
     this.clearCountersButton.first().click();
+  }
+
+  async incrementCount() {
+    this.incrementCountButton.first().click();
   }
 }
