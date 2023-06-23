@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 //! Implementation of the server_fn macro.

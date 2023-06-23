@@ -225,7 +225,7 @@ impl SignalSet<()> for Trigger {
     }
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 impl FnOnce<()> for Trigger {
     type Output = ();
 
@@ -235,7 +235,7 @@ impl FnOnce<()> for Trigger {
     }
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 impl FnMut<()> for Trigger {
     #[inline(always)]
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
@@ -243,7 +243,7 @@ impl FnMut<()> for Trigger {
     }
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 impl Fn<()> for Trigger {
     #[inline(always)]
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {

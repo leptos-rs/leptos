@@ -183,9 +183,9 @@
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
 //! which mode your app is operating in.
 
-#![cfg_attr(not(feature = "stable"), feature(auto_traits))]
-#![cfg_attr(not(feature = "stable"), feature(negative_impls))]
-#![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
+#![cfg_attr(feature = "nightly", feature(auto_traits))]
+#![cfg_attr(feature = "nightly", feature(negative_impls))]
+#![cfg_attr(feature = "nightly", feature(type_name_of_val))]
 
 mod animation;
 mod components;

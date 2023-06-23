@@ -32,7 +32,7 @@ use std::{
 /// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
 /// let (pending, set_pending) = create_signal(cx, false);
 ///
-/// let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
+/// let cats = create_resource(cx, move || cat_count.get(), |count| fetch_cats(count));
 ///
 /// view! { cx,
 ///   <div>

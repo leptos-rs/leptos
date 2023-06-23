@@ -16,10 +16,10 @@ Please copy and paste the Leptos dependencies and features from your `Cargo.toml
 
 For example:
 ```toml
-leptos = { version = "0.3", default-features = false, features = ["serde"] }
+leptos = { version = "0.3", features = ["serde"] }
 leptos_axum = { version = "0.3", optional = true }
-leptos_meta = { version = "0.3", default-features = false }
-leptos_router = { version = "0.3", default-features = false }
+leptos_meta = { version = "0.3"}
+leptos_router = { version = "0.3"}
 ```
 
 **To Reproduce**

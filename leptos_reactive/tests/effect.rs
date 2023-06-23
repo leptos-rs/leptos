@@ -1,10 +1,10 @@
-#[cfg(not(feature = "stable"))]
+
 use leptos_reactive::{
     create_isomorphic_effect, create_memo, create_runtime, create_rw_signal,
     create_scope, create_signal, SignalSet,
 };
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn effect_runs() {
     use std::{cell::RefCell, rc::Rc};
@@ -25,14 +25,14 @@ fn effect_runs() {
 
         assert_eq!(b.borrow().as_str(), "Value is -1");
 
-        set_a(1);
+        set_a.set(1);
 
         assert_eq!(b.borrow().as_str(), "Value is 1");
     })
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn effect_tracks_memo() {
     use std::{cell::RefCell, rc::Rc};
@@ -54,7 +54,7 @@ fn effect_tracks_memo() {
         assert_eq!(b().as_str(), "Value is -1");
         assert_eq!(c.borrow().as_str(), "Value is -1");
 
-        set_a(1);
+        set_a.set(1);
 
         assert_eq!(b().as_str(), "Value is 1");
         assert_eq!(c.borrow().as_str(), "Value is 1");
@@ -62,7 +62,7 @@ fn effect_tracks_memo() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn untrack_mutes_effect() {
     use std::{cell::RefCell, rc::Rc};
@@ -84,7 +84,7 @@ fn untrack_mutes_effect() {
         assert_eq!(a(), -1);
         assert_eq!(b.borrow().as_str(), "Value is -1");
 
-        set_a(1);
+        set_a.set(1);
 
         assert_eq!(a(), 1);
         assert_eq!(b.borrow().as_str(), "Value is -1");
@@ -92,7 +92,7 @@ fn untrack_mutes_effect() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn batching_actually_batches() {
     use std::{cell::Cell, rc::Rc};

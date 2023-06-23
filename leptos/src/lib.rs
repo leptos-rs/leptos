@@ -122,7 +122,7 @@
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
-//!             <span>"Value: " {move || value().to_string()} "!"</span>
+//!             <span>"Value: " {move || value.get().to_string()} "!"</span>
 //!             <button on:click=increment>"+1"</button>
 //!         </div>
 //!     }

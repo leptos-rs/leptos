@@ -23,7 +23,7 @@ use thiserror::Error;
 macro_rules! impl_get_fn_traits {
     ($($ty:ident $(($method_name:ident))?),*) => {
         $(
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> FnOnce<()> for $ty<T> {
                 type Output = T;
 
@@ -33,7 +33,7 @@ macro_rules! impl_get_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> FnMut<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
@@ -41,7 +41,7 @@ macro_rules! impl_get_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> Fn<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
@@ -61,7 +61,7 @@ macro_rules! impl_get_fn_traits {
 macro_rules! impl_set_fn_traits {
     ($($ty:ident $($method_name:ident)?),*) => {
         $(
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> FnOnce<(T,)> for $ty<T> {
                 type Output = ();
 
@@ -71,7 +71,7 @@ macro_rules! impl_set_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> FnMut<(T,)> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
@@ -79,7 +79,7 @@ macro_rules! impl_set_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> Fn<(T,)> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {

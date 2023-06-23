@@ -1,9 +1,6 @@
-#[cfg(not(feature = "stable"))]
-use leptos_reactive::{
-    create_memo, create_runtime, create_scope, create_signal,
-};
+use leptos_reactive::*;
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn basic_memo() {
     create_scope(create_runtime(), |cx| {
@@ -13,7 +10,7 @@ fn basic_memo() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn signal_with_untracked() {
     use leptos_reactive::SignalWithUntracked;
@@ -26,7 +23,7 @@ fn signal_with_untracked() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn signal_get_untracked() {
     use leptos_reactive::SignalGetUntracked;
@@ -39,7 +36,7 @@ fn signal_get_untracked() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn memo_with_computed_value() {
     create_scope(create_runtime(), |cx| {
@@ -47,15 +44,15 @@ fn memo_with_computed_value() {
         let (b, set_b) = create_signal(cx, 0);
         let c = create_memo(cx, move |_| a() + b());
         assert_eq!(c(), 0);
-        set_a(5);
+        set_a.set(5);
         assert_eq!(c(), 5);
-        set_b(1);
+        set_b.set(1);
         assert_eq!(c(), 6);
     })
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn nested_memos() {
     create_scope(create_runtime(), |cx| {
@@ -65,11 +62,11 @@ fn nested_memos() {
         let d = create_memo(cx, move |_| c() * 2); // 4
         let e = create_memo(cx, move |_| d() + 1); // 5
         assert_eq!(d(), 0);
-        set_a(5);
+        set_a.set(5);
         assert_eq!(e(), 11);
         assert_eq!(d(), 10);
         assert_eq!(c(), 5);
-        set_b(1);
+        set_b.set(1);
         assert_eq!(e(), 13);
         assert_eq!(d(), 12);
         assert_eq!(c(), 6);
@@ -77,7 +74,7 @@ fn nested_memos() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn memo_runs_only_when_inputs_change() {
     use std::{cell::Cell, rc::Rc};
@@ -113,14 +110,14 @@ fn memo_runs_only_when_inputs_change() {
         assert_eq!(call_count.get(), 1);
 
         // and we only call it again when an input changes
-        set_a(1);
+        set_a.set(1);
         assert_eq!(c(), 1);
         assert_eq!(call_count.get(), 2);
     })
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn diamond_problem() {
     use std::{cell::Cell, rc::Rc};
@@ -146,7 +143,7 @@ fn diamond_problem() {
         assert_eq!(first(), "Greg");
         assert_eq!(last(), "Johnston");
 
-        set_name("Will Smith".to_string());
+        set_name.set("Will Smith".to_string());
         assert_eq!(first(), "Will");
         assert_eq!(last(), "Smith");
         assert_eq!(combined(), "Will Smith");
@@ -157,7 +154,7 @@ fn diamond_problem() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
+
 #[test]
 fn dynamic_dependencies() {
     use leptos_reactive::create_isomorphic_effect;
@@ -187,29 +184,29 @@ fn dynamic_dependencies() {
 
         assert_eq!(combined_count.get(), 1);
 
-        set_first("Bob");
+        set_first.set("Bob");
         assert_eq!(name(), "Bob Johnston");
 
         assert_eq!(combined_count.get(), 2);
 
-        set_last("Thompson");
+        set_last.set("Thompson");
 
         assert_eq!(combined_count.get(), 3);
 
-        set_use_last(false);
+        set_use_last.set(false);
 
         assert_eq!(name(), "Bob");
         assert_eq!(combined_count.get(), 4);
 
         assert_eq!(combined_count.get(), 4);
-        set_last("Jones");
+        set_last.set("Jones");
         assert_eq!(combined_count.get(), 4);
-        set_last("Smith");
+        set_last.set("Smith");
         assert_eq!(combined_count.get(), 4);
-        set_last("Stevens");
+        set_last.set("Stevens");
         assert_eq!(combined_count.get(), 4);
 
-        set_use_last(true);
+        set_use_last.set(true);
         assert_eq!(name(), "Bob Stevens");
         assert_eq!(combined_count.get(), 5);
     })
