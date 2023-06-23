@@ -1,9 +1,7 @@
-
 use leptos_reactive::{
     create_isomorphic_effect, create_memo, create_runtime, create_rw_signal,
     create_scope, create_signal, SignalSet,
 };
-
 
 #[test]
 fn effect_runs() {
@@ -31,7 +29,6 @@ fn effect_runs() {
     })
     .dispose()
 }
-
 
 #[test]
 fn effect_tracks_memo() {
@@ -62,7 +59,6 @@ fn effect_tracks_memo() {
     .dispose()
 }
 
-
 #[test]
 fn untrack_mutes_effect() {
     use std::{cell::RefCell, rc::Rc};
@@ -91,7 +87,6 @@ fn untrack_mutes_effect() {
     })
     .dispose()
 }
-
 
 #[test]
 fn batching_actually_batches() {

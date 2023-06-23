@@ -1,9 +1,7 @@
-
 use leptos_reactive::{
     create_isomorphic_effect, create_runtime, create_scope, create_signal,
     signal_prelude::*, SignalGetUntracked, SignalSetUntracked,
 };
-
 
 #[test]
 fn untracked_set_doesnt_trigger_effect() {
@@ -35,7 +33,6 @@ fn untracked_set_doesnt_trigger_effect() {
     })
     .dispose()
 }
-
 
 #[test]
 fn untracked_get_doesnt_trigger_effect() {

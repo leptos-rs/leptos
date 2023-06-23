@@ -94,7 +94,7 @@ mod template;
 ///    Attributes can take a wide variety of primitive types that can be converted to strings. They can also
 ///    take an `Option`, in which case `Some` sets the attribute and `None` removes the attribute.
 ///
-/// ```rust
+/// ```rust,ignore
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
@@ -102,11 +102,11 @@ mod template;
 ///
 /// view! {
 ///   cx,
-///   // ❌ not like this: `count()` returns an `i32`, not a function
-///   <p>{count()}</p>
+///   // ❌ not like this: `count.get()` returns an `i32`, not a function
+///   <p>{count.get()}</p>
 ///   // ✅ this is good: Leptos sees the function and knows it's a dynamic value
 ///   <p>{move || count.get()}</p>
-///   // 🔥 `count` is itself a function, so you can pass it directly (unless you're on `stable`)
+///   // 🔥 with the `nightly` feature, `count` is a function, so `count` itself can be passed directly into the view
 ///   <p>{count}</p>
 /// }
 /// # ;
@@ -147,9 +147,9 @@ mod template;
 ///   <input
 ///     type="text"
 ///     name="user_name"
-///     value={name} // this only sets the default value!
-///     prop:value={name} // here's how you update values. Sorry, I didn’t invent the DOM.
-///     on:click=move |ev| set_name(event_target_value(&ev)) // `event_target_value` is a useful little Leptos helper
+///     value={move || name.get()} // this only sets the default value!
+///     prop:value={move || name.get()} // here's how you update values. Sorry, I didn’t invent the DOM.
+///     on:click=move |ev| set_name.set(event_target_value(&ev)) // `event_target_value` is a useful little Leptos helper
 ///   />
 /// }
 /// # ;
@@ -163,7 +163,7 @@ mod template;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
-/// view! { cx, <div class:hidden-div={move || count() < 3}>"Now you see me, now you don’t."</div> }
+/// view! { cx, <div class:hidden-div={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # ;
 /// # }
 /// # });
@@ -176,7 +176,7 @@ mod template;
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// // `hidden-div-25` is invalid at the moment
-/// view! { cx, <div class:hidden-div-25={move || count() < 3}>"Now you see me, now you don’t."</div> }
+/// view! { cx, <div class:hidden-div-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # ;
 /// # }
 /// # });
@@ -191,7 +191,7 @@ mod template;
 /// // this allows you to use CSS frameworks that include complex class names
 /// view! { cx,
 ///   <div
-///     class=("is-[this_-_really]-necessary-42", move || count() < 3)
+///     class=("is-[this_-_really]-necessary-42", move || count.get() < 3)
 ///   >
 ///     "Now you see me, now you don’t."
 ///   </div>
@@ -211,9 +211,9 @@ mod template;
 /// view! { cx,
 ///   <div
 ///     style="position: absolute"
-///     style:left=move || format!("{}px", x())
-///     style:top=move || format!("{}px", y())
-///     style=("background-color", move || format!("rgb({}, {}, 100)", x(), y()))
+///     style:left=move || format!("{}px", x.get())
+///     style:top=move || format!("{}px", y.get())
+///     style=("background-color", move || format!("rgb({}, {}, 100)", x.get(), y.get()))
 ///   >
 ///     "Moves when coordinates change"
 ///   </div>
@@ -285,7 +285,7 @@ mod template;
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-///     let clear = move |_ev| set_value(0);
+///     let clear = move |_ev| set_value.set(0);
 ///     let decrement = move |_ev| set_value.update(|value| *value -= 1);
 ///     let increment = move |_ev| set_value.update(|value| *value += 1);
 ///
@@ -295,7 +295,7 @@ mod template;
 ///         <div>
 ///             <button on:click=clear>"Clear"</button>
 ///             <button on:click=decrement>"-1"</button>
-///             <span>"Value: " {move || value().to_string()} "!"</span>
+///             <span>"Value: " {move || value.get().to_string()} "!"</span>
 ///             <button on:click=increment>"+1"</button>
 ///         </div>
 ///     }
@@ -467,7 +467,7 @@ pub fn template(tokens: TokenStream) -> TokenStream {
 ///     // return the user interface, which will be automatically updated
 ///     // when signal values change
 ///     view! { cx,
-///       <p>"Your name is " {name} " and you are " {age} " years old."</p>
+///       <p>"Your name is " {name} " and you are " {move || age.get()} " years old."</p>
 ///     }
 /// }
 ///

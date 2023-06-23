@@ -23,7 +23,7 @@ use leptos_reactive::{
 ///   <ErrorBoundary
 ///     fallback=move |_, _| view! { cx, <p class="error">"Enter a valid number."</p>}
 ///   >
-///     <p>"Value is: " {value}</p>
+///     <p>"Value is: " {move || value.get()}</p>
 ///   </ErrorBoundary>
 /// }
 /// # });

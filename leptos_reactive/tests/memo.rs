@@ -1,6 +1,5 @@
 use leptos_reactive::*;
 
-
 #[test]
 fn basic_memo() {
     create_scope(create_runtime(), |cx| {
@@ -9,7 +8,6 @@ fn basic_memo() {
     })
     .dispose()
 }
-
 
 #[test]
 fn signal_with_untracked() {
@@ -23,7 +21,6 @@ fn signal_with_untracked() {
     .dispose()
 }
 
-
 #[test]
 fn signal_get_untracked() {
     use leptos_reactive::SignalGetUntracked;
@@ -35,7 +32,6 @@ fn signal_get_untracked() {
     })
     .dispose()
 }
-
 
 #[test]
 fn memo_with_computed_value() {
@@ -51,7 +47,6 @@ fn memo_with_computed_value() {
     })
     .dispose()
 }
-
 
 #[test]
 fn nested_memos() {
@@ -73,7 +68,6 @@ fn nested_memos() {
     })
     .dispose()
 }
-
 
 #[test]
 fn memo_runs_only_when_inputs_change() {
@@ -117,7 +111,6 @@ fn memo_runs_only_when_inputs_change() {
     .dispose()
 }
 
-
 #[test]
 fn diamond_problem() {
     use std::{cell::Cell, rc::Rc};
@@ -153,7 +146,6 @@ fn diamond_problem() {
     })
     .dispose()
 }
-
 
 #[test]
 fn dynamic_dependencies() {

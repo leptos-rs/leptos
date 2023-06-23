@@ -1,6 +1,4 @@
-
 use leptos_reactive::*;
-
 
 #[test]
 fn basic_signal() {
@@ -12,7 +10,6 @@ fn basic_signal() {
     })
     .dispose()
 }
-
 
 #[test]
 fn derived_signals() {
