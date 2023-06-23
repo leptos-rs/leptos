@@ -9,7 +9,7 @@ test.describe("View Counters", () => {
     await expect(page).toHaveTitle("Counters (Stable)");
   });
 
-  test("should see the initial_values", async ({ page }) => {
+  test("should see the initial counts", async ({ page }) => {
     const counters = new CountersPage(page);
     await counters.goto();
 
