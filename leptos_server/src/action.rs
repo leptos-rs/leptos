@@ -3,7 +3,7 @@ use leptos_reactive::{
     create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal,
     RwSignal, Scope, StoredValue,
 };
-use std::{future::Future, pin::Pin, rc::Rc};
+use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
 /// An action synchronizes an imperative `async` call to the synchronous reactive system.
 ///
@@ -106,7 +106,7 @@ where
         self.0.with_value(|a| a.pending.read_only())
     }
 
-    /// Updates whether the action is currently pending. If the action has been dispatched 
+    /// Updates whether the action is currently pending. If the action has been dispatched
     /// multiple times, and some of them are still pending, it will *not* update the `pending`
     /// signal.
     #[cfg_attr(
@@ -115,16 +115,15 @@ where
     )]
     pub fn set_pending(&self, pending: bool) {
         self.0.try_with_value(|a| {
-            let pending_dispatches = a.pending_dispatches;
-            let still_pending = pending_dispatches.try_update(|n| {
-                if pending {
-                    *n += 1;
+            let pending_dispatches = &a.pending_dispatches;
+            let still_pending = {
+                pending_dispatches.set(if pending {
+                    pending_dispatches.get().wrapping_add(1)
                 } else {
-                    *n -= 1;
-                }
-                *n
-            })
-            .unwrap_or(0);
+                    pending_dispatches.get().saturating_sub(1)
+                });
+                pending_dispatches.get()
+            };
             if still_pending == 0 {
                 a.pending.set(false);
             } else {
@@ -160,11 +159,6 @@ where
     /// How many times the action has successfully resolved.
     pub fn version(&self) -> RwSignal<usize> {
         self.0.with_value(|a| a.version)
-    }
-
-    /// How many dispatches are still pending.
-    pub fn pending_dispatches(&self) -> Signal<usize> {
-        self.0.with_value(|a| a.pending_dispatches).read_only().into()
     }
 
     /// The current argument that was dispatched to the `async` function.
@@ -220,7 +214,7 @@ where
     pending: RwSignal<bool>,
     url: Option<String>,
     /// How many dispatched actions are still pending.
-    pending_dispatches: RwSignal<usize>,
+    pending_dispatches: Rc<Cell<usize>>,
     #[allow(clippy::complexity)]
     action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
@@ -241,22 +235,20 @@ where
         let input = self.input;
         let version = self.version;
         let pending = self.pending;
-        let pending_dispatches = self.pending_dispatches;
+        let pending_dispatches = Rc::clone(&self.pending_dispatches);
         let value = self.value;
         let cx = self.cx;
         pending.set(true);
-        pending_dispatches.update(|n| *n += 1);
+        pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
         spawn_local(async move {
             let new_value = fut.await;
             cx.batch(move || {
                 value.set(Some(new_value));
                 input.set(None);
                 version.update(|n| *n += 1);
-                let still_pending = pending_dispatches.try_update(|n| {
-                    *n -= 1;
-                    *n
-                }).unwrap_or(0);
-                if still_pending == 0 {
+                pending_dispatches
+                    .set(pending_dispatches.get().saturating_sub(1));
+                if pending_dispatches.get() == 0 {
                     pending.set(false);
                 }
             });
@@ -353,7 +345,7 @@ where
     let input = create_rw_signal(cx, None);
     let value = create_rw_signal(cx, None);
     let pending = create_rw_signal(cx, false);
-    let pending_dispatches = create_rw_signal(cx, 0);
+    let pending_dispatches = Rc::new(Cell::new(0));
     let action_fn = Rc::new(move |input: &I| {
         let fut = action_fn(input);
         Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
