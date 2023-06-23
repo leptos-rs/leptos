@@ -27,7 +27,7 @@
 //!       />
 //!       <main>
 //!         <input
-//!           prop:value=name
+//!           prop:value=move || name.get()
 //!           on:input=move |ev| set_name.set(event_target_value(&ev))
 //!         />
 //!       </main>
