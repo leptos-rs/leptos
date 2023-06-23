@@ -1,4 +1,4 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from "@playwright/test";
 
 export class CountersPage {
   readonly page: Page;
@@ -10,15 +10,19 @@ export class CountersPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.addCounterButton = page.locator('button', { hasText: 'Add Counter' });
-    this.addOneThousandCountersButton = page.locator('button', { hasText: 'Add 1000 Counters' });
-    this.clearCountersButton = page.locator('button', { hasText: 'Clear Counters' });
-    this.total = page.locator('#total');
-    this.counters = page.locator('#counters');; 
+    this.addCounterButton = page.locator("button", { hasText: "Add Counter" });
+    this.addOneThousandCountersButton = page.locator("button", {
+      hasText: "Add 1000 Counters",
+    });
+    this.clearCountersButton = page.locator("button", {
+      hasText: "Clear Counters",
+    });
+    this.total = page.locator("#total");
+    this.counters = page.locator("#counters");
   }
 
   async goto() {
-    await this.page.goto('http://localhost:8080/');
+    await this.page.goto("http://localhost:8080/");
   }
 
   async addCounter() {
