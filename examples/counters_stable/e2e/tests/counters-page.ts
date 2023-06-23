@@ -21,6 +21,15 @@ export class CountersPage {
     await this.page.goto('http://localhost:8080/');
   }
 
-  async pageObjectModel() {
+  async addCounter() {
+    this.addCounterButton.first().click();
+  }
+
+  async addOneThousandCounters() {
+    this.addOneThousandCountersButton.first().click();
+  }
+
+  async clearCounters() {
+    this.clearCountersButton.first().click();
   }
 }
