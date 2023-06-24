@@ -45,14 +45,14 @@ where
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = Signal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
 ///     // ✅ calling the signal clones and returns the value
-///     //    it is a shorthand for arg.get()
-///     arg() > 3
+///     //    can be `arg() > 3` on nightly
+///     arg.get() > 3
 /// }
 ///
 /// assert_eq!(above_3(&count.into()), false);
@@ -210,7 +210,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: Signal<String>) -> usize {
 ///     // ❌ unnecessarily clones the string
-///     arg().len()
+///     arg.get().len()
 /// }
 ///
 /// fn current_len(arg: &Signal<String>) -> usize {
@@ -222,9 +222,9 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// assert_eq!(current_len(&name_upper), 5);
 /// assert_eq!(current_len(&memoized_lower.into()), 5);
 ///
-/// assert_eq!(name(), "Alice");
-/// assert_eq!(name_upper(), "ALICE");
-/// assert_eq!(memoized_lower(), "alice");
+/// assert_eq!(name.get(), "Alice");
+/// assert_eq!(name_upper.get(), "ALICE");
+/// assert_eq!(memoized_lower.get(), "alice");
 /// # });
 /// ```
 impl<T> SignalWith<T> for Signal<T> {
@@ -276,8 +276,8 @@ impl<T> SignalWith<T> for Signal<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = Signal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -342,7 +342,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count.get() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -499,15 +499,15 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = MaybeSignal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 /// let static_value = 5;
 ///
 /// // this function takes either a reactive or non-reactive value
 /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
 ///     // ✅ calling the signal clones and returns the value
 ///     //    it is a shorthand for arg.get()
-///     arg() > 3
+///     arg.get() > 3
 /// }
 ///
 /// assert_eq!(above_3(&static_value.into()), true);
@@ -550,8 +550,8 @@ impl<T: Default> Default for MaybeSignal<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = MaybeSignal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 /// let static_value: MaybeSignal<i32> = 5.into();
 ///
 /// // this function takes any kind of wrapped signal
@@ -596,7 +596,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: &MaybeSignal<String>) -> usize {
 ///     // ❌ unnecessarily clones the string
-///     arg().len()
+///     arg.get().len()
 /// }
 ///
 /// fn current_len(arg: &MaybeSignal<String>) -> usize {
@@ -609,10 +609,10 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// assert_eq!(current_len(&memoized_lower.into()), 5);
 /// assert_eq!(current_len(&static_value), 3);
 ///
-/// assert_eq!(name(), "Alice");
-/// assert_eq!(name_upper(), "ALICE");
-/// assert_eq!(memoized_lower(), "alice");
-/// assert_eq!(static_value(), "Bob");
+/// assert_eq!(name.get(), "Alice");
+/// assert_eq!(name_upper.get(), "ALICE");
+/// assert_eq!(memoized_lower.get(), "alice");
+/// assert_eq!(static_value.get(), "Bob");
 /// # });
 /// ```
 impl<T> SignalWith<T> for MaybeSignal<T> {
@@ -709,7 +709,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count.get() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &MaybeSignal<i32>) -> bool {

@@ -87,8 +87,8 @@ impl<T> StoredValue<T> {
     ///
     /// // calling .get_value() clones and returns the value
     /// assert_eq!(data.get_value().value, "a");
-    /// // there's a short-hand getter form
-    /// assert_eq!(data().value, "a");
+    /// // can be `data().value` on nightly
+    /// // assert_eq!(data().value, "a");
     /// # });
     /// ```
     #[track_caller]

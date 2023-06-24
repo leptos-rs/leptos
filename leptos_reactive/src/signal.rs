@@ -308,9 +308,9 @@ pub trait SignalDispose {
 /// // ✅ you can create "derived signals" with a Fn() -> T interface
 /// let double_count = move || count.get() * 2; // signals are `Copy` so you can `move` them anywhere
 /// set_count.set(0);
-/// assert_eq!(double_count.get(), 0);
+/// assert_eq!(double_count(), 0);
 /// set_count.set(1);
-/// assert_eq!(double_count.get(), 2);
+/// assert_eq!(double_count(), 2);
 /// # }).dispose();
 /// #
 /// ```
@@ -587,13 +587,13 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
-/// let first_char = move || name().chars().next().unwrap();
+/// let first_char = move || name.get().chars().next().unwrap();
 /// assert_eq!(first_char(), 'A');
 ///
 /// // ✅ gets the first char without cloning the `String`
 /// let first_char = move || name.with(|n| n.chars().next().unwrap());
 /// assert_eq!(first_char(), 'A');
-/// set_name("Bob".to_string());
+/// set_name.set("Bob".to_string());
 /// assert_eq!(first_char(), 'B');
 /// # });
 /// ```
@@ -1416,7 +1416,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// let name = create_rw_signal(cx, "Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
-/// let first_char = move || name().chars().next().unwrap();
+/// let first_char = move || name.get().chars().next().unwrap();
 /// assert_eq!(first_char(), 'A');
 ///
 /// // ✅ gets the first char without cloning the `String`

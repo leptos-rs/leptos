@@ -32,7 +32,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 ///   log::debug!("Value: {}", a.get());
 /// });
 ///
-/// set_a(1);
+/// set_a.set(1);
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system

@@ -44,25 +44,28 @@
 //!     let (count, set_count) = create_signal(cx, 0);
 //!
 //!     // calling the getter gets the value
-//!     assert_eq!(count(), 0);
+//!     // can be `count()` on nightly
+//!     assert_eq!(count.get(), 0);
 //!     // calling the setter sets the value
-//!     set_count(1);
+//!     // can be `set_count(1)` on nightly
+//!     set_count.set(1);
 //!     // or we can mutate it in place with update()
 //!     set_count.update(|n| *n += 1);
 //!
 //!     // a derived signal: a plain closure that relies on the signal
 //!     // the closure will run whenever we *access* double_count()
-//!     let double_count = move || count() * 2;
+//!     let double_count = move || count.get() * 2;
 //!     assert_eq!(double_count(), 4);
 //!
 //!     // a memo: subscribes to the signal
 //!     // the closure will run only when count changes
-//!     let memoized_triple_count = create_memo(cx, move |_| count() * 3);
-//!     assert_eq!(memoized_triple_count(), 6);
+//!     let memoized_triple_count = create_memo(cx, move |_| count.get() * 3);
+//!     // can be `memoized_triple_count()` on nightly
+//!     assert_eq!(memoized_triple_count.get(), 6);
 //!
-//!     // this effect will run whenever count() changes
+//!     // this effect will run whenever `count` changes
 //!     create_effect(cx, move |_| {
-//!         println!("Count = {}", count());
+//!         println!("Count = {}", count.get());
 //!     });
 //! });
 //! ```

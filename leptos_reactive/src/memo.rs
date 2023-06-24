@@ -48,11 +48,11 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 /// let expensive = move || really_expensive_computation(value.get()); // lazy: doesn't run until called
 /// create_effect(cx, move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
-///   log::debug!("expensive = {}", expensive.get());
+///   log::debug!("expensive = {}", expensive());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ❌ run #2: this calls `really_expensive_computation` a second time!
-///   let value = expensive.get();
+///   let value = expensive();
 ///   // do something else...
 /// });
 ///
@@ -133,7 +133,7 @@ where
 ///
 /// // 🆗 we could create a derived signal with a simple function
 /// let double_value = move || value.get() * 2;
-/// set_value(2);
+/// set_value.set(2);
 /// assert_eq!(double_value(), 4);
 ///
 /// // but imagine the computation is really expensive

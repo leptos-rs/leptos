@@ -56,17 +56,17 @@ use crate::{
 ///
 /// create_effect(cx, move |_| {
 ///     // note: in the browser, use leptos::log! instead
-///     println!("name is {}", name());
+///     println!("name is {}", name.get());
 /// });
 /// create_effect(cx, move |_| {
-///     println!("count is {}", count());
+///     println!("count is {}", count.get());
 /// });
 ///
 /// // setting count only causes count to log, not name
-/// set_count(42);
+/// set_count.set(42);
 ///
 /// // setting name only causes name to log, not count
-/// set_name("Bob".into());
+/// set_name.set("Bob".into());
 /// ```
 pub fn create_slice<T, O, S>(
     cx: Scope,
