@@ -64,7 +64,7 @@ use std::{
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all)
 )]
-#[component]
+#[component(transparent)]
 pub fn Transition<F, E>(
     cx: Scope,
     /// Will be displayed while resources are pending.
