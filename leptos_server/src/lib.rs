@@ -116,7 +116,7 @@
 //! your app is not available.
 
 use leptos_reactive::*;
-pub use server_fn::{Encoding, Payload, ServerFnError};
+pub use server_fn::{Encoding, Payload, ServerFnError, ServerFnErrorErr};
 
 mod action;
 mod multi_action;

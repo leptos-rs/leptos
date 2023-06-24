@@ -1,6 +1,7 @@
 use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{signal_prelude::*, use_context, RwSignal};
+use server_fn::{ServerFnError, ServerFnErrorErr};
 use std::{borrow::Cow, collections::HashMap, error, fmt, ops, sync::Arc};
 
 /// This is a result type into which any error can be converted,
@@ -41,6 +42,12 @@ where
 {
     fn from(value: T) -> Self {
         Error(Arc::new(value))
+    }
+}
+
+impl From<ServerFnError> for Error {
+    fn from(e: ServerFnError) -> Self {
+        Error(Arc::new(ServerFnErrorErr::from(e)))
     }
 }
 
@@ -164,6 +171,7 @@ where
         }
     }
 }
+
 impl Errors {
     /// Returns `true` if there are no errors.
     #[inline(always)]
