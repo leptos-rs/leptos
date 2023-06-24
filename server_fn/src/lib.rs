@@ -90,15 +90,17 @@ use quote::TokenStreamExt;
 // used by the macro
 #[doc(hidden)]
 pub use serde;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 pub use server_fn_macro_default::server;
 use std::{future::Future, pin::Pin, str::FromStr};
 #[cfg(any(feature = "ssr", doc))]
 use syn::parse_quote;
-use thiserror::Error;
 // used by the macro
 #[doc(hidden)]
 pub use xxhash_rust;
+/// Error types used in server functions.
+pub mod error;
+pub use error::ServerFnError;
 
 /// Default server function registry
 pub mod default;
@@ -451,83 +453,6 @@ where
     }
 }
 
-/// Type for errors that can occur when using server functions.
-/// 
-/// Unlike [`ServerFnErrorErr`], this does not implement [`std::error::Error`].
-/// This means that other error types can easily be converted into it using the 
-/// `?` operator.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ServerFnError {
-    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
-    Registration(String),
-    /// Occurs on the client if there is a network error while trying to run function on server.
-    Request(String),
-    /// Occurs when there is an error while actually running the function on the server.
-    ServerError(String),
-    /// Occurs on the client if there is an error deserializing the server's response.
-    Deserialization(String),
-    /// Occurs on the client if there is an error serializing the server function arguments.
-    Serialization(String),
-    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
-    Args(String),
-    /// Occurs on the server if there's a missing argument.
-    MissingArg(String),
-}
-
-impl<E> From<E> for ServerFnError where E: std::error::Error {
-    fn from(e: E) -> Self {
-        ServerFnError::ServerError(e.to_string())
-    }
-}
-
-/// Type for errors that can occur when using server functions.
-/// 
-/// Unlike [`ServerFnErrorErr`], this implements [`std::error::Error`]. This means 
-/// it can be used in situations in which the `Error` trait is required, but it’s 
-/// not possible to create a blanket implementation that converts other errors into 
-/// this type.
-/// 
-/// [`ServerFnError`] and [`ServerFnErrorErr`] mutually implement [`From`], so 
-/// it is easy to convert between the two types.
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum ServerFnErrorErr {
-    /// Error while trying to register the server function (only occurs in case of poisoned RwLock).
-    #[error("error while trying to register the server function: {0}")]
-    Registration(String),
-    /// Occurs on the client if there is a network error while trying to run function on server.
-    #[error("error reaching server to call server function: {0}")]
-    Request(String),
-    /// Occurs when there is an error while actually running the function on the server.
-    #[error("error running server function: {0}")]
-    ServerError(String),
-    /// Occurs on the client if there is an error deserializing the server's response.
-    #[error("error deserializing server function results {0}")]
-    Deserialization(String),
-    /// Occurs on the client if there is an error serializing the server function arguments.
-    #[error("error serializing server function arguments {0}")]
-    Serialization(String),
-    /// Occurs on the server if there is an error deserializing one of the arguments that's been sent.
-    #[error("error deserializing server function arguments {0}")]
-    Args(String),
-    /// Occurs on the server if there's a missing argument.
-    #[error("missing argument {0}")]
-    MissingArg(String),
-}
-
-impl From<ServerFnError> for ServerFnErrorErr {
-    fn from(value: ServerFnError) -> Self {
-        match value {
-            ServerFnError::Registration(value) => ServerFnErrorErr::Registration(value),
-            ServerFnError::Request(value) => ServerFnErrorErr::Request(value),
-            ServerFnError::ServerError(value) => ServerFnErrorErr::ServerError(value),
-            ServerFnError::Deserialization(value) => ServerFnErrorErr::Deserialization(value),
-            ServerFnError::Serialization(value) => ServerFnErrorErr::Serialization(value),
-            ServerFnError::Args(value) => ServerFnErrorErr::Args(value),
-            ServerFnError::MissingArg(value) => ServerFnErrorErr::MissingArg(value),
-        }
-    }
-}
-
 /// Executes the HTTP call to call a server function from the client, given its URL and argument type.
 #[cfg(not(feature = "ssr"))]
 pub async fn call_server_fn<T, C: 'static>(
@@ -700,7 +625,7 @@ where
 // Lazily initialize the client to be reused for all server function calls.
 #[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static CLIENT: once_cell::sync::Lazy<reqwest::Client> =
-    once_cell::sync::Lazy::new(|| reqwest::Client::new());
+    once_cell::sync::Lazy::new(reqwest::Client::new);
 
 #[cfg(any(all(not(feature = "ssr"), not(target_arch = "wasm32")), doc))]
 static ROOT_URL: once_cell::sync::OnceCell<&'static str> =

@@ -174,7 +174,7 @@ pub use leptos_dom::{
 
 /// Types to make it easier to handle errors in your application.
 pub mod error {
-    pub use leptos_dom::{Error, Result};
+    pub use server_fn::error::{Error, Result};
 }
 #[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
