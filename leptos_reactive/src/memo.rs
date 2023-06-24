@@ -61,7 +61,7 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 /// let memoized = create_memo(cx, move |_| really_expensive_computation(value.get()));
 /// create_effect(cx, move |_| {
 ///   // 🆗 reads the current value of the memo
-///   //    can be `memoized()` on nightly 
+///   //    can be `memoized()` on nightly
 ///   log::debug!("memoized = {}", memoized.get());
 /// });
 /// create_effect(cx, move |_| {

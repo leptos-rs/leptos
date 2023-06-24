@@ -48,8 +48,11 @@ fn untracked_get_doesnt_trigger_effect() {
         create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
-                let formatted =
-                    format!("Values are {} and {}", a.get(), a2.get_untracked());
+                let formatted = format!(
+                    "Values are {} and {}",
+                    a.get(),
+                    a2.get_untracked()
+                );
                 *b.borrow_mut() = formatted;
             }
         });

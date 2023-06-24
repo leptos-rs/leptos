@@ -1,6 +1,6 @@
 use leptos_reactive::{
     create_isomorphic_effect, create_memo, create_runtime, create_rw_signal,
-    create_scope, create_signal, SignalSet, SignalGet
+    create_scope, create_signal, SignalGet, SignalSet,
 };
 
 #[test]
@@ -72,7 +72,8 @@ fn untrack_mutes_effect() {
         create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
-                let formatted = format!("Value is {}", cx.untrack(move || a.get()));
+                let formatted =
+                    format!("Value is {}", cx.untrack(move || a.get()));
                 *b.borrow_mut() = formatted;
             }
         });

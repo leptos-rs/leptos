@@ -78,7 +78,7 @@ impl Trigger {
 /// let e = external_data.clone();
 /// create_effect(cx, move |_| {
 ///     // can be `rerun_on_data()` on nightly
-///     rerun_on_data.track(); 
+///     rerun_on_data.track();
 ///     write!(o.borrow_mut(), "{}", *e.borrow());
 ///     *e.borrow_mut() += 1;
 /// });
