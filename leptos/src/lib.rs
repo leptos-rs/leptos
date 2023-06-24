@@ -182,7 +182,8 @@ pub use leptos_macro::{component, server, slot, view, Params};
 pub use leptos_reactive::*;
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
-    create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError, ServerFnErrorErr
+    create_server_multi_action, Action, MultiAction, ServerFn, ServerFnError,
+    ServerFnErrorErr,
 };
 pub use server_fn::{self, ServerFn as _};
 pub use typed_builder;

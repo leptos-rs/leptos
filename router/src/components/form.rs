@@ -406,7 +406,8 @@ where
                 cx.batch(move || {
                     value.try_set(Some(Err(e.clone())));
                     if let Some(error) = error {
-                        error.try_set(Some(Box::new(ServerFnErrorErr::from(e))));
+                        error
+                            .try_set(Some(Box::new(ServerFnErrorErr::from(e))));
                     }
                 });
             }

@@ -1,7 +1,7 @@
 use crate::{HydrationCtx, IntoView};
 use cfg_if::cfg_if;
 use leptos_reactive::{signal_prelude::*, use_context, RwSignal};
-use server_fn::error::{Error};
+use server_fn::error::Error;
 use std::{borrow::Cow, collections::HashMap};
 
 /// A struct to hold all the possible errors that could be provided by child Views
