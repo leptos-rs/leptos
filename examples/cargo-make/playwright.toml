@@ -8,6 +8,12 @@ do
 done
 '''
 
+[tasks.test-playwright-autostart]
+description = "Run playwright test with server autostart"
+category = "Test"
+command = "npm"
+args = ["run", "e2e:auto-start"]
+
 [tasks.test-playwright]
 description = "Run playwright test"
 category = "Test"
