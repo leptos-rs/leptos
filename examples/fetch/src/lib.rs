@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::{error::Result, *};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -8,30 +8,24 @@ pub struct Cat {
 }
 
 #[derive(Error, Clone, Debug)]
-pub enum FetchError {
+pub enum CatError {
     #[error("Please request more than zero cats.")]
     NonZeroCats,
-    #[error("Error loading data from serving.")]
-    Request,
-    #[error("Error deserializaing cat data from request.")]
-    Json,
 }
 
 type CatCount = usize;
 
-async fn fetch_cats(count: CatCount) -> Result<Vec<String>, FetchError> {
+async fn fetch_cats(count: CatCount) -> Result<Vec<String>> {
     if count > 0 {
         // make the request
         let res = reqwasm::http::Request::get(&format!(
             "https://api.thecatapi.com/v1/images/search?limit={count}",
         ))
         .send()
-        .await
-        .map_err(|_| FetchError::Request)?
+        .await?
         // convert it to JSON
         .json::<Vec<Cat>>()
-        .await
-        .map_err(|_| FetchError::Json)?
+        .await?
         // extract the URL field for each cat
         .into_iter()
         .take(count)
@@ -39,7 +33,7 @@ async fn fetch_cats(count: CatCount) -> Result<Vec<String>, FetchError> {
         .collect::<Vec<_>>();
         Ok(res)
     } else {
-        Err(FetchError::NonZeroCats)
+        Err(CatError::NonZeroCats.into())
     }
 }
 
