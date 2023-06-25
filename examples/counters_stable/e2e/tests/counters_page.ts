@@ -38,7 +38,7 @@ export class CountersPage {
   }
 
   async goto() {
-    await this.page.goto("http://localhost:8080/");
+    await this.page.goto("/");
   }
 
   async addCounter() {
