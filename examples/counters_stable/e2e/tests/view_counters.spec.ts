@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { CountersPage } from "./counters-page";
+import { CountersPage } from "./counters_page";
 
 test.describe("View Counters", () => {
   test("should_see_the_title", async ({ page }) => {
-    const counters = new CountersPage(page);
-    await counters.goto();
+    const ui = new CountersPage(page);
+    await ui.goto();
 
     await expect(page).toHaveTitle("Counters (Stable)");
   });

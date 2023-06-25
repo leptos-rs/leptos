@@ -1,32 +1,40 @@
 import { expect, Locator, Page } from "@playwright/test";
 
 export class CountersPage {
-  private page: Page;
-  private addCounterButton: Locator;
-  private addOneThousandCountersButton: Locator;
-  private clearCountersButton: Locator;
-  private decrementCountButton: Locator;
-  private incrementCountButton: Locator;
+  readonly page: Page;
+  readonly addCounterButton: Locator;
+  readonly addOneThousandCountersButton: Locator;
+  readonly clearCountersButton: Locator;
+  readonly decrementCountButton: Locator;
+  readonly incrementCountButton: Locator;
+
   readonly total: Locator;
   readonly counters: Locator;
 
   constructor(page: Page) {
     this.page = page;
+
     this.addCounterButton = page.locator("button", { hasText: "Add Counter" });
+
     this.addOneThousandCountersButton = page.locator("button", {
       hasText: "Add 1000 Counters",
     });
+
     this.clearCountersButton = page.locator("button", {
       hasText: "Clear Counters",
     });
+
     this.decrementCountButton = page.locator("button", {
       hasText: "-1",
     });
+
     this.incrementCountButton = page.locator("button", {
       hasText: "+1",
     });
-    this.total = page.locator("#total");
-    this.counters = page.locator("#counters");
+
+    this.total = page.getByTestId("total");
+
+    this.counters = page.getByTestId("counters");
   }
 
   async goto() {
@@ -34,22 +42,22 @@ export class CountersPage {
   }
 
   async addCounter() {
-    this.addCounterButton.first().click();
+    this.addCounterButton.click();
   }
 
   async addOneThousandCounters() {
-    this.addOneThousandCountersButton.first().click();
-  }
-
-  async clearCounters() {
-    this.clearCountersButton.first().click();
+    this.addOneThousandCountersButton.click();
   }
 
   async decrementCount() {
-    this.decrementCountButton.first().click();
+    this.decrementCountButton.click();
   }
 
   async incrementCount() {
-    this.incrementCountButton.first().click();
+    this.incrementCountButton.click();
+  }
+
+  async clearCounters() {
+    this.clearCountersButton.click();
   }
 }
