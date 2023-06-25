@@ -21,14 +21,12 @@ if #[cfg(feature = "ssr")] {
 
     pub fn pool(cx: Scope) -> Result<SqlitePool, ServerFnError> {
        use_context::<SqlitePool>(cx)
-            .ok_or("Pool missing.")
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))
+            .ok_or_else(|| ServerFnError::ServerError("Pool missing.".into()))
     }
 
     pub fn auth(cx: Scope) -> Result<AuthSession, ServerFnError> {
         use_context::<AuthSession>(cx)
-            .ok_or("Auth session missing.")
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))
+            .ok_or_else(|| ServerFnError::ServerError("Auth session missing.".into()))
     }
 
     #[derive(sqlx::FromRow, Clone)]
@@ -64,11 +62,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut rows =
         sqlx::query_as::<_, SqlTodo>("SELECT * FROM todos").fetch(&pool);
 
-    while let Some(row) = rows
-        .try_next()
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
-    {
+    while let Some(row) = rows.try_next().await? {
         todos.push(row);
     }
 
@@ -117,12 +111,11 @@ pub async fn add_todo(cx: Scope, title: String) -> Result<(), ServerFnError> {
 pub async fn delete_todo(cx: Scope, id: u16) -> Result<(), ServerFnError> {
     let pool = pool(cx)?;
 
-    sqlx::query("DELETE FROM todos WHERE id = $1")
+    Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
         .execute(&pool)
         .await
-        .map(|_| ())
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
+        .map(|_| ())?)
 }
 
 #[component]

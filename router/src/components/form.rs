@@ -386,7 +386,7 @@ where
             let e = ServerFnError::Request(e.to_string());
             value.try_set(Some(Err(e.clone())));
             if let Some(error) = error {
-                error.try_set(Some(Box::new(e)));
+                error.try_set(Some(Box::new(ServerFnErrorErr::from(e))));
             }
         });
     });
@@ -406,7 +406,8 @@ where
                 cx.batch(move || {
                     value.try_set(Some(Err(e.clone())));
                     if let Some(error) = error {
-                        error.try_set(Some(Box::new(e)));
+                        error
+                            .try_set(Some(Box::new(ServerFnErrorErr::from(e))));
                     }
                 });
             }
@@ -472,7 +473,7 @@ where
                         error!("{e:?}");
                         if let Some(error) = error {
                             error.try_set(Some(Box::new(
-                                ServerFnError::Request(
+                                ServerFnErrorErr::Request(
                                     e.as_string().unwrap_or_default(),
                                 ),
                             )));
