@@ -1,38 +1,53 @@
 use cfg_if::cfg_if;
 use leptos::*;
+#[cfg(feature = "ssr")]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<html>`.
 #[derive(Clone, Default)]
 pub struct HtmlContext {
+    #[cfg(feature = "ssr")]
     lang: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     dir: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     class: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
 impl HtmlContext {
     /// Converts the `<html>` metadata into an HTML string.
+    #[cfg(any(feature = "ssr", doc))]
     pub fn as_string(&self) -> Option<String> {
-        let lang = self
-            .lang
-            .borrow()
-            .as_ref()
-            .map(|val| format!("lang=\"{}\"", val.get()));
-        let dir = self
-            .dir
-            .borrow()
-            .as_ref()
-            .map(|val| format!("dir=\"{}\"", val.get()));
-        let class = self
-            .class
-            .borrow()
-            .as_ref()
-            .map(|val| format!("class=\"{}\"", val.get()));
+        let lang = self.lang.borrow().as_ref().map(|val| {
+            format!(
+                "lang=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
+        let dir = self.dir.borrow().as_ref().map(|val| {
+            format!(
+                "dir=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
+        let class = self.class.borrow().as_ref().map(|val| {
+            format!(
+                "class=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
         let attributes = self.attributes.borrow().as_ref().map(|val| {
             val.with(|val| {
                 val.into_iter()
-                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .map(|(n, v)| {
+                        format!(
+                            "{}=\"{}\"",
+                            n,
+                            leptos::leptos_dom::ssr::escape_attr(&v.get())
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join(" ")
             })
@@ -96,9 +111,6 @@ pub fn Html(
     #[prop(optional, into)]
     attributes: Option<MaybeSignal<AdditionalAttributes>>,
 ) -> impl IntoView {
-    #[cfg(debug_assertions)]
-    crate::feature_warning();
-
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             let el = document().document_element().expect("there to be a <html> element");
@@ -139,12 +151,20 @@ pub fn Html(
                     });
                 }
             }
-        } else {
+        } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head(cx);
             *meta.html.lang.borrow_mut() = lang;
             *meta.html.dir.borrow_mut() = dir;
             *meta.html.class.borrow_mut() = class;
             *meta.html.attributes.borrow_mut() = attributes;
+        } else {
+            _ = cx;
+            _ = lang;
+            _ = dir;
+            _ = class;
+            _ = attributes;
+            #[cfg(debug_assertions)]
+            crate::feature_warning();
         }
     }
 }
