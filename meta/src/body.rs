@@ -57,7 +57,7 @@ impl std::fmt::Debug for BodyContext {
 ///     provide_meta_context(cx);
 ///     let (prefers_dark, set_prefers_dark) = create_signal(cx, false);
 ///     let body_class = move || {
-///         if prefers_dark() {
+///         if prefers_dark.get() {
 ///             "dark".to_string()
 ///         } else {
 ///             "light".to_string()

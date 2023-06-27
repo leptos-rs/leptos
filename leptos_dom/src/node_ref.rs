@@ -154,7 +154,7 @@ impl<T: ElementDescriptor> Clone for NodeRef<T> {
 impl<T: ElementDescriptor + 'static> Copy for NodeRef<T> {}
 
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "stable"))] {
+    if #[cfg(feature = "nightly")] {
         impl<T: Clone + ElementDescriptor + 'static> FnOnce<()> for NodeRef<T> {
             type Output = Option<HtmlElement<T>>;
 

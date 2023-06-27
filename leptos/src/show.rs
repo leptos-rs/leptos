@@ -21,7 +21,7 @@ use std::{cell::RefCell, rc::Rc};
 ///
 /// view! { cx,
 ///   <Show
-///     when=move || value() < 5
+///     when=move || value.get() < 5
 ///     fallback=|cx| view! { cx, "Big number!" }
 ///   >
 ///     "Small number!"

@@ -16,14 +16,14 @@ use leptos_reactive::{
 /// # use leptos_dom::*; use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// let (value, set_value) = create_signal(cx, Ok(0));
-/// let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
+/// let on_input = move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 ///
 /// view! { cx,
 ///   <input type="text" on:input=on_input/>
 ///   <ErrorBoundary
 ///     fallback=move |_, _| view! { cx, <p class="error">"Enter a valid number."</p>}
 ///   >
-///     <p>"Value is: " {value}</p>
+///     <p>"Value is: " {move || value.get()}</p>
 ///   </ErrorBoundary>
 /// }
 /// # });
