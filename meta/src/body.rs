@@ -126,6 +126,8 @@ pub fn Body(
             _ = cx;
             _ = class;
             _ = attributes;
+
+            #[cfg(debug_assertions)]
             crate::feature_warning();
         }
     }
