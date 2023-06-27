@@ -121,7 +121,7 @@ pub fn Body(
                     });
                 }
             }
-        } else {
+        } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head(cx);
             *meta.body.class.borrow_mut() = class;
             *meta.body.attributes.borrow_mut() = attributes;
