@@ -16,14 +16,6 @@
 //! Join us on our [Discord Channel](https://discord.gg/v38Eef6sWG) to see what the community is building.
 //! Explore our [Examples](https://github.com/leptos-rs/leptos/tree/main/examples) to see Leptos in action.
 //!
-//! # `nightly` Note
-//! Most of the examples assume you’re using `nightly` Rust. If you’re on stable, note the following:
-//! 1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.0", features = ["stable"] }`
-//! 2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
-//!    you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
-//!    [`counters_stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters_stable/src/main.rs)
-//!    for examples of the correct API.
-//!
 //! # Learning by Example
 //!
 //! If you want to see what Leptos is capable of, check out
@@ -84,12 +76,10 @@
 //! - **Server Functions**: the [server](crate::leptos_server) macro, [create_action], and [create_server_action]
 //!
 //! # Feature Flags
-//! - `csr` (*Default*) Client-side rendering: Generate DOM nodes in the browser
+//! - `nightly`: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
+//! - `csr` Client-side rendering: Generate DOM nodes in the browser
 //! - `ssr` Server-side rendering: Generate an HTML string (typically on the server)
 //! - `hydrate` Hydration: use this to add interactivity to an SSRed Leptos app
-//! - `stable` By default, Leptos requires `nightly` Rust, which is what allows the ergonomics
-//!   of calling signals as functions. If you need to use `stable`, you will need to call `.get()`
-//!   and `.set()` manually.
 //! - `serde` (*Default*) In SSR/hydrate mode, uses [serde](https://docs.rs/serde/latest/serde/) to serialize resources and send them
 //!   from the server to the client.
 //! - `serde-lite` In SSR/hydrate mode, uses [serde-lite](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
