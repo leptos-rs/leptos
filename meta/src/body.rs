@@ -1,11 +1,14 @@
 use cfg_if::cfg_if;
 use leptos::*;
+#[cfg(feature = "ssr")]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<body>`.
 #[derive(Clone, Default)]
 pub struct BodyContext {
+    #[cfg(feature = "ssr")]
     class: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 

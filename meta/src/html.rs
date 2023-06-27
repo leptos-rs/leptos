@@ -1,13 +1,18 @@
 use cfg_if::cfg_if;
 use leptos::*;
+#[cfg(feature = "ssr")]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<html>`.
 #[derive(Clone, Default)]
 pub struct HtmlContext {
+    #[cfg(feature = "ssr")]
     lang: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     dir: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     class: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
