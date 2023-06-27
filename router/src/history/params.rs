@@ -140,7 +140,7 @@ where
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(not(feature = "stable"))] {
+    if #[cfg(feature = "nightly")] {
         auto trait NotOption {}
         impl<T> !NotOption for Option<T> {}
 

@@ -40,12 +40,12 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 /// let (value, set_value) = create_signal(cx, 0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
-/// let double_value = move || value() * 2;
-/// set_value(2);
+/// let double_value = move || value.get() * 2;
+/// set_value.set(2);
 /// assert_eq!(double_value(), 4);
 ///
 /// // but imagine the computation is really expensive
-/// let expensive = move || really_expensive_computation(value()); // lazy: doesn't run until called
+/// let expensive = move || really_expensive_computation(value.get()); // lazy: doesn't run until called
 /// create_effect(cx, move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
 ///   log::debug!("expensive = {}", expensive());
@@ -58,14 +58,15 @@ use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
 ///
 /// // instead, we create a memo
 /// // 🆗 run #1: the calculation runs once immediately
-/// let memoized = create_memo(cx, move |_| really_expensive_computation(value()));
+/// let memoized = create_memo(cx, move |_| really_expensive_computation(value.get()));
 /// create_effect(cx, move |_| {
-///  // 🆗 reads the current value of the memo
-///   log::debug!("memoized = {}", memoized());
+///   // 🆗 reads the current value of the memo
+///   //    can be `memoized()` on nightly
+///   log::debug!("memoized = {}", memoized.get());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ✅ reads the current value **without re-running the calculation**
-///   let value = memoized();
+///   let value = memoized.get();
 ///   // do something else...
 /// });
 /// # }).dispose();
@@ -131,12 +132,12 @@ where
 /// let (value, set_value) = create_signal(cx, 0);
 ///
 /// // 🆗 we could create a derived signal with a simple function
-/// let double_value = move || value() * 2;
-/// set_value(2);
+/// let double_value = move || value.get() * 2;
+/// set_value.set(2);
 /// assert_eq!(double_value(), 4);
 ///
 /// // but imagine the computation is really expensive
-/// let expensive = move || really_expensive_computation(value()); // lazy: doesn't run until called
+/// let expensive = move || really_expensive_computation(value.get()); // lazy: doesn't run until called
 /// create_effect(cx, move |_| {
 ///   // 🆗 run #1: calls `really_expensive_computation` the first time
 ///   log::debug!("expensive = {}", expensive());
@@ -149,14 +150,15 @@ where
 ///
 /// // instead, we create a memo
 /// // 🆗 run #1: the calculation runs once immediately
-/// let memoized = create_memo(cx, move |_| really_expensive_computation(value()));
+/// let memoized = create_memo(cx, move |_| really_expensive_computation(value.get()));
 /// create_effect(cx, move |_| {
 ///  // 🆗 reads the current value of the memo
-///   log::debug!("memoized = {}", memoized());
+///   log::debug!("memoized = {}", memoized.get());
 /// });
 /// create_effect(cx, move |_| {
 ///   // ✅ reads the current value **without re-running the calculation**
-///   let value = memoized();
+///   //    can be `memoized()` on nightly
+///   let value = memoized.get();
 ///   // do something else...
 /// });
 /// # }).dispose();
@@ -327,13 +329,14 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 0);
-/// let double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = create_memo(cx, move |_| count.get() * 2);
 ///
 /// assert_eq!(double_count.get(), 0);
-/// set_count(1);
+/// set_count.set(1);
 ///
-/// // double_count() is shorthand for double_count.get()
-/// assert_eq!(double_count(), 2);
+/// // can be `double_count()` on nightly
+/// // assert_eq!(double_count(), 2);
+/// assert_eq!(double_count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```

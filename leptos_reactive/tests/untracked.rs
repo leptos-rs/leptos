@@ -1,10 +1,8 @@
-#[cfg(not(feature = "stable"))]
 use leptos_reactive::{
     create_isomorphic_effect, create_runtime, create_scope, create_signal,
     signal_prelude::*, SignalGetUntracked, SignalSetUntracked,
 };
 
-#[cfg(not(feature = "stable"))]
 #[test]
 fn untracked_set_doesnt_trigger_effect() {
     use std::{cell::RefCell, rc::Rc};
@@ -18,7 +16,7 @@ fn untracked_set_doesnt_trigger_effect() {
         create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
-                let formatted = format!("Value is {}", a());
+                let formatted = format!("Value is {}", a.get());
                 *b.borrow_mut() = formatted;
             }
         });
@@ -36,7 +34,6 @@ fn untracked_set_doesnt_trigger_effect() {
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
 #[test]
 fn untracked_get_doesnt_trigger_effect() {
     use std::{cell::RefCell, rc::Rc};
@@ -51,8 +48,11 @@ fn untracked_get_doesnt_trigger_effect() {
         create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
-                let formatted =
-                    format!("Values are {} and {}", a(), a2.get_untracked());
+                let formatted = format!(
+                    "Values are {} and {}",
+                    a.get(),
+                    a2.get_untracked()
+                );
                 *b.borrow_mut() = formatted;
             }
         });

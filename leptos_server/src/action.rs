@@ -35,24 +35,24 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input(), None); // no argument yet
-/// assert_eq!(pending(), false); // isn't pending a response
-/// assert_eq!(result_of_call(), None); // there's no "last value"
-/// assert_eq!(version(), 0);
+/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(pending.get(), false); // isn't pending a response
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(version.get(), 0);
 /// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// // assert_eq!(input(), Some("My todo".to_string()));
-/// // assert_eq!(pending(), true); // is pending
-/// // assert_eq!(result_of_call(), None); // has not yet gotten a response
+/// // assert_eq!(input.get(), Some("My todo".to_string()));
+/// // assert_eq!(pending.get(), true); // is pending
+/// // assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// // after call has resolved
-/// assert_eq!(input(), None); // input clears out after resolved
-/// assert_eq!(pending(), false); // no longer pending
-/// assert_eq!(result_of_call(), Some(42));
-/// assert_eq!(version(), 1);
+/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(pending.get(), false); // no longer pending
+/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(version.get(), 1);
 /// # }
 /// # });
 /// ```
@@ -287,24 +287,24 @@ where
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input(), None); // no argument yet
-/// assert_eq!(pending(), false); // isn't pending a response
-/// assert_eq!(result_of_call(), None); // there's no "last value"
-/// assert_eq!(version(), 0);
+/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(pending.get(), false); // isn't pending a response
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(version.get(), 0);
 /// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// // assert_eq!(input(), Some("My todo".to_string()));
-/// // assert_eq!(pending(), true); // is pending
-/// // assert_eq!(result_of_call(), None); // has not yet gotten a response
+/// // assert_eq!(input.get(), Some("My todo".to_string()));
+/// // assert_eq!(pending.get(), true); // is pending
+/// // assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// // after call has resolved
-/// assert_eq!(input(), None); // input clears out after resolved
-/// assert_eq!(pending(), false); // no longer pending
-/// assert_eq!(result_of_call(), Some(42));
-/// assert_eq!(version(), 1);
+/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(pending.get(), false); // no longer pending
+/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(version.get(), 1);
 /// # }
 /// # });
 /// ```

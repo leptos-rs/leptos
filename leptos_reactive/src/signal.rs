@@ -23,7 +23,7 @@ use thiserror::Error;
 macro_rules! impl_get_fn_traits {
     ($($ty:ident $(($method_name:ident))?),*) => {
         $(
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> FnOnce<()> for $ty<T> {
                 type Output = T;
 
@@ -33,7 +33,7 @@ macro_rules! impl_get_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> FnMut<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
@@ -41,7 +41,7 @@ macro_rules! impl_get_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> Fn<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
@@ -61,7 +61,7 @@ macro_rules! impl_get_fn_traits {
 macro_rules! impl_set_fn_traits {
     ($($ty:ident $($method_name:ident)?),*) => {
         $(
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> FnOnce<(T,)> for $ty<T> {
                 type Output = ();
 
@@ -71,7 +71,7 @@ macro_rules! impl_set_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> FnMut<(T,)> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
@@ -79,7 +79,7 @@ macro_rules! impl_set_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> Fn<(T,)> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
@@ -290,24 +290,26 @@ pub trait SignalDispose {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the getter clones and returns the value
-/// assert_eq!(count(), 0);
+/// //    this can be `count()` on nightly
+/// assert_eq!(count.get(), 0);
 ///
 /// // ✅ calling the setter sets the value
-/// set_count(1);
-/// assert_eq!(count(), 1);
+/// //    this can be `set_count(1)` on nightly
+/// set_count.set(1);
+/// assert_eq!(count.get(), 1);
 ///
 /// // ❌ you could call the getter within the setter
-/// // set_count(count() + 1);
+/// // set_count.set(count.get() + 1);
 ///
 /// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 ///
-/// // ✅ you can create "derived signals" with the same Fn() -> T interface
-/// let double_count = move || count() * 2; // signals are `Copy` so you can `move` them anywhere
-/// set_count(0);
+/// // ✅ you can create "derived signals" with a Fn() -> T interface
+/// let double_count = move || count.get() * 2; // signals are `Copy` so you can `move` them anywhere
+/// set_count.set(0);
 /// assert_eq!(double_count(), 0);
-/// set_count(1);
+/// set_count.set(1);
 /// assert_eq!(double_count(), 2);
 /// # }).dispose();
 /// #
@@ -447,24 +449,24 @@ pub fn create_signal_from_stream<T>(
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the getter clones and returns the value
-/// assert_eq!(count(), 0);
+/// assert_eq!(count.get(), 0);
 ///
 /// // ✅ calling the setter sets the value
-/// set_count(1);
-/// assert_eq!(count(), 1);
+/// set_count.set(1); // `set_count(1)` on nightly
+/// assert_eq!(count.get(), 1);
 ///
 /// // ❌ you could call the getter within the setter
-/// // set_count(count() + 1);
+/// // set_count.set(count.get() + 1);
 ///
 /// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 ///
 /// // ✅ you can create "derived signals" with the same Fn() -> T interface
-/// let double_count = move || count() * 2; // signals are `Copy` so you can `move` them anywhere
-/// set_count(0);
+/// let double_count = move || count.get() * 2; // signals are `Copy` so you can `move` them anywhere
+/// set_count.set(0);
 /// assert_eq!(double_count(), 0);
-/// set_count(1);
+/// set_count.set(1);
 /// assert_eq!(double_count(), 2);
 /// # }).dispose();
 /// #
@@ -585,13 +587,13 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
-/// let first_char = move || name().chars().next().unwrap();
+/// let first_char = move || name.get().chars().next().unwrap();
 /// assert_eq!(first_char(), 'A');
 ///
 /// // ✅ gets the first char without cloning the `String`
 /// let first_char = move || name.with(|n| n.chars().next().unwrap());
 /// assert_eq!(first_char(), 'A');
-/// set_name("Bob".to_string());
+/// set_name.set("Bob".to_string());
 /// assert_eq!(first_char(), 'B');
 /// # });
 /// ```
@@ -662,8 +664,8 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 ///
 /// assert_eq!(count.get(), 0);
 ///
-/// // count() is shorthand for count.get()
-/// assert_eq!(count(), 0);
+/// // count() is shorthand for count.get() on `nightly`
+/// // assert_eq!(count.get(), 0);
 /// # });
 /// ```
 impl<T: Clone> SignalGet<T> for ReadSignal<T> {
@@ -849,15 +851,16 @@ impl<T> Hash for ReadSignal<T> {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the setter sets the value
-/// set_count(1);
-/// assert_eq!(count(), 1);
+/// //    `set_count(1)` on nightly
+/// set_count.set(1);
+/// assert_eq!(count.get(), 1);
 ///
 /// // ❌ you could call the getter within the setter
-/// // set_count(count() + 1);
+/// // set_count.set(count.get() + 1);
 ///
 /// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```
@@ -952,13 +955,13 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // notifies subscribers
-/// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-/// assert_eq!(count(), 1);
+/// set_count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
+/// assert_eq!(count.get(), 1);
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
 /// set_count.update(|n| if *n > 3 { *n += 1 });
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalUpdate<T> for WriteSignal<T> {
@@ -1012,13 +1015,13 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // notifies subscribers
-/// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-/// assert_eq!(count(), 1);
+/// set_count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
+/// assert_eq!(count.get(), 1);
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
 /// set_count.update(|n| if *n > 3 { *n += 1 });
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalSet<T> for WriteSignal<T> {
@@ -1113,14 +1116,14 @@ impl<T> Hash for WriteSignal<T> {
 ///
 /// // ✅ set the value
 /// count.set(1);
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 ///
 /// // ❌ you can call the getter within the setter
 /// // count.set(count.get() + 1);
 ///
 /// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```
@@ -1173,14 +1176,14 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 ///
 /// // ✅ set the value
 /// count.set(1);
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 ///
 /// // ❌ you can call the getter within the setter
 /// // count.set(count.get() + 1);
 ///
 /// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```
@@ -1413,7 +1416,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// let name = create_rw_signal(cx, "Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
-/// let first_char = move || name().chars().next().unwrap();
+/// let first_char = move || name.get().chars().next().unwrap();
 /// assert_eq!(first_char(), 'A');
 ///
 /// // ✅ gets the first char without cloning the `String`
@@ -1491,8 +1494,8 @@ impl<T> SignalWith<T> for RwSignal<T> {
 ///
 /// assert_eq!(count.get(), 0);
 ///
-/// // count() is shorthand for count.get()
-/// assert_eq!(count(), 0);
+/// // count() is shorthand for count.get() on `nightly`
+/// // assert_eq!(count(), 0);
 /// # }).dispose();
 /// #
 /// ```
@@ -1563,8 +1566,8 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// let count = create_rw_signal(cx, 0);
 ///
 /// // notifies subscribers
-/// count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-/// assert_eq!(count(), 1);
+/// count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
+/// assert_eq!(count.get(), 1);
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
@@ -1573,7 +1576,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 ///         *n += 1
 ///     }
 /// });
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalUpdate<T> for RwSignal<T> {
@@ -1626,9 +1629,9 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 /// # create_scope(create_runtime(), |cx| {
 /// let count = create_rw_signal(cx, 0);
 ///
-/// assert_eq!(count(), 0);
+/// assert_eq!(count.get(), 0);
 /// count.set(1);
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalSet<T> for RwSignal<T> {
@@ -1706,11 +1709,11 @@ impl<T> RwSignal<T> {
     /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let read_count = count.read_only();
-    /// assert_eq!(count(), 0);
-    /// assert_eq!(read_count(), 0);
+    /// assert_eq!(count.get(), 0);
+    /// assert_eq!(read_count.get(), 0);
     /// count.set(1);
-    /// assert_eq!(count(), 1);
-    /// assert_eq!(read_count(), 1);
+    /// assert_eq!(count.get(), 1);
+    /// assert_eq!(read_count.get(), 1);
     /// # }).dispose();
     /// ```
     #[cfg_attr(
@@ -1746,9 +1749,9 @@ impl<T> RwSignal<T> {
     /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let set_count = count.write_only();
-    /// assert_eq!(count(), 0);
-    /// set_count(1);
-    /// assert_eq!(count(), 1);
+    /// assert_eq!(count.get(), 0);
+    /// set_count.set(1);
+    /// assert_eq!(count.get(), 1);
     /// # }).dispose();
     /// ```
     #[cfg_attr(
@@ -1781,11 +1784,11 @@ impl<T> RwSignal<T> {
     /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let (get_count, set_count) = count.split();
-    /// assert_eq!(count(), 0);
-    /// assert_eq!(get_count(), 0);
-    /// set_count(1);
-    /// assert_eq!(count(), 1);
-    /// assert_eq!(get_count(), 1);
+    /// assert_eq!(count.get(), 0);
+    /// assert_eq!(get_count.get(), 0);
+    /// set_count.set(1);
+    /// assert_eq!(count.get(), 1);
+    /// assert_eq!(get_count.get(), 1);
     /// # }).dispose();
     /// ```
     #[cfg_attr(

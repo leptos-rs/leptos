@@ -51,7 +51,7 @@ use std::{
 /// # // `csr`, `hydrate`, and `ssr` all have issues here
 /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
 /// # if false {
-/// let cats = create_resource(cx, how_many_cats, fetch_cat_picture_urls);
+/// let cats = create_resource(cx, move || how_many_cats.get(), fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
@@ -59,7 +59,7 @@ use std::{
 /// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
-/// set_how_many_cats(2);
+/// set_how_many_cats.set(2);
 /// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
@@ -696,7 +696,7 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 /// # // `csr`, `hydrate`, and `ssr` all have issues here
 /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
 /// # if false {
-/// let cats = create_resource(cx, how_many_cats, fetch_cat_picture_urls);
+/// let cats = create_resource(cx, move || how_many_cats.get(), fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
@@ -704,7 +704,7 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 /// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
-/// set_how_many_cats(2);
+/// set_how_many_cats.set(2);
 /// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();

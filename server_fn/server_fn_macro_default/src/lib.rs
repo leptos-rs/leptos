@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 //! This crate contains the default implementation of the #[macro@crate::server] macro without a context from the server. See the [server_fn_macro] crate for more information.
 #![forbid(unsafe_code)]
 

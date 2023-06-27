@@ -1,10 +1,8 @@
-#[cfg(not(feature = "stable"))]
 use leptos_reactive::{
     create_isomorphic_effect, create_memo, create_runtime, create_rw_signal,
-    create_scope, create_signal, SignalSet,
+    create_scope, create_signal, SignalGet, SignalSet,
 };
 
-#[cfg(not(feature = "stable"))]
 #[test]
 fn effect_runs() {
     use std::{cell::RefCell, rc::Rc};
@@ -18,28 +16,27 @@ fn effect_runs() {
         create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
-                let formatted = format!("Value is {}", a());
+                let formatted = format!("Value is {}", a.get());
                 *b.borrow_mut() = formatted;
             }
         });
 
         assert_eq!(b.borrow().as_str(), "Value is -1");
 
-        set_a(1);
+        set_a.set(1);
 
         assert_eq!(b.borrow().as_str(), "Value is 1");
     })
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
 #[test]
 fn effect_tracks_memo() {
     use std::{cell::RefCell, rc::Rc};
 
     create_scope(create_runtime(), |cx| {
         let (a, set_a) = create_signal(cx, -1);
-        let b = create_memo(cx, move |_| format!("Value is {}", a()));
+        let b = create_memo(cx, move |_| format!("Value is {}", a.get()));
 
         // simulate an arbitrary side effect
         let c = Rc::new(RefCell::new(String::new()));
@@ -47,22 +44,21 @@ fn effect_tracks_memo() {
         create_isomorphic_effect(cx, {
             let c = c.clone();
             move |_| {
-                *c.borrow_mut() = b();
+                *c.borrow_mut() = b.get();
             }
         });
 
-        assert_eq!(b().as_str(), "Value is -1");
+        assert_eq!(b.get().as_str(), "Value is -1");
         assert_eq!(c.borrow().as_str(), "Value is -1");
 
-        set_a(1);
+        set_a.set(1);
 
-        assert_eq!(b().as_str(), "Value is 1");
+        assert_eq!(b.get().as_str(), "Value is 1");
         assert_eq!(c.borrow().as_str(), "Value is 1");
     })
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
 #[test]
 fn untrack_mutes_effect() {
     use std::{cell::RefCell, rc::Rc};
@@ -76,23 +72,23 @@ fn untrack_mutes_effect() {
         create_isomorphic_effect(cx, {
             let b = b.clone();
             move |_| {
-                let formatted = format!("Value is {}", cx.untrack(a));
+                let formatted =
+                    format!("Value is {}", cx.untrack(move || a.get()));
                 *b.borrow_mut() = formatted;
             }
         });
 
-        assert_eq!(a(), -1);
+        assert_eq!(a.get(), -1);
         assert_eq!(b.borrow().as_str(), "Value is -1");
 
-        set_a(1);
+        set_a.set(1);
 
-        assert_eq!(a(), 1);
+        assert_eq!(a.get(), 1);
         assert_eq!(b.borrow().as_str(), "Value is -1");
     })
     .dispose()
 }
 
-#[cfg(not(feature = "stable"))]
 #[test]
 fn batching_actually_batches() {
     use std::{cell::Cell, rc::Rc};
@@ -107,8 +103,8 @@ fn batching_actually_batches() {
         create_isomorphic_effect(cx, {
             let count = count.clone();
             move |_| {
-                _ = first_name();
-                _ = last_name();
+                _ = first_name.get();
+                _ = last_name.get();
 
                 count.set(count.get() + 1);
             }
