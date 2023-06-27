@@ -34,7 +34,7 @@ category = "Cleanup"
 script = '''
 for pw_dir in $(find . -name playwright.config.ts | xargs dirname)
 do
-  rm -rf $pw_dir/playwright-report
+  rm -rf $pw_dir/playwright-report pw_dir/playwright pw_dir/test-results
 done
 '''
 

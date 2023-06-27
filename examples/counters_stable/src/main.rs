@@ -56,7 +56,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
             </button>
             <p>
                 "Total: "
-                <span>{move ||
+                <span id="total" data-testid="total">{move ||
                     counters.get()
                         .iter()
                         .map(|(_, (count, _))| count.get())
@@ -64,7 +64,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                         .to_string()
                 }</span>
                 " from "
-                <span>{move || counters.with(|counters| counters.len()).to_string()}</span>
+                <span id="counters" data-testid="counters">{move || counters.with(|counters| counters.len()).to_string()}</span>
                 " counters."
             </p>
             <ul>
@@ -99,13 +99,13 @@ fn Counter(
 
     view! { cx,
         <li>
-            <button on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
+            <button id="decrement_count" on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"
                 prop:value={move || value.get().to_string()}
                 on:input=input
             />
             <span>{move || value.get().to_string()}</span>
-            <button on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
+            <button id="increment_count" on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>
     }
