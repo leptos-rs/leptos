@@ -581,7 +581,7 @@ fn attribute_to_tokens_ssr<'a>(
         || name.strip_prefix("style:").is_some()
     {
         // ignore props for SSR
-        // ignore classes and sdtyles: we'll handle these separately
+        // ignore classes and styles: we'll handle these separately
     } else if name == "inner_html" {
         return attr.value();
     } else {
@@ -606,7 +606,9 @@ fn attribute_to_tokens_ssr<'a>(
                 if let Some(value) = value_to_string(value) {
                     template.push_str(&name);
                     template.push_str("=\"");
-                    template.push_str(&value);
+                    template.push_str(&html_escape::encode_quoted_attribute(
+                        &value,
+                    ));
                     template.push('"');
                 } else {
                     template.push_str("{}");
@@ -729,7 +731,9 @@ fn set_class_attribute_ssr(
     {
         template.push_str(" class=\"");
 
-        template.push_str(&static_class_attr);
+        template.push_str(&html_escape::encode_quoted_attribute(
+            &static_class_attr,
+        ));
 
         for (_span, value) in dyn_class_attr {
             if let Some(value) = value {

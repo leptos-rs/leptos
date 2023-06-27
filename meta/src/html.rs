@@ -13,26 +13,36 @@ pub struct HtmlContext {
 
 impl HtmlContext {
     /// Converts the `<html>` metadata into an HTML string.
+    #[cfg(any(feature = "ssr", doc))]
     pub fn as_string(&self) -> Option<String> {
-        let lang = self
-            .lang
-            .borrow()
-            .as_ref()
-            .map(|val| format!("lang=\"{}\"", val.get()));
-        let dir = self
-            .dir
-            .borrow()
-            .as_ref()
-            .map(|val| format!("dir=\"{}\"", val.get()));
-        let class = self
-            .class
-            .borrow()
-            .as_ref()
-            .map(|val| format!("class=\"{}\"", val.get()));
+        let lang = self.lang.borrow().as_ref().map(|val| {
+            format!(
+                "lang=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
+        let dir = self.dir.borrow().as_ref().map(|val| {
+            format!(
+                "dir=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
+        let class = self.class.borrow().as_ref().map(|val| {
+            format!(
+                "class=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
         let attributes = self.attributes.borrow().as_ref().map(|val| {
             val.with(|val| {
                 val.into_iter()
-                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .map(|(n, v)| {
+                        format!(
+                            "{}=\"{}\"",
+                            n,
+                            leptos::leptos_dom::ssr::escape_attr(&v.get())
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join(" ")
             })

@@ -11,16 +11,24 @@ pub struct BodyContext {
 
 impl BodyContext {
     /// Converts the `<body>` metadata into an HTML string.
+    #[cfg(any(feature = "ssr", doc))]
     pub fn as_string(&self) -> Option<String> {
-        let class = self
-            .class
-            .borrow()
-            .as_ref()
-            .map(|val| format!("class=\"{}\"", val.get()));
+        let class = self.class.borrow().as_ref().map(|val| {
+            format!(
+                "class=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
         let attributes = self.attributes.borrow().as_ref().map(|val| {
             val.with(|val| {
                 val.into_iter()
-                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .map(|(n, v)| {
+                        format!(
+                            "{}=\"{}\"",
+                            n,
+                            leptos::leptos_dom::ssr::escape_attr(&v.get())
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join(" ")
             })
