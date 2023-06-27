@@ -160,6 +160,13 @@ pub fn Html(
             *meta.html.dir.borrow_mut() = dir;
             *meta.html.class.borrow_mut() = class;
             *meta.html.attributes.borrow_mut() = attributes;
+        } else {
+            _ = cx;
+            _ = lang;
+            _ = dir;
+            _ = class;
+            _ = attributes;
+            crate::feature_warning();
         }
     }
 }
