@@ -1,0 +1,25 @@
+[package]
+name = "leptos_fetch"
+version = { workspace = true }
+edition = "2021"
+authors = ["Sean Aye"]
+license = "MIT"
+repository = "https://github.com/leptos-rs/leptos"
+description = "Fetch API handler for using Leptos inside a JS runtime"
+
+[dependencies]
+# gloo-net = { git = "https://github.com/seanaye/gloo", branch = "seanaye/feat/serverside-http" }
+gloo-net = { path = "../../../gloo/crates/net"}
+wasm-bindgen = "0.2.84"
+wasm-bindgen-futures = "0.4.34"
+leptos = { workspace = true, default-features = false }
+leptos_router = { workspace = true, features = ["ssr"] }
+leptos_meta = { workspace = true, features = ["ssr"] }
+leptos_integration_utils = { workspace = true }
+web-sys = { version = "0.3.61", features = ["Request", "Response"] }
+futures = "0.3.28"
+wasm-streams = "0.3.0"
+js-sys = "0.3.62"
+url = "2.3.1"
+matchit = "0.7.0"
+

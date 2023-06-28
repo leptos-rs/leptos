@@ -1,4 +1,6 @@
 [workspace]
+resolver = "2"
+edition = "2021"
 members = [
   # core
   "leptos",
@@ -17,6 +19,7 @@ members = [
   "integrations/axum",
   "integrations/viz",
   "integrations/utils",
+  "integrations/js_fetch",
 
   # libraries
   "meta",
@@ -26,6 +29,8 @@ exclude = ["benchmarks", "examples"]
 
 [workspace.package]
 version = "0.2.5"
+
+
 
 [workspace.dependencies]
 leptos = { path = "./leptos", default-features = false, version = "0.2.5" }
