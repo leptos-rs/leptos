@@ -7,6 +7,7 @@ export class CountersPage {
   readonly clearCountersButton: Locator;
   readonly decrementCountButton: Locator;
   readonly incrementCountButton: Locator;
+  readonly counterInput: Locator;
 
   readonly total: Locator;
   readonly counters: Locator;
@@ -35,6 +36,8 @@ export class CountersPage {
     this.total = page.getByTestId("total");
 
     this.counters = page.getByTestId("counters");
+
+    this.counterInput = page.getByRole("textbox");
   }
 
   async goto() {
@@ -70,6 +73,13 @@ export class CountersPage {
     await Promise.all([
       this.clearCountersButton.waitFor(),
       this.clearCountersButton.click(),
+    ]);
+  }
+
+  async enterCount(count: string, index: number = 0) {
+    await Promise.all([
+      this.counterInput.nth(index).waitFor,
+      this.counterInput.nth(index).fill(count),
     ]);
   }
 }
