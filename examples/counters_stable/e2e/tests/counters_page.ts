@@ -42,7 +42,10 @@ export class CountersPage {
   }
 
   async addCounter() {
-    this.addCounterButton.click();
+    await Promise.all([
+      this.addCounterButton.waitFor(),
+      this.addCounterButton.click(),
+    ]);
   }
 
   async addOneThousandCounters() {
@@ -50,14 +53,23 @@ export class CountersPage {
   }
 
   async decrementCount() {
-    this.decrementCountButton.click();
+    await Promise.all([
+      this.decrementCountButton.waitFor(),
+      this.decrementCountButton.click(),
+    ]);
   }
 
   async incrementCount() {
-    this.incrementCountButton.click();
+    await Promise.all([
+      this.incrementCountButton.waitFor(),
+      this.incrementCountButton.click(),
+    ]);
   }
 
   async clearCounters() {
-    this.clearCountersButton.click();
+    await Promise.all([
+      this.clearCountersButton.waitFor(),
+      this.clearCountersButton.click(),
+    ]);
   }
 }
