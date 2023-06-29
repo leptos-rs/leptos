@@ -39,6 +39,7 @@
             cacert
             rustc
             cargo
+            mdbook
           ];
 
           shellHook = ''
