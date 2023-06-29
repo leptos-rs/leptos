@@ -56,7 +56,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
             </button>
             <p>
                 "Total: "
-                <span id="total" data-testid="total">{move ||
+                <span data-testid="total">{move ||
                     counters.get()
                         .iter()
                         .map(|(_, (count, _))| count.get())
@@ -64,7 +64,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                         .to_string()
                 }</span>
                 " from "
-                <span id="counters" data-testid="counters">{move || counters.with(|counters| counters.len()).to_string()}</span>
+                <span data-testid="counters">{move || counters.with(|counters| counters.len()).to_string()}</span>
                 " counters."
             </p>
             <ul>
