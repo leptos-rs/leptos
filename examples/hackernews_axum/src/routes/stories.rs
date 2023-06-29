@@ -1,7 +1,6 @@
+use crate::api;
 use leptos::*;
 use leptos_router::*;
-
-use crate::api;
 
 fn category(from: &str) -> &'static str {
     match from {
@@ -37,8 +36,10 @@ pub fn Stories(cx: Scope) -> impl IntoView {
     );
     let (pending, set_pending) = create_signal(cx, false);
 
-    let hide_more_link =
-        move || pending() || stories.read(cx).unwrap_or(None).unwrap_or_default().len() < 28;
+    let hide_more_link = move |cx| {
+        pending()
+            || stories.read(cx).unwrap_or(None).unwrap_or_default().len() < 28
+    };
 
     view! {
         cx,
@@ -65,16 +66,20 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                     }}
                 </span>
                 <span>"page " {page}</span>
-                <span class="page-link"
-                    class:disabled=hide_more_link
-                    aria-hidden=hide_more_link
+                <Transition
+                    fallback=move || view! { cx,  <p>"Loading..."</p> }
                 >
-                    <a href=move || format!("/{}?page={}", story_type(), page() + 1)
-                        aria-label="Next Page"
+                    <span class="page-link"
+                        class:disabled=move || hide_more_link(cx)
+                        aria-hidden=move || hide_more_link(cx)
                     >
-                        "more >"
-                    </a>
-                </span>
+                        <a href=move || format!("/{}?page={}", story_type(), page() + 1)
+                            aria-label="Next Page"
+                        >
+                            "more >"
+                        </a>
+                    </span>
+                </Transition>
             </div>
             <main class="news-list">
                 <div>

@@ -31,6 +31,22 @@ view! { cx,
 }
 ```
 
+Leptos also provides a `.collect_view(cx)` helper function that allows you to collect any iterator of `T: IntoView` into `Vec<View>`.
+
+```rust
+let values = vec![0, 1, 2];
+view! { cx,
+    // this will just render "012"
+    <p>{values.clone()}</p>
+    // or we can wrap them in <li>
+    <ul>
+        {values.into_iter()
+            .map(|n| view! { cx, <li>{n}</li>})
+            .collect_view(cx)}
+    </ul>
+}
+```
+
 The fact that the _list_ is static doesn’t mean the interface needs to be static.
 You can render dynamic items as part of a static list.
 
@@ -52,7 +68,7 @@ let counter_buttons = counters
             </li>
         }
     })
-    .collect::<Vec<_>>();
+    .collect_view(cx);
 
 view! { cx,
     <ul>{counter_buttons}</ul>

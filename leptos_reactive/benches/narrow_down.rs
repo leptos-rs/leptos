@@ -2,14 +2,11 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use std::{cell::Cell, rc::Rc};
 
 fn rs_narrow_down(c: &mut Criterion) {
-    use reactive_signals::{
-        runtimes::ClientRuntime, signal, types::Func, Signal,
-    };
+    use reactive_signals::{runtimes::ClientRuntime, signal};
 
     c.bench_function("rs_narrow_down", |b| {
         b.iter(|| {
             let cx = ClientRuntime::bench_root_scope();
-            let acc = Rc::new(Cell::new(0));
             let sigs =
                 Rc::new((0..1000).map(|n| signal!(cx, n)).collect::<Vec<_>>());
             let memo = signal!(cx, {
@@ -28,11 +25,9 @@ fn l021_narrow_down(c: &mut Criterion) {
         let runtime = create_runtime();
         b.iter(|| {
             create_scope(runtime, |cx| {
-                let acc = Rc::new(Cell::new(0));
                 let sigs =
                     (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
                 let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
-                let writes = sigs.iter().map(|(_, w)| *w).collect::<Vec<_>>();
                 let memo = create_memo(cx, move |_| {
                     reads.iter().map(|r| r.get()).sum::<i32>()
                 });
@@ -50,7 +45,6 @@ fn sycamore_narrow_down(c: &mut Criterion) {
     c.bench_function("sycamore_narrow_down", |b| {
         b.iter(|| {
             let d = create_scope(|cx| {
-                let acc = Rc::new(Cell::new(0));
                 let sigs = Rc::new(
                     (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>(),
                 );
@@ -72,11 +66,9 @@ fn leptos_narrow_down(c: &mut Criterion) {
     c.bench_function("leptos_narrow_down", |b| {
         b.iter(|| {
             create_scope(runtime, |cx| {
-                let acc = Rc::new(Cell::new(0));
                 let sigs =
                     (0..1000).map(|n| create_signal(cx, n)).collect::<Vec<_>>();
                 let reads = sigs.iter().map(|(r, _)| *r).collect::<Vec<_>>();
-                let writes = sigs.iter().map(|(_, w)| *w).collect::<Vec<_>>();
                 let memo = create_memo(cx, move |_| {
                     reads.iter().map(|r| r.get()).sum::<i32>()
                 });

@@ -53,9 +53,11 @@ pub fn App(cx: Scope) -> impl IntoView {
                         }
                     >
                         <Route path="" view=|cx| view! { cx, <Nested/> }/>
+                        <Route path="inside" view=|cx| view! { cx, <NestedResourceInside/> }/>
                         <Route path="single" view=|cx| view! { cx, <Single/> }/>
                         <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
                         <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
+                        <Route path="none" view=|cx| view! { cx, <None/> }/>
                     </Route>
                     // in-order
                     <Route
@@ -68,9 +70,11 @@ pub fn App(cx: Scope) -> impl IntoView {
                         }
                     >
                         <Route path="" view=|cx| view! { cx, <Nested/> }/>
+                        <Route path="inside" view=|cx| view! { cx, <NestedResourceInside/> }/>
                         <Route path="single" view=|cx| view! { cx, <Single/> }/>
                         <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
                         <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
+                        <Route path="none" view=|cx| view! { cx, <None/> }/>
                     </Route>
                     // async
                     <Route
@@ -83,9 +87,11 @@ pub fn App(cx: Scope) -> impl IntoView {
                         }
                     >
                         <Route path="" view=|cx| view! { cx, <Nested/> }/>
+                        <Route path="inside" view=|cx| view! { cx, <NestedResourceInside/> }/>
                         <Route path="single" view=|cx| view! { cx, <Single/> }/>
                         <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
                         <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
+                        <Route path="none" view=|cx| view! { cx, <None/> }/>
                     </Route>
                 </Routes>
             </main>
@@ -98,9 +104,11 @@ fn SecondaryNav(cx: Scope) -> impl IntoView {
     view! { cx,
         <nav>
             <A href="" exact=true>"Nested"</A>
+            <A href="inside" exact=true>"Nested (resource created inside)"</A>
             <A href="single">"Single"</A>
             <A href="parallel">"Parallel"</A>
             <A href="inside-component">"Inside Component"</A>
+            <A href="none">"No Resources"</A>
         </nav>
     }
 }
@@ -109,6 +117,7 @@ fn SecondaryNav(cx: Scope) -> impl IntoView {
 fn Nested(cx: Scope) -> impl IntoView {
     let one_second = create_resource(cx, || (), one_second_fn);
     let two_second = create_resource(cx, || (), two_second_fn);
+    let (count, set_count) = create_signal(cx, 0);
 
     view! { cx,
         <div>
@@ -121,9 +130,51 @@ fn Nested(cx: Scope) -> impl IntoView {
                 <Suspense fallback=|| "Loading 2...">
                     "Two Second: "
                     {move || {
-                        two_second.read(cx).map(|_| "Loaded 2!")
+                        two_second.read(cx).map(|_| view! { cx,
+                            "Loaded 2!"
+                            <button on:click=move |_| set_count.update(|n| *n += 1)>
+                                {count}
+                            </button>
+                        })
                     }}
                 </Suspense>
+            </Suspense>
+        </div>
+    }
+}
+
+#[component]
+fn NestedResourceInside(cx: Scope) -> impl IntoView {
+    let one_second = create_resource(cx, || (), one_second_fn);
+    let (count, set_count) = create_signal(cx, 0);
+
+    view! { cx,
+        <div>
+            <Suspense fallback=|| "Loading 1...">
+                "One Second: "
+                {move || {
+                    one_second.read(cx).map(|_| {
+                        let two_second = create_resource(cx, || (), move |_| async move {
+                            leptos::log!("creating two_second resource");
+                            two_second_fn(()).await
+                        });
+                        view! { cx,
+                            <p>{move || one_second.read(cx).map(|_| "Loaded 1!")}</p>
+                            <Suspense fallback=|| "Loading 2...">
+                                "Two Second: "
+                                {move || {
+                                    two_second.read(cx).map(|x| view! { cx,
+                                        "Loaded 2 (created inside first suspense)!: "
+                                        {format!("{x:?}")}
+                                        <button on:click=move |_| set_count.update(|n| *n += 1)>
+                                            {count}
+                                        </button>
+                                    })
+                                }}
+                            </Suspense>
+                        }
+                    })
+                }}
             </Suspense>
         </div>
     }
@@ -215,5 +266,27 @@ fn InsideComponentChild(cx: Scope) -> impl IntoView {
                 one_second.read(cx).map(|_| "Loaded 1!")
             }}
         </Suspense>
+    }
+}
+
+#[component]
+fn None(cx: Scope) -> impl IntoView {
+    let (count, set_count) = create_signal(cx, 0);
+
+    view! { cx,
+        <div>
+            <Suspense fallback=|| "Loading 1...">
+                <div>"Children inside Suspense should hydrate properly."</div>
+                <button on:click=move |_| set_count.update(|n| *n += 1)>
+                    {count}
+                </button>
+            </Suspense>
+            <p>"Children following " <code>"<Suspense/>"</code> " should hydrate properly."</p>
+            <div>
+                <button on:click=move |_| set_count.update(|n| *n += 1)>
+                    {count}
+                </button>
+            </div>
+        </div>
     }
 }

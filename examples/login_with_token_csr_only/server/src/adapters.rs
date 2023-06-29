@@ -2,8 +2,7 @@ use crate::{application::*, Error};
 use api_boundary as json;
 use axum::{
     http::StatusCode,
-    response::Json,
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Json, Response},
 };
 use thiserror::Error;
 

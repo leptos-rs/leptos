@@ -4,14 +4,15 @@ use convert_case::{
     Casing,
 };
 use itertools::Itertools;
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, ToTokens, TokenStreamExt};
+use leptos_hot_reload::parsing::value_to_string;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{format_ident, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{
-    parse::Parse, parse_quote, AngleBracketedGenericArguments, Attribute,
-    FnArg, GenericArgument, ItemFn, LitStr, Meta, MetaNameValue, Pat, PatIdent,
-    Path, PathArguments, ReturnType, Type, TypePath, Visibility,
+    parse::Parse, parse_quote, spanned::Spanned,
+    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument, Item,
+    ItemFn, LitStr, Meta, Pat, PatIdent, Path, PathArguments, ReturnType, Stmt,
+    Type, TypePath, Visibility,
 };
-
 pub struct Model {
     is_transparent: bool,
     docs: Docs,
@@ -55,14 +56,17 @@ impl Parse for Model {
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
-        drain_filter(&mut item.attrs, |attr| {
-            attr.path == parse_quote!(doc) || attr.path == parse_quote!(prop)
+        drain_filter(&mut item.attrs, |attr| match &attr.meta {
+            Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+            Meta::List(attr) => attr.path == parse_quote!(prop),
+            _ => false,
         });
         item.sig.inputs.iter_mut().for_each(|arg| {
             if let FnArg::Typed(ty) = arg {
-                drain_filter(&mut ty.attrs, |attr| {
-                    attr.path == parse_quote!(doc)
-                        || attr.path == parse_quote!(prop)
+                drain_filter(&mut ty.attrs, |attr| match &attr.meta {
+                    Meta::NameValue(attr) => attr.path == parse_quote!(doc),
+                    Meta::List(attr) => attr.path == parse_quote!(prop),
+                    _ => false,
                 });
             }
         });
@@ -91,7 +95,7 @@ impl Parse for Model {
 
 // implemented manually because Vec::drain_filter is nightly only
 // follows std recommended parallel
-fn drain_filter<T>(
+pub fn drain_filter<T>(
     vec: &mut Vec<T>,
     mut some_predicate: impl FnMut(&mut T) -> bool,
 ) {
@@ -105,7 +109,7 @@ fn drain_filter<T>(
     }
 }
 
-fn convert_from_snake_case(name: &Ident) -> Ident {
+pub fn convert_from_snake_case(name: &Ident) -> Ident {
     let name_str = name.to_string();
     if !name_str.is_case(Snake) {
         name.clone()
@@ -127,13 +131,36 @@ impl ToTokens for Model {
             ret,
         } = self;
 
+        let no_props = props.len() == 1;
+
         let mut body = body.to_owned();
+
+        // check for components that end ;
+        if !is_transparent {
+            let ends_semi =
+                body.block.stmts.iter().last().and_then(|stmt| match stmt {
+                    Stmt::Item(Item::Macro(mac)) => mac.semi_token.as_ref(),
+                    _ => None,
+                });
+            if let Some(semi) = ends_semi {
+                proc_macro_error::emit_error!(
+                    semi.span(),
+                    "A component that ends with a `view!` macro followed by a \
+                     semicolon will return (), an empty view. This is usually \
+                     an accident, not intentional, so we prevent it. If you’d \
+                     like to return (), you can do it it explicitly by \
+                     returning () as the last item from the component."
+                );
+            }
+        }
 
         body.sig.ident = format_ident!("__{}", body.sig.ident);
         #[allow(clippy::redundant_clone)] // false positive
         let body_name = body.sig.ident.clone();
 
-        let (_, generics, where_clause) = body.sig.generics.split_for_impl();
+        let (impl_generics, generics, where_clause) =
+            body.sig.generics.split_for_impl();
+
         let lifetimes = body.sig.generics.lifetimes();
 
         let props_name = format_ident!("{name}Props");
@@ -157,8 +184,8 @@ impl ToTokens for Model {
                     quote! {
                         #[allow(clippy::let_with_type_underscore)]
                         #[cfg_attr(
-                            debug_assertions,
-                            ::leptos::leptos_dom::tracing::instrument(level = "trace", name = #trace_name, skip_all)
+                            any(debug_assertions, feature="ssr"),
+                            ::leptos::leptos_dom::tracing::instrument(level = "info", name = #trace_name, skip_all)
                         )]
                     },
                     quote! {
@@ -190,6 +217,42 @@ impl ToTokens for Model {
             }
         };
 
+        let props_arg = if no_props {
+            quote! {}
+        } else {
+            quote! {
+                props: #props_name #generics
+            }
+        };
+
+        let destructure_props = if no_props {
+            quote! {}
+        } else {
+            quote! {
+                let #props_name {
+                    #prop_names
+                } = props;
+            }
+        };
+
+        let into_view = if no_props {
+            quote! {
+                impl #impl_generics ::leptos::IntoView for #props_name #generics #where_clause {
+                    fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
+                        #name(cx).into_view(cx)
+                    }
+                }
+            }
+        } else {
+            quote! {
+                impl #impl_generics ::leptos::IntoView for #props_name #generics #where_clause {
+                    fn into_view(self, cx: ::leptos::Scope) -> ::leptos::View {
+                        #name(cx, self).into_view(cx)
+                    }
+                }
+            }
+        };
+
         let output = quote! {
             #[doc = #builder_name_doc]
             #[doc = ""]
@@ -197,33 +260,33 @@ impl ToTokens for Model {
             #component_fn_prop_docs
             #[derive(::leptos::typed_builder::TypedBuilder)]
             #[builder(doc)]
-            #vis struct #props_name #generics #where_clause {
+            #vis struct #props_name #impl_generics #where_clause {
                 #prop_builder_fields
             }
 
-            impl #generics ::leptos::Props for #props_name #generics #where_clause {
+            impl #impl_generics ::leptos::Props for #props_name #generics #where_clause {
                 type Builder = #props_builder_name #generics;
                 fn builder() -> Self::Builder {
                     #props_name::builder()
                 }
             }
 
+            #into_view
+
             #docs
             #component_fn_prop_docs
             #[allow(non_snake_case, clippy::too_many_arguments)]
             #tracing_instrument_attr
-            #vis fn #name #generics (
+            #vis fn #name #impl_generics (
                 #[allow(unused_variables)]
                 #scope_name: ::leptos::Scope,
-                props: #props_name #generics
+                #props_arg
             ) #ret #(+ #lifetimes)*
             #where_clause
             {
                 #body
 
-                let #props_name {
-                    #prop_names
-                } = props;
+                #destructure_props
 
                 #tracing_span_expr
 
@@ -285,14 +348,14 @@ impl Prop {
 }
 
 #[derive(Clone)]
-struct Docs(Vec<Attribute>);
+pub struct Docs(Vec<(String, Span)>);
 
 impl ToTokens for Docs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let s = self
             .0
             .iter()
-            .map(|attr| attr.to_token_stream())
+            .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
             .collect::<TokenStream>();
 
         tokens.append_all(s);
@@ -300,71 +363,129 @@ impl ToTokens for Docs {
 }
 
 impl Docs {
-    fn new(attrs: &[Attribute]) -> Self {
-        let attrs = attrs
+    pub fn new(attrs: &[Attribute]) -> Self {
+        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+        enum ViewCodeFenceState {
+            Outside,
+            Rust,
+            Rsx,
+        }
+        let mut quotes = "```".to_string();
+        let mut quote_ws = "".to_string();
+        let mut view_code_fence_state = ViewCodeFenceState::Outside;
+        const RUST_START: &str =
+            "# ::leptos::create_scope(::leptos::create_runtime(), |cx| {";
+        const RUST_END: &str = "# }).dispose();";
+        const RSX_START: &str = "# ::leptos::view! {cx,";
+        const RSX_END: &str = "# };}).dispose();";
+
+        // Seperated out of chain to allow rustfmt to work
+        let map = |(doc, span): (String, Span)| {
+            doc.lines()
+                .flat_map(|doc| {
+                    let trimmed_doc = doc.trim_start();
+                    let leading_ws = &doc[..doc.len() - trimmed_doc.len()];
+                    let trimmed_doc = trimmed_doc.trim_end();
+                    match view_code_fence_state {
+                        ViewCodeFenceState::Outside
+                            if trimmed_doc.starts_with("```")
+                                && trimmed_doc
+                                    .trim_start_matches('`')
+                                    .starts_with("view") =>
+                        {
+                            view_code_fence_state = ViewCodeFenceState::Rust;
+                            let view = trimmed_doc.find('v').unwrap();
+                            quotes = trimmed_doc[..view].to_owned();
+                            quote_ws = leading_ws.to_owned();
+                            let rust_options = &trimmed_doc
+                                [view + "view".len()..]
+                                .trim_start();
+                            vec![
+                                format!("{leading_ws}{quotes}{rust_options}"),
+                                format!("{leading_ws}{RUST_START}"),
+                            ]
+                        }
+                        ViewCodeFenceState::Rust if trimmed_doc == quotes => {
+                            view_code_fence_state = ViewCodeFenceState::Outside;
+                            vec![
+                                format!("{leading_ws}{RUST_END}"),
+                                doc.to_owned(),
+                            ]
+                        }
+                        ViewCodeFenceState::Rust
+                            if trimmed_doc.starts_with('<') =>
+                        {
+                            view_code_fence_state = ViewCodeFenceState::Rsx;
+                            vec![
+                                format!("{leading_ws}{RSX_START}"),
+                                doc.to_owned(),
+                            ]
+                        }
+                        ViewCodeFenceState::Rsx if trimmed_doc == quotes => {
+                            view_code_fence_state = ViewCodeFenceState::Outside;
+                            vec![
+                                format!("{leading_ws}{RSX_END}"),
+                                doc.to_owned(),
+                            ]
+                        }
+                        _ => vec![doc.to_string()],
+                    }
+                })
+                .map(|l| (l, span))
+                .collect_vec()
+        };
+
+        let mut attrs = attrs
             .iter()
-            .filter(|attr| attr.path == parse_quote!(doc))
-            .cloned()
-            .collect();
+            .filter_map(|attr| {
+                let Meta::NameValue(attr ) = &attr.meta else {
+                    return None
+                };
+                if !attr.path.is_ident("doc") {
+                    return None
+                }
+
+                let Some(val) = value_to_string(&attr.value) else {
+                    abort!(attr, "expected string literal in value of doc comment");
+                };
+
+                Some((val, attr.path.span()))
+            })
+            .flat_map(map)
+            .collect_vec();
+
+        if view_code_fence_state != ViewCodeFenceState::Outside {
+            if view_code_fence_state == ViewCodeFenceState::Rust {
+                attrs.push((format!("{quote_ws}{RUST_END}"), Span::call_site()))
+            } else {
+                attrs.push((format!("{quote_ws}{RSX_END}"), Span::call_site()))
+            }
+            attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()))
+        }
 
         Self(attrs)
     }
 
-    fn padded(&self) -> TokenStream {
+    pub fn padded(&self) -> TokenStream {
         self.0
             .iter()
             .enumerate()
-            .map(|(idx, attr)| {
-                match attr.parse_meta() {
-                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
-                        let doc_str = quote!(#doc);
+            .map(|(idx, (doc, span))| {
+                let doc = if idx == 0 {
+                    format!("    - {doc}")
+                } else {
+                    format!("      {doc}")
+                };
 
-                        // We need to remove the leading and trailing `"`"
-                        let mut doc_str = doc_str.to_string();
-                        doc_str.pop();
-                        doc_str.remove(0);
+                let doc = LitStr::new(&doc, *span);
 
-                        let doc_str = if idx == 0 {
-                            format!("    - {doc_str}")
-                        } else {
-                            format!("      {doc_str}")
-                        };
-
-                        let docs = LitStr::new(&doc_str, doc.span());
-
-                        if !doc_str.is_empty() {
-                            quote! { #[doc = #docs] }
-                        } else {
-                            quote! {}
-                        }
-                    }
-                    _ => abort!(attr, "could not parse attributes"),
-                }
+                quote! { #[doc = #doc] }
             })
             .collect()
     }
 
-    fn typed_builder(&self) -> String {
-        #[allow(unstable_name_collisions)]
-        let doc_str = self
-            .0
-            .iter()
-            .map(|attr| {
-                match attr.parse_meta() {
-                    Ok(Meta::NameValue(MetaNameValue { lit: doc, .. })) => {
-                        let mut doc_str = quote!(#doc).to_string();
-
-                        // Remove the leading and trailing `"`
-                        doc_str.pop();
-                        doc_str.remove(0);
-
-                        doc_str
-                    }
-                    _ => abort!(attr, "could not parse attributes"),
-                }
-            })
-            .intersperse("\n".to_string())
-            .collect::<String>();
+    pub fn typed_builder(&self) -> String {
+        let doc_str = self.0.iter().map(|s| s.0.as_str()).join("\n");
 
         if doc_str.chars().filter(|c| *c != '\n').count() != 0 {
             format!("\n\n{doc_str}")
@@ -458,10 +579,18 @@ fn prop_builder_fields(vis: &Visibility, props: &[Prop]) -> TokenStream {
 
             let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
 
+            // Children won't need documentation in many cases
+            let allow_missing_docs = if name.ident == "children" {
+                quote!(#[allow(missing_docs)])
+            } else {
+                quote!()
+            };
+
             quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
+                #allow_missing_docs
                 #vis #name: #ty,
             }
         })
@@ -517,7 +646,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
     }
 }
 
-fn is_option(ty: &Type) -> bool {
+pub fn is_option(ty: &Type) -> bool {
     if let Type::Path(TypePath {
         path: Path { segments, .. },
         ..
@@ -533,7 +662,7 @@ fn is_option(ty: &Type) -> bool {
     }
 }
 
-fn unwrap_option(ty: &Type) -> Type {
+pub fn unwrap_option(ty: &Type) -> Type {
     const STD_OPTION_MSG: &str =
         "make sure you're not shadowing the `std::option::Option` type that \
          is automatically imported from the standard prelude";
@@ -606,12 +735,11 @@ fn prop_to_doc(
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
                 &if !prop_opts.into {
-                    format!("- **{}**: [`{}`]", quote!(#name), pretty_ty)
+                    format!("- **{}**: [`{pretty_ty}`]", quote!(#name))
                 } else {
                     format!(
-                        "- **{}**: `impl`[`Into<{}>`]",
+                        "- **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
                         quote!(#name),
-                        pretty_ty
                     )
                 },
                 name.ident.span(),

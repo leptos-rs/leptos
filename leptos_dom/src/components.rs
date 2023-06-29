@@ -54,7 +54,7 @@ pub struct ComponentRepr {
     pub(crate) document_fragment: web_sys::DocumentFragment,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     mounted: Rc<OnceCell<()>>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) name: Cow<'static, str>,
     #[cfg(debug_assertions)]
     _opening: Comment,
@@ -140,18 +140,23 @@ impl Mountable for ComponentRepr {
         self.closing.node.clone()
     }
 }
-
-impl IntoView for ComponentRepr {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Component />", skip_all, fields(name = %self.name)))]
-    fn into_view(self, _: Scope) -> View {
+impl From<ComponentRepr> for View {
+    fn from(value: ComponentRepr) -> Self {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         if !HydrationCtx::is_hydrating() {
-            for child in &self.children {
-                mount_child(MountKind::Before(&self.closing.node), child);
+            for child in &value.children {
+                mount_child(MountKind::Before(&value.closing.node), child);
             }
         }
 
-        View::Component(self)
+        View::Component(value)
+    }
+}
+
+impl IntoView for ComponentRepr {
+    #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
+    fn into_view(self, _: Scope) -> View {
+        self.into()
     }
 }
 
@@ -207,7 +212,7 @@ impl ComponentRepr {
             #[cfg(debug_assertions)]
             _opening: markers.1,
             closing: markers.0,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             name,
             children: Vec::with_capacity(1),
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
@@ -215,6 +220,12 @@ impl ComponentRepr {
             #[cfg(debug_assertions)]
             view_marker: None,
         }
+    }
+
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    /// Returns the name of the component.
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -237,7 +248,7 @@ where
     /// Creates a new component.
     pub fn new(name: impl Into<Cow<'static, str>>, f: F) -> Self {
         Self {
-            id: HydrationCtx::next_component(),
+            id: HydrationCtx::id(),
             name: name.into(),
             children_fn: f,
         }

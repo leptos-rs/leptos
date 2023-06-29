@@ -18,13 +18,13 @@ pub fn App(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path="" view=|cx| view! { cx, <HomePage/> }/>
+                    <Route path="" view=HomePage/>
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
                     <Route
                         path="/post/:id"
-                        view=|cx| view! { cx, <Post/> }
+                        view=Post
                         ssr=SsrMode::Async
                     />
                 </Routes>
@@ -44,7 +44,7 @@ fn HomePage(cx: Scope) -> impl IntoView {
             .map(|posts| {
                 posts.iter()
                 .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a></li>})
-                .collect::<Vec<_>>()
+                .collect_view(cx)
             })
         )
     };
@@ -109,7 +109,7 @@ fn Post(cx: Scope) -> impl IntoView {
                         {move || errors.get()
                             .into_iter()
                             .map(|(_, error)| view! { cx, <li>{error.to_string()} </li> })
-                            .collect::<Vec<_>>()
+                            .collect_view(cx)
                         }
                         </ul>
                     </div>

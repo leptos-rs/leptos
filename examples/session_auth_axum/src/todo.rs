@@ -1,5 +1,4 @@
-use crate::auth::*;
-use crate::error_template::{ErrorTemplate, ErrorTemplateProps};
+use crate::{auth::*, error_template::ErrorTemplate};
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
@@ -21,26 +20,13 @@ if #[cfg(feature = "ssr")] {
     use sqlx::SqlitePool;
 
     pub fn pool(cx: Scope) -> Result<SqlitePool, ServerFnError> {
-        Ok(use_context::<SqlitePool>(cx)
-            .ok_or("Pool missing.")
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))?)
+       use_context::<SqlitePool>(cx)
+            .ok_or_else(|| ServerFnError::ServerError("Pool missing.".into()))
     }
 
     pub fn auth(cx: Scope) -> Result<AuthSession, ServerFnError> {
-        Ok(use_context::<AuthSession>(cx)
-            .ok_or("Auth session missing.")
-            .map_err(|e| ServerFnError::ServerError(e.to_string()))?)
-    }
-
-    pub fn register_server_functions() {
-        _ = GetTodos::register();
-        _ = AddTodo::register();
-        _ = DeleteTodo::register();
-        _ = Login::register();
-        _ = Logout::register();
-        _ = Signup::register();
-        _ = GetUser::register();
-        _ = Foo::register();
+        use_context::<AuthSession>(cx)
+            .ok_or_else(|| ServerFnError::ServerError("Auth session missing.".into()))
     }
 
     #[derive(sqlx::FromRow, Clone)]
@@ -73,13 +59,10 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let pool = pool(cx)?;
 
     let mut todos = Vec::new();
-    let mut rows = sqlx::query_as::<_, SqlTodo>("SELECT * FROM todos").fetch(&pool);
+    let mut rows =
+        sqlx::query_as::<_, SqlTodo>("SELECT * FROM todos").fetch(&pool);
 
-    while let Some(row) = rows
-        .try_next()
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
-    {
+    while let Some(row) = rows.try_next().await? {
         todos.push(row);
     }
 
@@ -111,11 +94,13 @@ pub async fn add_todo(cx: Scope, title: String) -> Result<(), ServerFnError> {
     // fake API delay
     std::thread::sleep(std::time::Duration::from_millis(1250));
 
-    match sqlx::query("INSERT INTO todos (title, user_id, completed) VALUES (?, ?, false)")
-        .bind(title)
-        .bind(id)
-        .execute(&pool)
-        .await
+    match sqlx::query(
+        "INSERT INTO todos (title, user_id, completed) VALUES (?, ?, false)",
+    )
+    .bind(title)
+    .bind(id)
+    .execute(&pool)
+    .await
     {
         Ok(_row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
@@ -126,12 +111,11 @@ pub async fn add_todo(cx: Scope, title: String) -> Result<(), ServerFnError> {
 pub async fn delete_todo(cx: Scope, id: u16) -> Result<(), ServerFnError> {
     let pool = pool(cx)?;
 
-    sqlx::query("DELETE FROM todos WHERE id = $1")
+    Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
         .execute(&pool)
         .await
-        .map(|_| ())
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
+        .map(|_| ())?)
 }
 
 #[component]
@@ -168,7 +152,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                         Err(e) => view! {cx,
                             <A href="/signup">"Signup"</A>", "
                             <A href="/login">"Login"</A>", "
-                            <span>{format!("Login error: {}", e.to_string())}</span>
+                            <span>{format!("Login error: {}", e)}</span>
                         }.into_view(cx),
                         Ok(None) => view! {cx,
                             <A href="/signup">"Signup"</A>", "
@@ -186,12 +170,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             <hr/>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! {
-                        cx,
-                        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
-                            <Todos/>
-                        </ErrorBoundary>
-                    }/> //Route
+                    <Route path="" view=|cx| view! { cx, <Todos/> }/> //Route
                     <Route path="signup" view=move |cx| view! {
                         cx,
                         <Signup action=signup/>
@@ -235,77 +214,81 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 <input type="submit" value="Add"/>
             </MultiActionForm>
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
-                {move || {
-                    let existing_todos = {
-                        move || {
-                            todos.read(cx)
-                                .map(move |todos| match todos {
-                                    Err(e) => {
-                                        vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
-                                    }
-                                    Ok(todos) => {
-                                        if todos.is_empty() {
-                                            vec![view! { cx, <p>"No tasks were found."</p> }.into_any()]
-                                        } else {
-                                            todos
-                                                .into_iter()
-                                                .map(move |todo| {
-                                                    view! {
-                                                        cx,
-                                                        <li>
-                                                            {todo.title}
-                                                            ": Created at "
-                                                            {todo.created_at}
-                                                            " by "
-                                                            {
-                                                                todo.user.unwrap_or_default().username
-                                                            }
-                                                            <ActionForm action=delete_todo>
-                                                                <input type="hidden" name="id" value={todo.id}/>
-                                                                <input type="submit" value="X"/>
-                                                            </ActionForm>
-                                                        </li>
-                                                    }
-                                                    .into_any()
-                                                })
-                                                .collect::<Vec<_>>()
+                <ErrorBoundary fallback=|cx, errors| view!{ cx, <ErrorTemplate errors=errors/>}>
+                    {move || {
+                        let existing_todos = {
+                            move || {
+                                todos.read(cx)
+                                    .map(move |todos| match todos {
+                                        Err(e) => {
+                                            view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
                                         }
-                                    }
-                                })
-                                .unwrap_or_default()
-                        }
-                    };
-
-                    let pending_todos = move || {
-                        submissions
-                        .get()
-                        .into_iter()
-                        .filter(|submission| submission.pending().get())
-                        .map(|submission| {
-                            view! {
-                                cx,
-                                <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                        Ok(todos) => {
+                                            if todos.is_empty() {
+                                                view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
+                                            } else {
+                                                todos
+                                                    .into_iter()
+                                                    .map(move |todo| {
+                                                        view! {
+                                                            cx,
+                                                            <li>
+                                                                {todo.title}
+                                                                ": Created at "
+                                                                {todo.created_at}
+                                                                " by "
+                                                                {
+                                                                    todo.user.unwrap_or_default().username
+                                                                }
+                                                                <ActionForm action=delete_todo>
+                                                                    <input type="hidden" name="id" value={todo.id}/>
+                                                                    <input type="submit" value="X"/>
+                                                                </ActionForm>
+                                                            </li>
+                                                        }
+                                                    })
+                                                    .collect_view(cx)
+                                            }
+                                        }
+                                    })
+                                    .unwrap_or_default()
                             }
-                        })
-                        .collect::<Vec<_>>()
-                    };
+                        };
 
-                    view! {
-                        cx,
-                        <ul>
-                            {existing_todos}
-                            {pending_todos}
-                        </ul>
+                        let pending_todos = move || {
+                            submissions
+                            .get()
+                            .into_iter()
+                            .filter(|submission| submission.pending().get())
+                            .map(|submission| {
+                                view! {
+                                    cx,
+                                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                }
+                            })
+                            .collect_view(cx)
+                        };
+
+                        view! {
+                            cx,
+                            <ul>
+                                {existing_todos}
+                                {pending_todos}
+                            </ul>
+                        }
                     }
                 }
-            }
+                </ErrorBoundary>
             </Transition>
         </div>
     }
 }
 
 #[component]
-pub fn Login(cx: Scope, action: Action<Login, Result<(), ServerFnError>>) -> impl IntoView {
+pub fn Login(
+    cx: Scope,
+    action: Action<Login, Result<(), ServerFnError>>,
+) -> impl IntoView {
     view! {
         cx,
         <ActionForm action=action>
@@ -331,7 +314,10 @@ pub fn Login(cx: Scope, action: Action<Login, Result<(), ServerFnError>>) -> imp
 }
 
 #[component]
-pub fn Signup(cx: Scope, action: Action<Signup, Result<(), ServerFnError>>) -> impl IntoView {
+pub fn Signup(
+    cx: Scope,
+    action: Action<Signup, Result<(), ServerFnError>>,
+) -> impl IntoView {
     view! {
         cx,
         <ActionForm action=action>
@@ -363,7 +349,10 @@ pub fn Signup(cx: Scope, action: Action<Signup, Result<(), ServerFnError>>) -> i
 }
 
 #[component]
-pub fn Logout(cx: Scope, action: Action<Logout, Result<(), ServerFnError>>) -> impl IntoView {
+pub fn Logout(
+    cx: Scope,
+    action: Action<Logout, Result<(), ServerFnError>>,
+) -> impl IntoView {
     view! {
         cx,
         <div id="loginbox">

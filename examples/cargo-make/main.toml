@@ -1,0 +1,35 @@
+extend = [{ path = "../cargo-make/common.toml" }]
+
+[tasks.ci]
+alias = "verify-flow"
+
+[tasks.verify-flow]
+description = "Provides pre and post hooks for verify"
+dependencies = ["pre-verify", "verify", "post-verify"]
+
+[tasks.verify]
+description = "Run all quality checks and tests"
+dependencies = ["check-style", "test-unit-and-e2e"]
+
+[tasks.test-unit-and-e2e]
+description = "Run all unit and e2e tests"
+dependencies = ["test-flow", "test-e2e-flow"]
+
+[tasks.pre-verify]
+
+[tasks.post-verify]
+dependencies = ["maybe-clean-all"]
+
+[tasks.maybe-clean-all]
+description = "Used to clean up locally after call to verify-examples"
+condition = { env_true = ["CLEAN_AFTER_VERIFY"] }
+
+[tasks.test-e2e-flow]
+description = "Provides pre and post hooks for test-e2e"
+dependencies = ["pre-test-e2e", "test-e2e", "post-test-e2e"]
+
+[tasks.pre-test-e2e]
+
+[tasks.test-e2e]
+
+[tasks.post-test-e2e]

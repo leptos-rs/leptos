@@ -1,3 +1,9 @@
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/trunk_server.toml" },
+    { path = "../cargo-make/playwright-test.toml" },
+]
+
 [tasks.build]
 command = "cargo"
 args = ["+stable", "build-all-features"]

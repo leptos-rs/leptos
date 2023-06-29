@@ -1,8 +1,7 @@
+use api_boundary::*;
 use gloo_net::http::{Request, Response};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
-
-use api_boundary::*;
 
 #[derive(Clone, Copy)]
 pub struct UnauthorizedApi {

@@ -104,3 +104,8 @@ You'll need to install trunk to client side render this bundle.
 ## Attribution
 
 Many thanks to GreatGreg for putting together this guide. You can find the original, with added details, [here](https://github.com/leptos-rs/leptos/discussions/125).
+
+## Playwright Testing
+
+- Run `cargo make setup` to install dependencies
+- Run `cargo leptos test` or `cargo leptos end-to-end` to run the test

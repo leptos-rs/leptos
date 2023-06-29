@@ -21,14 +21,14 @@
 //!     view! { cx,
 //!       <Title
 //!         // reactively sets document.title when `name` changes
-//!         text=name
+//!         text=move || name.get()
 //!         // applies the `formatter` function to the `text` value
 //!         formatter=|text| format!("“{text}” is your name")
 //!       />
 //!       <main>
 //!         <input
-//!           prop:value=name
-//!           on:input=move |ev| set_name(event_target_value(&ev))
+//!           prop:value=move || name.get()
+//!           on:input=move |ev| set_name.set(event_target_value(&ev))
 //!         />
 //!       </main>
 //!     }
@@ -45,6 +45,7 @@
 //! which mode your app is operating in.
 
 use cfg_if::cfg_if;
+use indexmap::IndexMap;
 use leptos::{
     leptos_dom::{debug_warn, html::AnyElement},
     *,
@@ -52,7 +53,6 @@ use leptos::{
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
-    collections::HashMap,
     fmt::Debug,
     rc::Rc,
 };
@@ -99,7 +99,7 @@ pub struct MetaTagsContext {
     #[allow(clippy::type_complexity)]
     els: Rc<
         RefCell<
-            HashMap<
+            IndexMap<
                 Cow<'static, str>,
                 (HtmlElement<AnyElement>, Scope, Option<web_sys::Element>),
             >,

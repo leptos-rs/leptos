@@ -1,6 +1,6 @@
 use crate::{
     animation::{Animation, AnimationState},
-    use_is_back_navigation, use_route,
+    use_is_back_navigation, use_route, SetIsRouting,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{cell::Cell, rc::Rc};
@@ -8,6 +8,10 @@ use web_sys::AnimationEvent;
 
 /// Displays the child route nested in a parent route, allowing you to control exactly where
 /// that child route is displayed. Renders nothing if there is no nested child.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component]
 pub fn Outlet(cx: Scope) -> impl IntoView {
     let id = HydrationCtx::id();
@@ -40,6 +44,42 @@ pub fn Outlet(cx: Scope) -> impl IntoView {
             }
         }
     });
+
+    let outlet: Signal<Option<View>> =
+        if cfg!(any(feature = "csr", feature = "hydrate"))
+            && use_context::<SetIsRouting>(cx).is_some()
+        {
+            let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
+
+            let (current_view, set_current_view) = create_signal(cx, None);
+
+            create_effect(cx, {
+                move |prev| {
+                    let outlet = outlet.get();
+                    let is_fallback =
+                        !global_suspense.with_inner(SuspenseContext::ready);
+                    if prev.is_none() {
+                        set_current_view.set(outlet);
+                    } else if !is_fallback {
+                        queue_microtask({
+                            let global_suspense = global_suspense.clone();
+                            move || {
+                                let is_fallback = cx.untrack(move || {
+                                    !global_suspense
+                                        .with_inner(SuspenseContext::ready)
+                                });
+                                if !is_fallback {
+                                    set_current_view.set(outlet);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+            current_view.into()
+        } else {
+            outlet.into()
+        };
 
     leptos::leptos_dom::DynChild::new_with_id(id, move || outlet.get())
 }
@@ -166,14 +206,25 @@ pub fn AnimatedOutlet(
             animation_class.to_string()
         }
     };
+    let node_ref = create_node_ref::<html::Div>(cx);
     let animationend = move |ev: AnimationEvent| {
-        ev.stop_propagation();
-        let current = current_animation.get();
-        set_animation_state.update(|current_state| {
-            let (next, _) =
-                animation.next_state(&current, is_back.get_untracked());
-            *current_state = next;
-        });
+        use wasm_bindgen::JsCast;
+        if let Some(target) = ev.target() {
+            let node_ref = node_ref.get();
+            if node_ref.is_none()
+                || target
+                    .unchecked_ref::<web_sys::Node>()
+                    .is_same_node(Some(&*node_ref.unwrap()))
+            {
+                ev.stop_propagation();
+                let current = current_animation.get();
+                set_animation_state.update(|current_state| {
+                    let (next, _) =
+                        animation.next_state(&current, is_back.get_untracked());
+                    *current_state = next;
+                });
+            }
+        }
     };
 
     view! { cx,

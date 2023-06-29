@@ -1,12 +1,12 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
-#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
-#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
+#![cfg_attr(feature = "nightly", feature(fn_traits))]
+#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
 
 //! The DOM implementation for `leptos`.
 
 #[doc(hidden)]
-#[cfg_attr(debug_assertions, macro_use)]
+#[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 pub extern crate tracing;
 
 mod components;
@@ -93,8 +93,8 @@ pub trait Mountable {
 
 impl IntoView for () {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "<() />", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "<() />", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         Unit.into_view(cx)
@@ -106,8 +106,8 @@ where
     T: IntoView,
 {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "Option<T>", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "Option<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         if let Some(t) = self {
@@ -124,8 +124,8 @@ where
     N: IntoView,
 {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "Fn() -> impl IntoView", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "Fn() -> impl IntoView", skip_all)
     )]
     #[track_caller]
     fn into_view(self, cx: Scope) -> View {
@@ -149,7 +149,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -162,7 +162,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -175,7 +175,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Memo<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -188,7 +188,7 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Signal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
@@ -201,11 +201,30 @@ where
     T: IntoView + Clone,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         DynChild::new(move || self.get()).into_view(cx)
+    }
+}
+
+/// Collects an iterator or collection into a [`View`].
+pub trait CollectView {
+    /// Collects an iterator or collection into a [`View`].
+    fn collect_view(self, cx: Scope) -> View;
+}
+
+impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
+    fn collect_view(self, cx: Scope) -> View {
+        self.into_iter()
+            .map(|v| v.into_view(cx))
+            .collect::<Fragment>()
+            .into_view(cx)
     }
 }
 
@@ -332,7 +351,7 @@ impl Element {
 }
 
 impl IntoView for Element {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "<Element />", skip_all, fields(tag = %self.name)))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", name = "<Element />", skip_all, fields(tag = %self.name)))]
     fn into_view(self, _: Scope) -> View {
         View::Element(self)
     }
@@ -357,7 +376,7 @@ impl Element {
               is_void: el.is_void(),
               attrs: Default::default(),
               children: Default::default(),
-              id: el.hydration_id().clone(),
+              id: *el.hydration_id(),
               #[cfg(debug_assertions)]
               view_marker: None
             }
@@ -443,7 +462,7 @@ impl fmt::Debug for Text {
 }
 
 impl IntoView for Text {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "#text", skip_all, fields(content = %self.content)))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", name = "#text", skip_all, fields(content = %self.content)))]
     fn into_view(self, _: Scope) -> View {
         View::Text(self)
     }
@@ -505,7 +524,7 @@ impl Default for View {
 }
 
 impl IntoView for View {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "Node", skip_all, fields(kind = self.kind_name())))]
+    #[cfg_attr(debug_assertions, instrument(level = "info", name = "Node", skip_all, fields(kind = self.kind_name())))]
     fn into_view(self, _: Scope) -> View {
         self
     }
@@ -519,8 +538,8 @@ impl IntoView for &View {
 
 impl<const N: usize> IntoView for [View; N] {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "[Node; N]", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "[Node; N]", skip_all)
     )]
     fn into_view(self, cx: Scope) -> View {
         Fragment::new(self.into_iter().collect()).into_view(cx)
@@ -530,6 +549,12 @@ impl<const N: usize> IntoView for [View; N] {
 impl IntoView for &Fragment {
     fn into_view(self, cx: Scope) -> View {
         self.to_owned().into_view(cx)
+    }
+}
+
+impl FromIterator<View> for View {
+    fn from_iter<T: IntoIterator<Item = View>>(iter: T) -> Self {
+        iter.into_iter().collect::<Fragment>().into()
     }
 }
 
@@ -809,6 +834,15 @@ where
     F: FnOnce(Scope) -> N + 'static,
     N: IntoView,
 {
+    #[cfg(all(feature = "web", feature = "ssr"))]
+    crate::console_warn(
+        "You have both `csr` and `ssr` or `hydrate` and `ssr` enabled as \
+         features, which may cause issues like <Suspense/>` failing to work \
+         silently. `csr` is enabled by default on `leptos`, and can be \
+         disabled by adding `default-features = false` to your `leptos` \
+         dependency.",
+    );
+
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         mount_to(crate::document().body().expect("body element to exist"), f)
@@ -998,8 +1032,8 @@ api_planning! {
 
 impl IntoView for String {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "#text", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
     )]
     #[inline(always)]
     fn into_view(self, _: Scope) -> View {
@@ -1008,6 +1042,10 @@ impl IntoView for String {
 }
 
 impl IntoView for &'static str {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
     #[inline(always)]
     fn into_view(self, _: Scope) -> View {
         View::Text(Text::new(self.into()))
@@ -1018,6 +1056,10 @@ impl<V> IntoView for Vec<V>
 where
     V: IntoView,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "#text", skip_all)
+    )]
     fn into_view(self, cx: Scope) -> View {
         self.into_iter()
             .map(|v| v.into_view(cx))
@@ -1083,7 +1125,7 @@ viewable_primitive![
 ];
 
 cfg_if! {
-  if #[cfg(not(feature = "stable"))] {
+  if #[cfg(feature = "nightly")] {
     viewable_primitive! {
         std::backtrace::Backtrace
     }

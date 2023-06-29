@@ -7,8 +7,9 @@ publish = false
 [dependencies]
 api-boundary = "*"
 
-leptos = { version = "0.2.0-alpha2", features = ["stable"] }
-leptos_router = { version = "0.2.0-alpha2", features = ["stable", "csr"] }
+leptos = { path = "../../../leptos", features = ["csr"] }
+leptos_meta = { path = "../../../meta", features = ["csr"] }
+leptos_router = { path = "../../../router", features = ["csr"] }
 
 log = "0.4"
 console_error_panic_hook = "0.1"

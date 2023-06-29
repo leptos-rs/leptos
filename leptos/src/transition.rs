@@ -1,6 +1,9 @@
 use leptos_dom::{Fragment, IntoView, View};
 use leptos_macro::component;
-use leptos_reactive::{use_context, Scope, SignalSetter, SuspenseContext};
+use leptos_reactive::{
+    create_isomorphic_effect, use_context, Scope, SignalGet, SignalSetter,
+    SuspenseContext,
+};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -29,7 +32,8 @@ use std::{
 /// let (cat_count, set_cat_count) = create_signal::<u32>(cx, 1);
 /// let (pending, set_pending) = create_signal(cx, false);
 ///
-/// let cats = create_resource(cx, cat_count, |count| fetch_cats(count));
+/// let cats =
+///     create_resource(cx, move || cat_count.get(), |count| fetch_cats(count));
 ///
 /// view! { cx,
 ///   <div>
@@ -39,18 +43,15 @@ use std::{
 ///     >
 ///       {move || {
 ///           cats.read(cx).map(|data| match data {
-///             None => view! { cx,  <pre>"Error"</pre> }.into_any(),
-///             Some(cats) => view! { cx,
-///               <div>{
-///                 cats.iter()
-///                   .map(|src| {
+///             None => view! { cx,  <pre>"Error"</pre> }.into_view(cx),
+///             Some(cats) => cats
+///                 .iter()
+///                 .map(|src| {
 ///                     view! { cx,
 ///                       <img src={src}/>
 ///                     }
-///                   })
-///                   .collect::<Vec<_>>()
-///               }</div>
-///             }.into_any(),
+///                 })
+///                 .collect_view(cx),
 ///           })
 ///         }
 ///       }
@@ -60,6 +61,10 @@ use std::{
 /// # });
 /// # }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component(transparent)]
 pub fn Transition<F, E>(
     cx: Scope,
@@ -77,7 +82,7 @@ where
     F: Fn() -> E + 'static,
     E: IntoView,
 {
-    let prev_children = Rc::new(RefCell::new(None::<Vec<View>>));
+    let prev_children = Rc::new(RefCell::new(None::<View>));
 
     let first_run = Rc::new(std::cell::Cell::new(true));
     let child_runs = Cell::new(0);
@@ -96,14 +101,11 @@ where
                         is_first_run(&first_run, &suspense_context);
                     first_run.set(is_first_run);
 
-                    if let Some(set_pending) = &set_pending {
-                        set_pending.set(true);
-                    }
                     if let Some(prev_children) = &*prev_child.borrow() {
                         if is_first_run {
                             fallback().into_view(cx)
                         } else {
-                            prev_children.clone().into_view(cx)
+                            prev_children.clone()
                         }
                     } else {
                         fallback().into_view(cx)
@@ -111,13 +113,16 @@ where
                 }
             })
             .children(Box::new(move |cx| {
-                let frag = children(cx);
+                let frag = children(cx).into_view(cx);
 
                 let suspense_context = use_context::<SuspenseContext>(cx)
                     .expect("there to be a SuspenseContext");
 
-                if cfg!(feature = "hydrate") || !first_run.get() {
-                    *prev_children.borrow_mut() = Some(frag.nodes.clone());
+                if cfg!(feature = "hydrate")
+                    || !first_run.get()
+                    || (cfg!(feature = "csr") && first_run.get())
+                {
+                    *prev_children.borrow_mut() = Some(frag.clone());
                 }
                 if is_first_run(&first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
@@ -128,9 +133,12 @@ where
                 }
                 child_runs.set(child_runs.get() + 1);
 
-                if let Some(set_pending) = &set_pending {
-                    set_pending.set(false);
-                }
+                let pending = suspense_context.pending_resources;
+                create_isomorphic_effect(cx, move |_| {
+                    if let Some(set_pending) = set_pending {
+                        set_pending.set(pending.get() > 0)
+                    }
+                });
                 frag
             }))
             .build(),

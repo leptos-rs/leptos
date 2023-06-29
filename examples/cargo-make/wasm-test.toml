@@ -1,0 +1,9 @@
+[tasks.test]
+env = { RUN_CARGO_TEST = false }
+condition = { env_true = ["RUN_CARGO_TEST"] }
+
+[tasks.post-test]
+dependencies = ["test-wasm"]
+
+[tasks.clean-all]
+dependencies = ["clean-cargo", "clean-trunk"]

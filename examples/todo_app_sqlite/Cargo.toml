@@ -16,12 +16,10 @@ console_error_panic_hook = "0.1.7"
 serde = { version = "1.0.152", features = ["derive"] }
 futures = "0.3.25"
 cfg-if = "1.0.0"
-leptos = { path = "../../leptos", default-features = false, features = [
-	"serde",
-] }
+leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_meta = { path = "../../meta", default-features = false }
-leptos_router = { path = "../../router", default-features = false }
+leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos_router = { path = "../../router", features = ["nightly"] }
 log = "0.4.17"
 simple_logger = "4.0.0"
 gloo = { git = "https://github.com/rustwasm/gloo" }
@@ -32,7 +30,6 @@ sqlx = { version = "0.6.2", features = [
 wasm-bindgen = "0.2"
 
 [features]
-default = ["ssr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
 	"dep:actix-files",

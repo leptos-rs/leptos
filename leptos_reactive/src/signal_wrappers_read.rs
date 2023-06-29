@@ -45,14 +45,14 @@ where
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = Signal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
 ///     // ✅ calling the signal clones and returns the value
-///     //    it is a shorthand for arg.get()
-///     arg() > 3
+///     //    can be `arg() > 3` on nightly
+///     arg.get() > 3
 /// }
 ///
 /// assert_eq!(above_3(&count.into()), false);
@@ -60,13 +60,12 @@ where
 /// assert_eq!(above_3(&memoized_double_count.into()), true);
 /// # });
 /// ```
-#[derive(Debug, PartialEq, Eq)]
 pub struct Signal<T>
 where
     T: 'static,
 {
     inner: SignalTypes<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -74,7 +73,7 @@ impl<T> Clone for Signal<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -82,12 +81,30 @@ impl<T> Clone for Signal<T> {
 
 impl<T> Copy for Signal<T> {}
 
+impl<T> std::fmt::Debug for Signal<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("Signal");
+        s.field("inner", &self.inner);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for Signal<T> {}
+
+impl<T> PartialEq for Signal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
 /// Please note that using `Signal::with_untracked` still clones the inner value,
 /// so there's no benefit to using it as opposed to calling
 /// `Signal::get_untracked`.
 impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::get_untracked()",
@@ -109,7 +126,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::try_get_untracked()",
@@ -133,7 +150,7 @@ impl<T: Clone> SignalGetUntracked<T> for Signal<T> {
 
 impl<T> SignalWithUntracked<T> for Signal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::with_untracked()",
@@ -159,7 +176,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::try_with_untracked()",
@@ -193,7 +210,7 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: Signal<String>) -> usize {
 ///     // ❌ unnecessarily clones the string
-///     arg().len()
+///     arg.get().len()
 /// }
 ///
 /// fn current_len(arg: &Signal<String>) -> usize {
@@ -205,14 +222,14 @@ impl<T> SignalWithUntracked<T> for Signal<T> {
 /// assert_eq!(current_len(&name_upper), 5);
 /// assert_eq!(current_len(&memoized_lower.into()), 5);
 ///
-/// assert_eq!(name(), "Alice");
-/// assert_eq!(name_upper(), "ALICE");
-/// assert_eq!(memoized_lower(), "alice");
+/// assert_eq!(name.get(), "Alice");
+/// assert_eq!(name_upper.get(), "ALICE");
+/// assert_eq!(memoized_lower.get(), "alice");
 /// # });
 /// ```
 impl<T> SignalWith<T> for Signal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::with()",
@@ -232,7 +249,7 @@ impl<T> SignalWith<T> for Signal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "Signal::try_with()",
@@ -259,8 +276,8 @@ impl<T> SignalWith<T> for Signal<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = Signal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = Signal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 ///
 /// // this function takes any kind of wrapped signal
 /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -325,7 +342,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count.get() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &Signal<i32>) -> bool {
@@ -338,7 +355,7 @@ where
     /// ```
     #[track_caller]
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             skip_all,
@@ -360,7 +377,7 @@ where
                 cx,
                 store_value(cx, Box::new(derived_signal)),
             ),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -380,7 +397,7 @@ impl<T> From<ReadSignal<T>> for Signal<T> {
     fn from(value: ReadSignal<T>) -> Self {
         Self {
             inner: SignalTypes::ReadSignal(value),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -391,7 +408,7 @@ impl<T> From<RwSignal<T>> for Signal<T> {
     fn from(value: RwSignal<T>) -> Self {
         Self {
             inner: SignalTypes::ReadSignal(value.read_only()),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -402,7 +419,7 @@ impl<T> From<Memo<T>> for Signal<T> {
     fn from(value: Memo<T>) -> Self {
         Self {
             inner: SignalTypes::Memo(value),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -431,10 +448,7 @@ impl<T> Clone for SignalTypes<T> {
 
 impl<T> Copy for SignalTypes<T> {}
 
-impl<T> std::fmt::Debug for SignalTypes<T>
-where
-    T: std::fmt::Debug,
-{
+impl<T> std::fmt::Debug for SignalTypes<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ReadSignal(arg0) => {
@@ -448,10 +462,7 @@ where
     }
 }
 
-impl<T> PartialEq for SignalTypes<T>
-where
-    T: PartialEq,
-{
+impl<T> PartialEq for SignalTypes<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::ReadSignal(l0), Self::ReadSignal(r0)) => l0 == r0,
@@ -488,15 +499,15 @@ impl<T> Eq for SignalTypes<T> where T: PartialEq {}
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = MaybeSignal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 /// let static_value = 5;
 ///
 /// // this function takes either a reactive or non-reactive value
 /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
 ///     // ✅ calling the signal clones and returns the value
 ///     //    it is a shorthand for arg.get()
-///     arg() > 3
+///     arg.get() > 3
 /// }
 ///
 /// assert_eq!(above_3(&static_value.into()), true);
@@ -539,8 +550,8 @@ impl<T: Default> Default for MaybeSignal<T> {
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let double_count = MaybeSignal::derive(cx, move || count() * 2);
-/// let memoized_double_count = create_memo(cx, move |_| count() * 2);
+/// let double_count = MaybeSignal::derive(cx, move || count.get() * 2);
+/// let memoized_double_count = create_memo(cx, move |_| count.get() * 2);
 /// let static_value: MaybeSignal<i32> = 5.into();
 ///
 /// // this function takes any kind of wrapped signal
@@ -585,7 +596,7 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// // this function takes any kind of wrapped signal
 /// fn current_len_inefficient(arg: &MaybeSignal<String>) -> usize {
 ///     // ❌ unnecessarily clones the string
-///     arg().len()
+///     arg.get().len()
 /// }
 ///
 /// fn current_len(arg: &MaybeSignal<String>) -> usize {
@@ -598,15 +609,15 @@ impl<T: Clone> SignalGet<T> for MaybeSignal<T> {
 /// assert_eq!(current_len(&memoized_lower.into()), 5);
 /// assert_eq!(current_len(&static_value), 3);
 ///
-/// assert_eq!(name(), "Alice");
-/// assert_eq!(name_upper(), "ALICE");
-/// assert_eq!(memoized_lower(), "alice");
-/// assert_eq!(static_value(), "Bob");
+/// assert_eq!(name.get(), "Alice");
+/// assert_eq!(name_upper.get(), "ALICE");
+/// assert_eq!(memoized_lower.get(), "alice");
+/// assert_eq!(static_value.get(), "Bob");
 /// # });
 /// ```
 impl<T> SignalWith<T> for MaybeSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "MaybeSignal::with()",
@@ -622,7 +633,7 @@ impl<T> SignalWith<T> for MaybeSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "MaybeSignal::try_with()",
@@ -698,7 +709,7 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let double_count = Signal::derive(cx, move || count() * 2);
+    /// let double_count = Signal::derive(cx, move || count.get() * 2);
     ///
     /// // this function takes any kind of wrapped signal
     /// fn above_3(arg: &MaybeSignal<i32>) -> bool {
@@ -711,7 +722,7 @@ where
     /// # });
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "MaybeSignal::derive()",

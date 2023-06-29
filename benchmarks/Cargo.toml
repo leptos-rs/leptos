@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 l021 = { package = "leptos", version = "0.2.1" }
-leptos = { path = "../leptos", default-features = false, features = ["ssr"] }
+leptos = { path = "../leptos", features = ["ssr"] }
 sycamore = { version = "0.8", features = ["ssr"] }
 yew = { git = "https://github.com/yewstack/yew", features = ["ssr"] }
 tokio-test = "0.4"

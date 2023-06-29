@@ -24,12 +24,17 @@ cfg_if! {
                 .await
                 .expect("could not run SQLx migrations");
 
-            crate::todo::register_server_functions();
+            // Explicit server function registration is no longer required
+            // on the main branch. On 0.3.0 and earlier, uncomment the lines
+            // below to register the server functions.
+            // _ = GetTodos::register();
+            // _ = AddTodo::register();
+            // _ = DeleteTodo::register();
 
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             let conf = get_configuration(None).await.unwrap();
 
-            let addr = conf.leptos_options.site_addr.clone();
+            let addr = conf.leptos_options.site_addr;
 
             // Generate the list of routes in your Leptos App
             let routes = generate_route_list(|cx| view! { cx, <TodoApp/> });
@@ -43,7 +48,7 @@ cfg_if! {
                     .service(css)
                     .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
                     .leptos_routes(leptos_options.to_owned(), routes.to_owned(), |cx| view! { cx, <TodoApp/> })
-                    .service(Files::new("/", &site_root))
+                    .service(Files::new("/", site_root))
                     //.wrap(middleware::Compress::default())
             })
             .bind(addr)?

@@ -10,14 +10,20 @@ use crate::{
 };
 use futures::Stream;
 use std::{
-    any::Any, cell::RefCell, fmt::Debug, marker::PhantomData, pin::Pin, rc::Rc,
+    any::Any,
+    cell::RefCell,
+    fmt,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    pin::Pin,
+    rc::Rc,
 };
 use thiserror::Error;
 
 macro_rules! impl_get_fn_traits {
     ($($ty:ident $(($method_name:ident))?),*) => {
         $(
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> FnOnce<()> for $ty<T> {
                 type Output = T;
 
@@ -27,7 +33,7 @@ macro_rules! impl_get_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> FnMut<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
@@ -35,7 +41,7 @@ macro_rules! impl_get_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T: Clone> Fn<()> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, _args: ()) -> Self::Output {
@@ -55,7 +61,7 @@ macro_rules! impl_get_fn_traits {
 macro_rules! impl_set_fn_traits {
     ($($ty:ident $($method_name:ident)?),*) => {
         $(
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> FnOnce<(T,)> for $ty<T> {
                 type Output = ();
 
@@ -65,7 +71,7 @@ macro_rules! impl_set_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> FnMut<(T,)> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
@@ -73,7 +79,7 @@ macro_rules! impl_set_fn_traits {
                 }
             }
 
-            #[cfg(not(feature = "stable"))]
+            #[cfg(feature = "nightly")]
             impl<T> Fn<(T,)> for $ty<T> {
                 #[inline(always)]
                 extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
@@ -173,18 +179,6 @@ pub trait SignalUpdate<T> {
     ///
     /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
     /// even if the value has not actually changed.
-    #[deprecated = "Please use `try_update` instead. This method will be \
-                    removed in a future version of this crate"]
-    fn update_returning<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.try_update(f)
-    }
-
-    /// Applies a function to the current value to mutate it in place
-    /// and notifies subscribers that the signal has changed. Returns
-    /// [`Some(O)`] if the signal is still valid, [`None`] otherwise.
-    ///
-    /// **Note:** `update()` does not auto-memoize, i.e., it will notify subscribers
-    /// even if the value has not actually changed.
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O>;
 }
 
@@ -252,19 +246,6 @@ pub trait SignalUpdateUntracked<T> {
     /// Runs the provided closure with a mutable reference to the current
     /// value without notifying dependents and returns
     /// the value the closure returned.
-    #[deprecated = "Please use `try_update_untracked` instead. This method \
-                    will be removed in a future version of `leptos`"]
-    #[inline(always)]
-    fn update_returning_untracked<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.try_update_untracked(f)
-    }
-
-    /// Runs the provided closure with a mutable reference to the current
-    /// value without notifying dependents and returns
-    /// the value the closure returned.
     fn try_update_untracked<O>(&self, f: impl FnOnce(&mut T) -> O)
         -> Option<O>;
 }
@@ -309,30 +290,32 @@ pub trait SignalDispose {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the getter clones and returns the value
-/// assert_eq!(count(), 0);
+/// //    this can be `count()` on nightly
+/// assert_eq!(count.get(), 0);
 ///
 /// // ✅ calling the setter sets the value
-/// set_count(1);
-/// assert_eq!(count(), 1);
+/// //    this can be `set_count(1)` on nightly
+/// set_count.set(1);
+/// assert_eq!(count.get(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
-/// // set_count(count() + 1);
+/// // ❌ you could call the getter within the setter
+/// // set_count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 ///
-/// // ✅ you can create "derived signals" with the same Fn() -> T interface
-/// let double_count = move || count() * 2; // signals are `Copy` so you can `move` them anywhere
-/// set_count(0);
+/// // ✅ you can create "derived signals" with a Fn() -> T interface
+/// let double_count = move || count.get() * 2; // signals are `Copy` so you can `move` them anywhere
+/// set_count.set(0);
 /// assert_eq!(double_count(), 0);
-/// set_count(1);
+/// set_count.set(1);
 /// assert_eq!(double_count(), 2);
 /// # }).dispose();
 /// #
 /// ```
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -354,7 +337,7 @@ pub fn create_signal<T>(
 
 /// Works exactly as [`create_signal`], but creates multiple signals at once.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -374,7 +357,7 @@ pub fn create_many_signals<T>(
 
 /// Works exactly as [`create_many_signals`], but applies the map function to each signal pair.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -404,7 +387,7 @@ where
 /// **Note**: If used on the server side during server rendering, this will return `None`
 /// immediately and not begin driving the stream.
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -466,29 +449,28 @@ pub fn create_signal_from_stream<T>(
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the getter clones and returns the value
-/// assert_eq!(count(), 0);
+/// assert_eq!(count.get(), 0);
 ///
 /// // ✅ calling the setter sets the value
-/// set_count(1);
-/// assert_eq!(count(), 1);
+/// set_count.set(1); // `set_count(1)` on nightly
+/// assert_eq!(count.get(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
-/// // set_count(count() + 1);
+/// // ❌ you could call the getter within the setter
+/// // set_count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 ///
 /// // ✅ you can create "derived signals" with the same Fn() -> T interface
-/// let double_count = move || count() * 2; // signals are `Copy` so you can `move` them anywhere
-/// set_count(0);
+/// let double_count = move || count.get() * 2; // signals are `Copy` so you can `move` them anywhere
+/// set_count.set(0);
 /// assert_eq!(double_count(), 0);
-/// set_count(1);
+/// set_count.set(1);
 /// assert_eq!(double_count(), 2);
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct ReadSignal<T>
 where
     T: 'static,
@@ -496,13 +478,13 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
 impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::get_untracked()",
@@ -522,14 +504,14 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_get_untracked()",
@@ -553,7 +535,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
 
 impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::with_untracked()",
@@ -571,7 +553,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_with_untracked()",
@@ -605,19 +587,19 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
-/// let first_char = move || name().chars().next().unwrap();
+/// let first_char = move || name.get().chars().next().unwrap();
 /// assert_eq!(first_char(), 'A');
 ///
 /// // ✅ gets the first char without cloning the `String`
 /// let first_char = move || name.with(|n| n.chars().next().unwrap());
 /// assert_eq!(first_char(), 'A');
-/// set_name("Bob".to_string());
+/// set_name.set("Bob".to_string());
 /// assert_eq!(first_char(), 'B');
 /// # });
 /// ```
 impl<T> SignalWith<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::with()",
@@ -641,14 +623,14 @@ impl<T> SignalWith<T> for ReadSignal<T> {
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_with()",
@@ -682,13 +664,13 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 ///
 /// assert_eq!(count.get(), 0);
 ///
-/// // count() is shorthand for count.get()
-/// assert_eq!(count(), 0);
+/// // count() is shorthand for count.get() on `nightly`
+/// // assert_eq!(count.get(), 0);
 /// # });
 /// ```
 impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::get()",
@@ -711,14 +693,14 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::try_get()",
@@ -737,7 +719,7 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
 
 impl<T: Clone> SignalStream<T> for ReadSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "ReadSignal::to_stream()",
@@ -809,6 +791,33 @@ impl<T> Clone for ReadSignal<T> {
 
 impl<T> Copy for ReadSignal<T> {}
 
+impl<T> fmt::Debug for ReadSignal<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("ReadSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for ReadSignal<T> {}
+
+impl<T> PartialEq for ReadSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
+
+impl<T> Hash for ReadSignal<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+    }
+}
+
 /// The setter for a reactive signal.
 ///
 /// A signal is a piece of data that may change over time,
@@ -842,19 +851,19 @@ impl<T> Copy for ReadSignal<T> {}
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // ✅ calling the setter sets the value
-/// set_count(1);
-/// assert_eq!(count(), 1);
+/// //    `set_count(1)` on nightly
+/// set_count.set(1);
+/// assert_eq!(count.get(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
-/// // set_count(count() + 1);
+/// // ❌ you could call the getter within the setter
+/// // set_count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however it's more efficient to use .update() and mutate the value in place
 /// set_count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct WriteSignal<T>
 where
     T: 'static,
@@ -862,7 +871,7 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -871,7 +880,7 @@ where
     T: 'static,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::set_untracked()",
@@ -889,7 +898,7 @@ where
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::try_set_untracked()",
@@ -913,7 +922,7 @@ where
 
 impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::updated_untracked()",
@@ -928,27 +937,6 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(self.runtime, f);
-    }
-
-    #[cfg_attr(
-        debug_assertions,
-        instrument(
-            level = "trace",
-            name = "WriteSignal::update_returning_untracked()",
-            skip_all,
-            fields(
-                id = ?self.id,
-                defined_at = %self.defined_at,
-                ty = %std::any::type_name::<T>()
-            )
-        )
-    )]
-    #[inline(always)]
-    fn update_returning_untracked<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.id.update_with_no_effect(self.runtime, f)
     }
 
     #[inline(always)]
@@ -967,18 +955,18 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // notifies subscribers
-/// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-/// assert_eq!(count(), 1);
+/// set_count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
+/// assert_eq!(count.get(), 1);
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
 /// set_count.update(|n| if *n > 3 { *n += 1 });
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalUpdate<T> for WriteSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "WriteSignal::update()",
             level = "trace",
@@ -994,14 +982,14 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             );
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "WriteSignal::try_update()",
             level = "trace",
@@ -1027,18 +1015,18 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
 /// // notifies subscribers
-/// set_count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-/// assert_eq!(count(), 1);
+/// set_count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
+/// assert_eq!(count.get(), 1);
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
 /// set_count.update(|n| if *n > 3 { *n += 1 });
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalSet<T> for WriteSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::set()",
@@ -1055,7 +1043,7 @@ impl<T> SignalSet<T> for WriteSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "WriteSignal::try_set()",
@@ -1091,6 +1079,33 @@ impl<T> Clone for WriteSignal<T> {
 
 impl<T> Copy for WriteSignal<T> {}
 
+impl<T> fmt::Debug for WriteSignal<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("WriteSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for WriteSignal<T> {}
+
+impl<T> PartialEq for WriteSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
+
+impl<T> Hash for WriteSignal<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+    }
+}
+
 /// Creates a reactive signal with the getter and setter unified in one value.
 /// You may prefer this style, or it may be easier to pass around in a context
 /// or as a function argument.
@@ -1101,19 +1116,19 @@ impl<T> Copy for WriteSignal<T> {}
 ///
 /// // ✅ set the value
 /// count.set(1);
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you can call the getter within the setter
 /// // count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```
 #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -1161,18 +1176,17 @@ pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
 ///
 /// // ✅ set the value
 /// count.set(1);
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 ///
-/// // ❌ don't try to call the getter within the setter
+/// // ❌ you can call the getter within the setter
 /// // count.set(count.get() + 1);
 ///
-/// // ✅ instead, use .update() to mutate the value in place
+/// // ✅ however, it's more efficient to use .update() and mutate the value in place
 /// count.update(|count: &mut i32| *count += 1);
-/// assert_eq!(count(), 2);
+/// assert_eq!(count.get(), 2);
 /// # }).dispose();
 /// #
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct RwSignal<T>
 where
     T: 'static,
@@ -1180,7 +1194,7 @@ where
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -1192,9 +1206,36 @@ impl<T> Clone for RwSignal<T> {
 
 impl<T> Copy for RwSignal<T> {}
 
+impl<T> fmt::Debug for RwSignal<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("RwSignal");
+        s.field("runtime", &self.runtime);
+        s.field("id", &self.id);
+        s.field("ty", &self.ty);
+        #[cfg(any(debug_assertions, feature = "ssr"))]
+        s.field("defined_at", &self.defined_at);
+        s.finish()
+    }
+}
+
+impl<T> Eq for RwSignal<T> {}
+
+impl<T> PartialEq for RwSignal<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.runtime == other.runtime && self.id == other.id
+    }
+}
+
+impl<T> Hash for RwSignal<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.runtime.hash(state);
+        self.id.hash(state);
+    }
+}
+
 impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::get_untracked()",
@@ -1211,7 +1252,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_get_untracked()",
@@ -1231,7 +1272,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
@@ -1240,7 +1281,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
 
 impl<T> SignalWithUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::with_untracked()",
@@ -1258,7 +1299,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_with_untracked()",
@@ -1286,7 +1327,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
 
 impl<T> SignalSetUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::set_untracked()",
@@ -1304,7 +1345,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_set_untracked()",
@@ -1328,7 +1369,7 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
 
 impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[cfg_attr(
-    debug_assertions,
+ any(debug_assertions, features="ssr"),
     instrument(
         level = "trace",
         name = "RwSignal::update_untracked()",
@@ -1346,28 +1387,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        name = "RwSignal::update_returning_untracked()",
-        skip_all,
-        fields(
-            id = ?self.id,
-            defined_at = %self.defined_at,
-            ty = %std::any::type_name::<T>()
-        )
-    )
-    )]
-    #[inline(always)]
-    fn update_returning_untracked<U>(
-        &self,
-        f: impl FnOnce(&mut T) -> U,
-    ) -> Option<U> {
-        self.id.update_with_no_effect(self.runtime, f)
-    }
-
-    #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_update_untracked()",
@@ -1396,7 +1416,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// let name = create_rw_signal(cx, "Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
-/// let first_char = move || name().chars().next().unwrap();
+/// let first_char = move || name.get().chars().next().unwrap();
 /// assert_eq!(first_char(), 'A');
 ///
 /// // ✅ gets the first char without cloning the `String`
@@ -1409,7 +1429,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// ```
 impl<T> SignalWith<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::with()",
@@ -1433,14 +1453,14 @@ impl<T> SignalWith<T> for RwSignal<T> {
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_with()",
@@ -1474,14 +1494,14 @@ impl<T> SignalWith<T> for RwSignal<T> {
 ///
 /// assert_eq!(count.get(), 0);
 ///
-/// // count() is shorthand for count.get()
-/// assert_eq!(count(), 0);
+/// // count() is shorthand for count.get() on `nightly`
+/// // assert_eq!(count(), 0);
 /// # }).dispose();
 /// #
 /// ```
 impl<T: Clone> SignalGet<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::get()",
@@ -1507,14 +1527,14 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
         {
             Ok(t) => t,
             Err(_) => panic_getting_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             ),
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_get()",
@@ -1546,8 +1566,8 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// let count = create_rw_signal(cx, 0);
 ///
 /// // notifies subscribers
-/// count.update(|n| *n = 1); // it's easier just to call set_count(1), though!
-/// assert_eq!(count(), 1);
+/// count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
+/// assert_eq!(count.get(), 1);
 ///
 /// // you can include arbitrary logic in this update function
 /// // also notifies subscribers, even though the value hasn't changed
@@ -1556,12 +1576,12 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 ///         *n += 1
 ///     }
 /// });
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalUpdate<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::update()",
@@ -1577,14 +1597,14 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     fn update(&self, f: impl FnOnce(&mut T)) {
         if self.id.update(self.runtime, f).is_none() {
             warn_updating_dead_signal(
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
             );
         }
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_update()",
@@ -1609,14 +1629,14 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 /// # create_scope(create_runtime(), |cx| {
 /// let count = create_rw_signal(cx, 0);
 ///
-/// assert_eq!(count(), 0);
+/// assert_eq!(count.get(), 0);
 /// count.set(1);
-/// assert_eq!(count(), 1);
+/// assert_eq!(count.get(), 1);
 /// # }).dispose();
 /// ```
 impl<T> SignalSet<T> for RwSignal<T> {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::set()",
@@ -1633,7 +1653,7 @@ impl<T> SignalSet<T> for RwSignal<T> {
     }
 
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::try_set()",
@@ -1689,15 +1709,15 @@ impl<T> RwSignal<T> {
     /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let read_count = count.read_only();
-    /// assert_eq!(count(), 0);
-    /// assert_eq!(read_count(), 0);
+    /// assert_eq!(count.get(), 0);
+    /// assert_eq!(read_count.get(), 0);
     /// count.set(1);
-    /// assert_eq!(count(), 1);
-    /// assert_eq!(read_count(), 1);
+    /// assert_eq!(count.get(), 1);
+    /// assert_eq!(read_count.get(), 1);
     /// # }).dispose();
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::read_only()",
@@ -1715,7 +1735,7 @@ impl<T> RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -1729,13 +1749,13 @@ impl<T> RwSignal<T> {
     /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let set_count = count.write_only();
-    /// assert_eq!(count(), 0);
-    /// set_count(1);
-    /// assert_eq!(count(), 1);
+    /// assert_eq!(count.get(), 0);
+    /// set_count.set(1);
+    /// assert_eq!(count.get(), 1);
     /// # }).dispose();
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::write_only()",
@@ -1753,7 +1773,7 @@ impl<T> RwSignal<T> {
             runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -1764,15 +1784,15 @@ impl<T> RwSignal<T> {
     /// # create_scope(create_runtime(), |cx| {
     /// let count = create_rw_signal(cx, 0);
     /// let (get_count, set_count) = count.split();
-    /// assert_eq!(count(), 0);
-    /// assert_eq!(get_count(), 0);
-    /// set_count(1);
-    /// assert_eq!(count(), 1);
-    /// assert_eq!(get_count(), 1);
+    /// assert_eq!(count.get(), 0);
+    /// assert_eq!(get_count.get(), 0);
+    /// set_count.set(1);
+    /// assert_eq!(count.get(), 1);
+    /// assert_eq!(get_count.get(), 1);
     /// # }).dispose();
     /// ```
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             name = "RwSignal::split()",
@@ -1791,14 +1811,14 @@ impl<T> RwSignal<T> {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
                 runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
         )
@@ -2028,17 +2048,18 @@ impl NodeId {
 #[track_caller]
 fn format_signal_warning(
     msg: &str,
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) -> String {
     let location = std::panic::Location::caller();
 
     let defined_at_msg = {
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         {
             format!("signal created here: {defined_at}\n")
         }
 
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(any(debug_assertions, feature = "ssr")))]
         {
             String::default()
         }
@@ -2051,13 +2072,14 @@ fn format_signal_warning(
 #[inline(never)]
 #[track_caller]
 pub(crate) fn panic_getting_dead_signal(
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) -> ! {
     panic!(
         "{}",
         format_signal_warning(
             "Attempted to get a signal after it was disposed.",
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at,
         )
     )
@@ -2067,11 +2089,12 @@ pub(crate) fn panic_getting_dead_signal(
 #[inline(never)]
 #[track_caller]
 pub(crate) fn warn_updating_dead_signal(
-    #[cfg(debug_assertions)] defined_at: &'static std::panic::Location<'static>,
+    #[cfg(any(debug_assertions, feature = "ssr"))]
+    defined_at: &'static std::panic::Location<'static>,
 ) {
     console_warn(&format_signal_warning(
         "Attempted to update a signal after it was disposed.",
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         defined_at,
     ));
 }

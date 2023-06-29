@@ -36,15 +36,15 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                     <ContactRoutes/>
                     <Route
                         path="about"
-                        view=move |cx| view! { cx,  <About/> }
+                        view=About
                     />
                     <Route
                         path="settings"
-                        view=move |cx| view! { cx,  <Settings/> }
+                        view=Settings
                     />
                     <Route
                         path="redirect-home"
-                        view=move |cx| view! { cx, <Redirect path="/"/> }
+                        view=|cx| view! { cx, <Redirect path="/"/> }
                     />
                 </AnimatedRoutes>
             </main>
@@ -59,15 +59,15 @@ pub fn ContactRoutes(cx: Scope) -> impl IntoView {
     view! { cx,
         <Route
             path=""
-            view=move |cx| view! { cx,  <ContactList/> }
+            view=ContactList
         >
             <Route
                 path=":id"
-                view=move |cx| view! { cx,  <Contact/> }
+                view=Contact
             />
             <Route
                 path="/"
-                view=move |_| view! { cx,  <p>"Select a contact."</p> }
+                view=|cx| view! { cx,  <p>"Select a contact."</p> }
             />
         </Route>
     }
@@ -97,7 +97,7 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
                         <li><A href=contact.id.to_string()><span>{&contact.first_name} " " {&contact.last_name}</span></A></li>
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect_view(cx)
         })
     };
 
@@ -107,7 +107,7 @@ pub fn ContactList(cx: Scope) -> impl IntoView {
             <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>
                 {move || view! { cx, <ul>{contacts}</ul>}}
             </Suspense>
-            <AnimatedOutlet 
+            <AnimatedOutlet
                 class="outlet"
                 outro="fadeOut"
                 intro="fadeIn"

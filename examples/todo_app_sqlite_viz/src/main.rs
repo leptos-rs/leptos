@@ -1,12 +1,12 @@
 use cfg_if::cfg_if;
-use leptos::*;
+
 // boilerplate to run in different modes
 cfg_if! {
-if #[cfg(feature = "ssr")] {
+    if #[cfg(feature = "ssr")] {
+    use leptos::*;
     use crate::fallback::file_and_error_handler;
     use crate::todo::*;
     use leptos_viz::{generate_route_list, LeptosRoutes};
-    use std::sync::Arc;
     use todo_app_sqlite_viz::*;
     use viz::{
         types::{State, StateError},
@@ -16,8 +16,8 @@ if #[cfg(feature = "ssr")] {
     //Define a handler to test extractor with state
     async fn custom_handler(req: Request) -> Result<Response> {
         let id = req.params::<String>()?;
-        let options = &*req
-            .state::<Arc<LeptosOptions>>()
+        let options = req
+            .state::<LeptosOptions>()
             .ok_or(StateError::new::<LeptosOptions>())?;
         let handler = leptos_viz::render_app_to_stream_with_context(
             options.clone(),
@@ -34,13 +34,18 @@ if #[cfg(feature = "ssr")] {
         simple_logger::init_with_level(log::Level::Debug)
             .expect("couldn't initialize logging");
 
-        let conn = db().await.expect("couldn't connect to DB");
+        let _conn = db().await.expect("couldn't connect to DB");
         /* sqlx::migrate!()
         .run(&mut conn)
         .await
         .expect("could not run SQLx migrations"); */
 
-        crate::todo::register_server_functions();
+        // Explicit server function registration is no longer required
+        // on the main branch. On 0.3.0 and earlier, uncomment the lines
+        // below to register the server functions.
+        // _ = GetTodos::register();
+        // _ = AddTodo::register();
+        // _ = DeleteTodo::register();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
@@ -58,7 +63,7 @@ if #[cfg(feature = "ssr")] {
                 |cx| view! { cx, <TodoApp/> },
             )
             .get("/*", file_and_error_handler)
-            .with(State(Arc::new(leptos_options)));
+            .with(State(leptos_options));
 
         // run our app with hyper
         // `viz::Server` is a re-export of `hyper::Server`

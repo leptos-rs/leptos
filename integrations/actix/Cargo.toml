@@ -8,6 +8,7 @@ repository = "https://github.com/leptos-rs/leptos"
 description = "Actix integrations for the Leptos web framework."
 
 [dependencies]
+actix-http = "3"
 actix-web = "4"
 futures = "0.3"
 leptos = { workspace = true, features = ["ssr"] }
@@ -17,3 +18,4 @@ leptos_integration_utils = { workspace = true }
 serde_json = "1"
 parking_lot = "0.12.1"
 regex = "1.7.0"
+tracing = "0.1.37"

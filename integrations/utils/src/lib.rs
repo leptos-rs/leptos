@@ -3,6 +3,9 @@ use leptos::{use_context, RuntimeId, ScopeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 
+extern crate tracing;
+
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn autoreload(options: &LeptosOptions) -> String {
     let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
@@ -39,7 +42,7 @@ fn autoreload(options: &LeptosOptions) -> String {
         false => "".to_string(),
     }
 }
-
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts(
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
@@ -48,10 +51,10 @@ pub fn html_parts(
     let output_name = &options.output_name;
 
     // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
-    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME
-    // Otherwise we need to add _bg because wasm_pack always does. This is not the same as options.output_name, which is set regardless
+    // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME at compile time
+    // Otherwise we need to add _bg because wasm_pack always does.
     let mut wasm_output_name = output_name.clone();
-    if std::env::var("LEPTOS_OUTPUT_NAME").is_err() {
+    if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
         wasm_output_name.push_str("_bg");
     }
 
@@ -75,6 +78,7 @@ pub fn html_parts(
     (head, tail)
 }
 
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts_separated(
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
@@ -115,6 +119,7 @@ pub fn html_parts_separated(
     (head, tail)
 }
 
+#[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn build_async_response(
     stream: impl Stream<Item = String> + 'static,
     options: &LeptosOptions,

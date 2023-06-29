@@ -43,7 +43,7 @@ impl Todos {
     }
 
     pub fn remove(&mut self, id: Uuid) {
-        self.0.retain(|todo| todo.id != id);
+        self.retain(|todo| todo.id != id);
     }
 
     pub fn remaining(&self) -> usize {
@@ -76,7 +76,23 @@ impl Todos {
     }
 
     fn clear_completed(&mut self) {
-        self.0.retain(|todo| !todo.completed.get());
+        self.retain(|todo| !todo.completed.get());
+    }
+
+    fn retain(&mut self, mut f: impl FnMut(&Todo) -> bool) {
+        self.0.retain(|todo| {
+            let retain = f(todo);
+            // because these signals are created at the top level,
+            // they are owned by the <TodoMVC/> component and not
+            // by the individual <Todo/> components. This means
+            // that if they are not manually disposed when removed, they
+            // will be held onto until the <TodoMVC/> is unmounted.
+            if !retain {
+                todo.title.dispose();
+                todo.completed.dispose();
+            }
+            retain
+        })
     }
 }
 
@@ -136,7 +152,7 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
 
     // Handle the three filter modes: All, Active, and Completed
     let (mode, set_mode) = create_signal(cx, Mode::All);
-    window_event_listener("hashchange", move |_| {
+    window_event_listener(ev::hashchange, move |_| {
         let new_mode =
             location_hash().map(|hash| route(&hash)).unwrap_or_default();
         set_mode(new_mode);
@@ -199,6 +215,19 @@ pub fn TodoMVC(cx: Scope) -> impl IntoView {
             if storage.set_item(STORAGE_KEY, &json).is_err() {
                 log::error!("error while trying to set item in localStorage");
             }
+        }
+    });
+
+    // focus the main input on load
+    create_effect(cx, move |_| {
+        if let Some(input) = input_ref.get() {
+            // We use request_animation_frame here because the NodeRef
+            // is filled when the element is created, but before it's mounted
+            // to the DOM. Calling .focus() before it's mounted does nothing.
+            // So inside, we wait a tick for the browser to mount it, then .focus()
+            request_animation_frame(move || {
+                let _ = input.focus();
+            });
         }
     });
 
@@ -335,17 +364,12 @@ pub fn Todo(cx: Scope, todo: Todo) -> impl IntoView {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Active,
     Completed,
+    #[default]
     All,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Mode::All
-    }
 }
 
 pub fn route(hash: &str) -> Mode {

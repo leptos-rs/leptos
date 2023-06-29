@@ -26,7 +26,7 @@ use std::hash::Hash;
 ///     <div>
 ///       <For
 ///         // a function that returns the items we're iterating over; a signal is fine
-///         each=counters
+///         each=move || counters.get()
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
@@ -41,6 +41,10 @@ use std::hash::Hash;
 ///   }
 /// }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component(transparent)]
 pub fn For<IF, I, T, EF, N, KF, K>(
     cx: Scope,

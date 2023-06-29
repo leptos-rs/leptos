@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
-#![cfg_attr(not(feature = "stable"), feature(fn_traits))]
-#![cfg_attr(not(feature = "stable"), feature(unboxed_closures))]
-#![cfg_attr(not(feature = "stable"), feature(type_name_of_val))]
+#![cfg_attr(feature = "nightly", feature(fn_traits))]
+#![cfg_attr(feature = "nightly", feature(unboxed_closures))]
+#![cfg_attr(feature = "nightly", feature(type_name_of_val))]
 
 //! The reactive system for the [Leptos](https://docs.rs/leptos/latest/leptos/) Web framework.
 //!
@@ -44,30 +44,33 @@
 //!     let (count, set_count) = create_signal(cx, 0);
 //!
 //!     // calling the getter gets the value
-//!     assert_eq!(count(), 0);
+//!     // can be `count()` on nightly
+//!     assert_eq!(count.get(), 0);
 //!     // calling the setter sets the value
-//!     set_count(1);
+//!     // can be `set_count(1)` on nightly
+//!     set_count.set(1);
 //!     // or we can mutate it in place with update()
 //!     set_count.update(|n| *n += 1);
 //!
 //!     // a derived signal: a plain closure that relies on the signal
 //!     // the closure will run whenever we *access* double_count()
-//!     let double_count = move || count() * 2;
+//!     let double_count = move || count.get() * 2;
 //!     assert_eq!(double_count(), 4);
 //!
 //!     // a memo: subscribes to the signal
 //!     // the closure will run only when count changes
-//!     let memoized_triple_count = create_memo(cx, move |_| count() * 3);
-//!     assert_eq!(memoized_triple_count(), 6);
+//!     let memoized_triple_count = create_memo(cx, move |_| count.get() * 3);
+//!     // can be `memoized_triple_count()` on nightly
+//!     assert_eq!(memoized_triple_count.get(), 6);
 //!
-//!     // this effect will run whenever count() changes
+//!     // this effect will run whenever `count` changes
 //!     create_effect(cx, move |_| {
-//!         println!("Count = {}", count());
+//!         println!("Count = {}", count.get());
 //!     });
 //! });
 //! ```
 
-#[cfg_attr(debug_assertions, macro_use)]
+#[cfg_attr(any(debug_assertions, feature = "ssr"), macro_use)]
 extern crate tracing;
 
 #[macro_use]
@@ -96,6 +99,7 @@ mod trigger;
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
+pub use hydration::FragmentData;
 pub use memo::*;
 pub use resource::*;
 use runtime::*;
@@ -110,7 +114,7 @@ pub use slice::*;
 pub use spawn::*;
 pub use spawn_microtask::*;
 pub use stored_value::*;
-pub use suspense::SuspenseContext;
+pub use suspense::{GlobalSuspenseContext, SuspenseContext};
 pub use trigger::*;
 
 mod macros {

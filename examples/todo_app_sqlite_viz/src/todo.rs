@@ -1,4 +1,4 @@
-use crate::error_template::{ErrorTemplate, ErrorTemplateProps};
+use crate::error_template::ErrorTemplate;
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_meta::*;
@@ -11,13 +11,7 @@ cfg_if! {
         // use http::{header::SET_COOKIE, HeaderMap, HeaderValue, StatusCode};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-            SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))
-        }
-
-        pub fn register_server_functions() {
-            _ = GetTodos::register();
-            _ = AddTodo::register();
-            _ = DeleteTodo::register();
+            Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -53,11 +47,7 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     let mut todos = Vec::new();
     let mut rows =
         sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
-    while let Some(row) = rows
-        .try_next()
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
-    {
+    while let Some(row) = rows.try_next().await? {
         todos.push(row);
     }
 
@@ -99,12 +89,11 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
-    sqlx::query("DELETE FROM todos WHERE id = $1")
+    Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
         .execute(&mut conn)
         .await
-        .map(|_| ())
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
+        .map(|_| ())?)
 }
 
 #[component]
@@ -123,9 +112,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                 <Routes>
                     <Route path="" view=|cx| view! {
                         cx,
-                        <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors=errors/>}>
                             <Todos/>
-                        </ErrorBoundary>
                     }/> //Route
                 </Routes>
             </main>
@@ -157,64 +144,65 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 <input type="submit" value="Add"/>
             </MultiActionForm>
             <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
-                {move || {
-                    let existing_todos = {
-                        move || {
-                            todos.read(cx)
-                                .map(move |todos| match todos {
-                                    Err(e) => {
-                                        vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
-                                    }
-                                    Ok(todos) => {
-                                        if todos.is_empty() {
-                                            vec![view! { cx, <p>"No tasks were found."</p> }.into_any()]
-                                        } else {
-                                            todos
-                                                .into_iter()
-                                                .map(move |todo| {
-                                                    view! {
-                                                        cx,
-                                                        <li>
-                                                            {todo.title}
-                                                            <ActionForm action=delete_todo>
-                                                                <input type="hidden" name="id" value={todo.id}/>
-                                                                <input type="submit" value="X"/>
-                                                            </ActionForm>
-                                                        </li>
-                                                    }
-                                                    .into_any()
-                                                })
-                                                .collect::<Vec<_>>()
+                <ErrorBoundary fallback=|cx, errors| view!{cx, <ErrorTemplate errors/>}>
+                    {move || {
+                        let existing_todos = {
+                            move || {
+                                todos.read(cx)
+                                    .map(move |todos| match todos {
+                                        Err(e) => {
+                                            view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
                                         }
-                                    }
-                                })
-                                .unwrap_or_default()
-                        }
-                    };
-
-                    let pending_todos = move || {
-                        submissions
-                        .get()
-                        .into_iter()
-                        .filter(|submission| submission.pending().get())
-                        .map(|submission| {
-                            view! {
-                                cx,
-                                <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                        Ok(todos) => {
+                                            if todos.is_empty() {
+                                                view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
+                                            } else {
+                                                todos
+                                                    .into_iter()
+                                                    .map(move |todo| {
+                                                        view! {
+                                                            cx,
+                                                            <li>
+                                                                {todo.title}
+                                                                <ActionForm action=delete_todo>
+                                                                    <input type="hidden" name="id" value={todo.id}/>
+                                                                    <input type="submit" value="X"/>
+                                                                </ActionForm>
+                                                            </li>
+                                                        }
+                                                    })
+                                                    .collect_view(cx)
+                                            }
+                                        }
+                                    })
+                                    .unwrap_or_default()
                             }
-                        })
-                        .collect::<Vec<_>>()
-                    };
+                        };
 
-                    view! {
-                        cx,
-                        <ul>
-                            {existing_todos}
-                            {pending_todos}
-                        </ul>
+                        let pending_todos = move || {
+                            submissions
+                            .get()
+                            .into_iter()
+                            .filter(|submission| submission.pending().get())
+                            .map(|submission| {
+                                view! {
+                                    cx,
+                                    <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
+                                }
+                            })
+                            .collect_view(cx)
+                        };
+
+                        view! {
+                            cx,
+                            <ul>
+                                {existing_todos}
+                                {pending_todos}
+                            </ul>
+                        }
                     }
                 }
-            }
+                </ErrorBoundary>
             </Transition>
         </div>
     }

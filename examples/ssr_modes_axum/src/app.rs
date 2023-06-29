@@ -18,18 +18,18 @@ pub fn App(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     // We’ll load the home page with out-of-order streaming and <Suspense/>
-                    <Route path="" view=|cx| view! { cx, <HomePage/> }/>
+                    <Route path="" view=HomePage/>
 
                     // We'll load the posts with async rendering, so they can set
                     // the title and metadata *after* loading the data
                     <Route
                         path="/post/:id"
-                        view=|cx| view! { cx, <Post/> }
+                        view=Post
                         ssr=SsrMode::Async
                     />
                     <Route
                         path="/post_in_order/:id"
-                        view=|cx| view! { cx, <Post/> }
+                        view=Post
                         ssr=SsrMode::InOrder
                     />
                 </Routes>
@@ -43,21 +43,22 @@ fn HomePage(cx: Scope) -> impl IntoView {
     // load the posts
     let posts =
         create_resource(cx, || (), |_| async { list_post_metadata().await });
-    let posts_view = move || {
-        posts.with(cx, |posts| posts
-            .clone()
-            .map(|posts| {
-                posts.iter()
-                .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
-                .collect::<Vec<_>>()
-            })
-        )
-    };
 
     view! { cx,
         <h1>"My Great Blog"</h1>
         <Suspense fallback=move || view! { cx, <p>"Loading posts..."</p> }>
-            <ul>{posts_view}</ul>
+            <ul>
+                {move || {
+                    posts.with(cx, |posts| posts
+                        .clone()
+                        .map(|posts| {
+                            posts.iter()
+                            .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
+                            .collect_view(cx)
+                        })
+                    )
+                }}
+            </ul>
         </Suspense>
     }
 }
@@ -86,22 +87,27 @@ fn Post(cx: Scope) -> impl IntoView {
         }
     });
 
-    let post_view = move || {
-        post.with(cx, |post| {
-            post.clone().map(|post| {
-                view! { cx,
-                    // render content
-                    <h1>{&post.title}</h1>
-                    <p>{&post.content}</p>
+    // this view needs to take the `Scope` from the `<Suspense/>`, not
+    // from the parent component, so we take that as an argument and
+    // pass it in under the `<Suspense/>` so that it is correct
+    let post_view = move |cx| {
+        move || {
+            post.with(cx, |post| {
+                post.clone().map(|post| {
+                    view! { cx,
+                        // render content
+                        <h1>{&post.title}</h1>
+                        <p>{&post.content}</p>
 
-                    // since we're using async rendering for this page,
-                    // this metadata should be included in the actual HTML <head>
-                    // when it's first served
-                    <Title text=post.title/>
-                    <Meta name="description" content=post.content/>
-                }
+                        // since we're using async rendering for this page,
+                        // this metadata should be included in the actual HTML <head>
+                        // when it's first served
+                        <Title text=post.title/>
+                        <Meta name="description" content=post.content/>
+                    }
+                })
             })
-        })
+        }
     };
 
     view! { cx,
@@ -114,13 +120,13 @@ fn Post(cx: Scope) -> impl IntoView {
                         {move || errors.get()
                             .into_iter()
                             .map(|(_, error)| view! { cx, <li>{error.to_string()} </li> })
-                            .collect::<Vec<_>>()
+                            .collect_view(cx)
                         }
                         </ul>
                     </div>
                 }
             }>
-                {post_view}
+                {post_view(cx)}
             </ErrorBoundary>
         </Suspense>
     }

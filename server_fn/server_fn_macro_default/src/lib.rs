@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "stable"), feature(proc_macro_span))]
+#![cfg_attr(feature = "nightly", feature(proc_macro_span))]
 //! This crate contains the default implementation of the #[macro@crate::server] macro without a context from the server. See the [server_fn_macro] crate for more information.
 #![forbid(unsafe_code)]
 
@@ -16,9 +16,10 @@ use syn::__private::ToTokens;
 /// 2. *Optional*: A URL prefix at which the function will be mounted when it’s registered
 ///   (e.g., `"/api"`). Defaults to `"/"`.
 /// 3. *Optional*: either `"Cbor"` (specifying that it should use the binary `cbor` format for
-///   serialization) or `"Url"` (specifying that it should be use a URL-encoded form-data string).
+///   serialization), `"Url"` (specifying that it should be use a URL-encoded form-data string).
 ///   Defaults to `"Url"`. If you want to use this server function to power a `<form>` that will
-///   work without WebAssembly, the encoding must be `"Url"`.
+///   work without WebAssembly, the encoding must be `"Url"`. If you want to use this server function
+///   using Get instead of Post methods, the encoding must be `"GetCbor"` or `"GetJson"`.
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
 /// and deserializable with `serde`.
@@ -35,7 +36,6 @@ use syn::__private::ToTokens;
 /// ```
 ///
 /// Note the following:
-/// - You must **register** the server function by calling `T::register()` somewhere in your main function.
 /// - **Server functions must be `async`.** Even if the work being done inside the function body
 ///   can run synchronously on the server, from the client’s perspective it involves an asynchronous
 ///   function call.
@@ -48,13 +48,14 @@ use syn::__private::ToTokens;
 /// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
 ///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
 ///   They are serialized as an `application/x-www-form-urlencoded`
-///   form data using [`serde_urlencoded`](https://docs.rs/serde_urlencoded/latest/serde_urlencoded/) or as `application/cbor`
+///   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
 ///   using [`cbor`](https://docs.rs/cbor/latest/cbor/).
 #[proc_macro_attribute]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     match server_macro_impl(
         args.into(),
         s.into(),
+        syn::parse_quote!(server_fn::default::DefaultServerFnTraitObj),
         None,
         Some(syn::parse_quote!(server_fn)),
     ) {

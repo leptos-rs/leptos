@@ -1,6 +1,6 @@
 //! A variety of DOM utility functions.
 
-use crate::{is_server, window};
+use crate::{events::typed as ev, is_server, window};
 use leptos_reactive::{on_cleanup, Scope};
 use std::time::Duration;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
@@ -196,7 +196,7 @@ impl TimeoutHandle {
 /// Executes the given function after the given duration of time has passed.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
@@ -206,7 +206,7 @@ pub fn set_timeout(cb: impl FnOnce() + 'static, duration: Duration) {
 /// Executes the given function after the given duration of time has passed, returning a cancelable handle.
 /// [`setTimeout()`](https://developer.mozilla.org/en-US/docs/Web/API/setTimeout).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -329,42 +329,18 @@ impl IntervalHandle {
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
-#[deprecated = "use set_interval_with_handle() instead. In the future, \
-                set_interval() will no longer return a handle, for consistency \
-                with other timer helper functions."]
-pub fn set_interval(
-    cb: impl Fn() + 'static,
-    duration: Duration,
-) -> Result<IntervalHandle, JsValue> {
-    cfg_if::cfg_if! {
-      if #[cfg(debug_assertions)] {
-        let span = ::tracing::Span::current();
-        let cb = move || {
-          leptos_reactive::SpecialNonReactiveZone::enter();
-          let _guard = span.enter();
-          cb();
-          leptos_reactive::SpecialNonReactiveZone::exit();
-        };
-      }
-    }
-
-    let cb = Closure::wrap(Box::new(cb) as Box<dyn Fn()>).into_js_value();
-    let handle = window()
-        .set_interval_with_callback_and_timeout_and_arguments_0(
-            cb.as_ref().unchecked_ref(),
-            duration.as_millis().try_into().unwrap_throw(),
-        )?;
-    Ok(IntervalHandle(handle))
+pub fn set_interval(cb: impl Fn() + 'static, duration: Duration) {
+    _ = set_interval_with_handle(cb, duration);
 }
 
 /// Repeatedly calls the given function, with a delay of the given duration between calls,
 /// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
-  debug_assertions,
+  any(debug_assertions, features = "ssr"),
   instrument(level = "trace", skip_all, fields(duration = ?duration))
 )]
 #[inline(always)]
@@ -402,13 +378,13 @@ pub fn set_interval_with_handle(
     si(Box::new(cb), duration)
 }
 
-/// Adds an event listener to the `Window`.
+/// Adds an event listener to the `Window`, typed as a generic `Event`.
 #[cfg_attr(
   debug_assertions,
   instrument(level = "trace", skip_all, fields(event_name = %event_name))
 )]
 #[inline(always)]
-pub fn window_event_listener(
+pub fn window_event_listener_untyped(
     event_name: &str,
     cb: impl Fn(web_sys::Event) + 'static,
 ) {
@@ -436,6 +412,31 @@ pub fn window_event_listener(
 
         wel(Box::new(cb), event_name);
     }
+}
+
+/// Creates a window event listener from a typed event.
+/// ```
+/// use leptos::{leptos_dom::helpers::window_event_listener, *};
+///
+/// #[component]
+/// fn App(cx: Scope) -> impl IntoView {
+///     window_event_listener(ev::keypress, |ev| {
+///         // ev is typed as KeyboardEvent automatically,
+///         // so .code() can be called
+///         let code = ev.code();
+///         log!("code = {code:?}");
+///     })
+/// }
+/// ```
+pub fn window_event_listener<E: ev::EventDescriptor + 'static>(
+    event: E,
+    cb: impl Fn(E::EventType) + 'static,
+) where
+    E::EventType: JsCast,
+{
+    window_event_listener_untyped(&event.name(), move |e| {
+        cb(e.unchecked_into::<E::EventType>())
+    });
 }
 
 #[doc(hidden)]

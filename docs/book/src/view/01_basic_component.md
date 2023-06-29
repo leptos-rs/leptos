@@ -28,7 +28,7 @@ fn App(cx: Scope) -> impl IntoView {
     view! { cx,
         <button
             on:click=move |_| {
-                set_count.update(|n| *n += 1);
+                set_count(3);
             }
         >
             "Click me: "
@@ -78,8 +78,7 @@ This returns a `(getter, setter)` tuple. To access the current value, you’ll
 use `count.get()` (or, on `nightly` Rust, the shorthand `count()`). To set the
 current value, you’ll call `set_count.set(...)` (or `set_count(...)`).
 
-> `.get()` clones the value and `.set()` overwrites it. In many cases, it’s more
-> efficient to use `.with()` or `.update()`; check out the docs for [`ReadSignal`](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) and [`WriteSignal`](https://docs.rs/leptos/latest/leptos/struct.WriteSignal.html) if you’d like to learn more about those trade-offs at this point.
+> `.get()` clones the value and `.set()` overwrites it. In many cases, it’s more efficient to use `.with()` or `.update()`; check out the docs for [`ReadSignal`](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html) and [`WriteSignal`](https://docs.rs/leptos/latest/leptos/struct.WriteSignal.html) if you’d like to learn more about those trade-offs at this point.
 
 ## The View
 
@@ -90,7 +89,8 @@ view! { cx,
     <button
         // define an event listener with on:
         on:click=move |_| {
-            set_count.update(|n| *n += 1);
+            // on stable, this is set_count.set(3);
+            set_count(3);
         }
     >
         // text nodes are wrapped in quotation marks
@@ -141,6 +141,16 @@ Remember—and this is _very important_—only functions are reactive. This mean
 in a function, telling the framework to update the view every time `count` changes.
 `{count()}` access the value of `count` once, and passes an `i32` into the view,
 rendering it once, unreactively. You can see the difference in the CodeSandbox below!
+
+Let’s make one final change. `set_count(3)` is a pretty useless thing for a click handler to do. Let’s replace “set this value to 3” with “increment this value by 1”:
+
+```rust
+move |_| {
+    set_count.update(|n| *n += 1);
+}
+```
+
+You can see here that while `set_count` just sets the value, `set_count.update()` gives us a mutable reference and mutates the value in place. Either one will trigger a reactive update in our UI.
 
 > Throughout this tutorial, we’ll use CodeSandbox to show interactive examples. To
 > show the browser in the sandbox, you may need to click `Add DevTools >

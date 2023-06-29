@@ -15,7 +15,7 @@ You _could_ do this by just creating two `<progress>` elements:
 let (count, set_count) = create_signal(cx, 0);
 let double_count = move || count() * 2;
 
-view! {
+view! { cx,
     <progress
         max="50"
         value=count
@@ -97,18 +97,6 @@ Using a component in the view looks a lot like using an HTML element. You’ll
 notice that you can easily tell the difference between an element and a component
 because components always have `PascalCase` names. You pass the `progress` prop
 in as if it were an HTML element attribute. Simple.
-
-> ### Important Note
->
-> For every `Component`, Leptos generates a corresponding `ComponentProps` type. This
-> is what allows us to have named props, when Rust does not have named function parameters.
-> If you’re defining a component in one module and importing it into another, make
-> sure you include this `ComponentProps` type:
->
-> `use progress_bar::{ProgressBar, ProgressBarProps};`
->
-> **Note**: This is still true as of `0.2.5`, but the requirement has been removed on `main`
-> and will not apply to later versions.
 
 ### Reactive and Static Props
 

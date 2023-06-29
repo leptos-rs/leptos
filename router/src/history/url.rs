@@ -42,7 +42,11 @@ impl TryFrom<&str> for Url {
         Ok(Self {
             origin: url.origin(),
             pathname: url.pathname(),
-            search: url.search(),
+            search: url
+                .search()
+                .strip_prefix('?')
+                .map(String::from)
+                .unwrap_or_default(),
             search_params: ParamsMap(
                 try_iter(&url.search_params())
                     .map_js_error()?

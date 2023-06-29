@@ -11,7 +11,7 @@ use crate::{
 /// Reactive Trigger, notifies reactive code to rerun.
 ///
 /// See [`create_trigger`] for more.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Trigger {
     pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
@@ -77,7 +77,8 @@ impl Trigger {
 /// let o = output.clone();
 /// let e = external_data.clone();
 /// create_effect(cx, move |_| {
-///     rerun_on_data(); // or rerun_on_data.track();
+///     // can be `rerun_on_data()` on nightly
+///     rerun_on_data.track();
 ///     write!(o.borrow_mut(), "{}", *e.borrow());
 ///     *e.borrow_mut() += 1;
 /// });
@@ -225,7 +226,7 @@ impl SignalSet<()> for Trigger {
     }
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 impl FnOnce<()> for Trigger {
     type Output = ();
 
@@ -235,7 +236,7 @@ impl FnOnce<()> for Trigger {
     }
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 impl FnMut<()> for Trigger {
     #[inline(always)]
     extern "rust-call" fn call_mut(&mut self, _args: ()) -> Self::Output {
@@ -243,7 +244,7 @@ impl FnMut<()> for Trigger {
     }
 }
 
-#[cfg(not(feature = "stable"))]
+#[cfg(feature = "nightly")]
 impl Fn<()> for Trigger {
     #[inline(always)]
     extern "rust-call" fn call(&self, _args: ()) -> Self::Output {

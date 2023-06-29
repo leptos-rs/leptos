@@ -14,6 +14,10 @@ where
     I: IntoIterator<Item = V>,
     V: IntoView,
 {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", skip_all,)
+    )]
     fn into_fragment(self, cx: Scope) -> Fragment {
         self.into_iter().map(|v| v.into_view(cx)).collect()
     }
@@ -38,6 +42,21 @@ impl FromIterator<View> for Fragment {
 impl From<View> for Fragment {
     fn from(view: View) -> Self {
         Fragment::new(vec![view])
+    }
+}
+
+impl From<Fragment> for View {
+    fn from(value: Fragment) -> Self {
+        let mut frag = ComponentRepr::new_with_id("", value.id);
+
+        #[cfg(debug_assertions)]
+        {
+            frag.view_marker = value.view_marker;
+        }
+
+        frag.children = value.nodes;
+
+        frag.into()
     }
 }
 
@@ -86,17 +105,8 @@ impl Fragment {
 }
 
 impl IntoView for Fragment {
-    #[cfg_attr(debug_assertions, instrument(level = "trace", name = "</>", skip_all, fields(children = self.nodes.len())))]
-    fn into_view(self, cx: leptos_reactive::Scope) -> View {
-        let mut frag = ComponentRepr::new_with_id("", self.id.clone());
-
-        #[cfg(debug_assertions)]
-        {
-            frag.view_marker = self.view_marker;
-        }
-
-        frag.children = self.nodes;
-
-        frag.into_view(cx)
+    #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
+    fn into_view(self, _: leptos_reactive::Scope) -> View {
+        self.into()
     }
 }

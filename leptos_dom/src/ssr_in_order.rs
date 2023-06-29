@@ -19,6 +19,7 @@ use std::{borrow::Cow, collections::VecDeque};
 
 /// Renders a view to HTML, waiting to return until all `async` [Resource](leptos_reactive::Resource)s
 /// loaded in `<Suspense/>` elements have finished loading.
+#[tracing::instrument(level = "info", skip_all)]
 pub async fn render_to_string_async(
     view: impl FnOnce(Scope) -> View + 'static,
 ) -> String {
@@ -34,6 +35,7 @@ pub async fn render_to_string_async(
 /// in order:
 /// 1. HTML from the `view` in order, pausing to wait for each `<Suspense/>`
 /// 2. any serialized [Resource](leptos_reactive::Resource)s
+#[tracing::instrument(level = "info", skip_all)]
 pub fn render_to_stream_in_order(
     view: impl FnOnce(Scope) -> View + 'static,
 ) -> impl Stream<Item = String> {
@@ -48,10 +50,20 @@ pub fn render_to_stream_in_order(
 ///
 /// `additional_context` is injected before the `view` is rendered. The `prefix` is generated
 /// after the `view` is rendered, but before `<Suspense/>` nodes have resolved.
+#[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order_with_prefix(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
+    #[cfg(all(feature = "web", feature = "ssr"))]
+    crate::console_error(
+        "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
+         enabled as features, which may cause issues like <Suspense/>` \
+         failing to work silently. `csr` is enabled by default on `leptos`, \
+         and can be disabled by adding `default-features = false` to your \
+         `leptos` dependency.\n",
+    );
+
     let (stream, runtime, _) =
         render_to_stream_in_order_with_prefix_undisposed_with_context(
             view,
@@ -70,6 +82,7 @@ pub fn render_to_stream_in_order_with_prefix(
 ///
 /// `additional_context` is injected before the `view` is rendered. The `prefix` is generated
 /// after the `view` is rendered, but before `<Suspense/>` nodes have resolved.
+#[tracing::instrument(level = "trace", skip_all)]
 pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     view: impl FnOnce(Scope) -> View + 'static,
     prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
@@ -81,15 +94,9 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
     let runtime = create_runtime();
 
     let (
-        (
-            blocking_fragments_ready,
-            chunks,
-            prefix,
-            pending_resources,
-            serializers,
-        ),
+        (blocking_fragments_ready, chunks, prefix, pending_resources),
         scope_id,
-        disposer,
+        _,
     ) = run_scope_undisposed(runtime, |cx| {
         // add additional context
         additional_context(cx);
@@ -102,7 +109,6 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
             view.into_stream_chunks(cx),
             prefix,
             serde_json::to_string(&cx.pending_resources()).unwrap(),
-            cx.serialization_resolvers(),
         )
     });
     let cx = Scope {
@@ -117,7 +123,7 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         let remaining_chunks = handle_blocking_chunks(tx.clone(), chunks).await;
         let prefix = prefix(cx);
         prefix_tx.send(prefix).expect("to send prefix");
-        handle_chunks(tx, remaining_chunks).await;
+        handle_chunks(cx, tx, remaining_chunks).await;
     });
 
     let stream = futures::stream::once(async move {
@@ -134,16 +140,18 @@ pub fn render_to_stream_in_order_with_prefix_undisposed_with_context(
         )
     })
     .chain(rx)
-    .chain(render_serializers(serializers))
-    // dispose of the scope
-    .chain(futures::stream::once(async move {
-        disposer.dispose();
-        Default::default()
-    }));
+    .chain(
+        futures::stream::once(async move {
+            let serializers = cx.serialization_resolvers();
+            render_serializers(serializers)
+        })
+        .flatten(),
+    );
 
     (stream, runtime, scope_id)
 }
 
+#[tracing::instrument(level = "trace", skip_all)]
 #[async_recursion(?Send)]
 async fn handle_blocking_chunks(
     tx: UnboundedSender<String>,
@@ -184,8 +192,10 @@ async fn handle_blocking_chunks(
     queued_chunks
 }
 
+#[tracing::instrument(level = "trace", skip_all)]
 #[async_recursion(?Send)]
 async fn handle_chunks(
+    cx: Scope,
     tx: UnboundedSender<String>,
     chunks: VecDeque<StreamChunk>,
 ) {
@@ -200,7 +210,7 @@ async fn handle_chunks(
 
                 // send the inner stream
                 let suspended = chunks.await;
-                handle_chunks(tx.clone(), suspended).await;
+                handle_chunks(cx, tx.clone(), suspended).await;
             }
         }
     }
@@ -211,12 +221,13 @@ async fn handle_chunks(
 
 impl View {
     /// Renders the view into a set of HTML chunks that can be streamed.
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn into_stream_chunks(self, cx: Scope) -> VecDeque<StreamChunk> {
         let mut chunks = VecDeque::new();
         self.into_stream_chunks_helper(cx, &mut chunks, false);
         chunks
     }
-
+    #[tracing::instrument(level = "trace", skip_all)]
     fn into_stream_chunks_helper(
         self,
         cx: Scope,
@@ -224,13 +235,20 @@ impl View {
         dont_escape_text: bool,
     ) {
         match self {
-            View::Suspense(id, _) => {
+            View::Suspense(id, view) => {
                 let id = id.to_string();
                 if let Some(data) = cx.take_pending_fragment(&id) {
                     chunks.push_back(StreamChunk::Async {
                         chunks: data.in_order,
                         should_block: data.should_block,
                     });
+                } else {
+                    // if not registered, means it was already resolved
+                    View::CoreComponent(view).into_stream_chunks_helper(
+                        cx,
+                        chunks,
+                        dont_escape_text,
+                    );
                 }
             }
             View::Text(node) => {
@@ -356,7 +374,7 @@ impl View {
             View::CoreComponent(node) => {
                 let (id, name, wrap, content) = match node {
                     CoreComponent::Unit(u) => (
-                        u.id.clone(),
+                        u.id,
                         "",
                         false,
                         Box::new(move |chunks: &mut VecDeque<StreamChunk>| {

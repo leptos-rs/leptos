@@ -24,6 +24,9 @@ pub fn Router(
     /// A fallback that should be shown if no route is matched.
     #[prop(optional)]
     fallback: Option<fn(Scope) -> View>,
+    /// A signal that will be set while the navigation process is underway.
+    #[prop(optional, into)]
+    set_is_routing: Option<SignalSetter<bool>>,
     /// The `<Router/>` should usually wrap your whole page. It can contain
     /// any elements, and should include a [Routes](crate::Routes) component somewhere
     /// to define and display [Route](crate::Route)s.
@@ -32,9 +35,16 @@ pub fn Router(
     // create a new RouterContext and provide it to every component beneath the router
     let router = RouterContext::new(cx, base, fallback);
     provide_context(cx, router);
+    provide_context(cx, GlobalSuspenseContext::new(cx));
+    if let Some(set_is_routing) = set_is_routing {
+        provide_context(cx, SetIsRouting(set_is_routing));
+    }
 
     children(cx)
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SetIsRouting(pub SignalSetter<bool>);
 
 /// Context type that contains information about the current router state.
 #[derive(Debug, Clone)]
@@ -55,6 +65,7 @@ pub(crate) struct RouterContextInner {
     state: ReadSignal<State>,
     set_state: WriteSignal<State>,
     pub(crate) is_back: RwSignal<bool>,
+    pub(crate) path_stack: StoredValue<Vec<String>>,
 }
 
 impl std::fmt::Debug for RouterContextInner {
@@ -68,11 +79,16 @@ impl std::fmt::Debug for RouterContextInner {
             .field("referrers", &self.referrers)
             .field("state", &self.state)
             .field("set_state", &self.set_state)
+            .field("path_stack", &self.path_stack)
             .finish()
     }
 }
 
 impl RouterContext {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn new(
         cx: Scope,
         base: Option<&'static str>,
@@ -111,7 +127,6 @@ impl RouterContext {
                     replace: true,
                     scroll: false,
                     state: State(None),
-                    back: false,
                 });
             }
         }
@@ -142,6 +157,7 @@ impl RouterContext {
         // 2) update the reference (URL)
         // 3) update the state
         // this will trigger the new route match below
+
         create_render_effect(cx, move |_| {
             let LocationChange { value, state, .. } = source.get();
             cx.untrack(move || {
@@ -154,6 +170,10 @@ impl RouterContext {
 
         let inner = Rc::new(RouterContextInner {
             base_path: base_path.into_owned(),
+            path_stack: store_value(
+                cx,
+                vec![location.pathname.get_untracked()],
+            ),
             location,
             base,
             history: Box::new(history),
@@ -169,7 +189,7 @@ impl RouterContext {
 
         // handle all click events on anchor tags
         #[cfg(not(feature = "ssr"))]
-        leptos::window_event_listener("click", {
+        leptos::window_event_listener_untyped("click", {
             let inner = Rc::clone(&inner);
             move |ev| inner.clone().handle_anchor_click(ev)
         });
@@ -199,11 +219,14 @@ impl RouterContext {
 }
 
 impl RouterContextInner {
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn navigate_from_route(
         self: Rc<Self>,
         to: &str,
         options: &NavigateOptions,
-        back: bool,
     ) -> Result<(), NavigationError> {
         let cx = self.cx;
         let this = Rc::clone(&self);
@@ -214,6 +237,9 @@ impl RouterContextInner {
             } else {
                 resolve_path("", to, None).map(String::from)
             };
+
+            // reset count of pending resources at global level
+            expect_context::<GlobalSuspenseContext>(cx).reset(cx);
 
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
@@ -231,7 +257,6 @@ impl RouterContextInner {
                                 replace: options.replace,
                                 scroll: options.scroll,
                                 state: self.state.get(),
-                                back,
                             });
                         }
                         let len = self.referrers.borrow().len();
@@ -249,15 +274,38 @@ impl RouterContextInner {
                             let next_state = state.clone();
                             move |state| *state = next_state
                         });
-                        if referrers.borrow().len() == len {
-                            this.navigate_end(LocationChange {
-                                value: resolved_to,
-                                replace: false,
-                                scroll: true,
-                                state,
-                                back,
-                            })
+
+                        let global_suspense =
+                            expect_context::<GlobalSuspenseContext>(cx);
+                        let path_stack = self.path_stack;
+                        let is_navigating_back = self.is_back.get_untracked();
+                        if !is_navigating_back {
+                            path_stack.update_value(|stack| {
+                                stack.push(resolved_to.clone())
+                            });
                         }
+
+                        let set_is_routing = use_context::<SetIsRouting>(cx);
+                        if let Some(set_is_routing) = set_is_routing {
+                            set_is_routing.0.set(true);
+                        }
+                        spawn_local(async move {
+                            if let Some(set_is_routing) = set_is_routing {
+                                global_suspense
+                                    .with_inner(|s| s.to_future(cx))
+                                    .await;
+                                set_is_routing.0.set(false);
+                            }
+
+                            if referrers.borrow().len() == len {
+                                this.navigate_end(LocationChange {
+                                    value: resolved_to,
+                                    replace: false,
+                                    scroll: true,
+                                    state,
+                                });
+                            }
+                        });
                     }
 
                     Ok(())
@@ -280,6 +328,8 @@ impl RouterContextInner {
 
     #[cfg(not(feature = "ssr"))]
     pub(crate) fn handle_anchor_click(self: Rc<Self>, ev: web_sys::Event) {
+        use wasm_bindgen::JsValue;
+
         let ev = ev.unchecked_into::<web_sys::MouseEvent>();
         if ev.default_prevented()
             || ev.button() != 0
@@ -338,12 +388,15 @@ impl RouterContextInner {
                 return;
             }
 
-            let to = path_name + &unescape(&url.search) + &unescape(&url.hash);
+            let to = path_name
+                + if url.search.is_empty() { "" } else { "?" }
+                + &unescape(&url.search)
+                + &unescape(&url.hash);
             let state =
                 leptos_dom::helpers::get_property(a.unchecked_ref(), "state")
                     .ok()
                     .and_then(|value| {
-                        if value == wasm_bindgen::JsValue::UNDEFINED {
+                        if value == JsValue::UNDEFINED {
                             None
                         } else {
                             Some(value)
@@ -365,7 +418,6 @@ impl RouterContextInner {
                     scroll: !a.has_attribute("noscroll"),
                     state: State(state),
                 },
-                false,
             ) {
                 leptos::error!("{e:#?}");
             }

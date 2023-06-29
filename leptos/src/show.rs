@@ -21,7 +21,7 @@ use std::{cell::RefCell, rc::Rc};
 ///
 /// view! { cx,
 ///   <Show
-///     when=move || value() < 5
+///     when=move || value.get() < 5
 ///     fallback=|cx| view! { cx, "Big number!" }
 ///   >
 ///     "Small number!"
@@ -29,6 +29,10 @@ use std::{cell::RefCell, rc::Rc};
 /// }
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all)
+)]
 #[component]
 pub fn Show<F, W, IV>(
     /// The scope the component is running in

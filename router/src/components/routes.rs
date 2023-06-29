@@ -4,12 +4,13 @@ use crate::{
         expand_optionals, get_route_matches, join_paths, Branch, Matcher,
         RouteDefinition, RouteMatch,
     },
-    use_is_back_navigation, RouteContext, RouterContext,
+    use_is_back_navigation, RouteContext, RouterContext, SetIsRouting,
 };
 use leptos::{leptos_dom::HydrationCtx, *};
 use std::{
     cell::{Cell, RefCell},
     cmp::Reverse,
+    collections::HashMap,
     ops::IndexMut,
     rc::Rc,
 };
@@ -19,6 +20,10 @@ use std::{
 /// You should locate the `<Routes/>` component wherever on the page you want the routes to appear.
 ///
 /// **Note:** Your application should only include one `<Routes/>` or `<AnimatedRoutes/>` component.
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 #[component]
 pub fn Routes(
     cx: Scope,
@@ -29,23 +34,29 @@ pub fn Routes(
 ) -> impl IntoView {
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
-    let base_route = router.base();
 
-    Branches::initialize(&base.unwrap_or_default(), children(cx));
+    let base_route = router.base();
+    let base = base.unwrap_or_default();
+
+    Branches::initialize(&base, children(cx));
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
-        Branches::with(|branches| *context.0.borrow_mut() = branches.to_vec());
+        Branches::with(&base, |branches| {
+            *context.0.borrow_mut() = branches.to_vec()
+        });
     }
 
     let next_route = router.pathname();
     let current_route = next_route;
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(cx, &router, current_route, &root_equal);
+    let route_states =
+        route_states(cx, base, &router, current_route, &root_equal);
 
     let id = HydrationCtx::id();
     let root = root_route(cx, base_route, route_states, root_equal);
+
     leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
         .into_view(cx)
 }
@@ -99,13 +110,17 @@ pub fn AnimatedRoutes(
 ) -> impl IntoView {
     let router = use_context::<RouterContext>(cx)
         .expect("<Routes/> component should be nested within a <Router/>.");
-    let base_route = router.base();
 
-    Branches::initialize(&base.unwrap_or_default(), children(cx));
+    let base_route = router.base();
+    let base = base.unwrap_or_default();
+
+    Branches::initialize(&base, children(cx));
 
     #[cfg(feature = "ssr")]
     if let Some(context) = use_context::<crate::PossibleBranchContext>(cx) {
-        Branches::with(|branches| *context.0.borrow_mut() = branches.to_vec());
+        Branches::with(&base, |branches| {
+            *context.0.borrow_mut() = branches.to_vec()
+        });
     }
 
     let animation = Animation {
@@ -121,13 +136,19 @@ pub fn AnimatedRoutes(
         create_signal(cx, AnimationState::Finally);
     let next_route = router.pathname();
 
+    let is_complete = Rc::new(Cell::new(true));
     let animation_and_route = create_memo(cx, {
+        let is_complete = Rc::clone(&is_complete);
+        let base = base.clone();
+
         move |prev: Option<&(AnimationState, String)>| {
             let animation_state = animation_state.get();
             let next_route = next_route.get();
-            let prev_matches =
-                prev.map(|(_, r)| r).cloned().map(get_route_matches);
-            let matches = get_route_matches(next_route.clone());
+            let prev_matches = prev
+                .map(|(_, r)| r)
+                .cloned()
+                .map(|location| get_route_matches(&base, location));
+            let matches = get_route_matches(&base, next_route.clone());
             let same_route = prev_matches
                 .and_then(|p| p.get(0).as_ref().map(|r| r.route.key.clone()))
                 == matches.get(0).as_ref().map(|r| r.route.key.clone());
@@ -140,7 +161,7 @@ pub fn AnimatedRoutes(
                         let (next_state, can_advance) = animation
                             .next_state(prev_state, is_back.get_untracked());
 
-                        if can_advance {
+                        if can_advance || !is_complete.get() {
                             (next_state, next_route)
                         } else {
                             (next_state, prev_route.to_owned())
@@ -155,11 +176,14 @@ pub fn AnimatedRoutes(
     let current_route = create_memo(cx, move |_| animation_and_route.get().1);
 
     let root_equal = Rc::new(Cell::new(true));
-    let route_states = route_states(cx, &router, current_route, &root_equal);
+    let route_states =
+        route_states(cx, base, &router, current_route, &root_equal);
 
     let root = root_route(cx, base_route, route_states, root_equal);
+    let node_ref = create_node_ref::<html::Div>(cx);
 
     html::div(cx)
+        .node_ref(node_ref)
         .attr(
             "class",
             (cx, move || {
@@ -171,6 +195,7 @@ pub fn AnimatedRoutes(
                     AnimationState::OutroBack => outro_back.unwrap_or_default(),
                     AnimationState::IntroBack => intro_back.unwrap_or_default(),
                 };
+                is_complete.set(animation_class == finally.unwrap_or_default());
                 if let Some(class) = &class {
                     format!("{} {animation_class}", class.get())
                 } else {
@@ -178,13 +203,21 @@ pub fn AnimatedRoutes(
                 }
             }),
         )
-        .on(leptos::ev::animationend, move |_| {
-            let current = current_animation.get();
-            set_animation_state.update(|current_state| {
-                let (next, _) =
-                    animation.next_state(&current, is_back.get_untracked());
-                *current_state = next;
-            })
+        .on(leptos::ev::animationend, move |ev| {
+            use wasm_bindgen::JsCast;
+            if let Some(target) = ev.target() {
+                if target
+                    .unchecked_ref::<web_sys::Node>()
+                    .is_same_node(Some(&*node_ref.get().unwrap()))
+                {
+                    let current = current_animation.get();
+                    set_animation_state.update(|current_state| {
+                        let (next, _) = animation
+                            .next_state(&current, is_back.get_untracked());
+                        *current_state = next;
+                    })
+                }
+            }
         })
         .child(move || root.get())
         .into_view(cx)
@@ -193,14 +226,14 @@ pub fn AnimatedRoutes(
 pub(crate) struct Branches;
 
 thread_local! {
-    static BRANCHES: RefCell<Option<Vec<Branch>>> = RefCell::new(None);
+    static BRANCHES: RefCell<HashMap<String, Vec<Branch>>> = RefCell::new(HashMap::new());
 }
 
 impl Branches {
     pub fn initialize(base: &str, children: Fragment) {
         BRANCHES.with(|branches| {
             let mut current = branches.borrow_mut();
-            if current.is_none() {
+            if !current.contains_key(base) {
                 let mut branches = Vec::new();
                 let children = children
                     .as_children()
@@ -228,15 +261,15 @@ impl Branches {
                     &mut Vec::new(),
                     &mut branches,
                 );
-                *current = Some(branches);
+                current.insert(base.to_string(), branches);
             }
         })
     }
 
-    pub fn with<T>(cb: impl FnOnce(&[Branch]) -> T) -> T {
+    pub fn with<T>(base: &str, cb: impl FnOnce(&[Branch]) -> T) -> T {
         BRANCHES.with(|branches| {
             let branches = branches.borrow();
-            let branches = branches.as_ref().expect(
+            let branches = branches.get(base).expect(
                 "Branches::initialize() should be called before \
                  Branches::with()",
             );
@@ -247,13 +280,14 @@ impl Branches {
 
 fn route_states(
     cx: Scope,
+    base: String,
     router: &RouterContext,
     current_route: Memo<String>,
     root_equal: &Rc<Cell<bool>>,
 ) -> Memo<RouterState> {
     // whenever path changes, update matches
     let matches =
-        create_memo(cx, move |_| get_route_matches(current_route.get()));
+        create_memo(cx, move |_| get_route_matches(&base, current_route.get()));
 
     // iterate over the new matches, reusing old routes when they are the same
     // and replacing them with new routes when they differ
@@ -372,40 +406,75 @@ fn root_route(
     base_route: RouteContext,
     route_states: Memo<RouterState>,
     root_equal: Rc<Cell<bool>>,
-) -> Memo<Option<View>> {
+) -> Signal<Option<View>> {
     let root_cx = RefCell::new(None);
 
-    create_memo(cx, move |prev| {
-        provide_context(cx, route_states);
-        route_states.with(|state| {
-            if state.routes.borrow().is_empty() {
-                Some(base_route.outlet(cx).into_view(cx))
-            } else {
-                let root = state.routes.borrow();
-                let root = root.get(0);
-                if let Some(route) = root {
-                    provide_context(cx, route.clone());
-                }
-
-                if prev.is_none() || !root_equal.get() {
-                    let (root_view, _) = cx.run_child_scope(|cx| {
-                        let prev_cx = std::mem::replace(
-                            &mut *root_cx.borrow_mut(),
-                            Some(cx),
-                        );
-                        if let Some(prev_cx) = prev_cx {
-                            prev_cx.dispose();
-                        }
-                        root.as_ref()
-                            .map(|route| route.outlet(cx).into_view(cx))
-                    });
-                    root_view
+    let root_view = create_memo(cx, {
+        let root_equal = Rc::clone(&root_equal);
+        move |prev| {
+            provide_context(cx, route_states);
+            route_states.with(|state| {
+                if state.routes.borrow().is_empty() {
+                    Some(base_route.outlet(cx).into_view(cx))
                 } else {
-                    prev.cloned().unwrap()
+                    let root = state.routes.borrow();
+                    let root = root.get(0);
+                    if let Some(route) = root {
+                        provide_context(cx, route.clone());
+                    }
+
+                    if prev.is_none() || !root_equal.get() {
+                        let (root_view, _) = cx.run_child_scope(|cx| {
+                            let prev_cx = std::mem::replace(
+                                &mut *root_cx.borrow_mut(),
+                                Some(cx),
+                            );
+                            if let Some(prev_cx) = prev_cx {
+                                prev_cx.dispose();
+                            }
+                            root.as_ref()
+                                .map(|route| route.outlet(cx).into_view(cx))
+                        });
+                        root_view
+                    } else {
+                        prev.cloned().unwrap()
+                    }
                 }
+            })
+        }
+    });
+
+    if cfg!(any(feature = "csr", feature = "hydrate"))
+        && use_context::<SetIsRouting>(cx).is_some()
+    {
+        let global_suspense = expect_context::<GlobalSuspenseContext>(cx);
+
+        let (current_view, set_current_view) = create_signal(cx, None);
+
+        create_effect(cx, move |prev| {
+            let root = root_view.get();
+            let is_fallback =
+                !global_suspense.with_inner(SuspenseContext::ready);
+            if prev.is_none() {
+                set_current_view.set(root);
+            } else if !is_fallback {
+                queue_microtask({
+                    let global_suspense = global_suspense.clone();
+                    move || {
+                        let is_fallback = cx.untrack(move || {
+                            !global_suspense.with_inner(SuspenseContext::ready)
+                        });
+                        if !is_fallback {
+                            set_current_view.set(root);
+                        }
+                    }
+                });
             }
-        })
-    })
+        });
+        current_view.into()
+    } else {
+        root_view.into()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -477,7 +546,10 @@ pub(crate) fn create_branch(routes: &[RouteData], index: usize) -> Branch {
         score: routes.last().unwrap().score() * 10000 - (index as i32),
     }
 }
-
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "info", skip_all,)
+)]
 fn create_routes(route_def: &RouteDefinition, base: &str) -> Vec<RouteData> {
     let RouteDefinition { children, .. } = route_def;
     let is_leaf = children.is_empty();

@@ -1,9 +1,16 @@
 use crate::{attribute_value, Mode};
-use leptos_hot_reload::parsing::{is_component_node, value_to_string};
+use convert_case::{Case::Snake, Casing};
+use leptos_hot_reload::parsing::{
+    block_to_primitive_expression, is_component_node, is_component_tag_name,
+    value_to_string,
+};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use syn::{spanned::Spanned, Expr, ExprLit, ExprPath, Lit};
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeName, NodeValueExpr};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement, NodeName,
+};
+use std::collections::HashMap;
+use syn::{spanned::Spanned, Expr, Expr::Tuple, ExprLit, ExprPath, Lit};
 
 #[derive(Clone, Copy)]
 enum TagType {
@@ -149,14 +156,16 @@ pub(crate) fn render_view(
     global_class: Option<&TokenTree>,
     call_site: Option<String>,
 ) -> TokenStream {
+    let empty = {
+        let span = Span::call_site();
+        quote_spanned! {
+            span => leptos::leptos_dom::Unit
+        }
+    };
+
     if mode == Mode::Ssr {
         match nodes.len() {
-            0 => {
-                let span = Span::call_site();
-                quote_spanned! {
-                    span => leptos::leptos_dom::Unit
-                }
-            }
+            0 => empty,
             1 => {
                 root_node_to_tokens_ssr(cx, &nodes[0], global_class, call_site)
             }
@@ -170,28 +179,27 @@ pub(crate) fn render_view(
         }
     } else {
         match nodes.len() {
-            0 => {
-                let span = Span::call_site();
-                quote_spanned! {
-                    span => leptos::leptos_dom::Unit
-                }
-            }
+            0 => empty,
             1 => node_to_tokens(
                 cx,
                 &nodes[0],
                 TagType::Unknown,
+                None,
                 global_class,
                 call_site,
-            ),
+            )
+            .unwrap_or_default(),
             _ => fragment_to_tokens(
                 cx,
                 Span::call_site(),
                 nodes,
                 true,
                 TagType::Unknown,
+                None,
                 global_class,
                 call_site,
-            ),
+            )
+            .unwrap_or(empty),
         }
     }
 }
@@ -210,22 +218,27 @@ fn root_node_to_tokens_ssr(
             global_class,
             view_marker,
         ),
-        Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => quote! {},
+        Node::Comment(_) | Node::Doctype(_) => quote! {},
         Node::Text(node) => {
-            let value = node.value.as_ref();
             quote! {
-                leptos::leptos_dom::html::text(#value)
+                leptos::leptos_dom::html::text(#node)
+            }
+        }
+        Node::RawText(r) => {
+            let text = r.to_string_best();
+            let text = syn::LitStr::new(&text, r.span());
+            quote! {
+                leptos::leptos_dom::html::text(#text)
             }
         }
         Node::Block(node) => {
-            let value = node.value.as_ref();
             quote! {
-                #[allow(unused_braces)]
-                #value
+                #node
             }
         }
         Node::Element(node) => {
             root_element_to_tokens_ssr(cx, node, global_class, view_marker)
+                .unwrap_or_default()
         }
     }
 }
@@ -250,9 +263,9 @@ fn fragment_to_tokens_ssr(
     });
     quote! {
         {
-            leptos::Fragment::lazy(|| vec![
+            leptos::Fragment::lazy(|| [
                 #(#nodes),*
-            ])
+            ].to_vec())
             #view_marker
         }
     }
@@ -263,10 +276,17 @@ fn root_element_to_tokens_ssr(
     node: &NodeElement,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
+    // TODO: simplify, this is checked twice, second time in `element_to_tokens_ssr` body
     if is_component_node(node) {
-        component_to_tokens(cx, node, global_class)
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, None, global_class);
+            None
+        } else {
+            Some(component_to_tokens(cx, node, global_class))
+        }
     } else {
+        let mut stmts_for_ide = IdeTagHelper::new();
         let mut exprs_for_compiler = Vec::<TokenStream>::new();
 
         let mut template = String::new();
@@ -275,9 +295,11 @@ fn root_element_to_tokens_ssr(
         element_to_tokens_ssr(
             cx,
             node,
+            None,
             &mut template,
             &mut holes,
             &mut chunks,
+            &mut stmts_for_ide,
             &mut exprs_for_compiler,
             true,
             global_class,
@@ -291,10 +313,12 @@ fn root_element_to_tokens_ssr(
         let chunks = chunks.into_iter().map(|chunk| match chunk {
             SsrElementChunks::String { template, holes } => {
                 if holes.is_empty() {
+                    let template = template.replace("\\{", "{").replace("\\}", "}");
                     quote! {
                         leptos::leptos_dom::html::StringOrView::String(#template.into())
                     }
                 } else {
+                let template = template.replace("\\{", "{{").replace("\\}", "}}");
                     quote! {
                         leptos::leptos_dom::html::StringOrView::String(
                             format!(
@@ -317,15 +341,19 @@ fn root_element_to_tokens_ssr(
             },
         });
 
-        let tag_name = node.name.to_string();
+        let tag_name = node.name().to_string();
         let is_custom_element = is_custom_element(&tag_name);
+
+        // Use any other span instead of node.name.span(), to avoid missundestanding in IDE.
+        // We can use open_tag.span(), to provide simmilar(to name span) diagnostic
+        // in case of expansion error, but it will also higlight "<" token.
         let typed_element_name = if is_custom_element {
-            Ident::new("Custom", node.name.span())
+            Ident::new("Custom", Span::call_site())
         } else {
             let camel_cased = camel_case_tag_name(
                 &tag_name.replace("svg::", "").replace("math::", ""),
             );
-            Ident::new(&camel_cased, node.name.span())
+            Ident::new(&camel_cased, Span::call_site())
         };
         let typed_element_name = if is_svg_element(&tag_name) {
             quote! { svg::#typed_element_name }
@@ -348,12 +376,14 @@ fn root_element_to_tokens_ssr(
         } else {
             quote! {}
         };
-        quote! {
+        let stmts_for_ide = stmts_for_ide.into_iter();
+        Some(quote! {
         {
+            #(#stmts_for_ide)*
             #(#exprs_for_compiler)*
             ::leptos::HtmlElement::from_chunks(#cx, #full_name, [#(#chunks),*])#view_marker
         }
-        }
+        })
     }
 }
 
@@ -369,38 +399,50 @@ enum SsrElementChunks {
 fn element_to_tokens_ssr(
     cx: &Ident,
     node: &NodeElement,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     chunks: &mut Vec<SsrElementChunks>,
+    stmts_for_ide: &mut IdeTagHelper,
     exprs_for_compiler: &mut Vec<TokenStream>,
     is_root: bool,
     global_class: Option<&TokenTree>,
 ) {
     if is_component_node(node) {
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, parent_slots, global_class);
+            return;
+        }
+
         let component = component_to_tokens(cx, node, global_class);
+
         if !template.is_empty() {
             chunks.push(SsrElementChunks::String {
                 template: std::mem::take(template),
                 holes: std::mem::take(holes),
             })
         }
+
         chunks.push(SsrElementChunks::View(quote! {
           {#component}.into_view(#cx)
         }));
     } else {
-        let tag_name = node
-            .name
-            .to_string()
-            .replace("svg::", "")
-            .replace("math::", "");
+        let tag_name = node.name().to_string();
+        let tag_name = tag_name
+            .trim_start_matches("svg::")
+            .trim_start_matches("math::")
+            .trim_end_matches('_');
         let is_script_or_style = tag_name == "script" || tag_name == "style";
         template.push('<');
-        template.push_str(&tag_name);
+        template.push_str(tag_name);
+
+        #[cfg(debug_assertions)]
+        stmts_for_ide.save_element_completion(node);
 
         let mut inner_html = None;
 
-        for attr in &node.attributes {
-            if let Node::Attribute(attr) = attr {
+        for attr in node.attributes() {
+            if let NodeAttribute::Attribute(attr) = attr {
                 inner_html = attribute_to_tokens_ssr(
                     cx,
                     attr,
@@ -419,9 +461,9 @@ fn element_to_tokens_ssr(
             quote! { leptos::leptos_dom::HydrationCtx::id() }
         };
         match node
-            .attributes
+            .attributes()
             .iter()
-            .find(|node| matches!(node, Node::Attribute(attr) if attr.key.to_string() == "id"))
+            .find(|node| matches!(node, NodeAttribute::Attribute(attr) if attr.key.to_string() == "id"))
         {
             Some(_) => {
                 template.push_str(" leptos-hk=\"_{}\"");
@@ -433,6 +475,7 @@ fn element_to_tokens_ssr(
         holes.push(hydration_id);
 
         set_class_attribute_ssr(cx, node, template, holes, global_class);
+        set_style_attribute_ssr(cx, node, template, holes);
 
         if is_self_closing(node) {
             template.push_str("/>");
@@ -441,7 +484,7 @@ fn element_to_tokens_ssr(
 
             if let Some(inner_html) = inner_html {
                 template.push_str("{}");
-                let value = inner_html.as_ref();
+                let value = inner_html;
 
                 holes.push(quote! {
                   (#value).into_attribute(#cx).as_nameless_value_string().unwrap_or_default()
@@ -453,41 +496,34 @@ fn element_to_tokens_ssr(
                             element_to_tokens_ssr(
                                 cx,
                                 child,
+                                None,
                                 template,
                                 holes,
                                 chunks,
+                                stmts_for_ide,
                                 exprs_for_compiler,
                                 false,
                                 global_class,
                             );
                         }
                         Node::Text(text) => {
-                            if let Some(value) = value_to_string(&text.value) {
-                                let value = if is_script_or_style {
-                                    value.into()
-                                } else {
-                                    html_escape::encode_safe(&value)
-                                };
-                                template.push_str(
-                                    &value
-                                        .replace('{', "{{")
-                                        .replace('}', "}}"),
-                                );
+                            let value = text.value_string();
+                            let value = if is_script_or_style {
+                                value.into()
                             } else {
-                                template.push_str("{}");
-                                let value = text.value.as_ref();
-
-                                holes.push(quote! {
-                                  #value.into_view(#cx).render_to_string(#cx)
-                                })
-                            }
+                                html_escape::encode_safe(&value)
+                            };
+                            template.push_str(
+                                &value.replace('{', "\\{").replace('}', "\\}"),
+                            );
                         }
-                        Node::Block(block) => {
-                            if let Some(value) = value_to_string(&block.value) {
+                        Node::Block(NodeBlock::ValidBlock(block)) => {
+                            if let Some(value) =
+                                block_to_primitive_expression(block)
+                                    .and_then(value_to_string)
+                            {
                                 template.push_str(&value);
                             } else {
-                                let value = block.value.as_ref();
-
                                 if !template.is_empty() {
                                     chunks.push(SsrElementChunks::String {
                                         template: std::mem::take(template),
@@ -495,9 +531,15 @@ fn element_to_tokens_ssr(
                                     })
                                 }
                                 chunks.push(SsrElementChunks::View(quote! {
-                                  {#value}.into_view(#cx)
+                                    {#block}.into_view(#cx)
                                 }));
                             }
+                        }
+                        // Keep invalid blocks for faster IDE diff (on user type)
+                        Node::Block(block @ NodeBlock::Invalid { .. }) => {
+                            chunks.push(SsrElementChunks::View(quote! {
+                                {#block}.into_view(#cx)
+                            }));
                         }
                         Node::Fragment(_) => abort!(
                             Span::call_site(),
@@ -509,7 +551,7 @@ fn element_to_tokens_ssr(
             }
 
             template.push_str("</");
-            template.push_str(&node.name.to_string());
+            template.push_str(&node.name().to_string());
             template.push('>');
         }
     }
@@ -518,17 +560,17 @@ fn element_to_tokens_ssr(
 // returns `inner_html`
 fn attribute_to_tokens_ssr<'a>(
     cx: &Ident,
-    node: &'a NodeAttribute,
+    attr: &'a KeyedAttribute,
     template: &mut String,
     holes: &mut Vec<TokenStream>,
     exprs_for_compiler: &mut Vec<TokenStream>,
     global_class: Option<&TokenTree>,
-) -> Option<&'a NodeValueExpr> {
-    let name = node.key.to_string();
+) -> Option<&'a syn::Expr> {
+    let name = attr.key.to_string();
     if name == "ref" || name == "_ref" || name == "ref_" || name == "node_ref" {
         // ignore refs on SSR
     } else if let Some(name) = name.strip_prefix("on:") {
-        let handler = attribute_value(node);
+        let handler = attribute_value(attr);
         let (event_type, _, _) = parse_event_name(name);
 
         exprs_for_compiler.push(quote! {
@@ -536,38 +578,40 @@ fn attribute_to_tokens_ssr<'a>(
         })
     } else if name.strip_prefix("prop:").is_some()
         || name.strip_prefix("class:").is_some()
+        || name.strip_prefix("style:").is_some()
     {
         // ignore props for SSR
-        // ignore classes: we'll handle these separately
+        // ignore classes and styles: we'll handle these separately
     } else if name == "inner_html" {
-        return node.value.as_ref();
+        return attr.value();
     } else {
         let name = name.replacen("attr:", "", 1);
 
         // special case of global_class and class attribute
         if name == "class"
             && global_class.is_some()
-            && node.value.as_ref().and_then(value_to_string).is_none()
+            && attr.value().and_then(value_to_string).is_none()
         {
-            let span = node.key.span();
+            let span = attr.key.span();
             proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
             and a dynamic `class=` attribute on an element causes runtime inconsistencies. You can \
             toggle individual classes dynamically with the `class:name=value` syntax. \n\nSee this issue \
             for more information and an example: https://github.com/leptos-rs/leptos/issues/773")
         };
 
-        if name != "class" {
+        if name != "class" && name != "style" {
             template.push(' ');
 
-            if let Some(value) = node.value.as_ref() {
+            if let Some(value) = attr.value() {
                 if let Some(value) = value_to_string(value) {
                     template.push_str(&name);
                     template.push_str("=\"");
-                    template.push_str(&value);
+                    template.push_str(&html_escape::encode_quoted_attribute(
+                        &value,
+                    ));
                     template.push('"');
                 } else {
                     template.push_str("{}");
-                    let value = value.as_ref();
                     holes.push(quote! {
                         &{#value}.into_attribute(#cx)
                             .as_nameless_value_string()
@@ -607,11 +651,13 @@ fn set_class_attribute_ssr(
         Some(val) => (String::new(), Some(val)),
     };
     let static_class_attr = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|a| match a {
-            Node::Attribute(attr) if attr.key.to_string() == "class" => {
-                attr.value.as_ref().and_then(value_to_string)
+            NodeAttribute::Attribute(attr)
+                if attr.key.to_string() == "class" =>
+            {
+                attr.value().and_then(value_to_string)
             }
             _ => None,
         })
@@ -621,17 +667,17 @@ fn set_class_attribute_ssr(
         .join(" ");
 
     let dyn_class_attr = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|a| {
-            if let Node::Attribute(a) = a {
+            if let NodeAttribute::Attribute(a) = a {
                 if a.key.to_string() == "class" {
-                    if a.value.as_ref().and_then(value_to_string).is_some()
+                    if a.value().and_then(value_to_string).is_some()
                         || fancy_class_name(&a.key.to_string(), cx, a).is_some()
                     {
                         None
                     } else {
-                        Some((a.key.span(), &a.value))
+                        Some((a.key.span(), a.value()))
                     }
                 } else {
                     None
@@ -643,10 +689,10 @@ fn set_class_attribute_ssr(
         .collect::<Vec<_>>();
 
     let class_attrs = node
-        .attributes
+        .attributes()
         .iter()
         .filter_map(|node| {
-            if let Node::Attribute(node) = node {
+            if let NodeAttribute::Attribute(node) = node {
                 let name = node.key.to_string();
                 if name == "class" {
                     return if let Some((_, name, value)) =
@@ -685,12 +731,13 @@ fn set_class_attribute_ssr(
     {
         template.push_str(" class=\"");
 
-        template.push_str(&static_class_attr);
+        template.push_str(&html_escape::encode_quoted_attribute(
+            &static_class_attr,
+        ));
 
         for (_span, value) in dyn_class_attr {
             if let Some(value) = value {
                 template.push_str(" {}");
-                let value = value.as_ref();
                 holes.push(quote! {
                   &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
                     .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
@@ -715,22 +762,158 @@ fn set_class_attribute_ssr(
     }
 }
 
+fn set_style_attribute_ssr(
+    cx: &Ident,
+    node: &NodeElement,
+    template: &mut String,
+    holes: &mut Vec<TokenStream>,
+) {
+    let static_style_attr = node
+        .attributes()
+        .iter()
+        .filter_map(|a| match a {
+            NodeAttribute::Attribute(attr)
+                if attr.key.to_string() == "style" =>
+            {
+                attr.value().and_then(value_to_string)
+            }
+            _ => None,
+        })
+        .next()
+        .map(|style| format!("{style};"));
+
+    let dyn_style_attr = node
+        .attributes()
+        .iter()
+        .filter_map(|a| {
+            if let NodeAttribute::Attribute(a) = a {
+                if a.key.to_string() == "style" {
+                    if a.value().and_then(value_to_string).is_some()
+                        || fancy_style_name(&a.key.to_string(), cx, a).is_some()
+                    {
+                        None
+                    } else {
+                        Some((a.key.span(), a.value()))
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let style_attrs = node
+        .attributes()
+        .iter()
+        .filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                let name = node.key.to_string();
+                if name == "style" {
+                    return if let Some((_, name, value)) =
+                        fancy_style_name(&name, cx, node)
+                    {
+                        let span = node.key.span();
+                        Some((span, name, value))
+                    } else {
+                        None
+                    };
+                }
+                if name.starts_with("style:") || name.starts_with("style-") {
+                    let name = if name.starts_with("style:") {
+                        name.replacen("style:", "", 1)
+                    } else if name.starts_with("style-") {
+                        name.replacen("style-", "", 1)
+                    } else {
+                        name
+                    };
+                    let value = attribute_value(node);
+                    let span = node.key.span();
+                    Some((span, name, value))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if static_style_attr.is_some()
+        || !dyn_style_attr.is_empty()
+        || !style_attrs.is_empty()
+    {
+        template.push_str(" style=\"");
+
+        template.push_str(&static_style_attr.unwrap_or_default());
+
+        for (_span, value) in dyn_style_attr {
+            if let Some(value) = value {
+                template.push_str(" {};");
+                holes.push(quote! {
+                  &(#cx, #value).into_attribute(#cx).as_nameless_value_string()
+                    .map(|a| leptos::leptos_dom::ssr::escape_attr(&a).to_string())
+                    .unwrap_or_default()
+                });
+            }
+        }
+
+        for (_span, name, value) in &style_attrs {
+            template.push_str(" {}");
+            holes.push(quote! {
+              (#cx, #value).into_style(#cx).as_value_string(#name).unwrap_or_default()
+            });
+        }
+
+        template.push('"');
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn fragment_to_tokens(
     cx: &Ident,
     _span: Span,
     nodes: &[Node],
     lazy: bool,
     parent_type: TagType,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
-    let nodes = nodes.iter().map(|node| {
-        let node = node_to_tokens(cx, node, parent_type, global_class, None);
+) -> Option<TokenStream> {
+    let mut slots = HashMap::new();
+    let has_slots = parent_slots.is_some();
 
-        quote! {
-            #node.into_view(#cx)
+    let mut nodes = nodes
+        .iter()
+        .filter_map(|node| {
+            let node = node_to_tokens(
+                cx,
+                node,
+                parent_type,
+                has_slots.then_some(&mut slots),
+                global_class,
+                None,
+            )?;
+
+            Some(quote! {
+                #node.into_view(#cx)
+            })
+        })
+        .peekable();
+
+    if nodes.peek().is_none() {
+        _ = nodes.collect::<Vec<_>>();
+        if let Some(parent_slots) = parent_slots {
+            for (slot, mut values) in slots.drain() {
+                parent_slots
+                    .entry(slot)
+                    .and_modify(|entry| entry.append(&mut values))
+                    .or_insert(values);
+            }
         }
-    });
+        return None;
+    }
 
     let view_marker = if let Some(marker) = view_marker {
         quote! { .with_view_marker(#marker) }
@@ -738,34 +921,46 @@ fn fragment_to_tokens(
         quote! {}
     };
 
-    if lazy {
+    let tokens = if lazy {
         quote! {
             {
-                leptos::Fragment::lazy(|| vec![
+                leptos::Fragment::lazy(|| [
                     #(#nodes),*
-                ])
+                ].to_vec())
                 #view_marker
             }
         }
     } else {
         quote! {
             {
-                leptos::Fragment::new(vec![
+                leptos::Fragment::new([
                     #(#nodes),*
-                ])
+                ].to_vec())
                 #view_marker
             }
         }
+    };
+
+    if let Some(parent_slots) = parent_slots {
+        for (slot, mut values) in slots.drain() {
+            parent_slots
+                .entry(slot)
+                .and_modify(|entry| entry.append(&mut values))
+                .or_insert(values);
+        }
     }
+
+    Some(tokens)
 }
 
 fn node_to_tokens(
     cx: &Ident,
     node: &Node,
     parent_type: TagType,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
     match node {
         Node::Fragment(fragment) => fragment_to_tokens(
             cx,
@@ -773,24 +968,28 @@ fn node_to_tokens(
             &fragment.children,
             true,
             parent_type,
+            None,
             global_class,
             view_marker,
         ),
-        Node::Comment(_) | Node::Doctype(_) => quote! {},
-        Node::Text(node) => {
-            let value = node.value.as_ref();
-            quote! {
-                leptos::leptos_dom::html::text(#value)
-            }
+        Node::Comment(_) | Node::Doctype(_) => Some(quote! {}),
+        Node::Text(node) => Some(quote! {
+            leptos::leptos_dom::html::text(#node)
+        }),
+        Node::Block(node) => Some(quote! { #node }),
+        Node::RawText(r) => {
+            let text = r.to_string_best();
+            let text = syn::LitStr::new(&text, r.span());
+            Some(quote! { #text })
         }
-        Node::Block(node) => {
-            let value = node.value.as_ref();
-            quote! { #value }
-        }
-        Node::Attribute(node) => attribute_to_tokens(cx, node, global_class),
-        Node::Element(node) => {
-            element_to_tokens(cx, node, parent_type, global_class, view_marker)
-        }
+        Node::Element(node) => element_to_tokens(
+            cx,
+            node,
+            parent_type,
+            parent_slots,
+            global_class,
+            view_marker,
+        ),
     }
 }
 
@@ -798,26 +997,35 @@ fn element_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     mut parent_type: TagType,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
     global_class: Option<&TokenTree>,
     view_marker: Option<String>,
-) -> TokenStream {
+) -> Option<TokenStream> {
+    let name = node.name();
     if is_component_node(node) {
-        component_to_tokens(cx, node, global_class)
+        if let Some(slot) = get_slot(node) {
+            slot_to_tokens(cx, node, slot, parent_slots, global_class);
+            None
+        } else {
+            Some(component_to_tokens(cx, node, global_class))
+        }
     } else {
-        let tag = node.name.to_string();
+        let tag = name.to_string();
+        // collect close_tag name to emit semantic information for IDE.
+        let mut ide_helper_close_tag = IdeTagHelper::new();
+        let close_tag = node.close_tag.as_ref().map(|c| &c.name);
         let name = if is_custom_element(&tag) {
-            let name = node.name.to_string();
-            quote! { leptos::leptos_dom::html::custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
+            let name = node.name().to_string();
+            // link custom ident to name span for IDE docs
+            let custom = Ident::new("custom", name.span());
+            quote! { leptos::leptos_dom::html::#custom(#cx, leptos::leptos_dom::html::Custom::new(#name)) }
         } else if is_svg_element(&tag) {
-            let name = &node.name;
             parent_type = TagType::Svg;
             quote! { leptos::leptos_dom::svg::#name(#cx) }
         } else if is_math_ml_element(&tag) {
-            let name = &node.name;
             parent_type = TagType::Math;
             quote! { leptos::leptos_dom::math::#name(#cx) }
         } else if is_ambiguous_element(&tag) {
-            let name = &node.name;
             match parent_type {
                 TagType::Unknown => {
                     // We decided this warning was too aggressive, but I'll leave it here in case we want it later
@@ -836,13 +1044,23 @@ fn element_to_tokens(
                 }
             }
         } else {
-            let name = &node.name;
             parent_type = TagType::Html;
             quote! { leptos::leptos_dom::html::#name(#cx) }
         };
-        let attrs = node.attributes.iter().filter_map(|node| {
-            if let Node::Attribute(node) = node {
-                if node.key.to_string().trim().starts_with("class:") {
+
+        if let Some(close_tag) = close_tag {
+            ide_helper_close_tag.save_tag_completion(close_tag)
+        }
+
+        let attrs = node.attributes().iter().filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                let name = node.key.to_string();
+                let name = name.trim();
+                if name.starts_with("class:")
+                    || fancy_class_name(name, cx, node).is_some()
+                    || name.starts_with("style:")
+                    || fancy_style_name(name, cx, node).is_some()
+                {
                     None
                 } else {
                     Some(attribute_to_tokens(cx, node, global_class))
@@ -851,9 +1069,26 @@ fn element_to_tokens(
                 None
             }
         });
-        let class_attrs = node.attributes.iter().filter_map(|node| {
-            if let Node::Attribute(node) = node {
-                if node.key.to_string().trim().starts_with("class:") {
+        let class_attrs = node.attributes().iter().filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                let name = node.key.to_string();
+                if let Some((fancy, _, _)) = fancy_class_name(&name, cx, node) {
+                    Some(fancy)
+                } else if name.trim().starts_with("class:") {
+                    Some(attribute_to_tokens(cx, node, global_class))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+        let style_attrs = node.attributes().iter().filter_map(|node| {
+            if let NodeAttribute::Attribute(node) = node {
+                let name = node.key.to_string();
+                if let Some((fancy, _, _)) = fancy_style_name(&name, cx, node) {
+                    Some(fancy)
+                } else if name.trim().starts_with("style:") {
                     Some(attribute_to_tokens(cx, node, global_class))
                 } else {
                     None
@@ -882,50 +1117,43 @@ fn element_to_tokens(
                         &fragment.children,
                         true,
                         parent_type,
+                        None,
                         global_class,
                         None,
-                    ),
+                    )
+                    .unwrap_or({
+                        let span = Span::call_site();
+                        quote_spanned! {
+                            span => leptos::leptos_dom::Unit
+                        }
+                    }),
                     false,
                 ),
-                Node::Text(node) => {
-                    if let Some(primitive) = value_to_string(&node.value) {
-                        (quote! { #primitive }, true)
-                    } else {
-                        let value = node.value.as_ref();
-                        (
-                            quote! {
-                                #[allow(unused_braces)] #value
-                            },
-                            false,
-                        )
-                    }
+                Node::Text(node) => (quote! { #node }, true),
+                Node::RawText(node) => {
+                    let text = node.to_string_best();
+                    let text = syn::LitStr::new(&text, node.span());
+                    (quote! { #text }, true)
                 }
-                Node::Block(node) => {
-                    if let Some(primitive) = value_to_string(&node.value) {
-                        (quote! { #primitive }, true)
-                    } else {
-                        let value = node.value.as_ref();
-                        (
-                            quote! {
-                                #[allow(unused_braces)] #value
-                            },
-                            false,
-                        )
-                    }
-                }
+                Node::Block(node) => (
+                    quote! {
+                       #node
+                    },
+                    false,
+                ),
                 Node::Element(node) => (
                     element_to_tokens(
                         cx,
                         node,
                         parent_type,
+                        None,
                         global_class,
                         None,
-                    ),
+                    )
+                    .unwrap_or_default(),
                     false,
                 ),
-                Node::Comment(_) | Node::Doctype(_) | Node::Attribute(_) => {
-                    (quote! {}, false)
-                }
+                Node::Comment(_) | Node::Doctype(_) => (quote! {}, false),
             };
             if is_static {
                 quote! {
@@ -942,20 +1170,25 @@ fn element_to_tokens(
         } else {
             quote! {}
         };
-        quote! {
+        let ide_helper_close_tag = ide_helper_close_tag.into_iter();
+        Some(quote! {
+            {
+            #(#ide_helper_close_tag)*
             #name
                 #(#attrs)*
                 #(#class_attrs)*
+                #(#style_attrs)*
                 #global_class_expr
                 #(#children)*
                 #view_marker
-        }
+            }
+        })
     }
 }
 
 fn attribute_to_tokens(
     cx: &Ident,
-    node: &NodeAttribute,
+    node: &KeyedAttribute,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let span = node.key.span();
@@ -1061,6 +1294,21 @@ fn attribute_to_tokens(
         quote! {
             #class(#name, (#cx, #[allow(unused_braces)] #value))
         }
+    } else if let Some(name) = name.strip_prefix("style:") {
+        let value = attribute_value(node);
+        let style = match &node.key {
+            NodeName::Punctuated(parts) => &parts[0],
+            _ => unreachable!(),
+        };
+        let style = {
+            let span = style.span();
+            quote_spanned! {
+                span => .style
+            }
+        };
+        quote! {
+            #style(#name, (#cx, #[allow(unused_braces)] #value))
+        }
     } else {
         let name = name.replacen("attr:", "", 1);
 
@@ -1071,7 +1319,7 @@ fn attribute_to_tokens(
         // special case of global_class and class attribute
         if name == "class"
             && global_class.is_some()
-            && node.value.as_ref().and_then(value_to_string).is_none()
+            && node.value().and_then(value_to_string).is_none()
         {
             let span = node.key.span();
             proc_macro_error::emit_error!(span, "Combining a global class (view! { cx, class = ... }) \
@@ -1081,10 +1329,8 @@ fn attribute_to_tokens(
         };
 
         // all other attributes
-        let value = match node.value.as_ref() {
+        let value = match node.value() {
             Some(value) => {
-                let value = value.as_ref();
-
                 quote! { #value }
             }
             None => quote_spanned! { span => "" },
@@ -1132,17 +1378,176 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
     (event_type, is_custom, is_force_undelegated)
 }
 
+pub(crate) fn slot_to_tokens(
+    cx: &Ident,
+    node: &NodeElement,
+    slot: &KeyedAttribute,
+    parent_slots: Option<&mut HashMap<String, Vec<TokenStream>>>,
+    global_class: Option<&TokenTree>,
+) {
+    let name = slot.key.to_string();
+    let name = name.trim();
+    let name = convert_to_snake_case(if name.starts_with("slot:") {
+        name.replacen("slot:", "", 1)
+    } else {
+        node.name().to_string()
+    });
+
+    let component_name = ident_from_tag_name(node.name());
+    let span = node.name().span();
+
+    let Some(parent_slots) = parent_slots else {
+        proc_macro_error::emit_error!(span, "slots cannot be used inside HTML elements");
+        return;
+    };
+
+    let attrs = node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(node) = node {
+            if is_slot(node) {
+                None
+            } else {
+                Some(node)
+            }
+        } else {
+            None
+        }
+    });
+
+    let props = attrs
+        .clone()
+        .filter(|attr| {
+            !attr.key.to_string().starts_with("bind:")
+                && !attr.key.to_string().starts_with("clone:")
+        })
+        .map(|attr| {
+            let name = &attr.key;
+
+            let value = attr
+                .value()
+                .map(|v| {
+                    quote! { #v }
+                })
+                .unwrap_or_else(|| quote! { #name });
+
+            quote! {
+                .#name(#[allow(unused_braces)] #value)
+            }
+        });
+
+    let items_to_bind = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("bind:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
+
+    let items_to_clone = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("clone:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
+
+    let mut slots = HashMap::new();
+    let children = if node.children.is_empty() {
+        quote! {}
+    } else {
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                let marker = format!("<{component_name}/>-children");
+                let view_marker = quote! { .with_view_marker(#marker) };
+            } else {
+                let view_marker = quote! {};
+            }
+        }
+
+        let children = fragment_to_tokens(
+            cx,
+            span,
+            &node.children,
+            true,
+            TagType::Unknown,
+            Some(&mut slots),
+            global_class,
+            None,
+        );
+
+        if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
+
+            let clonables = items_to_clone
+                .iter()
+                .map(|ident| quote! { let #ident = #ident.clone(); });
+
+            if bindables.len() > 0 {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        move |#cx, #(#bindables)*| #children #view_marker
+                    })
+                }
+            } else {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        Box::new(move |#cx| #children #view_marker)
+                    })
+                }
+            }
+        } else {
+            quote! {}
+        }
+    };
+
+    let slots = slots.drain().map(|(slot, values)| {
+        let slot = Ident::new(&slot, span);
+        if values.len() > 1 {
+            quote! {
+                .#slot([
+                    #(#values)*
+                ].to_vec())
+            }
+        } else {
+            let value = &values[0];
+            quote! { .#slot(#value) }
+        }
+    });
+
+    let slot = quote! {
+        #component_name::builder()
+            #(#props)*
+            #(#slots)*
+            #children
+            .build()
+            .into(),
+    };
+
+    parent_slots
+        .entry(name)
+        .and_modify(|entry| entry.push(slot.clone()))
+        .or_insert(vec![slot]);
+}
+
 pub(crate) fn component_to_tokens(
     cx: &Ident,
     node: &NodeElement,
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
-    let name = &node.name;
-    let component_name = ident_from_tag_name(&node.name);
-    let span = node.name.span();
+    let name = node.name();
+    let component_name = ident_from_tag_name(node.name());
+    let span = node.name().span();
 
-    let attrs = node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(node) = node {
+    let attrs = node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(node) = node {
             Some(node)
         } else {
             None
@@ -1152,17 +1557,16 @@ pub(crate) fn component_to_tokens(
     let props = attrs
         .clone()
         .filter(|attr| {
-            !attr.key.to_string().starts_with("clone:")
+            !attr.key.to_string().starts_with("bind:")
+                && !attr.key.to_string().starts_with("clone:")
                 && !attr.key.to_string().starts_with("on:")
         })
         .map(|attr| {
             let name = &attr.key;
 
             let value = attr
-                .value
-                .as_ref()
+                .value()
                 .map(|v| {
-                    let v = v.as_ref();
                     quote! { #v }
                 })
                 .unwrap_or_else(|| quote! { #name });
@@ -1171,6 +1575,16 @@ pub(crate) fn component_to_tokens(
                 .#name(#[allow(unused_braces)] #value)
             }
         });
+
+    let items_to_bind = attrs
+        .clone()
+        .filter_map(|attr| {
+            attr.key
+                .to_string()
+                .strip_prefix("bind:")
+                .map(|ident| format_ident!("{ident}", span = attr.key.span()))
+        })
+        .collect::<Vec<_>>();
 
     let items_to_clone = attrs
         .clone()
@@ -1193,6 +1607,7 @@ pub(crate) fn component_to_tokens(
         })
         .collect::<Vec<_>>();
 
+    let mut slots = HashMap::new();
     let children = if node.children.is_empty() {
         quote! {}
     } else {
@@ -1211,32 +1626,69 @@ pub(crate) fn component_to_tokens(
             &node.children,
             true,
             TagType::Unknown,
+            Some(&mut slots),
             global_class,
             None,
         );
 
-        let clonables = items_to_clone
-            .iter()
-            .map(|ident| quote! { let #ident = #ident.clone(); });
+        if let Some(children) = children {
+            let bindables =
+                items_to_bind.iter().map(|ident| quote! { #ident, });
 
-        quote! {
-            .children({
-                #(#clonables)*
+            let clonables = items_to_clone
+                .iter()
+                .map(|ident| quote! { let #ident = #ident.clone(); });
 
-                Box::new(move |#cx| #children #view_marker)
-            })
+            if bindables.len() > 0 {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        move |#cx, #(#bindables)*| #children #view_marker
+                    })
+                }
+            } else {
+                quote! {
+                    .children({
+                        #(#clonables)*
+
+                        Box::new(move |#cx| #children #view_marker)
+                    })
+                }
+            }
+        } else {
+            quote! {}
         }
     };
 
-    let component = quote! {
-        #name(
+    let slots = slots.drain().map(|(slot, values)| {
+        let slot = Ident::new(&slot, span);
+        if values.len() > 1 {
+            quote! {
+                .#slot(vec![
+                    #(#values)*
+                ])
+            }
+        } else {
+            let value = &values[0];
+            quote! { .#slot(#value) }
+        }
+    });
+
+    let mut component = quote! {
+        ::leptos::component_view(
+            &#name,
             #cx,
             ::leptos::component_props_builder(&#name)
                 #(#props)*
+                #(#slots)*
                 #children
                 .build()
         )
     };
+
+    #[cfg(debug_assertions)]
+    IdeTagHelper::add_component_completion(&mut component, node);
 
     if events.is_empty() {
         component
@@ -1249,7 +1701,7 @@ pub(crate) fn component_to_tokens(
 }
 
 pub(crate) fn event_from_attribute_node(
-    attr: &NodeAttribute,
+    attr: &KeyedAttribute,
     force_undelegated: bool,
 ) -> (TokenStream, &Expr) {
     let event_name = attr
@@ -1309,7 +1761,7 @@ fn ident_from_tag_name(tag_name: &NodeName) -> Ident {
 fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
     match expr {
         syn::Expr::Block(block) => block.block.stmts.last().and_then(|stmt| {
-            if let syn::Stmt::Expr(expr) = stmt {
+            if let syn::Stmt::Expr(expr, ..) = stmt {
                 expr_to_ident(expr)
             } else {
                 None
@@ -1317,6 +1769,34 @@ fn expr_to_ident(expr: &syn::Expr) -> Option<&ExprPath> {
         }),
         syn::Expr::Path(path) => Some(path),
         _ => None,
+    }
+}
+
+fn is_slot(node: &KeyedAttribute) -> bool {
+    let key = node.key.to_string();
+    let key = key.trim();
+    key == "slot" || key.starts_with("slot:")
+}
+
+fn get_slot(node: &NodeElement) -> Option<&KeyedAttribute> {
+    node.attributes().iter().find_map(|node| {
+        if let NodeAttribute::Attribute(node) = node {
+            if is_slot(node) {
+                Some(node)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    })
+}
+
+fn convert_to_snake_case(name: String) -> String {
+    if !name.is_case(Snake) {
+        name.to_case(Snake)
+    } else {
+        name
     }
 }
 
@@ -1328,7 +1808,7 @@ fn is_self_closing(node: &NodeElement) -> bool {
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
     matches!(
-        node.name.to_string().as_str(),
+        node.name().to_string().as_str(),
         "area"
             | "base"
             | "br"
@@ -1483,48 +1963,226 @@ fn parse_event(event_name: &str) -> (&str, bool) {
 fn fancy_class_name<'a>(
     name: &str,
     cx: &Ident,
-    node: &'a NodeAttribute,
+    node: &'a KeyedAttribute,
 ) -> Option<(TokenStream, String, &'a Expr)> {
     // special case for complex class names:
     // e.g., Tailwind `class=("mt-[calc(100vh_-_3rem)]", true)`
     if name == "class" {
-        if let Some(expr) = node.value.as_ref() {
-            if let syn::Expr::Tuple(tuple) = expr.as_ref() {
-                if tuple.elems.len() == 2 {
-                    let span = node.key.span();
-                    let class = quote_spanned! {
-                        span => .class
-                    };
-                    let class_name = &tuple.elems[0];
-                    let class_name = if let Expr::Lit(ExprLit {
-                        lit: Lit::Str(s),
-                        ..
-                    }) = class_name
-                    {
-                        s.value()
-                    } else {
-                        proc_macro_error::emit_error!(
-                            class_name.span(),
-                            "class name must be a string literal"
-                        );
-                        Default::default()
-                    };
-                    let value = &tuple.elems[1];
-                    return Some((
-                        quote! {
-                            #class(#class_name, (#cx, #value))
-                        },
-                        class_name,
-                        value,
-                    ));
+        if let Some(Tuple(tuple)) = node.value() {
+            if tuple.elems.len() == 2 {
+                let span = node.key.span();
+                let class = quote_spanned! {
+                    span => .class
+                };
+                let class_name = &tuple.elems[0];
+                let class_name = if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s),
+                    ..
+                }) = class_name
+                {
+                    s.value()
                 } else {
                     proc_macro_error::emit_error!(
-                        tuple.span(),
-                        "class tuples must have two elements."
-                    )
-                }
+                        class_name.span(),
+                        "class name must be a string literal"
+                    );
+                    Default::default()
+                };
+                let value = &tuple.elems[1];
+                return Some((
+                    quote! {
+                        #class(#class_name, (#cx, #value))
+                    },
+                    class_name,
+                    value,
+                ));
+            } else {
+                proc_macro_error::emit_error!(
+                    tuple.span(),
+                    "class tuples must have two elements."
+                )
             }
         }
     }
     None
+}
+
+fn fancy_style_name<'a>(
+    name: &str,
+    cx: &Ident,
+    node: &'a KeyedAttribute,
+) -> Option<(TokenStream, String, &'a Expr)> {
+    // special case for complex dynamic style names:
+    if name == "style" {
+        if let Some(Tuple(tuple)) = node.value() {
+            if tuple.elems.len() == 2 {
+                let span = node.key.span();
+                let style = quote_spanned! {
+                    span => .style
+                };
+                let style_name = &tuple.elems[0];
+                let style_name = if let Expr::Lit(ExprLit {
+                    lit: Lit::Str(s),
+                    ..
+                }) = style_name
+                {
+                    s.value()
+                } else {
+                    proc_macro_error::emit_error!(
+                        style_name.span(),
+                        "style name must be a string literal"
+                    );
+                    Default::default()
+                };
+                let value = &tuple.elems[1];
+                return Some((
+                    quote! {
+                        #style(#style_name, (#cx, #value))
+                    },
+                    style_name,
+                    value,
+                ));
+            } else {
+                proc_macro_error::emit_error!(
+                    tuple.span(),
+                    "style tuples must have two elements."
+                )
+            }
+        }
+    }
+    None
+}
+
+/// Helper type to emit semantic info about tags, for IDE.
+/// Implement `IntoIterator` with `Item="let _ = foo::docs;"`.
+///
+/// `IdeTagHelper` uses warning instead of errors everywhere,
+/// it's aim is to add usability, not introduce additional typecheck in `view`/`template` code.
+/// On stable `emit_warning` don't produce anything.
+pub(crate) struct IdeTagHelper(Vec<TokenStream>);
+
+// TODO: Unhandled cases:
+// - svg::div, my_elements::foo - tags with custom paths, that doesnt look like component
+// - my_component::Foo - components with custom paths
+// - html:div - tags punctuated by `:`
+// - {div}, {"div"} - any rust expression
+impl IdeTagHelper {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+    /// Save stmts for tag name.
+    /// Emit warning if tag is component.
+    pub fn save_tag_completion(&mut self, name: &NodeName) {
+        let tag_name = name.to_string();
+        if is_component_tag_name(&tag_name) {
+            proc_macro_error::emit_warning!(
+                name.span(),
+                "BUG: Component tag is used in regular tag completion."
+            );
+        }
+        for path in Self::completion_stmts(name) {
+            self.0.push(quote! {
+                    let _ = #path;
+            });
+        }
+    }
+
+    /// Save stmts for open and close tags.
+    /// Emit warning if tag is component.
+    pub fn save_element_completion(&mut self, node: &NodeElement) {
+        self.save_tag_completion(node.name());
+        if let Some(close_tag) = node.close_tag.as_ref().map(|c| &c.name) {
+            self.save_tag_completion(close_tag)
+        }
+    }
+
+    /// Add completion to the closing tag of the component.
+    ///
+    /// In order to ensure that generics are passed through correctly in the
+    /// current builder pattern, this clones the whole component constructor,
+    /// but it will never be used.
+    ///
+    /// ```no_build
+    /// if false {
+    ///     close_tag(cx, unreachable!())
+    /// }
+    /// else {
+    ///     open_tag(open_tag.props().slots().children().build())
+    /// }
+    /// ```
+    pub fn add_component_completion(
+        component: &mut TokenStream,
+        node: &NodeElement,
+    ) {
+        // emit ide helper info
+        if node.close_tag.is_some() {
+            let constructor = component.clone();
+            *component = quote! {
+                if false {
+                    #[allow(unreachable_code)]
+                    #constructor
+                } else {
+                    #component
+                }
+            }
+        }
+    }
+
+    /// Returns `syn::Path`-like `TokenStream` to the fn in docs.
+    /// If tag name is `Component` returns `None`.
+    fn create_regular_tag_fn_path(name: &Ident) -> TokenStream {
+        let tag_name = name.to_string();
+        let namespace = if crate::view::is_svg_element(&tag_name) {
+            quote! { leptos::leptos_dom::svg }
+        } else if crate::view::is_math_ml_element(&tag_name) {
+            quote! { leptos::leptos_dom::math }
+        } else {
+            // todo: check is html, and emit_warning in case of custom tag
+            quote! { leptos::leptos_dom::html }
+        };
+        quote!( #namespace::#name)
+    }
+
+    /// Returns `syn::Path`-like `TokenStream` to the `custom` section in docs.
+    fn create_custom_tag_fn_path(span: Span) -> TokenStream {
+        let custom_ident = Ident::new("custom", span);
+        quote! {leptos::leptos_dom::html::#custom_ident::<leptos::leptos_dom::html::Custom>}
+    }
+
+    // Extract from NodeName completion idents.
+    // Custom tags (like foo-bar-baz) is mapped
+    // to vec!["custom", "custom",.. ] for each token in tag, even for "-".
+    // Only last ident from `Path` is used.
+    fn completion_stmts(name: &NodeName) -> Vec<TokenStream> {
+        match name {
+            NodeName::Block(_) => vec![],
+            NodeName::Punctuated(c) => c
+                .pairs()
+                .flat_map(|c| {
+                    let mut idents =
+                        vec![Self::create_custom_tag_fn_path(c.value().span())];
+                    if let Some(p) = c.punct() {
+                        idents.push(Self::create_custom_tag_fn_path(p.span()))
+                    }
+                    idents
+                })
+                .collect(),
+            NodeName::Path(e) => e
+                .path
+                .segments
+                .last()
+                .map(|p| &p.ident)
+                .map(Self::create_regular_tag_fn_path)
+                .into_iter()
+                .collect(),
+        }
+    }
+}
+
+impl IntoIterator for IdeTagHelper {
+    type Item = TokenStream;
+    type IntoIter = <Vec<TokenStream> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
 }

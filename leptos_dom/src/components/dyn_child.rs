@@ -158,8 +158,8 @@ where
     N: IntoView,
 {
     #[cfg_attr(
-        debug_assertions,
-        instrument(level = "trace", name = "<DynChild />", skip_all)
+        any(debug_assertions, feature = "ssr"),
+        instrument(level = "info", name = "<DynChild />", skip_all)
     )]
     #[inline]
     fn into_view(self, cx: Scope) -> View {
@@ -273,19 +273,49 @@ where
                             // I can imagine some edge case that the child changes while
                             // hydration is ongoing
                             if !HydrationCtx::is_hydrating() {
-                                if !was_child_moved && child != new_child {
+                                let same_child = child == new_child;
+                                if !was_child_moved && !same_child {
                                     // Remove the child
                                     let start = child.get_opening_node();
                                     let end = &closing;
 
-                                    unmount_child(&start, end);
+                                    match child {
+                                        View::CoreComponent(
+                                            crate::CoreComponent::DynChild(
+                                                child,
+                                            ),
+                                        ) => {
+                                            let start =
+                                                child.get_opening_node();
+                                            let end = child.closing.node;
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
+                                        }
+                                        View::Component(child) => {
+                                            let start =
+                                                child.get_opening_node();
+                                            let end = child.closing.node;
+                                            prepare_to_move(
+                                                &child.document_fragment,
+                                                &start,
+                                                &end,
+                                            );
+                                        }
+                                        _ => unmount_child(&start, end),
+                                    }
                                 }
 
                                 // Mount the new child
-                                mount_child(
-                                    MountKind::Before(&closing),
-                                    &new_child,
-                                );
+                                // If it's the same child, don't re-mount
+                                if !same_child {
+                                    mount_child(
+                                        MountKind::Before(&closing),
+                                        &new_child,
+                                    );
+                                }
                             }
 
                             // We want to reuse text nodes, so hold onto it if
@@ -376,7 +406,7 @@ cfg_if! {
     if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
         use web_sys::Node;
 
-        trait NonViewMarkerSibling {
+        pub(crate) trait NonViewMarkerSibling {
             fn next_non_view_marker_sibling(&self) -> Option<Node>;
 
             fn previous_non_view_marker_sibling(&self) -> Option<Node>;

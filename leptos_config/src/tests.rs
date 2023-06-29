@@ -31,9 +31,6 @@ fn env_w_default_test() {
 
 #[test]
 fn try_from_env_test() {
-    std::env::remove_var("LEPTOS_OUTPUT_NAME");
-    assert!(LeptosOptions::try_from_env().is_err());
-
     // Test config values from environment variables
     std::env::set_var("LEPTOS_OUTPUT_NAME", "app_test");
     std::env::set_var("LEPTOS_SITE_ROOT", "my_target/site");
@@ -51,19 +48,4 @@ fn try_from_env_test() {
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
-
-    // Test default config values
-    std::env::remove_var("LEPTOS_SITE_ROOT");
-    std::env::remove_var("LEPTOS_SITE_PKG_DIR");
-    std::env::remove_var("LEPTOS_SITE_ADDR");
-    std::env::remove_var("LEPTOS_RELOAD_PORT");
-
-    let config = LeptosOptions::try_from_env().unwrap();
-    assert_eq!(config.site_root, "target/site");
-    assert_eq!(config.site_pkg_dir, "pkg");
-    assert_eq!(
-        config.site_addr,
-        SocketAddr::from_str("127.0.0.1:3000").unwrap()
-    );
-    assert_eq!(config.reload_port, 3001);
 }

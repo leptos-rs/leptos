@@ -39,7 +39,7 @@ struct ContactSearch {
 
 Now we can use them in a component. Imagine a URL that has both params and a query, like `/contacts/:id?q=Search`.
 
-The typed versions return `Memo<Result<T>, _>`. It’s a Memo so it reacts to changes in the URL. It’s a `Result` because the params or query need to be parsed from the URL, and may or may not be valid.
+The typed versions return `Memo<Result<T, _>>`. It’s a Memo so it reacts to changes in the URL. It’s a `Result` because the params or query need to be parsed from the URL, and may or may not be valid.
 
 ```rust
 let params = use_params::<ContactParams>(cx);

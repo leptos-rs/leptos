@@ -3,7 +3,7 @@ use leptos_reactive::{
     create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal,
     RwSignal, Scope, StoredValue,
 };
-use std::{future::Future, pin::Pin, rc::Rc};
+use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
 /// An action synchronizes an imperative `async` call to the synchronous reactive system.
 ///
@@ -35,24 +35,24 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input(), None); // no argument yet
-/// assert_eq!(pending(), false); // isn't pending a response
-/// assert_eq!(result_of_call(), None); // there's no "last value"
-/// assert_eq!(version(), 0);
+/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(pending.get(), false); // isn't pending a response
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(version.get(), 0);
 /// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// // assert_eq!(input(), Some("My todo".to_string()));
-/// // assert_eq!(pending(), true); // is pending
-/// // assert_eq!(result_of_call(), None); // has not yet gotten a response
+/// // assert_eq!(input.get(), Some("My todo".to_string()));
+/// // assert_eq!(pending.get(), true); // is pending
+/// // assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// // after call has resolved
-/// assert_eq!(input(), None); // input clears out after resolved
-/// assert_eq!(pending(), false); // no longer pending
-/// assert_eq!(result_of_call(), Some(42));
-/// assert_eq!(version(), 1);
+/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(pending.get(), false); // no longer pending
+/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(version.get(), 1);
 /// # }
 /// # });
 /// ```
@@ -89,18 +89,47 @@ where
     O: 'static,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn dispatch(&self, input: I) {
         self.0.with_value(|a| a.dispatch(input))
     }
 
     /// Whether the action has been dispatched and is currently waiting for its future to be resolved.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn pending(&self) -> ReadSignal<bool> {
         self.0.with_value(|a| a.pending.read_only())
     }
 
-    /// Updates whether the action is currently pending.
+    /// Updates whether the action is currently pending. If the action has been dispatched
+    /// multiple times, and some of them are still pending, it will *not* update the `pending`
+    /// signal.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn set_pending(&self, pending: bool) {
-        self.0.try_with_value(|a| a.pending.set(pending));
+        self.0.try_with_value(|a| {
+            let pending_dispatches = &a.pending_dispatches;
+            let still_pending = {
+                pending_dispatches.set(if pending {
+                    pending_dispatches.get().wrapping_add(1)
+                } else {
+                    pending_dispatches.get().saturating_sub(1)
+                });
+                pending_dispatches.get()
+            };
+            if still_pending == 0 {
+                a.pending.set(false);
+            } else {
+                a.pending.set(true);
+            }
+        });
     }
 
     /// The URL associated with the action (typically as part of a server function.)
@@ -111,6 +140,10 @@ where
 
     /// Associates the URL of the given server function with this action.
     /// This enables integration with the `ActionForm` component in `leptos_router`.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn using_server_fn<T: ServerFn>(self) -> Self {
         let prefix = T::prefix();
         self.0.update_value(|state| {
@@ -130,11 +163,19 @@ where
 
     /// The current argument that was dispatched to the `async` function.
     /// `Some` while we are waiting for it to resolve, `None` if it has resolved.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn input(&self) -> RwSignal<Option<I>> {
         self.0.with_value(|a| a.input)
     }
 
     /// The most recent return value of the `async` function.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn value(&self) -> RwSignal<Option<O>> {
         self.0.with_value(|a| a.value)
     }
@@ -162,6 +203,7 @@ where
     I: 'static,
     O: 'static,
 {
+    cx: Scope,
     /// How many times the action has successfully resolved.
     pub version: RwSignal<usize>,
     /// The current argument that was dispatched to the `async` function.
@@ -171,6 +213,8 @@ where
     pub value: RwSignal<Option<O>>,
     pending: RwSignal<bool>,
     url: Option<String>,
+    /// How many dispatched actions are still pending.
+    pending_dispatches: Rc<Cell<usize>>,
     #[allow(clippy::complexity)]
     action_fn: Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = O>>>>,
 }
@@ -181,20 +225,33 @@ where
     O: 'static,
 {
     /// Calls the `async` function with a reference to the input type as its argument.
+    #[cfg_attr(
+        any(debug_assertions, feature = "ssr"),
+        tracing::instrument(level = "trace", skip_all,)
+    )]
     pub fn dispatch(&self, input: I) {
         let fut = (self.action_fn)(&input);
         self.input.set(Some(input));
         let input = self.input;
         let version = self.version;
         let pending = self.pending;
+        let pending_dispatches = Rc::clone(&self.pending_dispatches);
         let value = self.value;
+        let cx = self.cx;
         pending.set(true);
+        pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
         spawn_local(async move {
             let new_value = fut.await;
-            value.set(Some(new_value));
-            input.set(None);
-            pending.set(false);
-            version.update(|n| *n += 1);
+            cx.batch(move || {
+                value.set(Some(new_value));
+                input.set(None);
+                version.update(|n| *n += 1);
+                pending_dispatches
+                    .set(pending_dispatches.get().saturating_sub(1));
+                if pending_dispatches.get() == 0 {
+                    pending.set(false);
+                }
+            });
         })
     }
 }
@@ -230,24 +287,24 @@ where
 /// let version = save_data.version();
 ///
 /// // before we do anything
-/// assert_eq!(input(), None); // no argument yet
-/// assert_eq!(pending(), false); // isn't pending a response
-/// assert_eq!(result_of_call(), None); // there's no "last value"
-/// assert_eq!(version(), 0);
+/// assert_eq!(input.get(), None); // no argument yet
+/// assert_eq!(pending.get(), false); // isn't pending a response
+/// assert_eq!(result_of_call.get(), None); // there's no "last value"
+/// assert_eq!(version.get(), 0);
 /// # if false {
 /// // dispatch the action
 /// save_data.dispatch("My todo".to_string());
 ///
 /// // when we're making the call
-/// // assert_eq!(input(), Some("My todo".to_string()));
-/// // assert_eq!(pending(), true); // is pending
-/// // assert_eq!(result_of_call(), None); // has not yet gotten a response
+/// // assert_eq!(input.get(), Some("My todo".to_string()));
+/// // assert_eq!(pending.get(), true); // is pending
+/// // assert_eq!(result_of_call.get(), None); // has not yet gotten a response
 ///
 /// // after call has resolved
-/// assert_eq!(input(), None); // input clears out after resolved
-/// assert_eq!(pending(), false); // no longer pending
-/// assert_eq!(result_of_call(), Some(42));
-/// assert_eq!(version(), 1);
+/// assert_eq!(input.get(), None); // input clears out after resolved
+/// assert_eq!(pending.get(), false); // no longer pending
+/// assert_eq!(result_of_call.get(), Some(42));
+/// assert_eq!(version.get(), 1);
 /// # }
 /// # });
 /// ```
@@ -273,6 +330,10 @@ where
 ///     create_action(cx, |input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn create_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> Action<I, O>
 where
     I: 'static,
@@ -284,6 +345,7 @@ where
     let input = create_rw_signal(cx, None);
     let value = create_rw_signal(cx, None);
     let pending = create_rw_signal(cx, false);
+    let pending_dispatches = Rc::new(Cell::new(0));
     let action_fn = Rc::new(move |input: &I| {
         let fut = action_fn(input);
         Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
@@ -292,11 +354,13 @@ where
     Action(store_value(
         cx,
         ActionState {
+            cx,
             version,
             url: None,
             input,
             value,
             pending,
+            pending_dispatches,
             action_fn,
         },
     ))
@@ -316,6 +380,10 @@ where
 /// let my_server_action = create_server_action::<MyServerFn>(cx);
 /// # });
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    tracing::instrument(level = "trace", skip_all,)
+)]
 pub fn create_server_action<S>(
     cx: Scope,
 ) -> Action<S, Result<S::Output, ServerFnError>>

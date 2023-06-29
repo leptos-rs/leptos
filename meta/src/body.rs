@@ -1,26 +1,37 @@
 use cfg_if::cfg_if;
 use leptos::*;
+#[cfg(feature = "ssr")]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<body>`.
 #[derive(Clone, Default)]
 pub struct BodyContext {
+    #[cfg(feature = "ssr")]
     class: Rc<RefCell<Option<TextProp>>>,
+    #[cfg(feature = "ssr")]
     attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
 impl BodyContext {
     /// Converts the `<body>` metadata into an HTML string.
+    #[cfg(any(feature = "ssr", doc))]
     pub fn as_string(&self) -> Option<String> {
-        let class = self
-            .class
-            .borrow()
-            .as_ref()
-            .map(|val| format!("class=\"{}\"", val.get()));
+        let class = self.class.borrow().as_ref().map(|val| {
+            format!(
+                "class=\"{}\"",
+                leptos::leptos_dom::ssr::escape_attr(&val.get())
+            )
+        });
         let attributes = self.attributes.borrow().as_ref().map(|val| {
             val.with(|val| {
                 val.into_iter()
-                    .map(|(n, v)| format!("{}=\"{}\"", n, v.get()))
+                    .map(|(n, v)| {
+                        format!(
+                            "{}=\"{}\"",
+                            n,
+                            leptos::leptos_dom::ssr::escape_attr(&v.get())
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join(" ")
             })
@@ -57,7 +68,7 @@ impl std::fmt::Debug for BodyContext {
 ///     provide_meta_context(cx);
 ///     let (prefers_dark, set_prefers_dark) = create_signal(cx, false);
 ///     let body_class = move || {
-///         if prefers_dark() {
+///         if prefers_dark.get() {
 ///             "dark".to_string()
 ///         } else {
 ///             "light".to_string()
@@ -81,9 +92,6 @@ pub fn Body(
     #[prop(optional, into)]
     attributes: Option<MaybeSignal<AdditionalAttributes>>,
 ) -> impl IntoView {
-    #[cfg(debug_assertions)]
-    crate::feature_warning();
-
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
             let el = document().body().expect("there to be a <body> element");
@@ -110,10 +118,17 @@ pub fn Body(
                     });
                 }
             }
-        } else {
+        } else if #[cfg(feature = "ssr")] {
             let meta = crate::use_head(cx);
             *meta.body.class.borrow_mut() = class;
             *meta.body.attributes.borrow_mut() = attributes;
+        } else {
+            _ = cx;
+            _ = class;
+            _ = attributes;
+
+            #[cfg(debug_assertions)]
+            crate::feature_warning();
         }
     }
 }

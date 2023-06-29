@@ -12,20 +12,21 @@ readme = "../README.md"
 proc-macro = true
 
 [dependencies]
-attribute-derive = { version = "0.5", features = ["syn-full"] }
+attribute-derive = { version = "0.6", features = ["syn-full"] }
 cfg-if = "1"
 html-escape = "0.2"
 itertools = "0.10"
-prettyplease = "0.1"
+prettyplease = "0.2.4"
 proc-macro-error = "1"
 proc-macro2 = "1"
 quote = "1"
-syn = { version = "1", features = ["full"] }
-syn-rsx = "0.9"
+syn = { version = "2", features = ["full"] }
+rstml = "0.10.6"
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = "0.6.0"
 uuid = { version = "1", features = ["v4"] }
+tracing = "0.1.37"
 
 [dev-dependencies]
 log = "0.4"
@@ -38,9 +39,9 @@ default = ["ssr"]
 csr = []
 hydrate = []
 ssr = []
-stable = ["server_fn_macro/stable"]
+nightly = ["server_fn_macro/nightly"]
 tracing = []
 
 [package.metadata.cargo-all-features]
-denylist = ["stable", "tracing"]
+denylist = ["nightly", "tracing"]
 skip_feature_sets = [["csr", "hydrate"], ["hydrate", "csr"], ["hydrate", "ssr"]]

@@ -209,16 +209,14 @@ async fn handle_server_fns_inner(
                             // Add this so that we can set headers and status of the response
                             provide_context(cx, ResponseOptions::default());
 
-                            let data = match &server_fn.encoding {
+                            let data = match &server_fn.encoding() {
                                 Encoding::Url | Encoding::Cbor => {
                                     &req_parts.body
                                 }
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            let res = match (server_fn.trait_obj)(cx, data)
-                                .await
-                            {
+                            let res = match server_fn.call(cx, data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -314,9 +312,10 @@ async fn handle_server_fns_inner(
                                 .body(Body::from(format!(
                                     "Could not find a server function at the \
                                      route {fn_name}. \n\nIt's likely that \
-                                     you need to call ServerFn::register() on \
-                                     the server function type, somewhere in \
-                                     your `main` function."
+                                     you need to call \
+                                     ServerFn::register_explicit() on the \
+                                     server function type, somewhere in your \
+                                     `main` function."
                                 )))
                         }
                         .expect("could not build Response");
@@ -507,6 +506,48 @@ pub fn render_app_to_stream_with_context<IV>(
 where
     IV: IntoView,
 {
+    render_app_to_stream_with_context_and_replace_blocks(
+        options,
+        additional_context,
+        app_fn,
+        false,
+    )
+}
+
+/// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
+/// to route it using [leptos_router], serving an HTML stream of your application.
+///
+/// This version allows us to pass Viz State/Extractor or other infro from Viz or network
+/// layers above Leptos itself. To use it, you'll need to write your own handler function that provides
+/// the data to leptos in a closure.
+///
+/// `replace_blocks` additionally lets you specify whether `<Suspense/>` fragments that read
+/// from blocking resources should be retrojected into the HTML that's initially served, rather
+/// than dynamically inserting them with JavaScript on the client. This means you will have
+/// better support if JavaScript is not enabled, in exchange for a marginally slower response time.
+///
+/// Otherwise, this function is identical to [render_app_to_stream_with_context].
+///
+/// ## Provided Context Types
+/// This function always provides context values including the following types:
+/// - [RequestParts]
+/// - [ResponseOptions]
+/// - [MetaContext](leptos_meta::MetaContext)
+/// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
+pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
+    options: LeptosOptions,
+    additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
+    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    replace_blocks: bool,
+) -> impl Fn(
+    Request,
+) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
+       + Clone
+       + Send
+       + 'static
+where
+    IV: IntoView,
+{
     move |req: Request| {
         Box::pin({
             let options = options.clone();
@@ -548,10 +589,11 @@ where
                                             };
 
                                             let (bundle, runtime, scope) =
-                                                leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context(
+                                                leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
                                                     app,
                                                     |cx| generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
+                                                    replace_blocks
                                                 );
 
                                                 forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
@@ -950,6 +992,19 @@ pub async fn generate_route_list<IV>(
 where
     IV: IntoView + 'static,
 {
+    generate_route_list_with_exclusions(app_fn, None).await
+}
+
+/// Generates a list of all routes defined in Leptos's Router in your app. We can then use this to automatically
+/// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
+/// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
+pub async fn generate_route_list_with_exclusions<IV>(
+    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    excluded_routes: Option<Vec<String>>,
+) -> Vec<RouteListing>
+where
+    IV: IntoView + 'static,
+{
     #[derive(Default, Clone, Debug)]
     pub struct Routes(pub Arc<RwLock<Vec<RouteListing>>>);
 
@@ -973,15 +1028,15 @@ where
 
     let routes = routes.0.read().to_owned();
     // Viz's Router defines Root routes as "/" not ""
-    let routes = routes
+    let mut routes = routes
         .into_iter()
         .map(|listing| {
             let path = listing.path();
             if path.is_empty() {
                 RouteListing::new(
-                    "/",
-                    Default::default(),
-                    [leptos_router::Method::Get],
+                    "/".to_string(),
+                    listing.mode(),
+                    listing.methods(),
                 )
             } else {
                 listing
@@ -996,6 +1051,9 @@ where
             [leptos_router::Method::Get],
         )]
     } else {
+        if let Some(excluded_routes) = excluded_routes {
+            routes.retain(|p| !excluded_routes.iter().any(|e| e == p.path()))
+        }
         routes
     }
 }
@@ -1067,6 +1125,22 @@ impl LeptosRoutes for Router {
                         additional_context.clone(),
                         app_fn.clone(),
                     );
+                    match method {
+                        leptos_router::Method::Get => router.get(path, s),
+                        leptos_router::Method::Post => router.post(path, s),
+                        leptos_router::Method::Put => router.put(path, s),
+                        leptos_router::Method::Delete => router.delete(path, s),
+                        leptos_router::Method::Patch => router.patch(path, s),
+                    }
+                }
+                SsrMode::PartiallyBlocked => {
+                    let s =
+                        render_app_to_stream_with_context_and_replace_blocks(
+                            options.clone(),
+                            additional_context.clone(),
+                            app_fn.clone(),
+                            true,
+                        );
                     match method {
                         leptos_router::Method::Get => router.get(path, s),
                         leptos_router::Method::Post => router.post(path, s),

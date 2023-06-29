@@ -10,12 +10,10 @@ crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
-leptos = { path = "../../leptos", default-features = false, features = [
-  "serde",
-] }
+leptos = { path = "../../leptos", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
-leptos_meta = { path = "../../meta", default-features = false }
-leptos_router = { path = "../../router", default-features = false }
+leptos_meta = { path = "../../meta", features = ["nightly"] }
+leptos_router = { path = "../../router", features = ["nightly"] }
 gloo-net = { version = "0.2", features = ["http"] }
 log = "0.4"
 cfg-if = "1.0"
@@ -96,6 +94,7 @@ site-addr = "127.0.0.1:3000"
 reload-port = 3001
 # [Optional] Command to use when running end2end tests. It will run in the end2end dir.
 end2end-cmd = "npx playwright test"
+end2end-dir = "end2end"
 #  The browserlist query used for optimizing the CSS.
 browserquery = "defaults"
 # Set by cargo-leptos watch when building with tha tool. Controls whether autoreload JS will be included in the head

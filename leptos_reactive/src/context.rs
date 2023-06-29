@@ -43,10 +43,12 @@ use std::any::{Any, TypeId};
 ///     // consume the provided context of type `ValueSetter` using `use_context`
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
-///
-///     todo!()
 /// }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn provide_context<T>(cx: Scope, value: T)
 where
     T: Clone + 'static,
@@ -103,9 +105,12 @@ where
 ///     // this traverses up the tree of `Scope`s and gets the nearest provided `ValueSetter`
 ///     let set_value = use_context::<ValueSetter>(cx).unwrap().0;
 ///
-///     todo!()
 /// }
 /// ```
+#[cfg_attr(
+    any(debug_assertions, feature = "ssr"),
+    instrument(level = "info", skip_all,)
+)]
 pub fn use_context<T>(cx: Scope) -> Option<T>
 where
     T: Clone + 'static,

@@ -8,6 +8,8 @@
 [![Discord](https://img.shields.io/discord/1031524867910148188?color=%237289DA&label=discord)](https://discord.gg/YdRAhS7eQB)
 [![Matrix](https://img.shields.io/badge/Matrix-leptos-grey?logo=matrix&labelColor=white&logoColor=black)](https://matrix.to/#/#leptos:matrix.org)
 
+[Website](https://leptos.dev) | [Book](https://leptos-rs.github.io/leptos/) | [Docs.rs](https://docs.rs/leptos/latest/leptos/) | [Playground](https://codesandbox.io/p/sandbox/leptos-rtfggt?file=%2Fsrc%2Fmain.rs%3A1%2C1) | [Discord](https://discord.gg/YdRAhS7eQB)
+
 # Leptos
 
 ```rust
@@ -66,7 +68,7 @@ Here are some resources for learning more about Leptos:
 
 ## `nightly` Note
 
-Most of the examples assume you’re using `nightly` version of Rust. For this, you can either set your toolchain globally or on per-project basis.
+Most of the examples assume you’re using `nightly` version of Rust and the `nightly` feature of Leptos. To use `nightly` Rust, you can either set your toolchain globally or on per-project basis.
 
 To set `nightly` as a default toolchain for all projects (and add the ability to compile Rust to WebAssembly, if you haven’t already):
 
@@ -84,13 +86,9 @@ channel = "nightly"
 targets = ["wasm32-unknown-unknown"]
 ```
 
-If you’re on `stable`, note the following:
+The `nightly` feature enables the function call syntax for accessing and setting signals, as opposed to `.get()` and `.set()`. This leads to a consistent mental model in which accessing a reactive value of any kind (a signal, memo, or derived signal) is always represented as a function call. This is only possible with nightly Rust and the `nightly` feature.
 
-1. You need to enable the `"stable"` flag in `Cargo.toml`: `leptos = { version = "0.2", features = ["stable"] }`
-2. `nightly` enables the function call syntax for accessing and setting signals. If you’re using `stable`,
-   you’ll just call `.get()`, `.set()`, or `.update()` manually. Check out the
-   [`counters_stable` example](https://github.com/leptos-rs/leptos/blob/main/examples/counters_stable/src/main.rs)
-   for examples of the correct API.
+> Note: The `nightly` feature is present on the main branch version right now, but not in 0.3.x. For 0.3.x, nightly is the default and `stable` has a special feature.
 
 ## `cargo-leptos`
 

@@ -37,6 +37,10 @@ pub fn create_scope(
 /// values will not have access to values created under another `create_scope`.
 ///
 /// You usually don't need to call this manually.
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    instrument(level = "trace", skip_all,)
+)]
 pub fn raw_scope_and_disposer(runtime: RuntimeId) -> (Scope, ScopeDisposer) {
     runtime.raw_scope_and_disposer()
 }
@@ -48,6 +52,10 @@ pub fn raw_scope_and_disposer(runtime: RuntimeId) -> (Scope, ScopeDisposer) {
 /// of the synchronous operation.
 ///
 /// You usually don't need to call this manually.
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    instrument(level = "trace", skip_all,)
+)]
 pub fn run_scope<T>(
     runtime: RuntimeId,
     f: impl FnOnce(Scope) -> T + 'static,
@@ -61,6 +69,10 @@ pub fn run_scope<T>(
 /// If you do not dispose of the scope on your own, memory will leak.
 ///
 /// You usually don't need to call this manually.
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    instrument(level = "trace", skip_all,)
+)]
 pub fn run_scope_undisposed<T>(
     runtime: RuntimeId,
     f: impl FnOnce(Scope) -> T + 'static,
@@ -116,6 +128,10 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     #[inline(always)]
     pub fn child_scope(self, f: impl FnOnce(Scope)) -> ScopeDisposer {
         let (_, disposer) = self.run_child_scope(f);
@@ -131,6 +147,10 @@ impl Scope {
     /// This is useful for applications like a list or a router, which may want to create child scopes and
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     #[inline(always)]
     pub fn run_child_scope<T>(
         self,
@@ -169,20 +189,24 @@ impl Scope {
     /// let (b, set_b) = create_signal(cx, 0);
     /// let c = create_memo(cx, move |_| {
     ///     // this memo will *only* update when `a` changes
-    ///     a() + cx.untrack(move || b())
+    ///     a.get() + cx.untrack(move || b.get())
     /// });
     ///
-    /// assert_eq!(c(), 0);
-    /// set_a(1);
-    /// assert_eq!(c(), 1);
-    /// set_b(1);
+    /// assert_eq!(c.get(), 0);
+    /// set_a.set(1);
+    /// assert_eq!(c.get(), 1);
+    /// set_b.set(1);
     /// // hasn't updated, because we untracked before reading b
-    /// assert_eq!(c(), 1);
-    /// set_a(2);
-    /// assert_eq!(c(), 3);
+    /// assert_eq!(c.get(), 1);
+    /// set_a.set(2);
+    /// assert_eq!(c.get(), 3);
     ///
     /// # });
     /// ```
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     #[inline(always)]
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, |runtime| {
@@ -228,6 +252,10 @@ impl Scope {
     /// 1. dispose of all child `Scope`s
     /// 2. run all cleanup functions defined for this scope by [`on_cleanup`](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn dispose(self) {
         _ = with_runtime(self.runtime, |runtime| {
             // dispose of all child scopes
@@ -301,7 +329,10 @@ impl Scope {
             }
         })
     }
-
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub(crate) fn push_scope_property(&self, prop: ScopeProperty) {
         _ = with_runtime(self.runtime, |runtime| {
             let scopes = runtime.scopes.borrow();
@@ -314,7 +345,10 @@ impl Scope {
             }
         })
     }
-
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     /// Returns the the parent Scope, if any.
     pub fn parent(&self) -> Option<Scope> {
         match with_runtime(self.runtime, |runtime| {
@@ -329,6 +363,10 @@ impl Scope {
     }
 }
 
+#[cfg_attr(
+    any(debug_assertions, features = "ssr"),
+    instrument(level = "trace", skip_all,)
+)]
 fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
     _ = with_runtime(cx.runtime, |runtime| {
         let mut cleanups = runtime.scope_cleanups.borrow_mut();
@@ -388,6 +426,10 @@ impl ScopeDisposer {
 
 impl Scope {
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn all_resources(&self) -> Vec<ResourceId> {
         with_runtime(self.runtime, |runtime| runtime.all_resources())
             .unwrap_or_default()
@@ -395,12 +437,20 @@ impl Scope {
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope that are
     /// pending from the server.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn pending_resources(&self) -> Vec<ResourceId> {
         with_runtime(self.runtime, |runtime| runtime.pending_resources())
             .unwrap_or_default()
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn serialization_resolvers(
         &self,
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
@@ -412,6 +462,10 @@ impl Scope {
 
     /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
     /// calling the `resolver` when its resources are all resolved.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn register_suspense(
         &self,
         context: SuspenseContext,
@@ -465,6 +519,10 @@ impl Scope {
     ///
     /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn pending_fragments(&self) -> HashMap<String, FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
@@ -474,6 +532,10 @@ impl Scope {
     }
 
     /// A future that will resolve when all blocking fragments are ready.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn blocking_fragments_ready(self) -> PinnedFuture<()> {
         use futures::StreamExt;
 
@@ -497,6 +559,10 @@ impl Scope {
     ///
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     pub fn take_pending_fragment(&self, id: &str) -> Option<FragmentData> {
         with_runtime(self.runtime, |runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
@@ -512,6 +578,10 @@ impl Scope {
     ///
     /// # Panics
     /// Panics if the runtime this scope belongs to has already been disposed.
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     #[inline(always)]
     pub fn batch<T>(&self, f: impl FnOnce() -> T) -> T {
         with_runtime(self.runtime, move |runtime| {

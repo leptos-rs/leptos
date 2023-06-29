@@ -7,10 +7,7 @@ pub mod error_template;
 pub mod fallback;
 pub mod handlers;
 mod routes;
-use routes::nav::*;
-use routes::stories::*;
-use routes::story::*;
-use routes::users::*;
+use routes::{nav::*, stories::*, story::*, users::*};
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
@@ -25,9 +22,9 @@ pub fn App(cx: Scope) -> impl IntoView {
                 <Nav />
                 <main>
                     <Routes>
-                        <Route path="users/:id" view=|cx| view! { cx,  <User/> }/>
-                        <Route path="stories/:id" view=|cx| view! { cx,  <Story/> }/>
-                        <Route path=":stories?" view=|cx| view! { cx,  <Stories/> }/>
+                        <Route path="users/:id" view=User/>
+                        <Route path="stories/:id" view=Story/>
+                        <Route path=":stories?" view=Stories/>
                     </Routes>
                 </main>
             </Router>

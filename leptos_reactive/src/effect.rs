@@ -29,25 +29,25 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// // ✅ use effects to interact between reactive state and the outside world
 /// create_effect(cx, move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
-///   log::debug!("Value: {}", a());
+///   log::debug!("Value: {}", a.get());
 /// });
 ///
-/// set_a(1);
+/// set_a.set(1);
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
 /// create_effect(cx, move |_| {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
-///   set_b(a() + 1);
+///   set_b.set(a.get() + 1);
 /// });
 /// # if !cfg!(feature = "ssr") {
-/// # assert_eq!(b(), 2);
+/// # assert_eq!(b.get(), 2);
 /// # }
 /// # }).dispose();
 /// ```
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -88,22 +88,22 @@ where
 /// // ✅ use effects to interact between reactive state and the outside world
 /// create_isomorphic_effect(cx, move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
-///   log::debug!("Value: {}", a());
+///   log::debug!("Value: {}", a.get());
 /// });
 ///
-/// set_a(1);
+/// set_a.set(1);
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
 /// create_isomorphic_effect(cx, move |_| {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
-///   set_b(a() + 1);
+///   set_b.set(a.get() + 1);
 /// });
-/// # assert_eq!(b(), 2);
+/// # assert_eq!(b.get(), 2);
 /// # }).dispose();
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -128,7 +128,7 @@ pub fn create_isomorphic_effect<T>(
 
 #[doc(hidden)]
 #[cfg_attr(
-    debug_assertions,
+    any(debug_assertions, feature="ssr"),
     instrument(
         level = "trace",
         skip_all,
@@ -153,7 +153,7 @@ where
 {
     pub(crate) f: F,
     pub(crate) ty: PhantomData<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -167,7 +167,7 @@ where
     F: Fn(Option<T>) -> T,
 {
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             name = "Effect::run()",
             level = "debug",

@@ -1,11 +1,11 @@
 use cfg_if::cfg_if;
-use leptos::*;
 // boilerplate to run in different modes
 cfg_if! {
-if #[cfg(feature = "ssr")] {
+    if #[cfg(feature = "ssr")] {
+    use leptos::*;
     use axum::{
         routing::{post, get},
-        extract::{Extension, Path},
+        extract::{State, Path},
         http::Request,
         response::{IntoResponse, Response},
         Router,
@@ -15,11 +15,10 @@ if #[cfg(feature = "ssr")] {
     use todo_app_sqlite_axum::*;
     use crate::fallback::file_and_error_handler;
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use std::sync::Arc;
 
     //Define a handler to test extractor with state
-    async fn custom_handler(Path(id): Path<String>, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<AxumBody>) -> Response{
-            let handler = leptos_axum::render_app_to_stream_with_context((*options).clone(),
+    async fn custom_handler(Path(id): Path<String>, State(options): State<LeptosOptions>, req: Request<AxumBody>) -> Response{
+            let handler = leptos_axum::render_app_to_stream_with_context(options,
             move |cx| {
                 provide_context(cx, id.clone());
             },
@@ -32,13 +31,18 @@ if #[cfg(feature = "ssr")] {
     async fn main() {
         simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
-        let conn = db().await.expect("couldn't connect to DB");
+        let _conn = db().await.expect("couldn't connect to DB");
         /* sqlx::migrate!()
             .run(&mut conn)
             .await
             .expect("could not run SQLx migrations"); */
 
-        crate::todo::register_server_functions();
+        // Explicit server function registration is no longer required
+        // on the main branch. On 0.3.0 and earlier, uncomment the lines
+        // below to register the server functions.
+        // _ = GetTodos::register();
+        // _ = AddTodo::register();
+        // _ = DeleteTodo::register();
 
         // Setting this to None means we'll be using cargo-leptos and its env vars
         let conf = get_configuration(None).await.unwrap();
@@ -50,9 +54,9 @@ if #[cfg(feature = "ssr")] {
         let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
         .route("/special/:id", get(custom_handler))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <TodoApp/> } )
+        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <TodoApp/> } )
         .fallback(file_and_error_handler)
-        .layer(Extension(Arc::new(leptos_options)));
+        .with_state(leptos_options);
 
         // run our app with hyper
         // `axum::Server` is a re-export of `hyper::Server`

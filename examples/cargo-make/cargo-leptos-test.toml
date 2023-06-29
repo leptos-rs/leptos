@@ -1,0 +1,5 @@
+[tasks.test-e2e]
+dependencies = ["setup-node", "cargo-leptos-e2e"]
+
+[tasks.clean-all]
+dependencies = ["clean-cargo", "clean-node_modules", "clean-playwright"]

@@ -3,19 +3,17 @@ use cfg_if::cfg_if;
 cfg_if! { if #[cfg(feature = "ssr")] {
     use axum::{
         body::{boxed, Body, BoxBody},
-        extract::Extension,
+        extract::State,
         response::IntoResponse,
         http::{Request, Response, StatusCode, Uri},
     };
     use axum::response::Response as AxumResponse;
     use tower::ServiceExt;
     use tower_http::services::ServeDir;
-    use std::sync::Arc;
-    use leptos::{LeptosOptions, Errors, view};
-    use crate::landing::{App, AppProps};
+    use leptos::{LeptosOptions, view};
+    use crate::landing::App;
 
-    pub async fn file_and_error_handler(uri: Uri, Extension(options): Extension<Arc<LeptosOptions>>, req: Request<Body>) -> AxumResponse {
-        let options = &*options;
+    pub async fn file_and_error_handler(uri: Uri, State(options): State<LeptosOptions>, req: Request<Body>) -> AxumResponse {
         let root = options.site_root.clone();
         let res = get_static_file(uri.clone(), &root).await.unwrap();
 

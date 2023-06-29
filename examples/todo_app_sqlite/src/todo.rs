@@ -9,13 +9,7 @@ cfg_if! {
         use sqlx::{Connection, SqliteConnection};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
-            Ok(SqliteConnection::connect("sqlite:Todos.db").await.map_err(|e| ServerFnError::ServerError(e.to_string()))?)
-        }
-
-        pub fn register_server_functions() {
-            _ = GetTodos::register();
-            _ = AddTodo::register();
-            _ = DeleteTodo::register();
+            Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
         }
 
         #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -37,23 +31,19 @@ cfg_if! {
 #[server(GetTodos, "/api")]
 pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
-    let req =
-        use_context::<actix_web::HttpRequest>(cx);
-    
-    if let Some(req) = req{
-    println!("req.path = {:#?}", req.path());
+    let req = use_context::<actix_web::HttpRequest>(cx);
+
+    if let Some(req) = req {
+        println!("req.path = {:#?}", req.path());
     }
     use futures::TryStreamExt;
 
     let mut conn = db().await?;
 
     let mut todos = Vec::new();
-    let mut rows = sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
-    while let Some(row) = rows
-        .try_next()
-        .await
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))?
-    {
+    let mut rows =
+        sqlx::query_as::<_, Todo>("SELECT * FROM todos").fetch(&mut conn);
+    while let Some(row) = rows.try_next().await? {
         todos.push(row);
     }
 
@@ -73,7 +63,7 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
         .execute(&mut conn)
         .await
     {
-        Ok(row) => Ok(()),
+        Ok(_row) => Ok(()),
         Err(e) => Err(ServerFnError::ServerError(e.to_string())),
     }
 }
@@ -82,12 +72,11 @@ pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
 pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
     let mut conn = db().await?;
 
-    sqlx::query("DELETE FROM todos WHERE id = $1")
+    Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
         .execute(&mut conn)
         .await
-        .map(|_| ())
-        .map_err(|e| ServerFnError::ServerError(e.to_string()))
+        .map(|_| ())?)
 }
 
 #[component]
@@ -130,7 +119,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
         cx,
         <div>
             <MultiActionForm
-                // we can handle client-side validation in the on:submit event 
+                // we can handle client-side validation in the on:submit event
                 // leptos_router implements a `FromFormData` trait that lets you
                 // parse deserializable types from form data and check them
                 on:submit=move |ev| {
@@ -156,11 +145,11 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                             todos.read(cx)
                                 .map(move |todos| match todos {
                                     Err(e) => {
-                                        vec![view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_any()]
+                                        view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
                                     }
                                     Ok(todos) => {
                                         if todos.is_empty() {
-                                            vec![view! { cx, <p>"No tasks were found."</p> }.into_any()]
+                                            view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
                                         } else {
                                             todos
                                                 .into_iter()
@@ -175,9 +164,8 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                             </ActionForm>
                                                         </li>
                                                     }
-                                                    .into_any()
                                                 })
-                                                .collect::<Vec<_>>()
+                                                .collect_view(cx)
                                         }
                                     }
                                 })
@@ -196,7 +184,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                 <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                             }
                         })
-                        .collect::<Vec<_>>()
+                        .collect_view(cx)
                     };
 
                     view! {

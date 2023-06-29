@@ -29,7 +29,7 @@ pub trait EventDescriptor: Clone {
     }
 }
 
-/// Overrides the [`EventDescriptor::bubbles`] method to always return
+/// Overrides the [`EventDescriptor::BUBBLES`] value to always return
 /// `false`, which forces the event to not be globally delegated.
 #[derive(Clone)]
 #[allow(non_camel_case_types)]
@@ -297,6 +297,8 @@ generate_event_types! {
   resize: UiEvent,
   #[does_not_bubble]
   scroll: Event,
+  #[does_not_bubble]
+  scrollend: Event,
   securitypolicyviolation: SecurityPolicyViolationEvent,
   #[does_not_bubble]
   seeked: Event,

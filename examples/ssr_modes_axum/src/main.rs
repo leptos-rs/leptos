@@ -1,12 +1,10 @@
 #[cfg(feature = "ssr")]
 #[tokio::main]
-async fn main(){
+async fn main() {
+    use axum::{routing::post, Router};
     use leptos::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
-    use axum::{extract::{Extension, Path}, Router, routing::{get, post}};
-    use std::sync::Arc;
-    use ssr_modes_axum::fallback::file_and_error_handler;
-    use ssr_modes_axum::app::*;
+    use ssr_modes_axum::{app::*, fallback::file_and_error_handler};
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
@@ -14,14 +12,17 @@ async fn main(){
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
-    GetPost::register();
-    ListPostMetadata::register();
+    // Explicit server function registration is no longer required
+    // on the main branch. On 0.3.0 and earlier, uncomment the lines
+    // below to register the server functions.
+    // _ = GetPost::register();
+    // _ = ListPostMetadata::register();
 
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> })
+        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> })
         .fallback(file_and_error_handler)
-        .layer(Extension(Arc::new(leptos_options)));
+        .with_state(leptos_options);
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`

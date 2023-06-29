@@ -12,12 +12,12 @@ actix-web = { version = "4", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1"
 console_log = "1"
 cfg-if = "1"
-leptos = { path = "../../..", default-features = false, features = ["serde"] }
+leptos = { path = "../../..", features = ["serde"] }
 leptos_actix = { path = "../../../../integrations/actix", optional = true }
-leptos_router = { path = "../../../../router", default-features = false }
+leptos_router = { path = "../../../../router"}
 log = "0.4"
 simple_logger = "4"
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.87"
 serde = "1.0.159"
 tokio = { version = "1.27.0", features = ["time"], optional = true }
 

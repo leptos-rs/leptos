@@ -1,9 +1,14 @@
-use crate::attribute_value;
-use leptos_hot_reload::parsing::is_component_node;
+use crate::{attribute_value, view::IdeTagHelper};
+use itertools::Either;
+use leptos_hot_reload::parsing::{
+    block_to_primitive_expression, is_component_node, value_to_string,
+};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
+use rstml::node::{
+    KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement,
+};
 use syn::spanned::Spanned;
-use syn_rsx::{Node, NodeAttribute, NodeElement, NodeValueExpr};
 use uuid::Uuid;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
@@ -27,6 +32,7 @@ fn root_element_to_tokens(
 ) -> TokenStream {
     let mut template = String::new();
     let mut navigations = Vec::new();
+    let mut stmts_for_ide = IdeTagHelper::new();
     let mut expressions = Vec::new();
 
     if is_component_node(node) {
@@ -41,6 +47,7 @@ fn root_element_to_tokens(
             &mut 0,
             &mut template,
             &mut navigations,
+            &mut stmts_for_ide,
             &mut expressions,
             true,
         );
@@ -53,42 +60,29 @@ fn root_element_to_tokens(
                 .unwrap();
         };
 
-        let span = node.name.span();
-
-        let navigations = if navigations.is_empty() {
-            quote! {}
-        } else {
-            quote! { #(#navigations);* }
-        };
-
-        let expressions = if expressions.is_empty() {
-            quote! {}
-        } else {
-            quote! { #(#expressions;);* }
-        };
-
-        let tag_name = node.name.to_string();
-
-        quote_spanned! {
-            span => {
+        let tag_name = node.name().to_string();
+        let stmts_for_ide = stmts_for_ide.into_iter();
+        quote! {
+            {
                 thread_local! {
-                    static #template_uid: web_sys::HtmlTemplateElement = {
+                    static #template_uid: leptos::web_sys::HtmlTemplateElement = {
                         let document = leptos::document();
                         let el = document.create_element("template").unwrap();
                         el.set_inner_html(#template);
-                        el.unchecked_into()
-                    };
+                        leptos::wasm_bindgen::JsCast::unchecked_into(el)
+                    }
                 }
 
+                #(#stmts_for_ide)*
                 #generate_root
 
-                #navigations
-                #expressions
+                #(#navigations)*
+                #(#expressions;)*
 
                 leptos::leptos_dom::View::Element(leptos::leptos_dom::Element {
                     #[cfg(debug_assertions)]
                     name: #tag_name.into(),
-                    element: root.unchecked_into(),
+                    element: leptos::wasm_bindgen::JsCast::unchecked_into(root),
                     #[cfg(debug_assertions)]
                     view_marker: None
                 })
@@ -104,9 +98,9 @@ enum PrevSibChange {
     Skip,
 }
 
-fn attributes(node: &NodeElement) -> impl Iterator<Item = &NodeAttribute> {
-    node.attributes.iter().filter_map(|node| {
-        if let Node::Attribute(attribute) = node {
+fn attributes(node: &NodeElement) -> impl Iterator<Item = &KeyedAttribute> {
+    node.attributes().iter().filter_map(|node| {
+        if let NodeAttribute::Attribute(attribute) = node {
             Some(attribute)
         } else {
             None
@@ -124,16 +118,21 @@ fn element_to_tokens(
     next_co_id: &mut usize,
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
+    stmts_for_ide: &mut IdeTagHelper,
     expressions: &mut Vec<TokenStream>,
     is_root_el: bool,
 ) -> Ident {
     // create this element
     *next_el_id += 1;
-    let this_el_ident = child_ident(*next_el_id, node.name.span());
+
+    // Use any other span instead of node.name.span(), to avoid missundestanding in IDE helpers.
+    // same as view::root_element_to_tokens_ssr::typed_element_name
+    let this_el_ident = child_ident(*next_el_id, Span::call_site());
 
     // Open tag
-    let name_str = node.name.to_string();
-    let span = node.name.span();
+    let name_str = node.name().to_string();
+    // Span for diagnostic message in case of error in quote_spanned! macro
+    let span = node.open_tag.span();
 
     // CSR/hydrate, push to template
     template.push('<');
@@ -145,11 +144,12 @@ fn element_to_tokens(
     }
 
     // navigation for this el
-    let debug_name = node.name.to_string();
+    let debug_name = node.name().to_string();
     let this_nav = if is_root_el {
         quote_spanned! {
             span => let #this_el_ident = #debug_name;
-                let #this_el_ident = #parent.clone().unchecked_into::<web_sys::Node>();
+                let #this_el_ident =
+                leptos::wasm_bindgen::JsCast::unchecked_into::<leptos::web_sys::Node>(#parent.clone());
                 //debug!("=> got {}", #this_el_ident.node_name());
         }
     } else if let Some(prev_sib) = &prev_sib {
@@ -168,7 +168,8 @@ fn element_to_tokens(
         }
     };
     navigations.push(this_nav);
-
+    // emit ide helper info
+    stmts_for_ide.save_element_completion(node);
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
     if matches!(
@@ -214,6 +215,7 @@ fn element_to_tokens(
             next_co_id,
             template,
             navigations,
+            stmts_for_ide,
             expressions,
         );
 
@@ -247,14 +249,17 @@ fn next_sibling_node(
                 if is_component_node(sibling) {
                     next_sibling_node(children, idx + 1, next_el_id)
                 } else {
-                    Ok(Some(child_ident(*next_el_id + 1, sibling.name.span())))
+                    Ok(Some(child_ident(
+                        *next_el_id + 1,
+                        sibling.name().span(),
+                    )))
                 }
             }
             Node::Block(sibling) => {
-                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.span())))
             }
             Node::Text(sibling) => {
-                Ok(Some(child_ident(*next_el_id + 1, sibling.value.span())))
+                Ok(Some(child_ident(*next_el_id + 1, sibling.span())))
             }
             _ => Err("expected either an element or a block".to_string()),
         }
@@ -263,7 +268,7 @@ fn next_sibling_node(
 
 fn attr_to_tokens(
     cx: &Ident,
-    node: &NodeAttribute,
+    node: &KeyedAttribute,
     el_id: &Ident,
     template: &mut String,
     expressions: &mut Vec<TokenStream>,
@@ -272,8 +277,8 @@ fn attr_to_tokens(
     let name = name.strip_prefix('_').unwrap_or(&name);
     let name = name.strip_prefix("attr:").unwrap_or(name);
 
-    let value = match &node.value {
-        Some(expr) => match expr.as_ref() {
+    let value = match &node.value() {
+        Some(expr) => match expr {
             syn::Expr::Lit(expr_lit) => {
                 if let syn::Lit::Str(s) = &expr_lit.lit {
                     AttributeValue::Static(s.value())
@@ -297,7 +302,7 @@ fn attr_to_tokens(
         let (event_type, handler) =
             crate::view::event_from_attribute_node(node, false);
         expressions.push(quote! {
-            leptos::leptos_dom::add_event_helper(#el_id.unchecked_ref(), #event_type, #handler);
+            leptos::leptos_dom::add_event_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #event_type, #handler);
         })
     }
     // Properties
@@ -305,7 +310,7 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => leptos_dom::property(#cx, #el_id.unchecked_ref(), #name, #value.into_property(#cx))
+            span => leptos::leptos_dom::property(#cx, leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name, #value.into_property(#cx))
         });
     }
     // Classes
@@ -313,7 +318,7 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => leptos::leptos_dom::class_helper(#el_id.unchecked_ref(), #name.into(), #value.into_class(#cx))
+            span => leptos::leptos_dom::class_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), #value.into_class(#cx))
         });
     }
     // Attributes
@@ -337,7 +342,7 @@ fn attr_to_tokens(
                 // For client-side rendering, dynamic attributes don't need to be rendered in the template
                 // They'll immediately be set synchronously before the cloned template is mounted
                 expressions.push(quote_spanned! {
-                    span => leptos::leptos_dom::attribute_helper(#el_id.unchecked_ref(), #name.into(), {#value}.into_attribute(#cx))
+                    span => leptos::leptos_dom::attribute_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), {#value}.into_attribute(#cx))
                 });
             }
         }
@@ -361,13 +366,14 @@ fn child_to_tokens(
     next_co_id: &mut usize,
     template: &mut String,
     navigations: &mut Vec<TokenStream>,
+    stmts_for_ide: &mut IdeTagHelper,
     expressions: &mut Vec<TokenStream>,
 ) -> PrevSibChange {
     match node {
         Node::Element(node) => {
             if is_component_node(node) {
                 proc_macro_error::emit_error!(
-                    node.name.span(),
+                    node.name().span(),
                     "component children not allowed in template!, use view! \
                      instead"
                 );
@@ -382,6 +388,7 @@ fn child_to_tokens(
                     next_co_id,
                     template,
                     navigations,
+                    stmts_for_ide,
                     expressions,
                     false,
                 ))
@@ -389,7 +396,7 @@ fn child_to_tokens(
         }
         Node::Text(node) => block_to_tokens(
             cx,
-            &node.value,
+            Either::Left(node.value_string()),
             node.value.span(),
             parent,
             prev_sib,
@@ -399,10 +406,42 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        Node::Block(node) => block_to_tokens(
+        Node::RawText(node) => block_to_tokens(
             cx,
-            &node.value,
-            node.value.span(),
+            Either::Left(node.to_string_best()),
+            node.span(),
+            parent,
+            prev_sib,
+            next_sib,
+            next_el_id,
+            template,
+            expressions,
+            navigations,
+        ),
+        Node::Block(NodeBlock::ValidBlock(b)) => {
+            let value = match block_to_primitive_expression(b)
+                .and_then(value_to_string)
+            {
+                Some(v) => Either::Left(v),
+                None => Either::Right(b.into_token_stream()),
+            };
+            block_to_tokens(
+                cx,
+                value,
+                b.span(),
+                parent,
+                prev_sib,
+                next_sib,
+                next_el_id,
+                template,
+                expressions,
+                navigations,
+            )
+        }
+        Node::Block(b @ NodeBlock::Invalid { .. }) => block_to_tokens(
+            cx,
+            Either::Right(b.into_token_stream()),
+            b.span(),
             parent,
             prev_sib,
             next_sib,
@@ -418,7 +457,7 @@ fn child_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn block_to_tokens(
     _cx: &Ident,
-    value: &NodeValueExpr,
+    value: Either<String, TokenStream>,
     span: Span,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -428,18 +467,6 @@ fn block_to_tokens(
     expressions: &mut Vec<TokenStream>,
     navigations: &mut Vec<TokenStream>,
 ) -> PrevSibChange {
-    let value = value.as_ref();
-    let str_value = match value {
-        syn::Expr::Lit(lit) => match &lit.lit {
-            syn::Lit::Str(s) => Some(s.value()),
-            syn::Lit::Char(c) => Some(c.value().to_string()),
-            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
-            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
-            _ => None,
-        },
-        _ => None,
-    };
-
     // code to navigate to this text node
 
     let (name, location) = /* if is_first_child && mode == Mode::Client {
@@ -473,27 +500,30 @@ fn block_to_tokens(
         }
     };
 
-    if let Some(v) = str_value {
-        navigations.push(location);
-        template.push_str(&v);
+    match value {
+        Either::Left(v) => {
+            navigations.push(location);
+            template.push_str(&v);
 
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
+            if let Some(name) = name {
+                PrevSibChange::Sib(name)
+            } else {
+                PrevSibChange::Parent
+            }
         }
-    } else {
-        template.push_str("<!>");
-        navigations.push(location);
+        Either::Right(value) => {
+            template.push_str("<!>");
+            navigations.push(location);
 
-        expressions.push(quote! {
-			leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
-        });
+            expressions.push(quote! {
+                leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
+            });
 
-        if let Some(name) = name {
-            PrevSibChange::Sib(name)
-        } else {
-            PrevSibChange::Parent
+            if let Some(name) = name {
+                PrevSibChange::Sib(name)
+            } else {
+                PrevSibChange::Parent
+            }
         }
     }
 }

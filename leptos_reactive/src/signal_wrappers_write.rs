@@ -36,19 +36,19 @@ where
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
 /// let (count, set_count) = create_signal(cx, 2);
-/// let set_double_input = SignalSetter::map(cx, move |n| set_count(n * 2));
+/// let set_double_input = SignalSetter::map(cx, move |n| set_count.set(n * 2));
 ///
 /// // this function takes any kind of signal setter
 /// fn set_to_4(setter: &SignalSetter<i32>) {
 ///     // ✅ calling the signal sets the value
-///     //    it is a shorthand for arg.set()
-///     setter(4);
+///     //    can be `setter(4)` on nightly
+///     setter.set(4);
 /// }
 ///
 /// set_to_4(&set_count.into());
-/// assert_eq!(count(), 4);
+/// assert_eq!(count.get(), 4);
 /// set_to_4(&set_double_input);
-/// assert_eq!(count(), 8);
+/// assert_eq!(count.get(), 8);
 /// # });
 /// ```
 #[derive(Debug, PartialEq, Eq)]
@@ -57,7 +57,7 @@ where
     T: 'static,
 {
     inner: SignalSetterTypes<T>,
-    #[cfg(debug_assertions)]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -65,7 +65,7 @@ impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -76,7 +76,7 @@ impl<T: Default + 'static> Default for SignalSetter<T> {
     fn default() -> Self {
         Self {
             inner: SignalSetterTypes::Default,
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -121,24 +121,24 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let set_double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
+    /// let set_double_count = SignalSetter::map(cx, move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///     // ✅ calling the signal sets the value
-    ///     //    it is a shorthand for arg.set()
-    ///     setter(4)
+    ///     //    can be `setter(4)` on nightly
+    ///     setter.set(4)
     /// }
     ///
     /// set_to_4(&set_count.into());
-    /// assert_eq!(count(), 4);
+    /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_count);
-    /// assert_eq!(count(), 8);
+    /// assert_eq!(count.get(), 8);
     /// # });
     /// ```
     #[track_caller]
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             skip_all,
@@ -153,7 +153,7 @@ where
                 cx,
                 store_value(cx, Box::new(mapped_setter)),
             ),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -164,22 +164,22 @@ where
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
     /// let (count, set_count) = create_signal(cx, 2);
-    /// let set_double_count = SignalSetter::map(cx, move |n| set_count(n * 2));
+    /// let set_double_count = SignalSetter::map(cx, move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
     ///   // ✅ calling the signal sets the value
-    ///   //    it is a shorthand for arg.set()
-    ///   setter(4);
+    ///   //    can be `setter(4)` on nightly
+    ///   setter.set(4);
     /// }
     ///
     /// set_to_4(&set_count.into());
-    /// assert_eq!(count(), 4);
+    /// assert_eq!(count.get(), 4);
     /// set_to_4(&set_double_count);
-    /// assert_eq!(count(), 8);
+    /// assert_eq!(count.get(), 8);
     /// # });
     #[cfg_attr(
-        debug_assertions,
+        any(debug_assertions, feature = "ssr"),
         instrument(
             level = "trace",
             skip_all,
@@ -203,7 +203,7 @@ impl<T> From<WriteSignal<T>> for SignalSetter<T> {
     fn from(value: WriteSignal<T>) -> Self {
         Self {
             inner: SignalSetterTypes::Write(value),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }
@@ -214,7 +214,7 @@ impl<T> From<RwSignal<T>> for SignalSetter<T> {
     fn from(value: RwSignal<T>) -> Self {
         Self {
             inner: SignalSetterTypes::Write(value.write_only()),
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
     }

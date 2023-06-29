@@ -1,0 +1,47 @@
+extend = [{ path = "./cargo-make/main.toml" }]
+
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+CARGO_MAKE_CARGO_BUILD_TEST_FLAGS = ""
+CARGO_MAKE_WORKSPACE_EMULATION = true
+CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
+    "counter",
+    "counter_isomorphic",
+    "counters",
+    "counters_stable",
+    "counter_without_macros",
+    "error_boundary",
+    "errors_axum",
+    "fetch",
+    "hackernews",
+    "hackernews_axum",
+    "js-framework-benchmark",
+    "leptos-tailwind-axum",
+    "login_with_token_csr_only",
+    "parent_child",
+    "router",
+    "session_auth_axum",
+    "slots",
+    "ssr_modes",
+    "ssr_modes_axum",
+    "tailwind",
+    "tailwind_csr_trunk",
+    "timer",
+    "todo_app_sqlite",
+    "todo_app_sqlite_axum",
+    "todo_app_sqlite_viz",
+    "todomvc",
+]
+
+[tasks.gen-members]
+workspace = false
+description = "Generate the list of workspace members"
+script = '''
+examples=$(ls | 
+grep -v README.md | 
+grep -v Makefile.toml | 
+grep -v cargo-make | 
+grep -v gtk | 
+jq -R -s -c 'split("\n")[:-1]')
+echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
+'''

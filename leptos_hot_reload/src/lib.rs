@@ -76,7 +76,7 @@ impl ViewMacros {
             tokens.next(); // ,
                            // TODO handle class = ...
             let rsx =
-                syn_rsx::parse2(tokens.collect::<proc_macro2::TokenStream>())?;
+                rstml::parse2(tokens.collect::<proc_macro2::TokenStream>())?;
             let template = LNode::parse_view(rsx)?;
             views.push(MacroInvocation { id, template })
         }
