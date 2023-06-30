@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { CountersPage } from "./counters_page";
+import { CountersPage } from "./fixtures/counters_page";
 
 test.describe("Enter Count", () => {
   test("should increase the total count", async ({ page }) => {

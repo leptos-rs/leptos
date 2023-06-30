@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { CountersPage } from "./counters_page";
+import { CountersPage } from "./fixtures/counters_page";
 
 test.describe("Clear Counters", () => {
   test("should reset the counts", async ({ page }) => {
