@@ -3,7 +3,7 @@ function patch(json) {
 	try {
 		const views = JSON.parse(json);
         for (const [id, patches] of views) {
-            console.log("[HOT RELOAD]", patches);
+            console.log("[HOT RELOAD]", id, patches);
 			const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT),
 				open = `leptos-view|${id}|open`,
 				close = `leptos-view|${id}|close`;

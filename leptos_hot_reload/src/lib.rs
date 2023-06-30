@@ -70,7 +70,7 @@ impl ViewMacros {
         let mut views = Vec::new();
         for view in visitor.views {
             let span = view.span();
-            let id = span_to_stable_id(path, span);
+            let id = span_to_stable_id(path, span.start().line);
             let mut tokens = view.tokens.clone().into_iter();
             tokens.next(); // cx
             tokens.next(); // ,
@@ -148,15 +148,11 @@ impl<'ast> Visit<'ast> for ViewMacroVisitor<'ast> {
     }
 }
 
-pub fn span_to_stable_id(
-    path: impl AsRef<Path>,
-    site: proc_macro2::Span,
-) -> String {
+pub fn span_to_stable_id(path: impl AsRef<Path>, line: usize) -> String {
     let file = path
         .as_ref()
         .to_str()
         .unwrap_or_default()
         .replace(['/', '\\'], "-");
-    let start = site.start();
-    format!("{}-{:?}", file, start.line)
+    format!("{file}-{line}")
 }
