@@ -55,17 +55,17 @@ export class CountersPage {
     this.addOneThousandCountersButton.click();
   }
 
-  async decrementCount() {
+  async decrementCount(index: number = 0) {
     await Promise.all([
-      this.decrementCountButton.waitFor(),
-      this.decrementCountButton.click(),
+      this.decrementCountButton.nth(index).waitFor(),
+      this.decrementCountButton.nth(index).click(),
     ]);
   }
 
-  async incrementCount() {
+  async incrementCount(index: number = 0) {
     await Promise.all([
-      this.incrementCountButton.waitFor(),
-      this.incrementCountButton.click(),
+      this.incrementCountButton.nth(index).waitFor(),
+      this.incrementCountButton.nth(index).click(),
     ]);
   }
 
