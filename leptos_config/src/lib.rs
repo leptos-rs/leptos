@@ -162,12 +162,12 @@ pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
         Some(found) => {
             metadata_name = "[package.metadata.leptos]";
             start = found.start();
-        },
+        }
         None => match re_workspace.find(text) {
             Some(found) => {
                 metadata_name = "[[workspace.metadata.leptos]]";
                 start = found.start();
-            },
+            }
             None => return Err(LeptosConfigError::ConfigSectionNotFound),
         },
     };
