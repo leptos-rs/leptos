@@ -582,6 +582,13 @@ fn attribute_to_tokens_ssr<'a>(
     {
         // ignore props for SSR
         // ignore classes and styles: we'll handle these separately
+        if name.starts_with("prop:") {
+            let value = attr.value();
+            exprs_for_compiler.push(quote! {
+                #[allow(unused_braces)]
+                { _ = #value; }
+            });
+        }
     } else if name == "inner_html" {
         return attr.value();
     } else {
