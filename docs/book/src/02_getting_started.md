@@ -31,7 +31,7 @@ cargo init leptos-tutorial
 `cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
 
 ```bash
-cargo add leptos
+cargo add leptos --features=csr,nightly # or just csr if you're using stable Rust
 ```
 
 Create a simple `index.html` in the root of the `leptos-tutorial` directory
