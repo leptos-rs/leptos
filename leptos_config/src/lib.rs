@@ -153,16 +153,30 @@ impl TryFrom<String> for Env {
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
 pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
     let re: Regex = Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
-    let start = match re.find(text) {
-        Some(found) => found.start(),
-        None => return Err(LeptosConfigError::ConfigSectionNotFound),
+    let re_workspace: Regex =
+        Regex::new(r#"(?m)^\[\[workspace.metadata.leptos\]\]"#).unwrap();
+
+    let metadata_name;
+    let start;
+    match re.find(text) {
+        Some(found) => {
+            metadata_name = "[package.metadata.leptos]";
+            start = found.start();
+        }
+        None => match re_workspace.find(text) {
+            Some(found) => {
+                metadata_name = "[[workspace.metadata.leptos]]";
+                start = found.start();
+            }
+            None => return Err(LeptosConfigError::ConfigSectionNotFound),
+        },
     };
 
     // so that serde error messages have right line number
     let newlines = text[..start].matches('\n').count();
     let input = "\n".repeat(newlines) + &text[start..];
     let toml = input
-        .replace("[package.metadata.leptos]", "[leptos_options]")
+        .replace(metadata_name, "[leptos_options]")
         .replace('-', "_");
     let settings = Config::builder()
         // Read the "default" configuration file
