@@ -104,7 +104,7 @@ fn Counter(
                 prop:value={move || value.get().to_string()}
                 on:input=input
             />
-            <span>{move || value.get().to_string()}</span>
+            <span>{value}</span>
             <button id="increment_count" on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
             <button on:click=move |_| set_counters.update(move |counters| counters.retain(|(counter_id, _)| counter_id != &id))>"x"</button>
         </li>

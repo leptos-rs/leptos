@@ -33,7 +33,7 @@ pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
 use leptos_reactive::Scope;
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
 };
@@ -143,7 +143,7 @@ where
     }
 }
 
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for ReadSignal<T>
 where
     T: IntoView + Clone,
@@ -156,7 +156,7 @@ where
         DynChild::new(move || self.get()).into_view(cx)
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for RwSignal<T>
 where
     T: IntoView + Clone,
@@ -169,7 +169,7 @@ where
         DynChild::new(move || self.get()).into_view(cx)
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for Memo<T>
 where
     T: IntoView + Clone,
@@ -182,7 +182,7 @@ where
         DynChild::new(move || self.get()).into_view(cx)
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for Signal<T>
 where
     T: IntoView + Clone,
@@ -195,7 +195,7 @@ where
         DynChild::new(move || self.get()).into_view(cx)
     }
 }
-#[cfg(feature = "stable")]
+#[cfg(not(feature = "nightly"))]
 impl<T> IntoView for MaybeSignal<T>
 where
     T: IntoView + Clone,
