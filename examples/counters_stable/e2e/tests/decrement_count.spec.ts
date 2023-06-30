@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { CountersPage } from "./counters_page";
+import { CountersPage } from "./fixtures/counters_page";
 
 test.describe("Decrement Count", () => {
-  test("should decrement the total count", async ({ page }) => {
+  test("should decrease the total count", async ({ page }) => {
     const ui = new CountersPage(page);
     await ui.goto();
     await ui.addCounter();
