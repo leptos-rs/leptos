@@ -5,8 +5,11 @@ export class CountersPage {
   readonly addCounterButton: Locator;
   readonly addOneThousandCountersButton: Locator;
   readonly clearCountersButton: Locator;
-  readonly decrementCountButton: Locator;
+
   readonly incrementCountButton: Locator;
+  readonly counterInput: Locator;
+  readonly decrementCountButton: Locator;
+  readonly removeCountButton: Locator;
 
   readonly total: Locator;
   readonly counters: Locator;
@@ -32,9 +35,15 @@ export class CountersPage {
       hasText: "+1",
     });
 
+    this.removeCountButton = page.locator("button", {
+      hasText: "x",
+    });
+
     this.total = page.getByTestId("total");
 
     this.counters = page.getByTestId("counters");
+
+    this.counterInput = page.getByRole("textbox");
   }
 
   async goto() {
@@ -52,17 +61,17 @@ export class CountersPage {
     this.addOneThousandCountersButton.click();
   }
 
-  async decrementCount() {
+  async decrementCount(index: number = 0) {
     await Promise.all([
-      this.decrementCountButton.waitFor(),
-      this.decrementCountButton.click(),
+      this.decrementCountButton.nth(index).waitFor(),
+      this.decrementCountButton.nth(index).click(),
     ]);
   }
 
-  async incrementCount() {
+  async incrementCount(index: number = 0) {
     await Promise.all([
-      this.incrementCountButton.waitFor(),
-      this.incrementCountButton.click(),
+      this.incrementCountButton.nth(index).waitFor(),
+      this.incrementCountButton.nth(index).click(),
     ]);
   }
 
@@ -70,6 +79,20 @@ export class CountersPage {
     await Promise.all([
       this.clearCountersButton.waitFor(),
       this.clearCountersButton.click(),
+    ]);
+  }
+
+  async enterCount(count: string, index: number = 0) {
+    await Promise.all([
+      this.counterInput.nth(index).waitFor(),
+      this.counterInput.nth(index).fill(count),
+    ]);
+  }
+
+  async removeCounter(index: number = 0) {
+    await Promise.all([
+      this.removeCountButton.nth(index).waitFor(),
+      this.removeCountButton.nth(index).click(),
     ]);
   }
 }
