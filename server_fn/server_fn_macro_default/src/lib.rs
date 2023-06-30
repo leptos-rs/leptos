@@ -10,16 +10,18 @@ use syn::__private::ToTokens;
 /// This means that its body will only run on the server, i.e., when the `ssr`
 /// feature is enabled.
 ///
-/// You can specify one, two, or three arguments to the server function:
+/// You can specify one, two, three, or four arguments to the server function:
 /// 1. **Required**: A type name that will be used to identify and register the server function
 ///   (e.g., `MyServerFn`).
 /// 2. *Optional*: A URL prefix at which the function will be mounted when it’s registered
 ///   (e.g., `"/api"`). Defaults to `"/"`.
-/// 3. *Optional*: either `"Cbor"` (specifying that it should use the binary `cbor` format for
-///   serialization), `"Url"` (specifying that it should be use a URL-encoded form-data string).
-///   Defaults to `"Url"`. If you want to use this server function to power a `<form>` that will
-///   work without WebAssembly, the encoding must be `"Url"`. If you want to use this server function
-///   using Get instead of Post methods, the encoding must be `"GetCbor"` or `"GetJson"`.
+/// 3. *Optional*: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
+/// 4. *Optional*: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
+///
+/// ```rust,ignore
+/// // will generate a server function at `/api-prefix/hello`
+/// #[server(MyServerFnType, "/api-prefix", "Url", "hello")]
+/// ```
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
 /// and deserializable with `serde`.
