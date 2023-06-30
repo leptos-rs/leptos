@@ -5,9 +5,11 @@ export class CountersPage {
   readonly addCounterButton: Locator;
   readonly addOneThousandCountersButton: Locator;
   readonly clearCountersButton: Locator;
-  readonly decrementCountButton: Locator;
+
   readonly incrementCountButton: Locator;
   readonly counterInput: Locator;
+  readonly decrementCountButton: Locator;
+  readonly removeCountButton: Locator;
 
   readonly total: Locator;
   readonly counters: Locator;
@@ -31,6 +33,10 @@ export class CountersPage {
 
     this.incrementCountButton = page.locator("button", {
       hasText: "+1",
+    });
+
+    this.removeCountButton = page.locator("button", {
+      hasText: "x",
     });
 
     this.total = page.getByTestId("total");
@@ -78,8 +84,15 @@ export class CountersPage {
 
   async enterCount(count: string, index: number = 0) {
     await Promise.all([
-      this.counterInput.nth(index).waitFor,
+      this.counterInput.nth(index).waitFor(),
       this.counterInput.nth(index).fill(count),
+    ]);
+  }
+
+  async removeCounter(index: number = 0) {
+    await Promise.all([
+      this.removeCountButton.nth(index).waitFor(),
+      this.removeCountButton.nth(index).click(),
     ]);
   }
 }
