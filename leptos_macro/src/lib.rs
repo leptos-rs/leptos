@@ -793,15 +793,18 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// If you call a server function from the client (i.e., when the `csr` or `hydrate` features
 /// are enabled), it will instead make a network request to the server.
 ///
-/// You can specify one, two, or three arguments to the server function:
+/// You can specify one, two, three, or four arguments to the server function:
 /// 1. **Required**: A type name that will be used to identify and register the server function
 ///   (e.g., `MyServerFn`).
 /// 2. *Optional*: A URL prefix at which the function will be mounted when it’s registered
 ///   (e.g., `"/api"`). Defaults to `"/"`.
-/// 3. *Optional*: either `"Cbor"` (specifying that it should use the binary `cbor` format for
-///   serialization) or `"Url"` (specifying that it should be use a URL-encoded form-data string).
-///   Defaults to `"Url"`. If you want to use this server function to power a `<form>` that will
-///   work without WebAssembly, the encoding must be `"Url"`.
+/// 3. *Optional*: The encoding for the server function (`"Url"`, `"Cbor"`, `"GetJson"`, or `"GetCbor`". See **Server Function Encodings** below.)
+/// 4. *Optional*: A specific endpoint path to be used in the URL. (By default, a unique path will be generated.)
+///
+/// ```rust,ignore
+/// // will generate a server function at `/api-prefix/hello`
+/// #[server(MyServerFnType, "/api-prefix", "Url", "hello")]
+/// ```
 ///
 /// The server function itself can take any number of arguments, each of which should be serializable
 /// and deserializable with `serde`. Optionally, its first argument can be a Leptos
@@ -821,17 +824,16 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Note the following:
-/// - You must **register** the server function by calling `T::register()` somewhere in your main function.
 /// - **Server functions must be `async`.** Even if the work being done inside the function body
 ///   can run synchronously on the server, from the client’s perspective it involves an asynchronous
 ///   function call.
 /// - **Server functions must return `Result<T, ServerFnError>`.** Even if the work being done
 ///   inside the function body can’t fail, the processes of serialization/deserialization and the
 ///   network call are fallible.
-/// - **Return types must be [Serializable](https://docs.rs/leptos/latest/leptos/trait.Serializable.html).**
+/// - **Return types must implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html).**
 ///   This should be fairly obvious: we have to serialize arguments to send them to the server, and we
 ///   need to deserialize the result to return it to the client.
-/// - **Arguments must be implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
+/// - **Arguments must implement [`Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
 ///   and [`DeserializeOwned`](https://docs.rs/serde/latest/serde/de/trait.DeserializeOwned.html).**
 ///   They are serialized as an `application/x-www-form-urlencoded`
 ///   form data using [`serde_qs`](https://docs.rs/serde_qs/latest/serde_qs/) or as `application/cbor`
@@ -840,6 +842,9 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 /// - **The `Scope` comes from the server.** Optionally, the first argument of a server function
 ///   can be a Leptos `Scope`. This scope can be used to inject dependencies like the HTTP request
 ///   or response or other server-only dependencies, but it does *not* have access to reactive state that exists in the client.
+/// - Your server must be ready to handle the server functions at the API prefix you list. The easiest way to do this
+///   is to use the `handle_server_fns` function from [`leptos_actix`](https://docs.rs/leptos_actix/latest/leptos_actix/fn.handle_server_fns.html)
+///   or [`leptos_axum`](https://docs.rs/leptos_axum/latest/leptos_axum/fn.handle_server_fns.html).
 ///
 /// ## Server Function Encodings
 ///
