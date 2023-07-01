@@ -1,11 +1,12 @@
 #![forbid(unsafe_code)]
+
 use crate::{
     hydration::SharedContext,
     node::{NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
     AnyComputation, AnyResource, Effect, Memo, MemoState, ReadSignal,
     ResourceId, ResourceState, RwSignal, Scope, ScopeDisposer, ScopeId,
-    ScopeProperty, SerializableResource, StoredValueId, Trigger,
-    UnserializableResource, WriteSignal,
+    ScopeProperty, SerializableResource, SpecialNonReactiveZone, StoredValueId,
+    Trigger, UnserializableResource, WriteSignal,
 };
 use cfg_if::cfg_if;
 use core::hash::BuildHasherDefault;
@@ -358,6 +359,7 @@ impl Debug for Runtime {
             .finish()
     }
 }
+
 /// Get the selected runtime from the thread-local set of runtimes. On the server,
 /// this will return the correct runtime. In the browser, there should only be one runtime.
 #[cfg_attr(
@@ -470,6 +472,35 @@ impl RuntimeId {
         let (ret, _, disposer) = self.run_scope_undisposed(f, parent);
         disposer.dispose();
         ret
+    }
+
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
+    #[inline(always)]
+    pub(crate) fn untrack<T>(self, f: impl FnOnce() -> T) -> T {
+        with_runtime(self, |runtime| {
+            let untracked_result;
+
+            SpecialNonReactiveZone::enter();
+
+            let prev_observer =
+                SetObserverOnDrop(self, runtime.observer.take());
+
+            untracked_result = f();
+
+            runtime.observer.set(prev_observer.1);
+            std::mem::forget(prev_observer); // avoid Drop
+
+            SpecialNonReactiveZone::exit();
+
+            untracked_result
+        })
+        .expect(
+            "tried to run untracked function in a runtime that has been \
+             disposed",
+        )
     }
 
     #[track_caller]
@@ -681,6 +712,81 @@ impl RuntimeId {
         )
     }
 
+    pub(crate) fn watch<W, T>(
+        self,
+        deps: impl Fn() -> W + 'static,
+        callback: impl Fn(&W, Option<&W>, Option<T>) -> T + Clone + 'static,
+        immediate: bool,
+    ) -> (NodeId, impl Fn() + Clone)
+    where
+        W: Clone + 'static,
+        T: 'static,
+    {
+        let cur_deps_value = Rc::new(RefCell::new(None::<W>));
+        let prev_deps_value = Rc::new(RefCell::new(None::<W>));
+        let prev_callback_value = Rc::new(RefCell::new(None::<T>));
+
+        let wrapped_callback = {
+            let cur_deps_value = Rc::clone(&cur_deps_value);
+            let prev_deps_value = Rc::clone(&prev_deps_value);
+            let prev_callback_value = Rc::clone(&prev_callback_value);
+
+            move || {
+                callback(
+                    cur_deps_value.borrow().as_ref().expect(
+                        "this will not be called before there is deps value",
+                    ),
+                    prev_deps_value.borrow().as_ref(),
+                    prev_callback_value.take(),
+                )
+            }
+        };
+
+        let effect_fn = {
+            let prev_callback_value = Rc::clone(&prev_callback_value);
+
+            move |did_run_before: Option<()>| {
+                let deps_value = deps();
+
+                let did_run_before = did_run_before.is_some();
+
+                if !immediate && !did_run_before {
+                    prev_deps_value.replace(Some(deps_value));
+                    return;
+                }
+
+                cur_deps_value.replace(Some(deps_value.clone()));
+
+                let callback_value =
+                    Some(self.untrack(wrapped_callback.clone()));
+
+                prev_callback_value.replace(callback_value);
+
+                prev_deps_value.replace(Some(deps_value));
+            }
+        };
+
+        let id = self.create_concrete_effect(
+            Rc::new(RefCell::new(None::<()>)),
+            Rc::new(Effect {
+                f: effect_fn,
+                ty: PhantomData,
+                #[cfg(any(debug_assertions, feature = "ssr"))]
+                defined_at: std::panic::Location::caller(),
+            }),
+        );
+
+        (id, move || {
+            with_runtime(self, |runtime| {
+                runtime.nodes.borrow_mut().remove(id);
+                runtime.node_sources.borrow_mut().remove(id);
+            })
+            .expect(
+                "tried to stop a watch in a runtime that has been disposed",
+            );
+        })
+    }
+
     #[track_caller]
     #[inline(always)]
     pub(crate) fn create_memo<T>(
@@ -826,5 +932,15 @@ impl Eq for Runtime {}
 impl std::hash::Hash for Runtime {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::ptr::hash(&self, state);
+    }
+}
+
+struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
+
+impl Drop for SetObserverOnDrop {
+    fn drop(&mut self) {
+        _ = with_runtime(self.0, |rt| {
+            rt.observer.set(self.1);
+        });
     }
 }
