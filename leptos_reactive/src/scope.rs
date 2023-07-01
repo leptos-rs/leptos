@@ -329,7 +329,8 @@ impl Scope {
                 }
             } else {
                 console_warn(
-                    "tried to remove property to a scope that has been disposed",
+                    "tried to remove property to a scope that has been \
+                     disposed",
                 )
             }
         })
