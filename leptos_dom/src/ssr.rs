@@ -296,7 +296,7 @@ fn ooo_body_stream_recurse(
         fragments.chain(resources).chain(
             futures::stream::once(async move {
                 let pending = cx.pending_fragments();
-                if pending.len() > 0 {
+                if !pending.is_empty() {
                     let fragments = FuturesUnordered::new();
                     let serializers = cx.serialization_resolvers();
                     for (fragment_id, data) in pending {

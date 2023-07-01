@@ -73,7 +73,7 @@ where
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-        let current_id = current_id.clone();
+        let current_id = current_id;
 
         let children = Rc::new(orig_children(cx).into_view(cx));
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -94,10 +94,12 @@ where
                 // run the child; we'll probably throw this away, but it will register resource reads
                 //let after_original_child = HydrationCtx::peek();
 
-                let initial = {
+                
+
+                {
                     // no resources were read under this, so just return the child
                     if context.pending_resources.get() == 0 {
-                        HydrationCtx::continue_from(current_id.clone());
+                        HydrationCtx::continue_from(current_id);
                         DynChild::new({
                             let children = Rc::clone(&children);
                             move || (*children).clone()
@@ -116,7 +118,7 @@ where
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
                                     HydrationCtx::continue_from(
-                                        current_id.clone(),
+                                        current_id,
                                     );
                                     DynChild::new({
                                         let orig_children =
@@ -133,7 +135,7 @@ where
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
                                     HydrationCtx::continue_from(
-                                        current_id.clone(),
+                                        current_id,
                                     );
                                     DynChild::new({
                                         let orig_children =
@@ -149,9 +151,7 @@ where
                         // return the fallback for now, wrapped in fragment identifier
                         fallback().into_view(cx)
                     }
-                };
-
-                initial
+                }
             }
         }
     })
