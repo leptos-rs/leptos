@@ -39,7 +39,7 @@ use crate::{Scope, ScopeProperty};
 /// let (num, set_num) = create_signal(cx, 0);
 /// let (cb_num, set_cb_num) = create_signal(cx, 0);
 ///
-/// let stop = watch(
+/// watch(
 ///     cx,
 ///     move || num.get(),
 ///     move |num, _, _| {
@@ -68,7 +68,7 @@ use crate::{Scope, ScopeProperty};
 /// # create_scope(create_runtime(), |cx| {
 /// let (num, set_num) = create_signal(cx, 0);
 ///
-/// let stop = watch(
+/// watch(
 ///     cx,
 ///     move || num.get(),
 ///     move |num, prev_num, _| {
