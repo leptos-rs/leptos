@@ -11,21 +11,7 @@
   outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        overlays = [
-          # - - -
-          (import rust-overlay)
-
-          # - - -
-          (self: super: let
-            rust-bin = super.rust-bin.selectLatestNightlyWith(toolchain: toolchain.default.override {
-              extensions= [ "rust-src" "rust-analyzer" ];
-              targets = [ "wasm32-unknown-unknown" ];
-            });
-          in {
-            rustc = rust-bin;
-            cargo = rust-bin;
-          })
-        ];
+        overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
@@ -37,9 +23,11 @@
             openssl
             pkg-config
             cacert
-            rustc
-            cargo
             mdbook
+            (rust-bin.selectLatestNightlyWith(toolchain: toolchain.default.override {
+              extensions= [ "rust-src" "rust-analyzer" ];
+              targets = [ "wasm32-unknown-unknown" ];
+            }))
           ];
 
           shellHook = ''
