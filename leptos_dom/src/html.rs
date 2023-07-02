@@ -733,18 +733,20 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         .collect::<SmallVec<[Cow<'static, str>; 4]>>(
                     );
 
-                    let mut new_classes = classes
+                    let new_classes = classes
                         .iter()
                         .flat_map(|classes| classes.split_whitespace());
 
                     if let Some(prev_classes) = prev_classes {
+                        let new_classes =
+                            new_classes.collect::<SmallVec<[_; 4]>>();
                         let mut old_classes = prev_classes
                             .iter()
                             .flat_map(|classes| classes.split_whitespace());
 
                         // Remove old classes
                         for prev_class in old_classes.clone() {
-                            if !new_classes.any(|c| c == prev_class) {
+                            if !new_classes.iter().any(|c| c == &prev_class) {
                                 class_list.remove_1(prev_class).unwrap_or_else(
                                     |err| {
                                         panic!(
