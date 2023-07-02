@@ -826,7 +826,7 @@ fn apply_diff<T, EF, V>(
             range.set_start_after(opening).unwrap();
             #[cfg(not(debug_assertions))]
             range.set_start_before(opening).unwrap();
-            
+
             range.set_end_before(closing).unwrap();
 
             range.delete_contents().unwrap();
