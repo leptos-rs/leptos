@@ -385,9 +385,9 @@ impl Parse for ServerFnBody {
         let docs = attrs
             .iter()
             .filter_map(|attr| {
-                let Meta::NameValue(attr ) = &attr.meta else {
-                return None
-            };
+                let Meta::NameValue(attr) = &attr.meta else {
+                    return None;
+                };
                 if !attr.path.is_ident("doc") {
                     return None;
                 }

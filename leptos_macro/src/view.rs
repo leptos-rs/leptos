@@ -1374,8 +1374,8 @@ pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
     let is_custom = event_type == "Custom";
 
     let Ok(event_type) = event_type.parse::<TokenStream>() else {
-            abort!(event_type, "couldn't parse event name");
-        };
+        abort!(event_type, "couldn't parse event name");
+    };
 
     let event_type = if is_custom {
         quote! { Custom::new(#name) }
@@ -1404,7 +1404,10 @@ pub(crate) fn slot_to_tokens(
     let span = node.name().span();
 
     let Some(parent_slots) = parent_slots else {
-        proc_macro_error::emit_error!(span, "slots cannot be used inside HTML elements");
+        proc_macro_error::emit_error!(
+            span,
+            "slots cannot be used inside HTML elements"
+        );
         return;
     };
 

@@ -438,15 +438,18 @@ impl Docs {
         let mut attrs = attrs
             .iter()
             .filter_map(|attr| {
-                let Meta::NameValue(attr ) = &attr.meta else {
-                    return None
+                let Meta::NameValue(attr) = &attr.meta else {
+                    return None;
                 };
                 if !attr.path.is_ident("doc") {
-                    return None
+                    return None;
                 }
 
                 let Some(val) = value_to_string(&attr.value) else {
-                    abort!(attr, "expected string literal in value of doc comment");
+                    abort!(
+                        attr,
+                        "expected string literal in value of doc comment"
+                    );
                 };
 
                 Some((val, attr.path.span()))
