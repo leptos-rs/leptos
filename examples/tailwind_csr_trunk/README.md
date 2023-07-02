@@ -52,8 +52,9 @@ If you're using VS Code, add the following to your `settings.json`
 
 Install [Tailwind CSS Intellisense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss).
 
-    Install "VS Browser" extension, a browser at the right window.
-    Allow vscode Ports forward: 3000, 3001.
+Install [VS Browser](https://marketplace.visualstudio.com/items?itemName=Phu1237.vs-browser) extension (allows you to open a browser at the right window.
+
+Allow vscode Ports forward: 3000, 3001.
 
 ## Notes about Tooling
 
