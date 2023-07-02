@@ -94,8 +94,6 @@ where
                 // run the child; we'll probably throw this away, but it will register resource reads
                 //let after_original_child = HydrationCtx::peek();
 
-                
-
                 {
                     // no resources were read under this, so just return the child
                     if context.pending_resources.get() == 0 {
@@ -117,9 +115,7 @@ where
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
-                                    HydrationCtx::continue_from(
-                                        current_id,
-                                    );
+                                    HydrationCtx::continue_from(current_id);
                                     DynChild::new({
                                         let orig_children =
                                             orig_children(cx).into_view(cx);
@@ -134,9 +130,7 @@ where
                             {
                                 let orig_children = Rc::clone(&orig_children);
                                 move || {
-                                    HydrationCtx::continue_from(
-                                        current_id,
-                                    );
+                                    HydrationCtx::continue_from(current_id);
                                     DynChild::new({
                                         let orig_children =
                                             orig_children(cx).into_view(cx);
