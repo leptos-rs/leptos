@@ -5,8 +5,7 @@ use crate::{
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,
-    PinnedFuture, ResourceId, SpecialNonReactiveZone, StoredValueId,
-    SuspenseContext,
+    PinnedFuture, ResourceId, StoredValueId, SuspenseContext,
 };
 use futures::stream::FuturesUnordered;
 use std::{
@@ -209,37 +208,7 @@ impl Scope {
     )]
     #[inline(always)]
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
-        with_runtime(self.runtime, |runtime| {
-            let untracked_result;
-
-            SpecialNonReactiveZone::enter();
-
-            let prev_observer =
-                SetObserverOnDrop(self.runtime, runtime.observer.take());
-
-            untracked_result = f();
-
-            runtime.observer.set(prev_observer.1);
-            std::mem::forget(prev_observer); // avoid Drop
-
-            SpecialNonReactiveZone::exit();
-
-            untracked_result
-        })
-        .expect(
-            "tried to run untracked function in a runtime that has been \
-             disposed",
-        )
-    }
-}
-
-struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
-
-impl Drop for SetObserverOnDrop {
-    fn drop(&mut self) {
-        _ = with_runtime(self.0, |rt| {
-            rt.observer.set(self.1);
-        });
+        self.runtime.untrack(f)
     }
 }
 
@@ -349,6 +318,27 @@ impl Scope {
         any(debug_assertions, features = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
+    pub(crate) fn remove_scope_property(&self, prop: ScopeProperty) {
+        _ = with_runtime(self.runtime, |runtime| {
+            let scopes = runtime.scopes.borrow();
+
+            if let Some(scope) = scopes.get(self.id) {
+                let mut scope = scope.borrow_mut();
+                if let Some(index) = scope.iter().position(|p| p == &prop) {
+                    scope.swap_remove(index);
+                }
+            } else {
+                console_warn(
+                    "tried to remove property to a scope that has been \
+                     disposed",
+                )
+            }
+        })
+    }
+    #[cfg_attr(
+        any(debug_assertions, features = "ssr"),
+        instrument(level = "trace", skip_all,)
+    )]
     /// Returns the the parent Scope, if any.
     pub fn parent(&self) -> Option<Scope> {
         match with_runtime(self.runtime, |runtime| {
@@ -392,7 +382,7 @@ slotmap::new_key_type! {
     pub struct ScopeId;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub(crate) enum ScopeProperty {
     Trigger(NodeId),
     Signal(NodeId),
