@@ -68,6 +68,7 @@ use crate::{
 /// // setting name only causes name to log, not count
 /// set_name.set("Bob".into());
 /// ```
+#[track_caller]
 pub fn create_slice<T, O, S>(
     cx: Scope,
     signal: RwSignal<T>,
@@ -85,6 +86,7 @@ where
 
 /// Takes a memoized, read-only slice of a signal. This is equivalent to the
 /// read-only half of [`create_slice`].
+#[track_caller]
 pub fn create_read_slice<T, O>(
     cx: Scope,
     signal: RwSignal<T>,
@@ -98,6 +100,7 @@ where
 
 /// Creates a setter to access one slice of a signal. This is equivalent to the
 /// write-only half of [`create_slice`].
+#[track_caller]
 pub fn create_write_slice<T, O>(
     cx: Scope,
     signal: RwSignal<T>,
