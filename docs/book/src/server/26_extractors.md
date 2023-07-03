@@ -62,6 +62,8 @@ pub async fn axum_extract(cx: Scope) -> Result<String, ServerFnError> {
 
 These are relatively simple examples accessing basic data from the server. But you can use extractors to access things like headers, cookies, database connection pools, and more, using the exact same `extract()` pattern.
 
+> Note: For now, the Axum `extract` function only supports extractors for which the state is `()`, i.e., you can't yet use it to extract `State(_)`. You can access `State(_)` by using a custom handler that extracts the state and then provides it via context. [Click here for an example](https://github.com/leptos-rs/leptos/blob/a5f73b441c079f9138102b3a7d8d4828f045448c/examples/session_auth_axum/src/main.rs#L91-L92).
+
 ## A Note about Data-Loading Patterns
 
 Because Actix and (especially) Axum are built on the idea of a single round-trip HTTP request and response, you typically run extractors near the “top” of your application (i.e., before you start rendering) and use the extracted data to determine how that should be rendered. Before you render a `<button>`, you load all the data your app could need. And any given route handler needs to know all the data that will need to be extracted by that route.
