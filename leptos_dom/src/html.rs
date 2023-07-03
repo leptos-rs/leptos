@@ -750,7 +750,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                                 class_list.remove_1(prev_class).unwrap_or_else(
                                     |err| {
                                         panic!(
-                                            "failed to add class \
+                                            "failed to remove class \
                                              `{prev_class}`, error: {err:#?}"
                                         )
                                     },
@@ -763,7 +763,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                             if !old_classes.any(|c| c == class) {
                                 class_list.add_1(class).unwrap_or_else(|err| {
                                     panic!(
-                                        "failed to remove class `{class}`, \
+                                        "failed to add class `{class}`, \
                                          error: {err:#?}"
                                     )
                                 });
