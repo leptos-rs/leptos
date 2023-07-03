@@ -1315,6 +1315,12 @@ impl<B> From<Request<B>> for ExtractorHelper {
 ///     .map_err(|e| ServerFnError::ServerError("Could not extract method and query...".to_string()))
 /// }
 /// ```
+///
+/// > Note: For now, the Axum `extract` function only supports extractors for
+/// which the state is `()`, i.e., you can't yet use it to extract `State(_)`.
+/// You can access `State(_)` by using a custom handler that extracts the state
+/// and then provides it via context.
+/// [Click here for an example](https://github.com/leptos-rs/leptos/blob/a5f73b441c079f9138102b3a7d8d4828f045448c/examples/session_auth_axum/src/main.rs#L91-L92).
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub async fn extract<T, U>(
     cx: Scope,
