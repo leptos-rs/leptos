@@ -479,11 +479,17 @@ impl RuntimeId {
         instrument(level = "trace", skip_all,)
     )]
     #[inline(always)]
-    pub(crate) fn untrack<T>(self, f: impl FnOnce() -> T) -> T {
+    pub(crate) fn untrack<T>(
+        self,
+        f: impl FnOnce() -> T,
+        diagnostics: bool,
+    ) -> T {
         with_runtime(self, |runtime| {
             let untracked_result;
 
-            SpecialNonReactiveZone::enter();
+            if !diagnostics {
+                SpecialNonReactiveZone::enter();
+            }
 
             let prev_observer =
                 SetObserverOnDrop(self, runtime.observer.take());
@@ -493,7 +499,9 @@ impl RuntimeId {
             runtime.observer.set(prev_observer.1);
             std::mem::forget(prev_observer); // avoid Drop
 
-            SpecialNonReactiveZone::exit();
+            if !diagnostics {
+                SpecialNonReactiveZone::exit();
+            }
 
             untracked_result
         })
@@ -758,7 +766,7 @@ impl RuntimeId {
                 cur_deps_value.replace(Some(deps_value.clone()));
 
                 let callback_value =
-                    Some(self.untrack(wrapped_callback.clone()));
+                    Some(self.untrack(wrapped_callback.clone(), false));
 
                 prev_callback_value.replace(callback_value);
 

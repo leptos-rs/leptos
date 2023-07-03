@@ -271,8 +271,9 @@ where
         let mut repr = ComponentRepr::new_with_id(name, id);
 
         // disposed automatically when the parent scope is disposed
-        let (child, _) = cx
-            .run_child_scope(|cx| cx.untrack(|| children_fn(cx).into_view(cx)));
+        let (child, _) = cx.run_child_scope(|cx| {
+            cx.untrack_with_diagnostics(|| children_fn(cx).into_view(cx))
+        });
 
         repr.children.push(child);
 

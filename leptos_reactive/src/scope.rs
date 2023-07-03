@@ -208,7 +208,14 @@ impl Scope {
     )]
     #[inline(always)]
     pub fn untrack<T>(&self, f: impl FnOnce() -> T) -> T {
-        self.runtime.untrack(f)
+        self.runtime.untrack(f, false)
+    }
+
+    #[doc(hidden)]
+    /// Suspends reactive tracking but keeps the diagnostic warnings for
+    /// untracked functions.
+    pub fn untrack_with_diagnostics<T>(&self, f: impl FnOnce() -> T) -> T {
+        self.runtime.untrack(f, true)
     }
 }
 
