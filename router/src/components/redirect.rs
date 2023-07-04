@@ -33,7 +33,7 @@ where
 {
     // resolve relative path
     let path = use_resolved_path(cx, move || path.to_string());
-    let path = path.get().unwrap_or_else(|| "/".to_string());
+    let path = path.get_untracked().unwrap_or_else(|| "/".to_string());
 
     // redirect on the server
     if let Some(redirect_fn) = use_context::<ServerRedirectFunction>(cx) {
