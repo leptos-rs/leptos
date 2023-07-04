@@ -1,7 +1,13 @@
 use counters_stable::Counters;
 use leptos::*;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlElement;
 
 // Actions
+
+pub fn add_counter() {
+    find_by_text("Add Counter").click();
+}
 
 pub fn view_counters() {
     remove_existing_counters();
@@ -31,6 +37,19 @@ fn data_test_id(id: &str) -> String {
         .unwrap()
         .expect("counters not found")
         .text_content()
+        .unwrap()
+}
+
+fn find_by_text(text: &str) -> HtmlElement {
+    let xpath = format!("//*[text()='{}']", text);
+    let document = leptos::document();
+    document
+        .evaluate(&xpath, &document)
+        .unwrap()
+        .iterate_next()
+        .unwrap()
+        .unwrap()
+        .dyn_into::<HtmlElement>()
         .unwrap()
 }
 
