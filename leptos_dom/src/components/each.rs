@@ -230,7 +230,12 @@ impl EachItem {
                 fragment.append_with_node_1(&closing.node).unwrap();
             }
 
-            mount_child(MountKind::Before(&closing.node), &child);
+            // if child view is Text and if we are hydrating, we do not
+            // need to mount it. otherwise, mount it here
+            if !HydrationCtx::is_hydrating() || !matches!(child, View::Text(_))
+            {
+                mount_child(MountKind::Before(&closing.node), &child);
+            }
 
             Some(fragment)
         } else {
