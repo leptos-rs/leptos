@@ -4,6 +4,7 @@ use wasm_bindgen_test::*;
 pub mod add_1k_counters;
 pub mod add_counter;
 pub mod clear_counters;
+pub mod increment_counter;
 pub mod view_counters;
 
 pub mod fixtures;

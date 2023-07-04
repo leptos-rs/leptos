@@ -1,7 +1,7 @@
 use counters_stable::Counters;
 use leptos::*;
 use wasm_bindgen::JsCast;
-use web_sys::HtmlElement;
+use web_sys::{Element, HtmlElement};
 
 // Actions
 
@@ -15,6 +15,10 @@ pub fn add_counter() {
 
 pub fn clear_counters() {
     find_by_text("Clear Counters").click();
+}
+
+pub fn increment_counter(index: u32) {
+    counter_html_element(index, "increment_count").click();
 }
 
 pub fn view_counters() {
@@ -37,6 +41,21 @@ pub fn total() -> i32 {
 }
 
 // Internal
+
+fn counter_element(index: u32, text: &str) -> Element {
+    let selector =
+        format!("li:nth-child({}) [data-testid=\"{}\"]", index, text);
+    leptos::document()
+        .query_selector(&selector)
+        .unwrap()
+        .unwrap()
+}
+
+fn counter_html_element(index: u32, text: &str) -> HtmlElement {
+    counter_element(index, text)
+        .dyn_into::<HtmlElement>()
+        .unwrap()
+}
 
 fn data_test_id(id: &str) -> String {
     let selector = format!("[data-testid=\"{}\"]", id);
