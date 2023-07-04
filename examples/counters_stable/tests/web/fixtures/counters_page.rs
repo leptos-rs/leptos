@@ -13,6 +13,10 @@ pub fn add_counter() {
     find_by_text("Add Counter").click();
 }
 
+pub fn clear_counters() {
+    find_by_text("Clear Counters").click();
+}
+
 pub fn view_counters() {
     remove_existing_counters();
     mount_to_body(|cx| view! { cx,  <Counters/> });
