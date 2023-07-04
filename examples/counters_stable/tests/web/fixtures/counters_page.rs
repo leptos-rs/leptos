@@ -5,6 +5,10 @@ use web_sys::HtmlElement;
 
 // Actions
 
+pub fn add_1k_counters() {
+    find_by_text("Add 1000 Counters").click();
+}
+
 pub fn add_counter() {
     find_by_text("Add Counter").click();
 }

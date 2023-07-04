@@ -1,6 +1,7 @@
 use wasm_bindgen_test::*;
 
 // Test Suites
+pub mod add_1k_counters;
 pub mod add_counter;
 pub mod view_counters;
 
