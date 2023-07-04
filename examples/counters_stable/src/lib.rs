@@ -1,4 +1,5 @@
 use leptos::*;
+use leptos_meta::*;
 
 const MANY_COUNTERS: usize = 1000;
 
@@ -14,6 +15,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
     let (next_counter_id, set_next_counter_id) = create_signal(cx, 0);
     let (counters, set_counters) = create_signal::<CounterHolder>(cx, vec![]);
     provide_context(cx, CounterUpdater { set_counters });
+    provide_meta_context(cx);
 
     let add_counter = move |_| {
         let id = next_counter_id.get();
@@ -38,6 +40,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
     };
 
     view! { cx,
+        <Title text="Counters (Stable)" />
         <div>
             <button on:click=add_counter>
                 "Add Counter"

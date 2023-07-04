@@ -11,3 +11,12 @@ fn should_see_the_initial_counts() {
     assert_eq!(ui::total(), 0);
     assert_eq!(ui::counters(), 0);
 }
+
+#[wasm_bindgen_test]
+fn should_see_the_title() {
+    // When
+    ui::view_counters();
+
+    // Then
+    assert_eq!(ui::title(), "Counters (Stable)");
+}

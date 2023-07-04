@@ -10,12 +10,16 @@ pub fn view_counters() {
 
 // Results
 
-pub fn total() -> i32 {
-    data_test_id("total").parse::<i32>().unwrap()
-}
-
 pub fn counters() -> i32 {
     data_test_id("counters").parse::<i32>().unwrap()
+}
+
+pub fn title() -> String {
+    leptos::document().title()
+}
+
+pub fn total() -> i32 {
+    data_test_id("total").parse::<i32>().unwrap()
 }
 
 // Internal
