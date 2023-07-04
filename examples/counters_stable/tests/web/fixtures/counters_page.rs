@@ -25,6 +25,10 @@ pub fn increment_counter(index: u32) {
     counter_html_element(index, "increment_count").click();
 }
 
+pub fn remove_counter(index: u32) {
+    counter_html_element(index, "remove_counter").click();
+}
+
 pub fn view_counters() {
     remove_existing_counters();
     mount_to_body(|cx| view! { cx,  <Counters/> });
