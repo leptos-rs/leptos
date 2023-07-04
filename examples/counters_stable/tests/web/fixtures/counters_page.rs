@@ -17,6 +17,10 @@ pub fn clear_counters() {
     find_by_text("Clear Counters").click();
 }
 
+pub fn decrement_counter(index: u32) {
+    counter_html_element(index, "decrement_count").click();
+}
+
 pub fn increment_counter(index: u32) {
     counter_html_element(index, "increment_count").click();
 }
