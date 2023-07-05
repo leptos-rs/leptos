@@ -13,7 +13,7 @@ mod web {
     };
     pub use drain_filter_polyfill::VecExt as VecDrainFilterExt;
     pub use leptos_reactive::create_effect;
-    pub use std::cell::OnceCell;
+    pub use once_cell::unsync::OnceCell;
     pub use wasm_bindgen::JsCast;
 }
 
