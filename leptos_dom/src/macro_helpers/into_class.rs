@@ -79,6 +79,7 @@ pub fn class_helper(
     name: Cow<'static, str>,
     value: Class,
 ) {
+    use crate::HydrationCtx;
     use leptos_reactive::create_render_effect;
 
     let class_list = el.class_list();
@@ -86,7 +87,9 @@ pub fn class_helper(
         Class::Fn(cx, f) => {
             create_render_effect(cx, move |old| {
                 let new = f();
-                if old.as_ref() != Some(&new) && (old.is_some() || new) {
+                if old.as_ref() != Some(&new)
+                    && (old.is_some() || new || HydrationCtx::is_hydrating())
+                {
                     class_expression(&class_list, &name, new, true)
                 }
                 new
