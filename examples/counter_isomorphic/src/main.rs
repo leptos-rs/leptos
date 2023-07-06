@@ -61,7 +61,7 @@ cfg_if! {
                     .leptos_routes(
                         leptos_options.to_owned(),
                         routes.to_owned(),
-                        |cx| view! { cx, <App/> },
+                        Counters,
                     )
                     .app_data(web::Data::new(leptos_options.to_owned()))
                     //.wrap(middleware::Compress::default())
