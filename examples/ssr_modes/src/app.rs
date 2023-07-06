@@ -27,6 +27,11 @@ pub fn App(cx: Scope) -> impl IntoView {
                         view=Post
                         ssr=SsrMode::Async
                     />
+
+                    <Route
+                        path="/*any"
+                        view=NotFound
+                    />
                 </Routes>
             </main>
         </Router>
@@ -181,4 +186,15 @@ pub async fn list_post_metadata() -> Result<Vec<PostMetadata>, ServerFnError> {
 pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     Ok(POSTS.iter().find(|post| post.id == id).cloned())
+}
+
+#[component]
+fn NotFound(cx: Scope) -> impl IntoView {
+    #[cfg(feature = "ssr")]
+    {
+        let resp = expect_context::<leptos_actix::ResponseOptions>(cx);
+        resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
+    }
+
+    view! { cx, <h1>"Not Found"</h1> }
 }
