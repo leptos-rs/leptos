@@ -67,24 +67,10 @@ pub fn Counters(cx: Scope) -> impl IntoView {
             <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
             <main>
                 <Routes>
-                    <Route
-                        path=""
-                        view=|cx| {
-                            view! { cx, <Counter/> }
-                        }
-                    />
-                    <Route
-                        path="form"
-                        view=|cx| {
-                            view! { cx, <FormCounter/> }
-                        }
-                    />
-                    <Route
-                        path="multi"
-                        view=|cx| {
-                            view! { cx, <MultiuserCounter/> }
-                        }
-                    />
+                    <Route path="" view=Counter/>
+                    <Route path="form" view=FormCounter/>
+                    <Route path="multi" view=MultiuserCounter/>
+                    <Route path="multi" view=NotFound/>
                 </Routes>
             </main>
         </Router>
@@ -175,13 +161,9 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
                 "This counter uses forms to set the value on the server. When progressively enhanced, it should behave identically to the “Simple Counter.”"
             </p>
             <div>
-                // calling a server function is the same as POSTing to its API URL
-                // so we can just do that with a form and button
                 <ActionForm action=clear>
                     <input type="submit" value="Clear"/>
                 </ActionForm>
-                // We can submit named arguments to the server functions
-                // by including them as input values with the same name
                 <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="-1"/>
                     <input type="hidden" name="msg" value="form value down"/>
@@ -255,4 +237,15 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
             </div>
         </div>
     }
+}
+
+#[component]
+fn NotFound(cx: Scope) -> impl IntoView {
+    #[cfg(feature = "ssr")]
+    {
+        let resp = expect_context::<leptos_actix::ResponseOptions>(cx);
+        resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
+    }
+
+    view! { cx, <h1>"Not Found"</h1> }
 }

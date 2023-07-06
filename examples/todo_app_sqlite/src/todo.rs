@@ -92,10 +92,8 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             </header>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! {
-                        cx,
-                        <Todos/>
-                    }/>
+                    <Route path="" view=Todos/>
+                    <Route path="/*any" view=NotFound/>
                 </Routes>
             </main>
         </Router>
@@ -199,4 +197,15 @@ pub fn Todos(cx: Scope) -> impl IntoView {
             </Transition>
         </div>
     }
+}
+
+#[component]
+fn NotFound(cx: Scope) -> impl IntoView {
+    #[cfg(feature = "ssr")]
+    {
+        let resp = expect_context::<leptos_actix::ResponseOptions>(cx);
+        resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
+    }
+
+    view! { cx, <h1>"Not Found"</h1> }
 }
