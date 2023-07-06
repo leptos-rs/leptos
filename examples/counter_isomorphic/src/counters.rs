@@ -239,7 +239,6 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
     }
 }
 
-
 #[component]
 fn NotFound(cx: Scope) -> impl IntoView {
     #[cfg(feature = "ssr")]

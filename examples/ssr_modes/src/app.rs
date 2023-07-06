@@ -188,7 +188,6 @@ pub async fn get_post(id: usize) -> Result<Option<Post>, ServerFnError> {
     Ok(POSTS.iter().find(|post| post.id == id).cloned())
 }
 
-
 #[component]
 fn NotFound(cx: Scope) -> impl IntoView {
     #[cfg(feature = "ssr")]
