@@ -502,77 +502,41 @@ struct HashRun<T>(#[educe(Debug(ignore))] T);
 /// Calculates the operations need to get from `a` to `b`.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
-    if from.is_empty() && to.is_empty() {
-        return Diff::default();
-    } else if to.is_empty() {
-        return Diff {
-            clear: true,
-            ..Default::default()
-        };
-    } else if from.is_empty() {
-        return Diff {
-            added: to
-                .iter()
-                .enumerate()
-                .map(|(at, _)| DiffOpAdd {
-                    at,
-                    mode: DiffOpAddMode::Append,
-                })
-                .collect(),
-            ..Default::default()
-        };
+    let mut removes = vec![];
+    let mut moves = vec![];
+    let mut adds = vec![];
+    for (index, item) in from.iter().enumerate() {
+        if let Some(to_item) = to.get_full(item) {
+            let op = DiffOpMove {
+                from: index,
+                len: 1,
+                to: to_item.0,
+                move_in_dom: true,
+            };
+            moves.push(op);
+        } else {
+            let op = DiffOpRemove { at: index };
+            removes.push(op);
+        }
     }
 
-    // Get removed items
-    let removed = from.difference(to);
+    for (index, item) in to.iter().enumerate() {
+        if let None = from.get_full(item) {
+            let op = DiffOpAdd {
+                at: index,
+                mode: DiffOpAddMode::Normal,
+            };
+            adds.push(op);
+        }
+    }
 
-    let remove_cmds = removed
-        .clone()
-        .map(|k| from.get_full(k).unwrap().0)
-        .map(|idx| DiffOpRemove { at: idx });
-
-    // Get added items
-    let added = to.difference(from);
-
-    let add_cmds =
-        added
-            .clone()
-            .map(|k| to.get_full(k).unwrap().0)
-            .map(|idx| DiffOpAdd {
-                at: idx,
-                mode: Default::default(),
-            });
-
-    // Get items that might have moved
-    let from_moved = from.intersection(&to).collect::<FxIndexSet<_>>();
-    let to_moved = to.intersection(&from).collect::<FxIndexSet<_>>();
-
-    let move_cmds = find_ranges(from_moved, to_moved, from, to);
-
-    let mut diff = Diff {
-        removed: remove_cmds.collect(),
-        items_to_move: move_cmds.iter().map(|range| range.len).sum(),
-        moved: move_cmds,
-        added: add_cmds.collect(),
+    Diff {
+        removed: removes,
+        items_to_move: moves.len(),
+        moved: moves,
+        added: adds,
         clear: false,
-    };
-
-    apply_opts(from, to, &mut diff);
-
-    #[cfg(test)]
-    {
-        let mut adds_sorted = diff.added.clone();
-        adds_sorted.sort_unstable_by_key(|add| add.at);
-
-        assert_eq!(diff.added, adds_sorted, "adds must be sorted");
-
-        let mut moves_sorted = diff.moved.clone();
-        moves_sorted.sort_unstable_by_key(|move_| move_.to);
-
-        assert_eq!(diff.moved, moves_sorted, "moves must be sorted by `to`");
     }
-
-    diff
 }
 
 /// Builds and returns the ranges of items that need to
