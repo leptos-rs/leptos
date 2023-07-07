@@ -55,6 +55,8 @@ fn view_fn(cx: Scope) -> impl IntoView {
             <hr/>
             <Test from=[1, 4, 3, 2, 5] to=[1, 2, 3, 4, 5]/>
             <Test from=[4, 5, 3, 1, 2] to=[1, 2, 3, 4, 5]/>
+            <Test from=[0, 1, 2, 3] to=[1, 3]/> // issue #1274
+            <Test from=[] to=[3, 9, 17] then=vec![3, 5, 7, 9, 17, 23]/> // issue #1297
         </ul>
     }
 }
