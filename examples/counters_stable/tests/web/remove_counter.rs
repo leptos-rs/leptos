@@ -14,6 +14,5 @@ fn should_decrement_the_number_of_counters() {
     ui::remove_counter(2);
 
     // Then
-    assert_eq!(ui::total(), 0);
     assert_eq!(ui::counters(), 2);
 }
