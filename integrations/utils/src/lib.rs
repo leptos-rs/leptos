@@ -15,7 +15,7 @@ fn autoreload(options: &LeptosOptions) -> String {
                 <script crossorigin="">(function () {{
                     {}
                     //var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                    var ws = new WebSocket('ws://timada.localhost/starter-reload/live_reload');
+                    var ws = new WebSocket('wss://timada.localhost/starter-reload/live_reload');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
                         if (msg.all) window.location.reload();
