@@ -502,40 +502,61 @@ struct HashRun<T>(#[educe(Debug(ignore))] T);
 /// Calculates the operations need to get from `a` to `b`.
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
-    let mut removes = vec![];
-    let mut moves = vec![];
-    let mut adds = vec![];
-    for (index, item) in from.iter().enumerate() {
-        if let Some(to_item) = to.get_full(item) {
-            let op = DiffOpMove {
-                from: index,
-                len: 1,
-                to: to_item.0,
-                move_in_dom: true,
-            };
-            moves.push(op);
-        } else {
-            let op = DiffOpRemove { at: index };
-            removes.push(op);
+    if from.is_empty() && to.is_empty() {
+        return Diff::default();
+    } else if to.is_empty() {
+        return Diff {
+            clear: true,
+            ..Default::default()
+        };
+    } else if from.is_empty() {
+        return Diff {
+            added: to
+                .iter()
+                .enumerate()
+                .map(|(at, _)| DiffOpAdd {
+                    at,
+                    mode: DiffOpAddMode::Append,
+                })
+                .collect(),
+            ..Default::default()
+        };
+    } else {
+        let mut removes = vec![];
+        let mut moves = vec![];
+        let mut adds = vec![];
+        for (index, item) in from.iter().enumerate() {
+            if let Some(to_item) = to.get_full(item) {
+                let op = DiffOpMove {
+                    from: index,
+                    len: 1,
+                    to: to_item.0,
+                    move_in_dom: true,
+                };
+                moves.push(op);
+            } else {
+                let op = DiffOpRemove { at: index };
+                removes.push(op);
+            }
         }
-    }
 
-    for (index, item) in to.iter().enumerate() {
-        if let None = from.get_full(item) {
-            let op = DiffOpAdd {
-                at: index,
-                mode: DiffOpAddMode::Normal,
-            };
-            adds.push(op);
+        for (index, item) in to.iter().enumerate() {
+            if let None = from.get_full(item) {
+                let op = DiffOpAdd {
+                    at: index,
+                    mode: DiffOpAddMode::Normal,
+                };
+                adds.push(op);
+            }
         }
-    }
 
-    Diff {
-        removed: removes,
-        items_to_move: moves.len(),
-        moved: moves,
-        added: adds,
-        clear: false,
+        Diff {
+            removed: removes,
+            items_to_move: moves.len(),
+            moved: moves,
+            added: adds,
+            clear: false,
+        }
     }
 }
 
