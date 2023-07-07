@@ -17,7 +17,7 @@ mod web {
     pub use wasm_bindgen::JsCast;
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 type FxIndexSet<T> =
     indexmap::IndexSet<T, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
@@ -499,9 +499,10 @@ where
 #[educe(Debug)]
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
-/// Calculates the operations need to get from `a` to `b`.
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+/// Calculates the operations needed to get from `from` to `to`.
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
+    // Optimization: Fast path if either `to` or `from` is empty
     if from.is_empty() && to.is_empty() {
         return Diff::default();
     } else if to.is_empty() {
@@ -521,44 +522,90 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
                 .collect(),
             ..Default::default()
         };
-    } else {
-        let mut removes = vec![];
-        let mut moves = vec![];
-        let mut adds = vec![];
-        for (index, item) in from.iter().enumerate() {
-            if let Some(to_item) = to.get_full(item) {
-                if index != to_item.0 {
-                    let op = DiffOpMove {
-                        from: index,
-                        len: 1,
-                        to: to_item.0,
-                        move_in_dom: true,
-                    };
-                    moves.push(op);
-                }
-            } else {
-                let op = DiffOpRemove { at: index };
-                removes.push(op);
-            }
-        }
+    }
 
-        for (index, item) in to.iter().enumerate() {
-            if let None = from.get_full(item) {
-                let op = DiffOpAdd {
-                    at: index,
-                    mode: DiffOpAddMode::Normal,
+    let mut removed = vec![];
+    let mut moved = vec![];
+    let mut added = vec![];
+    for (from_index, item) in from.iter().enumerate() {
+        match to.get_index_of(item) {
+            // Item exists in both lists move.
+            Some(to_index) if to_index != from_index => {
+                // TODO: we need to loop through adjacent items in `from` and if
+                // they are becoming adjacent items it `to` then group them
+                // together and then skip over them
+                // Maybe start with everything being moves, then choose the smaller
+                // moves to actually move, and then remove moves that don't need to happen.
+                let op = DiffOpMove {
+                    from: from_index,
+                    len: 1,
+                    to: to_index,
+                    move_in_dom: true,
                 };
-                adds.push(op);
+                moved.push(op);
+            }
+            Some(_) => {
+                // Item is in the same position in both lists, do nothing
+            }
+            None => {
+                // Item does not exist in the `to` list, so we remove it.
+                let op = DiffOpRemove { at: from_index };
+                removed.push(op);
             }
         }
+    }
 
-        Diff {
-            removed: removes,
-            items_to_move: moves.len(),
-            moved: moves,
-            added: adds,
-            clear: false,
+    // New items
+    for (index, item) in to.iter().enumerate() {
+        if !from.contains(item) {
+            let op = DiffOpAdd {
+                at: index,
+                mode: DiffOpAddMode::Normal,
+            };
+            added.push(op);
         }
+    }
+
+    // Optimization: For new items that are at the end of the list, we can use
+    // `DiffOpAddMode::Append`
+    // TODO: test
+    let mut index_of_appendable = to.len() - 1;
+    for item in added.iter_mut().rev() {
+        if item.at == index_of_appendable {
+            item.mode = DiffOpAddMode::Append;
+            // We can use wrapping sub here as there will never be an index
+            // lower than `0` and we don't need any checks. `0usize - 1` panics.
+            index_of_appendable = index_of_appendable.wrapping_sub(1);
+        } else {
+            // Once we have seen a non-append, we will never see one again
+            break;
+        }
+    }
+
+    // Optimization: if there are only adds, we can ignore removes and clear
+    // the dom node
+    // TODO: test
+    let clear;
+    if from.len() > 0 && added.len() == to.len() {
+        clear = true;
+        removed.clear();
+    } else {
+        clear = false;
+    }
+
+    // Optimization: if between moves there are only removes we don't need to do
+    // the last move
+    // TODO: test
+    // TODO: next
+    let mut moved_ = moved.iter();
+    let next = moved_.next();
+
+    Diff {
+        removed,
+        items_to_move: moved.len(),
+        moved,
+        added,
+        clear,
     }
 }
 
@@ -710,7 +757,7 @@ fn optimize_moves(moves: &mut Vec<DiffOpMove>) {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Diff {
     removed: Vec<DiffOpRemove>,
@@ -720,7 +767,7 @@ struct Diff {
     clear: bool,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct DiffOpMove {
     /// The index this range is starting relative to `from`.
@@ -734,7 +781,7 @@ struct DiffOpMove {
     move_in_dom: bool,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Default for DiffOpMove {
     fn default() -> Self {
         Self {
@@ -746,29 +793,28 @@ impl Default for DiffOpMove {
     }
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct DiffOpAdd {
     at: usize,
     mode: DiffOpAddMode,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Debug, PartialEq, Eq)]
 struct DiffOpRemove {
     at: usize,
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DiffOpAddMode {
     Normal,
     Append,
-    // Todo
-    _Prepend,
+    // TODO: _Prepend
 }
 
-#[cfg(all(target_arch = "wasm32", feature = "web"))]
+// #[cfg(all(target_arch = "wasm32", feature = "web"))]
 impl Default for DiffOpAddMode {
     fn default() -> Self {
         Self::Normal
@@ -894,9 +940,6 @@ fn apply_diff<T, EF, V>(
             DiffOpAddMode::Append => {
                 mount_child(MountKind::Before(closing), &each_item);
             }
-            DiffOpAddMode::_Prepend => {
-                todo!("Prepends are not yet implemented")
-            }
         }
 
         children[at] = Some(each_item);
@@ -978,27 +1021,27 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
     (moves, adds)
 }
 
-// #[cfg(test)]
-// mod test_utils {
-//     use super::*;
+#[cfg(test)]
+mod test_utils {
+    use super::*;
 
-//     pub trait IntoFxIndexSet<K> {
-//         fn into_fx_index_set(self) -> FxIndexSet<K>;
-//     }
+    pub trait IntoFxIndexSet<K> {
+        fn into_fx_index_set(self) -> FxIndexSet<K>;
+    }
 
-//     impl<T, K> IntoFxIndexSet<K> for T
-//     where
-//         T: IntoIterator<Item = K>,
-//         K: Eq + Hash,
-//     {
-//         fn into_fx_index_set(self) -> FxIndexSet<K> {
-//             self.into_iter().collect()
-//         }
-//     }
-// }
+    impl<T, K> IntoFxIndexSet<K> for T
+    where
+        T: IntoIterator<Item = K>,
+        K: Eq + Hash,
+    {
+        fn into_fx_index_set(self) -> FxIndexSet<K> {
+            self.into_iter().collect()
+        }
+    }
+}
 
-// #[cfg(test)]
-// use test_utils::*;
+#[cfg(test)]
+use test_utils::*;
 
 // #[cfg(test)]
 // mod find_ranges {
@@ -1311,71 +1354,71 @@ fn unpack_moves(diff: &Diff) -> (Vec<DiffOpMove>, Vec<DiffOpAdd>) {
 //     }
 // }
 
-// #[cfg(test)]
-// mod diff {
-//     use super::*;
+#[cfg(test)]
+mod diff {
+    use super::*;
 
-//     #[test]
-//     fn only_adds() {
-//         let diff =
-//             diff(&[].into_fx_index_set(), &[1, 2, 3].into_fx_index_set());
+    #[test]
+    fn only_adds() {
+        let diff =
+            diff(&[].into_fx_index_set(), &[1, 2, 3].into_fx_index_set());
 
-//         assert_eq!(
-//             diff,
-//             Diff {
-//                 added: vec![
-//                     DiffOpAdd {
-//                         at: 0,
-//                         mode: DiffOpAddMode::Append
-//                     },
-//                     DiffOpAdd {
-//                         at: 1,
-//                         mode: DiffOpAddMode::Append
-//                     },
-//                     DiffOpAdd {
-//                         at: 2,
-//                         mode: DiffOpAddMode::Append
-//                     },
-//                 ],
-//                 ..Default::default()
-//             }
-//         );
-//     }
+        assert_eq!(
+            diff,
+            Diff {
+                added: vec![
+                    DiffOpAdd {
+                        at: 0,
+                        mode: DiffOpAddMode::Append
+                    },
+                    DiffOpAdd {
+                        at: 1,
+                        mode: DiffOpAddMode::Append
+                    },
+                    DiffOpAdd {
+                        at: 2,
+                        mode: DiffOpAddMode::Append
+                    },
+                ],
+                ..Default::default()
+            }
+        );
+    }
 
-//     #[test]
-//     fn only_removes() {
-//         let diff =
-//             diff(&[1, 2, 3].into_fx_index_set(), &[3].into_fx_index_set());
+    #[test]
+    fn only_removes() {
+        let diff =
+            diff(&[1, 2, 3].into_fx_index_set(), &[3].into_fx_index_set());
 
-//         assert_eq!(
-//             diff,
-//             Diff {
-//                 removed: vec![DiffOpRemove { at: 0 }, DiffOpRemove { at: 1 }],
-//                 ..Default::default()
-//             }
-//         );
-//     }
+        assert_eq!(
+            diff,
+            Diff {
+                removed: vec![DiffOpRemove { at: 0 }, DiffOpRemove { at: 1 }],
+                ..Default::default()
+            }
+        );
+    }
 
-//     #[test]
-//     fn adds_with_no_move() {
-//         let diff =
-//             diff(&[3].into_fx_index_set(), &[1, 2, 3].into_fx_index_set());
+    #[test]
+    fn adds_with_no_move() {
+        let diff =
+            diff(&[3].into_fx_index_set(), &[1, 2, 3].into_fx_index_set());
 
-//         assert_eq!(
-//             diff,
-//             Diff {
-//                 added: vec![
-//                     DiffOpAdd {
-//                         at: 0,
-//                         ..Default::default()
-//                     },
-//                     DiffOpAdd {
-//                         at: 1,
-//                         ..Default::default()
-//                     },
-//                 ],
-//                 ..Default::default()
-//             }
-//         );
-//     }
-// }
+        assert_eq!(
+            diff,
+            Diff {
+                added: vec![
+                    DiffOpAdd {
+                        at: 0,
+                        ..Default::default()
+                    },
+                    DiffOpAdd {
+                        at: 1,
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }
+        );
+    }
+}
