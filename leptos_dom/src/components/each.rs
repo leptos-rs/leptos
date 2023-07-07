@@ -499,7 +499,7 @@ where
 #[educe(Debug)]
 struct HashRun<T>(#[educe(Debug(ignore))] T);
 
-/// Calculates the operations need to get from `a` to `b`.
+/// Calculates the operations needed to get from `from` to `to`.
 #[allow(dead_code)] // not used in SSR but useful to have available for testing
 fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
     if from.is_empty() && to.is_empty() {
@@ -521,63 +521,90 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
                 .collect(),
             ..Default::default()
         };
-    } else {
-        let mut removes = vec![];
-        let mut moves = vec![];
-        let mut adds = vec![];
-        let max_len = std::cmp::max(from.len(), to.len());
+    }
 
-        for index in 0..max_len {
-            let from_item = from.get_index(index);
-            let to_item = to.get_index(index);
+    let mut removed = vec![];
+    let mut moved = vec![];
+    let mut added = vec![];
+    let max_len = std::cmp::max(from.len(), to.len());
 
-            // if they're the same, do nothing
-            if from_item != to_item {
-                // if it's only in old, not new, remove it
-                if from_item.is_some() && !to.contains(from_item.unwrap()) {
-                    let op = DiffOpRemove { at: index };
-                    removes.push(op);
-                }
-                // if it's only in new, not old, add it
-                if to_item.is_some() && !from.contains(to_item.unwrap()) {
-                    let op = DiffOpAdd {
-                        at: index,
-                        mode: DiffOpAddMode::Normal,
+    for index in 0..max_len {
+        let from_item = from.get_index(index);
+        let to_item = to.get_index(index);
+
+        // if they're the same, do nothing
+        if from_item != to_item {
+            // if it's only in old, not new, remove it
+            if from_item.is_some() && !to.contains(from_item.unwrap()) {
+                let op = DiffOpRemove { at: index };
+                removed.push(op);
+            }
+            // if it's only in new, not old, add it
+            if to_item.is_some() && !from.contains(to_item.unwrap()) {
+                let op = DiffOpAdd {
+                    at: index,
+                    mode: DiffOpAddMode::Normal,
+                };
+                added.push(op);
+            }
+            // if it's in both old and new, it can either
+            // 1) be moved (and need to move in the DOM)
+            // 2) be moved (but not need to move in the DOM)
+            //    * this would happen if, for example, 2 items
+            //      have been added before it, and it has moved by 2
+            if let Some(from_item) = from_item {
+                if let Some(to_item) = to.get_full(from_item) {
+                    let moves_forward_by = (to_item.0 as i32) - (index as i32);
+                    let move_in_dom = moves_forward_by
+                        != (added.len() as i32) - (removed.len() as i32);
+
+                    let op = DiffOpMove {
+                        from: index,
+                        len: 1,
+                        to: to_item.0,
+                        move_in_dom,
                     };
-                    adds.push(op);
-                }
-                // if it's in both old and new, it can either
-                // 1) be moved (and need to move in the DOM)
-                // 2) be moved (but not need to move in the DOM)
-                //    * this would happen if, for example, 2 items
-                //      have been added before it, and it has moved by 2
-                if let Some(from_item) = from_item {
-                    if let Some(to_item) = to.get_full(from_item) {
-                        let moves_forward_by =
-                            (to_item.0 as i32) - (index as i32);
-                        let move_in_dom = moves_forward_by
-                            != (adds.len() as i32) - (removes.len() as i32);
-
-                        let op = DiffOpMove {
-                            from: index,
-                            len: 1,
-                            to: to_item.0,
-                            move_in_dom,
-                        };
-                        moves.push(op);
-                    }
+                    moved.push(op);
                 }
             }
         }
+    }
 
-        Diff {
-            removed: removes,
-            items_to_move: moves.len(),
-            moved: moves,
-            added: adds,
-            clear: false,
+    moved = group_adjacent_moves(moved);
+
+    Diff {
+        removed,
+        items_to_move: moved.iter().map(|m| m.len).sum(),
+        moved,
+        added,
+        clear: false,
+    }
+}
+
+/// Group adjacent items that are being moved as a group.
+/// For example from `[2, 3, 5, 6]` to `[1, 2, 3, 4, 5, 6]` should result
+/// in a move for `2,3` and `5,6` rather than 4 individual moves.
+fn group_adjacent_moves(moved: Vec<DiffOpMove>) -> Vec<DiffOpMove> {
+    let mut prev: Option<DiffOpMove> = None;
+    let mut new_moved = Vec::with_capacity(moved.len());
+    for m in moved {
+        match prev {
+            Some(mut p) => {
+                if (m.from == p.from + p.len) && (m.to == p.to + p.len) {
+                    p.len += 1;
+                    prev = Some(p);
+                } else {
+                    new_moved.push(prev.take().unwrap());
+                    prev = Some(m);
+                }
+            }
+            None => prev = Some(m),
         }
     }
+    if let Some(prev) = prev {
+        new_moved.push(prev)
+    }
+    new_moved
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -941,6 +968,72 @@ mod diff {
                     move_in_dom: true
                 }],
                 items_to_move: 1,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn move_as_group() {
+        let diff = diff(
+            &[2, 3, 4, 5].into_fx_index_set(),
+            &[1, 2, 3, 4, 5].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            diff,
+            Diff {
+                added: vec![DiffOpAdd {
+                    at: 0,
+                    ..Default::default()
+                },],
+                moved: vec![DiffOpMove {
+                    from: 0,
+                    len: 4,
+                    to: 1,
+                    move_in_dom: false
+                },],
+                items_to_move: 4,
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn move_as_group_with_gap() {
+        let diff = diff(
+            &[2, 3, 5, 6].into_fx_index_set(),
+            &[1, 2, 3, 4, 5, 6].into_fx_index_set(),
+        );
+
+        assert_eq!(
+            diff,
+            Diff {
+                added: vec![
+                    DiffOpAdd {
+                        at: 0,
+                        ..Default::default()
+                    },
+                    DiffOpAdd {
+                        at: 3,
+                        ..Default::default()
+                    },
+                ],
+                moved: vec![
+                    DiffOpMove {
+                        from: 0,
+                        len: 2,
+                        to: 1,
+                        move_in_dom: false
+                    },
+                    DiffOpMove {
+                        from: 2,
+                        len: 2,
+                        to: 4,
+                        move_in_dom: true
+                    }
+                ],
+                items_to_move: 4,
                 ..Default::default()
             }
         );
