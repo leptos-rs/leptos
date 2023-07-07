@@ -527,13 +527,15 @@ fn diff<K: Eq + Hash>(from: &FxIndexSet<K>, to: &FxIndexSet<K>) -> Diff {
         let mut adds = vec![];
         for (index, item) in from.iter().enumerate() {
             if let Some(to_item) = to.get_full(item) {
-                let op = DiffOpMove {
-                    from: index,
-                    len: 1,
-                    to: to_item.0,
-                    move_in_dom: true,
-                };
-                moves.push(op);
+                if index != to_item.0 {
+                    let op = DiffOpMove {
+                        from: index,
+                        len: 1,
+                        to: to_item.0,
+                        move_in_dom: true,
+                    };
+                    moves.push(op);
+                }
             } else {
                 let op = DiffOpRemove { at: index };
                 removes.push(op);
