@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
     flake-utils.url  = "github:numtide/flake-utils";
   };
 
@@ -22,7 +23,8 @@
             openssl
             pkg-config
             cacert
-            (rust-bin.selectLatestNightlyWith( toolchain: toolchain.default.override {
+            mdbook
+            (rust-bin.selectLatestNightlyWith(toolchain: toolchain.default.override {
               extensions= [ "rust-src" "rust-analyzer" ];
               targets = [ "wasm32-unknown-unknown" ];
             }))
