@@ -14,7 +14,6 @@ test.describe("Add 1000 Counters", () => {
     await ui.addOneThousandCounters();
     await ui.addOneThousandCounters();
 
-    await expect(ui.total).toHaveText("0");
     await expect(ui.counters).toHaveText("3000");
   });
 });

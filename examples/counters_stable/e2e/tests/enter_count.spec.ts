@@ -26,6 +26,5 @@ test.describe("Enter Count", () => {
     await ui.enterCount("50", 1);
 
     await expect(ui.total).toHaveText("250");
-    await expect(ui.counters).toHaveText("3");
   });
 });

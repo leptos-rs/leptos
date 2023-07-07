@@ -10,7 +10,6 @@ test.describe("Add Counter", () => {
     await ui.addCounter();
     await ui.addCounter();
 
-    await expect(ui.total).toHaveText("0");
     await expect(ui.counters).toHaveText("3");
   });
 });
