@@ -17,6 +17,7 @@ mod web {
     pub use wasm_bindgen::JsCast;
 }
 
+#[allow(dead_code)] // not used in SSR
 type FxIndexSet<T> =
     indexmap::IndexSet<T, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
