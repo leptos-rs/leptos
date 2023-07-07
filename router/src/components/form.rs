@@ -143,10 +143,7 @@ where
                                     match Url::try_from(resp_url.as_str()) {
                                         Ok(url) => {
                                             if url.origin
-                                                != window()
-                                                    .location()
-                                                    .origin()
-                                                    .unwrap_or_default()
+                                                != current_window_origin()
                                             {
                                                 _ = window()
                                                     .location()
@@ -227,10 +224,7 @@ where
                                     match Url::try_from(resp_url.as_str()) {
                                         Ok(url) => {
                                             if url.origin
-                                                != window()
-                                                    .location()
-                                                    .hostname()
-                                                    .unwrap_or_default()
+                                                != current_window_origin()
                                             {
                                                 _ = window()
                                                     .location()
@@ -325,6 +319,20 @@ where
         children,
         node_ref,
         attributes,
+    )
+}
+
+fn current_window_origin() -> String {
+    let location = window().location();
+    let protocol = location.protocol().unwrap_or_default();
+    let hostname = location.hostname().unwrap_or_default();
+    let port = location.port().unwrap_or_default();
+    format!(
+        "{}//{}{}{}",
+        protocol,
+        hostname,
+        if port.is_empty() { "" } else { ":" },
+        port
     )
 }
 
