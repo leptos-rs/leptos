@@ -99,7 +99,7 @@ fn Counter(
             <button data-testid="decrement_count" on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
             <input data-testid="counter_input" type="text"
                 prop:value={move || value.get().to_string()}
-                on:input:undelegated=input
+                on:input=input
             />
             <span>{value}</span>
             <button data-testid="increment_count" on:click=move |_| set_value.update(move |value| *value += 1)>"+1"</button>
