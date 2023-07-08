@@ -46,7 +46,7 @@ async fn get_configuration_from_file_ok() {
         .unwrap()
         .leptos_options;
 
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -93,7 +93,7 @@ async fn get_config_from_file_ok() {
         .unwrap()
         .leptos_options;
 
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -128,7 +128,7 @@ fn get_config_from_str_content() {
     let config = get_config_from_str(CARGO_TOML_CONTENT_OK)
         .unwrap()
         .leptos_options;
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
     assert_eq!(
@@ -141,14 +141,14 @@ fn get_config_from_str_content() {
 #[tokio::test]
 async fn get_config_from_env() {
     // Test config values from environment variables
-    std::env::set_var("LEPTOS_OUTPUT_NAME", "app_test");
+    std::env::set_var("LEPTOS_OUTPUT_NAME", "app-test");
     std::env::set_var("LEPTOS_SITE_ROOT", "my_target/site");
     std::env::set_var("LEPTOS_SITE_PKG_DIR", "my_pkg");
     std::env::set_var("LEPTOS_SITE_ADDR", "0.0.0.0:80");
     std::env::set_var("LEPTOS_RELOAD_PORT", "8080");
 
     let config = get_configuration(None).await.unwrap().leptos_options;
-    assert_eq!(config.output_name, "app_test");
+    assert_eq!(config.output_name, "app-test");
 
     assert_eq!(config.site_root, "my_target/site");
     assert_eq!(config.site_pkg_dir, "my_pkg");
@@ -176,8 +176,8 @@ async fn get_config_from_env() {
 
 #[test]
 fn leptos_options_builder_default() {
-    let conf = LeptosOptions::builder().output_name("app_test").build();
-    assert_eq!(conf.output_name, "app_test");
+    let conf = LeptosOptions::builder().output_name("app-test").build();
+    assert_eq!(conf.output_name, "app-test");
     assert!(matches!(conf.env, Env::DEV));
     assert_eq!(conf.site_pkg_dir, "pkg");
     assert_eq!(conf.site_root, ".");
