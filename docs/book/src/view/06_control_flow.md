@@ -198,7 +198,7 @@ let (value, set_value) = create_signal(cx, 0);
 
 view! { cx,
   <Show
-    when=move || value() > 5
+    when=move || { value() > 5 }
     fallback=|cx| view! { cx, <Small/> }
   >
     <Big/>
