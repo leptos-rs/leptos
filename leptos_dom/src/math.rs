@@ -98,6 +98,7 @@ macro_rules! generate_math_tags {
                 crate::warn!(
                   "element with id {id} not found, ignoring it for hydration"
                 );
+                HydrationCtx::decrement_id();
 
                 [<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]
                   .with(|el|
