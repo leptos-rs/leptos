@@ -7,7 +7,6 @@ extern crate tracing;
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn autoreload(options: &LeptosOptions) -> String {
-    //let site_ip = &options.site_addr.ip().to_string();
     let reload_url = options.reload_url;
     match std::env::var("LEPTOS_WATCH").is_ok() {
         true => format!(
