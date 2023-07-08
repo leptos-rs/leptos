@@ -14,7 +14,6 @@ fn autoreload(options: &LeptosOptions) -> String {
             r#"
                 <script crossorigin="">(function () {{
                     {}
-                    //var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                     var ws = new WebSocket('{reload_url}');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
