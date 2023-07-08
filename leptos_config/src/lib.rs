@@ -81,6 +81,7 @@ impl LeptosOptions {
                 .parse()?,
             reload_port: env_w_default("LEPTOS_RELOAD_PORT", "3001")?
                 .parse()?,
+            reload_url: env_w_default("LEPTOS_RELOAD_URL", "ws://127.0.0.1:3001/live_reload")?,
         })
     }
 }
