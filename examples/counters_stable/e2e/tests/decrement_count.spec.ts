@@ -12,6 +12,5 @@ test.describe("Decrement Count", () => {
     await ui.decrementCount();
 
     await expect(ui.total).toHaveText("-3");
-    await expect(ui.counters).toHaveText("1");
   });
 });

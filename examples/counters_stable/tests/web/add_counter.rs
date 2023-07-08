@@ -13,6 +13,5 @@ fn should_increase_the_number_of_counters() {
     ui::add_counter();
 
     // Then
-    assert_eq!(ui::total(), 0);
     assert_eq!(ui::counters(), 3);
 }

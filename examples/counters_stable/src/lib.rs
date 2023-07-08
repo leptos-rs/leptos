@@ -97,7 +97,7 @@ fn Counter(
     view! { cx,
         <li>
             <button data-testid="decrement_count" on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
-            <input type="text"
+            <input data-testid="counter_input" type="text"
                 prop:value={move || value.get().to_string()}
                 on:input=input
             />

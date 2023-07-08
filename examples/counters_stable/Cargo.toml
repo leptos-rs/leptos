@@ -16,5 +16,12 @@ wasm-bindgen-test = "0.3.37"
 pretty_assertions = "1.3.0"
 
 [dev-dependencies.web-sys]
-features = ["Element", "HtmlElement", "XPathResult"]
+features = [
+    "Event",
+    "EventInit",
+    "EventTarget",
+    "HtmlElement",
+    "HtmlInputElement",
+    "XPathResult",
+]
 version = "0.3.64"

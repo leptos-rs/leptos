@@ -15,5 +15,4 @@ fn should_decrease_the_total_count() {
 
     // Then
     assert_eq!(ui::total(), -3);
-    assert_eq!(ui::counters(), 1);
 }

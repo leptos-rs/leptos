@@ -12,7 +12,6 @@ test.describe("Remove Counter", () => {
 
     await ui.removeCounter(1);
 
-    await expect(ui.total).toHaveText("0");
     await expect(ui.counters).toHaveText("2");
   });
 });

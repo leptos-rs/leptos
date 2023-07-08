@@ -1,7 +1,7 @@
 use counters_stable::Counters;
 use leptos::*;
 use wasm_bindgen::JsCast;
-use web_sys::{Element, HtmlElement};
+use web_sys::{Element, Event, EventInit, HtmlElement, HtmlInputElement};
 
 // Actions
 
@@ -19,6 +19,15 @@ pub fn clear_counters() {
 
 pub fn decrement_counter(index: u32) {
     counter_html_element(index, "decrement_count").click();
+}
+
+pub fn enter_count(index: u32, count: i32) {
+    let input = counter_input_element(index, "counter_input");
+    input.set_value(count.to_string().as_str());
+    let mut event_init = EventInit::new();
+    event_init.bubbles(true);
+    let event = Event::new_with_event_init_dict("input", &event_init).unwrap();
+    input.dispatch_event(&event).unwrap();
 }
 
 pub fn increment_counter(index: u32) {
@@ -62,6 +71,12 @@ fn counter_element(index: u32, text: &str) -> Element {
 fn counter_html_element(index: u32, text: &str) -> HtmlElement {
     counter_element(index, text)
         .dyn_into::<HtmlElement>()
+        .unwrap()
+}
+
+fn counter_input_element(index: u32, text: &str) -> HtmlInputElement {
+    counter_element(index, text)
+        .dyn_into::<HtmlInputElement>()
         .unwrap()
 }
 
