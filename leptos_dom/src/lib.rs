@@ -483,6 +483,9 @@ impl Text {
 
 /// A leptos view which can be mounted to the DOM.
 #[derive(Clone, PartialEq, Eq)]
+#[must_use = "You are creating a View but not using it. An unused view can \
+              cause your view to be rendered as () unexpectedly, and it can \
+              also cause issues with client-side hydration."]
 pub enum View {
     /// HTML element node.
     Element(Element),
