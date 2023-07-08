@@ -7,15 +7,15 @@ extern crate tracing;
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 fn autoreload(options: &LeptosOptions) -> String {
-    let site_ip = &options.site_addr.ip().to_string();
-    let reload_port = options.reload_port;
+    //let site_ip = &options.site_addr.ip().to_string();
+    let reload_url = options.reload_url;
     match std::env::var("LEPTOS_WATCH").is_ok() {
         true => format!(
             r#"
                 <script crossorigin="">(function () {{
                     {}
                     //var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
-                    var ws = new WebSocket('wss://ws.timada.localhost/starter-reload/live_reload');
+                    var ws = new WebSocket('{reload_url}');
                     ws.onmessage = (ev) => {{
                         let msg = JSON.parse(ev.data);
                         if (msg.all) window.location.reload();

@@ -49,6 +49,10 @@ pub struct LeptosOptions {
     /// Defaults to `3001`
     #[builder(default = 3001)]
     pub reload_port: u32,
+    /// The url the Websocket watcher listens on.
+    /// Defaults to `ws://127.0.0.1:3001`
+    #[builder(default = "ws://127.0.0.1:3001/live_reload".to_string())]
+    pub reload_url: String,
 }
 
 impl LeptosOptions {
