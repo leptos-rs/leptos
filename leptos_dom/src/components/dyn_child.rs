@@ -10,6 +10,8 @@ cfg_if! {
     use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
     use leptos_reactive::{create_effect, ScopeDisposer};
     use wasm_bindgen::JsCast;
+  } else {
+    use leptos_reactive::create_isomorphic_effect;
   }
 }
 
@@ -380,9 +382,12 @@ where
 
             #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
             {
-                let new_child = child_fn().into_view(cx);
+                create_isomorphic_effect(cx, move |_| {
+                    let (new_child, _) =
+                        cx.run_child_scope(|cx| child_fn().into_view(cx));
 
-                **child.borrow_mut() = Some(new_child);
+                    **child.borrow_mut() = Some(new_child);
+                });
             }
 
             component
