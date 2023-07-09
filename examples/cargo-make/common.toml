@@ -9,22 +9,6 @@ category = "Cleanup"
 command = "cargo"
 args = ["clean"]
 
-[tasks.clean-trunk]
-description = "Runs the trunk clean command."
-category = "Cleanup"
-command = "trunk"
-args = ["clean"]
-
-[tasks.clean-playwright]
-description = "Delete playwright directories"
-category = "Cleanup"
-script = '''
-for pw_dir in $(find . -name playwright.config.ts | xargs dirname)
-do
-  rm -rf $pw_dir/playwright-report pw_dir/playwright pw_dir/test-results
-done
-'''
-
 [tasks.clean-all]
 description = "Delete all temporary directories"
 category = "Cleanup"
