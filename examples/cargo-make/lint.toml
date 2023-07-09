@@ -2,7 +2,6 @@
 env = { CARGO_MAKE_CLIPPY_ARGS = "--all-targets --all-features -- -D warnings" }
 
 [tasks.check-style]
-description = "Check for style violations"
 dependencies = ["check-format-flow", "clippy-flow"]
 
 [tasks.check-format]

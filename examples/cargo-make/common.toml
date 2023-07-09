@@ -4,14 +4,10 @@ extend = [
 ]
 
 [tasks.clean-cargo]
-description = "Runs the cargo clean command."
-category = "Cleanup"
 command = "cargo"
 args = ["clean"]
 
 [tasks.clean-all]
-description = "Delete all temporary directories"
-category = "Cleanup"
 dependencies = ["clean-cargo"]
 
 [tasks.test-wasm]
@@ -20,6 +16,5 @@ command = "cargo"
 args = ["make", "wasm-pack-test"]
 
 [tasks.cargo-leptos-e2e]
-description = "Runs end to end tests with cargo leptos"
 command = "cargo"
 args = ["leptos", "end-to-end"]
