@@ -25,8 +25,13 @@ cargo init leptos-tutorial
 > ```bash
 > rustup toolchain install nightly
 > rustup default nightly
-> rustup target add wasm32-unknown-unknown
 > ```
+
+Make sure you've added the `wasm32-unknown-unknown` target do that Rust can compile your code to WebAssembly to run in the browser. 
+
+```bash
+rustup target add wasm32-unknown-unknown
+```
 
 `cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
 
