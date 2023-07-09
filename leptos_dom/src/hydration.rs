@@ -101,14 +101,6 @@ impl HydrationCtx {
         })
     }
 
-    /// Resets to the previous `id`. This is used when an element was not found.
-    pub fn decrement_id() {
-        ID.with(|id| {
-            let mut id = id.borrow_mut();
-            id.id = id.id.saturating_sub(1);
-        })
-    }
-
     /// Resets the hydration `id` for the next component, and returns it
     pub fn next_component() -> HydrationKey {
         ID.with(|id| {

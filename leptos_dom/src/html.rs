@@ -237,7 +237,6 @@ impl Custom {
                         "element with id {id} not found, ignoring it for \
                          hydration"
                     );
-                    HydrationCtx::decrement_id();
                 }
 
                 crate::document().create_element(&name).unwrap()
@@ -1303,7 +1302,6 @@ fn create_leptos_element(
                 crate::warn!(
                     "element with id {id} not found, ignoring it for hydration"
                 );
-                HydrationCtx::decrement_id();
             }
 
             clone_element()
