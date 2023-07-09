@@ -124,7 +124,7 @@ You can go even deeper. Say you want to have tabs for each contact’s address, 
 
 ## `<Outlet/>`
 
-Parent routes do not automatically render their nested routes. After all, they are just components; they don’t know exactly where they should render their children, and “just stick at at the end of the parent component” is not a great answer.
+Parent routes do not automatically render their nested routes. After all, they are just components; they don’t know exactly where they should render their children, and “just stick at the end of the parent component” is not a great answer.
 
 Instead, you tell a parent component where to render any nested components with an `<Outlet/>` component. The `<Outlet/>` simply renders one of two things:
 
