@@ -1,10 +1,3 @@
-[tasks.clean-node_modules]
-description = "Delete all node_modules directories"
-category = "Cleanup"
-script = '''
-find . -type d -name node_modules | xargs rm -rf
-'''
-
 [tasks.setup-node]
 description = "Install node dependencies and playwright browsers"
 env = { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1" }

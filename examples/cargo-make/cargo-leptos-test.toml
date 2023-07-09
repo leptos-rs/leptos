@@ -1,5 +1,6 @@
-[tasks.test-e2e]
-dependencies = ["setup-node", "cargo-leptos-e2e"]
+[tasks.integration-test]
+dependencies = ["cargo-leptos-e2e"]
 
-[tasks.clean-all]
-dependencies = ["clean-cargo", "clean-node_modules", "clean-playwright"]
+[tasks.cargo-leptos-e2e]
+command = "cargo"
+args = ["leptos", "end-to-end"]
