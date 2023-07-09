@@ -70,9 +70,9 @@ let id = move || {
 This can get a little messy: deriving a signal that wraps an `Option<_>` or `Result<_>` can involve a couple steps. But it’s worth doing this for two reasons:
 
 1. It’s correct, i.e., it forces you to consider the cases, “What if the user doesn’t pass a value for this query field? What if they pass an invalid value?”
-2. It’s performant. Specifically, when you navigate between different paths that match the same `<Route/>` with only params or the query changing, you can get fine-grained updates to different parts of your app without rerendering. For example, navigating between different contacts in our contact-list example does a targeted update to the name field (and eventually contact info) without needing to replacing or rerender the wrapping `<Contact/>`. This is what fine-grained reactivity is for.
+2. It’s performant. Specifically, when you navigate between different paths that match the same `<Route/>` with only params or the query changing, you can get fine-grained updates to different parts of your app without rerendering. For example, navigating between different contacts in our contact-list example does a targeted update to the name field (and eventually contact info) without needing to replace or rerender the wrapping `<Contact/>`. This is what fine-grained reactivity is for.
 
-> This is the same example from the previous section. The router is such an integrated system that it makes sense to provide a single example highlighting multiple features, even if we haven’t explain them all yet.
+> This is the same example from the previous section. The router is such an integrated system that it makes sense to provide a single example highlighting multiple features, even if we haven’t explained them all yet.
 
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/16-router-fy4tjv?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D)
 
