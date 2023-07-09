@@ -15,6 +15,7 @@ leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
 leptos_server = { workspace = true}
 leptos_config = { workspace = true }
+leptos_debugger = { workspace = true }
 tracing = "0.1"
 typed-builder = "0.14"
 server_fn = { workspace = true}
@@ -52,12 +53,14 @@ nightly = [
   "leptos_macro/nightly",
   "leptos_reactive/nightly",
   "leptos_server/nightly",
+  "leptos_debugger/nightly"
 ]
 serde = ["leptos_reactive/serde"]
 serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
+debugger = ["leptos_dom/debugger"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing", "template_macro", "rustls", "default-tls", "web-sys", "wasm-bindgen"]

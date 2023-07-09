@@ -5,6 +5,7 @@ members = [
   "leptos",
   "leptos_dom",
   "leptos_config",
+  "leptos_debugger",
   "leptos_hot_reload",
   "leptos_macro",
   "leptos_reactive",
@@ -42,6 +43,7 @@ leptos_config = { path = "./leptos_config", version = "0.4.2" }
 leptos_router = { path = "./router", version = "0.4.2" }
 leptos_meta = { path = "./meta", version = "0.4.2" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.4.2" }
+leptos_debugger = { path = "./leptos_debugger", version = "0.4.2" }
 
 [profile.release]
 codegen-units = 1

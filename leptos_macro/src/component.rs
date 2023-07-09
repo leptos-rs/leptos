@@ -205,15 +205,33 @@ impl ToTokens for Model {
                 #body_name(#scope_name, #prop_names)
             }
         } else {
-            quote! {
-                ::leptos::leptos_dom::Component::new(
-                    stringify!(#name),
-                    move |cx| {
-                        #tracing_guard_expr
+            if !no_props {
+                quote! {
+                    let comp = ::leptos::leptos_dom::Component::new(
+                        stringify!(#name),
+                        move |cx| {
+                            #tracing_guard_expr
 
-                        #body_name(cx, #prop_names)
-                    }
-                )
+                            #body_name(cx, #prop_names)
+                        }
+                    );
+
+                    #[cfg(feature = "debugger")]
+                    ::leptos::leptos_debugger::update_props(&format!("{}", comp.id()), __debugger_props__);
+
+                    comp
+                }
+            } else {
+                quote! {
+                    ::leptos::leptos_dom::Component::new(
+                        stringify!(#name),
+                        move |cx| {
+                            #tracing_guard_expr
+
+                            #body_name(cx, #prop_names)
+                        }
+                    )
+                }
             }
         };
 
@@ -228,10 +246,23 @@ impl ToTokens for Model {
         let destructure_props = if no_props {
             quote! {}
         } else {
+            let props_debug: TokenStream = props
+            .iter()
+            .filter(|Prop { ty, .. }| !is_valid_scope_type(ty))
+            .map(|Prop { name, .. }| {
+                let name_string = name.ident.to_string();
+                quote! {
+                    ::leptos::leptos_debugger::Prop { key: String::from(#name_string), value: ::leptos::leptos_debugger::PropValueFrom::into_prop_value(&#name, cx) }, 
+                }
+            })
+            .collect();
             quote! {
                 let #props_name {
                     #prop_names
                 } = props;
+
+                #[cfg(feature = "debugger")]
+                let __debugger_props__ = vec![#props_debug];
             }
         };
 

@@ -166,6 +166,8 @@ pub use leptos_dom::{
 pub mod error {
     pub use server_fn::error::{Error, Result};
 }
+#[cfg(feature = "debugger")]
+pub use leptos_debugger;
 #[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
 pub use leptos_macro::{component, server, slot, view, Params};

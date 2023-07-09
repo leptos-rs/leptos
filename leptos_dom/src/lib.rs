@@ -10,6 +10,7 @@
 pub extern crate tracing;
 
 mod components;
+mod debugger;
 mod events;
 pub mod helpers;
 pub mod html;
@@ -239,6 +240,9 @@ cfg_if! {
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
       #[cfg(debug_assertions)]
+      #[cfg(feature = "debugger")]
+      #[doc(hidden)]
+      pub id: HydrationKey,
       /// Optional marker for the view macro source of the element.
       pub view_marker: Option<String>
     }
@@ -303,6 +307,8 @@ impl Element {
                 element,
                 #[cfg(debug_assertions)]
                 view_marker,
+                #[cfg(feature = "debugger")]
+                id,
                 ..
             } = self;
 
@@ -312,6 +318,8 @@ impl Element {
                 name: name.into(),
                 element,
                 is_void: false,
+                #[cfg(feature = "debugger")]
+                id,
             };
 
             HtmlElement {
@@ -366,6 +374,8 @@ impl Element {
                 #[cfg(debug_assertions)]
                 name: el.name(),
                 element: el.as_ref().clone(),
+                #[cfg(feature = "debugger")]
+                id: *el.hydration_id(),
                 #[cfg(debug_assertions)]
                 view_marker: None
               }
@@ -868,6 +878,9 @@ where
           leptos_reactive::create_runtime(),
           move |cx| {
             let node = f(cx).into_view(cx);
+
+            crate::debugger::insert_view(&node, format!("{}", String::from("0-0")));
+            leptos_debugger::create_root();
 
             HydrationCtx::stop_hydrating();
 

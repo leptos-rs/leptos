@@ -1,5 +1,7 @@
 //! Exports types for working with SVG elements.
 
+#[cfg(all(target_arch = "wasm32", feature = "web", feature = "debugger"))]
+use super::HydrationKey;
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 use super::{html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG, HydrationKey};
 use super::{ElementDescriptor, HtmlElement};
@@ -47,7 +49,7 @@ macro_rules! generate_svg_tags {
         pub struct [<$tag:camel $($second:camel $($third:camel)?)?>] {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
-          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
           id: HydrationKey,
         }
 
@@ -115,7 +117,7 @@ macro_rules! generate_svg_tags {
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               element,
-              #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+              #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
               id
             }
           }
@@ -151,7 +153,7 @@ macro_rules! generate_svg_tags {
             stringify!($tag).into()
           }
 
-          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
           fn hydration_id(&self) -> &HydrationKey {
             &self.id
           }

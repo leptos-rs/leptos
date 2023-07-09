@@ -61,7 +61,10 @@ pub struct ComponentRepr {
     /// The children of the component.
     pub children: Vec<View>,
     closing: Comment,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     pub(crate) id: HydrationKey,
     #[cfg(debug_assertions)]
     pub(crate) view_marker: Option<String>,
@@ -215,7 +218,10 @@ impl ComponentRepr {
             #[cfg(any(debug_assertions, feature = "ssr"))]
             name,
             children: Vec::with_capacity(1),
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                not(all(target_arch = "wasm32", feature = "web")),
+                feature = "debugger"
+            ))]
             id,
             #[cfg(debug_assertions)]
             view_marker: None,
@@ -253,6 +259,12 @@ where
             children_fn: f,
         }
     }
+
+    #[cfg(feature = "debugger")]
+    /// Get id
+    pub fn id(&self) -> &HydrationKey {
+        &self.id
+    }
 }
 
 impl<F, V> IntoView for Component<F, V>
@@ -274,6 +286,9 @@ where
         let (child, _) = cx.run_child_scope(|cx| {
             cx.untrack_with_diagnostics(|| children_fn(cx).into_view(cx))
         });
+
+        #[cfg(feature = "debugger")]
+        crate::debugger::insert_view(&child, format!("{}", repr.id));
 
         repr.children.push(child);
 

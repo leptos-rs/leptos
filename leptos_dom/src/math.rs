@@ -9,6 +9,8 @@ cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
     use once_cell::unsync::Lazy as LazyCell;
     use wasm_bindgen::JsCast;
+    #[cfg(feature = "debugger")]
+    use super::HydrationKey;
   } else {
     use super::{HydrationKey, html::HTML_ELEMENT_DEREF_UNIMPLEMENTED_MSG};
   }
@@ -50,7 +52,7 @@ macro_rules! generate_math_tags {
         pub struct [<$tag:camel $($second:camel $($third:camel)?)?>] {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
-          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
           id: HydrationKey,
         }
 
@@ -118,7 +120,7 @@ macro_rules! generate_math_tags {
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               element,
-              #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+              #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
               id
             }
           }
@@ -154,7 +156,7 @@ macro_rules! generate_math_tags {
             stringify!($tag).into()
           }
 
-          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
           fn hydration_id(&self) -> &HydrationKey {
             &self.id
           }

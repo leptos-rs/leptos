@@ -10,6 +10,8 @@ cfg_if! {
     use once_cell::unsync::Lazy as LazyCell;
     use std::cell::Cell;
     use wasm_bindgen::JsCast;
+    #[cfg(feature = "debugger")]
+    use crate::hydration::HydrationKey;
 
     /// Trait alias for the trait bounts on [`ElementDescriptor`].
     pub trait ElementDescriptorBounds:
@@ -82,7 +84,10 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
 
     /// A unique `id` that should be generated for each new instance of
     /// this element, and be consistent for both SSR and CSR.
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     fn hydration_id(&self) -> &HydrationKey;
 }
 
@@ -106,6 +111,8 @@ where
                 name: "".into(),
                 is_void: false,
                 element: el,
+                #[cfg(feature = "debugger")]
+                id: Default::default(),
             };
 
             HtmlElement {
@@ -134,7 +141,10 @@ pub struct AnyElement {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     pub(crate) element: web_sys::HtmlElement,
     pub(crate) is_void: bool,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     pub(crate) id: HydrationKey,
 }
 
@@ -172,7 +182,10 @@ impl ElementDescriptor for AnyElement {
         self.is_void
     }
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     #[inline(always)]
     fn hydration_id(&self) -> &HydrationKey {
         &self.id
@@ -185,7 +198,10 @@ pub struct Custom {
     name: Cow<'static, str>,
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
     element: web_sys::HtmlElement,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     id: HydrationKey,
 }
 
@@ -249,7 +265,10 @@ impl Custom {
             name,
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             element: element.unchecked_into(),
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                not(all(target_arch = "wasm32", feature = "web")),
+                feature = "debugger"
+            ))]
             id,
         }
     }
@@ -278,7 +297,10 @@ impl ElementDescriptor for Custom {
         self.name.clone()
     }
 
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     #[inline(always)]
     fn hydration_id(&self) -> &HydrationKey {
         &self.id
@@ -426,6 +448,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 name: element.name(),
                 element: element.as_ref().clone(),
                 is_void: element.is_void(),
+                id: *element.hydration_id()
               },
               #[cfg(debug_assertions)]
               span,
@@ -988,6 +1011,12 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     pub fn child(self, child: impl IntoView) -> Self {
         let child = child.into_view(self.cx);
 
+        #[cfg(feature = "debugger")]
+        crate::debugger::insert_view(
+            &child,
+            format!("{}", self.element.hydration_id()),
+        );
+
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             if !HydrationCtx::is_hydrating() {
@@ -1117,7 +1146,10 @@ pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
             name: el.name(),
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             element: el.as_ref().clone(),
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                not(all(target_arch = "wasm32", feature = "web")),
+                feature = "debugger"
+            ))]
             id: *el.hydration_id(),
         },
     )
@@ -1152,7 +1184,7 @@ macro_rules! generate_html_tags {
         pub struct [<$tag:camel $($trailing_)?>] {
           #[cfg(all(target_arch = "wasm32", feature = "web"))]
           element: web_sys::HtmlElement,
-          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
           id: HydrationKey,
         }
 
@@ -1177,7 +1209,7 @@ macro_rules! generate_html_tags {
             Self {
               #[cfg(all(target_arch = "wasm32", feature = "web"))]
               element,
-              #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+              #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
               id
             }
           }
@@ -1216,7 +1248,7 @@ macro_rules! generate_html_tags {
             stringify!($tag).into()
           }
 
-          #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+          #[cfg(any(not(all(target_arch = "wasm32", feature = "web")), feature = "debugger"))]
           #[inline(always)]
           fn hydration_id(&self) -> &HydrationKey {
             &self.id

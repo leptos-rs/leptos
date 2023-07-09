@@ -22,7 +22,10 @@ pub struct DynChildRepr {
     opening: Comment,
     pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
     closing: Comment,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     pub(crate) id: HydrationKey,
 }
 
@@ -115,7 +118,10 @@ impl DynChildRepr {
             opening: markers.1,
             child: Default::default(),
             closing: markers.0,
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                not(all(target_arch = "wasm32", feature = "web")),
+                feature = "debugger"
+            ))]
             id,
         }
     }
@@ -175,6 +181,8 @@ where
 
             let child = component.child.clone();
 
+            #[cfg(feature = "debugger")]
+            let component_id = format!("{}", component.id);
             #[cfg(all(
                 debug_assertions,
                 target_arch = "wasm32",
@@ -194,6 +202,15 @@ where
 
                     let (new_child, disposer) =
                         cx.run_child_scope(|cx| child_fn().into_view(cx));
+
+                    #[cfg(feature = "debugger")]
+                    {
+                        crate::debugger::remove_view(&component_id);
+                        crate::debugger::insert_view(
+                            &new_child,
+                            component_id.clone(),
+                        );
+                    }
 
                     let mut child_borrow = child.borrow_mut();
 
