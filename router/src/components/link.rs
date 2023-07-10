@@ -57,7 +57,12 @@ pub fn A<H>(
     /// if false, link is marked active if the current route starts with it.
     #[prop(optional)]
     exact: bool,
-    /// Provides a class to be added when the link is active.
+    /// Provides a class to be added when the link is active. If provided, it will
+    /// be added at the same time that the `aria-current` attribute is set.
+    ///
+    /// **Performance**: If it’s possible to style the link using the CSS with the
+    /// `[aria-current=page]` selector, you should prefer that, as it enables significant
+    /// SSR optimizations.
     #[prop(optional, into)]
     active_class: Option<Cow<'static, str>>,
     /// An object of any type that will be pushed to router state
@@ -128,7 +133,6 @@ where
             // if we have `active_class`, the SSR optimization doesn't play nicely
             // so we use the builder instead
             if let Some(active_class) = active_class {
-                leptos::log!("active_class branch");
                 leptos::html::a(cx)
                     .attr("href", move || href.get().unwrap_or_default())
                     .attr("aria-current", move || {
@@ -149,7 +153,6 @@ where
             }
             // but keep the nice SSR optimization in most cases
             else {
-                leptos::log!("optimized branch");
                 view! { cx,
                     <a
                         href=move || href.get().unwrap_or_default()
