@@ -97,24 +97,15 @@ args = ["+nightly", "doc"]
 cwd = "leptos_macro/example"
 install_crate = false
 
-[tasks.test-examples]
-description = "Run all unit and web tests for examples"
+[tasks.ci-examples]
 cwd = "examples"
 command = "cargo"
-args = ["make", "test-unit-and-web"]
-
-[tasks.verify-examples]
-description = "Run all quality checks and tests for examples"
-env = { CLEAN_AFTER_VERIFY = "true" }
-cwd = "examples"
-command = "cargo"
-args = ["make", "verify-flow"]
+args = ["make", "ci-clean"]
 
 [tasks.clean-examples]
-description = "Clean all example projects"
 cwd = "examples"
 command = "cargo"
-args = ["make", "clean-all"]
+args = ["make", "clean"]
 
 [env]
 RUSTFLAGS = ""

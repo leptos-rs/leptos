@@ -1,22 +1,8 @@
-[tasks.clean-playwright]
-description = "Delete playwright directories"
-category = "Cleanup"
-script = '''
-for pw_dir in $(find . -name playwright.config.ts | xargs dirname)
-do
-  rm -rf $pw_dir/playwright-report pw_dir/playwright pw_dir/test-results
-done
-'''
-
 [tasks.test-playwright-autostart]
-description = "Run playwright test with server autostart"
-category = "Test"
 command = "npm"
 args = ["run", "e2e:auto-start"]
 
 [tasks.test-playwright]
-description = "Run playwright test"
-category = "Test"
 script = '''
 BOLD="\e[1m"
 GREEN="\e[0;32m"
@@ -46,8 +32,6 @@ done
 '''
 
 [tasks.test-playwright-ui]
-description = "Run playwright test --ui"
-category = "Test"
 script = '''
 BOLD="\e[1m"
 GREEN="\e[0;32m"
@@ -77,8 +61,6 @@ done
 '''
 
 [tasks.test-playwright-report]
-description = "Run playwright show-report"
-category = "Test"
 script = '''
 BOLD="\e[1m"
 GREEN="\e[0;32m"

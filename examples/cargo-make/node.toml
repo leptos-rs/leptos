@@ -1,0 +1,43 @@
+[tasks.setup-node]
+description = "Install node dependencies and playwright browsers"
+env = { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1" }
+script = '''
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+RED="\e[0;31m"
+RESET="\e[0m"
+
+project_dir=$CARGO_MAKE_WORKING_DIRECTORY
+
+# Discover commands
+if command -v pnpm; then
+    NODE_CMD=pnpm
+    PLAYWRIGHT_CMD=pnpm
+elif command -v npm; then
+    NODE_CMD=npm
+    PLAYWRIGHT_CMD=npx
+else
+    echo "${RED}${BOLD}ERROR${RESET} - pnpm or npm is required by this task"
+    exit 1
+fi
+
+# Install node dependencies
+for node_path in $(find . -name package.json -not -path '*/node_modules/*')
+do
+  node_dir=$(dirname $node_path)
+  echo Install node dependencies for $node_dir
+  cd $node_dir
+  ${NODE_CMD} install
+  cd ${project_dir}
+done
+
+# Install playwright browsers
+for pw_path in $(find . -name playwright.config.ts)
+do
+  pw_dir=$(dirname $pw_path)
+  echo Install playwright browsers for $pw_dir
+  cd $pw_dir
+  ${PLAYWRIGHT_CMD} playwright install
+  cd $project_dir
+done
+'''

@@ -1,7 +1,4 @@
 extend = [{ path = "../cargo-make/playwright.toml" }]
 
-[tasks.test-e2e]
-dependencies = ["setup-node", "test-playwright-autostart"]
-
-[tasks.clean-all]
-dependencies = ["clean-cargo", "clean-node_modules", "clean-playwright"]
+[tasks.integration-test]
+dependencies = ["test-playwright-autostart"]

@@ -2,13 +2,9 @@
 command = "trunk"
 args = ["build"]
 
-[tasks.clean-trunk]
-command = "trunk"
-args = ["clean"]
-
 [tasks.start-trunk]
 command = "trunk"
-args = ["serve", "--open"]
+args = ["serve", "${@}"]
 
 [tasks.stop-trunk]
 script = '''
