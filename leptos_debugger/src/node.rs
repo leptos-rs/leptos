@@ -1,7 +1,8 @@
 use crate::{runtime::Runtime, Prop, PropValue};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum DNode {
     DynChild {
         id: String,

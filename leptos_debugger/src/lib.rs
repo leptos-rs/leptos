@@ -14,16 +14,8 @@ pub use prop_value_from::PropValueFrom;
 use runtime::with_runtime;
 use std::collections::HashMap;
 
-#[derive(Debug)]
-pub enum HookConfigError {
-    Config,
-    Runtime,
-    None,
-}
-
 pub struct HookConfig {
-    pub get_root_tree:
-        Box<dyn Fn() -> Result<DNode, HookConfigError> + 'static>,
+    pub get_root_tree: Box<dyn Fn() -> DNode + 'static>,
 }
 
 pub trait Hook {
@@ -35,7 +27,7 @@ pub trait Hook {
 pub fn set_debugger_hook(mut hook: impl Hook + 'static) {
     hook.set_config(HookConfig {
         get_root_tree: Box::new(move || {
-            with_runtime(|runtime| Ok(create_root_tree(runtime)))
+            with_runtime(|runtime| create_root_tree(runtime))
         }),
     });
     with_runtime(|runtime| {
