@@ -23,7 +23,6 @@
   - [Transition](./async/12_transition.md)
   - [Actions](./async/13_actions.md)
 - [Interlude: Projecting Children](./interlude_projecting_children.md)
-- [Responding to Changes with `create_effect`](./14_create_effect.md)
 - [Global State Management](./15_global_state.md)
 - [Router](./router/README.md)
   - [Defining `<Routes/>`](./router/16_routes.md)
