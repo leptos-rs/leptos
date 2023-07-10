@@ -215,6 +215,7 @@ where
                                     error.try_set(None);
                                 }
                                 if let Some(on_response) = on_response.clone() {
+                                    leptos::log!("running on_response");
                                     on_response(resp.as_raw());
                                 }
                                 // Check all the logical 3xx responses that might
@@ -425,70 +426,67 @@ where
     let on_response = Rc::new(move |resp: &web_sys::Response| {
         let resp = resp.clone().expect("couldn't get Response");
         spawn_local(async move {
-            let redirected = resp.redirected();
-            if !redirected {
-                let body = JsFuture::from(
-                    resp.text().expect("couldn't get .text() from Response"),
-                )
-                .await;
-                let status = resp.status();
-                match body {
-                    Ok(json) => {
-                        let json = json
-                            .as_string()
-                            .expect("couldn't get String from JsString");
-                        if (500..=599).contains(&status) {
-                            match serde_json::from_str::<ServerFnError>(&json) {
-                                Ok(res) => {
-                                    value.try_set(Some(Err(res)));
-                                    if let Some(error) = error {
-                                        error.try_set(None);
-                                    }
-                                }
-                                Err(e) => {
-                                    value.try_set(Some(Err(
-                                        ServerFnError::Deserialization(
-                                            e.to_string(),
-                                        ),
-                                    )));
-                                    if let Some(error) = error {
-                                        error.try_set(Some(Box::new(e)));
-                                    }
+            let body = JsFuture::from(
+                resp.text().expect("couldn't get .text() from Response"),
+            )
+            .await;
+            let status = resp.status();
+            match body {
+                Ok(json) => {
+                    let json = json
+                        .as_string()
+                        .expect("couldn't get String from JsString");
+                    if (500..=599).contains(&status) {
+                        match serde_json::from_str::<ServerFnError>(&json) {
+                            Ok(res) => {
+                                value.try_set(Some(Err(res)));
+                                if let Some(error) = error {
+                                    error.try_set(None);
                                 }
                             }
-                        } else {
-                            match serde_json::from_str::<O>(&json) {
-                                Ok(res) => {
-                                    value.try_set(Some(Ok(res)));
-                                    if let Some(error) = error {
-                                        error.try_set(None);
-                                    }
+                            Err(e) => {
+                                value.try_set(Some(Err(
+                                    ServerFnError::Deserialization(
+                                        e.to_string(),
+                                    ),
+                                )));
+                                if let Some(error) = error {
+                                    error.try_set(Some(Box::new(e)));
                                 }
-                                Err(e) => {
-                                    value.try_set(Some(Err(
-                                        ServerFnError::Deserialization(
-                                            e.to_string(),
-                                        ),
-                                    )));
-                                    if let Some(error) = error {
-                                        error.try_set(Some(Box::new(e)));
-                                    }
+                            }
+                        }
+                    } else {
+                        match serde_json::from_str::<O>(&json) {
+                            Ok(res) => {
+                                value.try_set(Some(Ok(res)));
+                                if let Some(error) = error {
+                                    error.try_set(None);
+                                }
+                            }
+                            Err(e) => {
+                                value.try_set(Some(Err(
+                                    ServerFnError::Deserialization(
+                                        e.to_string(),
+                                    ),
+                                )));
+                                if let Some(error) = error {
+                                    error.try_set(Some(Box::new(e)));
                                 }
                             }
                         }
                     }
-                    Err(e) => {
-                        error!("{e:?}");
-                        if let Some(error) = error {
-                            error.try_set(Some(Box::new(
-                                ServerFnErrorErr::Request(
-                                    e.as_string().unwrap_or_default(),
-                                ),
-                            )));
-                        }
+                }
+                Err(e) => {
+                    error!("{e:?}");
+                    if let Some(error) = error {
+                        error.try_set(Some(Box::new(
+                            ServerFnErrorErr::Request(
+                                e.as_string().unwrap_or_default(),
+                            ),
+                        )));
                     }
-                };
-            }
+                }
+            };
             cx.batch(move || {
                 input.try_set(None);
                 action.set_pending(false);
