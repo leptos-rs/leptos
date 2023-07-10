@@ -1,5 +1,6 @@
 use crate::{use_location, use_resolved_path, State};
 use leptos::{leptos_dom::IntoView, *};
+use std::borrow::Cow;
 
 /// Describes a value that is either a static or a reactive URL, i.e.,
 /// a [String], a [&str], or a reactive `Fn() -> String`.
@@ -56,6 +57,9 @@ pub fn A<H>(
     /// if false, link is marked active if the current route starts with it.
     #[prop(optional)]
     exact: bool,
+    /// Provides a class to be added when the link is active.
+    #[prop(optional, into)]
+    active_class: Option<Cow<'static, str>>,
     /// An object of any type that will be pushed to router state
     #[prop(optional)]
     state: Option<State>,
@@ -83,12 +87,13 @@ where
         cx: Scope,
         href: Memo<Option<String>>,
         exact: bool,
-        state: Option<State>,
-        replace: bool,
+        #[allow(unused)] state: Option<State>,
+        #[allow(unused)] replace: bool,
         class: Option<AttributeValue>,
+        #[allow(unused)] active_class: Option<Cow<'static, str>>,
         id: Option<String>,
         children: Children,
-    ) -> HtmlElement<leptos::html::A> {
+    ) -> View {
         #[cfg(not(any(feature = "hydrate", feature = "csr")))]
         {
             _ = state;
@@ -118,20 +123,82 @@ where
             }
         });
 
-        view! { cx,
-            <a
-                href=move || href.get().unwrap_or_default()
-                prop:state={state.map(|s| s.to_js_value())}
-                prop:replace={replace}
-                aria-current=move || if is_active.get() { Some("page") } else { None }
-                class=class
-                id=id
-            >
-                {children(cx)}
-            </a>
+        #[cfg(feature = "ssr")]
+        {
+            // if we have `active_class`, the SSR optimization doesn't play nicely
+            // so we use the builder instead
+            if let Some(active_class) = active_class {
+                leptos::log!("active_class branch");
+                leptos::html::a(cx)
+                    .attr("href", move || href.get().unwrap_or_default())
+                    .attr("aria-current", move || {
+                        if is_active.get() {
+                            Some("page")
+                        } else {
+                            None
+                        }
+                    })
+                    .attr(
+                        "class",
+                        class.map(|class| class.into_attribute_boxed(cx)),
+                    )
+                    .class(active_class, move || is_active.get())
+                    .attr("id", id)
+                    .child(children(cx))
+                    .into_view(cx)
+            }
+            // but keep the nice SSR optimization in most cases
+            else {
+                leptos::log!("optimized branch");
+                view! { cx,
+                    <a
+                        href=move || href.get().unwrap_or_default()
+                        aria-current=move || if is_active.get() { Some("page") } else { None }
+                        class=class
+                        id=id
+                    >
+                        {children(cx)}
+                    </a>
+                }
+                .into_view(cx)
+            }
+        }
+
+        // the non-SSR version doesn't need the SSR optimizations
+        // DRY here to avoid WASM binary size bloat
+        #[cfg(not(feature = "ssr"))]
+        {
+            let a = view! { cx,
+                <a
+                    href=move || href.get().unwrap_or_default()
+                    prop:state={state.map(|s| s.to_js_value())}
+                    prop:replace={replace}
+                    aria-current=move || if is_active.get() { Some("page") } else { None }
+                    class=class
+                    id=id
+                >
+                    {children(cx)}
+                </a>
+            };
+            if let Some(active_class) = active_class {
+                a.class(active_class, move || is_active.get())
+            } else {
+                a
+            }
+            .into_view(cx)
         }
     }
 
     let href = use_resolved_path(cx, move || href.to_href()());
-    inner(cx, href, exact, state, replace, class, id, children)
+    inner(
+        cx,
+        href,
+        exact,
+        state,
+        replace,
+        class,
+        active_class,
+        id,
+        children,
+    )
 }
