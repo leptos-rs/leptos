@@ -1,12 +1,12 @@
 # The `<Form/>` Component
 
-Links and forms sometimes seem completely unrelated. But in fact, they work in very similar ways.
+Links and forms sometimes seem completely unrelated. But, in fact, they work in very similar ways.
 
 In plain HTML, there are three ways to navigate to another page:
 
-1. An `<a>` element that links to another page. Navigates to the URL in its `href` attribute with the `GET` HTTP method.
-2. A `<form method="GET">`. Navigates to the URL in its `action` attribute with the `GET` HTTP method and the form data from its inputs encoded in the URL query string.
-3. A `<form method="POST">`. Navigates to the URL in its `action` attribute with the `POST` HTTP method and the form data from its inputs encoded in the body of the request.
+1. An `<a>` element that links to another page: Navigates to the URL in its `href` attribute with the `GET` HTTP method.
+2. A `<form method="GET">`: Navigates to the URL in its `action` attribute with the `GET` HTTP method and the form data from its inputs encoded in the URL query string.
+3. A `<form method="POST">`: Navigates to the URL in its `action` attribute with the `POST` HTTP method and the form data from its inputs encoded in the body of the request.
 
 Since we have a client-side router, we can do client-side link navigations without reloading the page, i.e., without a full round-trip to the server and back. It makes sense that we can do client-side form navigations in the same way.
 
