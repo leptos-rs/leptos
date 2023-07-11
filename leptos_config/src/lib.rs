@@ -122,7 +122,7 @@ fn env_w_default(
 /// An enum that can be used to define the environment Leptos is running in.
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum Env {
     PROD,
     DEV,
