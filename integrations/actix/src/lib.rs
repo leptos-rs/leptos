@@ -223,26 +223,30 @@ pub fn handle_server_fns_with_context(
                             let res_options =
                                 use_context::<ResponseOptions>(cx).unwrap();
 
-                            let mut res: HttpResponseBuilder;
+                            let mut res: HttpResponseBuilder =
+                                HttpResponse::Ok();
                             let res_parts = res_options.0.write();
 
-                            if accept_header == Some("application/json")
-                                || accept_header
-                                    == Some("application/x-www-form-urlencoded")
-                                || accept_header == Some("application/cbor")
+                            // if accept_header isn't set to one of these, it's a form submit
+                            // redirect back to the referrer if not redirect has been set
+                            if accept_header != Some("application/json")
+                                && accept_header
+                                    != Some("application/x-www-form-urlencoded")
+                                && accept_header != Some("application/cbor")
                             {
-                                res = HttpResponse::Ok();
-                            }
-                            // otherwise, it's probably a <form> submit or something: redirect back to the referrer
-                            else {
-                                let referer = req
-                                    .headers()
-                                    .get("Referer")
-                                    .and_then(|value| value.to_str().ok())
-                                    .unwrap_or("/");
-                                res = HttpResponse::SeeOther();
-                                res.insert_header(("Location", referer))
-                                    .content_type("application/json");
+                                // Location will already be set if redirect() has been used
+                                let has_location_set =
+                                    res_parts.headers.get("Location").is_some();
+                                if !has_location_set {
+                                    let referer = req
+                                        .headers()
+                                        .get("Referer")
+                                        .and_then(|value| value.to_str().ok())
+                                        .unwrap_or("/");
+                                    res = HttpResponse::SeeOther();
+                                    res.insert_header(("Location", referer))
+                                        .content_type("application/json");
+                                }
                             };
                             // Override StatusCode if it was set in a Resource or Element
                             if let Some(status) = res_parts.status {
