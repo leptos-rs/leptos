@@ -14,7 +14,7 @@ drain_filter_polyfill = "0.1"
 educe = "0.4"
 futures = "0.3"
 html-escape = "0.2"
-indexmap = "1.9"
+indexmap = "2"
 itertools = "0.10"
 js-sys = "0.3"
 leptos_reactive = { workspace = true }
