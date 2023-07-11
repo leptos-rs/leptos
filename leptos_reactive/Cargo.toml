@@ -41,7 +41,7 @@ web-sys = { version = "0.3", optional = true, features = [
   "Window",
 ] }
 cfg-if = "1"
-indexmap = "1"
+indexmap = "2"
 self_cell = "1.0.0"
 
 [dev-dependencies]
