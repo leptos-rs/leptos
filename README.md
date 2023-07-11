@@ -22,7 +22,7 @@ pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
 
     // create event handlers for our buttons
     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
-    let clear = move |_| set_value(0);
+    let clear = move |_| set_value.set(0);
     let decrement = move |_| set_value.update(|value| *value -= 1);
     let increment = move |_| set_value.update(|value| *value += 1);
 
