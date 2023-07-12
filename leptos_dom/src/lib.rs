@@ -239,10 +239,10 @@ cfg_if! {
       pub name: Cow<'static, str>,
       #[doc(hidden)]
       pub element: web_sys::HtmlElement,
-      #[cfg(debug_assertions)]
       #[cfg(feature = "debugger")]
       #[doc(hidden)]
       pub id: HydrationKey,
+      #[cfg(debug_assertions)]
       /// Optional marker for the view macro source of the element.
       pub view_marker: Option<String>
     }
