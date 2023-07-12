@@ -162,18 +162,10 @@ pub(crate) fn add_delegated_event_listener(
                         node.unchecked_ref::<web_sys::Node>().parent_node()
                     {
                         node = parent.into()
-                    } else {
-                        let host =
-                        js_sys::Reflect::get(&node, &JsValue::from_str("host"))
-                            .unwrap_throw();
-                        if host.is_truthy()
-                            && host != node
-                            && host.dyn_ref::<web_sys::Node>().is_some()
-                        {
-                            node = host;
-                        } else  {
-                            node = JsValue::null()
-                        }
+                    } else if let Some(root) = node.dyn_ref::<web_sys::ShadowRoot>() {
+                        node = root.host().unchecked_into();
+                    } else  {
+                        node = JsValue::null()
                     }
                 }
             };
