@@ -158,20 +158,22 @@ pub(crate) fn add_delegated_event_listener(
                     }
 
                     // navigate up tree
-                    let host =
-                        js_sys::Reflect::get(&node, &JsValue::from_str("host"))
-                            .unwrap_throw();
-                    if host.is_truthy()
-                        && host != node
-                        && host.dyn_ref::<web_sys::Node>().is_some()
-                    {
-                        node = host;
-                    } else if let Some(parent) =
-                        node.unchecked_into::<web_sys::Node>().parent_node()
+                    if let Some(parent) =
+                        node.unchecked_ref::<web_sys::Node>().parent_node()
                     {
                         node = parent.into()
                     } else {
-                        node = JsValue::null()
+                        let host =
+                        js_sys::Reflect::get(&node, &JsValue::from_str("host"))
+                            .unwrap_throw();
+                        if host.is_truthy()
+                            && host != node
+                            && host.dyn_ref::<web_sys::Node>().is_some()
+                        {
+                            node = host;
+                        } else  {
+                            node = JsValue::null()
+                        }
                     }
                 }
             };
