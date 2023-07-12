@@ -60,6 +60,8 @@ pub fn A<H>(
     /// Provides a class to be added when the link is active. If provided, it will
     /// be added at the same time that the `aria-current` attribute is set.
     ///
+    /// This supports multiple space-separated class names.
+    ///
     /// **Performance**: If it’s possible to style the link using the CSS with the
     /// `[aria-current=page]` selector, you should prefer that, as it enables significant
     /// SSR optimizations.
@@ -133,7 +135,7 @@ where
             // if we have `active_class`, the SSR optimization doesn't play nicely
             // so we use the builder instead
             if let Some(active_class) = active_class {
-                leptos::html::a(cx)
+                let mut a = leptos::html::a(cx)
                     .attr("href", move || href.get().unwrap_or_default())
                     .attr("aria-current", move || {
                         if is_active.get() {
@@ -145,11 +147,13 @@ where
                     .attr(
                         "class",
                         class.map(|class| class.into_attribute_boxed(cx)),
-                    )
-                    .class(active_class, move || is_active.get())
-                    .attr("id", id)
-                    .child(children(cx))
-                    .into_view(cx)
+                    );
+
+                for class_name in active_class.split_ascii_whitespace() {
+                    a = a.class(class_name.to_string(), move || is_active.get())
+                }
+
+                a.attr("id", id).child(children(cx)).into_view(cx)
             }
             // but keep the nice SSR optimization in most cases
             else {
@@ -184,7 +188,11 @@ where
                 </a>
             };
             if let Some(active_class) = active_class {
-                a.class(active_class, move || is_active.get())
+                let mut a = a;
+                for class_name in active_class.split_ascii_whitespace() {
+                    a = a.class(class_name.to_string(), move || is_active.get())
+                }
+                a
             } else {
                 a
             }
