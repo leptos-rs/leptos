@@ -448,6 +448,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                 name: element.name(),
                 element: element.as_ref().clone(),
                 is_void: element.is_void(),
+                #[cfg(feature = "debugger")]
                 id: *element.hydration_id()
               },
               #[cfg(debug_assertions)]

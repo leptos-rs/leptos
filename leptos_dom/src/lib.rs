@@ -879,8 +879,11 @@ where
           move |cx| {
             let node = f(cx).into_view(cx);
 
-            crate::debugger::insert_view(&node, format!("{}", String::from("0-0")));
-            leptos_debugger::create_root();
+            #[cfg(feature = "debugger")]
+            {
+                crate::debugger::insert_view(&node, String::from("0-0"));
+                leptos_debugger::create_root();
+            }
 
             HydrationCtx::stop_hydrating();
 
