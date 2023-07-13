@@ -40,7 +40,7 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
       fail-fast: false
-    uses: ./.github/workflows/run-example-task.yml
+    uses: ./.github/workflows/run-cargo-make-task.yml
     with:
       directory: ${{ matrix.directory }}
       cargo_make_task: "check"
