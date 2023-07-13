@@ -126,11 +126,15 @@ impl History for BrowserIntegration {
                     .unwrap_or(hash);
                 let el = leptos_dom::document().get_element_by_id(&hash);
                 if let Some(el) = el {
-                    el.scroll_into_view()
-                } else if loc.scroll {
-                    leptos_dom::window().scroll_to_with_x_and_y(0.0, 0.0);
+                    el.scroll_into_view();
+                    return;
                 }
             }
+        }
+
+        // scroll to top
+        if loc.scroll {
+            leptos_dom::window().scroll_to_with_x_and_y(0.0, 0.0);
         }
     }
 }
