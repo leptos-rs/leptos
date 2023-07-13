@@ -67,11 +67,9 @@ macro_rules! generate_math_tags {
                 assert_eq!(
                   el.node_name().to_ascii_uppercase(),
                   stringify!([<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]),
-                  "SSR and CSR elements have the same `TopoId` \
-                    but different node kinds. This is either a \
-                    discrepancy between SSR and CSR rendering
-                    logic, which is considered a bug, or it \
-                    can also be a leptos hydration issue."
+                  "SSR and CSR elements have the same hydration key but \
+                  different node kinds. Check out the docs for information \
+                  about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
                 );
 
                 el.remove_attribute("id").unwrap();
@@ -84,11 +82,9 @@ macro_rules! generate_math_tags {
                 assert_eq!(
                   el.node_name().to_ascii_uppercase(),
                   stringify!([<$tag:upper $(_ $second:upper $(_ $third:upper)?)?>]),
-                  "SSR and CSR elements have the same `TopoId` \
-                    but different node kinds. This is either a \
-                    discrepancy between SSR and CSR rendering
-                    logic, which is considered a bug, or it \
-                    can also be a leptos hydration issue."
+                  "SSR and CSR elements have the same hydration key but \
+                  different node kinds. Check out the docs for information \
+                  about this kind of hydration bug: https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html"
                 );
 
                 el.remove_attribute("leptos-hk").unwrap();
