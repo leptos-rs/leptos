@@ -14,7 +14,7 @@ If you don’t already have it installed, you can install Trunk by running
 cargo install trunk
 ```
 
-Create a basic Rust binary project
+Create a basic Rust project
 
 ```bash
 cargo init leptos-tutorial
@@ -27,7 +27,7 @@ cargo init leptos-tutorial
 > rustup default nightly
 > ```
 
-Make sure you've added the `wasm32-unknown-unknown` target do that Rust can compile your code to WebAssembly to run in the browser. 
+Make sure you've added the `wasm32-unknown-unknown` target so that Rust can compile your code to WebAssembly to run in the browser.
 
 ```bash
 rustup target add wasm32-unknown-unknown
@@ -36,7 +36,12 @@ rustup target add wasm32-unknown-unknown
 `cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
 
 ```bash
-cargo add leptos --features=csr,nightly # or just csr if you're using stable Rust
+cargo add leptos --features=csr,nightly
+```
+
+Or you can leave off `nighly` if you're using stable Rust
+```bash
+cargo add leptos --features=csr
 ```
 
 Create a simple `index.html` in the root of the `leptos-tutorial` directory
