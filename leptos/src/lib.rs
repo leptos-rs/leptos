@@ -84,11 +84,18 @@
 //!   from the server to the client.
 //! - `serde-lite` In SSR/hydrate mode, uses [serde-lite](https://docs.rs/serde-lite/latest/serde_lite/) to serialize resources and send them
 //!   from the server to the client.
+//! - `rkyv` In SSR/hydrate mode, uses [rkyv](https://docs.rs/rkyv/latest/rkyv/) to serialize resources and send them
+//!   from the server to the client.
 //! - `miniserde` In SSR/hydrate mode, uses [miniserde](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
 //!   from the server to the client.
+//! - `tracing` Adds additional support for [`tracing`](https://docs.rs/tracing/latest/tracing/) to components.
+//! - `default-tls` *(Enabled by default)* Use default native TLS support.
+//! - `rustls` Use `rustls`.
+//! - `template_macro` Enables the [`template!`](leptos_macro::template) macro, which offers faster DOM node creation for some use cases in `csr`.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos
-//! which mode your app is operating in.
+//! which mode your app is operating in. You should only enable one of these per build target,
+//! i.e., you should not have both `hydrate` and `ssr` enabled for your server binary, only `ssr`.
 //!
 //! # A Simple Counter
 //!
