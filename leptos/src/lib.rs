@@ -89,8 +89,8 @@
 //! - `miniserde` In SSR/hydrate mode, uses [miniserde](https://docs.rs/miniserde/latest/miniserde/) to serialize resources and send them
 //!   from the server to the client.
 //! - `tracing` Adds additional support for [`tracing`](https://docs.rs/tracing/latest/tracing/) to components.
-//! - `default-tls` *(Enabled by default)* Use default native TLS support.
-//! - `rustls` Use `rustls`.
+//! - `default-tls` Use default native TLS support. (Only applies when using server functions with a non-WASM client like a desktop app.)
+//! - `rustls` Use `rustls`. (Only applies when using server functions with a non-WASM client like a desktop app.)
 //! - `template_macro` Enables the [`template!`](leptos_macro::template) macro, which offers faster DOM node creation for some use cases in `csr`.
 //!
 //! **Important Note:** You must enable one of `csr`, `hydrate`, or `ssr` to tell Leptos

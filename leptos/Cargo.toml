@@ -25,7 +25,7 @@ wasm-bindgen = { version = "0.2", optional = true }
 leptos = { path = "." }
 
 [features]
-default = ["serde", "default-tls"]
+default = ["serde"]
 template_macro = ["leptos_dom/web", "web-sys", "wasm-bindgen"]
 csr = [
   "leptos_dom/web",
