@@ -1,3 +1,14 @@
+extend = { path = "../cargo-make/main.toml" }
+
+[tasks.check]
+clear = true
+dependencies = [
+	"check-all",
+	"check-wasm",
+	# "check-all-release",	Skip because it is a duplicate of check-all
+	"check-wasm-release",
+]
+
 [tasks.check-wasm]
 clear = true
 dependencies = ["check-hydrate", "check-csr"]
