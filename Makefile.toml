@@ -34,35 +34,6 @@ install_crate = "cargo-all-features"
 clear = true
 dependencies = [{ name = "check-wasm-release", path = "leptos" }]
 
-[tasks.check-examples]
-clear = true
-dependencies = [
-	{ name = "check", path = "examples/counter" },
-	{ name = "check", path = "examples/counter_isomorphic" },
-	{ name = "check", path = "examples/counters" },
-	{ name = "check", path = "examples/error_boundary" },
-	{ name = "check", path = "examples/errors_axum" },
-	{ name = "check", path = "examples/fetch" },
-	{ name = "check", path = "examples/hackernews" },
-	{ name = "check", path = "examples/hackernews_axum" },
-	{ name = "check", path = "examples/js-framework-benchmark" },
-	{ name = "check", path = "examples/leptos-tailwind-axum" },
-	{ name = "check", path = "examples/login_with_token_csr_only" },
-	{ name = "check", path = "examples/parent_child" },
-	{ name = "check", path = "examples/router" },
-	{ name = "check", path = "examples/session_auth_axum" },
-	{ name = "check", path = "examples/slots" },
-	{ name = "check", path = "examples/ssr_modes" },
-	{ name = "check", path = "examples/ssr_modes_axum" },
-	{ name = "check", path = "examples/tailwind" },
-	{ name = "check", path = "examples/tailwind_csr_trunk" },
-	{ name = "check", path = "examples/timer" },
-	{ name = "check", path = "examples/todo_app_sqlite" },
-	{ name = "check", path = "examples/todo_app_sqlite_axum" },
-	{ name = "check", path = "examples/todo_app_sqlite_viz" },
-	{ name = "check", path = "examples/todomvc" },
-]
-
 [tasks.check-stable]
 clear = true
 dependencies = [
