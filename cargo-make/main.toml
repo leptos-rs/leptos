@@ -13,12 +13,6 @@ command = "cargo"
 args = ["+nightly", "check-all-features"]
 install_crate = "cargo-all-features"
 
-# FIXME: Should this duplicate of check-all be removed?
-[tasks.check-all-release]
-command = "cargo"
-args = ["+nightly", "check-all-features"]
-install_crate = "cargo-all-features"
-
 [tasks.test]
 alias = "test-all"
 

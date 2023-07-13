@@ -5,7 +5,7 @@ clear = true
 dependencies = [
 	"check-all",
 	"check-wasm",
-	# "check-all-release",	Skip because it is a duplicate of check-all
+	"check-release",
 	"check-wasm-release",
 ]
 
@@ -54,3 +54,7 @@ args = [
 	"--features=csr",
 	"--target=wasm32-unknown-unknown",
 ]
+
+[tasks.check-release]
+command = "cargo"
+args = ["check", "--release"]
