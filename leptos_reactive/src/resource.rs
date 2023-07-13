@@ -863,6 +863,21 @@ where
             }
         }
 
+        // on cleanup of this component, remove this read from parent `<Suspense/>`
+        // it will be added back in when this is rendered again
+        if let Some(s) = suspense_cx {
+            crate::on_cleanup(cx, {
+                let suspense_contexts = Rc::clone(&suspense_contexts);
+                move || {
+                    if let Ok(ref mut contexts) =
+                        suspense_contexts.try_borrow_mut()
+                    {
+                        contexts.remove(&s);
+                    }
+                }
+            });
+        }
+
         let increment = move |_: Option<()>| {
             if let Some(s) = &suspense_cx {
                 if let Ok(ref mut contexts) = suspense_contexts.try_borrow_mut()
