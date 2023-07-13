@@ -1686,7 +1686,7 @@ pub(crate) fn component_to_tokens(
         }
     });
 
-    #[allow(unused-mut)] // used in debug
+    #[allow(unused_mut)] // used in debug
     let mut component = quote! {
         ::leptos::component_view(
             &#name,
