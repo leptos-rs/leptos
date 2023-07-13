@@ -1553,6 +1553,7 @@ pub(crate) fn component_to_tokens(
     global_class: Option<&TokenTree>,
 ) -> TokenStream {
     let name = node.name();
+    #[cfg(debug_assertions)]
     let component_name = ident_from_tag_name(node.name());
     let span = node.name().span();
 
@@ -1685,6 +1686,7 @@ pub(crate) fn component_to_tokens(
         }
     });
 
+    #[allow(unused-mut)] // used in debug
     let mut component = quote! {
         ::leptos::component_view(
             &#name,
@@ -2120,6 +2122,7 @@ impl IdeTagHelper {
     ///     open_tag(open_tag.props().slots().children().build())
     /// }
     /// ```
+    #[cfg(debug_assertions)]
     pub fn add_component_completion(
         component: &mut TokenStream,
         node: &NodeElement,
