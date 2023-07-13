@@ -1,3 +1,14 @@
+extend = { path = "../cargo-make/main.toml" }
+
+[tasks.check]
+clear = true
+dependencies = [
+	"check-all",
+	"check-wasm",
+	"check-release",
+	"check-wasm-release",
+]
+
 [tasks.check-wasm]
 clear = true
 dependencies = ["check-hydrate", "check-csr"]
@@ -43,3 +54,7 @@ args = [
 	"--features=csr",
 	"--target=wasm32-unknown-unknown",
 ]
+
+[tasks.check-release]
+command = "cargo"
+args = ["check", "--release"]

@@ -1,0 +1,23 @@
+extend = { path = "../cargo-make/main.toml" }
+
+[tasks.test]
+clear = true
+dependencies = [
+    "test-all",
+    "test-leptos_macro-example",
+    "doc-leptos_macro-example",
+]
+
+[tasks.test-leptos_macro-example]
+description = "Tests the leptos_macro/example to check if macro handles doc comments correctly"
+command = "cargo"
+args = ["+nightly", "test", "--doc"]
+cwd = "example"
+install_crate = false
+
+[tasks.doc-leptos_macro-example]
+description = "Docs the leptos_macro/example to check if macro handles doc comments correctly"
+command = "cargo"
+args = ["+nightly", "doc"]
+cwd = "example"
+install_crate = false

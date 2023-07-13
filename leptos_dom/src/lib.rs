@@ -732,7 +732,7 @@ impl View {
                 c.children.iter().cloned().for_each(|c| {
                   let event_handler = event_handler.clone();
 
-                  c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
+                  _ = c.on(event.clone(), Box::new(move |e| event_handler.borrow_mut()(e)));
                 });
               }
               Self::CoreComponent(c) => match c {
