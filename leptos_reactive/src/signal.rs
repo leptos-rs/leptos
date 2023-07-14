@@ -893,8 +893,12 @@ where
         )
     )]
     fn set_untracked(&self, new_value: T) {
-        self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value);
+        self.id.update_with_no_effect(
+            self.runtime,
+            |v| *v = new_value,
+            #[cfg(debug_assertions)]
+            Some(self.defined_at),
+        );
     }
 
     #[cfg_attr(
@@ -913,8 +917,12 @@ where
     fn try_set_untracked(&self, new_value: T) -> Option<T> {
         let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+        self.id.update(
+            self.runtime,
+            |t| *t = new_value.take().unwrap(),
+            #[cfg(debug_assertions)]
+            None,
+        );
 
         new_value
     }
@@ -936,7 +944,12 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     )]
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
-        self.id.update_with_no_effect(self.runtime, f);
+        self.id.update_with_no_effect(
+            self.runtime,
+            f,
+            #[cfg(debug_assertions)]
+            Some(self.defined_at),
+        );
     }
 
     #[inline(always)]
@@ -944,7 +957,12 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
         &self,
         f: impl FnOnce(&mut T) -> O,
     ) -> Option<O> {
-        self.id.update_with_no_effect(self.runtime, f)
+        self.id.update_with_no_effect(
+            self.runtime,
+            f,
+            #[cfg(debug_assertions)]
+            None,
+        )
     }
 }
 
@@ -980,7 +998,16 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
     )]
     #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut T)) {
-        if self.id.update(self.runtime, f).is_none() {
+        if self
+            .id
+            .update(
+                self.runtime,
+                f,
+                #[cfg(debug_assertions)]
+                Some(self.defined_at),
+            )
+            .is_none()
+        {
             warn_updating_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
@@ -1003,7 +1030,12 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
     )]
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.id.update(self.runtime, f)
+        self.id.update(
+            self.runtime,
+            f,
+            #[cfg(debug_assertions)]
+            None,
+        )
     }
 }
 
@@ -1039,7 +1071,12 @@ impl<T> SignalSet<T> for WriteSignal<T> {
         )
     )]
     fn set(&self, new_value: T) {
-        self.id.update(self.runtime, |n| *n = new_value);
+        self.id.update(
+            self.runtime,
+            |n| *n = new_value,
+            #[cfg(debug_assertions)]
+            Some(self.defined_at),
+        );
     }
 
     #[cfg_attr(
@@ -1058,8 +1095,12 @@ impl<T> SignalSet<T> for WriteSignal<T> {
     fn try_set(&self, new_value: T) -> Option<T> {
         let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+        self.id.update(
+            self.runtime,
+            |t| *t = new_value.take().unwrap(),
+            #[cfg(debug_assertions)]
+            None,
+        );
 
         new_value
     }
@@ -1340,8 +1381,12 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
         )
     )]
     fn set_untracked(&self, new_value: T) {
-        self.id
-            .update_with_no_effect(self.runtime, |v| *v = new_value);
+        self.id.update_with_no_effect(
+            self.runtime,
+            |v| *v = new_value,
+            #[cfg(debug_assertions)]
+            Some(self.defined_at),
+        );
     }
 
     #[cfg_attr(
@@ -1360,8 +1405,12 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
     fn try_set_untracked(&self, new_value: T) -> Option<T> {
         let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+        self.id.update(
+            self.runtime,
+            |t| *t = new_value.take().unwrap(),
+            #[cfg(debug_assertions)]
+            None,
+        );
 
         new_value
     }
@@ -1383,7 +1432,12 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     )]
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
-        self.id.update_with_no_effect(self.runtime, f);
+        self.id.update_with_no_effect(
+            self.runtime,
+            f,
+            #[cfg(debug_assertions)]
+            Some(self.defined_at),
+        );
     }
 
     #[cfg_attr(
@@ -1404,7 +1458,12 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         &self,
         f: impl FnOnce(&mut T) -> O,
     ) -> Option<O> {
-        self.id.update_with_no_effect(self.runtime, f)
+        self.id.update_with_no_effect(
+            self.runtime,
+            f,
+            #[cfg(debug_assertions)]
+            None,
+        )
     }
 }
 
@@ -1595,7 +1654,16 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     )]
     #[inline(always)]
     fn update(&self, f: impl FnOnce(&mut T)) {
-        if self.id.update(self.runtime, f).is_none() {
+        if self
+            .id
+            .update(
+                self.runtime,
+                f,
+                #[cfg(debug_assertions)]
+                Some(self.defined_at),
+            )
+            .is_none()
+        {
             warn_updating_dead_signal(
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 self.defined_at,
@@ -1618,7 +1686,12 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     )]
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        self.id.update(self.runtime, f)
+        self.id.update(
+            self.runtime,
+            f,
+            #[cfg(debug_assertions)]
+            None,
+        )
     }
 }
 
@@ -1649,7 +1722,12 @@ impl<T> SignalSet<T> for RwSignal<T> {
         )
     )]
     fn set(&self, value: T) {
-        self.id.update(self.runtime, |n| *n = value);
+        self.id.update(
+            self.runtime,
+            |n| *n = value,
+            #[cfg(debug_assertions)]
+            Some(self.defined_at),
+        );
     }
 
     #[cfg_attr(
@@ -1668,8 +1746,12 @@ impl<T> SignalSet<T> for RwSignal<T> {
     fn try_set(&self, new_value: T) -> Option<T> {
         let mut new_value = Some(new_value);
 
-        self.id
-            .update(self.runtime, |t| *t = new_value.take().unwrap());
+        self.id.update(
+            self.runtime,
+            |t| *t = new_value.take().unwrap(),
+            #[cfg(debug_assertions)]
+            None,
+        );
 
         new_value
     }
@@ -1950,6 +2032,9 @@ impl NodeId {
         &self,
         runtime: RuntimeId,
         f: impl FnOnce(&mut T) -> U,
+        #[cfg(debug_assertions)] defined_at: Option<
+            &'static std::panic::Location<'static>,
+        >,
     ) -> Option<U>
     where
         T: 'static,
@@ -1968,14 +2053,21 @@ impl NodeId {
                     None
                 }
             } else {
-                debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> \
-                     that has already been disposed of. This is probably \
-                     either a logic error in a component that creates and \
-                     disposes of scopes, or a Resource resolving after its \
-                     scope has been dropped without having been cleaned up.",
-                    std::any::type_name::<T>()
-                );
+                #[cfg(debug_assertions)]
+                {
+                    if let Some(defined_at) = defined_at {
+                        debug_warn!(
+                            "[Signal::update] You’re trying to update a \
+                             Signal<{}> (defined at {defined_at}) that has \
+                             already been disposed of. This is probably \
+                             either a logic error in a component that creates \
+                             and disposes of scopes. If it does cause cause \
+                             any issues, it is safe to ignore this warning, \
+                             which occurs only in debug mode.",
+                            std::any::type_name::<T>()
+                        );
+                    }
+                }
                 None
             }
         })
@@ -1987,6 +2079,9 @@ impl NodeId {
         &self,
         runtime_id: RuntimeId,
         f: impl FnOnce(&mut T) -> U,
+        #[cfg(debug_assertions)] defined_at: Option<
+            &'static std::panic::Location<'static>,
+        >,
     ) -> Option<U>
     where
         T: 'static,
@@ -2005,14 +2100,21 @@ impl NodeId {
                     None
                 }
             } else {
-                debug_warn!(
-                    "[Signal::update] You’re trying to update a Signal<{}> \
-                     that has already been disposed of. This is probably \
-                     either a logic error in a component that creates and \
-                     disposes of scopes, or a Resource resolving after its \
-                     scope has been dropped without having been cleaned up.",
-                    std::any::type_name::<T>()
-                );
+                #[cfg(debug_assertions)]
+                {
+                    if let Some(defined_at) = defined_at {
+                        debug_warn!(
+                            "[Signal::update] You’re trying to update a \
+                             Signal<{}> (defined at {defined_at}) that has \
+                             already been disposed of. This is probably \
+                             either a logic error in a component that creates \
+                             and disposes of scopes. If it does cause cause \
+                             any issues, it is safe to ignore this warning, \
+                             which occurs only in debug mode.",
+                            std::any::type_name::<T>()
+                        );
+                    }
+                }
                 None
             };
 
@@ -2034,12 +2136,20 @@ impl NodeId {
         &self,
         runtime: RuntimeId,
         f: impl FnOnce(&mut T) -> U,
+        #[cfg(debug_assertions)] defined_at: Option<
+            &'static std::panic::Location<'static>,
+        >,
     ) -> Option<U>
     where
         T: 'static,
     {
         // update the value
-        self.update_value(runtime, f)
+        self.update_value(
+            runtime,
+            f,
+            #[cfg(debug_assertions)]
+            defined_at,
+        )
     }
 }
 
