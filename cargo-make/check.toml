@@ -1,0 +1,7 @@
+[tasks.check]
+alias = "check-all"
+
+[tasks.check-all]
+command = "cargo"
+args = ["+nightly", "check-all-features"]
+install_crate = "cargo-all-features"
