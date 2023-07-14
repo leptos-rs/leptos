@@ -35,12 +35,10 @@ jobs:
           echo "Example Directories: $examples"
           echo "matrix={\"directory\":$examples}" >> "$GITHUB_OUTPUT"
 
-      - name: Get source directories that changed
+      - name: Get source files that changed
         id: changed-source
         uses: tj-actions/changed-files@v36
         with:
-          dir_names: true
-          dir_names_max_depth: "1"
           files: |
             integrations
             leptos
@@ -55,7 +53,7 @@ jobs:
             server_fn
             server_fn_macro
 
-      - name: List source directories that changed
+      - name: List source files that changed
         run: echo '${{ steps.changed-source.outputs.all_changed_files }}'
 
       - name: Set source_changed
