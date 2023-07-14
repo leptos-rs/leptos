@@ -12,6 +12,25 @@ use std::{fmt::Display, ops::Deref};
 ///
 /// The nonce being used during the current server response can be
 /// accessed using [`use_nonce`](use_nonce).
+///
+/// /// ```rust,ignore
+/// #[component]
+/// pub fn App(cx: Scope) -> impl IntoView {
+///     let csp = use_nonce(cx).map(|nonce| {
+///         view! { cx,
+///             <Meta
+///                 http_equiv="Content-Security-Policy"
+///                 content=format!("script-src 'nonce-{nonce}' 'unsafe-eval'")
+///              />
+///         }
+///     });
+///
+///     view! { cx,
+///       {csp}
+///       <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///     }
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Nonce(pub(crate) String);
 
@@ -54,23 +73,21 @@ impl IntoAttribute for Option<Nonce> {
 /// `<style>` tags for compatibility with a Content Security Policy.
 ///
 /// ```rust,ignore
-/// use leptos_meta::Meta;
-///
 /// #[component]
 /// pub fn App(cx: Scope) -> impl IntoView {
-///     let csp = use_nonce(cx).map(|nonce| view! { cx,
-///         <Meta
-///             http_equiv="Content-Security-Policy"
-///              content=format!("default-src 'self'; script-src 'strict-dynamic' \
-///                  {nonce}; style-src {nonce}; frame-ancestors 'none'; \
-///                  object-src 'none'")
-///          />
+///     let csp = use_nonce(cx).map(|nonce| {
+///         view! { cx,
+///             <Meta
+///                 http_equiv="Content-Security-Policy"
+///                 content=format!("script-src 'nonce-{nonce}' 'unsafe-eval'")
+///              />
+///         }
 ///     });
 ///
-///   view! {
-///     {csp}
-///     <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
-///   }
+///     view! { cx,
+///       {csp}
+///       <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///     }
 /// }
 /// ```
 pub fn use_nonce(cx: Scope) -> Option<Nonce> {
