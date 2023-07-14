@@ -1,5 +1,5 @@
 use crate::use_head;
-use leptos::*;
+use leptos::{nonce::use_nonce, *};
 use std::borrow::Cow;
 
 /// Injects an [HTMLStyleElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLStyleElement) into the document
@@ -57,6 +57,7 @@ pub fn Style(
                 .attr("nonce", nonce)
                 .attr("title", title)
                 .attr("blocking", blocking)
+                .attr("nonce", use_nonce(cx))
         }
     });
     let builder_el = if let Some(children) = children {

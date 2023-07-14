@@ -1,5 +1,5 @@
 use crate::use_head;
-use leptos::*;
+use leptos::{nonce::use_nonce, *};
 use std::borrow::Cow;
 
 /// Injects an [HTMLScriptElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document
@@ -85,6 +85,7 @@ pub fn Script(
                 .attr("src", src)
                 .attr("type", type_)
                 .attr("blocking", blocking)
+                .attr("nonce", use_nonce(cx))
         }
     });
     let builder_el = if let Some(children) = children {
