@@ -693,8 +693,11 @@ async fn forward_stream(
     let mut shell = Box::pin(bundle);
     let first_app_chunk = shell.next().await.unwrap_or_default();
 
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
+    let (head, tail) = html_parts_separated(
+        cx,
+        options,
+        use_context::<MetaContext>(cx).as_ref(),
+    );
 
     _ = tx.send(head).await;
     _ = tx.send(first_app_chunk).await;
@@ -828,6 +831,8 @@ fn provide_contexts(
     provide_context(cx, extractor);
     provide_context(cx, default_res_options);
     provide_server_redirect(cx, move |path| redirect(cx, path));
+    #[cfg(feature = "nonce")]
+    leptos::nonce::provide_nonce(cx);
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries

@@ -58,6 +58,7 @@ serde-lite = ["leptos_reactive/serde-lite"]
 miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
+nonce = ["leptos_dom/nonce"]
 
 [package.metadata.cargo-all-features]
 denylist = [

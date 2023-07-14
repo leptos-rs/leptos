@@ -1,5 +1,5 @@
 use crate::use_head;
-use leptos::*;
+use leptos::{nonce::use_nonce, *};
 use std::borrow::Cow;
 
 /// Injects an [HTMLLinkElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -109,6 +109,7 @@ pub fn Link(
                 .attr("title", title)
                 .attr("type", type_)
                 .attr("blocking", blocking)
+                .attr("nonce", use_nonce(cx))
         }
     });
 

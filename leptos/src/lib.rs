@@ -164,9 +164,10 @@ pub use leptos_dom::{
         set_interval_with_handle, set_timeout, set_timeout_with_handle,
         window_event_listener, window_event_listener_untyped,
     },
-    html, log, math, mount_to, mount_to_body, svg, warn, window, Attribute,
-    Class, CollectView, Errors, Fragment, HtmlElement, IntoAttribute,
-    IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef, Property, View,
+    html, log, math, mount_to, mount_to_body, nonce, svg, warn, window,
+    Attribute, Class, CollectView, Errors, Fragment, HtmlElement,
+    IntoAttribute, IntoClass, IntoProperty, IntoStyle, IntoView, NodeRef,
+    Property, View,
 };
 
 /// Types to make it easier to handle errors in your application.
