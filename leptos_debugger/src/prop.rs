@@ -10,5 +10,8 @@ pub struct Prop {
 pub enum PropValue {
     None,
     Static(String),
+    Vec(Vec<PropValue>),
     ReadSignal(u64),
+    WriteSignal,
+    RwSignal(u64),
 }
