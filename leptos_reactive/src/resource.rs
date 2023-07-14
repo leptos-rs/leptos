@@ -981,10 +981,8 @@ where
 
                     if version == last_version.get() {
                         resolved.set(true);
-
-                        set_value.update(|n| *n = Some(res));
-
-                        set_loading.update(|n| *n = false);
+                        set_value.try_update(|n| *n = Some(res));
+                        set_loading.try_update(|n| *n = false);
 
                         for suspense_context in
                             suspense_contexts.borrow().iter()
