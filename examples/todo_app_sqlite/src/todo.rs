@@ -4,26 +4,20 @@ use leptos_meta::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct Todo {
+    id: u16,
+    title: String,
+    completed: bool,
+}
+
 cfg_if! {
     if #[cfg(feature = "ssr")] {
         use sqlx::{Connection, SqliteConnection};
 
         pub async fn db() -> Result<SqliteConnection, ServerFnError> {
             Ok(SqliteConnection::connect("sqlite:Todos.db").await?)
-        }
-
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
-        pub struct Todo {
-            id: u16,
-            title: String,
-            completed: bool,
-        }
-    } else {
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-        pub struct Todo {
-            id: u16,
-            title: String,
-            completed: bool,
         }
     }
 }
