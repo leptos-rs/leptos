@@ -648,8 +648,11 @@ async fn forward_stream(
     mut tx: Sender<String>,
 ) {
     let cx = Scope { runtime, id: scope };
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
+    let (head, tail) = html_parts_separated(
+        cx,
+        options,
+        use_context::<MetaContext>(cx).as_ref(),
+    );
 
     _ = tx.send(head).await;
     let mut shell = Box::pin(bundle);
