@@ -98,10 +98,10 @@ pub fn use_nonce(cx: Scope) -> Option<Nonce> {
     use_context::<Nonce>(cx)
 }
 
-#[cfg(feature = "nonce")]
+#[cfg(all(feature = "ssr", feature = "nonce"))]
 pub use generate::*;
 
-#[cfg(feature = "nonce")]
+#[cfg(all(feature = "ssr", feature = "nonce"))]
 mod generate {
     use super::Nonce;
     use base64::{
@@ -117,7 +117,6 @@ mod generate {
         general_purpose::NO_PAD,
     );
 
-    #[cfg(all(feature = "ssr", feature = "nonce"))]
     impl Nonce {
         /// Generates a new nonce from 16 bytes (128 bits) of random data.
         pub fn new() -> Self {
