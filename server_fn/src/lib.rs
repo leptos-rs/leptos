@@ -608,6 +608,12 @@ where
         #[cfg(not(target_arch = "wasm32"))]
         let binary = binary.as_ref();
 
+        if status == 400 {
+            return Err(ServerFnError::ServerError(
+                "No server function was found at this URL.".to_string(),
+            ));
+        }
+
         ciborium::de::from_reader(binary)
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))
     } else {
@@ -615,6 +621,10 @@ where
             .text()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
+
+        if status == 400 {
+            return Err(ServerFnError::ServerError(text));
+        }
 
         let mut deserializer = JSONDeserializer::from_str(&text);
         T::deserialize(&mut deserializer)

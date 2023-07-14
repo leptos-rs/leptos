@@ -312,10 +312,17 @@ async fn handle_server_fns_inner(
                                 .body(Body::from(format!(
                                     "Could not find a server function at the \
                                      route {fn_name}. \n\nIt's likely that \
-                                     you need to call \
+                                     either 
+                                    1. The API prefix you specify in the \
+                                     `#[server]` macro doesn't match the \
+                                     prefix at which your server function \
+                                     handler is mounted, or \n2. You are on a \
+                                     platform that doesn't support automatic \
+                                     server function registration and you \
+                                     need to call \
                                      ServerFn::register_explicit() on the \
                                      server function type, somewhere in your \
-                                     `main` function."
+                                     `main` function.",
                                 )))
                         }
                         .expect("could not build Response");
