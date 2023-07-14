@@ -138,10 +138,6 @@ pub async fn build_async_response(
 
     // in async, we load the meta content *now*, after the suspenses have resolved
     let meta = use_context::<MetaContext>(cx);
-    let head_meta = meta
-        .as_ref()
-        .map(|meta| meta.dehydrate())
-        .unwrap_or_default();
     let body_meta = meta
         .as_ref()
         .and_then(|meta| meta.body.as_string())
@@ -149,5 +145,5 @@ pub async fn build_async_response(
 
     runtime.dispose();
 
-    format!("{head}{head_meta}</head><body{body_meta}>{buf}{tail}")
+    format!("{head}</head><body{body_meta}>{buf}{tail}")
 }
