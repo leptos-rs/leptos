@@ -6,13 +6,13 @@ use leptos_meta::MetaContext;
 extern crate tracing;
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
-fn autoreload(options: &LeptosOptions) -> String {
+fn autoreload(nonce_str: &str, options: &LeptosOptions) -> String {
     let site_ip = &options.site_addr.ip().to_string();
     let reload_port = options.reload_port;
     match std::env::var("LEPTOS_WATCH").is_ok() {
         true => format!(
             r#"
-                <script crossorigin="">(function () {{
+                <script crossorigin=""{nonce_str}>(function () {{
                     {}
                     var ws = new WebSocket('ws://{site_ip}:{reload_port}/live_reload');
                     ws.onmessage = (ev) => {{
@@ -60,7 +60,7 @@ pub fn html_parts(
         wasm_output_name.push_str("_bg");
     }
 
-    let leptos_autoreload = autoreload(options);
+    let leptos_autoreload = autoreload("".into(), options);
 
     let html_metadata =
         meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
@@ -102,7 +102,7 @@ pub fn html_parts_separated(
         wasm_output_name.push_str("_bg");
     }
 
-    let leptos_autoreload = autoreload(options);
+    let leptos_autoreload = autoreload(&nonce, options);
 
     let html_metadata =
         meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
@@ -117,8 +117,8 @@ pub fn html_parts_separated(
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     {head}
-                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
-                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
+                    <link rel="modulepreload" href="/{pkg_path}/{output_name}.js"{nonce}>
+                    <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
                     <script type="module"{nonce}>import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                     {leptos_autoreload}
                     "#
