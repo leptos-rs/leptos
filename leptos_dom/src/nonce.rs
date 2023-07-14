@@ -21,8 +21,8 @@ use std::{fmt::Display, ops::Deref};
 ///             <Meta
 ///                 http_equiv="Content-Security-Policy"
 ///                 // 'nonce-____' allows inline scripts with your nonce to run
-///                 // 'unsafe-eval' is required for WASM/JS interop
-///                 content=format!("script-src 'nonce-{nonce}' 'unsafe-eval'")
+///                 // 'wasm-unsafe-eval' is required to load and run WebAssembly
+///                 content=format!("script-src 'nonce-{nonce}' 'wasm-unsafe-eval'")
 ///              />
 ///         }
 ///     });
@@ -82,8 +82,8 @@ impl IntoAttribute for Option<Nonce> {
 ///             <Meta
 ///                 http_equiv="Content-Security-Policy"///
 ///                 // 'nonce-____' allows inline scripts with your nonce to run
-///                 // 'unsafe-eval' is required for WASM/JS interop
-///                 content=format!("script-src 'nonce-{nonce}' 'unsafe-eval'")
+///                 // 'wasm-unsafe-eval' is required to load and run WebAssembly
+///                 content=format!("script-src 'nonce-{nonce}' 'wasm-unsafe-eval'")
 ///              />
 ///         }
 ///     });
