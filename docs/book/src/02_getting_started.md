@@ -14,7 +14,7 @@ If you don’t already have it installed, you can install Trunk by running
 cargo install trunk
 ```
 
-Create a basic Rust binary project
+Create a basic Rust project
 
 ```bash
 cargo init leptos-tutorial
@@ -23,7 +23,12 @@ cargo init leptos-tutorial
 `cd` into your new `leptos-tutorial` project and add `leptos` as a dependency
 
 ```bash
-cargo add leptos --features=csr,nightly # or just csr if you're using stable Rust
+cargo add leptos --features=csr,nightly
+```
+
+Or you can leave off `nighly` if you're using stable Rust
+```bash
+cargo add leptos --features=csr
 ```
 
 > Using `nightly` Rust, and the `nightly` feature in Leptos enables the function-call syntax for signal getters and setters that is used in most of this book.
@@ -37,7 +42,7 @@ cargo add leptos --features=csr,nightly # or just csr if you're using stable Rus
 >
 > If you’d rather use stable Rust with Leptos, you can do that too. In the guide and examples, you’ll just use the [`ReadSignal::get()`](https://docs.rs/leptos/latest/leptos/struct.ReadSignal.html#impl-SignalGet%3CT%3E-for-ReadSignal%3CT%3E) and [`WriteSignal::set()`](https://docs.rs/leptos/latest/leptos/struct.WriteSignal.html#impl-SignalGet%3CT%3E-for-ReadSignal%3CT%3E) methods instead of calling signal getters and setters as functions.
 
-Make sure you've added the `wasm32-unknown-unknown` target do that Rust can compile your code to WebAssembly to run in the browser. 
+Make sure you've added the `wasm32-unknown-unknown` target so that Rust can compile your code to WebAssembly to run in the browser.
 
 ```bash
 rustup target add wasm32-unknown-unknown
