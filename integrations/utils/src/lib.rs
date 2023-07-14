@@ -1,5 +1,5 @@
 use futures::{Stream, StreamExt};
-use leptos::{use_context, RuntimeId, ScopeId};
+use leptos::{nonce::use_nonce, use_context, RuntimeId, Scope, ScopeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 
@@ -42,6 +42,8 @@ fn autoreload(options: &LeptosOptions) -> String {
         false => "".to_string(),
     }
 }
+
+#[deprecated = "Use html_parts_separated."]
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts(
     options: &LeptosOptions,
@@ -80,11 +82,17 @@ pub fn html_parts(
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts_separated(
+    cx: Scope,
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
 ) -> (String, &'static str) {
     let pkg_path = &options.site_pkg_dir;
     let output_name = &options.output_name;
+    let nonce = use_nonce(cx);
+    let nonce = nonce
+        .as_ref()
+        .map(|nonce| format!(" nonce=\"{nonce}\""))
+        .unwrap_or_default();
 
     // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME at compile time
@@ -111,7 +119,7 @@ pub fn html_parts_separated(
                     {head}
                     <link rel="modulepreload" href="/{pkg_path}/{output_name}.js">
                     <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin="">
-                    <script type="module">import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                    <script type="module"{nonce}>import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
                     {leptos_autoreload}
                     "#
     );
@@ -133,8 +141,11 @@ pub async fn build_async_response(
     }
 
     let cx = leptos::Scope { runtime, id: scope };
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
+    let (head, tail) = html_parts_separated(
+        cx,
+        options,
+        use_context::<MetaContext>(cx).as_ref(),
+    );
 
     // in async, we load the meta content *now*, after the suspenses have resolved
     let meta = use_context::<MetaContext>(cx);

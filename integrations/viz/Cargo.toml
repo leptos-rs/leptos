@@ -19,3 +19,6 @@ leptos_integration_utils = { workspace = true }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12.1"
+
+[features]
+nonce = ["leptos/nonce"]

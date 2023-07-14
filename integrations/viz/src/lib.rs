@@ -786,6 +786,8 @@ fn provide_contexts(
     provide_context(cx, req_parts);
     provide_context(cx, default_res_options);
     provide_server_redirect(cx, move |path| redirect(cx, path));
+    #[cfg(feature = "nonce")]
+    leptos::nonce::provide_nonce(cx);
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries

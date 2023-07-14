@@ -212,6 +212,9 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
             }
         });
     let cx = Scope { runtime, id: scope };
+    let nonce_str = crate::nonce::use_nonce(cx)
+        .map(|nonce| format!(" nonce=\"{nonce}\""))
+        .unwrap_or_default();
 
     let mut blocking_fragments = FuturesUnordered::new();
     let fragments = FuturesUnordered::new();
@@ -230,91 +233,110 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
 
     let stream = futures::stream::once(
         // HTML for the view function and script to store resources
-        async move {
-            let resolvers = format!(
-                "<script>__LEPTOS_PENDING_RESOURCES = \
-                 {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
-                 Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
-            );
+        {
+            let nonce_str = nonce_str.clone();
+            async move {
+                let resolvers = format!(
+                    "<script{nonce_str}>__LEPTOS_PENDING_RESOURCES = \
+                     {pending_resources};__LEPTOS_RESOLVED_RESOURCES = new \
+                     Map();__LEPTOS_RESOURCE_RESOLVERS = new Map();</script>"
+                );
 
-            if replace_blocks {
-                let mut blocks = Vec::with_capacity(blocking_fragments.len());
-                while let Some((blocked_id, blocked_fragment)) =
-                    blocking_fragments.next().await
-                {
-                    blocks.push((blocked_id, blocked_fragment));
+                if replace_blocks {
+                    let mut blocks =
+                        Vec::with_capacity(blocking_fragments.len());
+                    while let Some((blocked_id, blocked_fragment)) =
+                        blocking_fragments.next().await
+                    {
+                        blocks.push((blocked_id, blocked_fragment));
+                    }
+
+                    let prefix = prefix(cx);
+
+                    let mut shell = shell;
+
+                    for (blocked_id, blocked_fragment) in blocks {
+                        let open = format!("<!--suspense-open-{blocked_id}-->");
+                        let close =
+                            format!("<!--suspense-close-{blocked_id}-->");
+                        let (first, rest) =
+                            shell.split_once(&open).unwrap_or_default();
+                        let (_fallback, rest) =
+                            rest.split_once(&close).unwrap_or_default();
+
+                        shell =
+                            format!("{first}{blocked_fragment}{rest}").into();
+                    }
+
+                    format!("{prefix}{shell}{resolvers}")
+                } else {
+                    let mut blocking = String::new();
+                    let mut blocking_fragments = fragments_to_chunks(
+                        nonce_str.clone(),
+                        blocking_fragments,
+                    );
+
+                    while let Some(fragment) = blocking_fragments.next().await {
+                        blocking.push_str(&fragment);
+                    }
+                    let prefix = prefix(cx);
+                    format!("{prefix}{shell}{resolvers}{blocking}")
                 }
-
-                let prefix = prefix(cx);
-
-                let mut shell = shell;
-
-                for (blocked_id, blocked_fragment) in blocks {
-                    let open = format!("<!--suspense-open-{blocked_id}-->");
-                    let close = format!("<!--suspense-close-{blocked_id}-->");
-                    let (first, rest) =
-                        shell.split_once(&open).unwrap_or_default();
-                    let (_fallback, rest) =
-                        rest.split_once(&close).unwrap_or_default();
-
-                    shell = format!("{first}{blocked_fragment}{rest}").into();
-                }
-
-                format!("{prefix}{shell}{resolvers}")
-            } else {
-                let mut blocking = String::new();
-                let mut blocking_fragments =
-                    fragments_to_chunks(blocking_fragments);
-
-                while let Some(fragment) = blocking_fragments.next().await {
-                    blocking.push_str(&fragment);
-                }
-                let prefix = prefix(cx);
-                format!("{prefix}{shell}{resolvers}{blocking}")
             }
         },
     )
-    .chain(ooo_body_stream_recurse(cx, fragments, serializers));
+    .chain(ooo_body_stream_recurse(
+        cx,
+        nonce_str,
+        fragments,
+        serializers,
+    ));
 
     (stream, runtime, scope)
 }
 
 fn ooo_body_stream_recurse(
     cx: Scope,
+    nonce_str: String,
     fragments: FuturesUnordered<PinnedFuture<(String, String)>>,
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> Pin<Box<dyn Stream<Item = String>>> {
     // resources and fragments
     // stream HTML for each <Suspense/> as it resolves
-    let fragments = fragments_to_chunks(fragments);
+    let fragments = fragments_to_chunks(nonce_str.clone(), fragments);
     // stream data for each Resource as it resolves
-    let resources = render_serializers(serializers);
+    let resources = render_serializers(nonce_str.clone(), serializers);
 
     Box::pin(
         // TODO these should be combined again in a way that chains them appropriately
         // such that individual resources can resolve before all fragments are done
         fragments.chain(resources).chain(
-            futures::stream::once(async move {
-                let pending = cx.pending_fragments();
-                if !pending.is_empty() {
-                    let fragments = FuturesUnordered::new();
-                    let serializers = cx.serialization_resolvers();
-                    for (fragment_id, data) in pending {
-                        fragments.push(Box::pin(async move {
-                            (fragment_id.clone(), data.out_of_order.await)
-                        })
-                            as Pin<Box<dyn Future<Output = (String, String)>>>);
+            futures::stream::once({
+                async move {
+                    let pending = cx.pending_fragments();
+                    if !pending.is_empty() {
+                        let fragments = FuturesUnordered::new();
+                        let serializers = cx.serialization_resolvers();
+                        for (fragment_id, data) in pending {
+                            fragments.push(Box::pin(async move {
+                                (fragment_id.clone(), data.out_of_order.await)
+                            })
+                                as Pin<
+                                    Box<dyn Future<Output = (String, String)>>,
+                                >);
+                        }
+                        Box::pin(ooo_body_stream_recurse(
+                            cx,
+                            nonce_str.clone(),
+                            fragments,
+                            serializers,
+                        ))
+                            as Pin<Box<dyn Stream<Item = String>>>
+                    } else {
+                        Box::pin(futures::stream::once(async move {
+                            Default::default()
+                        }))
                     }
-                    Box::pin(ooo_body_stream_recurse(
-                        cx,
-                        fragments,
-                        serializers,
-                    ))
-                        as Pin<Box<dyn Stream<Item = String>>>
-                } else {
-                    Box::pin(futures::stream::once(async move {
-                        Default::default()
-                    }))
                 }
             })
             .flatten(),
@@ -327,13 +349,14 @@ fn ooo_body_stream_recurse(
     instrument(level = "trace", skip_all,)
 )]
 fn fragments_to_chunks(
+    nonce_str: String,
     fragments: impl Stream<Item = (String, String)>,
 ) -> impl Stream<Item = String> {
-    fragments.map(|(fragment_id, html)| {
+    fragments.map(move |(fragment_id, html)| {
       format!(
         r#"
                 <template id="{fragment_id}f">{html}</template>
-                <script>
+                <script{nonce_str}>
                     var id = "{fragment_id}";
                     var open = undefined;
                     var close = undefined;
@@ -679,13 +702,14 @@ pub(crate) fn to_kebab_case(name: &str) -> String {
     instrument(level = "trace", skip_all,)
 )]
 pub(crate) fn render_serializers(
+    nonce_str: String,
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> impl Stream<Item = String> {
-    serializers.map(|(id, json)| {
+    serializers.map(move |(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
         let json = json.replace('<', "\\u003c");
         format!(
-            r#"<script>
+            r#"<script{nonce_str}>
                   var val = {json:?};
                   if(__LEPTOS_RESOURCE_RESOLVERS.get({id})) {{
                       __LEPTOS_RESOURCE_RESOLVERS.get({id})(val)

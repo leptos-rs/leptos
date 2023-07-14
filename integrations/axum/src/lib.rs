@@ -823,6 +823,8 @@ fn provide_contexts(
     provide_context(cx, extractor);
     provide_context(cx, default_res_options);
     provide_server_redirect(cx, move |path| redirect(cx, path));
+    #[cfg(feature = "nonce")]
+    leptos::nonce::provide_nonce(cx);
 }
 
 /// Returns an Axum [Handler](axum::handler::Handler) that listens for a `GET` request and tries

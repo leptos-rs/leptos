@@ -728,6 +728,8 @@ fn provide_contexts(
     provide_context(cx, res_options);
     provide_context(cx, req.clone());
     provide_server_redirect(cx, move |path| redirect(cx, path));
+    #[cfg(feature = "nonce")]
+    leptos::nonce::provide_nonce(cx);
 }
 
 fn leptos_corrected_path(req: &HttpRequest) -> String {
@@ -792,8 +794,11 @@ async fn build_stream_response(
     // wait for any blocking resources to load before pulling metadata
     let first_app_chunk = stream.next().await.unwrap_or_default();
 
-    let (head, tail) =
-        html_parts_separated(options, use_context::<MetaContext>(cx).as_ref());
+    let (head, tail) = html_parts_separated(
+        cx,
+        options,
+        use_context::<MetaContext>(cx).as_ref(),
+    );
 
     let mut stream = Box::pin(
         futures::stream::once(async move { head.clone() })

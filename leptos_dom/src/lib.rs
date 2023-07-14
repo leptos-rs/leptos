@@ -18,6 +18,8 @@ mod logging;
 mod macro_helpers;
 pub mod math;
 mod node_ref;
+/// Utilities for exporting nonces to be used for a Content Security Policy.
+pub mod nonce;
 pub mod ssr;
 pub mod ssr_in_order;
 pub mod svg;
