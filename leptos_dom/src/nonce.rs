@@ -13,23 +13,32 @@ use std::{fmt::Display, ops::Deref};
 /// The nonce being used during the current server response can be
 /// accessed using [`use_nonce`](use_nonce).
 ///
-/// /// ```rust,ignore
+/// ```rust,ignore
 /// #[component]
 /// pub fn App(cx: Scope) -> impl IntoView {
-///     let csp = use_nonce(cx).map(|nonce| {
-///         view! { cx,
-///             <Meta
-///                 http_equiv="Content-Security-Policy"
-///                 // 'nonce-____' allows inline scripts with your nonce to run
-///                 // 'wasm-unsafe-eval' is required to load and run WebAssembly
-///                 content=format!("script-src 'nonce-{nonce}' 'wasm-unsafe-eval'")
-///              />
-///         }
-///     });
+///     provide_meta_context(cx);
 ///
 ///     view! { cx,
-///       {csp}
-///       <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///         // use `leptos_meta` to insert a <meta> tag with the CSP
+///         <Meta
+///             http_equiv="Content-Security-Policy"
+///             content=move || {
+///                 // this will insert the CSP with nonce on the server, be empty on client
+///                 use_nonce(cx)
+///                     .map(|nonce| {
+///                         format!(
+///                             "default-src 'self'; script-src 'strict-dynamic' 'nonce-{nonce}' \
+///                             'wasm-unsafe-eval'; style-src 'nonce-{nonce}';"
+///                         )
+///                     })
+///                     .unwrap_or_default()
+///             }
+///         />
+///         // manually insert nonce during SSR on inline script
+///         <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
+///         <Style>"body { color: blue; }"</Style>
+///         <p>"Test"</p>
 ///     }
 /// }
 /// ```
@@ -77,20 +86,29 @@ impl IntoAttribute for Option<Nonce> {
 /// ```rust,ignore
 /// #[component]
 /// pub fn App(cx: Scope) -> impl IntoView {
-///     let csp = use_nonce(cx).map(|nonce| {
-///         view! { cx,
-///             <Meta
-///                 http_equiv="Content-Security-Policy"///
-///                 // 'nonce-____' allows inline scripts with your nonce to run
-///                 // 'wasm-unsafe-eval' is required to load and run WebAssembly
-///                 content=format!("script-src 'nonce-{nonce}' 'wasm-unsafe-eval'")
-///              />
-///         }
-///     });
+///     provide_meta_context(cx);
 ///
 ///     view! { cx,
-///       {csp}
-///       <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///         // use `leptos_meta` to insert a <meta> tag with the CSP
+///         <Meta
+///             http_equiv="Content-Security-Policy"
+///             content=move || {
+///                 // this will insert the CSP with nonce on the server, be empty on client
+///                 use_nonce(cx)
+///                     .map(|nonce| {
+///                         format!(
+///                             "default-src 'self'; script-src 'strict-dynamic' 'nonce-{nonce}' \
+///                             'wasm-unsafe-eval'; style-src 'nonce-{nonce}';"
+///                         )
+///                     })
+///                     .unwrap_or_default()
+///             }
+///         />
+///         // manually insert nonce during SSR on inline script
+///         <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
+///         <Style>"body { color: blue; }"</Style>
+///         <p>"Test"</p>
 ///     }
 /// }
 /// ```
