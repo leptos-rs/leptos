@@ -53,6 +53,12 @@ impl From<Fragment> for View {
         {
             frag.view_marker = value.view_marker;
         }
+        #[cfg(feature = "debugger")]
+        {
+            value.nodes.iter().for_each(|node| {
+                crate::debugger::insert_view(node, format!("{}", frag.id));
+            });
+        }
 
         frag.children = value.nodes;
 
