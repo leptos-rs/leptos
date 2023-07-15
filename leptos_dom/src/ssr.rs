@@ -453,7 +453,7 @@ impl View {
             View::CoreComponent(node) => {
                 let (id, name, wrap, content) = match node {
                     CoreComponent::Unit(u) => (
-                        u.id,
+                        u.id.clone(),
                         "",
                         false,
                         Box::new(move || {

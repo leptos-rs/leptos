@@ -67,7 +67,7 @@ cfg_if! {
 }
 
 /// A stable identifier within the server-rendering or hydration process.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct HydrationKey {
     /// ID of the current key.
     pub id: usize,
@@ -89,7 +89,7 @@ pub struct HydrationCtx;
 impl HydrationCtx {
     /// Get the next `id` without incrementing it.
     pub fn peek() -> HydrationKey {
-        ID.with(|id| *id.borrow())
+        ID.with(|id| id.borrow().clone())
     }
 
     /// Increments the current hydration `id` and returns it
@@ -97,7 +97,7 @@ impl HydrationCtx {
         ID.with(|id| {
             let mut id = id.borrow_mut();
             id.id = id.id.wrapping_add(1);
-            *id
+            id.clone()
         })
     }
 
@@ -107,7 +107,7 @@ impl HydrationCtx {
             let mut id = id.borrow_mut();
             id.fragment = id.fragment.wrapping_add(1);
             id.id = 0;
-            *id
+            id.clone()
         })
     }
 

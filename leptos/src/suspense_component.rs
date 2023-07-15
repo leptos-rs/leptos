@@ -73,7 +73,7 @@ where
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
-        let current_id = current_id;
+        let current_id = current_id.clone();
 
         let children = Rc::new(orig_children(cx).into_view(cx));
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -97,7 +97,7 @@ where
                 {
                     // no resources were read under this, so just return the child
                     if context.pending_resources.get() == 0 {
-                        HydrationCtx::continue_from(current_id);
+                        HydrationCtx::continue_from(current_id.clone());
                         DynChild::new({
                             let children = Rc::clone(&children);
                             move || (*children).clone()
@@ -106,7 +106,7 @@ where
                     }
                     // show the fallback, but also prepare to stream HTML
                     else {
-                        HydrationCtx::continue_from(current_id);
+                        HydrationCtx::continue_from(current_id.clone());
 
                         cx.register_suspense(
                             context,
@@ -114,8 +114,11 @@ where
                             // out-of-order streaming
                             {
                                 let orig_children = Rc::clone(&orig_children);
+                                let current_id = current_id.clone();
                                 move || {
-                                    HydrationCtx::continue_from(current_id);
+                                    HydrationCtx::continue_from(
+                                        current_id.clone(),
+                                    );
                                     DynChild::new({
                                         let orig_children =
                                             orig_children(cx).into_view(cx);
@@ -129,8 +132,11 @@ where
                             // in-order streaming
                             {
                                 let orig_children = Rc::clone(&orig_children);
+                                let current_id = current_id.clone();
                                 move || {
-                                    HydrationCtx::continue_from(current_id);
+                                    HydrationCtx::continue_from(
+                                        current_id.clone(),
+                                    );
                                     DynChild::new({
                                         let orig_children =
                                             orig_children(cx).into_view(cx);
@@ -155,7 +161,7 @@ where
         _ => unreachable!(),
     };
 
-    HydrationCtx::continue_from(current_id);
+    HydrationCtx::continue_from(current_id.clone());
     HydrationCtx::next_component();
 
     leptos_dom::View::Suspense(current_id, core_component)
