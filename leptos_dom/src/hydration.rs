@@ -50,13 +50,13 @@ cfg_if! {
 
       static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
         #[cfg(debug_assertions)]
-        return crate::document().get_element_by_id("_0-1").is_some()
-          || crate::document().get_element_by_id("_0-1o").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-1o").is_some());
+        return crate::document().get_element_by_id("_-1").is_some()
+          || crate::document().get_element_by_id("_-1o").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_-1o").is_some());
 
         #[cfg(not(debug_assertions))]
-        return crate::document().get_element_by_id("_0-1").is_some()
-          || HYDRATION_COMMENTS.with(|comments| comments.get("_0-1").is_some());
+        return crate::document().get_element_by_id("_-1").is_some()
+          || HYDRATION_COMMENTS.with(|comments| comments.get("_-1").is_some());
       }));
     }
 
@@ -72,7 +72,7 @@ pub struct HydrationKey {
     /// ID of the current key.
     pub id: usize,
     /// ID of the current fragment.
-    pub fragment: usize,
+    pub fragment: String,
 }
 
 impl Display for HydrationKey {
@@ -105,7 +105,7 @@ impl HydrationCtx {
     pub fn next_component() -> HydrationKey {
         ID.with(|id| {
             let mut id = id.borrow_mut();
-            id.fragment = id.fragment.wrapping_add(1);
+            id.fragment = format!("{}{}", id.fragment, id.id);
             id.id = 0;
             id.clone()
         })
