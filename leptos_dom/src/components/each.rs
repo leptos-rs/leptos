@@ -1,4 +1,7 @@
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+#[cfg(any(
+    not(all(target_arch = "wasm32", feature = "web")),
+    feature = "debugger"
+))]
 use crate::hydration::HydrationKey;
 use crate::{hydration::HydrationCtx, Comment, CoreComponent, IntoView, View};
 use leptos_reactive::Scope;
@@ -55,7 +58,10 @@ pub struct EachRepr {
     opening: Comment,
     pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
     closing: Comment,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     pub(crate) id: HydrationKey,
 }
 
@@ -116,7 +122,10 @@ impl Default for EachRepr {
             opening: markers.1,
             children: Default::default(),
             closing: markers.0,
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                not(all(target_arch = "wasm32", feature = "web")),
+                feature = "debugger"
+            ))]
             id,
         }
     }
@@ -174,7 +183,10 @@ pub(crate) struct EachItem {
     opening: Option<Comment>,
     pub(crate) child: View,
     closing: Option<Comment>,
-    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+    #[cfg(any(
+        not(all(target_arch = "wasm32", feature = "web")),
+        feature = "debugger"
+    ))]
     pub(crate) id: HydrationKey,
 }
 
@@ -250,7 +262,10 @@ impl EachItem {
             opening: markers.1,
             child,
             closing: markers.0,
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+            #[cfg(any(
+                not(all(target_arch = "wasm32", feature = "web")),
+                feature = "debugger"
+            ))]
             id,
         }
     }
@@ -377,6 +392,9 @@ where
 
         let component = EachRepr::default();
 
+        #[cfg(feature = "debugger")]
+        let component_id = format!("{}", component.id);
+
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         let (children, closing) =
             (component.children.clone(), component.closing.node.clone());
@@ -442,6 +460,23 @@ where
                             items,
                             &each_fn,
                         );
+                        #[cfg(feature = "debugger")]
+                        {
+                            crate::debugger::remove_view_children(
+                                &component_id,
+                                false,
+                            );
+                            children_borrow.iter().for_each(|each_item| {
+                                if let Some(each_item) = each_item {
+                                    crate::debugger::insert_each_item(
+                                        &each_item.child,
+                                        each_item.id.to_string(),
+                                        component_id.clone(),
+                                        false,
+                                    );
+                                }
+                            });
+                        }
                         return HashRun(hashed_items);
                     }
                 }
@@ -451,11 +486,20 @@ where
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 let fragment = crate::document().create_document_fragment();
 
+                #[cfg(feature = "debugger")]
+                crate::debugger::remove_view_children(&component_id, true);
                 for item in items_iter {
                     hashed_items.insert(key_fn(&item));
                     let (each_item, _) = cx.run_child_scope(|cx| {
                         EachItem::new(cx, each_fn(cx, item).into_view(cx))
                     });
+                    #[cfg(feature = "debugger")]
+                    crate::debugger::insert_each_item(
+                        &each_item.child,
+                        each_item.id.to_string(),
+                        component_id.clone(),
+                        true,
+                    );
                     #[cfg(all(target_arch = "wasm32", feature = "web"))]
                     {
                         _ = fragment
@@ -724,7 +768,11 @@ fn apply_diff<T, EF, V>(
 
     for DiffOpRemove { at } in &diff.removed {
         let item_to_remove = children[*at].take().unwrap();
-
+        #[cfg(feature = "debugger")]
+        crate::debugger::remove_view_children(
+            &item_to_remove.id.to_string(),
+            true,
+        );
         item_to_remove.prepare_for_move();
     }
 
@@ -774,6 +822,12 @@ fn apply_diff<T, EF, V>(
 
             EachItem::new(cx, view)
         });
+
+        #[cfg(feature = "debugger")]
+        crate::debugger::insert_view(
+            &each_item.child,
+            each_item.id.to_string(),
+        );
 
         match mode {
             DiffOpAddMode::Normal => {

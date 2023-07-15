@@ -205,7 +205,7 @@ where
 
                     #[cfg(feature = "debugger")]
                     {
-                        crate::debugger::remove_view(&component_id);
+                        crate::debugger::remove_view_children(&component_id, true);
                         crate::debugger::insert_view(
                             &new_child,
                             component_id.clone(),

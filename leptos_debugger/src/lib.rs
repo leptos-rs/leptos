@@ -7,7 +7,7 @@ mod prop_value_from;
 mod runtime;
 
 pub use node::DNode;
-use node::{create_root_tree, remove_tree};
+use node::{create_root_tree, remove_tree_children};
 pub use prop::{Prop, PropValue};
 #[cfg(feature = "nightly")]
 pub use prop_value_from::PropValueFrom;
@@ -60,9 +60,9 @@ pub fn insert_view(key: String, value: DNode) {
     update_view()
 }
 
-pub fn remove_view(key: &String) {
+pub fn remove_view_children(key: &String, deep: bool) {
     with_runtime(|runtime| {
-        remove_tree(runtime, key);
+        remove_tree_children(runtime, key, deep);
     });
 
     update_view()

@@ -8,6 +8,10 @@ pub enum DNode {
         id: String,
         children: Vec<DNode>,
     },
+    Each {
+        id: String,
+        children: Vec<DNode>,
+    },
     Unit,
     Text(String),
     Element {
@@ -99,27 +103,46 @@ fn create_tree(runtime: &Runtime, node: &DNode) -> DNode {
                 children,
             }
         }
+        DNode::Each { id, .. } => {
+            let children =
+                runtime.nodes.borrow().get(id).map_or(vec![], |nodes| {
+                    nodes
+                        .iter()
+                        .map(|view| create_tree(runtime, view))
+                        .collect()
+                });
+            DNode::Each {
+                id: id.clone(),
+                children,
+            }
+        }
     }
 }
 
-pub(crate) fn remove_tree(runtime: &Runtime, key: &String) {
-    let props = { runtime.props.borrow_mut().remove(key) };
-    if let Some(props) = props {
-        for prop in props.values() {
-            if let PropValue::ReadSignal(key) = prop.value {
-                runtime.signals.borrow_mut().remove(&key);
-            }
-        }
-    };
-
+pub(crate) fn remove_tree_children(
+    runtime: &Runtime,
+    key: &String,
+    deep: bool,
+) {
     let children = { runtime.nodes.borrow_mut().remove(key) };
     if let Some(children) = children {
         for child in children.iter() {
             match child {
                 DNode::DynChild { id, .. }
                 | DNode::Element { id, .. }
-                | DNode::Component { id, .. } => {
-                    remove_tree(runtime, id);
+                | DNode::Component { id, .. }
+                | DNode::Each { id, .. } => {
+                    let props = { runtime.props.borrow_mut().remove(key) };
+                    if let Some(props) = props {
+                        for prop in props.values() {
+                            if let PropValue::ReadSignal(key) = prop.value {
+                                runtime.signals.borrow_mut().remove(&key);
+                            }
+                        }
+                    };
+                    if deep {
+                        remove_tree_children(runtime, id, deep);
+                    }
                 }
                 DNode::Unit | DNode::Text(_) => {}
                 DNode::Root { .. } => panic!("Root should not be children"),

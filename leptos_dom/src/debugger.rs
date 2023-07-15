@@ -1,9 +1,9 @@
 #[cfg(feature = "debugger")]
 use crate::View;
-pub use leptos_debugger::{remove_view, update_props, DNode, Prop, PropValue};
+pub(crate) use leptos_debugger::{remove_view_children, DNode};
 
 #[cfg(feature = "debugger")]
-pub fn insert_view(view: &View, id: String) {
+pub(crate) fn insert_view(view: &View, id: String) {
     match view {
         View::Element(el) => {
             leptos_debugger::insert_view(
@@ -45,9 +45,36 @@ pub fn insert_view(view: &View, id: String) {
                     },
                 );
             }
-            crate::CoreComponent::Each(_) => {}
+            crate::CoreComponent::Each(each) => leptos_debugger::insert_view(
+                id,
+                DNode::Each {
+                    id: each.id.to_string(),
+                    children: vec![],
+                },
+            ),
         },
         View::Transparent(_) => {}
         View::Suspense(_, _) => {}
+    }
+}
+
+#[cfg(feature = "debugger")]
+pub(crate) fn insert_each_item(
+    view: &View,
+    item_id: String,
+    id: String,
+    deep: bool,
+) {
+    leptos_debugger::insert_view(
+        id,
+        DNode::Component {
+            id: item_id.clone(),
+            name: "EachItem".to_string(),
+            props: vec![],
+            children: vec![],
+        },
+    );
+    if deep {
+        insert_view(view, item_id);
     }
 }
