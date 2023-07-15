@@ -63,7 +63,7 @@ jobs:
   matrix-job:
     name: Check
     needs: [setup]
-    if: "${{ needs.setup.outputs.source_changed == 'true' }}"
+    if: ${{ needs.setup.outputs.source_changed == 'true' }}
     strategy:
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
       fail-fast: false
