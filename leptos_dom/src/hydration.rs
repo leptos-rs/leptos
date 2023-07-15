@@ -102,10 +102,10 @@ impl HydrationCtx {
     }
 
     /// Resets the hydration `id` for the next component, and returns it
-    pub fn next_component() -> HydrationKey {
+    pub fn next_component(tag: &'static str) -> HydrationKey {
         ID.with(|id| {
             let mut id = id.borrow_mut();
-            id.fragment = format!("{}{}", id.fragment, id.id);
+            id.fragment = format!("{}-{}{}", id.fragment, id.id, tag);
             id.id = 0;
             id.clone()
         })

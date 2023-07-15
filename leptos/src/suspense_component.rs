@@ -69,7 +69,9 @@ where
     // provide this SuspenseContext to any resources below it
     provide_context(cx, context);
 
-    let current_id = HydrationCtx::next_component();
+    let before = HydrationCtx::peek();
+    let current_id = HydrationCtx::next_component("s");
+    leptos::log!("<Suspense/> next_component {current_id}");
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -161,8 +163,8 @@ where
         _ => unreachable!(),
     };
 
-    HydrationCtx::continue_from(current_id.clone());
-    HydrationCtx::next_component();
+    HydrationCtx::continue_from(before.clone());
+    _ = HydrationCtx::id();
 
     leptos_dom::View::Suspense(current_id, core_component)
 }

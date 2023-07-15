@@ -58,14 +58,13 @@ where
     F: Fn(Scope, RwSignal<Errors>) -> IV + 'static,
     IV: IntoView,
 {
-    let before_children = HydrationCtx::next_component();
+    let before_children = HydrationCtx::next_component("e");
 
     let errors: RwSignal<Errors> = create_rw_signal(cx, Errors::default());
 
     provide_context(cx, errors);
 
     // Run children so that they render and execute resources
-    _ = HydrationCtx::next_component();
     let children = children(cx);
     HydrationCtx::continue_from(before_children);
 
