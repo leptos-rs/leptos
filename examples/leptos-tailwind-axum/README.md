@@ -80,7 +80,7 @@ This crate can be run without `cargo-leptos`, using `wasm-pack` and `cargo`. To 
 To run it as a server side app with hydration, first you should run
 
 ```bash
-wasm-pack build --target=web --no-default-features --features=hydrate
+wasm-pack build --target=web --debug --no-default-features --features=hydrate
 ```
 
 to generate the WebAssembly to hydrate the HTML delivered from the server.
