@@ -1,4 +1,4 @@
-use leptos_dom::{Fragment, IntoView, View};
+use leptos_dom::{Fragment, HydrationCtx, IntoView, View};
 use leptos_macro::component;
 use leptos_reactive::{
     create_isomorphic_effect, use_context, Scope, SignalGet, SignalSetter,
@@ -99,7 +99,7 @@ where
 
                     let is_first_run =
                         is_first_run(&first_run, &suspense_context);
-                    first_run.set(is_first_run);
+                    first_run.set(false);
 
                     if let Some(prev_children) = &*prev_child.borrow() {
                         if is_first_run {
@@ -127,7 +127,10 @@ where
                 if is_first_run(&first_run, &suspense_context) {
                     let has_local_only = suspense_context.has_local_only()
                         || cfg!(feature = "csr");
-                    if !has_local_only || child_runs.get() > 0 {
+                    if (!has_local_only || child_runs.get() > 0)
+                        && (cfg!(feature = "csr")
+                            || HydrationCtx::is_hydrating())
+                    {
                         first_run.set(false);
                     }
                 }
@@ -163,7 +166,7 @@ fn is_first_run(
             // SSR but with only local resources (so, has not streamed)
             (_, false, true) => true,
             // hydrate: it's the first run
-            (_, true, _) => true,
+            (first_run, true, _) => HydrationCtx::is_hydrating() || first_run,
         }
     }
 }

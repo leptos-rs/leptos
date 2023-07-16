@@ -130,9 +130,16 @@ impl HydrationCtx {
         })
     }
 
-    #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    pub(crate) fn is_hydrating() -> bool {
-        IS_HYDRATING.with(|is_hydrating| **is_hydrating.borrow())
+    /// Whether the UI is currently in the process of hydrating from the server-sent HTML.
+    pub fn is_hydrating() -> bool {
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        {
+            IS_HYDRATING.with(|is_hydrating| **is_hydrating.borrow())
+        }
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        {
+            false
+        }
     }
 
     pub(crate) fn to_string(id: &HydrationKey, closing: bool) -> String {
