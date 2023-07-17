@@ -194,8 +194,10 @@ impl<T> StoredValue<T> {
     /// stored value has not yet been disposed, [`None`] otherwise.
     pub fn try_update_value<O>(self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         with_runtime(self.runtime, |runtime| {
-            let values = runtime.stored_values.borrow();
-            let value = values.get(self.id)?;
+            let value = {
+                let values = runtime.stored_values.borrow();
+                values.get(self.id)?.clone()
+            };
             let mut value = value.borrow_mut();
             let value = value.downcast_mut::<T>()?;
             Some(f(value))
@@ -228,13 +230,20 @@ impl<T> StoredValue<T> {
     /// stored value has not yet been disposed, [`Some(T)`] otherwise.
     pub fn try_set_value(&self, value: T) -> Option<T> {
         with_runtime(self.runtime, |runtime| {
-            let values = runtime.stored_values.borrow();
-            let n = values.get(self.id);
-            let mut n = n.map(|n| n.borrow_mut());
-            let n = n.as_mut().and_then(|n| n.downcast_mut::<T>());
+            let n = {
+                let values = runtime.stored_values.borrow();
+                values.get(self.id).map(Rc::clone)
+            };
+
             if let Some(n) = n {
-                *n = value;
-                None
+                let mut n = n.borrow_mut();
+                let n = n.downcast_mut::<T>();
+                if let Some(n) = n {
+                    *n = value;
+                    None
+                } else {
+                    Some(value)
+                }
             } else {
                 Some(value)
             }
