@@ -416,11 +416,18 @@ impl Comment {
 
                 Self { content }
             } else {
+                #[cfg(not(feature = "hydrate"))]
+                {
+                    _ = id;
+                    _ = closing;
+                }
+
                 let node = COMMENT.with(|comment| comment.clone_node().unwrap());
 
                 #[cfg(debug_assertions)]
                 node.set_text_content(Some(&format!(" {content} ")));
 
+                #[cfg(feature = "hydrate")]
                 if HydrationCtx::is_hydrating() {
                     let id = HydrationCtx::to_string(id, closing);
 

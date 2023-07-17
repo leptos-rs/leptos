@@ -28,13 +28,13 @@ leptos = { path = "." }
 default = ["serde"]
 template_macro = ["leptos_dom/web", "web-sys", "wasm-bindgen"]
 csr = [
-  "leptos_dom/web",
+  "leptos_dom/csr",
   "leptos_macro/csr",
   "leptos_reactive/csr",
   "leptos_server/csr",
 ]
 hydrate = [
-  "leptos_dom/web",
+  "leptos_dom/hydrate",
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
