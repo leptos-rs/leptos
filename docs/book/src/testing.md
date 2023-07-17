@@ -76,7 +76,7 @@ wasm-pack test --firefox
 ### Writing Your Tests
 
 Most tests will involve some combination of vanilla DOM manipulation and comparison to a `view`. For example, here’s a test [for the
-`counter` example](https://github.com/leptos-rs/leptos/blob/main/examples/counter/tests/mod.rs).
+`counter` example](https://github.com/leptos-rs/leptos/blob/main/examples/counter/tests/web.rs).
 
 First, we set up the testing environment.
 
