@@ -161,9 +161,8 @@ Other Previews > 8080.` Hover over any of the variables to show Rust-Analyzer de
 
 <iframe src="https://codesandbox.io/p/sandbox/1-basic-component-3d74p3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A31%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A31%2C%22startLineNumber%22%3A19%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-<preview>
-<summary>CodeSandbox Source</summary>
 <details>
+<summary>CodeSandbox Source</summary>
 
 ```rust
 use leptos::*;

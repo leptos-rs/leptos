@@ -113,9 +113,8 @@ The view should be pretty self-explanatory by now. Note two things:
 
 <iframe src="https://codesandbox.io/p/sandbox/5-form-inputs-ih9m62?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A12%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A12%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-<preview>
-<summary>CodeSandbox Source</summary>
 <details>
+<summary>CodeSandbox Source</summary>
 
 ```rust
 use leptos::{ev::SubmitEvent, *};
@@ -219,5 +218,6 @@ fn main() {
 }
 
 ```
+
 </details>
 </preview>

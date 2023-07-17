@@ -10,9 +10,8 @@ This example shows how you can create a simple tabbed contact list with `<Transi
 
 <iframe src="https://codesandbox.io/p/sandbox/12-transition-sn38sd?selection=%5B%7B%22endColumn%22%3A15%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A15%2C%22startLineNumber%22%3A2%7D%5D&file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-<preview>
-<summary>CodeSandbox Source</summary>
 <details>
+<summary>CodeSandbox Source</summary>
 
 ```rust
 use gloo_timers::future::TimeoutFuture;
@@ -80,5 +79,6 @@ fn main() {
 }
 
 ```
+
 </details>
 </preview>

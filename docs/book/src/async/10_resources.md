@@ -54,9 +54,8 @@ Resources also provide a `refetch()` method that allows you to manually reload t
 
 <iframe src="https://codesandbox.io/p/sandbox/10-async-resources-4z0qt3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A3%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A3%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-<preview>
-<summary>CodeSandbox Source</summary>
 <details>
+<summary>CodeSandbox Source</summary>
 
 ```rust
 use gloo_timers::future::TimeoutFuture;
@@ -137,5 +136,6 @@ fn main() {
 }
 
 ```
+
 </details>
 </preview>

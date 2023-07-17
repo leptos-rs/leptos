@@ -153,11 +153,9 @@ places in your application with minimal overhead.
 
 <iframe src="https://codesandbox.io/p/sandbox/2-dynamic-attribute-pqyvzl?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-
-
-<preview>
-<summary>Code Sandbox Source</summary>
 <details>
+<summary>Code Sandbox Source</summary>
+
 ```rust
 use leptos::*;
 
@@ -215,5 +213,6 @@ fn main() {
     leptos::mount_to_body(|cx| view! { cx, <App/> })
 }
 ```
+
 </details>
 </preview>

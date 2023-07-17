@@ -73,9 +73,8 @@ This inversion of the flow of control makes it easier to add or remove individua
 
 <iframe src="https://codesandbox.io/p/sandbox/11-suspense-907niv?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-<preview>
-<summary>CodeSandbox Source</summary>
 <details>
+<summary>CodeSandbox Source</summary>
 
 ```rust
 use gloo_timers::future::TimeoutFuture;
@@ -125,5 +124,6 @@ fn main() {
 }
 
 ```
+
 </details>
 </preview>

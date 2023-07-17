@@ -66,9 +66,8 @@ You’ll notice that this version drops the `Submit` button. Instead, we add an 
 
 <iframe src="https://codesandbox.io/p/sandbox/16-router-forked-hrrt3h?file=%2Fsrc%2Fmain.rs" width="100%" height="1000px" style="max-height: 100vh"></iframe>
 
-<preview>
-<summary>CodeSandbox Source</summary>
 <details>
+<summary>CodeSandbox Source</summary>
 
 ```rust
 use leptos::*;
@@ -177,5 +176,6 @@ fn main() {
 }
 
 ```
+
 </details>
 </preview>
