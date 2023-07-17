@@ -67,6 +67,23 @@ pub struct ComponentRepr {
     pub(crate) view_marker: Option<String>,
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+impl ComponentRepr {
+    pub(crate) fn prepare_to_move(&self) {
+        #[cfg(debug_assertions)]
+        let start = self.get_opening_node();
+        let end = &self.closing.node;
+
+        for child in &self.children {
+            child.prepare_to_move();
+        }
+
+        #[cfg(debug_assertions)]
+        self.document_fragment.append_child(&start).unwrap();
+        self.document_fragment.append_child(&end).unwrap();
+    }
+}
+
 impl fmt::Debug for ComponentRepr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use fmt::Write;

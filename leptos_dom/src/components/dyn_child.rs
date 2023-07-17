@@ -7,7 +7,7 @@ use leptos_reactive::Scope;
 use std::{borrow::Cow, cell::RefCell, fmt, ops::Deref, rc::Rc};
 cfg_if! {
   if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-    use crate::{mount_child, prepare_to_move, unmount_child, MountKind, Mountable};
+    use crate::{mount_child, prepare_to_move, MountKind, Mountable};
     use leptos_reactive::{create_effect, ScopeDisposer};
     use wasm_bindgen::JsCast;
   }
@@ -17,11 +17,11 @@ cfg_if! {
 #[derive(Clone, PartialEq, Eq)]
 pub struct DynChildRepr {
     #[cfg(all(target_arch = "wasm32", feature = "web"))]
-    document_fragment: web_sys::DocumentFragment,
+    pub(crate) document_fragment: web_sys::DocumentFragment,
     #[cfg(debug_assertions)]
     opening: Comment,
     pub(crate) child: Rc<RefCell<Box<Option<View>>>>,
-    closing: Comment,
+    pub(crate) closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub(crate) id: HydrationKey,
 }
@@ -276,36 +276,7 @@ where
                                 let same_child = child == new_child;
                                 if !was_child_moved && !same_child {
                                     // Remove the child
-                                    let start = child.get_opening_node();
-                                    let end = &closing;
-
-                                    match child {
-                                        View::CoreComponent(
-                                            crate::CoreComponent::DynChild(
-                                                child,
-                                            ),
-                                        ) => {
-                                            let start =
-                                                child.get_opening_node();
-                                            let end = child.closing.node;
-                                            prepare_to_move(
-                                                &child.document_fragment,
-                                                &start,
-                                                &end,
-                                            );
-                                        }
-                                        View::Component(child) => {
-                                            let start =
-                                                child.get_opening_node();
-                                            let end = child.closing.node;
-                                            prepare_to_move(
-                                                &child.document_fragment,
-                                                &start,
-                                                &end,
-                                            );
-                                        }
-                                        _ => unmount_child(&start, end),
-                                    }
+                                    child.prepare_to_move();
                                 }
 
                                 // Mount the new child

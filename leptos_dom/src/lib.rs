@@ -752,6 +752,26 @@ impl View {
 
         self
     }
+
+    #[cfg(all(target_arch = "wasm32", feature = "web"))]
+    fn prepare_to_move(&self) {
+        match self {
+            View::CoreComponent(crate::CoreComponent::DynChild(child)) => {
+                let start = child.get_opening_node();
+                let end = &child.closing.node;
+                prepare_to_move(&child.document_fragment, &start, &end);
+            }
+            View::Component(child) => {
+                child.prepare_to_move();
+            }
+            _ => {
+                let start = self.get_opening_node();
+                let end = self.get_closing_node();
+
+                unmount_child(&start, &end);
+            }
+        }
+    }
 }
 
 #[cfg_attr(debug_assertions, instrument)]
