@@ -3,14 +3,14 @@ use std::{cell::RefCell, fmt::Display};
 #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
 mod hydration {
     use once_cell::unsync::Lazy as LazyCell;
-    use std::collections::HashMap;
+    use std::{cell::RefCell, collections::HashMap};
     use wasm_bindgen::JsCast;
 
     // We can tell if we start in hydration mode by checking to see if the
     // id "_0-1" is present in the DOM. If it is, we know we are hydrating from
     // the server, if not, we are starting off in CSR
     thread_local! {
-      static HYDRATION_COMMENTS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
+      pub static HYDRATION_COMMENTS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
         let document = crate::document();
         let body = document.body().unwrap();
         let walker = document
@@ -30,7 +30,7 @@ mod hydration {
       });
 
       #[cfg(debug_assertions)]
-      pub(crate) static VIEW_MARKERS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
+      pub static VIEW_MARKERS: LazyCell<HashMap<String, web_sys::Comment>> = LazyCell::new(|| {
         let document = crate::document();
         let body = document.body().unwrap();
         let walker = document
@@ -47,7 +47,7 @@ mod hydration {
         map
       });
 
-      static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
+      pub static IS_HYDRATING: RefCell<LazyCell<bool>> = RefCell::new(LazyCell::new(|| {
         #[cfg(debug_assertions)]
         return crate::document().get_element_by_id("_0-1").is_some()
           || crate::document().get_element_by_id("_0-1o").is_some()
@@ -59,13 +59,13 @@ mod hydration {
       }));
     }
 
-    pub(crate) fn get_marker(id: &str) -> Option<web_sys::Comment> {
+    pub fn get_marker(id: &str) -> Option<web_sys::Comment> {
         HYDRATION_COMMENTS.with(|comments| comments.get(id).cloned())
     }
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
-use hydration::*;
+pub(crate) use hydration::*;
 
 /// A stable identifier within the server-rendering or hydration process.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
