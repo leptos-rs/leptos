@@ -160,3 +160,67 @@ Other Previews > 8080.` Hover over any of the variables to show Rust-Analyzer de
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/1-basic-component-3d74p3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A31%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A31%2C%22startLineNumber%22%3A19%7D%5D)
 
 <iframe src="https://codesandbox.io/p/sandbox/1-basic-component-3d74p3?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A31%2C%22endLineNumber%22%3A19%2C%22startColumn%22%3A31%2C%22startLineNumber%22%3A19%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+
+<details>
+<summary>CodeSandbox Source</summary>
+
+```rust
+use leptos::*;
+
+// The #[component] macro marks a function as a reusable component
+// Components are the building blocks of your user interface
+// They define a reusable unit of behavior
+#[component]
+fn App(cx: Scope) -> impl IntoView {
+    // here we create a reactive signal
+    // and get a (getter, setter) pair
+    // signals are the basic unit of change in the framework
+    // we'll talk more about them later
+    let (count, set_count) = create_signal(cx, 0);
+
+    // the `view` macro is how we define the user interface
+    // it uses an HTML-like format that can accept certain Rust values
+    view! { cx,
+        <button
+            // on:click will run whenever the `click` event fires
+            // every event handler is defined as `on:{eventname}`
+
+            // we're able to move `set_count` into the closure
+            // because signals are Copy and 'static
+            on:click=move |_| {
+                set_count.update(|n| *n += 1);
+            }
+        >
+            // text nodes in RSX should be wrapped in quotes,
+            // like a normal Rust string
+            "Click me"
+        </button>
+        <p>
+            <strong>"Reactive: "</strong>
+            // you can insert Rust expressions as values in the DOM
+            // by wrapping them in curly braces
+            // if you pass in a function, it will reactively update
+            {move || count.get()}
+        </p>
+        <p>
+            <strong>"Reactive shorthand: "</strong>
+            // signals are functions, so we can remove the wrapping closure
+            {count}
+        </p>
+        <p>
+            <strong>"Not reactive: "</strong>
+            // NOTE: if you write {count()}, this will *not* be reactive
+            // it simply gets the value of count once
+            {count()}
+        </p>
+    }
+}
+
+// This `main` function is the entry point into the app
+// It just mounts our component to the <body>
+// Because we defined it as `fn App`, we can now use it in a
+// template as <App/>
+fn main() {
+    leptos::mount_to_body(|cx| view! { cx, <App/> })
+}
+```

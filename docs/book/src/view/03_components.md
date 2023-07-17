@@ -309,3 +309,77 @@ and see the power of the `#[component]` macro combined with rust-analyzer here.
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/3-components-50t2e7?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A7%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A7%7D%5D)
 
 <iframe src="https://codesandbox.io/p/sandbox/3-components-50t2e7?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A7%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A7%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+
+<details>
+<summary>CodeSandbox Source</summary>
+
+```rust
+use leptos::*;
+
+// Composing different components together is how we build
+// user interfaces. Here, we'll define a resuable <ProgressBar/>.
+// You'll see how doc comments can be used to document components
+// and their properties.
+
+/// Shows progress toward a goal.
+#[component]
+fn ProgressBar(
+    // All components take a reactive `Scope` as the first argument
+    cx: Scope,
+    // Marks this as an optional prop. It will default to the default
+    // value of its type, i.e., 0.
+    #[prop(default = 100)]
+    /// The maximum value of the progress bar.
+    max: u16,
+    // Will run `.into()` on the value passed into the prop.
+    #[prop(into)]
+    // `Signal<T>` is a wrapper for several reactive types.
+    // It can be helpful in component APIs like this, where we
+    // might want to take any kind of reactive value
+    /// How much progress should be displayed.
+    progress: Signal<i32>,
+) -> impl IntoView {
+    view! { cx,
+        <progress
+            max={max}
+            value=progress
+        />
+        <br/>
+    }
+}
+
+#[component]
+fn App(cx: Scope) -> impl IntoView {
+    let (count, set_count) = create_signal(cx, 0);
+
+    let double_count = move || count() * 2;
+
+    view! { cx,
+        <button
+            on:click=move |_| {
+                set_count.update(|n| *n += 1);
+            }
+        >
+            "Click me"
+        </button>
+        <br/>
+        // If you have this open in CodeSandbox or an editor with
+        // rust-analyzer support, try hovering over `ProgressBar`,
+        // `max`, or `progress` to see the docs we defined above
+        <ProgressBar max=50 progress=count/>
+        // Let's use the default max value on this one
+        // the default is 100, so it should move half as fast
+        <ProgressBar progress=count/>
+        // Signal::derive creates a Signal wrapper from our derived signal
+        // using double_count means it should move twice as fast
+        <ProgressBar max=50 progress=Signal::derive(cx, double_count)/>
+    }
+}
+
+fn main() {
+    leptos::mount_to_body(|cx| view! { cx, <App/> })
+}
+```
+
+</details>
+</preview>

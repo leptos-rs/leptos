@@ -113,3 +113,64 @@ an `<ErrorBoundary/>` will appear again.
 [Click to open CodeSandbox.](https://codesandbox.io/p/sandbox/7-error-handling-and-error-boundaries-sroncx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D)
 
 <iframe src="https://codesandbox.io/p/sandbox/7-error-handling-and-error-boundaries-sroncx?file=%2Fsrc%2Fmain.rs&selection=%5B%7B%22endColumn%22%3A1%2C%22endLineNumber%22%3A2%2C%22startColumn%22%3A1%2C%22startLineNumber%22%3A2%7D%5D" width="100%" height="1000px" style="max-height: 100vh"></iframe>
+
+<details>
+<summary>CodeSandbox Source</summary>
+
+```rust
+use leptos::*;
+
+#[component]
+fn App(cx: Scope) -> impl IntoView {
+    let (value, set_value) = create_signal(cx, Ok(0));
+
+    // when input changes, try to parse a number from the input
+    let on_input = move |ev| set_value(event_target_value(&ev).parse::<i32>());
+
+    view! { cx,
+        <h1>"Error Handling"</h1>
+        <label>
+            "Type a number (or something that's not a number!)"
+            <input type="number" on:input=on_input/>
+            // If an `Err(_) had been rendered inside the <ErrorBoundary/>,
+            // the fallback will be displayed. Otherwise, the children of the
+            // <ErrorBoundary/> will be displayed.
+            <ErrorBoundary
+                // the fallback receives a signal containing current errors
+                fallback=|cx, errors| view! { cx,
+                    <div class="error">
+                        <p>"Not a number! Errors: "</p>
+                        // we can render a list of errors
+                        // as strings, if we'd like
+                        <ul>
+                            {move || errors.get()
+                                .into_iter()
+                                .map(|(_, e)| view! { cx, <li>{e.to_string()}</li>})
+                                .collect::<Vec<_>>()
+                            }
+                        </ul>
+                    </div>
+                }
+            >
+                <p>
+                    "You entered "
+                    // because `value` is `Result<i32, _>`,
+                    // it will render the `i32` if it is `Ok`,
+                    // and render nothing and trigger the error boundary
+                    // if it is `Err`. It's a signal, so this will dynamically
+                    // update when `value` changes
+                    <strong>{value}</strong>
+                </p>
+            </ErrorBoundary>
+        </label>
+    }
+}
+
+fn main() {
+    leptos::mount_to_body(|cx| view! { cx, <App/> })
+}
+
+```
+
+</details>
+</preview>
