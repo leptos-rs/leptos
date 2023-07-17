@@ -227,7 +227,11 @@ function patch(json) {
       NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT,
       {
         acceptNode(node) {
-          return node.parentNode == element && (!range || range.isPointInRange(node, 0));
+          if (node.parentNode == element && (!range || range.isPointInRange(node, 0))) {
+            return NodeFilter.FILTER_ACCEPT;
+          } else {
+            return NodeFilter.FILTER_REJECT;
+          }
         },
       }
     );
