@@ -85,7 +85,7 @@ Because it offers the best blend of performance characteristics, Leptos defaults
 	// the title and metadata *after* loading the data
 	<Route
 		path="/post/:id"
-		view=|cx| view! { cx, <Post/> }
+		view=Post
 		ssr=SsrMode::Async
 	/>
 </Routes>

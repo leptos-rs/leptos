@@ -18,7 +18,7 @@ Well... you can!
 ```rust
 <Routes>
   <Route path="/" view=Home
-  <Route path="/users" view=|cx| view! { cx, <Users /> }>
+  <Route path="/users" view=Users
     <Route path=":id" view=UserProfile
   </Route>
   <Route path="/*any" view=NotFound
@@ -53,7 +53,7 @@ Let’s say I use nested routes instead:
 
 ```rust
 <Routes>
-  <Route path="/users" view=|cx| view! { cx, <Users /> }>
+  <Route path="/users" view=Users
     <Route path=":id" view=UserProfile
   </Route>
 </Routes>
@@ -68,7 +68,7 @@ I actually need to add a fallback route
 
 ```rust
 <Routes>
-  <Route path="/users" view=|cx| view! { cx, <Users /> }>
+  <Route path="/users" view=Users
     <Route path=":id" view=UserProfile
     <Route path="" view=NoUser
   </Route>
@@ -94,7 +94,7 @@ You can easily define this with nested routes
 
 ```rust
 <Routes>
-  <Route path="/contacts" view=|cx| view! { cx, <ContactList/> }>
+  <Route path="/contacts" view=ContactList
     <Route path=":id" view=ContactInfo
     <Route path="" view=|cx| view! { cx,
       <p>"Select a contact to view more info."</p>
@@ -107,8 +107,8 @@ You can go even deeper. Say you want to have tabs for each contact’s address, 
 
 ```rust
 <Routes>
-  <Route path="/contacts" view=|cx| view! { cx, <ContactList/> }>
-    <Route path=":id" view=|cx| view! { cx, <ContactInfo/> }>
+  <Route path="/contacts" view=ContactList
+    <Route path=":id" view=ContactInfo
       <Route path="" view=EmailAndPhone
       <Route path="address" view=Address
       <Route path="messages" view=Messages
@@ -201,12 +201,9 @@ fn App(cx: Scope) -> impl IntoView {
                     // /contacts has nested routes
                     <Route
                         path="/contacts"
-                        view=|cx| view! { cx, <ContactList/> }
-                    >
+                        view=ContactList
                         // if no id specified, fall back
-                        <Route path=":id" view=|cx| view! { cx,
-                            <ContactInfo/>
-                        }>
+                        <Route path=":id" view=ContactInfo
                             <Route path="" view=|cx| view! { cx,
                                 <div class="tab">
                                     "(Contact Info)"
