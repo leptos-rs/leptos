@@ -415,11 +415,12 @@ pub struct RuntimeId;
 impl RuntimeId {
     /// Removes the runtime, disposing all its child [`Scope`](crate::Scope)s.
     pub fn dispose(self) {
-        cfg_if! {
-            if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-                let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self));
-                drop(runtime);
-            }
+        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        {
+            let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self))
+                    .expect("Attempted to dispose of a reactive runtime that was not found. This suggests \
+                    a possible memory leak. Please open an issue with details at https://github.com/leptos-rs/leptos");
+            drop(runtime);
         }
     }
 
