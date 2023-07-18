@@ -139,7 +139,7 @@ view! { cx,
 Remember—and this is _very important_—only functions are reactive. This means that
 `{count}` and `{count()}` do very different things in your view. `{count}` passes
 in a function, telling the framework to update the view every time `count` changes.
-`{count()}` access the value of `count` once, and passes an `i32` into the view,
+`{count()}` accesses the value of `count` once, and passes an `i32` into the view,
 rendering it once, unreactively. You can see the difference in the CodeSandbox below!
 
 Let’s make one final change. `set_count(3)` is a pretty useless thing for a click handler to do. Let’s replace “set this value to 3” with “increment this value by 1”:
