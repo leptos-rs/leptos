@@ -605,7 +605,6 @@ where
             let res_options3 = default_res_options.clone();
             let local_pool = get_leptos_pool();
             let (tx, rx) = futures::channel::mpsc::channel(8);
-            let (runtime_tx, runtime_rx) = futures::channel::oneshot::channel();
 
             let current_span = tracing::Span::current();
             local_pool.spawn_pinned(move || async move {
@@ -630,17 +629,12 @@ where
                         replace_blocks
                     );
 
-                    runtime_tx.send(runtime).expect("should be able to send runtime");
-
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
+
+                    runtime.dispose();
             }.instrument(current_span));
 
-            async move {
-                let runtime = runtime_rx
-                    .await
-                    .expect("runtime should be sent by renderer");
-                generate_response(res_options3, rx, runtime).await
-            }
+            generate_response(res_options3, rx)
         })
     }
 }
@@ -649,7 +643,6 @@ where
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
-    runtime: RuntimeId,
 ) -> Response<StreamBody<PinnedHtmlStream>> {
     let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
@@ -662,11 +655,7 @@ async fn generate_response(
 
     let complete_stream =
         futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-            .chain(stream)
-            .chain(futures::stream::once(async move {
-                runtime.dispose();
-                Ok(Default::default())
-            }));
+            .chain(stream);
 
     let mut res = Response::new(StreamBody::new(
         Box::pin(complete_stream) as PinnedHtmlStream
@@ -781,8 +770,6 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
-                let (runtime_tx, runtime_rx) =
-                    futures::channel::oneshot::channel();
                 let local_pool = get_leptos_pool();
                 let current_span = tracing::Span::current();
                 local_pool.spawn_pinned(|| async move {
@@ -802,15 +789,12 @@ where
                             add_context,
                         );
 
-                    runtime_tx.send(runtime).expect("should be able to send runtime");
-
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
+
+                    runtime.dispose();
                 }.instrument(current_span));
 
-                let runtime = runtime_rx
-                    .await
-                    .expect("runtime should be sent by renderer");
-                generate_response(res_options3, rx, runtime).await
+                generate_response(res_options3, rx).await
             }
         })
     }
