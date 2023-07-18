@@ -4,10 +4,10 @@ We just defined the following set of routes:
 
 ```rust
 <Routes>
-  <Route path="/" view=|cx| view! { cx, <Home /> }/>
-  <Route path="/users" view=|cx| view! { cx, <Users /> }/>
-  <Route path="/users/:id" view=|cx| view! { cx, <UserProfile /> }/>
-  <Route path="/*any" view=|cx| view! { cx, <NotFound /> }/>
+  <Route path="/" view=Home
+  <Route path="/users" view=Users
+  <Route path="/users/:id" view=UserProfile
+  <Route path="/*any" view=NotFound
 </Routes>
 ```
 
@@ -17,11 +17,11 @@ Well... you can!
 
 ```rust
 <Routes>
-  <Route path="/" view=|cx| view! { cx, <Home /> }/>
+  <Route path="/" view=Home
   <Route path="/users" view=|cx| view! { cx, <Users /> }>
-    <Route path=":id" view=|cx| view! { cx, <UserProfile /> }/>
+    <Route path=":id" view=UserProfile
   </Route>
-  <Route path="/*any" view=|cx| view! { cx, <NotFound /> }/>
+  <Route path="/*any" view=NotFound
 </Routes>
 ```
 
@@ -39,8 +39,8 @@ Let’s look back at our practical example.
 
 ```rust
 <Routes>
-  <Route path="/users" view=|cx| view! { cx, <Users /> }/>
-  <Route path="/users/:id" view=|cx| view! { cx, <UserProfile /> }/>
+  <Route path="/users" view=Users
+  <Route path="/users/:id" view=UserProfile
 </Routes>
 ```
 
@@ -54,7 +54,7 @@ Let’s say I use nested routes instead:
 ```rust
 <Routes>
   <Route path="/users" view=|cx| view! { cx, <Users /> }>
-    <Route path=":id" view=|cx| view! { cx, <UserProfile /> }/>
+    <Route path=":id" view=UserProfile
   </Route>
 </Routes>
 ```
@@ -69,8 +69,8 @@ I actually need to add a fallback route
 ```rust
 <Routes>
   <Route path="/users" view=|cx| view! { cx, <Users /> }>
-    <Route path=":id" view=|cx| view! { cx, <UserProfile /> }/>
-    <Route path="" view=|cx| view! { cx, <NoUser /> }/>
+    <Route path=":id" view=UserProfile
+    <Route path="" view=NoUser
   </Route>
 </Routes>
 ```
@@ -95,7 +95,7 @@ You can easily define this with nested routes
 ```rust
 <Routes>
   <Route path="/contacts" view=|cx| view! { cx, <ContactList/> }>
-    <Route path=":id" view=|cx| view! { cx, <ContactInfo/> }/>
+    <Route path=":id" view=ContactInfo
     <Route path="" view=|cx| view! { cx,
       <p>"Select a contact to view more info."</p>
     }/>
@@ -109,9 +109,9 @@ You can go even deeper. Say you want to have tabs for each contact’s address, 
 <Routes>
   <Route path="/contacts" view=|cx| view! { cx, <ContactList/> }>
     <Route path=":id" view=|cx| view! { cx, <ContactInfo/> }>
-      <Route path="" view=|cx| view! { cx, <EmailAndPhone/> }/>
-      <Route path="address" view=|cx| view! { cx, <Address/> }/>
-      <Route path="messages" view=|cx| view! { cx, <Messages/> }/>
+      <Route path="" view=EmailAndPhone
+      <Route path="address" view=Address
+      <Route path="messages" view=Messages
     </Route>
     <Route path="" view=|cx| view! { cx,
       <p>"Select a contact to view more info."</p>
