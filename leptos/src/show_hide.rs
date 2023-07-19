@@ -41,9 +41,8 @@ pub fn ShowHide(
     cx: Scope,
     /// The components Show wraps
     children: Box<dyn Fn(Scope) -> Fragment>,
-    /// A closure that returns a bool that determines whether this thing runs
-    #[prop(into)]
     /// If the component should show or not
+    #[prop(into)]
     when: MaybeSignal<bool>,
     /// Optional CSS class to apply if `when == true`
     #[prop(optional)]
