@@ -1,3 +1,5 @@
+use super::{component_builder::component_to_tokens, IdeTagHelper};
+use crate::attribute_value;
 use itertools::Either;
 use leptos_hot_reload::parsing::{
     block_to_primitive_expression, is_component_node, value_to_string,
@@ -8,18 +10,10 @@ use rstml::node::{
     KeyedAttribute, Node, NodeAttribute, NodeBlock, NodeElement,
 };
 use syn::spanned::Spanned;
-use uuid::Uuid;
-use super::{
-    IdeTagHelper,
-    component_builder::component_to_tokens,
-};
-use crate::attribute_value;
 
 pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
-    let template_uid = Ident::new(
-        &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
-        Span::call_site(),
-    );
+    // No reason to make template unique, because it's "static" is in inner scope.
+    let template_uid = Ident::new(&"__TEMPLATE", Span::call_site());
 
     match nodes.first() {
         Some(Node::Element(node)) => {
