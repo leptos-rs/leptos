@@ -60,7 +60,7 @@ pub fn html_parts(
         wasm_output_name.push_str("_bg");
     }
 
-    let leptos_autoreload = autoreload("".into(), options);
+    let leptos_autoreload = autoreload("", options);
 
     let html_metadata =
         meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
