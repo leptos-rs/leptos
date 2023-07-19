@@ -15,10 +15,10 @@ pub mod server_template;
 pub mod component_builder;
 pub mod slot_helper;
 pub mod ide_helper;
+#[cfg(test)]
+mod tests;
 
 pub(crate) use ide_helper::*;
-
-
 
 pub(crate) fn render_view(
     cx: &Ident,
