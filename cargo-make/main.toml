@@ -13,6 +13,3 @@ RUSTFLAGS = "-D warnings"
 
 [tasks.ci]
 dependencies = ["lint", "test"]
-
-[tasks.lint]
-dependencies = ["check-format-flow"]

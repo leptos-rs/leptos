@@ -1,4 +1,4 @@
-[tasks.check-style]
+[tasks.lint]
 dependencies = ["check-format-flow", "clippy-each-feature"]
 
 [tasks.check-format]
