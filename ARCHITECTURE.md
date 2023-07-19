@@ -220,8 +220,8 @@ for reference: they include large amounts of manual SSR route handling, etc.
 ## `cargo-leptos` helpers
 
 `leptos_config` and `leptos_hot_reload` exist to support two different features
-of `cargo-leptos`, namely its configuration and its view-patching/hot-
-reloading features.
+of `cargo-leptos`, namely its configuration and its view-patching/hot-reloading 
+features.
 
 It’s important to say that the main feature `cargo-leptos` remains its ability
 to conveniently tie together different build tooling, compiling your app to

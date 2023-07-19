@@ -68,7 +68,7 @@ pub fn SimpleCounter(cx: Scope) -> impl IntoView {
 
 The `SimpleCounter` function itself runs once. The `value` signal is created once. The framework hands off the `increment` function to the browser as an event listener. When you click the button, the browser calls `increment`, which updates `value` via `set_value`. And that updates the single text node represented in our view by `{value}`.
 
-Closures are key to reactivity. They provide the framework with the ability to rerun the smallest possible unit of your application in responsive to a change.
+Closures are key to reactivity. They provide the framework with the ability to rerun the smallest possible unit of your application in response to a change.
 
 So remember two things:
 
