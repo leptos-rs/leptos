@@ -1,9 +1,9 @@
 use crate::{Scope, ScopeProperty};
 
-/// A version of [`create_effect`] that listens to any dependency that is accessed inside `deps` and returns
+/// A version of [`create_effect`](crate::create_effect) that listens to any dependency that is accessed inside `deps` and returns
 /// a stop handler.
 /// The return value of `deps` is passed into `callback` as an argument together with the previous value.
-/// Additionally the last return value of `callback` is provided as a third argument as is done in [`create_effect`].
+/// Additionally the last return value of `callback` is provided as a third argument as is done in [`create_effect`](crate::create_effect).
 ///
 /// ## Usage
 ///
