@@ -345,10 +345,10 @@ where
                             // for more details on why we need to do this for
                             // release
                             if !cfg!(debug_assertions) {
-                                t.previous_sibling()
-                                    .unwrap()
-                                    .unchecked_into::<web_sys::Element>()
-                                    .remove();
+                                if let Some(el) = t.previous_sibling() {
+                                    el.unchecked_into::<web_sys::Element>()
+                                        .remove();
+                                }
                             }
 
                             t.remove();
