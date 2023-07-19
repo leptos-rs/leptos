@@ -1,4 +1,3 @@
-#![allow(clippy::needless_raw_string_hashes)]
 #![forbid(unsafe_code)]
 
 //! # Leptos Router
