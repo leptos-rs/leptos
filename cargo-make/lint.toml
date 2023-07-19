@@ -6,5 +6,6 @@ env = { LEPTOS_PROJECT_DIRECTORY = "../" }
 args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]
 
 [tasks.clippy-each-feature]
+dependencies = ["install-clippy"]
 command = "cargo"
 args = ["hack", "clippy", "--all", "--each-feature", "--no-dev-deps"]
