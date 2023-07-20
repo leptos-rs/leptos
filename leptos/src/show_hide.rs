@@ -1,8 +1,7 @@
 use crate::Show;
 use core::time::Duration;
 use leptos::component;
-use leptos_dom::helpers::{TimeoutHandle};
-use leptos_dom::{Fragment, IntoView};
+use leptos_dom::{helpers::TimeoutHandle, Fragment, IntoView};
 use leptos_macro::view;
 use leptos_reactive::{
     create_effect, on_cleanup, signal_prelude::*, store_value, Scope,
@@ -92,11 +91,16 @@ pub fn ShowHide(
         } else {
             cls.set(hide_class);
 
-            #[cfg(target_arch = "wasm32")] {
-                let h =
-                    leptos_dom::helpers::set_timeout_with_handle(move || show.set(false), _delay.get_value())
-                        .expect("set timeout in ShowHide");
-                handle.set_value(Some(h));
+            #[cfg(target_arch = "wasm32")]
+            {
+                let timeout = leptos_dom::helpers::set_timeout_with_handle(
+                    move || show.set(false),
+                    _delay.get_value(),
+                );
+                match timeout {
+                    Ok(h) => handle.set_value(Some(h)),
+                    Err(err) => log!("setting timeout error: {:?}", err),
+                }
             }
         }
     });
