@@ -1,11 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    console_warn, create_effect, diagnostics,
-    diagnostics::*,
-    macros::debug_warn,
-    node::NodeId,
-    on_cleanup,
-    runtime::{with_runtime, RuntimeId},
+    console_warn, create_effect, diagnostics, diagnostics::*,
+    macros::debug_warn, node::NodeId, on_cleanup, runtime::with_runtime,
     Runtime,
 };
 use futures::Stream;
@@ -418,7 +414,6 @@ pub struct ReadSignal<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -440,7 +435,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
         )
     )]
     fn get_untracked(&self) -> T {
-        match with_runtime(self.runtime, |runtime| {
+        match with_runtime(|runtime| {
             self.id.try_with_no_subscription(runtime, T::clone)
         })
         .expect("runtime to be alive")
@@ -468,7 +463,7 @@ impl<T: Clone> SignalGetUntracked<T> for ReadSignal<T> {
     )]
     #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.try_with_no_subscription(runtime, Clone::clone).ok()
         })
         .ok()
@@ -513,9 +508,8 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics)
-        }) {
+        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
+        {
             Ok(Ok(o)) => Some(o),
             _ => None,
         }
@@ -559,10 +553,8 @@ impl<T> SignalWith<T> for ReadSignal<T> {
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics)
-        })
-        .expect("runtime to be alive")
+        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
+            .expect("runtime to be alive")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
@@ -590,11 +582,9 @@ impl<T> SignalWith<T> for ReadSignal<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics).ok()
-        })
-        .ok()
-        .flatten()
+        with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics).ok())
+            .ok()
+            .flatten()
     }
 }
 
@@ -629,7 +619,7 @@ impl<T: Clone> SignalGet<T> for ReadSignal<T> {
     fn get(&self) -> T {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
+        match with_runtime(|runtime| {
             self.id.try_with(runtime, T::clone, diagnostics)
         })
         .expect("runtime to be alive")
@@ -693,7 +683,7 @@ impl<T: Clone> SignalStream<T> for ReadSignal<T> {
 
 impl<T> SignalDispose for ReadSignal<T> {
     fn dispose(self) {
-        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
+        _ = with_runtime(|runtime| runtime.dispose_node(self.id));
     }
 }
 
@@ -708,7 +698,7 @@ where
         let caller = std::panic::Location::caller();
 
         self.id
-            .try_with_no_subscription_by_id(self.runtime, f)
+            .try_with_no_subscription_by_id(f)
             .unwrap_or_else(|_| {
                 #[cfg(not(debug_assertions))]
                 {
@@ -737,9 +727,8 @@ where
     ) -> Result<U, SignalError> {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics)
-        }) {
+        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
+        {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SignalError::RuntimeDisposed),
@@ -758,7 +747,6 @@ impl<T> Copy for ReadSignal<T> {}
 impl<T> fmt::Debug for ReadSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("ReadSignal");
-        s.field("runtime", &self.runtime);
         s.field("id", &self.id);
         s.field("ty", &self.ty);
         #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -771,13 +759,13 @@ impl<T> Eq for ReadSignal<T> {}
 
 impl<T> PartialEq for ReadSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id
+        self.id == other.id
     }
 }
 
 impl<T> Hash for ReadSignal<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.runtime.hash(state);
+        Runtime::current().hash(state);
         self.id.hash(state);
     }
 }
@@ -832,7 +820,6 @@ pub struct WriteSignal<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -858,7 +845,6 @@ where
     )]
     fn set_untracked(&self, new_value: T) {
         self.id.update_with_no_effect(
-            self.runtime,
             |v| *v = new_value,
             #[cfg(debug_assertions)]
             Some(self.defined_at),
@@ -882,7 +868,6 @@ where
         let mut new_value = Some(new_value);
 
         self.id.update(
-            self.runtime,
             |t| *t = new_value.take().unwrap(),
             #[cfg(debug_assertions)]
             None,
@@ -909,7 +894,6 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(
-            self.runtime,
             f,
             #[cfg(debug_assertions)]
             Some(self.defined_at),
@@ -922,7 +906,6 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
         f: impl FnOnce(&mut T) -> O,
     ) -> Option<O> {
         self.id.update_with_no_effect(
-            self.runtime,
             f,
             #[cfg(debug_assertions)]
             None,
@@ -965,7 +948,6 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
         if self
             .id
             .update(
-                self.runtime,
                 f,
                 #[cfg(debug_assertions)]
                 Some(self.defined_at),
@@ -995,7 +977,6 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(
-            self.runtime,
             f,
             #[cfg(debug_assertions)]
             None,
@@ -1036,7 +1017,6 @@ impl<T> SignalSet<T> for WriteSignal<T> {
     )]
     fn set(&self, new_value: T) {
         self.id.update(
-            self.runtime,
             |n| *n = new_value,
             #[cfg(debug_assertions)]
             Some(self.defined_at),
@@ -1060,7 +1040,6 @@ impl<T> SignalSet<T> for WriteSignal<T> {
         let mut new_value = Some(new_value);
 
         self.id.update(
-            self.runtime,
             |t| *t = new_value.take().unwrap(),
             #[cfg(debug_assertions)]
             None,
@@ -1072,7 +1051,7 @@ impl<T> SignalSet<T> for WriteSignal<T> {
 
 impl<T> SignalDispose for WriteSignal<T> {
     fn dispose(self) {
-        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
+        _ = with_runtime(|runtime| runtime.dispose_node(self.id));
     }
 }
 
@@ -1087,7 +1066,6 @@ impl<T> Copy for WriteSignal<T> {}
 impl<T> fmt::Debug for WriteSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("WriteSignal");
-        s.field("runtime", &self.runtime);
         s.field("id", &self.id);
         s.field("ty", &self.ty);
         #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1100,13 +1078,13 @@ impl<T> Eq for WriteSignal<T> {}
 
 impl<T> PartialEq for WriteSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id
+        self.id == other.id
     }
 }
 
 impl<T> Hash for WriteSignal<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.runtime.hash(state);
+        Runtime::current().hash(state);
         self.id.hash(state);
     }
 }
@@ -1194,7 +1172,6 @@ pub struct RwSignal<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1212,7 +1189,6 @@ impl<T> Copy for RwSignal<T> {}
 impl<T> fmt::Debug for RwSignal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("RwSignal");
-        s.field("runtime", &self.runtime);
         s.field("id", &self.id);
         s.field("ty", &self.ty);
         #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1225,13 +1201,13 @@ impl<T> Eq for RwSignal<T> {}
 
 impl<T> PartialEq for RwSignal<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id
+        self.id == other.id
     }
 }
 
 impl<T> Hash for RwSignal<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.runtime.hash(state);
+        Runtime::current().hash(state);
         self.id.hash(state);
     }
 }
@@ -1256,7 +1232,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
         let caller = std::panic::Location::caller();
 
         self.id
-            .try_with_no_subscription_by_id(self.runtime, Clone::clone)
+            .try_with_no_subscription_by_id(Clone::clone)
             .unwrap_or_else(|_| {
                 #[cfg(not(debug_assertions))]
                 {
@@ -1290,7 +1266,7 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
     )]
     #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.try_with_no_subscription(runtime, Clone::clone).ok()
         })
         .ok()
@@ -1315,7 +1291,7 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     #[inline(always)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         self.id
-            .try_with_no_subscription_by_id(self.runtime, f)
+            .try_with_no_subscription_by_id(f)
             .unwrap_or_else(|_| {
                 #[cfg(not(debug_assertions))]
                 {
@@ -1351,9 +1327,8 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics)
-        }) {
+        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
+        {
             Ok(Ok(o)) => Some(o),
             _ => None,
         }
@@ -1376,7 +1351,6 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
     )]
     fn set_untracked(&self, new_value: T) {
         self.id.update_with_no_effect(
-            self.runtime,
             |v| *v = new_value,
             #[cfg(debug_assertions)]
             Some(self.defined_at),
@@ -1400,7 +1374,6 @@ impl<T> SignalSetUntracked<T> for RwSignal<T> {
         let mut new_value = Some(new_value);
 
         self.id.update(
-            self.runtime,
             |t| *t = new_value.take().unwrap(),
             #[cfg(debug_assertions)]
             None,
@@ -1427,7 +1400,6 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
     #[inline(always)]
     fn update_untracked(&self, f: impl FnOnce(&mut T)) {
         self.id.update_with_no_effect(
-            self.runtime,
             f,
             #[cfg(debug_assertions)]
             Some(self.defined_at),
@@ -1453,7 +1425,6 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
         f: impl FnOnce(&mut T) -> O,
     ) -> Option<O> {
         self.id.update_with_no_effect(
-            self.runtime,
             f,
             #[cfg(debug_assertions)]
             None,
@@ -1499,10 +1470,8 @@ impl<T> SignalWith<T> for RwSignal<T> {
     fn with<O>(&self, f: impl FnOnce(&T) -> O) -> O {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics)
-        })
-        .expect("runtime to be alive")
+        match with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics))
+            .expect("runtime to be alive")
         {
             Ok(o) => o,
             Err(_) => panic_getting_dead_signal(
@@ -1530,11 +1499,9 @@ impl<T> SignalWith<T> for RwSignal<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
-            self.id.try_with(runtime, f, diagnostics).ok()
-        })
-        .ok()
-        .flatten()
+        with_runtime(|runtime| self.id.try_with(runtime, f, diagnostics).ok())
+            .ok()
+            .flatten()
     }
 }
 
@@ -1573,7 +1540,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
     {
         let diagnostics = diagnostics!(self);
 
-        match with_runtime(self.runtime, |runtime| {
+        match with_runtime(|runtime| {
             self.id.try_with(runtime, T::clone, diagnostics)
         })
         .expect("runtime to be alive")
@@ -1603,7 +1570,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
     fn try_get(&self) -> Option<T> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.try_with(runtime, Clone::clone, diagnostics).ok()
         })
         .ok()
@@ -1651,7 +1618,6 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
         if self
             .id
             .update(
-                self.runtime,
                 f,
                 #[cfg(debug_assertions)]
                 Some(self.defined_at),
@@ -1681,7 +1647,6 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
         self.id.update(
-            self.runtime,
             f,
             #[cfg(debug_assertions)]
             None,
@@ -1717,7 +1682,6 @@ impl<T> SignalSet<T> for RwSignal<T> {
     )]
     fn set(&self, value: T) {
         self.id.update(
-            self.runtime,
             |n| *n = value,
             #[cfg(debug_assertions)]
             Some(self.defined_at),
@@ -1741,7 +1705,6 @@ impl<T> SignalSet<T> for RwSignal<T> {
         let mut new_value = Some(new_value);
 
         self.id.update(
-            self.runtime,
             |t| *t = new_value.take().unwrap(),
             #[cfg(debug_assertions)]
             None,
@@ -1771,7 +1734,7 @@ impl<T: Clone> SignalStream<T> for RwSignal<T> {
 
 impl<T> SignalDispose for RwSignal<T> {
     fn dispose(self) {
-        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
+        _ = with_runtime(|runtime| runtime.dispose_node(self.id));
     }
 }
 
@@ -1808,7 +1771,6 @@ impl<T> RwSignal<T> {
     #[track_caller]
     pub fn read_only(&self) -> ReadSignal<T> {
         ReadSignal {
-            runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
             #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1846,7 +1808,6 @@ impl<T> RwSignal<T> {
     #[track_caller]
     pub fn write_only(&self) -> WriteSignal<T> {
         WriteSignal {
-            runtime: self.runtime,
             id: self.id,
             ty: PhantomData,
             #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1884,14 +1845,12 @@ impl<T> RwSignal<T> {
     pub fn split(&self) -> (ReadSignal<T>, WriteSignal<T>) {
         (
             ReadSignal {
-                runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
-                runtime: self.runtime,
                 id: self.id,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -1974,16 +1933,13 @@ impl NodeId {
     #[inline(always)]
     pub(crate) fn try_with_no_subscription_by_id<T, U>(
         &self,
-        runtime: RuntimeId,
         f: impl FnOnce(&T) -> U,
     ) -> Result<U, SignalError>
     where
         T: 'static,
     {
-        with_runtime(runtime, |runtime| {
-            self.try_with_no_subscription(runtime, f)
-        })
-        .expect("runtime to be alive")
+        with_runtime(|runtime| self.try_with_no_subscription(runtime, f))
+            .expect("runtime to be alive")
     }
 
     #[track_caller]
@@ -2024,7 +1980,7 @@ impl NodeId {
     #[inline(always)]
     fn update_value<T, U>(
         &self,
-        runtime: RuntimeId,
+
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<
             &'static std::panic::Location<'static>,
@@ -2033,7 +1989,7 @@ impl NodeId {
     where
         T: 'static,
     {
-        with_runtime(runtime, |runtime| {
+        with_runtime(|runtime| {
             if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
@@ -2071,7 +2027,6 @@ impl NodeId {
     #[inline(always)]
     pub(crate) fn update<T, U>(
         &self,
-        runtime_id: RuntimeId,
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<
             &'static std::panic::Location<'static>,
@@ -2080,7 +2035,7 @@ impl NodeId {
     where
         T: 'static,
     {
-        with_runtime(runtime_id, |runtime| {
+        with_runtime(|runtime| {
             let updated = if let Some(value) = runtime.get_value(*self) {
                 let mut value = value.borrow_mut();
                 if let Some(value) = value.downcast_mut::<T>() {
@@ -2128,7 +2083,7 @@ impl NodeId {
     #[inline(always)]
     pub(crate) fn update_with_no_effect<T, U>(
         &self,
-        runtime: RuntimeId,
+
         f: impl FnOnce(&mut T) -> U,
         #[cfg(debug_assertions)] defined_at: Option<
             &'static std::panic::Location<'static>,
@@ -2139,7 +2094,6 @@ impl NodeId {
     {
         // update the value
         self.update_value(
-            runtime,
             f,
             #[cfg(debug_assertions)]
             defined_at,

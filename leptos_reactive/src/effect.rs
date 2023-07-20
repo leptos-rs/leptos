@@ -70,7 +70,7 @@ where
             let runtime = Runtime::current();
             let e = runtime.create_effect(f);
             //crate::macros::debug_warn!("creating effect {e:?}");
-            _ = with_runtime(runtime, |runtime| {
+            _ = with_runtime( |runtime| {
                 runtime.update_if_necessary(e);
             });
         } else {
@@ -125,7 +125,7 @@ where
     let runtime = Runtime::current();
     let e = runtime.create_effect(f);
     //crate::macros::debug_warn!("creating effect {e:?}");
-    _ = with_runtime(runtime, |runtime| {
+    _ = with_runtime(|runtime| {
         runtime.update_if_necessary(e);
     });
 }
@@ -153,9 +153,7 @@ where
     #[cfg(debug_assertions)]
     let defined_at = std::panic::Location::caller();
 
-    let runtime_id = Runtime::current();
-
-    with_runtime(runtime_id, |runtime| {
+    with_runtime(|runtime| {
         let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
             value: Some(Rc::new(RefCell::new(None::<T>))),
             state: ReactiveNodeState::Dirty,
