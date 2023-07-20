@@ -7,13 +7,13 @@ use leptos_router::*;
 struct ExampleContext(i32);
 
 #[component]
-pub fn RouterExample(cx: Scope) -> impl IntoView {
+pub fn RouterExample() -> impl IntoView {
     log::debug!("rendering <RouterExample/>");
 
     // contexts are passed down through the route tree
-    provide_context(cx, ExampleContext(0));
+    provide_context(ExampleContext(0));
 
-    view! { cx,
+    view! {
         <Router>
             <nav>
                 // ordinary <a> elements can be used for client-side navigation
@@ -27,26 +27,26 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
                 <A href="redirect-home">"Redirect to Home"</A>
             </nav>
             <main>
-                <AnimatedRoutes
-                    outro="slideOut"
+                <Routes
+                    /* outro="slideOut"
                     intro="slideIn"
                     outro_back="slideOutBack"
-                    intro_back="slideInBack"
+                    intro_back="slideInBack" */
                 >
                     <ContactRoutes/>
                     <Route
                         path="about"
-                        view=About
+                        view=|| view! { <About/> }
                     />
                     <Route
                         path="settings"
-                        view=Settings
+                        view=|| view! { <Settings/> }
                     />
                     <Route
                         path="redirect-home"
-                        view=|cx| view! { cx, <Redirect path="/"/> }
+                        view=|| view! { <Redirect path="/"/> }
                     />
-                </AnimatedRoutes>
+                </Routes>
             </main>
         </Router>
     }
@@ -55,62 +55,61 @@ pub fn RouterExample(cx: Scope) -> impl IntoView {
 // You can define other routes in their own component.
 // Use a #[component(transparent)] that returns a <Route/>.
 #[component(transparent)]
-pub fn ContactRoutes(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub fn ContactRoutes() -> impl IntoView {
+    view! {
         <Route
             path=""
-            view=ContactList
+            view=|| view! { <ContactList/> }
         >
             <Route
                 path=":id"
-                view=Contact
+                view=|| view! { <Contact/> }
             />
             <Route
                 path="/"
-                view=|cx| view! { cx,  <p>"Select a contact."</p> }
+                view=|| view! {  <p>"Select a contact."</p> }
             />
         </Route>
     }
 }
 
 #[component]
-pub fn ContactList(cx: Scope) -> impl IntoView {
+pub fn ContactList() -> impl IntoView {
     log::debug!("rendering <ContactList/>");
 
     // contexts are passed down through the route tree
-    provide_context(cx, ExampleContext(42));
+    provide_context(ExampleContext(42));
 
-    on_cleanup(cx, || {
+    on_cleanup(|| {
         log!("cleaning up <ContactList/>");
     });
 
-    let location = use_location(cx);
-    let contacts =
-        create_resource(cx, move || location.search.get(), get_contacts);
+    let location = use_location();
+    let contacts = create_resource(move || location.search.get(), get_contacts);
     let contacts = move || {
-        contacts.read(cx).map(|contacts| {
+        contacts.read().map(|contacts| {
             // this data doesn't change frequently so we can use .map().collect() instead of a keyed <For/>
             contacts
                 .into_iter()
                 .map(|contact| {
-                    view! { cx,
+                    view! {
                         <li><A href=contact.id.to_string()><span>{&contact.first_name} " " {&contact.last_name}</span></A></li>
                     }
                 })
-                .collect_view(cx)
+                .collect_view()
         })
     };
 
-    view! { cx,
+    view! {
         <div class="contact-list">
             <h1>"Contacts"</h1>
-            <Suspense fallback=move || view! { cx,  <p>"Loading contacts..."</p> }>
-                {move || view! { cx, <ul>{contacts}</ul>}}
+            <Suspense fallback=move || view! {  <p>"Loading contacts..."</p> }>
+                {move || view! { <ul>{contacts}</ul>}}
             </Suspense>
-            <AnimatedOutlet
+            <Outlet /*AnimatedOutlet
                 class="outlet"
                 outro="fadeOut"
-                intro="fadeIn"
+                intro="fadeIn"*/
             />
         </div>
     }
@@ -122,21 +121,20 @@ pub struct ContactParams {
 }
 
 #[component]
-pub fn Contact(cx: Scope) -> impl IntoView {
+pub fn Contact() -> impl IntoView {
     log::debug!("rendering <Contact/>");
 
     log::debug!(
         "ExampleContext should be Some(42). It is {:?}",
-        use_context::<ExampleContext>(cx)
+        use_context::<ExampleContext>()
     );
 
-    on_cleanup(cx, || {
+    on_cleanup(|| {
         log!("cleaning up <Contact/>");
     });
 
-    let params = use_params::<ContactParams>(cx);
+    let params = use_params::<ContactParams>();
     let contact = create_resource(
-        cx,
         move || params().map(|params| params.id).ok(),
         // any of the following would work (they're identical)
         // move |id| async move { get_contact(id).await }
@@ -145,22 +143,21 @@ pub fn Contact(cx: Scope) -> impl IntoView {
         get_contact,
     );
 
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         log!("params = {:#?}", params.get());
     });
 
-    let contact_display = move || match contact.read(cx) {
+    let contact_display = move || match contact.read() {
         // None => loading, but will be caught by Suspense fallback
         // I'm only doing this explicitly for the example
         None => None,
         // Some(None) => has loaded and found no contact
         Some(None) => Some(
-            view! { cx, <p>"No contact with this ID was found."</p> }
-                .into_any(),
+            view! { <p>"No contact with this ID was found."</p> }.into_any(),
         ),
         // Some(Some) => has loaded and found a contact
         Some(Some(contact)) => Some(
-            view! { cx,
+            view! {
                 <section class="card">
                     <h1>{contact.first_name} " " {contact.last_name}</h1>
                     <p>{contact.address_1}<br/>{contact.address_2}</p>
@@ -170,9 +167,9 @@ pub fn Contact(cx: Scope) -> impl IntoView {
         ),
     };
 
-    view! { cx,
+    view! {
         <div class="contact">
-            <Transition fallback=move || view! { cx,  <p>"Loading..."</p> }>
+            <Transition fallback=move || view! {  <p>"Loading..."</p> }>
                 {contact_display}
             </Transition>
         </div>
@@ -180,22 +177,22 @@ pub fn Contact(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn About(cx: Scope) -> impl IntoView {
+pub fn About() -> impl IntoView {
     log::debug!("rendering <About/>");
 
-    on_cleanup(cx, || {
+    on_cleanup(|| {
         log!("cleaning up <About/>");
     });
 
     log::debug!(
         "ExampleContext should be Some(0). It is {:?}",
-        use_context::<ExampleContext>(cx)
+        use_context::<ExampleContext>()
     );
 
     // use_navigate allows you to navigate programmatically by calling a function
-    let navigate = use_navigate(cx);
+    let navigate = use_navigate();
 
-    view! { cx,
+    view! {
         <>
             // note: this is just an illustration of how to use `use_navigate`
             // <button on:click> to navigate is an *anti-pattern*
@@ -211,14 +208,14 @@ pub fn About(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Settings(cx: Scope) -> impl IntoView {
+pub fn Settings() -> impl IntoView {
     log::debug!("rendering <Settings/>");
 
-    on_cleanup(cx, || {
+    on_cleanup(|| {
         log!("cleaning up <Settings/>");
     });
 
-    view! { cx,
+    view! {
         <>
             <h1>"Settings"</h1>
             <form>

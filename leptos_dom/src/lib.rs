@@ -34,7 +34,6 @@ use events::{add_event_listener, add_event_listener_undelegated};
 pub use html::HtmlElement;
 use html::{AnyElement, ElementDescriptor};
 pub use hydration::{HydrationCtx, HydrationKey};
-use leptos_reactive::Scope;
 #[cfg(not(feature = "nightly"))]
 use leptos_reactive::{
     MaybeSignal, Memo, ReadSignal, RwSignal, Signal, SignalGet,
@@ -65,7 +64,7 @@ thread_local! {
 /// Converts the value into a [`View`].
 pub trait IntoView {
     /// Converts the value into [`View`].
-    fn into_view(self, cx: Scope) -> View;
+    fn into_view(self) -> View;
 }
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -98,8 +97,8 @@ impl IntoView for () {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "<() />", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        Unit.into_view(cx)
+    fn into_view(self) -> View {
+        Unit.into_view()
     }
 }
 
@@ -111,11 +110,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "Option<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         if let Some(t) = self {
-            t.into_view(cx)
+            t.into_view()
         } else {
-            Unit.into_view(cx)
+            Unit.into_view()
         }
     }
 }
@@ -130,18 +129,8 @@ where
         instrument(level = "info", name = "Fn() -> impl IntoView", skip_all)
     )]
     #[track_caller]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(self).into_view(cx)
-    }
-}
-
-impl<T> IntoView for (Scope, T)
-where
-    T: IntoView,
-{
-    #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
-        self.1.into_view(self.0)
+    fn into_view(self) -> View {
+        DynChild::new(self).into_view()
     }
 }
 
@@ -154,8 +143,8 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "ReadSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
 #[cfg(not(feature = "nightly"))]
@@ -167,8 +156,8 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "RwSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
 #[cfg(not(feature = "nightly"))]
@@ -180,8 +169,8 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Memo<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
 #[cfg(not(feature = "nightly"))]
@@ -193,8 +182,8 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "Signal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
 #[cfg(not(feature = "nightly"))]
@@ -206,15 +195,15 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "MaybeSignal<T>", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        DynChild::new(move || self.get()).into_view(cx)
+    fn into_view(self) -> View {
+        DynChild::new(move || self.get()).into_view()
     }
 }
 
 /// Collects an iterator or collection into a [`View`].
 pub trait CollectView {
     /// Collects an iterator or collection into a [`View`].
-    fn collect_view(self, cx: Scope) -> View;
+    fn collect_view(self) -> View;
 }
 
 impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
@@ -222,11 +211,11 @@ impl<I: IntoIterator<Item = T>, T: IntoView> CollectView for I {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "#text", skip_all)
     )]
-    fn collect_view(self, cx: Scope) -> View {
+    fn collect_view(self) -> View {
         self.into_iter()
-            .map(|v| v.into_view(cx))
+            .map(|v| v.into_view())
             .collect::<Fragment>()
-            .into_view(cx)
+            .into_view()
     }
 }
 
@@ -298,7 +287,7 @@ cfg_if! {
 
 impl Element {
     /// Converts this leptos [`Element`] into [`HtmlElement<AnyElement>`].
-    pub fn into_html_element(self, cx: Scope) -> HtmlElement<AnyElement> {
+    pub fn into_html_element(self) -> HtmlElement<AnyElement> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             let Self {
@@ -317,7 +306,6 @@ impl Element {
             };
 
             HtmlElement {
-                cx,
                 element,
                 #[cfg(debug_assertions)]
                 span: ::tracing::Span::current(),
@@ -341,7 +329,6 @@ impl Element {
             let element = AnyElement { name, is_void, id };
 
             HtmlElement {
-                cx,
                 element,
                 attrs,
                 children,
@@ -354,7 +341,7 @@ impl Element {
 
 impl IntoView for Element {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "<Element />", skip_all, fields(tag = %self.name)))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Element(self)
     }
 }
@@ -378,7 +365,7 @@ impl Element {
               is_void: el.is_void(),
               attrs: Default::default(),
               children: Default::default(),
-              id: *el.hydration_id(),
+              id: el.hydration_id().clone(),
               #[cfg(debug_assertions)]
               view_marker: None
             }
@@ -472,7 +459,7 @@ impl fmt::Debug for Text {
 
 impl IntoView for Text {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "#text", skip_all, fields(content = %self.content)))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Text(self)
     }
 }
@@ -537,13 +524,13 @@ impl Default for View {
 
 impl IntoView for View {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "Node", skip_all, fields(kind = self.kind_name())))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         self
     }
 }
 
 impl IntoView for &View {
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         self.clone()
     }
 }
@@ -553,14 +540,14 @@ impl<const N: usize> IntoView for [View; N] {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "[Node; N]", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        Fragment::new(self.into_iter().collect()).into_view(cx)
+    fn into_view(self) -> View {
+        Fragment::new(self.into_iter().collect()).into_view()
     }
 }
 
 impl IntoView for &Fragment {
-    fn into_view(self, cx: Scope) -> View {
-        self.to_owned().into_view(cx)
+    fn into_view(self) -> View {
+        self.to_owned().into_view()
     }
 }
 
@@ -680,12 +667,9 @@ impl View {
 
     /// Returns [`Ok(HtmlElement<AnyElement>)`] if this [`View`] is
     /// of type [`Element`]. [`Err(View)`] otherwise.
-    pub fn into_html_element(
-        self,
-        cx: Scope,
-    ) -> Result<HtmlElement<AnyElement>, Self> {
+    pub fn into_html_element(self) -> Result<HtmlElement<AnyElement>, Self> {
         if let Self::Element(el) = self {
-            Ok(el.into_html_element(cx))
+            Ok(el.into_html_element())
         } else {
             Err(self)
         }
@@ -843,7 +827,7 @@ pub enum MountKind<'a> {
 /// Runs the provided closure and mounts the result to the `<body>`.
 pub fn mount_to_body<F, N>(f: F)
 where
-    F: FnOnce(Scope) -> N + 'static,
+    F: Fn() -> N + 'static,
     N: IntoView,
 {
     #[cfg(all(feature = "web", feature = "ssr"))]
@@ -866,25 +850,15 @@ where
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
-    F: FnOnce(Scope) -> N + 'static,
+    F: Fn() -> N + 'static,
     N: IntoView,
 {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
-        let disposer = leptos_reactive::create_scope(
-          leptos_reactive::create_runtime(),
-          move |cx| {
-            let node = f(cx).into_view(cx);
-
+            let node = f().into_view();
             HydrationCtx::stop_hydrating();
-
             parent.append_child(&node.get_mountable_node()).unwrap();
-
             std::mem::forget(node);
-          },
-        );
-
-        std::mem::forget(disposer);
       } else {
         _ = parent;
         _ = f;
@@ -971,12 +945,12 @@ macro_rules! impl_into_view_for_tuples {
       $($ty: IntoView),*
     {
       #[inline]
-      fn into_view(self, cx: Scope) -> View {
+      fn into_view(self) -> View {
         paste::paste! {
           let ($([<$ty:lower>],)*) = self;
           [
-            $([<$ty:lower>].into_view(cx)),*
-          ].into_view(cx)
+            $([<$ty:lower>].into_view()),*
+          ].into_view()
         }
       }
     }
@@ -1046,7 +1020,7 @@ impl IntoView for String {
         instrument(level = "info", name = "#text", skip_all)
     )]
     #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Text(Text::new(self.into()))
     }
 }
@@ -1057,7 +1031,7 @@ impl IntoView for &'static str {
         instrument(level = "info", name = "#text", skip_all)
     )]
     #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Text(Text::new(self.into()))
     }
 }
@@ -1070,11 +1044,11 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", name = "#text", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         self.into_iter()
-            .map(|v| v.into_view(cx))
+            .map(|v| v.into_view())
             .collect::<Fragment>()
-            .into_view(cx)
+            .into_view()
     }
 }
 
@@ -1083,7 +1057,7 @@ macro_rules! viewable_primitive {
     $(
       impl IntoView for $child_type {
         #[inline(always)]
-        fn into_view(self, _cx: Scope) -> View {
+        fn into_view(self) -> View {
           View::Text(Text::new(self.to_string().into()))
         }
       }

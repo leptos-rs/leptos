@@ -1,4 +1,4 @@
-use leptos::{Scope, Serializable};
+use leptos::Serializable;
 use serde::{Deserialize, Serialize};
 
 pub fn story(path: &str) -> String {
@@ -10,7 +10,7 @@ pub fn user(path: &str) -> String {
 }
 
 #[cfg(not(feature = "ssr"))]
-pub async fn fetch_api<T>(cx: Scope, path: &str) -> Option<T>
+pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
     T: Serializable,
 {
@@ -29,7 +29,7 @@ where
 
     // abort in-flight requests if the Scope is disposed
     // i.e., if we've navigated away from this page
-    leptos::on_cleanup(cx, move || {
+    leptos::on_cleanup(move || {
         if let Some(abort_controller) = abort_controller {
             abort_controller.abort()
         }
@@ -38,7 +38,7 @@ where
 }
 
 #[cfg(feature = "ssr")]
-pub async fn fetch_api<T>(_cx: Scope, path: &str) -> Option<T>
+pub async fn fetch_api<T>(path: &str) -> Option<T>
 where
     T: Serializable,
 {

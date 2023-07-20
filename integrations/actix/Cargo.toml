@@ -19,6 +19,7 @@ serde_json = "1"
 parking_lot = "0.12.1"
 regex = "1.7.0"
 tracing = "0.1.37"
+tokio = { version = "1", features = ["rt"] }
 
 [features]
 nonce = ["leptos/nonce"]

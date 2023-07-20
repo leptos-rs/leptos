@@ -14,8 +14,8 @@ cfg_if! {
 
             log!("hydrate mode - hydrating");
 
-            leptos::mount_to_body(|cx| {
-                view! { cx,  <App/> }
+            leptos::mount_to_body(|| {
+                view! { <App/> }
             });
         }
     }
@@ -31,8 +31,8 @@ cfg_if! {
 
             log!("csr mode - mounting to body");
 
-            mount_to_body(|cx| {
-                view! { cx, <App /> }
+            mount_to_body(|| {
+                view! { <App /> }
             });
         }
     }

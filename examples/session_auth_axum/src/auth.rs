@@ -145,21 +145,20 @@ pub async fn foo() -> Result<String, ServerFnError> {
 }
 
 #[server(GetUser, "/api")]
-pub async fn get_user(cx: Scope) -> Result<Option<User>, ServerFnError> {
-    let auth = auth(cx)?;
+pub async fn get_user() -> Result<Option<User>, ServerFnError> {
+    let auth = auth()?;
 
     Ok(auth.current_user)
 }
 
 #[server(Login, "/api")]
 pub async fn login(
-    cx: Scope,
     username: String,
     password: String,
     remember: Option<String>,
 ) -> Result<(), ServerFnError> {
-    let pool = pool(cx)?;
-    let auth = auth(cx)?;
+    let pool = pool()?;
+    let auth = auth()?;
 
     let user: User = User::get_from_username(username, &pool)
         .await
@@ -171,7 +170,7 @@ pub async fn login(
         true => {
             auth.login_user(user.id);
             auth.remember_user(remember.is_some());
-            leptos_axum::redirect(cx, "/");
+            leptos_axum::redirect("/");
             Ok(())
         }
         false => Err(ServerFnError::ServerError(
@@ -182,14 +181,13 @@ pub async fn login(
 
 #[server(Signup, "/api")]
 pub async fn signup(
-    cx: Scope,
     username: String,
     password: String,
     password_confirmation: String,
     remember: Option<String>,
 ) -> Result<(), ServerFnError> {
-    let pool = pool(cx)?;
-    let auth = auth(cx)?;
+    let pool = pool()?;
+    let auth = auth()?;
 
     if password != password_confirmation {
         return Err(ServerFnError::ServerError(
@@ -217,17 +215,17 @@ pub async fn signup(
     auth.login_user(user.id);
     auth.remember_user(remember.is_some());
 
-    leptos_axum::redirect(cx, "/");
+    leptos_axum::redirect("/");
 
     Ok(())
 }
 
 #[server(Logout, "/api")]
-pub async fn logout(cx: Scope) -> Result<(), ServerFnError> {
-    let auth = auth(cx)?;
+pub async fn logout() -> Result<(), ServerFnError> {
+    let auth = auth()?;
 
     auth.logout_user();
-    leptos_axum::redirect(cx, "/");
+    leptos_axum::redirect("/");
 
     Ok(())
 }

@@ -9,10 +9,10 @@ use std::borrow::Cow;
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
+/// fn MyApp() -> impl IntoView {
+///     provide_meta_context();
 ///
-///     view! { cx,
+///     view! {
 ///       <main>
 ///         <Script>
 ///           "console.log('Hello, world!');"
@@ -23,7 +23,6 @@ use std::borrow::Cow;
 /// ```
 #[component(transparent)]
 pub fn Script(
-    cx: Scope,
     /// An ID for the `<script>` tag.
     #[prop(optional, into)]
     id: Option<Cow<'static, str>>,
@@ -62,9 +61,9 @@ pub fn Script(
     blocking: Option<Cow<'static, str>>,
     /// The content of the `<script>` tag.
     #[prop(optional)]
-    children: Option<Box<dyn FnOnce(Scope) -> Fragment>>,
+    children: Option<Box<dyn FnOnce() -> Fragment>>,
 ) -> impl IntoView {
-    let meta = use_head(cx);
+    let meta = use_head();
     let next_id = meta.tags.get_next_id();
     let id: Cow<'static, str> =
         id.unwrap_or_else(|| format!("leptos-link-{}", next_id.0).into());
@@ -72,7 +71,7 @@ pub fn Script(
     let builder_el = leptos::leptos_dom::html::as_meta_tag({
         let id = id.clone();
         move || {
-            leptos::leptos_dom::html::script(cx)
+            leptos::leptos_dom::html::script()
                 .attr("id", id)
                 .attr("async", async_)
                 .attr("crossorigin", crossorigin)
@@ -85,11 +84,11 @@ pub fn Script(
                 .attr("src", src)
                 .attr("type", type_)
                 .attr("blocking", blocking)
-                .attr("nonce", use_nonce(cx))
+                .attr("nonce", use_nonce())
         }
     });
     let builder_el = if let Some(children) = children {
-        let frag = children(cx);
+        let frag = children();
         let mut script = String::new();
         for node in frag.nodes {
             match node {
@@ -104,5 +103,5 @@ pub fn Script(
         builder_el
     };
 
-    meta.tags.register(cx, id, builder_el.into_any());
+    meta.tags.register(id, builder_el.into_any());
 }

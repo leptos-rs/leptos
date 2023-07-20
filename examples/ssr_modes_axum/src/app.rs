@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
-    provide_meta_context(cx);
+    provide_meta_context();
 
-    view! { cx,
+    view! {
         <Stylesheet id="leptos" href="/pkg/ssr_modes.css"/>
         <Title text="Welcome to Leptos"/>
 
@@ -39,22 +39,22 @@ pub fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn HomePage(cx: Scope) -> impl IntoView {
+fn HomePage() -> impl IntoView {
     // load the posts
     let posts =
-        create_resource(cx, || (), |_| async { list_post_metadata().await });
+        create_resource(|| (), |_| async { list_post_metadata().await });
 
-    view! { cx,
+    view! {
         <h1>"My Great Blog"</h1>
-        <Suspense fallback=move || view! { cx, <p>"Loading posts..."</p> }>
+        <Suspense fallback=move || view! { <p>"Loading posts..."</p> }>
             <ul>
                 {move || {
-                    posts.with(cx, |posts| posts
+                    posts.with(|posts| posts
                         .clone()
                         .map(|posts| {
                             posts.iter()
-                            .map(|post| view! { cx, <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
-                            .collect_view(cx)
+                            .map(|post| view! { <li><a href=format!("/post/{}", post.id)>{&post.title}</a> "|" <a href=format!("/post_in_order/{}", post.id)>{&post.title}"(in order)"</a></li>})
+                            .collect_view()
                         })
                     )
                 }}
@@ -69,14 +69,14 @@ pub struct PostParams {
 }
 
 #[component]
-fn Post(cx: Scope) -> impl IntoView {
-    let query = use_params::<PostParams>(cx);
+fn Post() -> impl IntoView {
+    let query = use_params::<PostParams>();
     let id = move || {
         query.with(|q| {
             q.as_ref().map(|q| q.id).map_err(|_| PostError::InvalidId)
         })
     };
-    let post = create_resource(cx, id, |id| async move {
+    let post = create_resource(id, |id| async move {
         match id {
             Err(e) => Err(e),
             Ok(id) => get_post(id)
@@ -90,11 +90,11 @@ fn Post(cx: Scope) -> impl IntoView {
     // this view needs to take the `Scope` from the `<Suspense/>`, not
     // from the parent component, so we take that as an argument and
     // pass it in under the `<Suspense/>` so that it is correct
-    let post_view = move |cx| {
+    let post_view = move || {
         move || {
-            post.with(cx, |post| {
+            post.with(|post| {
                 post.clone().map(|post| {
-                    view! { cx,
+                    view! {
                         // render content
                         <h1>{&post.title}</h1>
                         <p>{&post.content}</p>
@@ -110,23 +110,23 @@ fn Post(cx: Scope) -> impl IntoView {
         }
     };
 
-    view! { cx,
-        <Suspense fallback=move || view! { cx, <p>"Loading post..."</p> }>
-            <ErrorBoundary fallback=|cx, errors| {
-                view! { cx,
+    view! {
+        <Suspense fallback=move || view! { <p>"Loading post..."</p> }>
+            <ErrorBoundary fallback=|errors| {
+                view! {
                     <div class="error">
                         <h1>"Something went wrong."</h1>
                         <ul>
                         {move || errors.get()
                             .into_iter()
-                            .map(|(_, error)| view! { cx, <li>{error.to_string()} </li> })
-                            .collect_view(cx)
+                            .map(|(_, error)| view! { <li>{error.to_string()} </li> })
+                            .collect_view()
                         }
                         </ul>
                     </div>
                 }
             }>
-                {post_view(cx)}
+                {post_view()}
             </ErrorBoundary>
         </Suspense>
     }

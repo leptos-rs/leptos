@@ -2,21 +2,35 @@ use leptos::*;
 use leptos_router::*;
 
 #[server(OneSecondFn "/api")]
-async fn one_second_fn(query: ()) -> Result<(), ServerFnError> {
+async fn one_second_fn() -> Result<String, ServerFnError> {
+    use actix_web::dev::ConnectionInfo;
+    use leptos_actix::extract;
+
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    Ok(())
+    Ok(extract(|info: ConnectionInfo| async move {
+        eprintln!("one-second {:?}", current_runtime());
+        format!("{:?}", current_runtime())
+    })
+    .await?)
 }
 
 #[server(TwoSecondFn "/api")]
-async fn two_second_fn(query: ()) -> Result<(), ServerFnError> {
+async fn two_second_fn() -> Result<String, ServerFnError> {
+    use actix_web::dev::ConnectionInfo;
+    use leptos_actix::extract;
+
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    Ok(())
+    Ok(extract(|info: ConnectionInfo| async move {
+        eprintln!("two-second {:?}", current_runtime());
+        format!("{:?}", current_runtime())
+    })
+    .await?)
 }
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     let style = r#"
         nav {
             display: flex;
@@ -29,8 +43,8 @@ pub fn App(cx: Scope) -> impl IntoView {
         }
     "#;
     view! {
-        cx,
         <style>{style}</style>
+        <pre>{format!("{:?}", current_runtime())}</pre>
         <Router>
             <nav>
                 <A href="/out-of-order">"Out-of-Order"</A>
@@ -41,57 +55,57 @@ pub fn App(cx: Scope) -> impl IntoView {
                 <Routes>
                     <Route
                         path=""
-                        view=|cx| view! { cx, <Redirect path="/out-of-order"/> }
+                        view=|| view! {  <Redirect path="/out-of-order"/> }
                     />
                     // out-of-order
                     <Route
                         path="out-of-order"
-                        view=|cx| view! { cx,
+                        view=|| view! {
                             <SecondaryNav/>
                             <h1>"Out-of-Order"</h1>
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=Nested
-                        <Route path="inside" view=NestedResourceInside
-                        <Route path="single" view=Single
-                        <Route path="parallel" view=Parallel
-                        <Route path="inside-component" view=InsideComponent
-                        <Route path="none" view=None
+                        <Route path="" view=Nested/>
+                        <Route path="inside" view=NestedResourceInside/>
+                        <Route path="single" view=Single/>
+                        <Route path="parallel" view=Parallel/>
+                        <Route path="inside-component" view=InsideComponent/>
+                        <Route path="none" view=None/>
                     </Route>
                     // in-order
                     <Route
                         path="in-order"
                         ssr=SsrMode::InOrder
-                        view=|cx| view! { cx,
+                        view=|| view! {
                             <SecondaryNav/>
                             <h1>"In-Order"</h1>
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=Nested
-                        <Route path="inside" view=NestedResourceInside
-                        <Route path="single" view=Single
-                        <Route path="parallel" view=Parallel
-                        <Route path="inside-component" view=InsideComponent
-                        <Route path="none" view=None
+                        <Route path="" view=Nested/>
+                        <Route path="inside" view=NestedResourceInside/>
+                        <Route path="single" view=Single/>
+                        <Route path="parallel" view=Parallel/>
+                        <Route path="inside-component" view=InsideComponent/>
+                        <Route path="none" view=None/>
                     </Route>
                     // async
                     <Route
                         path="async"
                         ssr=SsrMode::Async
-                        view=|cx| view! { cx,
+                        view=|| view! {
                             <SecondaryNav/>
                             <h1>"Async"</h1>
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=Nested
-                        <Route path="inside" view=NestedResourceInside
-                        <Route path="single" view=Single
-                        <Route path="parallel" view=Parallel
-                        <Route path="inside-component" view=InsideComponent
-                        <Route path="none" view=None
+                        <Route path="" view=Nested/>
+                        <Route path="inside" view=NestedResourceInside/>
+                        <Route path="single" view=Single/>
+                        <Route path="parallel" view=Parallel/>
+                        <Route path="inside-component" view=InsideComponent/>
+                        <Route path="none" view=None/>
                     </Route>
                 </Routes>
             </main>
@@ -100,8 +114,8 @@ pub fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn SecondaryNav(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn SecondaryNav() -> impl IntoView {
+    view! {
         <nav>
             <A href="" exact=true>"Nested"</A>
             <A href="inside" exact=true>"Nested (resource created inside)"</A>
@@ -114,23 +128,23 @@ fn SecondaryNav(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn Nested(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    let two_second = create_resource(cx, || (), two_second_fn);
-    let (count, set_count) = create_signal(cx, 0);
+fn Nested() -> impl IntoView {
+    let one_second = create_resource(|| (), |_| one_second_fn());
+    let two_second = create_resource(|| (), |_| two_second_fn());
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 "One Second: "
                 {move || {
-                    one_second.read(cx).map(|_| "Loaded 1!")
+                    one_second.read()
                 }}
                 <br/><br/>
                 <Suspense fallback=|| "Loading 2...">
                     "Two Second: "
                     {move || {
-                        two_second.read(cx).map(|_| view! { cx,
+                        two_second.read().map(|_| view! {
                             "Loaded 2!"
                             <button on:click=move |_| set_count.update(|n| *n += 1)>
                                 {count}
@@ -144,26 +158,25 @@ fn Nested(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn NestedResourceInside(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    let (count, set_count) = create_signal(cx, 0);
+fn NestedResourceInside() -> impl IntoView {
+    let one_second = create_resource(|| (), |_| one_second_fn());
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 "One Second: "
                 {move || {
-                    one_second.read(cx).map(|_| {
-                        let two_second = create_resource(cx, || (), move |_| async move {
-                            leptos::log!("creating two_second resource");
-                            two_second_fn(()).await
+                    one_second.read().map(|_| {
+                        let two_second = create_resource(|| (), move |_| async move {
+                            two_second_fn().await
                         });
-                        view! { cx,
-                            <p>{move || one_second.read(cx).map(|_| "Loaded 1!")}</p>
+                        view! {
+                            <p>{move || one_second.read()}</p>
                             <Suspense fallback=|| "Loading 2...">
                                 "Two Second: "
                                 {move || {
-                                    two_second.read(cx).map(|x| view! { cx,
+                                    two_second.read().map(|x| view! {
                                         "Loaded 2 (created inside first suspense)!: "
                                         {format!("{x:?}")}
                                         <button on:click=move |_| set_count.update(|n| *n += 1)>
@@ -181,18 +194,18 @@ fn NestedResourceInside(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn Parallel(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    let two_second = create_resource(cx, || (), two_second_fn);
-    let (count, set_count) = create_signal(cx, 0);
+fn Parallel() -> impl IntoView {
+    let one_second = create_resource(|| (), |_| one_second_fn());
+    let two_second = create_resource(|| (), |_| two_second_fn());
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 "One Second: "
                 {move || {
-                    one_second.read(cx).map(move |_| view! { cx,
-                        "Loaded 1"
+                    one_second.read().map(move |n| view! {
+                        {n}
                         <button on:click=move |_| set_count.update(|n| *n += 1)>
                             {count}
                         </button>
@@ -203,8 +216,8 @@ fn Parallel(cx: Scope) -> impl IntoView {
             <Suspense fallback=|| "Loading 2...">
                 "Two Second: "
                 {move || {
-                    two_second.read(cx).map(move |_| view! { cx,
-                        "Loaded 2"
+                    two_second.read().map(move |n| view! {
+                        {n}
                         <button on:click=move |_| set_count.update(|n| *n += 1)>
                             {count}
                         </button>
@@ -216,16 +229,16 @@ fn Parallel(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn Single(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    let (count, set_count) = create_signal(cx, 0);
+fn Single() -> impl IntoView {
+    let one_second = create_resource(|| (), |_| one_second_fn());
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 "One Second: "
                 {move || {
-                    one_second.read(cx).map(|_| "Loaded 1!")
+                    one_second.read().map(|_| "Loaded 1!")
                 }}
             </Suspense>
             <p>"Children following " <code>"<Suspense/>"</code> " should hydrate properly."</p>
@@ -239,10 +252,10 @@ fn Single(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn InsideComponent(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn InsideComponent() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <div>
             <p><code>"<Suspense/>"</code> " inside another component should work."</p>
             <InsideComponentChild/>
@@ -257,23 +270,23 @@ fn InsideComponent(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn InsideComponentChild(cx: Scope) -> impl IntoView {
-    let one_second = create_resource(cx, || (), one_second_fn);
-    view! { cx,
+fn InsideComponentChild() -> impl IntoView {
+    let one_second = create_resource(|| (), |_| one_second_fn());
+    view! {
         <Suspense fallback=|| "Loading 1...">
             "One Second: "
             {move || {
-                one_second.read(cx).map(|_| "Loaded 1!")
+                one_second.read().map(|_| "Loaded 1!")
             }}
         </Suspense>
     }
 }
 
 #[component]
-fn None(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn None() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <div>
             <Suspense fallback=|| "Loading 1...">
                 <div>"Children inside Suspense should hydrate properly."</div>
