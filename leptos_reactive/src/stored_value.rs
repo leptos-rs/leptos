@@ -77,7 +77,7 @@ impl<T> StoredValue<T> {
     /// pub struct MyCloneableData {
     ///     pub value: String,
     /// }
-    /// let data = store_value(cx, MyCloneableData { value: "a".into() });
+    /// let data = store_value(MyCloneableData { value: "a".into() });
     ///
     /// // calling .get_value() clones and returns the value
     /// assert_eq!(data.get_value().value, "a");
@@ -115,7 +115,7 @@ impl<T> StoredValue<T> {
     /// pub struct MyUncloneableData {
     ///     pub value: String,
     /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// let data = store_value(MyUncloneableData { value: "a".into() });
     ///
     /// // calling .with_value() to extract the value
     /// assert_eq!(data.with_value(|data| data.value.clone()), "a");
@@ -154,7 +154,7 @@ impl<T> StoredValue<T> {
     /// pub struct MyUncloneableData {
     ///   pub value: String
     /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// let data = store_value(MyUncloneableData { value: "a".into() });
     /// data.update_value(|data| data.value = "b".into());
     /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
     /// });
@@ -168,7 +168,7 @@ impl<T> StoredValue<T> {
     ///     pub value: String,
     /// }
     ///
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// let data = store_value(MyUncloneableData { value: "a".into() });
     /// let updated = data.try_update_value(|data| {
     ///     data.value = "b".into();
     ///     data.value.clone()
@@ -210,7 +210,7 @@ impl<T> StoredValue<T> {
     /// pub struct MyUncloneableData {
     ///     pub value: String,
     /// }
-    /// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+    /// let data = store_value(MyUncloneableData { value: "a".into() });
     /// data.set_value(MyUncloneableData { value: "b".into() });
     /// assert_eq!(data.with_value(|data| data.value.clone()), "b");
     /// # });
@@ -277,7 +277,7 @@ impl<T> StoredValue<T> {
 /// }
 ///
 /// // ✅ you can move the `StoredValue` and access it with .with_value()
-/// let data = store_value(cx, MyUncloneableData { value: "a".into() });
+/// let data = store_value(MyUncloneableData { value: "a".into() });
 /// let callback_a = move || data.with_value(|data| data.value == "a");
 /// let callback_b = move || data.with_value(|data| data.value == "b");
 /// # }).dispose();
