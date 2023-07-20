@@ -89,8 +89,7 @@ pub struct Owner(pub(crate) NodeId);
 impl Owner {
     /// Returns the current reactive owner.
     pub fn current() -> Option<Owner> {
-        let runtime_id = Runtime::current();
-        with_runtime(runtime_id, |runtime| runtime.owner.get())
+        with_runtime(|runtime| runtime.owner.get())
             .expect("runtime should be alive when accessing current owner")
             .map(Owner)
     }
@@ -573,19 +572,15 @@ impl Debug for Runtime {
     instrument(level = "trace", skip_all,)
 )]
 #[inline(always)] // it monomorphizes anyway
-pub(crate) fn with_runtime<T>(
-    id: RuntimeId,
-    f: impl FnOnce(&Runtime) -> T,
-) -> Result<T, ()> {
+pub(crate) fn with_runtime<T>(f: impl FnOnce(&Runtime) -> T) -> Result<T, ()> {
     // in the browser, everything should exist under one runtime
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-            _ = id;
             Ok(RUNTIME.with(|runtime| f(runtime)))
         } else {
             RUNTIMES.with(|runtimes| {
                 let runtimes = runtimes.borrow();
-                match runtimes.get(id) {
+                match runtimes.get(Runtime::current()) {
                     None => Err(()),
                     Some(runtime) => Ok(f(runtime))
                 }
@@ -639,11 +634,10 @@ pub fn as_child_of_current_owner<T, U>(
 where
     T: 'static,
 {
-    let runtime_id = Runtime::current();
-    let owner = with_runtime(runtime_id, |runtime| runtime.owner.get())
+    let owner = with_runtime(|runtime| runtime.owner.get())
         .expect("runtime should be alive when created");
     move |t| {
-        with_runtime(runtime_id, |runtime| {
+        with_runtime(|runtime| {
             let prev_observer = runtime.observer.take();
             let prev_owner = runtime.owner.take();
 
@@ -656,7 +650,7 @@ where
                 node_type: ReactiveNodeType::Trigger,
             });
             runtime.push_scope_property(ScopeProperty::Trigger(id));
-            let disposer = Disposer((runtime_id, id));
+            let disposer = Disposer(id);
 
             runtime.owner.set(Some(id));
             runtime.observer.set(Some(id));
@@ -679,11 +673,10 @@ pub fn with_current_owner<T, U>(f: impl Fn(T) -> U + 'static) -> impl Fn(T) -> U
 where
     T: 'static,
 {
-    let runtime_id = Runtime::current();
-    let owner = with_runtime(runtime_id, |runtime| runtime.owner.get())
+    let owner = with_runtime(|runtime| runtime.owner.get())
         .expect("runtime should be alive when created");
     move |t| {
-        with_runtime(runtime_id, |runtime| {
+        with_runtime(|runtime| {
             let prev_observer = runtime.observer.take();
             let prev_owner = runtime.owner.take();
 
@@ -706,7 +699,7 @@ pub fn with_owner<T>(owner: Owner, f: impl FnOnce() -> T + 'static) -> T
 where
     T: 'static,
 {
-    with_runtime(Runtime::current(), |runtime| {
+    with_runtime(|runtime| {
         let prev_observer = runtime.observer.take();
         let prev_owner = runtime.owner.take();
 
@@ -755,7 +748,7 @@ impl RuntimeId {
         f: impl FnOnce() -> T,
         diagnostics: bool,
     ) -> T {
-        with_runtime(self, |runtime| {
+        with_runtime(|runtime| {
             let untracked_result;
 
             if !diagnostics {
@@ -785,7 +778,7 @@ impl RuntimeId {
     #[track_caller]
     #[inline(always)] // only because it's placed here to fit in with the other create methods
     pub(crate) fn create_trigger(self) -> Trigger {
-        let id = with_runtime(self, |runtime| {
+        let id = with_runtime(|runtime| {
             let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
                 value: None,
                 state: ReactiveNodeState::Clean,
@@ -800,7 +793,6 @@ impl RuntimeId {
 
         Trigger {
             id,
-            runtime: self,
             #[cfg(debug_assertions)]
             defined_at: std::panic::Location::caller(),
         }
@@ -810,7 +802,7 @@ impl RuntimeId {
         self,
         value: Rc<RefCell<dyn Any>>,
     ) -> NodeId {
-        with_runtime(self, |runtime| {
+        with_runtime(|runtime| {
             let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
                 value: Some(value),
                 state: ReactiveNodeState::Clean,
@@ -837,14 +829,12 @@ impl RuntimeId {
 
         (
             ReadSignal {
-                runtime: self,
                 id,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
                 defined_at: std::panic::Location::caller(),
             },
             WriteSignal {
-                runtime: self,
                 id,
                 ty: PhantomData,
                 #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -863,7 +853,6 @@ impl RuntimeId {
             Rc::new(RefCell::new(value)) as Rc<RefCell<dyn Any>>
         );
         RwSignal {
-            runtime: self,
             id,
             ty: PhantomData,
             #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -876,7 +865,7 @@ impl RuntimeId {
         value: Rc<RefCell<dyn Any>>,
         effect: Rc<dyn AnyComputation>,
     ) -> NodeId {
-        with_runtime(self, |runtime| {
+        with_runtime(|runtime| {
             let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
                 value: Some(Rc::clone(&value)),
                 state: ReactiveNodeState::Dirty,
@@ -895,7 +884,7 @@ impl RuntimeId {
         value: Rc<RefCell<dyn Any>>,
         computation: Rc<dyn AnyComputation>,
     ) -> NodeId {
-        with_runtime(self, |runtime| {
+        with_runtime(|runtime| {
             let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
                 value: Some(value),
                 // memos are lazy, so are dirty when created
@@ -994,7 +983,7 @@ impl RuntimeId {
         );
 
         (id, move || {
-            with_runtime(self, |runtime| {
+            with_runtime(|runtime| {
                 runtime.nodes.borrow_mut().remove(id);
                 runtime.node_sources.borrow_mut().remove(id);
             })
@@ -1014,7 +1003,6 @@ impl RuntimeId {
         T: PartialEq + Any + 'static,
     {
         Memo {
-            runtime: self,
             id: self.create_concrete_memo(
                 Rc::new(RefCell::new(None::<T>)),
                 Rc::new(MemoState {
@@ -1167,7 +1155,7 @@ struct SetObserverOnDrop(RuntimeId, Option<NodeId>);
 
 impl Drop for SetObserverOnDrop {
     fn drop(&mut self) {
-        _ = with_runtime(self.0, |rt| {
+        _ = with_runtime(|rt| {
             rt.observer.set(self.1);
         });
     }
@@ -1186,7 +1174,7 @@ impl Drop for SetObserverOnDrop {
 #[inline(always)]
 pub fn batch<T>(f: impl FnOnce() -> T) -> T {
     let runtime_id = Runtime::current();
-    with_runtime(runtime_id, move |runtime| {
+    with_runtime(move |runtime| {
         let batching = SetBatchingOnDrop(runtime_id, runtime.batching.get());
         runtime.batching.set(true);
 
@@ -1205,7 +1193,7 @@ struct SetBatchingOnDrop(RuntimeId, bool);
 
 impl Drop for SetBatchingOnDrop {
     fn drop(&mut self) {
-        _ = with_runtime(self.0, |rt| {
+        _ = with_runtime(|rt| {
             rt.batching.set(self.1);
         });
     }
@@ -1225,7 +1213,7 @@ pub fn on_cleanup(cleanup_fn: impl FnOnce() + 'static) {
     instrument(level = "trace", skip_all,)
 )]
 fn push_cleanup(cleanup_fn: Box<dyn FnOnce()>) {
-    _ = with_runtime(Runtime::current(), |runtime| {
+    _ = with_runtime(|runtime| {
         if let Some(owner) = runtime.owner.get() {
             let mut cleanups = runtime.on_cleanups.borrow_mut();
             if let Some(entries) = cleanups.get_mut(owner) {

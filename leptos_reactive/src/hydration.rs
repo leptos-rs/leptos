@@ -25,8 +25,7 @@ impl SharedContext {
         instrument(level = "trace", skip_all,)
     )]
     pub fn all_resources() -> Vec<ResourceId> {
-        with_runtime(Runtime::current(), |runtime| runtime.all_resources())
-            .unwrap_or_default()
+        with_runtime(|runtime| runtime.all_resources()).unwrap_or_default()
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope that are
@@ -36,8 +35,7 @@ impl SharedContext {
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_resources() -> Vec<ResourceId> {
-        with_runtime(Runtime::current(), |runtime| runtime.pending_resources())
-            .unwrap_or_default()
+        with_runtime(|runtime| runtime.pending_resources()).unwrap_or_default()
     }
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
@@ -47,10 +45,8 @@ impl SharedContext {
     )]
     pub fn serialization_resolvers(
     ) -> FuturesUnordered<PinnedFuture<(ResourceId, String)>> {
-        with_runtime(Runtime::current(), |runtime| {
-            runtime.serialization_resolvers()
-        })
-        .unwrap_or_default()
+        with_runtime(|runtime| runtime.serialization_resolvers())
+            .unwrap_or_default()
     }
 
     /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
@@ -74,7 +70,7 @@ impl SharedContext {
             crate::Owner::current()
         );
 
-        _ = with_runtime(Runtime::current(), |runtime| {
+        _ = with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let (tx1, mut rx1) = futures::channel::mpsc::unbounded();
             let (tx2, mut rx2) = futures::channel::mpsc::unbounded();
@@ -125,7 +121,7 @@ impl SharedContext {
         instrument(level = "trace", skip_all,)
     )]
     pub fn take_pending_fragment(id: &str) -> Option<FragmentData> {
-        with_runtime(Runtime::current(), |runtime| {
+        with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             shared_context.pending_fragments.remove(id)
         })
@@ -141,7 +137,7 @@ impl SharedContext {
     pub fn blocking_fragments_ready() -> PinnedFuture<()> {
         use futures::StreamExt;
 
-        let mut ready = with_runtime(Runtime::current(), |runtime| {
+        let mut ready = with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let ready = FuturesUnordered::new();
             for (_, data) in shared_context.pending_fragments.iter_mut() {
@@ -166,7 +162,7 @@ impl SharedContext {
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_fragments() -> HashMap<String, FragmentData> {
-        with_runtime(Runtime::current(), |runtime| {
+        with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             std::mem::take(&mut shared_context.pending_fragments)
         })
