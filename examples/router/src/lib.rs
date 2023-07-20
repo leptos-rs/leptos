@@ -106,10 +106,10 @@ pub fn ContactList() -> impl IntoView {
             <Suspense fallback=move || view! {  <p>"Loading contacts..."</p> }>
                 {move || view! { <ul>{contacts}</ul>}}
             </Suspense>
-            <Outlet /*AnimatedOutlet
+            <AnimatedOutlet
                 class="outlet"
                 outro="fadeOut"
-                intro="fadeIn"*/
+                intro="fadeIn"
             />
         </div>
     }
