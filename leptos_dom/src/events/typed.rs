@@ -248,7 +248,7 @@ generate_event_types! {
   formdata: Event, // web_sys does not include `FormDataEvent`
   #[does_not_bubble]
   gotpointercapture: PointerEvent,
-  input: Event,
+  input: InputEvent,
   #[does_not_bubble]
   invalid: Event,
   keydown: KeyboardEvent,
