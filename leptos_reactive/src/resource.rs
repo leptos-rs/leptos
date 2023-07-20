@@ -1111,7 +1111,7 @@ where
                  that no longer exists, probably because its Scope has \
                  already been disposed.",
                 std::panic::Location::caller()
-            )
+            );
         }
     }
 }
