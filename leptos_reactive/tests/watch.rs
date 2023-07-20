@@ -1,140 +1,140 @@
 use leptos_reactive::{
-    create_runtime, create_scope, create_signal, watch, SignalGet, SignalSet,
+    create_runtime, create_signal, watch, SignalGet, SignalSet,
 };
 use std::{cell::RefCell, rc::Rc};
 
 #[test]
 fn watch_runs() {
-    create_scope(create_runtime(), |cx| {
-        let (a, set_a) = create_signal(cx, -1);
+    let runtime = create_runtime();
 
-        // simulate an arbitrary side effect
-        let b = Rc::new(RefCell::new(String::new()));
+    let (a, set_a) = create_signal(-1);
 
-        let stop = watch(
-            cx,
-            move || a.get(),
-            {
-                let b = b.clone();
+    // simulate an arbitrary side effect
+    let b = Rc::new(RefCell::new(String::new()));
 
-                move |a, prev_a, prev_ret| {
-                    let formatted = format!(
-                        "Value is {}; Prev is {:?}; Prev return is {:?}",
-                        a, prev_a, prev_ret
-                    );
-                    *b.borrow_mut() = formatted;
+    let stop = watch(
+        move || a.get(),
+        {
+            let b = b.clone();
 
-                    a + 10
-                }
-            },
-            false,
-        );
+            move |a, prev_a, prev_ret| {
+                let formatted = format!(
+                    "Value is {}; Prev is {:?}; Prev return is {:?}",
+                    a, prev_a, prev_ret
+                );
+                *b.borrow_mut() = formatted;
 
-        assert_eq!(b.borrow().as_str(), "");
+                a + 10
+            }
+        },
+        false,
+    );
 
-        set_a.set(1);
+    assert_eq!(b.borrow().as_str(), "");
 
-        assert_eq!(
-            b.borrow().as_str(),
-            "Value is 1; Prev is Some(-1); Prev return is None"
-        );
+    set_a.set(1);
 
-        set_a.set(2);
+    assert_eq!(
+        b.borrow().as_str(),
+        "Value is 1; Prev is Some(-1); Prev return is None"
+    );
 
-        assert_eq!(
-            b.borrow().as_str(),
-            "Value is 2; Prev is Some(1); Prev return is Some(11)"
-        );
+    set_a.set(2);
 
-        stop();
+    assert_eq!(
+        b.borrow().as_str(),
+        "Value is 2; Prev is Some(1); Prev return is Some(11)"
+    );
 
-        *b.borrow_mut() = "nothing happened".to_string();
-        set_a.set(3);
+    stop();
 
-        assert_eq!(b.borrow().as_str(), "nothing happened");
-    })
-    .dispose()
+    *b.borrow_mut() = "nothing happened".to_string();
+    set_a.set(3);
+
+    assert_eq!(b.borrow().as_str(), "nothing happened");
+
+    runtime.dispose();
 }
 
 #[test]
 fn watch_runs_immediately() {
-    create_scope(create_runtime(), |cx| {
-        let (a, set_a) = create_signal(cx, -1);
+    let runtime = create_runtime();
 
-        // simulate an arbitrary side effect
-        let b = Rc::new(RefCell::new(String::new()));
+    let (a, set_a) = create_signal(-1);
 
-        let _ = watch(
-            cx,
-            move || a.get(),
-            {
-                let b = b.clone();
+    // simulate an arbitrary side effect
+    let b = Rc::new(RefCell::new(String::new()));
 
-                move |a, prev_a, prev_ret| {
-                    let formatted = format!(
-                        "Value is {}; Prev is {:?}; Prev return is {:?}",
-                        a, prev_a, prev_ret
-                    );
-                    *b.borrow_mut() = formatted;
+    let _ = watch(
+        move || a.get(),
+        {
+            let b = b.clone();
 
-                    a + 10
-                }
-            },
-            true,
-        );
+            move |a, prev_a, prev_ret| {
+                let formatted = format!(
+                    "Value is {}; Prev is {:?}; Prev return is {:?}",
+                    a, prev_a, prev_ret
+                );
+                *b.borrow_mut() = formatted;
 
-        assert_eq!(
-            b.borrow().as_str(),
-            "Value is -1; Prev is None; Prev return is None"
-        );
+                a + 10
+            }
+        },
+        true,
+    );
 
-        set_a.set(1);
+    assert_eq!(
+        b.borrow().as_str(),
+        "Value is -1; Prev is None; Prev return is None"
+    );
 
-        assert_eq!(
-            b.borrow().as_str(),
-            "Value is 1; Prev is Some(-1); Prev return is Some(9)"
-        );
-    })
-    .dispose()
+    set_a.set(1);
+
+    assert_eq!(
+        b.borrow().as_str(),
+        "Value is 1; Prev is Some(-1); Prev return is Some(9)"
+    );
+
+    runtime.dispose();
 }
 
 #[test]
 fn watch_ignores_callback() {
-    create_scope(create_runtime(), |cx| {
-        let (a, set_a) = create_signal(cx, -1);
-        let (b, set_b) = create_signal(cx, 0);
+    let runtime = create_runtime();
 
-        // simulate an arbitrary side effect
-        let s = Rc::new(RefCell::new(String::new()));
+    let (a, set_a) = create_signal(-1);
+    let (b, set_b) = create_signal(0);
 
-        let _ = watch(
-            cx,
-            move || a.get(),
-            {
-                let s = s.clone();
+    // simulate an arbitrary side effect
+    let s = Rc::new(RefCell::new(String::new()));
 
-                move |a, _, _| {
-                    let formatted =
-                        format!("Value a is {}; Value b is {}", a, b.get());
-                    *s.borrow_mut() = formatted;
-                }
-            },
-            false,
-        );
+    let _ = watch(
+        move || a.get(),
+        {
+            let s = s.clone();
 
-        set_a.set(1);
+            move |a, _, _| {
+                let formatted =
+                    format!("Value a is {}; Value b is {}", a, b.get());
+                *s.borrow_mut() = formatted;
+            }
+        },
+        false,
+    );
 
-        assert_eq!(s.borrow().as_str(), "Value a is 1; Value b is 0");
+    set_a.set(1);
 
-        *s.borrow_mut() = "nothing happened".to_string();
+    assert_eq!(s.borrow().as_str(), "Value a is 1; Value b is 0");
 
-        set_b.set(10);
+    *s.borrow_mut() = "nothing happened".to_string();
 
-        assert_eq!(s.borrow().as_str(), "nothing happened");
+    set_b.set(10);
 
-        set_a.set(2);
+    assert_eq!(s.borrow().as_str(), "nothing happened");
 
-        assert_eq!(s.borrow().as_str(), "Value a is 2; Value b is 10");
-    })
-    .dispose()
+    set_a.set(2);
+
+    assert_eq!(s.borrow().as_str(), "Value a is 2; Value b is 10");
+
+    runtime.dispose();
 }

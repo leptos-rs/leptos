@@ -1,51 +1,43 @@
 #[test]
 fn context() {
     use leptos_reactive::{
-        create_isomorphic_effect, create_root, create_runtime, create_scope,
-        provide_context, use_context,
+        create_isomorphic_effect, create_runtime, provide_context, use_context,
     };
 
-    create_scope(create_runtime(), |cx| {
-        create_root(cx, move |_| {
+    let runtime = create_runtime();
+
+    create_isomorphic_effect({
+        move |_| {
+            provide_context(String::from("test"));
+            assert_eq!(use_context::<String>(), Some(String::from("test")));
+            assert_eq!(use_context::<i32>(), None);
+            assert_eq!(use_context::<bool>(), None);
+
             create_isomorphic_effect({
                 move |_| {
-                    provide_context(cx, String::from("test"));
+                    provide_context(0i32);
                     assert_eq!(
-                        use_context::<String>(cx),
+                        use_context::<String>(),
                         Some(String::from("test"))
                     );
-                    assert_eq!(use_context::<i32>(cx), None);
-                    assert_eq!(use_context::<bool>(cx), None);
+                    assert_eq!(use_context::<i32>(), Some(0));
+                    assert_eq!(use_context::<bool>(), None);
 
                     create_isomorphic_effect({
                         move |_| {
-                            provide_context(cx, 0i32);
+                            provide_context(false);
                             assert_eq!(
-                                use_context::<String>(cx),
+                                use_context::<String>(),
                                 Some(String::from("test"))
                             );
-                            assert_eq!(use_context::<i32>(cx), Some(0));
-                            assert_eq!(use_context::<bool>(cx), None);
-
-                            create_isomorphic_effect({
-                                move |_| {
-                                    provide_context(cx, false);
-                                    assert_eq!(
-                                        use_context::<String>(cx),
-                                        Some(String::from("test"))
-                                    );
-                                    assert_eq!(use_context::<i32>(cx), Some(0));
-                                    assert_eq!(
-                                        use_context::<bool>(cx),
-                                        Some(false)
-                                    );
-                                }
-                            });
+                            assert_eq!(use_context::<i32>(), Some(0));
+                            assert_eq!(use_context::<bool>(), Some(false));
                         }
                     });
                 }
             });
-        });
-    })
-    .dispose()
+        }
+    });
+
+    runtime.dispose();
 }
