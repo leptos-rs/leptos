@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{with_runtime, Runtime, RuntimeId, ScopeProperty};
+use crate::{with_runtime, Runtime, ScopeProperty};
 use std::{
     cell::RefCell,
     fmt,
@@ -26,7 +26,6 @@ pub struct StoredValue<T>
 where
     T: 'static,
 {
-    runtime: RuntimeId,
     id: StoredValueId,
     ty: PhantomData<T>,
 }
@@ -42,7 +41,6 @@ impl<T> Copy for StoredValue<T> {}
 impl<T> fmt::Debug for StoredValue<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StoredValue")
-            .field("runtime", &self.runtime)
             .field("id", &self.id)
             .field("ty", &self.ty)
             .finish()
@@ -53,13 +51,13 @@ impl<T> Eq for StoredValue<T> {}
 
 impl<T> PartialEq for StoredValue<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id
+        self.id == other.id
     }
 }
 
 impl<T> Hash for StoredValue<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.runtime.hash(state);
+        Runtime::current().hash(state);
         self.id.hash(state);
     }
 }
@@ -133,7 +131,7 @@ impl<T> StoredValue<T> {
     /// Same as [`StoredValue::with_value`] but returns [`Some(O)]` only if
     /// the stored value has not yet been disposed. [`None`] otherwise.
     pub fn try_with_value<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             let value = {
                 let values = runtime.stored_values.borrow();
                 values.get(self.id)?.clone()
@@ -189,7 +187,7 @@ impl<T> StoredValue<T> {
     /// Same as [`Self::update_value`], but returns [`Some(O)`] if the
     /// stored value has not yet been disposed, [`None`] otherwise.
     pub fn try_update_value<O>(self, f: impl FnOnce(&mut T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             let value = {
                 let values = runtime.stored_values.borrow();
                 values.get(self.id)?.clone()
@@ -225,7 +223,7 @@ impl<T> StoredValue<T> {
     /// Same as [`Self::set_value`], but returns [`None`] if the
     /// stored value has not yet been disposed, [`Some(T)`] otherwise.
     pub fn try_set_value(&self, value: T) -> Option<T> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             let n = {
                 let values = runtime.stored_values.borrow();
                 values.get(self.id).map(Rc::clone)
@@ -289,8 +287,7 @@ pub fn store_value<T>(value: T) -> StoredValue<T>
 where
     T: 'static,
 {
-    let runtime = Runtime::current();
-    let id = with_runtime(runtime, |runtime| {
+    let id = with_runtime(|runtime| {
         let id = runtime
             .stored_values
             .borrow_mut()
@@ -300,7 +297,6 @@ where
     })
     .expect("store_value failed to find the current runtime");
     StoredValue {
-        runtime,
         id,
         ty: PhantomData,
     }
