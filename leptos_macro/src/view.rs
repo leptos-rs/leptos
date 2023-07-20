@@ -517,6 +517,17 @@ fn element_to_tokens_ssr(
                                 &value.replace('{', "\\{").replace('}', "\\}"),
                             );
                         }
+                        Node::RawText(r) => {
+                            let value = r.to_string_best();
+                            let value = if is_script_or_style {
+                                value.into()
+                            } else {
+                                html_escape::encode_safe(&value)
+                            };
+                            template.push_str(
+                                &value.replace('{', "\\{").replace('}', "\\}"),
+                            );
+                        }
                         Node::Block(NodeBlock::ValidBlock(block)) => {
                             if let Some(value) =
                                 block_to_primitive_expression(block)
