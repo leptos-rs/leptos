@@ -66,6 +66,9 @@ pub fn ShowHide(
     hide_delay: Duration,
 ) -> impl IntoView {
     let handle: StoredValue<Option<TimeoutHandle>> = store_value(cx, None);
+    // marked with `_` to have a nice interface to the user and at the same time not having the
+    // CI complain about the not used variable, since the timeout can only be set in a wasm32
+    // context
     let _delay: StoredValue<Duration> = store_value(cx, hide_delay);
     let cls = create_rw_signal(
         cx,
