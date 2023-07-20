@@ -4,7 +4,7 @@ use crate::{
     diagnostics,
     diagnostics::*,
     node::NodeId,
-    runtime::{with_runtime, Runtime, RuntimeId},
+    runtime::{with_runtime, Runtime},
     SignalGet, SignalSet, SignalUpdate,
 };
 
@@ -13,7 +13,6 @@ use crate::{
 /// See [`create_trigger`] for more.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Trigger {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
 
     #[cfg(debug_assertions)]
@@ -30,7 +29,7 @@ impl Trigger {
     ///
     /// Returns `None` if the runtime has been disposed.
     pub fn try_notify(&self) -> bool {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.mark_dirty(self.id);
             runtime.run_effects();
         })
@@ -47,7 +46,7 @@ impl Trigger {
     pub fn try_track(&self) -> bool {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.subscribe(runtime, diagnostics);
         })
         .is_ok()
@@ -168,7 +167,7 @@ impl SignalUpdate<()> for Trigger {
     fn try_update<O>(&self, f: impl FnOnce(&mut ()) -> O) -> Option<O> {
         // run callback with runtime before dirtying the trigger,
         // consistent with signals.
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             let res = f(&mut ());
 
             runtime.mark_dirty(self.id);
