@@ -1,7 +1,7 @@
 use crate::Show;
 use core::time::Duration;
 use leptos::component;
-use leptos_dom::helpers::{set_timeout_with_handle, TimeoutHandle};
+use leptos_dom::helpers::{TimeoutHandle};
 use leptos_dom::{Fragment, IntoView};
 use leptos_macro::view;
 use leptos_reactive::{
@@ -16,11 +16,22 @@ use leptos_reactive::{
 /// unmount animations.
 ///
 /// ```rust
-/// use core::time::Duration;
-/// use leptos::*;
-///
+/// # use core::time::Duration;
+/// # use leptos_reactive::*;
+/// # use leptos_macro::*;
+/// # use leptos_dom::*; use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
 /// let show = create_rw_signal(cx, false);
+///
 /// view! { cx,
+///     <div
+///         class="hover-me"
+///         on:mouseenter=move |_| show.set(true)
+///         on:mouseleave=move |_| show.set(false)
+///     >
+///         "Hover Me"
+///     </div>
+///
 ///     <ShowHide
 ///         when=show
 ///         show_class="fade-in-1000"
@@ -30,6 +41,7 @@ use leptos_reactive::{
 ///         "Here I Am!"
 ///     </ShowHide>
 /// }
+/// # });
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
@@ -54,6 +66,7 @@ pub fn ShowHide(
     hide_delay: Duration,
 ) -> impl IntoView {
     let handle: StoredValue<Option<TimeoutHandle>> = store_value(cx, None);
+    let _delay: StoredValue<Duration> = store_value(cx, hide_delay);
     let cls = create_rw_signal(
         cx,
         if when.get_untracked() {
@@ -76,10 +89,12 @@ pub fn ShowHide(
         } else {
             cls.set(hide_class);
 
-            let h =
-                set_timeout_with_handle(move || show.set(false), hide_delay)
-                    .expect("set timeout in ShowHide");
-            handle.set_value(Some(h));
+            #[cfg(target_arch = "wasm32")] {
+                let h =
+                    leptos_dom::helpers::set_timeout_with_handle(move || show.set(false), _delay.get_value())
+                        .expect("set timeout in ShowHide");
+                handle.set_value(Some(h));
+            }
         }
     });
 
