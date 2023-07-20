@@ -104,7 +104,7 @@ where
     let runtime = Runtime::current();
     let (e, stop) = runtime.watch(deps, callback, immediate);
     let prop = ScopeProperty::Effect(e);
-    let owner = with_runtime(runtime, |runtime| {
+    let owner = with_runtime(|runtime| {
         runtime.push_scope_property(prop);
         runtime.owner.get()
     })
@@ -113,7 +113,7 @@ where
     move || {
         stop();
         if let Some(owner) = owner {
-            _ = with_runtime(runtime, |runtime| {
+            _ = with_runtime(|runtime| {
                 runtime.remove_scope_property(owner, prop)
             });
         }
