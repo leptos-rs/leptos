@@ -64,7 +64,7 @@ pub fn Routes(
     leptos::leptos_dom::DynChild::new_with_id(id, move || root.get())
         .into_view()
 }
-/*
+
 /// Contains route definitions and manages the actual routing process, with animated transitions
 /// between routes.
 ///
@@ -223,7 +223,7 @@ pub fn AnimatedRoutes(
         .child(move || root.get())
         .into_view()
 }
- */
+
 pub(crate) struct Branches;
 
 thread_local! {
@@ -294,36 +294,8 @@ fn route_states(
     let next: Rc<RefCell<Vec<RouteContext>>> = Default::default();
     let router = Rc::clone(&router.inner);
 
-    let create_route = as_child_of_current_owner(
-        move |(router, next, matches, i): (
-            Rc<RouterContextInner>,
-            Rc<RefCell<Vec<RouteContext>>>,
-            Memo<Rc<Vec<RouteMatch>>>,
-            usize,
-        )| {
-            RouteContext::new(
-                &RouterContext {
-                    inner: Rc::clone(&router),
-                },
-                {
-                    let next = Rc::clone(&next);
-                    move || {
-                        if let Some(route_states) =
-                            use_context::<Memo<RouterState>>()
-                        {
-                            route_states.with(|route_states| {
-                                let routes = route_states.routes.borrow();
-                                routes.get(i + 1).cloned()
-                            })
-                        } else {
-                            next.borrow().get(i + 1).cloned()
-                        }
-                    }
-                },
-                move || matches.with(|m| m.get(i).cloned()),
-            )
-        },
-    );
+    let owner =
+        Owner::current().expect("<Routes/> created outside reactive system.");
 
     create_memo({
         let root_equal = Rc::clone(root_equal);
@@ -367,13 +339,30 @@ fn route_states(
                             root_equal.set(false);
                         }
 
-                        let (next_ctx, disposer) = create_route((
-                            Rc::clone(&router),
-                            Rc::clone(&next),
-                            matches,
-                            i,
-                        ));
-                        std::mem::forget(disposer); // TODO
+                        let next_ctx = with_owner(owner, {
+                            let next = Rc::clone(&next);
+                            let router = Rc::clone(&router);
+                            move || {
+                                RouteContext::new(
+                                    &RouterContext { inner: router },
+                                    move || {
+                                        if let Some(route_states) =
+                                            use_context::<Memo<RouterState>>()
+                                        {
+                                            route_states.with(|route_states| {
+                                                let routes = route_states
+                                                    .routes
+                                                    .borrow();
+                                                routes.get(i + 1).cloned()
+                                            })
+                                        } else {
+                                            next.borrow().get(i + 1).cloned()
+                                        }
+                                    },
+                                    move || matches.with(|m| m.get(i).cloned()),
+                                )
+                            }
+                        });
 
                         if let Some(next_ctx) = next_ctx {
                             if next.borrow().len() > i + 1 {
