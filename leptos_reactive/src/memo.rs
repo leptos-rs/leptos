@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
     create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
-    with_runtime, AnyComputation, Runtime, RuntimeId, SignalDispose, SignalGet,
+    with_runtime, AnyComputation, Runtime, SignalDispose, SignalGet,
     SignalGetUntracked, SignalStream, SignalWith, SignalWithUntracked,
 };
 use std::{any::Any, cell::RefCell, fmt, marker::PhantomData, rc::Rc};
@@ -160,7 +160,6 @@ pub struct Memo<T>
 where
     T: 'static,
 {
-    pub(crate) runtime: RuntimeId,
     pub(crate) id: NodeId,
     pub(crate) ty: PhantomData<T>,
     #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -181,7 +180,6 @@ impl<T> Copy for Memo<T> {}
 impl<T> fmt::Debug for Memo<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("Memo");
-        s.field("runtime", &self.runtime);
         s.field("id", &self.id);
         s.field("ty", &self.ty);
         #[cfg(any(debug_assertions, feature = "ssr"))]
@@ -194,7 +192,7 @@ impl<T> Eq for Memo<T> {}
 
 impl<T> PartialEq for Memo<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.runtime == other.runtime && self.id == other.id
+        self.id == other.id
     }
 }
 
@@ -224,7 +222,7 @@ impl<T: Clone> SignalGetUntracked<T> for Memo<T> {
         )
     )]
     fn get_untracked(&self) -> T {
-        with_runtime(self.runtime, move |runtime| {
+        with_runtime(move |runtime| {
             let f = |maybe_value: &Option<T>| {
                 maybe_value
                     .clone()
@@ -275,7 +273,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
         )
     )]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             match self.id.try_with_no_subscription(runtime, forward_ref_to(f)) {
                 Ok(t) => t,
                 Err(_) => panic_getting_dead_memo(
@@ -302,7 +300,7 @@ impl<T> SignalWithUntracked<T> for Memo<T> {
     )]
     #[inline]
     fn try_with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.try_with_no_subscription(runtime, |v: &T| f(v)).ok()
         })
         .ok()
@@ -409,7 +407,7 @@ impl<T> SignalWith<T> for Memo<T> {
     fn try_with<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
         let diagnostics = diagnostics!(self);
 
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             self.id.subscribe(runtime, diagnostics);
             self.id
                 .try_with_no_subscription(runtime, forward_ref_to(f))
@@ -453,7 +451,7 @@ impl<T: Clone> SignalStream<T> for Memo<T> {
 
 impl<T> SignalDispose for Memo<T> {
     fn dispose(self) {
-        _ = with_runtime(self.runtime, |runtime| runtime.dispose_node(self.id));
+        _ = with_runtime(|runtime| runtime.dispose_node(self.id));
     }
 }
 
