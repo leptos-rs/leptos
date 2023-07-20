@@ -47,6 +47,12 @@ impl GlobalSuspenseContext {
     }
 }
 
+impl Default for GlobalSuspenseContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SuspenseContext {
     /// Whether the suspense contains local resources at this moment,
     /// and therefore can't be serialized
@@ -155,6 +161,12 @@ impl SuspenseContext {
         self.pending_resources
             .try_with(|n| *n == 0)
             .unwrap_or(false)
+    }
+}
+
+impl Default for SuspenseContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
