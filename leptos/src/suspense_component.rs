@@ -68,21 +68,25 @@ where
 {
     let orig_children = Rc::new(children);
     let context = SuspenseContext::new();
+
+    #[cfg(not(any(feature = "csr", feature = "hydrate")))]
     let owner =
         Owner::current().expect("<Suspense/> created with no reactive owner");
 
+    // provided for fallback
+    provide_context(context);
+
     // provide this SuspenseContext to any resources below it
+    // run in a memo so the children are children of this parent
     let children = create_memo({
         let orig_children = Rc::clone(&orig_children);
         move |_| {
-            eprintln!("<Suspense/> children with owner = {owner:?}");
             provide_context(context);
             orig_children().into_view()
         }
     });
 
     let current_id = HydrationCtx::next_component();
-    eprintln!("\n\ninvoking <Suspense/> at {current_id}");
 
     let child = DynChild::new({
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
@@ -110,10 +114,9 @@ where
                 {
                     // no resources were read under this, so just return the child
                     if context.pending_resources.get() == 0 {
-                        eprintln!("no resources read under <Suspense/>");
                         with_owner(owner, move || {
                             //HydrationCtx::continue_from(current_id);
-                            DynChild::new({ move || children_rendered.clone() })
+                            DynChild::new(move || children_rendered.clone())
                                 .into_view()
                         })
                     }
