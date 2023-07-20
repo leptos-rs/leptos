@@ -21,7 +21,7 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 /// ```rust
 /// use leptos::*;
 /// use leptos_router::*;
-/// 
+///
 /// #[component]
 /// pub fn SimpleQueryCounter(cx: Scope) -> impl IntoView {
 ///     let (count, set_count) = create_query_signal::<i32>(cx, "count");
