@@ -3,27 +3,27 @@ use leptos_meta::*;
 use leptos_router::*;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    provide_meta_context(cx);
+pub fn App() -> impl IntoView {
+    provide_meta_context();
 
     view! {
-        cx,
+
         <Stylesheet id="leptos" href="/pkg/tailwind.css"/>
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Router>
             <Routes>
-                <Route path="" view=  move |cx| view! { cx, <Home/> }/>
+                <Route path="" view=  move || view! { <Home/> }/>
             </Routes>
         </Router>
     }
 }
 
 #[component]
-fn Home(cx: Scope) -> impl IntoView {
-    let (value, set_value) = create_signal(cx, 0);
+fn Home() -> impl IntoView {
+    let (value, set_value) = create_signal(0);
 
     // thanks to https://tailwindcomponents.com/component/blue-buttons-example for the showcase layout
-    view! { cx,
+    view! {
         <Title text="Leptos + Tailwindcss"/>
         <main>
             <div class="bg-gradient-to-tl from-blue-800 to-blue-500 text-white font-mono flex flex-col min-h-screen">

@@ -103,9 +103,9 @@
 //! use leptos::*;
 //!
 //! #[component]
-//! pub fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
+//! pub fn SimpleCounter( initial_value: i32) -> impl IntoView {
 //!     // create a reactive signal with the initial value
-//!     let (value, set_value) = create_signal(cx, initial_value);
+//!     let (value, set_value) = create_signal( initial_value);
 //!
 //!     // create event handlers for our buttons
 //!     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -115,7 +115,7 @@
 //!
 //!     // this JSX is compiled to an HTML template string for performance
 //!     view! {
-//!         cx,
+//!         
 //!         <div>
 //!             <button on:click=clear>"Clear"</button>
 //!             <button on:click=decrement>"-1"</button>
@@ -132,12 +132,12 @@
 //! # if false { // can't run in doctests
 //!
 //! #[component]
-//! fn SimpleCounter(cx: Scope, initial_value: i32) -> impl IntoView {
+//! fn SimpleCounter(initial_value: i32) -> impl IntoView {
 //!     todo!()
 //! }
 //!
 //! pub fn main() {
-//!     mount_to_body(|cx| view! { cx,  <SimpleCounter initial_value=3 /> })
+//!     mount_to_body(|| view! {   <SimpleCounter initial_value=3 /> })
 //! }
 //! # }
 //! ```
@@ -208,15 +208,15 @@ extern crate self as leptos;
 
 /// The most common type for the `children` property on components,
 /// which can only be called once.
-pub type Children = Box<dyn FnOnce(Scope) -> Fragment>;
+pub type Children = Box<dyn FnOnce() -> Fragment>;
 
 /// A type for the `children` property on components that can be called
 /// more than once.
-pub type ChildrenFn = Box<dyn Fn(Scope) -> Fragment>;
+pub type ChildrenFn = Box<dyn Fn() -> Fragment>;
 
 /// A type for the `children` property on components that can be called
 /// more than once, but may mutate the children.
-pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
+pub type ChildrenFnMut = Box<dyn FnMut() -> Fragment>;
 
 /// A type for taking anything that implements [`IntoAttribute`].
 ///
@@ -225,12 +225,11 @@ pub type ChildrenFnMut = Box<dyn FnMut(Scope) -> Fragment>;
 ///
 /// #[component]
 /// pub fn MyHeading(
-///     cx: Scope,
 ///     text: String,
 ///     #[prop(optional, into)] class: Option<AttributeValue>,
 /// ) -> impl IntoView {
 ///     view! {
-///       cx,
+///
 ///       <h1 class=class>{text}</h1>
 ///     }
 /// }
@@ -274,14 +273,11 @@ impl PropsOrNoPropsBuilder for EmptyPropsBuilder {
     }
 }
 
-impl<F, R> Component<EmptyPropsBuilder> for F where
-    F: FnOnce(::leptos::Scope) -> R
-{
-}
+impl<F, R> Component<EmptyPropsBuilder> for F where F: FnOnce() -> R {}
 
 impl<P, F, R> Component<P> for F
 where
-    F: FnOnce(::leptos::Scope, P) -> R,
+    F: FnOnce(P) -> R,
     P: Props,
 {
 }
@@ -294,36 +290,32 @@ pub fn component_props_builder<P: PropsOrNoPropsBuilder>(
 }
 
 #[doc(hidden)]
-pub fn component_view<P>(
-    f: impl ComponentConstructor<P>,
-    cx: Scope,
-    props: P,
-) -> View {
-    f.construct(cx, props)
+pub fn component_view<P>(f: impl ComponentConstructor<P>, props: P) -> View {
+    f.construct(props)
 }
 
 #[doc(hidden)]
 pub trait ComponentConstructor<P> {
-    fn construct(self, cx: Scope, props: P) -> View;
+    fn construct(self, props: P) -> View;
 }
 
 impl<Func, V> ComponentConstructor<()> for Func
 where
-    Func: FnOnce(Scope) -> V,
+    Func: FnOnce() -> V,
     V: IntoView,
 {
-    fn construct(self, cx: Scope, (): ()) -> View {
-        (self)(cx).into_view(cx)
+    fn construct(self, (): ()) -> View {
+        (self)().into_view()
     }
 }
 
 impl<Func, V, P> ComponentConstructor<P> for Func
 where
-    Func: FnOnce(Scope, P) -> V,
+    Func: FnOnce(P) -> V,
     V: IntoView,
     P: PropsOrNoPropsBuilder,
 {
-    fn construct(self, cx: Scope, props: P) -> View {
-        (self)(cx, props).into_view(cx)
+    fn construct(self, props: P) -> View {
+        (self)(props).into_view()
     }
 }

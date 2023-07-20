@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
 use quote::ToTokens;
 use rstml::{node::KeyedAttribute, parse};
-use server_fn_macro::{server_macro_impl, ServerContext};
+use server_fn_macro::server_macro_impl;
 use syn::parse_macro_input;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -44,7 +44,8 @@ mod template;
 /// 1. Text content should be provided as a Rust string, i.e., double-quoted:
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! { cx, <p>"Here’s some text"</p> };
 /// # }
@@ -54,7 +55,8 @@ mod template;
 /// 2. Self-closing tags need an explicit `/` as in XML/XHTML
 /// ```rust,compile_fail
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ❌ not like this
 /// view! { cx, <input type="text" name="name"> }
@@ -64,7 +66,8 @@ mod template;
 /// ```
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// // ✅ add that slash
 /// view! { cx, <input type="text" name="name" /> }
@@ -96,7 +99,8 @@ mod template;
 ///
 /// ```rust,ignore
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 0);
 ///
@@ -118,7 +122,8 @@ mod template;
 ///    based on the event name.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// view! {
 ///   cx,
@@ -138,7 +143,8 @@ mod template;
 ///    and `None` deletes the property.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (name, set_name) = create_signal(cx, "Alice".to_string());
 ///
@@ -160,7 +166,8 @@ mod template;
 /// 7. Classes can be toggled with `class:` attributes, which take a `bool` (or a signal that returns a `bool`).
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// view! { cx, <div class:hidden-div={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
@@ -184,7 +191,8 @@ mod template;
 /// Class names cannot include special symbols.
 /// ```rust,compile_fail
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// // class:hidden-[div]-25 is invalid attribute name
@@ -197,7 +205,8 @@ mod template;
 /// However, you can pass arbitrary class names using the syntax `class=("name", value)`.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
 /// // this allows you to use CSS frameworks that include complex class names
@@ -216,7 +225,8 @@ mod template;
 /// 8. Individual styles can also be set with `style:` or `style=("property-name", value)` syntax.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (x, set_x) = create_signal(cx, 0);
 /// let (y, set_y) = create_signal(cx, 0);
@@ -239,7 +249,8 @@ mod template;
 ///    [NodeRef](https://docs.rs/leptos/latest/leptos/struct.NodeRef.html) to use later.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// use leptos::html::Input;
 ///
@@ -257,7 +268,8 @@ mod template;
 ///    provided by a scoped styling library.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let class = "mycustomclass";
 /// view! { cx, class = class,
@@ -275,7 +287,8 @@ mod template;
 ///     only contains trusted input.
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let html = "<p>This HTML will be injected.</p>";
 /// view! { cx,
@@ -324,71 +337,55 @@ mod template;
 pub fn view(tokens: TokenStream) -> TokenStream {
     let tokens: proc_macro2::TokenStream = tokens.into();
     let mut tokens = tokens.into_iter();
-    let (cx, comma) = (tokens.next(), tokens.next());
 
-    match (cx, comma) {
-        (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
-            if punct.as_char() == ',' =>
+    let first = tokens.next();
+    let second = tokens.next();
+    let third = tokens.next();
+    let fourth = tokens.next();
+    let global_class = match (&first, &second) {
+        (Some(TokenTree::Ident(first)), Some(TokenTree::Punct(eq)))
+            if *first == "class" && eq.as_char() == '=' =>
         {
-            let first = tokens.next();
-            let second = tokens.next();
-            let third = tokens.next();
-            let fourth = tokens.next();
-            let global_class = match (&first, &second) {
-                (Some(TokenTree::Ident(first)), Some(TokenTree::Punct(eq)))
-                    if *first == "class" && eq.as_char() == '=' =>
-                {
-                    match &fourth {
-                        Some(TokenTree::Punct(comma))
-                            if comma.as_char() == ',' =>
-                        {
-                            third.clone()
-                        }
-                        _ => {
-                            abort!(
-                                punct, "To create a scope class with the view! macro you must put a comma `,` after the value";
-                                help = r#"e.g., view!{cx, class="my-class", <div>...</div>}"#
-                            )
-                        }
-                    }
+            match &fourth {
+                Some(TokenTree::Punct(comma)) if comma.as_char() == ',' => {
+                    third.clone()
                 }
-                _ => None,
-            };
-            let tokens = if global_class.is_some() {
-                tokens.collect::<proc_macro2::TokenStream>()
-            } else {
-                [first, second, third, fourth]
-                    .into_iter()
-                    .flatten()
-                    .chain(tokens)
-                    .collect()
-            };
-            let config = rstml::ParserConfig::default().recover_block(true);
-            let parser = rstml::Parser::new(config);
-            let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
-            let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
-            let nodes_output = render_view(
-                &cx,
-                &nodes,
-                Mode::default(),
-                global_class.as_ref(),
-                normalized_call_site(proc_macro::Span::call_site()),
-            );
-            quote! {
-                {
-                    #(#errors;)*
-                    #nodes_output
+                _ => {
+                    abort!(
+                        second, "To create a scope class with the view! macro you must put a comma `,` after the value";
+                        help = r#"e.g., view!{ class="my-class", <div>...</div>}"#
+                    )
                 }
             }
-            .into()
         }
-        _ => {
-            abort_call_site!(
-                "view! macro needs a context and RSX: e.g., view! {{ cx, \
-                 <div>...</div> }}"
-            )
+        _ => None,
+    };
+    let tokens = if global_class.is_some() {
+        tokens.collect::<proc_macro2::TokenStream>()
+    } else {
+        [first, second, third, fourth]
+            .into_iter()
+            .flatten()
+            .chain(tokens)
+            .collect()
+    };
+    let config = rstml::ParserConfig::default().recover_block(true);
+    let parser = rstml::Parser::new(config);
+    let (nodes, errors) = parser.parse_recoverable(tokens).split_vec();
+    let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+    let nodes_output = render_view(
+        &nodes,
+        Mode::default(),
+        global_class.as_ref(),
+        normalized_call_site(proc_macro::Span::call_site()),
+    );
+    quote! {
+        {
+            #(#errors;)*
+            #nodes_output
         }
     }
+    .into()
 }
 
 fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
@@ -413,30 +410,11 @@ fn normalized_call_site(site: proc_macro::Span) -> Option<String> {
 #[proc_macro]
 pub fn template(tokens: TokenStream) -> TokenStream {
     if cfg!(feature = "csr") {
-        let tokens: proc_macro2::TokenStream = tokens.into();
-        let mut tokens = tokens.into_iter();
-        let (cx, comma) = (tokens.next(), tokens.next());
-        match (cx, comma) {
-            (Some(TokenTree::Ident(cx)), Some(TokenTree::Punct(punct)))
-                if punct.as_char() == ',' =>
-            {
-                match parse(tokens.collect::<proc_macro2::TokenStream>().into())
-                {
-                    Ok(nodes) => render_template(
-                        &proc_macro2::Ident::new(&cx.to_string(), cx.span()),
-                        &nodes,
-                    ),
-                    Err(error) => error.to_compile_error(),
-                }
-                .into()
-            }
-            _ => {
-                abort_call_site!(
-                    "view! macro needs a context and RSX: e.g., view! {{ cx, \
-                     <div>...</div> }}"
-                )
-            }
+        match parse(tokens) {
+            Ok(nodes) => render_template(&nodes),
+            Err(error) => error.to_compile_error(),
         }
+        .into()
     } else {
         view(tokens)
     }
@@ -904,15 +882,11 @@ pub fn slot(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
-    let context = ServerContext {
-        ty: syn::parse_quote!(Scope),
-        path: syn::parse_quote!(::leptos::Scope),
-    };
     match server_macro_impl(
         args.into(),
         s.into(),
         syn::parse_quote!(::leptos::leptos_server::ServerFnTraitObj),
-        Some(context),
+        None,
         Some(syn::parse_quote!(::leptos::server_fn)),
     ) {
         Err(e) => e.to_compile_error().into(),

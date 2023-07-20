@@ -23,7 +23,7 @@ cfg_if! {
             let addr = conf.leptos_options.site_addr;
 
             // Generate the list of routes in your Leptos App
-            let routes = generate_route_list(|cx| view! { cx, <App/> });
+            let routes = generate_route_list(|| view! { <App/> });
 
             HttpServer::new(move || {
                 let leptos_options = &conf.leptos_options;
@@ -31,7 +31,7 @@ cfg_if! {
                 let routes = &routes;
                 App::new()
                     .service(css)
-                    .leptos_routes(leptos_options.to_owned(), routes.to_owned(), |cx| view! { cx, <App/> })
+                    .leptos_routes(leptos_options.to_owned(), routes.to_owned(), || view! { <App/> })
                     .service(Files::new("/", site_root))
                     .wrap(middleware::Compress::default())
             })

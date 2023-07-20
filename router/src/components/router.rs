@@ -17,13 +17,12 @@ use wasm_bindgen::JsCast;
 /// the root of the application.
 #[component]
 pub fn Router(
-    cx: Scope,
     /// The base URL for the router. Defaults to "".
     #[prop(optional)]
     base: Option<&'static str>,
     /// A fallback that should be shown if no route is matched.
     #[prop(optional)]
-    fallback: Option<fn(Scope) -> View>,
+    fallback: Option<fn() -> View>,
     /// A signal that will be set while the navigation process is underway.
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
@@ -33,14 +32,14 @@ pub fn Router(
     children: Children,
 ) -> impl IntoView {
     // create a new RouterContext and provide it to every component beneath the router
-    let router = RouterContext::new(cx, base, fallback);
-    provide_context(cx, router);
-    provide_context(cx, GlobalSuspenseContext::new(cx));
+    let router = RouterContext::new(base, fallback);
+    provide_context(router);
+    provide_context(GlobalSuspenseContext::new());
     if let Some(set_is_routing) = set_is_routing {
-        provide_context(cx, SetIsRouting(set_is_routing));
+        provide_context(SetIsRouting(set_is_routing));
     }
 
-    children(cx)
+    children()
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -58,7 +57,7 @@ pub(crate) struct RouterContextInner {
     #[allow(unused)] // used in CSR/hydrate
     base_path: String,
     history: Box<dyn History>,
-    cx: Scope,
+
     reference: ReadSignal<String>,
     set_reference: WriteSignal<String>,
     referrers: Rc<RefCell<Vec<LocationChange>>>,
@@ -73,7 +72,6 @@ impl std::fmt::Debug for RouterContextInner {
         f.debug_struct("RouterContextInner")
             .field("location", &self.location)
             .field("base", &self.base)
-            .field("cx", &self.cx)
             .field("reference", &self.reference)
             .field("set_reference", &self.set_reference)
             .field("referrers", &self.referrers)
@@ -90,20 +88,19 @@ impl RouterContext {
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn new(
-        cx: Scope,
         base: Option<&'static str>,
-        fallback: Option<fn(Scope) -> View>,
+        fallback: Option<fn() -> View>,
     ) -> Self {
         cfg_if! {
             if #[cfg(any(feature = "csr", feature = "hydrate"))] {
-                let history = use_context::<RouterIntegrationContext>(cx)
+                let history = use_context::<RouterIntegrationContext>()
                     .unwrap_or_else(|| RouterIntegrationContext(Rc::new(crate::BrowserIntegration {})));
             } else {
-                let history = use_context::<RouterIntegrationContext>(cx).unwrap_or_else(|| {
+                let history = use_context::<RouterIntegrationContext>().unwrap_or_else(|| {
                     let msg = "No router integration found.\n\nIf you are using this in the browser, \
                         you should enable `features = [\"csr\"]` or `features = [\"hydrate\"] in your \
                         `leptos_router` import.\n\nIf you are using this on the server without a \
-                        Leptos server integration, you must call provide_context::<RouterIntegrationContext>(cx, ...) \
+                        Leptos server integration, you must call provide_context::<RouterIntegrationContext>(...) \
                         somewhere above the <Router/>.";
                     leptos::debug_warn!("{}", msg);
                     panic!("{}", msg);
@@ -114,7 +111,7 @@ impl RouterContext {
         // Any `History` type gives a way to get a reactive signal of the current location
         // in the browser context, this is drawn from the `popstate` event
         // different server adapters can provide different `History` implementations to allow server routing
-        let source = history.location(cx);
+        let source = history.location();
 
         // if initial route is empty, redirect to base path, if it exists
         let base = base.unwrap_or_default();
@@ -133,24 +130,24 @@ impl RouterContext {
 
         // the current URL
         let (reference, set_reference) =
-            create_signal(cx, source.with_untracked(|s| s.value.clone()));
+            create_signal(source.with_untracked(|s| s.value.clone()));
 
         // the current History.state
         let (state, set_state) =
-            create_signal(cx, source.with_untracked(|s| s.state.clone()));
+            create_signal(source.with_untracked(|s| s.state.clone()));
 
         // we'll use this transition to wait for async resources to load when navigating to a new route
         #[cfg(feature = "transition")]
-        let transition = use_transition(cx);
+        let transition = use_transition();
 
         // Each field of `location` reactively represents a different part of the current location
-        let location = create_location(cx, reference, state);
+        let location = create_location(reference, state);
         let referrers: Rc<RefCell<Vec<LocationChange>>> =
             Rc::new(RefCell::new(Vec::new()));
 
         // Create base route with fallback element
         let base_path = base_path.unwrap_or_default();
-        let base = RouteContext::base(cx, &base_path, fallback);
+        let base = RouteContext::base(&base_path, fallback);
 
         // Every time the History gives us a new location,
         // 1) start a transition
@@ -158,9 +155,9 @@ impl RouterContext {
         // 3) update the state
         // this will trigger the new route match below
 
-        create_render_effect(cx, move |_| {
+        create_render_effect(move |_| {
             let LocationChange { value, state, .. } = source.get();
-            cx.untrack(move || {
+            untrack(move || {
                 if value != reference.get() {
                     set_reference.update(move |r| *r = value);
                     set_state.update(move |s| *s = state);
@@ -170,21 +167,18 @@ impl RouterContext {
 
         let inner = Rc::new(RouterContextInner {
             base_path: base_path.into_owned(),
-            path_stack: store_value(
-                cx,
-                vec![location.pathname.get_untracked()],
-            ),
+            path_stack: store_value(vec![location.pathname.get_untracked()]),
             location,
             base,
             history: Box::new(history),
-            cx,
+
             reference,
             set_reference,
             referrers,
             state,
             set_state,
             possible_routes: Default::default(),
-            is_back: create_rw_signal(cx, false),
+            is_back: create_rw_signal(false),
         });
 
         // handle all click events on anchor tags
@@ -228,10 +222,9 @@ impl RouterContextInner {
         to: &str,
         options: &NavigateOptions,
     ) -> Result<(), NavigationError> {
-        let cx = self.cx;
         let this = Rc::clone(&self);
 
-        cx.untrack(move || {
+        untrack(move || {
             let resolved_to = if options.resolve {
                 this.base.resolve_path(to)
             } else {
@@ -239,7 +232,7 @@ impl RouterContextInner {
             };
 
             // reset count of pending resources at global level
-            expect_context::<GlobalSuspenseContext>(cx).reset(cx);
+            expect_context::<GlobalSuspenseContext>().reset();
 
             match resolved_to {
                 None => Err(NavigationError::NotRoutable(to.to_string())),
@@ -276,7 +269,7 @@ impl RouterContextInner {
                         });
 
                         let global_suspense =
-                            expect_context::<GlobalSuspenseContext>(cx);
+                            expect_context::<GlobalSuspenseContext>();
                         let path_stack = self.path_stack;
                         let is_navigating_back = self.is_back.get_untracked();
                         if !is_navigating_back {
@@ -285,14 +278,14 @@ impl RouterContextInner {
                             });
                         }
 
-                        let set_is_routing = use_context::<SetIsRouting>(cx);
+                        let set_is_routing = use_context::<SetIsRouting>();
                         if let Some(set_is_routing) = set_is_routing {
                             set_is_routing.0.set(true);
                         }
                         spawn_local(async move {
                             if let Some(set_is_routing) = set_is_routing {
                                 global_suspense
-                                    .with_inner(|s| s.to_future(cx))
+                                    .with_inner(|s| s.to_future())
                                     .await;
                                 set_is_routing.0.set(false);
                             }

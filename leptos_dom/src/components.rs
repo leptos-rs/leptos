@@ -14,7 +14,7 @@ pub use dyn_child::*;
 pub use each::*;
 pub use errors::*;
 pub use fragment::*;
-use leptos_reactive::Scope;
+use leptos_reactive::untrack_with_diagnostics;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use once_cell::unsync::OnceCell;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -155,7 +155,7 @@ impl From<ComponentRepr> for View {
 
 impl IntoView for ComponentRepr {
     #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "info", name = "<Component />", skip_all, fields(name = %self.name)))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         self.into()
     }
 }
@@ -232,7 +232,7 @@ impl ComponentRepr {
 /// A user-defined `leptos` component.
 pub struct Component<F, V>
 where
-    F: FnOnce(Scope) -> V,
+    F: FnOnce() -> V,
     V: IntoView,
 {
     id: HydrationKey,
@@ -242,7 +242,7 @@ where
 
 impl<F, V> Component<F, V>
 where
-    F: FnOnce(Scope) -> V,
+    F: FnOnce() -> V,
     V: IntoView,
 {
     /// Creates a new component.
@@ -257,11 +257,11 @@ where
 
 impl<F, V> IntoView for Component<F, V>
 where
-    F: FnOnce(Scope) -> V,
+    F: FnOnce() -> V,
     V: IntoView,
 {
     #[track_caller]
-    fn into_view(self, cx: Scope) -> View {
+    fn into_view(self) -> View {
         let Self {
             id,
             name,
@@ -271,12 +271,10 @@ where
         let mut repr = ComponentRepr::new_with_id(name, id);
 
         // disposed automatically when the parent scope is disposed
-        let (child, _) = cx.run_child_scope(|cx| {
-            cx.untrack_with_diagnostics(|| children_fn(cx).into_view(cx))
-        });
+        let child = untrack_with_diagnostics(|| children_fn().into_view());
 
         repr.children.push(child);
 
-        repr.into_view(cx)
+        repr.into_view()
     }
 }

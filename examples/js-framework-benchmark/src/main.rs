@@ -6,5 +6,5 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let root = document().query_selector("#main").unwrap().unwrap();
-    mount_to(root.unchecked_into(), |cx| view! { cx, <App/> });
+    mount_to(root.unchecked_into(), || view! { <App/> });
 }
