@@ -14,20 +14,20 @@ use web_sys::MouseEvent;
 struct SmallcapsContext(WriteSignal<bool>);
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // just some signals to toggle three classes on our <p>
-    let (red, set_red) = create_signal(cx, false);
-    let (right, set_right) = create_signal(cx, false);
-    let (italics, set_italics) = create_signal(cx, false);
-    let (smallcaps, set_smallcaps) = create_signal(cx, false);
+    let (red, set_red) = create_signal(false);
+    let (right, set_right) = create_signal(false);
+    let (italics, set_italics) = create_signal(false);
+    let (smallcaps, set_smallcaps) = create_signal(false);
 
     // the newtype pattern isn't *necessary* here but is a good practice
     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
     // and makes it easier to refer to it in ButtonC
-    provide_context(cx, SmallcapsContext(set_smallcaps));
+    provide_context(SmallcapsContext(set_smallcaps));
 
     view! {
-        cx,
+
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
@@ -59,12 +59,11 @@ pub fn App(cx: Scope) -> impl IntoView {
 /// Button A receives a signal setter and updates the signal itself
 #[component]
 pub fn ButtonA(
-    cx: Scope,
     /// Signal that will be toggled when the button is clicked.
     setter: WriteSignal<bool>,
 ) -> impl IntoView {
     view! {
-        cx,
+
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -76,7 +75,6 @@ pub fn ButtonA(
 /// Button B receives a closure
 #[component]
 pub fn ButtonB<F>(
-    cx: Scope,
     /// Callback that will be invoked when the button is clicked.
     on_click: F,
 ) -> impl IntoView
@@ -84,7 +82,7 @@ where
     F: Fn(MouseEvent) + 'static,
 {
     view! {
-        cx,
+
         <button
             on:click=on_click
         >
@@ -108,9 +106,9 @@ where
 /// Button C is a dummy: it renders a button but doesn't handle
 /// its click. Instead, the parent component adds an event listener.
 #[component]
-pub fn ButtonC(cx: Scope) -> impl IntoView {
+pub fn ButtonC() -> impl IntoView {
     view! {
-        cx,
+
         <button>
             "Toggle Italics"
         </button>
@@ -120,11 +118,11 @@ pub fn ButtonC(cx: Scope) -> impl IntoView {
 /// Button D is very similar to Button A, but instead of passing the setter as a prop
 /// we get it from the context
 #[component]
-pub fn ButtonD(cx: Scope) -> impl IntoView {
-    let setter = use_context::<SmallcapsContext>(cx).unwrap().0;
+pub fn ButtonD() -> impl IntoView {
+    let setter = use_context::<SmallcapsContext>().unwrap().0;
 
     view! {
-        cx,
+
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >

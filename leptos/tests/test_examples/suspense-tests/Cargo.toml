@@ -14,12 +14,12 @@ console_log = "1"
 cfg-if = "1"
 leptos = { path = "../../..", features = ["serde"] }
 leptos_actix = { path = "../../../../integrations/actix", optional = true }
-leptos_router = { path = "../../../../router"}
+leptos_router = { path = "../../../../router" }
 log = "0.4"
 simple_logger = "4"
 wasm-bindgen = "0.2.87"
 serde = "1.0.159"
-tokio = { version = "1.27.0", features = ["time"], optional = true }
+tokio = { version = "1.29", features = ["time", "rt"], optional = true }
 
 [features]
 hydrate = ["leptos/hydrate", "leptos_router/hydrate"]

@@ -80,10 +80,10 @@ impl std::fmt::Debug for HtmlContext {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
+/// fn MyApp() -> impl IntoView {
+///     provide_meta_context();
 ///
-///     view! { cx,
+///     view! {
 ///       <main>
 ///         <Html
 ///           lang="he"
@@ -97,7 +97,6 @@ impl std::fmt::Debug for HtmlContext {
 /// ```
 #[component(transparent)]
 pub fn Html(
-    cx: Scope,
     /// The `lang` attribute on the `<html>`.
     #[prop(optional, into)]
     lang: Option<TextProp>,
@@ -117,7 +116,7 @@ pub fn Html(
 
             if let Some(lang) = lang {
                 let el = el.clone();
-                create_render_effect(cx, move |_| {
+                create_render_effect(move |_| {
                     let value = lang.get();
                     _ = el.set_attribute("lang", &value);
                 });
@@ -125,7 +124,7 @@ pub fn Html(
 
             if let Some(dir) = dir {
                 let el = el.clone();
-                create_render_effect(cx, move |_| {
+                create_render_effect(move |_| {
                     let value = dir.get();
                     _ = el.set_attribute("dir", &value);
                 });
@@ -133,7 +132,7 @@ pub fn Html(
 
             if let Some(class) = class {
                 let el = el.clone();
-                create_render_effect(cx, move |_| {
+                create_render_effect(move |_| {
                     let value = class.get();
                     _ = el.set_attribute("class", &value);
                 });
@@ -145,14 +144,14 @@ pub fn Html(
                     let el = el.clone();
                     let attr_name = attr_name.to_owned();
                     let attr_value = attr_value.to_owned();
-                    create_render_effect(cx, move |_|{
+                    create_render_effect(move |_|{
                         let value = attr_value.get();
                             _ = el.set_attribute(&attr_name, &value);
                     });
                 }
             }
         } else if #[cfg(feature = "ssr")] {
-            let meta = crate::use_head(cx);
+            let meta = crate::use_head();
             *meta.html.lang.borrow_mut() = lang;
             *meta.html.dir.borrow_mut() = dir;
             *meta.html.class.borrow_mut() = class;

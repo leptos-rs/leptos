@@ -13,9 +13,9 @@ fn category(from: &str) -> &'static str {
 }
 
 #[component]
-pub fn Stories(cx: Scope) -> impl IntoView {
-    let query = use_query_map(cx);
-    let params = use_params_map(cx);
+pub fn Stories() -> impl IntoView {
+    let query = use_query_map();
+    let params = use_params_map();
     let page = move || {
         query
             .with(|q| q.get("page").and_then(|page| page.parse::<usize>().ok()))
@@ -27,28 +27,27 @@ pub fn Stories(cx: Scope) -> impl IntoView {
             .unwrap_or_else(|| "top".to_string())
     };
     let stories = create_resource(
-        cx,
         move || (page(), story_type()),
         move |(page, story_type)| async move {
             let path = format!("{}?page={}", category(&story_type), page);
-            api::fetch_api::<Vec<api::Story>>(cx, &api::story(&path)).await
+            api::fetch_api::<Vec<api::Story>>(&api::story(&path)).await
         },
     );
-    let (pending, set_pending) = create_signal(cx, false);
+    let (pending, set_pending) = create_signal(false);
 
-    let hide_more_link = move |cx| {
+    let hide_more_link = move || {
         pending()
-            || stories.read(cx).unwrap_or(None).unwrap_or_default().len() < 28
+            || stories.read().unwrap_or(None).unwrap_or_default().len() < 28
     };
 
     view! {
-        cx,
+
         <div class="news-view">
             <div class="news-list-nav">
                 <span>
                     {move || if page() > 1 {
                         view! {
-                            cx,
+
                             <a class="page-link"
                                 href=move || format!("/{}?page={}", story_type(), page() - 1)
                                 attr:aria_label="Previous Page"
@@ -58,7 +57,7 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                         }.into_any()
                     } else {
                         view! {
-                            cx,
+
                             <span class="page-link disabled" aria-hidden="true">
                                 "< prev"
                             </span>
@@ -67,11 +66,11 @@ pub fn Stories(cx: Scope) -> impl IntoView {
                 </span>
                 <span>"page " {page}</span>
                 <Transition
-                    fallback=move || view! { cx,  <p>"Loading..."</p> }
+                    fallback=move || view! {  <p>"Loading..."</p> }
                 >
                     <span class="page-link"
-                        class:disabled=move || hide_more_link(cx)
-                        aria-hidden=move || hide_more_link(cx)
+                        class:disabled=move || hide_more_link()
+                        aria-hidden=move || hide_more_link()
                     >
                         <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                             aria-label="Next Page"
@@ -84,20 +83,20 @@ pub fn Stories(cx: Scope) -> impl IntoView {
             <main class="news-list">
                 <div>
                     <Transition
-                        fallback=move || view! { cx,  <p>"Loading..."</p> }
+                        fallback=move || view! {  <p>"Loading..."</p> }
                         set_pending=set_pending.into()
                     >
-                        {move || match stories.read(cx) {
+                        {move || match stories.read() {
                             None => None,
-                            Some(None) => Some(view! { cx,  <p>"Error loading stories."</p> }.into_any()),
+                            Some(None) => Some(view! {  <p>"Error loading stories."</p> }.into_any()),
                             Some(Some(stories)) => {
-                                Some(view! { cx,
+                                Some(view! {
                                     <ul>
                                         <For
                                             each=move || stories.clone()
                                             key=|story| story.id
-                                            view=move |cx, story: api::Story| {
-                                                view! { cx,
+                                            view=move |story: api::Story| {
+                                                view! {
                                                     <Story story/>
                                                 }
                                             }
@@ -114,32 +113,32 @@ pub fn Stories(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn Story(cx: Scope, story: api::Story) -> impl IntoView {
-    view! { cx,
+fn Story(story: api::Story) -> impl IntoView {
+    view! {
          <li class="news-item">
             <span class="score">{story.points}</span>
             <span class="title">
                 {if !story.url.starts_with("item?id=") {
-                    view! { cx,
+                    view! {
                         <span>
                             <a href=story.url target="_blank" rel="noreferrer">
                                 {story.title.clone()}
                             </a>
                             <span class="host">"("{story.domain}")"</span>
                         </span>
-                    }.into_view(cx)
+                    }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! { cx,  <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view(cx)
+                    view! {  <A href=format!("/stories/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
             <br />
             <span class="meta">
                 {if story.story_type != "job" {
-                    view! { cx,
+                    view! {
                         <span>
                             {"by "}
-                            {story.user.map(|user| view ! { cx, <A href=format!("/users/{user}")>{user.clone()}</A>})}
+                            {story.user.map(|user| view ! { <A href=format!("/users/{user}")>{user.clone()}</A>})}
                             {format!(" {} | ", story.time_ago)}
                             <A href=format!("/stories/{}", story.id)>
                                 {if story.comments_count.unwrap_or_default() > 0 {
@@ -149,13 +148,13 @@ fn Story(cx: Scope, story: api::Story) -> impl IntoView {
                                 }}
                             </A>
                         </span>
-                    }.into_view(cx)
+                    }.into_view()
                 } else {
                     let title = story.title.clone();
-                    view! { cx,  <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view(cx)
+                    view! {  <A href=format!("/item/{}", story.id)>{title.clone()}</A> }.into_view()
                 }}
             </span>
-            {(story.story_type != "link").then(|| view! { cx,
+            {(story.story_type != "link").then(|| view! {
                 " "
                 <span class="label">{story.story_type}</span>
             })}

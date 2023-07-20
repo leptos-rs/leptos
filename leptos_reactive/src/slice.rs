@@ -1,5 +1,5 @@
 use crate::{
-    create_memo, IntoSignalSetter, RwSignal, Scope, Signal, SignalSetter,
+    create_memo, IntoSignalSetter, RwSignal, Signal, SignalSetter,
     SignalUpdate, SignalWith,
 };
 
@@ -20,7 +20,7 @@ use crate::{
 /// the token signal, but none of the other derived signals.
 /// ```
 /// # use leptos_reactive::*;
-/// # let (cx, disposer) = raw_scope_and_disposer(create_runtime());
+/// # let (disposer) = raw_scope_and_disposer(create_runtime());
 ///
 /// // some global state with independent fields
 /// #[derive(Default, Clone, Debug)]
@@ -29,11 +29,10 @@ use crate::{
 ///     name: String,
 /// }
 ///
-/// let state = create_rw_signal(cx, GlobalState::default());
+/// let state = create_rw_signal(GlobalState::default());
 ///
 /// // `create_slice` lets us create a "lens" into the data
 /// let (count, set_count) = create_slice(
-///     cx,
 ///     // we take a slice *from* `state`
 ///     state,
 ///     // our getter returns a "slice" of the data
@@ -45,7 +44,6 @@ use crate::{
 /// // this slice is completely independent of the `count` slice
 /// // neither of them will cause the other to rerun
 /// let (name, set_name) = create_slice(
-///     cx,
 ///     // we take a slice *from* `state`
 ///     state,
 ///     // our getter returns a "slice" of the data
@@ -54,11 +52,11 @@ use crate::{
 ///     |state, n| state.name = n,
 /// );
 ///
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///     // note: in the browser, use leptos::log! instead
 ///     println!("name is {}", name.get());
 /// });
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///     println!("count is {}", count.get());
 /// });
 ///
@@ -70,7 +68,6 @@ use crate::{
 /// ```
 #[track_caller]
 pub fn create_slice<T, O, S>(
-    cx: Scope,
     signal: RwSignal<T>,
     getter: impl Fn(&T) -> O + Clone + Copy + 'static,
     setter: impl Fn(&mut T, S) + Clone + Copy + 'static,
@@ -79,8 +76,8 @@ where
     O: PartialEq,
 {
     (
-        create_read_slice(cx, signal, getter),
-        create_write_slice(cx, signal, setter),
+        create_read_slice(signal, getter),
+        create_write_slice(signal, setter),
     )
 }
 
@@ -88,24 +85,22 @@ where
 /// read-only half of [`create_slice`].
 #[track_caller]
 pub fn create_read_slice<T, O>(
-    cx: Scope,
     signal: RwSignal<T>,
     getter: impl Fn(&T) -> O + Clone + Copy + 'static,
 ) -> Signal<O>
 where
     O: PartialEq,
 {
-    create_memo(cx, move |_| signal.with(getter)).into()
+    create_memo(move |_| signal.with(getter)).into()
 }
 
 /// Creates a setter to access one slice of a signal. This is equivalent to the
 /// write-only half of [`create_slice`].
 #[track_caller]
 pub fn create_write_slice<T, O>(
-    cx: Scope,
     signal: RwSignal<T>,
     setter: impl Fn(&mut T, O) + Clone + Copy + 'static,
 ) -> SignalSetter<O> {
     let setter = move |value| signal.update(|x| setter(x, value));
-    setter.mapped_signal_setter(cx)
+    setter.mapped_signal_setter()
 }

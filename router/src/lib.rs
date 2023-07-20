@@ -33,9 +33,9 @@
 //! use leptos_router::*;
 //!
 //! #[component]
-//! pub fn RouterExample(cx: Scope) -> impl IntoView {
+//! pub fn RouterExample() -> impl IntoView {
 //!   view! {
-//!     cx,
+//!     
 //!     <div id="root">
 //!       // we wrap the whole app in a <Router/> to allow client-side navigation
 //!       // from our nav links below
@@ -66,7 +66,7 @@
 //!               // a fallback if the /:id segment is missing from the URL
 //!               <Route
 //!                 path=""
-//!                 view=move |_| view! { cx, <p class="contact">"Select a contact."</p> }
+//!                 view=move || view! { cx,  <p class="contact">"Select a contact."</p> }
 //!               />
 //!             </Route>
 //!             // LR will automatically use this for /about, not the /:id match above
@@ -96,15 +96,15 @@
 //! }
 //!
 //! #[component]
-//! fn ContactList(cx: Scope) -> impl IntoView {
+//! fn ContactList() -> impl IntoView {
 //!   // loads the contact list data once; doesn't reload when nested routes change
-//!   let contacts = create_resource(cx, || (), |_| contact_list_data());
+//!   let contacts = create_resource(|| (), |_| contact_list_data());
 //!   view! {
-//!     cx,
+//!     
 //!     <div>
 //!       // show the contacts
 //!       <ul>
-//!         {move || contacts.read(cx).map(|contacts| view! { cx, <li>"todo contact info"</li> } )}
+//!         {move || contacts.read().map(|contacts| view! { <li>"todo contact info"</li> } )}
 //!       </ul>
 //!
 //!       // insert the nested child route here
@@ -114,10 +114,10 @@
 //! }
 //!
 //! #[component]
-//! fn Contact(cx: Scope) -> impl IntoView {
-//!   let params = use_params_map(cx);
+//! fn Contact() -> impl IntoView {
+//!   let params = use_params_map();
 //!   let data = create_resource(
-//!     cx,
+//!     
 //!     move || params.with(|p| p.get("id").cloned().unwrap_or_default()),
 //!     move |id| contact_data(id)
 //!   );
@@ -125,7 +125,7 @@
 //! }
 //!
 //! #[component]
-//! fn About(cx: Scope) -> impl IntoView {
+//! fn About() -> impl IntoView {
 //!   todo!()
 //! }
 //! ```
@@ -139,12 +139,12 @@
 //! use leptos_router::*;
 //!
 //! #[component]
-//! pub fn App(cx: Scope) -> impl IntoView {
-//!   view! { cx,
+//! pub fn App() -> impl IntoView {
+//!   view! {
 //!     <Router>
 //!       <Routes>
-//!         <Route path="/" view=move |cx| {
-//!           view! { cx, "-> /" }
+//!         <Route path="/" view=move || {
+//!           view! { "-> /" }
 //!         }/>
 //!         <ExternallyDefinedRoute/>
 //!       </Routes>
@@ -154,19 +154,19 @@
 //!
 //! // `transparent` here marks the component as returning data (a RouteDefinition), not a view
 //! #[component(transparent)]
-//! pub fn ExternallyDefinedRoute(cx: Scope) -> impl IntoView {
-//!   view! { cx,
-//!     <Route path="/some-area" view=move |cx| {
-//!       view! { cx, <div>
+//! pub fn ExternallyDefinedRoute() -> impl IntoView {
+//!   view! {
+//!     <Route path="/some-area" view=move || {
+//!       view! { <div>
 //!         <h2>"Some Area"</h2>
 //!         <Outlet/>
 //!       </div> }
 //!     }>
-//!       <Route path="/path-a/:id" view=move |cx| {
-//!         view! { cx, <p>"Path A"</p> }
+//!       <Route path="/path-a/:id" view=move || {
+//!         view! { <p>"Path A"</p> }
 //!       }/>
-//!       <Route path="/path-b/:id" view=move |cx| {
-//!         view! { cx, <p>"Path B"</p> }
+//!       <Route path="/path-b/:id" view=move || {
+//!         view! { <p>"Path B"</p> }
 //!       }/>
 //!     </Route>
 //!   }

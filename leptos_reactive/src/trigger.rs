@@ -4,8 +4,8 @@ use crate::{
     diagnostics,
     diagnostics::*,
     node::NodeId,
-    runtime::{with_runtime, RuntimeId},
-    Scope, ScopeProperty, SignalGet, SignalSet, SignalUpdate,
+    runtime::{with_runtime, Runtime, RuntimeId},
+    SignalGet, SignalSet, SignalUpdate,
 };
 
 /// Reactive Trigger, notifies reactive code to rerun.
@@ -91,19 +91,10 @@ impl Trigger {
 /// # }
 /// # }).dispose();
 /// ```
-#[cfg_attr(
-    debug_assertions,
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(scope = ?cx.id)
-    )
-)]
+#[cfg_attr(debug_assertions, instrument(level = "trace", skip_all,))]
 #[track_caller]
-pub fn create_trigger(cx: Scope) -> Trigger {
-    let t = cx.runtime.create_trigger();
-    cx.push_scope_property(ScopeProperty::Trigger(t.id));
-    t
+pub fn create_trigger() -> Trigger {
+    Runtime::current().create_trigger()
 }
 
 impl SignalGet<()> for Trigger {

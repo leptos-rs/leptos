@@ -64,9 +64,9 @@ impl std::fmt::Debug for BodyContext {
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
-///     let (prefers_dark, set_prefers_dark) = create_signal(cx, false);
+/// fn MyApp() -> impl IntoView {
+///     provide_meta_context();
+///     let (prefers_dark, set_prefers_dark) = create_signal(false);
 ///     let body_class = move || {
 ///         if prefers_dark.get() {
 ///             "dark".to_string()
@@ -75,7 +75,7 @@ impl std::fmt::Debug for BodyContext {
 ///         }
 ///     };
 ///
-///     view! { cx,
+///     view! {
 ///       <main>
 ///         <Body class=body_class/>
 ///       </main>
@@ -84,7 +84,6 @@ impl std::fmt::Debug for BodyContext {
 /// ```
 #[component(transparent)]
 pub fn Body(
-    cx: Scope,
     /// The `class` attribute on the `<body>`.
     #[prop(optional, into)]
     class: Option<TextProp>,
@@ -97,7 +96,7 @@ pub fn Body(
             let el = document().body().expect("there to be a <body> element");
 
             if let Some(class) = class {
-                create_render_effect(cx, {
+                create_render_effect({
                     let el = el.clone();
                     move |_| {
                         let value = class.get();
@@ -112,14 +111,14 @@ pub fn Body(
                     let el = el.clone();
                     let attr_name = attr_name.to_owned();
                     let attr_value = attr_value.to_owned();
-                    create_render_effect(cx, move |_|{
+                    create_render_effect(move |_|{
                         let value = attr_value.get();
                             _ = el.set_attribute(&attr_name, &value);
                     });
                 }
             }
         } else if #[cfg(feature = "ssr")] {
-            let meta = crate::use_head(cx);
+            let meta = crate::use_head();
             *meta.body.class.borrow_mut() = class;
             *meta.body.attributes.borrow_mut() = attributes;
         } else {

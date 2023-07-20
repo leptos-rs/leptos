@@ -1,7 +1,6 @@
 use leptos::component;
 use leptos_dom::{Fragment, IntoView};
-use leptos_reactive::{create_memo, signal_prelude::*, Scope, ScopeDisposer};
-use std::{cell::RefCell, rc::Rc};
+use leptos_reactive::{create_memo, signal_prelude::*};
 
 /// A component that will show its children when the `when` condition is `true`,
 /// and show the fallback when it is `false`, without rerendering every time
@@ -17,12 +16,12 @@ use std::{cell::RefCell, rc::Rc};
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
-/// let (value, set_value) = create_signal(cx, 0);
+/// let (value, set_value) = create_signal(0);
 ///
-/// view! { cx,
+/// view! {
 ///   <Show
 ///     when=move || value.get() < 5
-///     fallback=|cx| view! { cx, "Big number!" }
+///     fallback=|| view! {  "Big number!" }
 ///   >
 ///     "Small number!"
 ///   </Show>
@@ -36,9 +35,9 @@ use std::{cell::RefCell, rc::Rc};
 #[component]
 pub fn Show<F, W, IV>(
     /// The scope the component is running in
-    cx: Scope,
+
     /// The components Show wraps
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn Fn() -> Fragment>,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false
@@ -46,22 +45,13 @@ pub fn Show<F, W, IV>(
 ) -> impl IntoView
 where
     W: Fn() -> bool + 'static,
-    F: Fn(Scope) -> IV + 'static,
+    F: Fn() -> IV + 'static,
     IV: IntoView,
 {
-    let memoized_when = create_memo(cx, move |_| when());
-    let prev_disposer = Rc::new(RefCell::new(None::<ScopeDisposer>));
+    let memoized_when = create_memo(move |_| when());
 
-    move || {
-        if let Some(disposer) = prev_disposer.take() {
-            disposer.dispose();
-        }
-        let (view, disposer) =
-            cx.run_child_scope(|cx| match memoized_when.get() {
-                true => children(cx).into_view(cx),
-                false => fallback(cx).into_view(cx),
-            });
-        *prev_disposer.borrow_mut() = Some(disposer);
-        view
+    move || match memoized_when.get() {
+        true => children().into_view(),
+        false => fallback().into_view(),
     }
 }
