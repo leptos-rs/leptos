@@ -33,8 +33,8 @@ where
 /// ```rust
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 2);
-/// let set_double_input = SignalSetter::map(cx, move |n| set_count.set(n * 2));
+/// let (count, set_count) = create_signal(2);
+/// let set_double_input = SignalSetter::map(move |n| set_count.set(n * 2));
 ///
 /// // this function takes any kind of signal setter
 /// fn set_to_4(setter: &SignalSetter<i32>) {
@@ -114,8 +114,8 @@ where
     /// ```rust
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let set_double_count = SignalSetter::map(cx, move |n| set_count.set(n * 2));
+    /// let (count, set_count) = create_signal(2);
+    /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
@@ -150,8 +150,8 @@ where
     /// ```rust
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
-    /// let (count, set_count) = create_signal(cx, 2);
-    /// let set_double_count = SignalSetter::map(cx, move |n| set_count.set(n * 2));
+    /// let (count, set_count) = create_signal(2);
+    /// let set_double_count = SignalSetter::map(move |n| set_count.set(n * 2));
     ///
     /// // this function takes any kind of signal setter
     /// fn set_to_4(setter: &SignalSetter<i32>) {
