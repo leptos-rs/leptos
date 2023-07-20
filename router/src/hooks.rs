@@ -17,6 +17,28 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 /// The function operates with types that can be parsed from and formatted into strings, denoted by `T`.
 /// If the parsing fails for any reason, the function treats the value as `None`.
 /// The URL parameter can be cleared by setting the signal to `None`.
+///
+/// ```rust
+/// use leptos::*;
+/// use leptos_router::*;
+/// 
+/// #[component]
+/// pub fn SimpleQueryCounter(cx: Scope) -> impl IntoView {
+///     let (count, set_count) = create_query_signal::<i32>(cx, "count");
+///     let clear = move |_| set_count(None);
+///     let decrement = move |_| set_count(Some(count().unwrap_or(0) - 1));
+///     let increment = move |_| set_count(Some(count().unwrap_or(0) + 1));
+/// 
+///     view! { cx,
+///         <div>
+///             <button on:click=clear>"Clear"</button>
+///             <button on:click=decrement>"-1"</button>
+///             <span>"Value: " {move || count().unwrap_or(0)} "!"</span>
+///             <button on:click=increment>"+1"</button>
+///         </div>
+///     }
+/// }
+/// ```
 pub fn create_query_signal<T>(
     cx: Scope,
     key: impl Into<Cow<'static, str>>,
