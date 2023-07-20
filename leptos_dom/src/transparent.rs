@@ -1,5 +1,4 @@
 use crate::{IntoView, View};
-use leptos_reactive::Scope;
 use std::{any::Any, fmt, rc::Rc};
 
 /// Wrapper for arbitrary data that can be passed through the view.
@@ -44,7 +43,7 @@ impl Eq for Transparent {}
 
 impl IntoView for Transparent {
     #[inline(always)]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         View::Transparent(self)
     }
 }

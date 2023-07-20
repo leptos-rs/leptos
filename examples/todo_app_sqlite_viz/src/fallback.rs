@@ -32,7 +32,7 @@ if #[cfg(feature = "ssr")] {
             errors.insert_with_default_key(TodoAppError::NotFound);
             let handler = leptos_viz::render_app_to_stream(
                 options.to_owned(),
-                move |cx| view! {cx, <ErrorTemplate outside_errors=errors.clone()/>},
+                move || view! {<ErrorTemplate outside_errors=errors.clone()/>},
             );
             handler(req).await
         }

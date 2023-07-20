@@ -14,20 +14,20 @@ pub async fn cause_internal_server_error() -> Result<(), ServerFnError> {
 }
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    //let id = use_context::<String>(cx);
-    provide_meta_context(cx);
+pub fn App() -> impl IntoView {
+    //let id = use_context::<String>();
+    provide_meta_context();
     view! {
-        cx,
+
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/errors_axum.css"/>
-        <Router fallback=|cx| {
+        <Router fallback=|| {
             let mut outside_errors = Errors::default();
             outside_errors.insert_with_default_key(AppError::NotFound);
-            view! { cx,
+            view! {
                 <ErrorTemplate outside_errors/>
             }
-            .into_view(cx)
+            .into_view()
         }>
             <header>
                 <h1>"Error Examples:"</h1>
@@ -42,11 +42,11 @@ pub fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn ExampleErrors(cx: Scope) -> impl IntoView {
+pub fn ExampleErrors() -> impl IntoView {
     let generate_internal_error =
-        create_server_action::<CauseInternalServerError>(cx);
+        create_server_action::<CauseInternalServerError>();
 
-    view! { cx,
+    view! {
         <p>
             "These links will load 404 pages since they do not exist. Verify with browser development tools: " <br/>
             <a href="/404">"This links to a page that does not exist"</a><br/>
@@ -63,7 +63,7 @@ pub fn ExampleErrors(cx: Scope) -> impl IntoView {
         // note that the error boundaries could be placed above in the Router or lower down
         // in a particular route. The generated errors on the entire page contribute to the
         // final status code sent by the server when producing ssr pages.
-        <ErrorBoundary fallback=|cx, errors| view!{ cx, <ErrorTemplate errors=errors/>}>
+        <ErrorBoundary fallback=|errors| view!{ <ErrorTemplate errors=errors/>}>
             <ReturnsError/>
         </ErrorBoundary>
         </div>
@@ -71,6 +71,6 @@ pub fn ExampleErrors(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn ReturnsError(_cx: Scope) -> impl IntoView {
+pub fn ReturnsError() -> impl IntoView {
     Err::<String, AppError>(AppError::InternalServerError)
 }

@@ -19,12 +19,12 @@ async fn main() {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
+    let routes = generate_route_list(|| view! { <App/> }).await;
 
     // build our application with a route
     let app = Router::new()
         .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
-        .leptos_routes(&leptos_options, routes, |cx| view! { cx, <App/> })
+        .leptos_routes(&leptos_options, routes, || view! { <App/> })
         .fallback(file_and_error_handler)
         .with_state(leptos_options);
 

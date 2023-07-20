@@ -1,7 +1,7 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal,
-    RwSignal, Scope, StoredValue,
+    create_rw_signal, signal_prelude::*, spawn_local, store_value, untrack,
+    ReadSignal, RwSignal, StoredValue,
 };
 use std::{future::Future, pin::Pin, rc::Rc};
 
@@ -18,13 +18,14 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///   // do something...
 ///   // return a task id
 ///   42
 /// }
-/// let add_todo = create_multi_action(cx, |task: &String| {
+/// let add_todo = create_multi_action(|task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
@@ -44,19 +45,20 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// // if there's a single argument, just use that
-/// let action1 = create_multi_action(cx, |input: &String| {
+/// let action1 = create_multi_action(|input: &String| {
 ///     let input = input.clone();
 ///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
-/// let action2 = create_multi_action(cx, |input: &()| async { todo!() });
+/// let action2 = create_multi_action(|input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
 /// let action3 =
-///     create_multi_action(cx, |input: &(usize, String)| async { todo!() });
+///     create_multi_action(|input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 pub struct MultiAction<I, O>(StoredValue<MultiActionState<I, O>>)
@@ -151,7 +153,6 @@ where
     I: 'static,
     O: 'static,
 {
-    cx: Scope,
     /// How many times an action has successfully resolved.
     pub version: RwSignal<usize>,
     submissions: RwSignal<Vec<Submission<I, O>>>,
@@ -211,14 +212,13 @@ where
         tracing::instrument(level = "trace", skip_all,)
     )]
     pub fn dispatch(&self, input: I) {
-        let cx = self.cx;
         let fut = (self.action_fn)(&input);
 
         let submission = Submission {
-            input: create_rw_signal(cx, Some(input)),
-            value: create_rw_signal(cx, None),
-            pending: create_rw_signal(cx, true),
-            canceled: create_rw_signal(cx, false),
+            input: create_rw_signal(Some(input)),
+            value: create_rw_signal(None),
+            pending: create_rw_signal(true),
+            canceled: create_rw_signal(false),
         };
 
         self.submissions.update(|subs| subs.push(submission));
@@ -231,7 +231,7 @@ where
 
         spawn_local(async move {
             let new_value = fut.await;
-            let canceled = cx.untrack(move || canceled.get());
+            let canceled = untrack(move || canceled.get());
             if !canceled {
                 value.set(Some(new_value));
             }
@@ -256,13 +256,14 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///   // do something...
 ///   // return a task id
 ///   42
 /// }
-/// let add_todo = create_multi_action(cx, |task: &String| {
+/// let add_todo = create_multi_action(|task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
@@ -283,52 +284,46 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// // if there's a single argument, just use that
-/// let action1 = create_multi_action(cx, |input: &String| {
+/// let action1 = create_multi_action(|input: &String| {
 ///     let input = input.clone();
 ///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
-/// let action2 = create_multi_action(cx, |input: &()| async { todo!() });
+/// let action2 = create_multi_action(|input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
 /// let action3 =
-///     create_multi_action(cx, |input: &(usize, String)| async { todo!() });
+///     create_multi_action(|input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn create_multi_action<I, O, F, Fu>(
-    cx: Scope,
-    action_fn: F,
-) -> MultiAction<I, O>
+pub fn create_multi_action<I, O, F, Fu>(action_fn: F) -> MultiAction<I, O>
 where
     I: 'static,
     O: 'static,
     F: Fn(&I) -> Fu + 'static,
     Fu: Future<Output = O> + 'static,
 {
-    let version = create_rw_signal(cx, 0);
-    let submissions = create_rw_signal(cx, Vec::new());
+    let version = create_rw_signal(0);
+    let submissions = create_rw_signal(Vec::new());
     let action_fn = Rc::new(move |input: &I| {
         let fut = action_fn(input);
         Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
     });
 
-    MultiAction(store_value(
-        cx,
-        MultiActionState {
-            cx,
-            version,
-            submissions,
-            url: None,
-            action_fn,
-        },
-    ))
+    MultiAction(store_value(MultiActionState {
+        version,
+        submissions,
+        url: None,
+        action_fn,
+    }))
 }
 
 /// Creates an [MultiAction] that can be used to call a server function.
@@ -350,14 +345,13 @@ where
     tracing::instrument(level = "trace", skip_all,)
 )]
 pub fn create_server_multi_action<S>(
-    cx: Scope,
 ) -> MultiAction<S, Result<S::Output, ServerFnError>>
 where
     S: Clone + ServerFn,
 {
     #[cfg(feature = "ssr")]
-    let c = move |args: &S| S::call_fn(args.clone(), cx);
+    let c = move |args: &S| S::call_fn(args.clone(), ());
     #[cfg(not(feature = "ssr"))]
-    let c = move |args: &S| S::call_fn_client(args.clone(), cx);
-    create_multi_action(cx, c).using_server_fn::<S>()
+    let c = move |args: &S| S::call_fn_client(args.clone(), ());
+    create_multi_action(c).using_server_fn::<S>()
 }

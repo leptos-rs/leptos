@@ -22,7 +22,6 @@ struct Fallback {
 // Slots are added to components like any other prop.
 #[component]
 fn SlotIf(
-    cx: Scope,
     cond: MaybeSignal<bool>,
     then: Then,
     #[prop(default=vec![])] else_if: Vec<ElseIf>,
@@ -30,25 +29,25 @@ fn SlotIf(
 ) -> impl IntoView {
     move || {
         if cond() {
-            (then.children)(cx).into_view(cx)
+            (then.children)().into_view()
         } else if let Some(else_if) = else_if.iter().find(|i| (i.cond)()) {
-            (else_if.children)(cx).into_view(cx)
+            (else_if.children)().into_view()
         } else if let Some(fallback) = &fallback {
-            (fallback.children)(cx).into_view(cx)
+            (fallback.children)().into_view()
         } else {
-            ().into_view(cx)
+            ().into_view()
         }
     }
 }
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
-    let is_even = MaybeSignal::derive(cx, move || count() % 2 == 0);
-    let is_div5 = MaybeSignal::derive(cx, move || count() % 5 == 0);
-    let is_div7 = MaybeSignal::derive(cx, move || count() % 7 == 0);
+pub fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
+    let is_even = MaybeSignal::derive(move || count() % 2 == 0);
+    let is_div5 = MaybeSignal::derive(move || count() % 5 == 0);
+    let is_div7 = MaybeSignal::derive(move || count() % 7 == 0);
 
-    view! { cx,
+    view! {
         <button on:click=move |_| set_count.update(|value| *value += 1)>"+1"</button>
         " "{count}" is "
         <SlotIf cond=is_even>

@@ -58,11 +58,11 @@ where
 /// use leptos_meta::*;
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     provide_meta_context(cx);
+/// fn MyApp() -> impl IntoView {
+///     provide_meta_context();
 ///     let formatter = |text| format!("{text} — Leptos Online");
 ///
-///     view! { cx,
+///     view! {
 ///       <main>
 ///         <Title formatter/>
 ///         // ... routing logic here
@@ -71,8 +71,8 @@ where
 /// }
 ///
 /// #[component]
-/// fn PageA(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn PageA() -> impl IntoView {
+///     view! {
 ///       <main>
 ///         <Title text="Page A"/> // sets title to "Page A — Leptos Online"
 ///       </main>
@@ -80,8 +80,8 @@ where
 /// }
 ///
 /// #[component]
-/// fn PageB(cx: Scope) -> impl IntoView {
-///     view! { cx,
+/// fn PageB() -> impl IntoView {
+///     view! {
 ///       <main>
 ///         <Title text="Page B"/> // sets title to "Page B — Leptos Online"
 ///       </main>
@@ -90,7 +90,6 @@ where
 /// ```
 #[component(transparent)]
 pub fn Title(
-    cx: Scope,
     /// A function that will be applied to any text value before it’s set as the title.
     #[prop(optional, into)]
     formatter: Option<Formatter>,
@@ -98,7 +97,7 @@ pub fn Title(
     #[prop(optional, into)]
     text: Option<TextProp>,
 ) -> impl IntoView {
-    let meta = use_head(cx);
+    let meta = use_head();
 
     cfg_if! {
         if #[cfg(any(feature = "csr", feature = "hydrate"))] {
@@ -113,7 +112,7 @@ pub fn Title(
                 let mut el_ref = meta.title.el.borrow_mut();
                 let el = if let Some(el) = &*el_ref {
                     let prev_text = el.inner_text();
-                    on_cleanup(cx, {
+                    on_cleanup({
                         let el = el.clone();
                         move || {
                             _ = el.set_text(&prev_text);
@@ -131,7 +130,7 @@ pub fn Title(
                             head.append_child(el.unchecked_ref())
                                 .unwrap_throw();
 
-                            on_cleanup(cx, {
+                            on_cleanup({
                                 let el = el.clone();
                                 move || {
                                     _ = head.remove_child(&el);
@@ -149,7 +148,7 @@ pub fn Title(
                 el
             };
 
-            create_render_effect(cx, move |_| {
+            create_render_effect(move |_| {
                 let text = meta.title.as_string().unwrap_or_default();
 
                 el.set_text_content(Some(&text));

@@ -1,5 +1,5 @@
 use futures::{Stream, StreamExt};
-use leptos::{nonce::use_nonce, use_context, RuntimeId, Scope, ScopeId};
+use leptos::{nonce::use_nonce, use_context, RuntimeId};
 use leptos_config::LeptosOptions;
 use leptos_meta::MetaContext;
 
@@ -82,13 +82,12 @@ pub fn html_parts(
 
 #[tracing::instrument(level = "trace", fields(error), skip_all)]
 pub fn html_parts_separated(
-    cx: Scope,
     options: &LeptosOptions,
     meta: Option<&MetaContext>,
 ) -> (String, &'static str) {
     let pkg_path = &options.site_pkg_dir;
     let output_name = &options.output_name;
-    let nonce = use_nonce(cx);
+    let nonce = use_nonce();
     let nonce = nonce
         .as_ref()
         .map(|nonce| format!(" nonce=\"{nonce}\""))
@@ -132,7 +131,6 @@ pub async fn build_async_response(
     stream: impl Stream<Item = String> + 'static,
     options: &LeptosOptions,
     runtime: RuntimeId,
-    scope: ScopeId,
 ) -> String {
     let mut buf = String::new();
     let mut stream = Box::pin(stream);
@@ -140,15 +138,11 @@ pub async fn build_async_response(
         buf.push_str(&chunk);
     }
 
-    let cx = leptos::Scope { runtime, id: scope };
-    let (head, tail) = html_parts_separated(
-        cx,
-        options,
-        use_context::<MetaContext>(cx).as_ref(),
-    );
+    let (head, tail) =
+        html_parts_separated(options, use_context::<MetaContext>().as_ref());
 
     // in async, we load the meta content *now*, after the suspenses have resolved
-    let meta = use_context::<MetaContext>(cx);
+    let meta = use_context::<MetaContext>();
     let body_meta = meta
         .as_ref()
         .and_then(|meta| meta.body.as_string())

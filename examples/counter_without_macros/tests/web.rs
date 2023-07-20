@@ -41,7 +41,7 @@ fn should_clear_counter() {
 
 fn open_counter() {
     remove_existing_counter();
-    mount_to_body(move |cx| counter(cx, 0, 1));
+    mount_to_body(move || counter(0, 1));
 }
 
 fn remove_existing_counter() {

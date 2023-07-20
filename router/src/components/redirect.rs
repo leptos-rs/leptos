@@ -1,6 +1,6 @@
 use crate::{use_navigate, use_resolved_path, NavigateOptions};
 use leptos::{
-    component, provide_context, signal_prelude::*, use_context, IntoView, Scope,
+    component, provide_context, signal_prelude::*, use_context, IntoView,
 };
 use std::rc::Rc;
 
@@ -20,7 +20,6 @@ use std::rc::Rc;
 )]
 #[component]
 pub fn Redirect<P>(
-    cx: Scope,
     /// The relative path to which the user should be redirected.
     path: P,
     /// Navigation options to be used on the client side.
@@ -32,17 +31,17 @@ where
     P: std::fmt::Display + 'static,
 {
     // resolve relative path
-    let path = use_resolved_path(cx, move || path.to_string());
+    let path = use_resolved_path(move || path.to_string());
     let path = path.get_untracked().unwrap_or_else(|| "/".to_string());
 
     // redirect on the server
-    if let Some(redirect_fn) = use_context::<ServerRedirectFunction>(cx) {
+    if let Some(redirect_fn) = use_context::<ServerRedirectFunction>() {
         (redirect_fn.f)(&path);
     }
     // redirect on the client
     else {
         #[allow(unused)]
-        let navigate = use_navigate(cx);
+        let navigate = use_navigate();
         #[cfg(any(feature = "csr", feature = "hydrate"))]
         leptos::request_animation_frame(move || {
             if let Err(e) = navigate(&path, options.unwrap_or_default()) {
@@ -82,11 +81,8 @@ impl std::fmt::Debug for ServerRedirectFunction {
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn provide_server_redirect(cx: Scope, handler: impl Fn(&str) + 'static) {
-    provide_context(
-        cx,
-        ServerRedirectFunction {
-            f: Rc::new(handler),
-        },
-    )
+pub fn provide_server_redirect(handler: impl Fn(&str) + 'static) {
+    provide_context(ServerRedirectFunction {
+        f: Rc::new(handler),
+    })
 }

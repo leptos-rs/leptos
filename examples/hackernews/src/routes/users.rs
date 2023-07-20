@@ -3,25 +3,24 @@ use leptos::*;
 use leptos_router::*;
 
 #[component]
-pub fn User(cx: Scope) -> impl IntoView {
-    let params = use_params_map(cx);
+pub fn User() -> impl IntoView {
+    let params = use_params_map();
     let user = create_resource(
-        cx,
         move || params().get("id").cloned().unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 None
             } else {
-                api::fetch_api::<User>(cx, &api::user(&id)).await
+                api::fetch_api::<User>(&api::user(&id)).await
             }
         },
     );
-    view! { cx,
+    view! {
         <div class="user-view">
-            <Suspense fallback=|| view! { cx, "Loading..." }>
-                {move || user.read(cx).map(|user| match user {
-                    None => view! { cx,  <h1>"User not found."</h1> }.into_any(),
-                    Some(user) => view! { cx,
+            <Suspense fallback=|| view! { "Loading..." }>
+                {move || user.read().map(|user| match user {
+                    None => view! {  <h1>"User not found."</h1> }.into_view(),
+                    Some(user) => view! {
                         <div>
                             <h1>"User: " {&user.id}</h1>
                             <ul class="meta">
@@ -39,7 +38,7 @@ pub fn User(cx: Scope) -> impl IntoView {
                                 <a href=format!("https://news.ycombinator.com/threads?id={}", user.id)>"comments"</a>
                             </p>
                         </div>
-                    }.into_any()
+                    }.into_view()
                 })}
             </Suspense>
         </div>
