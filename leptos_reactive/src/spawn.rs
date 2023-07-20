@@ -82,7 +82,12 @@ where
         else if #[cfg(any(test, doctest))] {
             tokio_test::block_on(fut);
         } else if #[cfg(feature = "ssr")] {
-            tokio::task::spawn_local(fut);
+            use crate::Runtime;
+
+            let runtime = Runtime::current();
+            tokio::task::spawn_local(async move {
+                crate::TASK_RUNTIME.scope(Some(runtime), fut).await
+            });
         }  else {
             futures::executor::block_on(fut)
         }

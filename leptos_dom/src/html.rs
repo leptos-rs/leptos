@@ -66,7 +66,6 @@ use crate::{
     macro_helpers::{IntoAttribute, IntoClass, IntoProperty, IntoStyle},
     Element, Fragment, IntoView, NodeRef, Text, View,
 };
-use leptos_reactive::Scope;
 use std::{borrow::Cow, fmt};
 
 /// Trait which allows creating an element tag.
@@ -90,14 +89,14 @@ pub trait ElementDescriptor: ElementDescriptorBounds {
 /// to [`HtmlElement`].
 pub trait ToHtmlElement {
     /// Converts the type to [`HtmlElement`].
-    fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement>;
+    fn to_leptos_element(self) -> HtmlElement<AnyElement>;
 }
 
 impl<T> ToHtmlElement for T
 where
     T: AsRef<web_sys::Element>,
 {
-    fn to_leptos_element(self, cx: Scope) -> HtmlElement<AnyElement> {
+    fn to_leptos_element(self) -> HtmlElement<AnyElement> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             let el = self.as_ref().clone().unchecked_into();
@@ -109,7 +108,6 @@ where
             };
 
             HtmlElement {
-                cx,
                 element,
                 #[cfg(debug_assertions)]
                 span: ::tracing::Span::current(),
@@ -120,8 +118,6 @@ where
 
         #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         {
-            let _ = cx;
-
             unreachable!();
         }
     }
@@ -288,7 +284,6 @@ cfg_if! {
     pub struct HtmlElement<El: ElementDescriptor> {
       #[cfg(debug_assertions)]
       pub(crate) span: ::tracing::Span,
-      pub(crate) cx: Scope,
       pub(crate) element: El,
       #[cfg(debug_assertions)]
       pub(crate) view_marker: Option<String>
@@ -299,7 +294,6 @@ cfg_if! {
     #[derive(educe::Educe, Clone)]
     #[educe(Debug)]
     pub struct HtmlElement<El: ElementDescriptor> {
-      pub(crate) cx: Scope,
       pub(crate) element: El,
       pub(crate) attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       #[educe(Debug(ignore))]
@@ -354,11 +348,10 @@ where
 }
 
 impl<El: ElementDescriptor + 'static> HtmlElement<El> {
-    pub(crate) fn new(cx: Scope, element: El) -> Self {
+    pub(crate) fn new(element: El) -> Self {
         cfg_if! {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             Self {
-              cx,
               element,
               #[cfg(debug_assertions)]
               span: ::tracing::Span::current(),
@@ -367,7 +360,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
           } else {
             Self {
-              cx,
               attrs: smallvec![],
               children: Default::default(),
               element,
@@ -381,12 +373,10 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     #[doc(hidden)]
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
     pub fn from_chunks(
-        cx: Scope,
         element: El,
         chunks: impl IntoIterator<Item = StringOrView>,
     ) -> Self {
         Self {
-            cx,
             attrs: smallvec![],
             children: ElementChildren::Chunks(chunks.into_iter().collect()),
             element,
@@ -408,7 +398,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         cfg_if! {
           if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             let Self {
-              cx,
               element,
               #[cfg(debug_assertions)]
               span,
@@ -417,7 +406,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             } = self;
 
             HtmlElement {
-              cx,
               element: AnyElement {
                 name: element.name(),
                 element: element.as_ref().clone(),
@@ -430,7 +418,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             }
           } else {
             let Self {
-              cx,
+
               attrs,
               children,
               element,
@@ -439,13 +427,13 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             } = self;
 
             HtmlElement {
-              cx,
+
               attrs,
               children,
               element: AnyElement {
                 name: element.name(),
                 is_void: element.is_void(),
-                id: *element.hydration_id()
+                id: element.hydration_id().clone()
               },
               #[cfg(debug_assertions)]
               view_marker
@@ -597,7 +585,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             attribute_helper(
                 self.element.as_ref(),
                 name,
-                attr.into_attribute(self.cx),
+                attr.into_attribute(),
             );
             self
         }
@@ -608,8 +596,8 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             let mut this = self;
 
-            let mut attr = attr.into_attribute(this.cx);
-            while let Attribute::Fn(_, f) = attr {
+            let mut attr = attr.into_attribute();
+            while let Attribute::Fn(f) = attr {
                 attr = f();
             }
             match attr {
@@ -621,7 +609,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
                         this.attrs.push((name, "".into()));
                     }
                 }
-                Attribute::Option(_, maybe) => {
+                Attribute::Option(maybe) => {
                     if let Some(value) = maybe {
                         this.attrs.push((name, value));
                     }
@@ -654,7 +642,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             let el = self.element.as_ref();
-            let value = class.into_class(self.cx);
+            let value = class.into_class();
             class_helper(el, name, value);
 
             self
@@ -666,11 +654,11 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             let mut this = self;
 
-            let class = class.into_class(this.cx);
+            let class = class.into_class();
 
             let include = match class {
                 Class::Value(include) => include,
-                Class::Fn(_, f) => f(),
+                Class::Fn(f) => f(),
             };
 
             if include {
@@ -719,7 +707,6 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
             let class_list = self.element.as_ref().class_list();
 
             leptos_reactive::create_effect(
-                self.cx,
                 move |prev_classes: Option<
                     SmallVec<[Cow<'static, str>; 4]>,
                 >| {
@@ -818,7 +805,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             let el = self.element.as_ref();
-            let value = style.into_style(self.cx);
+            let value = style.into_style();
             style_helper(el, name, value);
 
             self
@@ -830,14 +817,14 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 
             let mut this = self;
 
-            let style = style.into_style(this.cx);
+            let style = style.into_style();
 
             let include = match style {
                 Style::Value(value) => Some(value),
                 Style::Option(value) => value,
-                Style::Fn(_, f) => {
+                Style::Fn(f) => {
                     let mut value = f();
-                    while let Style::Fn(_, f) = value {
+                    while let Style::Fn(f) = value {
                         value = f();
                     }
                     match value {
@@ -875,7 +862,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             let name = name.into();
-            let value = value.into_property(self.cx);
+            let value = value.into_property();
             let el = self.element.as_ref();
             property_helper(el, name, value);
         }
@@ -952,10 +939,9 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// # use leptos::*;
     /// #[component]
     /// pub fn Input(
-    ///     cx: Scope,
     ///     #[prop(optional)] value: Option<RwSignal<String>>,
     /// ) -> impl IntoView {
-    ///     view! { cx, <input/> }
+    ///     view! {  <input/> }
     ///         // only add event if `value` is `Some(signal)`
     ///         .optional_event(
     ///             ev::input,
@@ -982,7 +968,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
     /// Adds a child to this element.
     #[track_caller]
     pub fn child(self, child: impl IntoView) -> Self {
-        let child = child.into_view(self.cx);
+        let child = child.into_view();
 
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
@@ -1054,7 +1040,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
 impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
     #[cfg_attr(any(debug_assertions, feature = "ssr"), instrument(level = "trace", name = "<HtmlElement />", skip_all, fields(tag = %self.element.name())))]
     #[cfg_attr(all(target_arch = "wasm32", feature = "web"), inline(always))]
-    fn into_view(self, _: Scope) -> View {
+    fn into_view(self) -> View {
         #[cfg(all(target_arch = "wasm32", feature = "web"))]
         {
             View::Element(Element::new(self.element))
@@ -1070,7 +1056,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
                 ..
             } = self;
 
-            let id = *element.hydration_id();
+            let id = element.hydration_id().clone();
 
             let mut element = Element::new(element);
             let children = children;
@@ -1099,24 +1085,21 @@ impl<El: ElementDescriptor, const N: usize> IntoView for [HtmlElement<El>; N] {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", name = "[HtmlElement; N]", skip_all)
     )]
-    fn into_view(self, cx: Scope) -> View {
-        Fragment::new(self.into_iter().map(|el| el.into_view(cx)).collect())
-            .into_view(cx)
+    fn into_view(self) -> View {
+        Fragment::new(self.into_iter().map(|el| el.into_view()).collect())
+            .into_view()
     }
 }
 
 /// Creates any custom element, such as `<my-element>`.
-pub fn custom<El: ElementDescriptor>(cx: Scope, el: El) -> HtmlElement<Custom> {
-    HtmlElement::new(
-        cx,
-        Custom {
-            name: el.name(),
-            #[cfg(all(target_arch = "wasm32", feature = "web"))]
-            element: el.as_ref().clone(),
-            #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-            id: *el.hydration_id(),
-        },
-    )
+pub fn custom<El: ElementDescriptor>(el: El) -> HtmlElement<Custom> {
+    HtmlElement::new(Custom {
+        name: el.name(),
+        #[cfg(all(target_arch = "wasm32", feature = "web"))]
+        element: el.as_ref().clone(),
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+        id: el.hydration_id().clone(),
+    })
 }
 
 /// Creates a text node.
@@ -1233,8 +1216,8 @@ macro_rules! generate_html_tags {
           )
         )
       )]
-        pub fn $tag(cx: Scope) -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
-          HtmlElement::new(cx, [<$tag:camel $($trailing_)?>]::default())
+        pub fn $tag() -> HtmlElement<[<$tag:camel $($trailing_)?>]> {
+          HtmlElement::new( [<$tag:camel $($trailing_)?>]::default())
         }
       )*
     }

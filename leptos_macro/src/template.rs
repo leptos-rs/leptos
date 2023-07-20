@@ -11,7 +11,7 @@ use rstml::node::{
 use syn::spanned::Spanned;
 use uuid::Uuid;
 
-pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
+pub(crate) fn render_template(nodes: &[Node]) -> TokenStream {
     let template_uid = Ident::new(
         &format!("TEMPLATE_{}", Uuid::new_v4().simple()),
         Span::call_site(),
@@ -19,14 +19,15 @@ pub(crate) fn render_template(cx: &Ident, nodes: &[Node]) -> TokenStream {
 
     match nodes.first() {
         Some(Node::Element(node)) => {
-            root_element_to_tokens(cx, &template_uid, node)
+            root_element_to_tokens(&template_uid, node)
         }
-        _ => abort!(cx, "template! takes a single root element."),
+        _ => {
+            abort!(Span::call_site(), "template! takes a single root element.")
+        }
     }
 }
 
 fn root_element_to_tokens(
-    cx: &Ident,
     template_uid: &Ident,
     node: &NodeElement,
 ) -> TokenStream {
@@ -36,10 +37,9 @@ fn root_element_to_tokens(
     let mut expressions = Vec::new();
 
     if is_component_node(node) {
-        crate::view::component_to_tokens(cx, node, None)
+        crate::view::component_to_tokens(node, None)
     } else {
         element_to_tokens(
-            cx,
             node,
             &Ident::new("root", Span::call_site()),
             None,
@@ -110,7 +110,6 @@ fn attributes(node: &NodeElement) -> impl Iterator<Item = &KeyedAttribute> {
 
 #[allow(clippy::too_many_arguments)]
 fn element_to_tokens(
-    cx: &Ident,
     node: &NodeElement,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -140,7 +139,7 @@ fn element_to_tokens(
 
     // attributes
     for attr in attributes(node) {
-        attr_to_tokens(cx, attr, &this_el_ident, template, expressions);
+        attr_to_tokens(attr, &this_el_ident, template, expressions);
     }
 
     // navigation for this el
@@ -206,7 +205,6 @@ fn element_to_tokens(
             };
 
         let curr_id = child_to_tokens(
-            cx,
             child,
             &this_el_ident,
             if idx == 0 { None } else { prev_sib.clone() },
@@ -267,7 +265,6 @@ fn next_sibling_node(
 }
 
 fn attr_to_tokens(
-    cx: &Ident,
     node: &KeyedAttribute,
     el_id: &Ident,
     template: &mut String,
@@ -310,7 +307,7 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => leptos::leptos_dom::property(#cx, leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name, #value.into_property(#cx))
+            span => leptos::leptos_dom::property(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name, #value.into_property())
         });
     }
     // Classes
@@ -318,7 +315,7 @@ fn attr_to_tokens(
         let value = attribute_value(node);
 
         expressions.push(quote_spanned! {
-            span => leptos::leptos_dom::class_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), #value.into_class(#cx))
+            span => leptos::leptos_dom::class_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), #value.into_class())
         });
     }
     // Attributes
@@ -342,7 +339,7 @@ fn attr_to_tokens(
                 // For client-side rendering, dynamic attributes don't need to be rendered in the template
                 // They'll immediately be set synchronously before the cloned template is mounted
                 expressions.push(quote_spanned! {
-                    span => leptos::leptos_dom::attribute_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), {#value}.into_attribute(#cx))
+                    span => leptos::leptos_dom::attribute_helper(leptos::wasm_bindgen::JsCast::unchecked_ref(&#el_id), #name.into(), {#value}.into_attribute())
                 });
             }
         }
@@ -357,7 +354,6 @@ enum AttributeValue<'a> {
 
 #[allow(clippy::too_many_arguments)]
 fn child_to_tokens(
-    cx: &Ident,
     node: &Node,
     parent: &Ident,
     prev_sib: Option<Ident>,
@@ -380,7 +376,6 @@ fn child_to_tokens(
                 PrevSibChange::Skip
             } else {
                 PrevSibChange::Sib(element_to_tokens(
-                    cx,
                     node,
                     parent,
                     prev_sib,
@@ -395,7 +390,6 @@ fn child_to_tokens(
             }
         }
         Node::Text(node) => block_to_tokens(
-            cx,
             Either::Left(node.value_string()),
             node.value.span(),
             parent,
@@ -407,7 +401,6 @@ fn child_to_tokens(
             navigations,
         ),
         Node::RawText(node) => block_to_tokens(
-            cx,
             Either::Left(node.to_string_best()),
             node.span(),
             parent,
@@ -426,7 +419,6 @@ fn child_to_tokens(
                 None => Either::Right(b.into_token_stream()),
             };
             block_to_tokens(
-                cx,
                 value,
                 b.span(),
                 parent,
@@ -439,7 +431,6 @@ fn child_to_tokens(
             )
         }
         Node::Block(b @ NodeBlock::Invalid { .. }) => block_to_tokens(
-            cx,
             Either::Right(b.into_token_stream()),
             b.span(),
             parent,
@@ -450,13 +441,12 @@ fn child_to_tokens(
             expressions,
             navigations,
         ),
-        _ => abort!(cx, "unexpected child node type"),
+        _ => abort!(Span::call_site(), "unexpected child node type"),
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn block_to_tokens(
-    _cx: &Ident,
     value: Either<String, TokenStream>,
     span: Span,
     parent: &Ident,
@@ -516,7 +506,7 @@ fn block_to_tokens(
             navigations.push(location);
 
             expressions.push(quote! {
-                leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view(cx));
+                leptos::leptos_dom::mount_child(#mount_kind, &{#value}.into_view());
             });
 
             if let Some(name) = name {

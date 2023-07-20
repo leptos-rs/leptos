@@ -10,14 +10,14 @@ struct CounterUpdater {
 }
 
 #[component]
-pub fn Counters(cx: Scope) -> impl IntoView {
-    let (next_counter_id, set_next_counter_id) = create_signal(cx, 0);
-    let (counters, set_counters) = create_signal::<CounterHolder>(cx, vec![]);
-    provide_context(cx, CounterUpdater { set_counters });
+pub fn Counters() -> impl IntoView {
+    let (next_counter_id, set_next_counter_id) = create_signal(0);
+    let (counters, set_counters) = create_signal::<CounterHolder>(vec![]);
+    provide_context(CounterUpdater { set_counters });
 
     let add_counter = move |_| {
         let id = next_counter_id();
-        let sig = create_signal(cx, 0);
+        let sig = create_signal(0);
         set_counters.update(move |counters| counters.push((id, sig)));
         set_next_counter_id.update(|id| *id += 1);
     };
@@ -25,7 +25,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
     let add_many_counters = move |_| {
         let next_id = next_counter_id();
         let new_counters = (next_id..next_id + MANY_COUNTERS).map(|id| {
-            let signal = create_signal(cx, 0);
+            let signal = create_signal(0);
             (id, signal)
         });
 
@@ -37,7 +37,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
         set_counters.update(|counters| counters.clear());
     };
 
-    view! { cx,
+    view! {
         <div>
             <button on:click=add_counter>
                 "Add Counter"
@@ -65,8 +65,8 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                 <For
                     each=counters
                     key=|counter| counter.0
-                    view=move |cx, (id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
-                        view! { cx,
+                    view=move |(id, (value, set_value)): (usize, (ReadSignal<i32>, WriteSignal<i32>))| {
+                        view! {
                             <Counter id value set_value/>
                         }
                     }
@@ -78,12 +78,11 @@ pub fn Counters(cx: Scope) -> impl IntoView {
 
 #[component]
 fn Counter(
-    cx: Scope,
     id: usize,
     value: ReadSignal<i32>,
     set_value: WriteSignal<i32>,
 ) -> impl IntoView {
-    let CounterUpdater { set_counters } = use_context(cx).unwrap();
+    let CounterUpdater { set_counters } = use_context().unwrap();
 
     let input = move |ev| {
         set_value(event_target_value(&ev).parse::<i32>().unwrap_or_default())
@@ -91,9 +90,9 @@ fn Counter(
 
     // just an example of how a cleanup function works
     // this will run when the scope is disposed, i.e., when this row is deleted
-    on_cleanup(cx, || log::debug!("deleted a row"));
+    on_cleanup(|| log::debug!("deleted a row"));
 
-    view! { cx,
+    view! {
         <li>
             <button on:click=move |_| set_value.update(move |value| *value -= 1)>"-1"</button>
             <input type="text"

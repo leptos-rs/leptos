@@ -30,25 +30,6 @@ npm install -D tailwindcss
 
 If you'd rather not use `npm`, you can install the Tailwind binary [here](https://github.com/tailwindlabs/tailwindcss/releases).
 
-## Adding Tailwind plugins
-
-If you'd like to add [Tailwind plugins](https://tailwindcss.com/docs/plugins), such as [DaisyUI](https://daisyui.com/), you can do the following:
-
-`npm install -D daisyui@latest`
-
-Then add the plugin to your exports in `tailwind.config.js` :
-
-```javascript
-module.exports = {
-  //...
-  plugins: [require("daisyui")],
-};
-```
-
-And re-run the following to generate the css:
-
-`npx tailwindcss -i ./input.css -o ./style/output.css --watch`
-
 ## Setting up with VS Code and Additional Tools
 
 If you're using VS Code, add the following to your `settings.json`

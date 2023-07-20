@@ -1,20 +1,18 @@
 #![forbid(unsafe_code)]
-use crate::{
-    store_value, RwSignal, Scope, SignalSet, StoredValue, WriteSignal,
-};
+use crate::{store_value, RwSignal, SignalSet, StoredValue, WriteSignal};
 
 /// Helper trait for converting `Fn(T)` into [`SignalSetter<T>`].
 pub trait IntoSignalSetter<T>: Sized {
     /// Consumes `self`, returning [`SignalSetter<T>`].
-    fn mapped_signal_setter(self, cx: Scope) -> SignalSetter<T>;
+    fn mapped_signal_setter(self) -> SignalSetter<T>;
 }
 
 impl<F, T> IntoSignalSetter<T> for F
 where
     F: Fn(T) + 'static,
 {
-    fn mapped_signal_setter(self, cx: Scope) -> SignalSetter<T> {
-        SignalSetter::map(cx, self)
+    fn mapped_signal_setter(self) -> SignalSetter<T> {
+        SignalSetter::map(self)
     }
 }
 
@@ -85,7 +83,7 @@ impl<T> SignalSet<T> for SignalSetter<T> {
         match self.inner {
             SignalSetterTypes::Default => {}
             SignalSetterTypes::Write(w) => w.set(new_value),
-            SignalSetterTypes::Mapped(_, s) => {
+            SignalSetterTypes::Mapped(s) => {
                 s.with_value(|setter| setter(new_value))
             }
         }
@@ -95,7 +93,7 @@ impl<T> SignalSet<T> for SignalSetter<T> {
         match self.inner {
             SignalSetterTypes::Default => Some(new_value),
             SignalSetterTypes::Write(w) => w.try_set(new_value),
-            SignalSetterTypes::Mapped(_, s) => {
+            SignalSetterTypes::Mapped(s) => {
                 let mut new_value = Some(new_value);
 
                 let _ = s
@@ -135,20 +133,13 @@ where
     #[track_caller]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
-        instrument(
-            level = "trace",
-            skip_all,
-            fields(
-                cx = ?cx.id,
-            )
-        )
+        instrument(level = "trace", skip_all)
     )]
-    pub fn map(cx: Scope, mapped_setter: impl Fn(T) + 'static) -> Self {
+    pub fn map(mapped_setter: impl Fn(T) + 'static) -> Self {
         Self {
-            inner: SignalSetterTypes::Mapped(
-                cx,
-                store_value(cx, Box::new(mapped_setter)),
-            ),
+            inner: SignalSetterTypes::Mapped(store_value(Box::new(
+                mapped_setter,
+            ))),
             #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: std::panic::Location::caller(),
         }
@@ -188,7 +179,7 @@ where
     pub fn set(&self, value: T) {
         match &self.inner {
             SignalSetterTypes::Write(s) => s.set(value),
-            SignalSetterTypes::Mapped(_, s) => s.with_value(|s| s(value)),
+            SignalSetterTypes::Mapped(s) => s.with_value(|s| s(value)),
             SignalSetterTypes::Default => {}
         }
     }
@@ -221,7 +212,7 @@ where
     T: 'static,
 {
     Write(WriteSignal<T>),
-    Mapped(Scope, StoredValue<Box<dyn Fn(T)>>),
+    Mapped(StoredValue<Box<dyn Fn(T)>>),
     Default,
 }
 
@@ -242,7 +233,7 @@ where
             Self::Write(arg0) => {
                 f.debug_tuple("WriteSignal").field(arg0).finish()
             }
-            Self::Mapped(_, _) => f.debug_tuple("Mapped").finish(),
+            Self::Mapped(_) => f.debug_tuple("Mapped").finish(),
             Self::Default => f.debug_tuple("SignalSetter<Default>").finish(),
         }
     }
@@ -255,7 +246,7 @@ where
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Write(l0), Self::Write(r0)) => l0 == r0,
-            (Self::Mapped(_, l0), Self::Mapped(_, r0)) => std::ptr::eq(l0, r0),
+            (Self::Mapped(l0), Self::Mapped(r0)) => std::ptr::eq(l0, r0),
             _ => false,
         }
     }

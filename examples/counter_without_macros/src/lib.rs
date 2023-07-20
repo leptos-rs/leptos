@@ -2,17 +2,17 @@ use leptos::{ev, html::*, *};
 
 /// A simple counter view.
 // A component is really just a function call: it runs once to create the DOM and reactive system
-pub fn counter(cx: Scope, initial_value: i32, step: u32) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, Count::new(initial_value, step));
+pub fn counter(initial_value: i32, step: u32) -> impl IntoView {
+    let (count, set_count) = create_signal(Count::new(initial_value, step));
 
     // elements are created by calling a function with a Scope argument
     // the function name is the same as the HTML tag name
-    div(cx)
+    div()
         // children can be added with .child()
         // this takes any type that implements IntoView as its argument
         // for example, a string or an HtmlElement<_>
         .child(
-            button(cx)
+            button()
                 // typed events found in leptos::ev
                 // 1) prevent typos in event names
                 // 2) allow for correct type inference in callbacks
@@ -20,14 +20,14 @@ pub fn counter(cx: Scope, initial_value: i32, step: u32) -> impl IntoView {
                 .child("Clear"),
         )
         .child(
-            button(cx)
+            button()
                 .on(ev::click, move |_| {
                     set_count.update(|count| count.decrease())
                 })
                 .child("-1"),
         )
         .child(
-            span(cx)
+            span()
                 .child("Value: ")
                 // reactive values are passed to .child() as a tuple
                 // (Scope, [child function]) so an effect can be created
@@ -35,7 +35,7 @@ pub fn counter(cx: Scope, initial_value: i32, step: u32) -> impl IntoView {
                 .child("!"),
         )
         .child(
-            button(cx)
+            button()
                 .on(ev::click, move |_| {
                     set_count.update(|count| count.increase())
                 })

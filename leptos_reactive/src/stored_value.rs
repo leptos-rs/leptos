@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use crate::{with_runtime, RuntimeId, Scope, ScopeProperty};
+use crate::{with_runtime, Runtime, RuntimeId, ScopeProperty};
 use std::{
     cell::RefCell,
     fmt,
@@ -285,20 +285,22 @@ impl<T> StoredValue<T> {
 /// # }).dispose();
 /// ```
 #[track_caller]
-pub fn store_value<T>(cx: Scope, value: T) -> StoredValue<T>
+pub fn store_value<T>(value: T) -> StoredValue<T>
 where
     T: 'static,
 {
-    let id = with_runtime(cx.runtime, |runtime| {
-        runtime
+    let runtime = Runtime::current();
+    let id = with_runtime(runtime, |runtime| {
+        let id = runtime
             .stored_values
             .borrow_mut()
-            .insert(Rc::new(RefCell::new(value)))
+            .insert(Rc::new(RefCell::new(value)));
+        runtime.push_scope_property(ScopeProperty::StoredValue(id));
+        id
     })
-    .unwrap_or_default();
-    cx.push_scope_property(ScopeProperty::StoredValue(id));
+    .expect("store_value failed to find the current runtime");
     StoredValue {
-        runtime: cx.runtime,
+        runtime,
         id,
         ty: PhantomData,
     }

@@ -19,7 +19,7 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 /// ```
 /// # cfg_if::cfg_if! { if #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
 /// # use leptos::*;
-/// let html = leptos::ssr::render_to_string(|cx| view! { cx,
+/// let html = leptos::ssr::render_to_string(|| view! {
 ///   <p>"Hello, world!"</p>
 /// });
 /// // trim off the beginning, which has a bunch of hydration info, for comparison
@@ -32,15 +32,13 @@ type PinnedFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 )]
 pub fn render_to_string<F, N>(f: F) -> String
 where
-    F: FnOnce(Scope) -> N + 'static,
+    F: FnOnce() -> N + 'static,
     N: IntoView,
 {
-    let runtime = leptos_reactive::create_runtime();
     HydrationCtx::reset_id();
+    let runtime = leptos_reactive::create_runtime();
 
-    let html = leptos_reactive::run_scope(runtime, |cx| {
-        f(cx).into_view(cx).render_to_string(cx)
-    });
+    let html = f().into_view().render_to_string();
 
     runtime.dispose();
 
@@ -64,13 +62,13 @@ where
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream(
-    view: impl FnOnce(Scope) -> View + 'static,
+    view: impl FnOnce() -> View + 'static,
 ) -> impl Stream<Item = String> {
-    render_to_stream_with_prefix(view, |_| "".into())
+    render_to_stream_with_prefix(view, || "".into())
 }
 
 /// Renders a function to a stream of HTML strings. After the `view` runs, the `prefix` will run with
-/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+/// the same scope. This can be used to generate additional HTML that has access to the same reactive graph.
 ///
 /// This renders:
 /// 1) the prefix
@@ -88,18 +86,18 @@ pub fn render_to_stream(
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix(
-    view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
+    view: impl FnOnce() -> View + 'static,
+    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
 ) -> impl Stream<Item = String> {
-    let (stream, runtime, _) =
+    let (stream, runtime) =
         render_to_stream_with_prefix_undisposed(view, prefix);
     runtime.dispose();
     stream
 }
 
-/// Renders a function to a stream of HTML strings and returns the [Scope] and [RuntimeId] that were created, so
-/// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
-/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+/// Renders a function to a stream of HTML strings and returns the [RuntimeId] that was created, so
+/// it can be disposed when appropriate. After the `view` runs, the `prefix` will run with
+/// the same scope. This can be used to generate additional HTML that has access to the same reactive graph.
 ///
 /// This renders:
 /// 1) the prefix
@@ -117,15 +115,15 @@ pub fn render_to_stream_with_prefix(
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed(
-    view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
-) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
-    render_to_stream_with_prefix_undisposed_with_context(view, prefix, |_cx| {})
+    view: impl FnOnce() -> View + 'static,
+    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+) -> (impl Stream<Item = String>, RuntimeId) {
+    render_to_stream_with_prefix_undisposed_with_context(view, prefix, || {})
 }
 
-/// Renders a function to a stream of HTML strings and returns the [Scope] and [RuntimeId] that were created, so
+/// Renders a function to a stream of HTML strings and returns the [RuntimeId] that was created, so
 /// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
-/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+/// the same scope. This can be used to generate additional HTML that has access to the same reactive graph.
 ///
 /// This renders:
 /// 1) the prefix
@@ -143,10 +141,10 @@ pub fn render_to_stream_with_prefix_undisposed(
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context(
-    view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
-    additional_context: impl FnOnce(Scope) + 'static,
-) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
+    view: impl FnOnce() -> View + 'static,
+    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    additional_context: impl FnOnce() + 'static,
+) -> (impl Stream<Item = String>, RuntimeId) {
     render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
         view,
         prefix,
@@ -155,9 +153,9 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     )
 }
 
-/// Renders a function to a stream of HTML strings and returns the [Scope] and [RuntimeId] that were created, so
+/// Renders a function to a stream of HTML strings and returns the [RuntimeId] that was created, so
 /// they can be disposed when appropriate. After the `view` runs, the `prefix` will run with
-/// the same scope. This can be used to generate additional HTML that has access to the same `Scope`.
+/// the same scope. This can be used to generate additional HTML that has access to the same reactive graph.
 ///
 /// If `replace_blocks` is true, this will wait for any fragments with blocking resources and
 /// actually replace them in the initial HTML. This is slower to render (as it requires walking
@@ -180,39 +178,28 @@ pub fn render_to_stream_with_prefix_undisposed_with_context(
     instrument(level = "info", skip_all,)
 )]
 pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
-    view: impl FnOnce(Scope) -> View + 'static,
-    prefix: impl FnOnce(Scope) -> Cow<'static, str> + 'static,
-    additional_context: impl FnOnce(Scope) + 'static,
+    view: impl FnOnce() -> View + 'static,
+    prefix: impl FnOnce() -> Cow<'static, str> + 'static,
+    additional_context: impl FnOnce() + 'static,
     replace_blocks: bool,
-) -> (impl Stream<Item = String>, RuntimeId, ScopeId) {
+) -> (impl Stream<Item = String>, RuntimeId) {
     HydrationCtx::reset_id();
 
     // create the runtime
     let runtime = create_runtime();
 
-    let ((shell, pending_resources, pending_fragments, serializers), scope, _) =
-        run_scope_undisposed(runtime, {
-            move |cx| {
-                // Add additional context items
-                additional_context(cx);
-                // the actual app body/template code
-                // this does NOT contain any of the data being loaded asynchronously in resources
-                let shell = view(cx).render_to_string(cx);
+    // Add additional context items
+    additional_context();
 
-                let resources = cx.pending_resources();
-                let pending_resources =
-                    serde_json::to_string(&resources).unwrap();
+    // the actual app body/template code
+    // this does NOT contain any of the data being loaded asynchronously in resources
+    let shell = view().render_to_string();
 
-                (
-                    shell,
-                    pending_resources,
-                    cx.pending_fragments(),
-                    cx.serialization_resolvers(),
-                )
-            }
-        });
-    let cx = Scope { runtime, id: scope };
-    let nonce_str = crate::nonce::use_nonce(cx)
+    let resources = SharedContext::pending_resources();
+    let pending_resources = serde_json::to_string(&resources).unwrap();
+    let pending_fragments = SharedContext::pending_fragments();
+    let serializers = SharedContext::serialization_resolvers();
+    let nonce_str = crate::nonce::use_nonce()
         .map(|nonce| format!(" nonce=\"{nonce}\""))
         .unwrap_or_default();
 
@@ -251,7 +238,7 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                         blocks.push((blocked_id, blocked_fragment));
                     }
 
-                    let prefix = prefix(cx);
+                    let prefix = prefix();
 
                     let mut shell = shell;
 
@@ -279,24 +266,18 @@ pub fn render_to_stream_with_prefix_undisposed_with_context_and_block_replacemen
                     while let Some(fragment) = blocking_fragments.next().await {
                         blocking.push_str(&fragment);
                     }
-                    let prefix = prefix(cx);
+                    let prefix = prefix();
                     format!("{prefix}{shell}{resolvers}{blocking}")
                 }
             }
         },
     )
-    .chain(ooo_body_stream_recurse(
-        cx,
-        nonce_str,
-        fragments,
-        serializers,
-    ));
+    .chain(ooo_body_stream_recurse(nonce_str, fragments, serializers));
 
-    (stream, runtime, scope)
+    (stream, runtime)
 }
 
 fn ooo_body_stream_recurse(
-    cx: Scope,
     nonce_str: String,
     fragments: FuturesUnordered<PinnedFuture<(String, String)>>,
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
@@ -311,32 +292,28 @@ fn ooo_body_stream_recurse(
         // TODO these should be combined again in a way that chains them appropriately
         // such that individual resources can resolve before all fragments are done
         fragments.chain(resources).chain(
-            futures::stream::once({
-                async move {
-                    let pending = cx.pending_fragments();
-                    if !pending.is_empty() {
-                        let fragments = FuturesUnordered::new();
-                        let serializers = cx.serialization_resolvers();
-                        for (fragment_id, data) in pending {
-                            fragments.push(Box::pin(async move {
-                                (fragment_id.clone(), data.out_of_order.await)
-                            })
-                                as Pin<
-                                    Box<dyn Future<Output = (String, String)>>,
-                                >);
-                        }
-                        Box::pin(ooo_body_stream_recurse(
-                            cx,
-                            nonce_str.clone(),
-                            fragments,
-                            serializers,
-                        ))
-                            as Pin<Box<dyn Stream<Item = String>>>
-                    } else {
-                        Box::pin(futures::stream::once(async move {
-                            Default::default()
-                        }))
+            futures::stream::once(async move {
+                let pending = SharedContext::pending_fragments();
+
+                if !pending.is_empty() {
+                    let fragments = FuturesUnordered::new();
+                    let serializers = SharedContext::serialization_resolvers();
+                    for (fragment_id, data) in pending {
+                        fragments.push(Box::pin(async move {
+                            (fragment_id.clone(), data.out_of_order.await)
+                        })
+                            as Pin<Box<dyn Future<Output = (String, String)>>>);
                     }
+                    Box::pin(ooo_body_stream_recurse(
+                        nonce_str,
+                        fragments,
+                        serializers,
+                    ))
+                        as Pin<Box<dyn Stream<Item = String>>>
+                } else {
+                    Box::pin(futures::stream::once(async move {
+                        Default::default()
+                    }))
                 }
             })
             .flatten(),
@@ -369,6 +346,7 @@ fn fragments_to_chunks(
                          }}
                       }}
                     var range = new Range();
+                    console.log("loading <Suspense/> between ", id, open, close);
                     range.setStartAfter(open);
                     range.setEndBefore(close);
                     range.deleteContents();
@@ -386,7 +364,7 @@ impl View {
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    pub fn render_to_string(self, _cx: Scope) -> Cow<'static, str> {
+    pub fn render_to_string(self) -> Cow<'static, str> {
         #[cfg(all(feature = "web", feature = "ssr"))]
         crate::console_error(
             "\n[DANGER] You have both `csr` and `ssr` or `hydrate` and `ssr` \
@@ -453,7 +431,7 @@ impl View {
             View::CoreComponent(node) => {
                 let (id, name, wrap, content) = match node {
                     CoreComponent::Unit(u) => (
-                        u.id,
+                        u.id.clone(),
                         "",
                         false,
                         Box::new(move || {
@@ -705,9 +683,11 @@ pub(crate) fn render_serializers(
     nonce_str: String,
     serializers: FuturesUnordered<PinnedFuture<(ResourceId, String)>>,
 ) -> impl Stream<Item = String> {
+    eprintln!("called render_serializers with len = {}", serializers.len());
     serializers.map(move |(id, json)| {
         let id = serde_json::to_string(&id).unwrap();
         let json = json.replace('<', "\\u003c");
+
         format!(
             r#"<script{nonce_str}>
                   var val = {json:?};

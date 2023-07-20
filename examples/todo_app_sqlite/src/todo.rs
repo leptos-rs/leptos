@@ -23,9 +23,9 @@ cfg_if! {
 }
 
 #[server(GetTodos, "/api")]
-pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
+pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     // this is just an example of how to access server context injected in the handlers
-    let req = use_context::<actix_web::HttpRequest>(cx);
+    let req = use_context::<actix_web::HttpRequest>();
 
     if let Some(req) = req {
         println!("req.path = {:#?}", req.path());
@@ -40,6 +40,8 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
     while let Some(row) = rows.try_next().await? {
         todos.push(row);
     }
+
+    eprintln!("returning get_todos()");
 
     Ok(todos)
 }
@@ -74,10 +76,10 @@ pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
 }
 
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    provide_meta_context(cx);
+pub fn TodoApp() -> impl IntoView {
+    provide_meta_context();
     view! {
-        cx,
+
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/todo_app_sqlite.css"/>
         <Router>
@@ -87,7 +89,6 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     <Route path="" view=Todos/>
-                    <Route path="/*any" view=NotFound/>
                 </Routes>
             </main>
         </Router>
@@ -95,20 +96,18 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Todos(cx: Scope) -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>(cx);
-    let delete_todo = create_server_action::<DeleteTodo>(cx);
+pub fn Todos() -> impl IntoView {
+    let add_todo = create_server_multi_action::<AddTodo>();
+    let delete_todo = create_server_action::<DeleteTodo>();
     let submissions = add_todo.submissions();
 
     // list of todos is loaded from the server in reaction to changes
     let todos = create_resource(
-        cx,
         move || (add_todo.version().get(), delete_todo.version().get()),
-        move |_| get_todos(cx),
+        move |_| get_todos(),
     );
 
     view! {
-        cx,
         <div>
             <MultiActionForm
                 // we can handle client-side validation in the on:submit event
@@ -130,24 +129,24 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
+            <Transition fallback=move || view! {<p>"Loading..."</p> }>
                 {move || {
                     let existing_todos = {
                         move || {
-                            todos.read(cx)
+                            todos.read()
                                 .map(move |todos| match todos {
                                     Err(e) => {
-                                        view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
+                                        view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()
                                     }
                                     Ok(todos) => {
                                         if todos.is_empty() {
-                                            view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
+                                            view! { <p>"No tasks were found."</p> }.into_view()
                                         } else {
                                             todos
                                                 .into_iter()
                                                 .map(move |todo| {
                                                     view! {
-                                                        cx,
+
                                                         <li>
                                                             {todo.title}
                                                             <ActionForm action=delete_todo>
@@ -157,7 +156,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                         </li>
                                                     }
                                                 })
-                                                .collect_view(cx)
+                                                .collect_view()
                                         }
                                     }
                                 })
@@ -172,15 +171,15 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                         .filter(|submission| submission.pending().get())
                         .map(|submission| {
                             view! {
-                                cx,
+
                                 <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                             }
                         })
-                        .collect_view(cx)
+                        .collect_view()
                     };
 
                     view! {
-                        cx,
+
                         <ul>
                             {existing_todos}
                             {pending_todos}
@@ -191,15 +190,4 @@ pub fn Todos(cx: Scope) -> impl IntoView {
             </Transition>
         </div>
     }
-}
-
-#[component]
-fn NotFound(cx: Scope) -> impl IntoView {
-    #[cfg(feature = "ssr")]
-    {
-        let resp = expect_context::<leptos_actix::ResponseOptions>(cx);
-        resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
-    }
-
-    view! { cx, <h1>"Not Found"</h1> }
 }
