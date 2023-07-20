@@ -40,9 +40,9 @@ pub async fn clear_server_count() -> Result<i32, ServerFnError> {
     Ok(0)
 }
 #[component]
-pub fn Counters(cx: Scope) -> impl IntoView {
-    provide_meta_context(cx);
-    view! { cx,
+pub fn Counters() -> impl IntoView {
+    provide_meta_context();
+    view! {
         <Router>
             <header>
                 <h1>"Server-Side Counters"</h1>
@@ -67,10 +67,24 @@ pub fn Counters(cx: Scope) -> impl IntoView {
             <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
             <main>
                 <Routes>
-                    <Route path="" view=Counter/>
-                    <Route path="form" view=FormCounter/>
-                    <Route path="multi" view=MultiuserCounter/>
-                    <Route path="multi" view=NotFound/>
+                    <Route
+                        path=""
+                        view=|| {
+                            view! { <Counter/> }
+                        }
+                    />
+                    <Route
+                        path="form"
+                        view=|| {
+                            view! { <FormCounter/> }
+                        }
+                    />
+                    <Route
+                        path="multi"
+                        view=|| {
+                            view! { <MultiuserCounter/> }
+                        }
+                    />
                 </Routes>
             </main>
         </Router>
@@ -82,12 +96,11 @@ pub fn Counters(cx: Scope) -> impl IntoView {
 // it's invalidated by one of the user's own actions
 // This is the typical pattern for a CRUD app
 #[component]
-pub fn Counter(cx: Scope) -> impl IntoView {
-    let dec = create_action(cx, |_| adjust_server_count(-1, "decing".into()));
-    let inc = create_action(cx, |_| adjust_server_count(1, "incing".into()));
-    let clear = create_action(cx, |_| clear_server_count());
+pub fn Counter() -> impl IntoView {
+    let dec = create_action(|_| adjust_server_count(-1, "decing".into()));
+    let inc = create_action(|_| adjust_server_count(1, "incing".into()));
+    let clear = create_action(|_| clear_server_count());
     let counter = create_resource(
-        cx,
         move || {
             (
                 dec.version().get(),
@@ -98,20 +111,16 @@ pub fn Counter(cx: Scope) -> impl IntoView {
         |_| get_server_count(),
     );
 
-    let value = move || {
-        counter
-            .read(cx)
-            .map(|count| count.unwrap_or(0))
-            .unwrap_or(0)
-    };
+    let value =
+        move || counter.read().map(|count| count.unwrap_or(0)).unwrap_or(0);
     let error_msg = move || {
-        counter.read(cx).and_then(|res| match res {
+        counter.read().and_then(|res| match res {
             Ok(_) => None,
             Err(e) => Some(e),
         })
     };
 
-    view! { cx,
+    view! {
         <div>
             <h2>"Simple Counter"</h2>
             <p>
@@ -126,7 +135,7 @@ pub fn Counter(cx: Scope) -> impl IntoView {
             {move || {
                 error_msg()
                     .map(|msg| {
-                        view! { cx, <p>"Error: " {msg.to_string()}</p> }
+                        view! { <p>"Error: " {msg.to_string()}</p> }
                     })
             }}
         </div>
@@ -137,12 +146,11 @@ pub fn Counter(cx: Scope) -> impl IntoView {
 // It uses the same invalidation pattern as the plain counter,
 // but uses HTML forms to submit the actions
 #[component]
-pub fn FormCounter(cx: Scope) -> impl IntoView {
-    let adjust = create_server_action::<AdjustServerCount>(cx);
-    let clear = create_server_action::<ClearServerCount>(cx);
+pub fn FormCounter() -> impl IntoView {
+    let adjust = create_server_action::<AdjustServerCount>();
+    let clear = create_server_action::<ClearServerCount>();
 
     let counter = create_resource(
-        cx,
         move || (adjust.version().get(), clear.version().get()),
         |_| {
             log::debug!("FormCounter running fetcher");
@@ -151,19 +159,23 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
     );
     let value = move || {
         log::debug!("FormCounter looking for value");
-        counter.read(cx).and_then(|n| n.ok()).unwrap_or(0)
+        counter.read().and_then(|n| n.ok()).unwrap_or(0)
     };
 
-    view! { cx,
+    view! {
         <div>
             <h2>"Form Counter"</h2>
             <p>
                 "This counter uses forms to set the value on the server. When progressively enhanced, it should behave identically to the “Simple Counter.”"
             </p>
             <div>
+                // calling a server function is the same as POSTing to its API URL
+                // so we can just do that with a form and button
                 <ActionForm action=clear>
                     <input type="submit" value="Clear"/>
                 </ActionForm>
+                // We can submit named arguments to the server functions
+                // by including them as input values with the same name
                 <ActionForm action=adjust>
                     <input type="hidden" name="delta" value="-1"/>
                     <input type="hidden" name="msg" value="form value down"/>
@@ -185,12 +197,11 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
 // Whenever another user updates the value, it will update here
 // This is the primitive pattern for live chat, collaborative editing, etc.
 #[component]
-pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
+pub fn MultiuserCounter() -> impl IntoView {
     let dec =
-        create_action(cx, |_| adjust_server_count(-1, "dec dec goose".into()));
-    let inc =
-        create_action(cx, |_| adjust_server_count(1, "inc inc moose".into()));
-    let clear = create_action(cx, |_| clear_server_count());
+        create_action(|_| adjust_server_count(-1, "dec dec goose".into()));
+    let inc = create_action(|_| adjust_server_count(1, "inc inc moose".into()));
+    let clear = create_action(|_| clear_server_count());
 
     #[cfg(not(feature = "ssr"))]
     let multiplayer_value = {
@@ -200,7 +211,6 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
             gloo_net::eventsource::futures::EventSource::new("/api/events")
                 .expect("couldn't connect to SSE stream");
         let s = create_signal_from_stream(
-            cx,
             source
                 .subscribe("message")
                 .unwrap()
@@ -214,14 +224,14 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
                 }),
         );
 
-        on_cleanup(cx, move || source.close());
+        on_cleanup(move || source.close());
         s
     };
 
     #[cfg(feature = "ssr")]
-    let (multiplayer_value, _) = create_signal(cx, None::<i32>);
+    let (multiplayer_value, _) = create_signal(None::<i32>);
 
-    view! { cx,
+    view! {
         <div>
             <h2>"Multi-User Counter"</h2>
             <p>
@@ -237,15 +247,4 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
             </div>
         </div>
     }
-}
-
-#[component]
-fn NotFound(cx: Scope) -> impl IntoView {
-    #[cfg(feature = "ssr")]
-    {
-        let resp = expect_context::<leptos_actix::ResponseOptions>(cx);
-        resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
-    }
-
-    view! { cx, <h1>"Not Found"</h1> }
 }

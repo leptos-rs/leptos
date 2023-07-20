@@ -2,7 +2,7 @@ use crate::Children;
 use leptos_dom::{Errors, HydrationCtx, IntoView};
 use leptos_macro::{component, view};
 use leptos_reactive::{
-    create_rw_signal, provide_context, signal_prelude::*, RwSignal, Scope,
+    create_rw_signal, provide_context, signal_prelude::*, RwSignal,
 };
 
 /// When you render a `Result<_, _>` in your view, in the `Err` case it will
@@ -15,13 +15,13 @@ use leptos_reactive::{
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
-/// let (value, set_value) = create_signal(cx, Ok(0));
+/// let (value, set_value) = create_signal(Ok(0));
 /// let on_input = move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 ///
-/// view! { cx,
+/// view! {
 ///   <input type="text" on:input=on_input/>
 ///   <ErrorBoundary
-///     fallback=move |_, _| view! { cx, <p class="error">"Enter a valid number."</p>}
+///     fallback=move |_, _| view! {  <p class="error">"Enter a valid number."</p>}
 ///   >
 ///     <p>"Value is: " {move || value.get()}</p>
 ///   </ErrorBoundary>
@@ -48,25 +48,24 @@ use leptos_reactive::{
 /// ```
 #[component]
 pub fn ErrorBoundary<F, IV>(
-    cx: Scope,
     /// The components inside the tag which will get rendered
     children: Children,
     /// A fallback that will be shown if an error occurs.
     fallback: F,
 ) -> impl IntoView
 where
-    F: Fn(Scope, RwSignal<Errors>) -> IV + 'static,
+    F: Fn(RwSignal<Errors>) -> IV + 'static,
     IV: IntoView,
 {
     let before_children = HydrationCtx::next_component();
 
-    let errors: RwSignal<Errors> = create_rw_signal(cx, Errors::default());
+    let errors: RwSignal<Errors> = create_rw_signal(Errors::default());
 
-    provide_context(cx, errors);
+    provide_context(errors);
 
     // Run children so that they render and execute resources
     _ = HydrationCtx::next_component();
-    let children = children(cx);
+    let children = children();
     HydrationCtx::continue_from(before_children);
 
     #[cfg(all(debug_assertions, feature = "hydrate"))]
@@ -85,20 +84,18 @@ where
         }
     }
 
-    let children = children.into_view(cx);
-    let errors_empty = create_memo(cx, move |_| errors.with(Errors::is_empty));
+    let children = children.into_view();
+    let errors_empty = create_memo(move |_| errors.with(Errors::is_empty));
 
     move || {
         if errors_empty.get() {
-            children.clone().into_view(cx)
+            children.clone().into_view()
         } else {
-            view! { cx,
-                <>
-                    {fallback(cx, errors)}
-                    <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
-                </>
+            view! {
+                {fallback(errors)}
+                <leptos-error-boundary style="display: none">{children.clone()}</leptos-error-boundary>
             }
-            .into_view(cx)
+            .into_view()
         }
     }
 }

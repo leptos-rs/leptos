@@ -1,12 +1,11 @@
 use crate::{
     hydration::HydrationKey, ComponentRepr, HydrationCtx, IntoView, View,
 };
-use leptos_reactive::Scope;
 
 /// Trait for converting any iterable into a [`Fragment`].
 pub trait IntoFragment {
     /// Consumes this type, returning [`Fragment`].
-    fn into_fragment(self, cx: Scope) -> Fragment;
+    fn into_fragment(self) -> Fragment;
 }
 
 impl<I, V> IntoFragment for I
@@ -18,8 +17,8 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
-    fn into_fragment(self, cx: Scope) -> Fragment {
-        self.into_iter().map(|v| v.into_view(cx)).collect()
+    fn into_fragment(self) -> Fragment {
+        self.into_iter().map(|v| v.into_view()).collect()
     }
 }
 
@@ -106,7 +105,7 @@ impl Fragment {
 
 impl IntoView for Fragment {
     #[cfg_attr(debug_assertions, instrument(level = "info", name = "</>", skip_all, fields(children = self.nodes.len())))]
-    fn into_view(self, _: leptos_reactive::Scope) -> View {
+    fn into_view(self) -> View {
         self.into()
     }
 }

@@ -14,7 +14,7 @@ pub struct RouteDefinition {
     /// Other route definitions nested within this one.
     pub children: Vec<RouteDefinition>,
     /// The view that should be displayed when this route is matched.
-    pub view: Rc<dyn Fn(Scope) -> View>,
+    pub view: Rc<dyn Fn() -> View>,
     /// The mode this route prefers during server-side rendering.
     pub ssr_mode: SsrMode,
     /// The HTTP request methods this route is able to handle.

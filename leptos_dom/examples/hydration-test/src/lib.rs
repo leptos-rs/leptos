@@ -3,7 +3,7 @@
 use leptos::*;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
   let pending_thing = create_resource(
     cx,
     || false,
@@ -26,33 +26,33 @@ pub fn App(cx: Scope) -> impl IntoView {
       <div>
         "This is some text"
       </div>
-      // <Suspense fallback=move || view! { cx, <p>"Loading..."</p> }>
-        {move || pending_thing.read().map(|n| view! { cx, <ComponentA/> })}
+      // <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+        {move || pending_thing.read().map(|n| view! { <ComponentA/> })}
       // </Suspense>
     </div>
   }
 }
 
 #[component]
-pub fn ComponentA(cx: Scope) -> impl IntoView {
-  let (value, set_value) = create_signal(cx, "Hello?".to_string());
-  let (counter, set_counter) = create_signal(cx, 0);
+pub fn ComponentA() -> impl IntoView {
+  let (value, set_value) = create_signal("Hello?".to_string());
+  let (counter, set_counter) = create_signal(0);
 
   // Test to make sure hydration isn't broken by
   // something like this
-  //let _ = [div(cx)].into_view(cx);
+  //let _ = [div()].into_view();
 
-  div(cx)
+  div()
     .id("the-div")
     .child(
-      input(cx)
+      input()
         .attr("type", "text")
-        .prop("value", (cx, value))
+        .prop("value", (value))
         .on(ev::input, move |e| set_value(event_target_value(&e))),
     )
-    .child(input(cx).attr("type", "text").prop("value", value))
-    .child(p(cx).child("Value: ").child(value))
-    .into_view(cx)
+    .child(input().attr("type", "text").prop("value", value))
+    .child(p().child("Value: ").child(value))
+    .into_view()
 }
 
 #[cfg(feature = "hydrate")]
@@ -65,7 +65,7 @@ pub fn hydrate() {
 
   gloo::console::debug!("starting WASM");
 
-  leptos::mount_to_body(move |cx| {
-    view! { cx, <App/> }
+  leptos::mount_to_body(move || {
+    view! { <App/> }
   });
 }

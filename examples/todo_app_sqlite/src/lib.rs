@@ -13,9 +13,7 @@ cfg_if! {
             console_error_panic_hook::set_once();
             _ = console_log::init_with_level(log::Level::Debug);
 
-            leptos::mount_to_body(|cx| {
-                view! { cx,  <TodoApp/> }
-            });
+            leptos::mount_to_body(TodoApp);
         }
     }
 }

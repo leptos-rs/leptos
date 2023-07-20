@@ -6,7 +6,7 @@ use crate::{
     node::NodeId,
     on_cleanup,
     runtime::{with_runtime, RuntimeId},
-    Runtime, Scope, ScopeProperty,
+    Runtime,
 };
 use futures::Stream;
 use std::{
@@ -261,7 +261,7 @@ pub trait SignalStream<T> {
     // positions are stabilized, and also so any underlying
     // changes are non-breaking
     #[track_caller]
-    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>>;
+    fn to_stream(&self) -> Pin<Box<dyn Stream<Item = T>>>;
 }
 
 /// This trait allows disposing a signal before its [`Scope`] has been disposed.
@@ -320,63 +320,13 @@ pub trait SignalDispose {
         level = "trace",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>()
         )
     )
 )]
 #[track_caller]
-pub fn create_signal<T>(
-    cx: Scope,
-    value: T,
-) -> (ReadSignal<T>, WriteSignal<T>) {
-    let s = cx.runtime.create_signal(value);
-    cx.push_scope_property(ScopeProperty::Signal(s.0.id));
-    s
-}
-
-/// Works exactly as [`create_signal`], but creates multiple signals at once.
-#[cfg_attr(
- any(debug_assertions, features="ssr"),
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            scope = ?cx.id,
-            ty = %std::any::type_name::<T>()
-        )
-    )
-)]
-#[track_caller]
-pub fn create_many_signals<T>(
-    cx: Scope,
-    values: impl IntoIterator<Item = T>,
-) -> Vec<(ReadSignal<T>, WriteSignal<T>)> {
-    cx.runtime.create_many_signals_with_map(cx, values, |x| x)
-}
-
-/// Works exactly as [`create_many_signals`], but applies the map function to each signal pair.
-#[cfg_attr(
- any(debug_assertions, features="ssr"),
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            scope = ?cx.id,
-            ty = %std::any::type_name::<T>()
-        )
-    )
-)]
-#[track_caller]
-pub fn create_many_signals_mapped<T, U>(
-    cx: Scope,
-    values: impl IntoIterator<Item = T>,
-    map_fn: impl Fn((ReadSignal<T>, WriteSignal<T>)) -> U + 'static,
-) -> Vec<U>
-where
-    T: 'static,
-{
-    cx.runtime.create_many_signals_with_map(cx, values, map_fn)
+pub fn create_signal<T>(value: T) -> (ReadSignal<T>, WriteSignal<T>) {
+    Runtime::current().create_signal(value)
 }
 
 /// Creates a signal that always contains the most recent value emitted by a
@@ -387,30 +337,23 @@ where
 /// **Note**: If used on the server side during server rendering, this will return `None`
 /// immediately and not begin driving the stream.
 #[cfg_attr(
- any(debug_assertions, features="ssr"),
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            scope = ?cx.id,
-        )
-    )
+    any(debug_assertions, features = "ssr"),
+    instrument(level = "trace", skip_all,)
 )]
 pub fn create_signal_from_stream<T>(
-    cx: Scope,
     #[allow(unused_mut)] // allowed because needed for SSR
     mut stream: impl Stream<Item = T> + Unpin + 'static,
 ) -> ReadSignal<Option<T>> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "ssr")] {
             _ = stream;
-            let (read, _) = create_signal(cx, None);
+            let (read, _) = create_signal(None);
             read
         } else {
             use crate::spawn_local;
             use futures::StreamExt;
 
-            let (read, write) = create_signal(cx, None);
+            let (read, write) = create_signal(None);
             spawn_local(async move {
                 while let Some(value) = stream.next().await {
                     write.set(Some(value));
@@ -731,16 +674,16 @@ impl<T: Clone> SignalStream<T> for ReadSignal<T> {
             )
         )
     )]
-    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
+    fn to_stream(&self) -> Pin<Box<dyn Stream<Item = T>>> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
 
         let close_channel = tx.clone();
 
-        on_cleanup(cx, move || close_channel.close_channel());
+        on_cleanup(move || close_channel.close_channel());
 
         let this = *self;
 
-        create_effect(cx, move |_| {
+        create_effect(move |_| {
             let _ = tx.unbounded_send(this.get());
         });
 
@@ -758,9 +701,30 @@ impl<T> ReadSignal<T>
 where
     T: 'static,
 {
+    #[track_caller]
     #[inline(always)]
     pub(crate) fn with_no_subscription<U>(&self, f: impl FnOnce(&T) -> U) -> U {
-        self.id.with_no_subscription(self.runtime, f)
+        #[cfg(debug_assertions)]
+        let caller = std::panic::Location::caller();
+
+        self.id
+            .try_with_no_subscription_by_id(self.runtime, f)
+            .unwrap_or_else(|_| {
+                #[cfg(not(debug_assertions))]
+                {
+                    panic!("tried to access ReadSignal that has been disposed")
+                }
+                #[cfg(debug_assertions)]
+                {
+                    panic!(
+                        "at {}, tried to access ReadSignal<{}> defined at {}, \
+                         but it has already been disposed",
+                        caller,
+                        std::any::type_name::<T>(),
+                        self.defined_at
+                    )
+                }
+            })
     }
 
     /// Applies the function to the current Signal, if it exists, and subscribes
@@ -1179,10 +1143,8 @@ impl<T> Hash for WriteSignal<T> {
     )
 )]
 #[track_caller]
-pub fn create_rw_signal<T>(cx: Scope, value: T) -> RwSignal<T> {
-    let s = cx.runtime.create_rw_signal(value);
-    cx.push_scope_property(ScopeProperty::Signal(s.id));
-    s
+pub fn create_rw_signal<T>(value: T) -> RwSignal<T> {
+    Runtime::current().create_rw_signal(value)
 }
 
 /// A signal that combines the getter and setter into one value, rather than
@@ -1288,8 +1250,29 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn get_untracked(&self) -> T {
-        self.id.with_no_subscription(self.runtime, Clone::clone)
+        #[cfg(debug_assertions)]
+        let caller = std::panic::Location::caller();
+
+        self.id
+            .try_with_no_subscription_by_id(self.runtime, Clone::clone)
+            .unwrap_or_else(|_| {
+                #[cfg(not(debug_assertions))]
+                {
+                    panic!("tried to access RwSignal that has been disposed")
+                }
+                #[cfg(debug_assertions)]
+                {
+                    panic!(
+                        "at {}, tried to access RwSignal<{}> defined at {}, \
+                         but it has already been disposed",
+                        caller,
+                        std::any::type_name::<T>(),
+                        self.defined_at
+                    )
+                }
+            })
     }
 
     #[cfg_attr(
@@ -1305,18 +1288,13 @@ impl<T: Clone> SignalGetUntracked<T> for RwSignal<T> {
             )
         )
     )]
+    #[track_caller]
     fn try_get_untracked(&self) -> Option<T> {
-        match with_runtime(self.runtime, |runtime| {
-            self.id.try_with_no_subscription(runtime, Clone::clone)
+        with_runtime(self.runtime, |runtime| {
+            self.id.try_with_no_subscription(runtime, Clone::clone).ok()
         })
-        .expect("runtime to be alive")
-        {
-            Ok(t) => t,
-            Err(_) => panic_getting_dead_signal(
-                #[cfg(any(debug_assertions, feature = "ssr"))]
-                self.defined_at,
-            ),
-        }
+        .ok()
+        .flatten()
     }
 }
 
@@ -1336,7 +1314,23 @@ impl<T> SignalWithUntracked<T> for RwSignal<T> {
     )]
     #[inline(always)]
     fn with_untracked<O>(&self, f: impl FnOnce(&T) -> O) -> O {
-        self.id.with_no_subscription(self.runtime, f)
+        self.id
+            .try_with_no_subscription_by_id(self.runtime, f)
+            .unwrap_or_else(|_| {
+                #[cfg(not(debug_assertions))]
+                {
+                    panic!("tried to access RwSignal that has been disposed")
+                }
+                #[cfg(debug_assertions)]
+                {
+                    panic!(
+                        "tried to access RwSignal<{}> defined at {}, but it \
+                         has already been disposed",
+                        std::any::type_name::<T>(),
+                        self.defined_at
+                    )
+                }
+            })
     }
 
     #[cfg_attr(
@@ -1758,16 +1752,16 @@ impl<T> SignalSet<T> for RwSignal<T> {
 }
 
 impl<T: Clone> SignalStream<T> for RwSignal<T> {
-    fn to_stream(&self, cx: Scope) -> Pin<Box<dyn Stream<Item = T>>> {
+    fn to_stream(&self) -> Pin<Box<dyn Stream<Item = T>>> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
 
         let close_channel = tx.clone();
 
-        on_cleanup(cx, move || close_channel.close_channel());
+        on_cleanup(move || close_channel.close_channel());
 
         let this = *self;
 
-        create_effect(cx, move |_| {
+        create_effect(move |_| {
             let _ = tx.unbounded_send(this.get());
         });
 
@@ -1977,6 +1971,21 @@ impl NodeId {
         Ok(node.value())
     }
 
+    #[inline(always)]
+    pub(crate) fn try_with_no_subscription_by_id<T, U>(
+        &self,
+        runtime: RuntimeId,
+        f: impl FnOnce(&T) -> U,
+    ) -> Result<U, SignalError>
+    where
+        T: 'static,
+    {
+        with_runtime(runtime, |runtime| {
+            self.try_with_no_subscription(runtime, f)
+        })
+        .expect("runtime to be alive")
+    }
+
     #[track_caller]
     #[inline(always)]
     pub(crate) fn try_with_no_subscription<T, U>(
@@ -2010,21 +2019,6 @@ impl NodeId {
         self.subscribe(runtime, diagnostics);
 
         self.try_with_no_subscription(runtime, f)
-    }
-
-    #[inline(always)]
-    pub(crate) fn with_no_subscription<T, U>(
-        &self,
-        runtime: RuntimeId,
-        f: impl FnOnce(&T) -> U,
-    ) -> U
-    where
-        T: 'static,
-    {
-        with_runtime(runtime, |runtime| {
-            self.try_with_no_subscription(runtime, f).unwrap()
-        })
-        .expect("runtime to be alive")
     }
 
     #[inline(always)]

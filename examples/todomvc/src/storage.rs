@@ -1,5 +1,5 @@
 use crate::Todo;
-use leptos::{signal_prelude::*, Scope};
+use leptos::signal_prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -11,8 +11,8 @@ pub struct TodoSerialized {
 }
 
 impl TodoSerialized {
-    pub fn into_todo(self, cx: Scope) -> Todo {
-        Todo::new_with_completed(cx, self.id, self.title, self.completed)
+    pub fn into_todo(self) -> Todo {
+        Todo::new_with_completed(self.id, self.title, self.completed)
     }
 }
 

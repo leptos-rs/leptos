@@ -2,10 +2,10 @@
 use crate::{
     create_effect, create_isomorphic_effect, create_memo, create_signal,
     queue_microtask,
-    runtime::{with_runtime, RuntimeId},
+    runtime::{with_runtime, Runtime, RuntimeId},
     serialization::Serializable,
     spawn::spawn_local,
-    use_context, GlobalSuspenseContext, Memo, ReadSignal, Scope, ScopeProperty,
+    use_context, GlobalSuspenseContext, Memo, ReadSignal, ScopeProperty,
     SignalDispose, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
     SuspenseContext, WriteSignal,
 };
@@ -45,22 +45,22 @@ use std::{
 /// }
 ///
 /// // a signal that controls how many cat pics we want
-/// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
+/// let (how_many_cats, set_how_many_cats) = create_signal(1);
 ///
 /// // create a resource that will refetch whenever `how_many_cats` changes
 /// # // `csr`, `hydrate`, and `ssr` all have issues here
 /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
 /// # if false {
-/// let cats = create_resource(cx, move || how_many_cats.get(), fetch_cat_picture_urls);
+/// let cats = create_resource(move || how_many_cats.get(), fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats.set(2);
-/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
 /// ```
@@ -70,14 +70,12 @@ use std::{
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
     )
 )]
 pub fn create_resource<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
@@ -89,7 +87,7 @@ where
     // can't check this on the server without running the future
     let initial_value = None;
 
-    create_resource_with_initial_value(cx, source, fetcher, initial_value)
+    create_resource_with_initial_value(source, fetcher, initial_value)
 }
 
 /// Creates a [`Resource`](crate::Resource) with the given initial value, which
@@ -106,7 +104,6 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
@@ -114,7 +111,6 @@ where
 )]
 #[track_caller]
 pub fn create_resource_with_initial_value<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
@@ -125,7 +121,6 @@ where
     Fu: Future<Output = T> + 'static,
 {
     create_resource_helper(
-        cx,
         source,
         fetcher,
         initial_value,
@@ -153,7 +148,6 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
@@ -161,7 +155,6 @@ where
 )]
 #[track_caller]
 pub fn create_blocking_resource<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
@@ -171,7 +164,6 @@ where
     Fu: Future<Output = T> + 'static,
 {
     create_resource_helper(
-        cx,
         source,
         fetcher,
         None,
@@ -180,7 +172,6 @@ where
 }
 
 fn create_resource_helper<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
@@ -191,16 +182,17 @@ where
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
+    let runtime = Runtime::current();
     let resolved = initial_value.is_some();
-    let (value, set_value) = create_signal(cx, initial_value);
+    let (value, set_value) = create_signal(initial_value);
 
-    let (loading, set_loading) = create_signal(cx, false);
+    let (loading, set_loading) = create_signal(false);
 
     //crate::macros::debug_warn!("creating fetcher");
     let fetcher = Rc::new(move |s| {
         Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
     });
-    let source = create_memo(cx, move |_| source());
+    let source = create_memo(move |_| source());
 
     let r = Rc::new(ResourceState {
         value,
@@ -216,24 +208,24 @@ where
         serializable,
     });
 
-    let id = with_runtime(cx.runtime, |runtime| {
+    let id = with_runtime(runtime, |runtime| {
         let r = Rc::clone(&r) as Rc<dyn SerializableResource>;
-        runtime.create_serializable_resource(r)
+        let id = runtime.create_serializable_resource(r);
+        runtime.push_scope_property(ScopeProperty::Resource(id));
+        id
     })
     .expect("tried to create a Resource in a Runtime that has been disposed.");
 
     //crate::macros::debug_warn!("creating effect");
-    create_isomorphic_effect(cx, {
+    create_isomorphic_effect({
         let r = Rc::clone(&r);
         move |_| {
-            load_resource(cx, id, r.clone());
+            load_resource(runtime, id, r.clone());
         }
     });
 
-    cx.push_scope_property(ScopeProperty::Resource(id));
-
     Resource {
-        runtime: cx.runtime,
+        runtime,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -269,7 +261,7 @@ where
 /// // create the resource; it will run but not be serialized
 /// # if cfg!(not(any(feature = "csr", feature = "hydrate"))) {
 /// let result =
-///     create_local_resource(cx, move || (), |_| setup_complicated_struct());
+///     create_local_resource(move || (), |_| setup_complicated_struct());
 /// # }
 /// # }).dispose();
 /// ```
@@ -279,14 +271,12 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
     )
 )]
 pub fn create_local_resource<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
 ) -> Resource<S, T>
@@ -296,7 +286,7 @@ where
     Fu: Future<Output = T> + 'static,
 {
     let initial_value = None;
-    create_local_resource_with_initial_value(cx, source, fetcher, initial_value)
+    create_local_resource_with_initial_value(source, fetcher, initial_value)
 }
 
 /// Creates a _local_ [`Resource`](crate::Resource) with the given initial value,
@@ -312,14 +302,12 @@ where
         level = "info",
         skip_all,
         fields(
-            scope = ?cx.id,
             ty = %std::any::type_name::<T>(),
             signal_ty = %std::any::type_name::<S>(),
         )
     )
 )]
 pub fn create_local_resource_with_initial_value<S, T, Fu>(
-    cx: Scope,
     source: impl Fn() -> S + 'static,
     fetcher: impl Fn(S) -> Fu + 'static,
     initial_value: Option<T>,
@@ -329,15 +317,16 @@ where
     T: 'static,
     Fu: Future<Output = T> + 'static,
 {
+    let runtime = Runtime::current();
     let resolved = initial_value.is_some();
-    let (value, set_value) = create_signal(cx, initial_value);
+    let (value, set_value) = create_signal(initial_value);
 
-    let (loading, set_loading) = create_signal(cx, false);
+    let (loading, set_loading) = create_signal(false);
 
     let fetcher = Rc::new(move |s| {
         Box::pin(fetcher(s)) as Pin<Box<dyn Future<Output = T>>>
     });
-    let source = create_memo(cx, move |_| source());
+    let source = create_memo(move |_| source());
 
     let r = Rc::new(ResourceState {
         value,
@@ -353,23 +342,23 @@ where
         serializable: ResourceSerialization::Local,
     });
 
-    let id = with_runtime(cx.runtime, |runtime| {
+    let id = with_runtime(runtime, |runtime| {
         let r = Rc::clone(&r) as Rc<dyn UnserializableResource>;
-        runtime.create_unserializable_resource(r)
+        let id = runtime.create_unserializable_resource(r);
+        runtime.push_scope_property(ScopeProperty::Resource(id));
+        id
     })
     .expect("tried to create a Resource in a runtime that has been disposed.");
 
-    create_effect(cx, {
+    create_effect({
         let r = Rc::clone(&r);
         // This is a local resource, so we're always going to handle it on the
         // client
         move |_| r.load(false)
     });
 
-    cx.push_scope_property(ScopeProperty::Resource(id));
-
     Resource {
-        runtime: cx.runtime,
+        runtime,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -379,8 +368,11 @@ where
 }
 
 #[cfg(not(feature = "hydrate"))]
-fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
-where
+fn load_resource<S, T>(
+    _runtime: RuntimeId,
+    _id: ResourceId,
+    r: Rc<ResourceState<S, T>>,
+) where
     S: PartialEq + Clone + 'static,
     T: 'static,
 {
@@ -392,14 +384,17 @@ where
 }
 
 #[cfg(feature = "hydrate")]
-fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
-where
+fn load_resource<S, T>(
+    runtime: RuntimeId,
+    id: ResourceId,
+    r: Rc<ResourceState<S, T>>,
+) where
     S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-    _ = with_runtime(cx.runtime, |runtime| {
+    _ = with_runtime(runtime, |runtime| {
         let mut context = runtime.shared_context.borrow_mut();
         if let Some(data) = context.resolved_resources.remove(&id) {
             // The server already sent us the serialized resource value, so
@@ -471,20 +466,20 @@ where
     /// resource.
     ///
     /// If you want to get the value without cloning it, use [`Resource::with`].
-    /// (`value.read(cx)` is equivalent to `value.with(cx, T::clone)`.)
+    /// (`value.read()` is equivalent to `value.with(T::clone)`.)
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn read(&self, cx: Scope) -> Option<T>
+    pub fn read(&self) -> Option<T>
     where
         T: Clone,
     {
         let location = std::panic::Location::caller();
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.read(cx, location)
+                resource.read(location)
             })
         })
         .ok()
@@ -503,11 +498,11 @@ where
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn with<U>(&self, cx: Scope, f: impl FnOnce(&T) -> U) -> Option<U> {
+    pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let location = std::panic::Location::caller();
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.with(cx, f, location)
+                resource.with(f, location)
             })
         })
         .ok()
@@ -551,16 +546,13 @@ where
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
-    pub async fn to_serialization_resolver(
-        &self,
-        cx: Scope,
-    ) -> (ResourceId, String)
+    pub async fn to_serialization_resolver(&self) -> (ResourceId, String)
     where
         T: Serializable,
     {
         with_runtime(self.runtime, |runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
-                resource.to_serialization_resolver(cx, self.id)
+                resource.to_serialization_resolver(self.id)
             })
         })
         .expect(
@@ -690,22 +682,22 @@ impl<S, T> SignalSet<T> for Resource<S, T> {
 /// }
 ///
 /// // a signal that controls how many cat pics we want
-/// let (how_many_cats, set_how_many_cats) = create_signal(cx, 1);
+/// let (how_many_cats, set_how_many_cats) = create_signal(1);
 ///
 /// // create a resource that will refetch whenever `how_many_cats` changes
 /// # // `csr`, `hydrate`, and `ssr` all have issues here
 /// # // because we're not running in a browser or in Tokio. Let's just ignore it.
 /// # if false {
-/// let cats = create_resource(cx, move || how_many_cats.get(), fetch_cat_picture_urls);
+/// let cats = create_resource(move || how_many_cats.get(), fetch_cat_picture_urls);
 ///
 /// // when we read the signal, it contains either
 /// // 1) None (if the Future isn't ready yet) or
 /// // 2) Some(T) (if the future's already resolved)
-/// assert_eq!(cats.read(cx), Some(vec!["1".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["1".to_string()]));
 ///
 /// // when the signal's value changes, the `Resource` will generate and run a new `Future`
 /// set_how_many_cats.set(2);
-/// assert_eq!(cats.read(cx), Some(vec!["2".to_string()]));
+/// assert_eq!(cats.read(), Some(vec!["2".to_string()]));
 /// # }
 /// # }).dispose();
 /// ```
@@ -788,15 +780,11 @@ where
         instrument(level = "info", skip_all,)
     )]
     #[track_caller]
-    pub fn read(
-        &self,
-        cx: Scope,
-        location: &'static Location<'static>,
-    ) -> Option<T>
+    pub fn read(&self, location: &'static Location<'static>) -> Option<T>
     where
         T: Clone,
     {
-        self.with(cx, T::clone, location)
+        self.with(T::clone, location)
     }
 
     #[cfg_attr(
@@ -806,12 +794,11 @@ where
     #[track_caller]
     pub fn with<U>(
         &self,
-        cx: Scope,
         f: impl FnOnce(&T) -> U,
         location: &'static Location<'static>,
     ) -> Option<U> {
-        let global_suspense_cx = use_context::<GlobalSuspenseContext>(cx);
-        let suspense_cx = use_context::<SuspenseContext>(cx);
+        let global_suspense_cx = use_context::<GlobalSuspenseContext>();
+        let suspense_cx = use_context::<SuspenseContext>();
 
         let v = self
             .value
@@ -855,7 +842,7 @@ where
         // on cleanup of this component, remove this read from parent `<Suspense/>`
         // it will be added back in when this is rendered again
         if let Some(s) = suspense_cx {
-            crate::on_cleanup(cx, {
+            crate::on_cleanup({
                 let suspense_contexts = Rc::clone(&suspense_contexts);
                 move || {
                     if let Ok(ref mut contexts) =
@@ -908,9 +895,10 @@ where
             }
         };
 
-        create_isomorphic_effect(cx, increment);
+        create_isomorphic_effect(increment);
         v
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -918,6 +906,7 @@ where
     pub fn refetch(&self) {
         self.load(true);
     }
+
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -991,7 +980,6 @@ where
     )]
     pub fn resource_to_serialization_resolver(
         &self,
-        cx: Scope,
         id: ResourceId,
     ) -> std::pin::Pin<Box<dyn futures::Future<Output = (ResourceId, String)>>>
     where
@@ -1001,7 +989,7 @@ where
 
         let (tx, mut rx) = futures::channel::mpsc::channel(1);
         let value = self.value;
-        create_isomorphic_effect(cx, move |_| {
+        create_isomorphic_effect(move |_| {
             value.with({
                 let mut tx = tx.clone();
                 move |value| {
@@ -1037,7 +1025,6 @@ pub(crate) trait SerializableResource {
 
     fn to_serialization_resolver(
         &self,
-        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>>;
 }
@@ -1056,10 +1043,9 @@ where
     )]
     fn to_serialization_resolver(
         &self,
-        cx: Scope,
         id: ResourceId,
     ) -> Pin<Box<dyn Future<Output = (ResourceId, String)>>> {
-        let fut = self.resource_to_serialization_resolver(cx, id);
+        let fut = self.resource_to_serialization_resolver(id);
         Box::pin(fut)
     }
 }

@@ -3,14 +3,14 @@ use leptos::*;
 pub fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
     console_error_panic_hook::set_once();
-    mount_to_body(|cx| view! { cx, <Tests/> })
+    mount_to_body(|| view! { <Tests/> })
 }
 
 #[component]
-fn SelfUpdatingEffect(cx: Scope) -> Element {
-    let (a, set_a) = create_signal(cx, false);
+fn SelfUpdatingEffect() -> Element {
+    let (a, set_a) = create_signal(false);
 
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         if !a() {
             set_a(true);
         }
@@ -22,7 +22,7 @@ fn SelfUpdatingEffect(cx: Scope) -> Element {
 }
 
 #[component]
-fn Tests(cx: Scope) -> Element {
+fn Tests() -> Element {
     view! {
         cx,
         <div>
@@ -34,7 +34,7 @@ fn Tests(cx: Scope) -> Element {
 }
 
 #[component]
-fn BlockOrders(cx: Scope) -> Element {
+fn BlockOrders() -> Element {
     let a = "A";
     let b = "B";
     let c = "C";
@@ -88,23 +88,23 @@ fn BlockOrders(cx: Scope) -> Element {
 }
 
 #[component]
-fn A(cx: Scope) -> Element {
-    view! { cx, <span style="color: red">"A"</span> }
+fn A() -> Element {
+    view! { <span style="color: red">"A"</span> }
 }
 
 #[component]
-fn B(cx: Scope) -> Element {
-    view! { cx, <span style="color: red">"B"</span> }
+fn B() -> Element {
+    view! { <span style="color: red">"B"</span> }
 }
 
 #[component]
-fn C(cx: Scope) -> Element {
-    view! { cx, <span style="color: red">"C"</span> }
+fn C() -> Element {
+    view! { <span style="color: red">"C"</span> }
 }
 
 #[component]
-fn TemplateConsumer(cx: Scope) -> Element {
-    let tpl = view! { cx, <TemplateExample/> };
+fn TemplateConsumer() -> Element {
+    let tpl = view! { <TemplateExample/> };
     let cloned_tpl = tpl
         .unchecked_ref::<web_sys::HtmlTemplateElement>()
         .content()
@@ -121,7 +121,7 @@ fn TemplateConsumer(cx: Scope) -> Element {
 }
 
 #[component]
-fn TemplateExample(cx: Scope) -> Element {
+fn TemplateExample() -> Element {
     view! {
         cx,
         <template>

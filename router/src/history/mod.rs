@@ -23,7 +23,7 @@ impl std::fmt::Debug for RouterIntegrationContext {
 /// can be implemented on any type to provide this information.
 pub trait History {
     /// A signal that updates whenever the current location changes.
-    fn location(&self, cx: Scope) -> ReadSignal<LocationChange>;
+    fn location(&self) -> ReadSignal<LocationChange>;
 
     /// Called to navigate to a new location.
     fn navigate(&self, loc: &LocationChange);
@@ -49,13 +49,13 @@ impl BrowserIntegration {
 }
 
 impl History for BrowserIntegration {
-    fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
+    fn location(&self) -> ReadSignal<LocationChange> {
         use crate::{NavigateOptions, RouterContext};
 
-        let (location, set_location) = create_signal(cx, Self::current());
+        let (location, set_location) = create_signal(Self::current());
 
         leptos::window_event_listener_untyped("popstate", move |_| {
-            let router = use_context::<RouterContext>(cx);
+            let router = use_context::<RouterContext>();
             if let Some(router) = router {
                 let path_stack = router.inner.path_stack;
 
@@ -146,11 +146,11 @@ impl History for BrowserIntegration {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # run_scope(create_runtime(), || {
 /// let integration = ServerIntegration {
 ///     path: "http://leptos.rs/".to_string(),
 /// };
-/// provide_context(cx, RouterIntegrationContext::new(integration));
+/// provide_context(RouterIntegrationContext::new(integration));
 /// # });
 /// ```
 #[derive(Clone)]
@@ -164,8 +164,8 @@ impl RouterIntegrationContext {
 }
 
 impl History for RouterIntegrationContext {
-    fn location(&self, cx: Scope) -> ReadSignal<LocationChange> {
-        self.0.location(cx)
+    fn location(&self) -> ReadSignal<LocationChange> {
+        self.0.location()
     }
 
     fn navigate(&self, loc: &LocationChange) {
@@ -183,12 +183,12 @@ impl History for RouterIntegrationContext {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # run_scope(create_runtime(), || {
 /// let integration = ServerIntegration {
 ///     // Swap out with your URL if integrating manually.
 ///     path: "http://leptos.rs/".to_string(),
 /// };
-/// provide_context(cx, RouterIntegrationContext::new(integration));
+/// provide_context(RouterIntegrationContext::new(integration));
 /// # });
 /// ```
 #[derive(Clone, Debug)]
@@ -197,16 +197,13 @@ pub struct ServerIntegration {
 }
 
 impl History for ServerIntegration {
-    fn location(&self, cx: leptos::Scope) -> ReadSignal<LocationChange> {
-        create_signal(
-            cx,
-            LocationChange {
-                value: self.path.clone(),
-                replace: false,
-                scroll: true,
-                state: State(None),
-            },
-        )
+    fn location(&self) -> ReadSignal<LocationChange> {
+        create_signal(LocationChange {
+            value: self.path.clone(),
+            replace: false,
+            scroll: true,
+            state: State(None),
+        })
         .0
     }
 

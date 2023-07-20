@@ -117,7 +117,7 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 
 #[component]
-pub fn ButtonC(cx: Scope) -> impl IntoView {
+pub fn ButtonC<F>(cx: Scope) -> impl IntoView {
     view! { cx,
         <button>"Toggle"</button>
     }

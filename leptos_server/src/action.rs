@@ -1,7 +1,7 @@
 use crate::{ServerFn, ServerFnError};
 use leptos_reactive::{
-    create_rw_signal, signal_prelude::*, spawn_local, store_value, ReadSignal,
-    RwSignal, Scope, StoredValue,
+    batch, create_rw_signal, signal_prelude::*, spawn_local, store_value,
+    ReadSignal, RwSignal, StoredValue,
 };
 use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 
@@ -13,13 +13,14 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
 ///     // return a task id
 ///     42
 /// }
-/// let save_data = create_action(cx, |task: &String| {
+/// let save_data = create_action(|task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
@@ -63,19 +64,19 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// // if there's a single argument, just use that
-/// let action1 = create_action(cx, |input: &String| {
+/// let action1 = create_action(|input: &String| {
 ///     let input = input.clone();
 ///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
-/// let action2 = create_action(cx, |input: &()| async { todo!() });
+/// let action2 = create_action(|input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 =
-///     create_action(cx, |input: &(usize, String)| async { todo!() });
+/// let action3 = create_action(|input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 pub struct Action<I, O>(StoredValue<ActionState<I, O>>)
@@ -203,7 +204,6 @@ where
     I: 'static,
     O: 'static,
 {
-    cx: Scope,
     /// How many times the action has successfully resolved.
     pub version: RwSignal<usize>,
     /// The current argument that was dispatched to the `async` function.
@@ -237,12 +237,11 @@ where
         let pending = self.pending;
         let pending_dispatches = Rc::clone(&self.pending_dispatches);
         let value = self.value;
-        let cx = self.cx;
         pending.set(true);
         pending_dispatches.set(pending_dispatches.get().saturating_sub(1));
         spawn_local(async move {
             let new_value = fut.await;
-            cx.batch(move || {
+            batch(move || {
                 value.set(Some(new_value));
                 input.set(None);
                 version.update(|n| *n += 1);
@@ -265,13 +264,14 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
 ///     // return a task id
 ///     42
 /// }
-/// let save_data = create_action(cx, |task: &String| {
+/// let save_data = create_action(|task: &String| {
 ///   // `task` is given as `&String` because its value is available in `input`
 ///   send_new_todo_to_api(task.clone())
 /// });
@@ -315,55 +315,51 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = enter_new_runtime();
+/// # create_root(|_| {
 /// // if there's a single argument, just use that
-/// let action1 = create_action(cx, |input: &String| {
+/// let action1 = create_action(|input: &String| {
 ///     let input = input.clone();
 ///     async move { todo!() }
 /// });
 ///
 /// // if there are no arguments, use the unit type `()`
-/// let action2 = create_action(cx, |input: &()| async { todo!() });
+/// let action2 = create_action(|input: &()| async { todo!() });
 ///
 /// // if there are multiple arguments, use a tuple
-/// let action3 =
-///     create_action(cx, |input: &(usize, String)| async { todo!() });
+/// let action3 = create_action(|input: &(usize, String)| async { todo!() });
 /// # });
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn create_action<I, O, F, Fu>(cx: Scope, action_fn: F) -> Action<I, O>
+pub fn create_action<I, O, F, Fu>(action_fn: F) -> Action<I, O>
 where
     I: 'static,
     O: 'static,
     F: Fn(&I) -> Fu + 'static,
     Fu: Future<Output = O> + 'static,
 {
-    let version = create_rw_signal(cx, 0);
-    let input = create_rw_signal(cx, None);
-    let value = create_rw_signal(cx, None);
-    let pending = create_rw_signal(cx, false);
+    let version = create_rw_signal(0);
+    let input = create_rw_signal(None);
+    let value = create_rw_signal(None);
+    let pending = create_rw_signal(false);
     let pending_dispatches = Rc::new(Cell::new(0));
     let action_fn = Rc::new(move |input: &I| {
         let fut = action_fn(input);
         Box::pin(fut) as Pin<Box<dyn Future<Output = O>>>
     });
 
-    Action(store_value(
-        cx,
-        ActionState {
-            cx,
-            version,
-            url: None,
-            input,
-            value,
-            pending,
-            pending_dispatches,
-            action_fn,
-        },
-    ))
+    Action(store_value(ActionState {
+        version,
+        url: None,
+        input,
+        value,
+        pending,
+        pending_dispatches,
+        action_fn,
+    }))
 }
 
 /// Creates an [Action] that can be used to call a server function.
@@ -384,15 +380,13 @@ where
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "trace", skip_all,)
 )]
-pub fn create_server_action<S>(
-    cx: Scope,
-) -> Action<S, Result<S::Output, ServerFnError>>
+pub fn create_server_action<S>() -> Action<S, Result<S::Output, ServerFnError>>
 where
     S: Clone + ServerFn,
 {
     #[cfg(feature = "ssr")]
-    let c = move |args: &S| S::call_fn(args.clone(), cx);
+    let c = move |args: &S| S::call_fn(args.clone(), ());
     #[cfg(not(feature = "ssr"))]
-    let c = move |args: &S| S::call_fn_client(args.clone(), cx);
-    create_action(cx, c).using_server_fn::<S>()
+    let c = move |args: &S| S::call_fn_client(args.clone(), ());
+    create_action(c).using_server_fn::<S>()
 }

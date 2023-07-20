@@ -1,7 +1,7 @@
 //! A variety of DOM utility functions.
 
 use crate::{events::typed as ev, is_server, window};
-use leptos_reactive::{on_cleanup, Scope};
+use leptos_reactive::on_cleanup;
 use std::time::Duration;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue, UnwrapThrowExt};
 
@@ -248,9 +248,9 @@ pub fn set_timeout_with_handle(
 /// use leptos::{leptos_dom::helpers::debounce, *};
 ///
 /// #[component]
-/// fn DebouncedButton(cx: Scope) -> impl IntoView {
+/// fn DebouncedButton() -> impl IntoView {
 ///     let delay = std::time::Duration::from_millis(250);
-///     let on_click = debounce(cx, delay, move |_| {
+///     let on_click = debounce(delay, move |_| {
 ///         log!("...so many clicks!");
 ///     });
 ///
@@ -260,7 +260,6 @@ pub fn set_timeout_with_handle(
 /// }
 /// ```
 pub fn debounce<T: 'static>(
-    cx: Scope,
     delay: Duration,
     #[cfg(debug_assertions)] mut cb: impl FnMut(T) + 'static,
     #[cfg(not(debug_assertions))] cb: impl FnMut(T) + 'static,
@@ -285,7 +284,7 @@ pub fn debounce<T: 'static>(
 
     let timer = Rc::new(Cell::new(None::<TimeoutHandle>));
 
-    on_cleanup(cx, {
+    on_cleanup({
         let timer = Rc::clone(&timer);
         move || {
             if let Some(timer) = timer.take() {
@@ -325,7 +324,8 @@ impl IntervalHandle {
     }
 }
 
-/// Repeatedly calls the given function, with a delay of the given duration between calls.
+/// Repeatedly calls the given function, with a delay of the given duration between calls,
+/// returning a cancelable handle.
 /// See [`setInterval()`](https://developer.mozilla.org/en-US/docs/Web/API/setInterval).
 #[cfg_attr(
   any(debug_assertions, feature = "ssr"),
@@ -418,7 +418,7 @@ pub fn window_event_listener_untyped(
 /// use leptos::{leptos_dom::helpers::window_event_listener, *};
 ///
 /// #[component]
-/// fn App(cx: Scope) -> impl IntoView {
+/// fn App() -> impl IntoView {
 ///     window_event_listener(ev::keypress, |ev| {
 ///         // ev is typed as KeyboardEvent automatically,
 ///         // so .code() can be called

@@ -4,37 +4,33 @@ use leptos_meta::*;
 use leptos_router::*;
 
 #[component]
-pub fn Story(cx: Scope) -> impl IntoView {
-    let params = use_params_map(cx);
+pub fn Story() -> impl IntoView {
+    let params = use_params_map();
     let story = create_resource(
-        cx,
         move || params().get("id").cloned().unwrap_or_default(),
         move |id| async move {
             if id.is_empty() {
                 None
             } else {
-                api::fetch_api::<api::Story>(
-                    cx,
-                    &api::story(&format!("item/{id}")),
-                )
-                .await
+                api::fetch_api::<api::Story>(&api::story(&format!("item/{id}")))
+                    .await
             }
         },
     );
     let meta_description = move || {
         story
-            .read(cx)
+            .read()
             .and_then(|story| story.map(|story| story.title))
             .unwrap_or_else(|| "Loading story...".to_string())
     };
 
-    view! { cx,
+    view! {
         <>
             <Meta name="description" content=meta_description/>
-                <Suspense fallback=|| view! { cx, "Loading..." }>
-                    {move || story.read(cx).map(|story| match story {
-                        None => view! { cx,  <div class="item-view">"Error loading this story."</div> },
-                        Some(story) => view! { cx,
+                <Suspense fallback=|| view! { "Loading..." }>
+                    {move || story.read().map(|story| match story {
+                        None => view! {  <div class="item-view">"Error loading this story."</div> },
+                        Some(story) => view! {
                             <div class="item-view">
                                 <div class="item-view-header">
                                 <a href=story.url target="_blank">
@@ -43,7 +39,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
                                 <span class="host">
                                     "("{story.domain}")"
                                 </span>
-                                {story.user.map(|user| view! { cx,  <p class="meta">
+                                {story.user.map(|user| view! {  <p class="meta">
                                     {story.points}
                                     " points | by "
                                     <A href=format!("/users/{user}")>{user.clone()}</A>
@@ -62,7 +58,7 @@ pub fn Story(cx: Scope) -> impl IntoView {
                                     <For
                                         each=move || story.comments.clone().unwrap_or_default()
                                         key=|comment| comment.id
-                                        view=move |cx, comment| view! { cx,  <Comment comment /> }
+                                        view=move |comment| view! {  <Comment comment /> }
                                     />
                                 </ul>
                             </div>
@@ -75,10 +71,10 @@ pub fn Story(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Comment(cx: Scope, comment: api::Comment) -> impl IntoView {
-    let (open, set_open) = create_signal(cx, true);
+pub fn Comment(comment: api::Comment) -> impl IntoView {
+    let (open, set_open) = create_signal(true);
 
-    view! { cx,
+    view! {
         <li class="comment">
         <div class="by">
             <A href=format!("/users/{}", comment.user.clone().unwrap_or_default())>{comment.user.clone()}</A>
@@ -86,7 +82,7 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> impl IntoView {
         </div>
         <div class="text" inner_html=comment.content></div>
         {(!comment.comments.is_empty()).then(|| {
-            view! { cx,
+            view! {
                 <div>
                     <div class="toggle" class:open=open>
                         <a on:click=move |_| set_open.update(|n| *n = !*n)>
@@ -102,12 +98,12 @@ pub fn Comment(cx: Scope, comment: api::Comment) -> impl IntoView {
                     </div>
                     {move || open().then({
                         let comments = comment.comments.clone();
-                        move || view! { cx,
+                        move || view! {
                             <ul class="comment-children">
                                 <For
                                     each=move || comments.clone()
                                     key=|comment| comment.id
-                                    view=move |cx, comment: api::Comment| view! { cx, <Comment comment /> }
+                                    view=move |comment: api::Comment| view! { <Comment comment /> }
                                 />
                             </ul>
                         }

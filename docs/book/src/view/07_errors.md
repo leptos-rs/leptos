@@ -19,7 +19,7 @@ fn NumericInput(cx: Scope) -> impl IntoView {
     view! { cx,
         <label>
             "Type a number (or not!)"
-            <input on:input=on_input/>
+            <input type="number" on:input=on_input/>
             <p>
                 "You entered "
                 <strong>{value}</strong>
@@ -69,7 +69,7 @@ fn NumericInput(cx: Scope) -> impl IntoView {
         <h1>"Error Handling"</h1>
         <label>
             "Type a number (or something that's not a number!)"
-            <input on:input=on_input/>
+            <input type="number" on:input=on_input/>
             <ErrorBoundary
                 // the fallback receives a signal containing current errors
                 fallback=|cx, errors| view! { cx,

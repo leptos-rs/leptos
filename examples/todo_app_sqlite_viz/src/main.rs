@@ -21,10 +21,10 @@ cfg_if! {
             .ok_or(StateError::new::<LeptosOptions>())?;
         let handler = leptos_viz::render_app_to_stream_with_context(
             options.clone(),
-            move |cx| {
-                provide_context(cx, id.clone());
+            move || {
+                provide_context(id.clone());
             },
-            |cx| view! { cx, <TodoApp/> },
+            || view! { <TodoApp/> },
         );
         handler(req).await
     }
@@ -51,7 +51,7 @@ cfg_if! {
         let conf = get_configuration(None).await.unwrap();
         let leptos_options = conf.leptos_options;
         let addr = leptos_options.site_addr;
-        let routes = generate_route_list(|cx| view! { cx, <TodoApp/> }).await;
+        let routes = generate_route_list(|| view! { <TodoApp/> }).await;
 
         // build our application with a route
         let app = Router::new()
@@ -60,7 +60,7 @@ cfg_if! {
             .leptos_routes(
                 leptos_options.clone(),
                 routes,
-                |cx| view! { cx, <TodoApp/> },
+                || view! { <TodoApp/> },
             )
             .get("/*", file_and_error_handler)
             .with(State(leptos_options));

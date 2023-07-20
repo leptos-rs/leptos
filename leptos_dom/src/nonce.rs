@@ -1,5 +1,5 @@
 use crate::{Attribute, IntoAttribute};
-use leptos_reactive::{use_context, Scope};
+use leptos_reactive::use_context;
 use std::{fmt::Display, ops::Deref};
 
 /// A nonce a cryptographic nonce ("number used once") which can be
@@ -24,7 +24,7 @@ use std::{fmt::Display, ops::Deref};
 ///             http_equiv="Content-Security-Policy"
 ///             content=move || {
 ///                 // this will insert the CSP with nonce on the server, be empty on client
-///                 use_nonce(cx)
+///                 use_nonce()
 ///                     .map(|nonce| {
 ///                         format!(
 ///                             "default-src 'self'; script-src 'strict-dynamic' 'nonce-{nonce}' \
@@ -35,7 +35,7 @@ use std::{fmt::Display, ops::Deref};
 ///             }
 ///         />
 ///         // manually insert nonce during SSR on inline script
-///         <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///         <script nonce=use_nonce()>"console.log('Hello, world!');"</script>
 ///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
 ///         <Style>"body { color: blue; }"</Style>
 ///         <p>"Test"</p>
@@ -60,22 +60,22 @@ impl Display for Nonce {
 }
 
 impl IntoAttribute for Nonce {
-    fn into_attribute(self, _cx: Scope) -> Attribute {
+    fn into_attribute(self) -> Attribute {
         Attribute::String(self.0.into())
     }
 
-    fn into_attribute_boxed(self: Box<Self>, _cx: Scope) -> Attribute {
+    fn into_attribute_boxed(self: Box<Self>) -> Attribute {
         Attribute::String(self.0.into())
     }
 }
 
 impl IntoAttribute for Option<Nonce> {
-    fn into_attribute(self, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(|n| n.0.into()))
+    fn into_attribute(self) -> Attribute {
+        Attribute::Option(self.map(|n| n.0.into()))
     }
 
-    fn into_attribute_boxed(self: Box<Self>, cx: Scope) -> Attribute {
-        Attribute::Option(cx, self.map(|n| n.0.into()))
+    fn into_attribute_boxed(self: Box<Self>) -> Attribute {
+        Attribute::Option(self.map(|n| n.0.into()))
     }
 }
 
@@ -94,7 +94,7 @@ impl IntoAttribute for Option<Nonce> {
 ///             http_equiv="Content-Security-Policy"
 ///             content=move || {
 ///                 // this will insert the CSP with nonce on the server, be empty on client
-///                 use_nonce(cx)
+///                 use_nonce()
 ///                     .map(|nonce| {
 ///                         format!(
 ///                             "default-src 'self'; script-src 'strict-dynamic' 'nonce-{nonce}' \
@@ -105,15 +105,15 @@ impl IntoAttribute for Option<Nonce> {
 ///             }
 ///         />
 ///         // manually insert nonce during SSR on inline script
-///         <script nonce=use_nonce(cx)>"console.log('Hello, world!');"</script>
+///         <script nonce=use_nonce()>"console.log('Hello, world!');"</script>
 ///         // leptos_meta <Style/> and <Script/> automatically insert the nonce
 ///         <Style>"body { color: blue; }"</Style>
 ///         <p>"Test"</p>
 ///     }
 /// }
 /// ```
-pub fn use_nonce(cx: Scope) -> Option<Nonce> {
-    use_context::<Nonce>(cx)
+pub fn use_nonce() -> Option<Nonce> {
+    use_context::<Nonce>()
 }
 
 #[cfg(all(feature = "ssr", feature = "nonce"))]
@@ -127,7 +127,7 @@ mod generate {
         engine::{self, general_purpose},
         Engine,
     };
-    use leptos_reactive::{provide_context, Scope};
+    use leptos_reactive::provide_context;
     use rand::{thread_rng, RngCore};
 
     const NONCE_ENGINE: engine::GeneralPurpose = engine::GeneralPurpose::new(
@@ -152,7 +152,7 @@ mod generate {
     }
 
     /// Generates a nonce and provides it during server rendering.
-    pub fn provide_nonce(cx: Scope) {
-        provide_context(cx, Nonce::new())
+    pub fn provide_nonce() {
+        provide_context(Nonce::new())
     }
 }
