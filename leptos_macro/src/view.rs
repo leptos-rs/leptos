@@ -551,7 +551,7 @@ fn element_to_tokens_ssr(
             }
 
             template.push_str("</");
-            template.push_str(&node.name().to_string());
+            template.push_str(tag_name);
             template.push('>');
         }
     }
