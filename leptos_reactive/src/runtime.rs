@@ -1252,9 +1252,9 @@ impl ScopeProperty {
 /// ```
 /// # use leptos_reactive::*;
 /// # run_scope(create_runtime(), |cx| {
-/// let (a, set_a) = create_signal(cx, 0);
-/// let (b, set_b) = create_signal(cx, 0);
-/// let c = create_memo(cx, move |_| {
+/// let (a, set_a) = create_signal(0);
+/// let (b, set_b) = create_signal(0);
+/// let c = create_memo(move |_| {
 ///     // this memo will *only* update when `a` changes
 ///     a() + cx.untrack(move || b())
 /// });

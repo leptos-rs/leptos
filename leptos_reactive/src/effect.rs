@@ -26,11 +26,11 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// # use leptos_reactive::*;
 /// # use log::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (a, set_a) = create_signal(cx, 0);
-/// let (b, set_b) = create_signal(cx, 0);
+/// let (a, set_a) = create_signal(0);
+/// let (b, set_b) = create_signal(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
 ///   log::debug!("Value: {}", a.get());
 /// });
@@ -39,7 +39,7 @@ use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
-/// create_effect(cx, move |_| {
+/// create_effect(move |_| {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
 ///   set_b.set(a.get() + 1);
@@ -86,11 +86,11 @@ where
 /// # use leptos_reactive::*;
 /// # use log::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (a, set_a) = create_signal(cx, 0);
-/// let (b, set_b) = create_signal(cx, 0);
+/// let (a, set_a) = create_signal(0);
+/// let (b, set_b) = create_signal(0);
 ///
 /// // ✅ use effects to interact between reactive state and the outside world
-/// create_isomorphic_effect(cx, move |_| {
+/// create_isomorphic_effect(move |_| {
 ///   // immediately prints "Value: 0" and subscribes to `a`
 ///   log::debug!("Value: {}", a.get());
 /// });
@@ -99,7 +99,7 @@ where
 /// // ✅ because it's subscribed to `a`, the effect reruns and prints "Value: 1"
 ///
 /// // ❌ don't use effects to synchronize state within the reactive system
-/// create_isomorphic_effect(cx, move |_| {
+/// create_isomorphic_effect(move |_| {
 ///   // this technically works but can cause unnecessary re-renders
 ///   // and easily lead to problems like infinite loops
 ///   set_b.set(a.get() + 1);
