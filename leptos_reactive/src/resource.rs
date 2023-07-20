@@ -182,7 +182,6 @@ where
     T: Serializable + 'static,
     Fu: Future<Output = T> + 'static,
 {
-    let runtime = Runtime::current();
     let resolved = initial_value.is_some();
     let (value, set_value) = create_signal(initial_value);
 
@@ -208,7 +207,7 @@ where
         serializable,
     });
 
-    let id = with_runtime(runtime, |runtime| {
+    let id = with_runtime(|runtime| {
         let r = Rc::clone(&r) as Rc<dyn SerializableResource>;
         let id = runtime.create_serializable_resource(r);
         runtime.push_scope_property(ScopeProperty::Resource(id));
@@ -216,16 +215,14 @@ where
     })
     .expect("tried to create a Resource in a Runtime that has been disposed.");
 
-    //crate::macros::debug_warn!("creating effect");
     create_isomorphic_effect({
         let r = Rc::clone(&r);
         move |_| {
-            load_resource(runtime, id, r.clone());
+            load_resource(id, r.clone());
         }
     });
 
     Resource {
-        runtime,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -317,7 +314,6 @@ where
     T: 'static,
     Fu: Future<Output = T> + 'static,
 {
-    let runtime = Runtime::current();
     let resolved = initial_value.is_some();
     let (value, set_value) = create_signal(initial_value);
 
@@ -342,7 +338,7 @@ where
         serializable: ResourceSerialization::Local,
     });
 
-    let id = with_runtime(runtime, |runtime| {
+    let id = with_runtime(|runtime| {
         let r = Rc::clone(&r) as Rc<dyn UnserializableResource>;
         let id = runtime.create_unserializable_resource(r);
         runtime.push_scope_property(ScopeProperty::Resource(id));
@@ -358,7 +354,6 @@ where
     });
 
     Resource {
-        runtime,
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
@@ -368,14 +363,12 @@ where
 }
 
 #[cfg(not(feature = "hydrate"))]
-fn load_resource<S, T>(
-    _runtime: RuntimeId,
-    _id: ResourceId,
-    r: Rc<ResourceState<S, T>>,
-) where
+fn load_resource<S, T>(id: ResourceId, r: Rc<ResourceState<S, T>>)
+where
     S: PartialEq + Clone + 'static,
     T: 'static,
 {
+    _ = id;
     SUPPRESS_RESOURCE_LOAD.with(|s| {
         if !s.get() {
             r.load(false)
@@ -384,17 +377,14 @@ fn load_resource<S, T>(
 }
 
 #[cfg(feature = "hydrate")]
-fn load_resource<S, T>(
-    runtime: RuntimeId,
-    id: ResourceId,
-    r: Rc<ResourceState<S, T>>,
-) where
+fn load_resource<S, T>(id: ResourceId, r: Rc<ResourceState<S, T>>)
+where
     S: PartialEq + Clone + 'static,
     T: Serializable + 'static,
 {
     use wasm_bindgen::{JsCast, UnwrapThrowExt};
 
-    _ = with_runtime(runtime, |runtime| {
+    _ = with_runtime(|runtime| {
         let mut context = runtime.shared_context.borrow_mut();
         if let Some(data) = context.resolved_resources.remove(&id) {
             // The server already sent us the serialized resource value, so
@@ -477,7 +467,7 @@ where
         T: Clone,
     {
         let location = std::panic::Location::caller();
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.read(location)
             })
@@ -500,7 +490,7 @@ where
     #[track_caller]
     pub fn with<U>(&self, f: impl FnOnce(&T) -> U) -> Option<U> {
         let location = std::panic::Location::caller();
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.with(f, location)
             })
@@ -515,7 +505,7 @@ where
         instrument(level = "trace", skip_all,)
     )]
     pub fn loading(&self) -> ReadSignal<bool> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.loading
             })
@@ -532,7 +522,7 @@ where
         instrument(level = "trace", skip_all,)
     )]
     pub fn refetch(&self) {
-        _ = with_runtime(self.runtime, |runtime| {
+        _ = with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.refetch()
             })
@@ -550,7 +540,7 @@ where
     where
         T: Serializable,
     {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 resource.to_serialization_resolver(self.id)
             })
@@ -597,7 +587,7 @@ impl<S, T> SignalUpdate<Option<T>> for Resource<S, T> {
     )]
     #[inline(always)]
     fn try_update<O>(&self, f: impl FnOnce(&mut Option<T>) -> O) -> Option<O> {
-        with_runtime(self.runtime, |runtime| {
+        with_runtime(|runtime| {
             runtime.resource(self.id, |resource: &ResourceState<S, T>| {
                 if resource.loading.get_untracked() {
                     resource.version.set(resource.version.get() + 1);
@@ -707,7 +697,6 @@ where
     S: 'static,
     T: 'static,
 {
-    runtime: RuntimeId,
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,

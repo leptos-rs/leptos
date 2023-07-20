@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::{runtime::with_runtime, Runtime};
+use crate::runtime::with_runtime;
 use std::any::{Any, TypeId};
 
 /// Provides a context value of type `T` to the current reactive [`Scope`](crate::Scope)
@@ -58,7 +58,7 @@ where
     #[cfg(debug_assertions)]
     let defined_at = std::panic::Location::caller();
 
-    with_runtime(Runtime::current(), |runtime| {
+    with_runtime(|runtime| {
         let mut contexts = runtime.contexts.borrow_mut();
         let owner = runtime.owner.get();
         if let Some(owner) = owner {
@@ -129,7 +129,7 @@ where
 {
     let ty = TypeId::of::<T>();
 
-    with_runtime(Runtime::current(), |runtime| {
+    with_runtime(|runtime| {
         let owner = runtime.owner.get();
         if let Some(owner) = owner {
             runtime.get_context(owner, ty)
