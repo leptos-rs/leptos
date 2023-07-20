@@ -24,7 +24,7 @@ use leptos_router::*;
 
 Routing behavior is provided by the [`<Router/>`](https://docs.rs/leptos_router/latest/leptos_router/fn.Router.html) component. This should usually be somewhere near the root of your application, the rest of the app.
 
-> You shouldn’t try to use multiple `<Router/>`s in your app. Remember that the router drives global state: if you have multiple routers, which ones decides what to do when the URL changes?
+> You shouldn’t try to use multiple `<Router/>`s in your app. Remember that the router drives global state: if you have multiple routers, which one decides what to do when the URL changes?
 
 Let’s start with a simple `<App/>` component using the router:
 
