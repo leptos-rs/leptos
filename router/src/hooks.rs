@@ -28,7 +28,7 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 ///     let clear = move |_| set_count(None);
 ///     let decrement = move |_| set_count(Some(count().unwrap_or(0) - 1));
 ///     let increment = move |_| set_count(Some(count().unwrap_or(0) + 1));
-/// 
+///
 ///     view! { cx,
 ///         <div>
 ///             <button on:click=clear>"Clear"</button>
