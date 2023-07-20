@@ -1,4 +1,3 @@
-use leptos_reactive::Scope;
 use wasm_bindgen::JsValue;
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 use wasm_bindgen::UnwrapThrowExt;
@@ -13,7 +12,7 @@ pub enum Property {
     /// A static JavaScript value.
     Value(JsValue),
     /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-    Fn(Scope, Box<dyn Fn() -> JsValue>),
+    Fn(Box<dyn Fn() -> JsValue>),
 }
 
 /// Converts some type into a [Property].
@@ -21,7 +20,7 @@ pub enum Property {
 /// This is implemented by default for Rust primitive types, [String] and friends, and [JsValue].
 pub trait IntoProperty {
     /// Converts the object into a [Property].
-    fn into_property(self, cx: Scope) -> Property;
+    fn into_property(self) -> Property;
 }
 
 impl<T, U> IntoProperty for T
@@ -29,16 +28,9 @@ where
     T: Fn() -> U + 'static,
     U: Into<JsValue>,
 {
-    fn into_property(self, cx: Scope) -> Property {
+    fn into_property(self) -> Property {
         let modified_fn = Box::new(move || self().into());
-        Property::Fn(cx, modified_fn)
-    }
-}
-
-impl<T: IntoProperty> IntoProperty for (Scope, T) {
-    #[inline(always)]
-    fn into_property(self, _: Scope) -> Property {
-        self.1.into_property(self.0)
+        Property::Fn(modified_fn)
     }
 }
 
@@ -46,14 +38,14 @@ macro_rules! prop_type {
     ($prop_type:ty) => {
         impl IntoProperty for $prop_type {
             #[inline(always)]
-            fn into_property(self, _cx: Scope) -> Property {
+            fn into_property(self) -> Property {
                 Property::Value(self.into())
             }
         }
 
         impl IntoProperty for Option<$prop_type> {
             #[inline(always)]
-            fn into_property(self, _cx: Scope) -> Property {
+            fn into_property(self) -> Property {
                 Property::Value(self.into())
             }
         }
@@ -93,9 +85,9 @@ pub(crate) fn property_helper(
     use leptos_reactive::create_render_effect;
 
     match value {
-        Property::Fn(cx, f) => {
+        Property::Fn(f) => {
             let el = el.clone();
-            create_render_effect(cx, move |_| {
+            create_render_effect(move |_| {
                 let new = f();
                 let prop_name = wasm_bindgen::intern(&name);
                 property_expression(&el, prop_name, new.clone());

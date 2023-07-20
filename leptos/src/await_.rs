@@ -2,7 +2,7 @@ use crate::Suspense;
 use leptos_dom::IntoView;
 use leptos_macro::{component, view};
 use leptos_reactive::{
-    create_blocking_resource, create_resource, store_value, Scope, Serializable,
+    create_blocking_resource, create_resource, store_value, Serializable,
 };
 
 #[component]
@@ -26,7 +26,7 @@ use leptos_reactive::{
 ///
 /// view! { cx,
 ///     <Await
-///         future=|cx| fetch_monkeys(3)
+///         future=|| fetch_monkeys(3)
 ///         bind:data
 ///     >
 ///         <p>{*data} " little monkeys, jumping on the bed."</p>
@@ -37,15 +37,14 @@ use leptos_reactive::{
 /// # }
 /// ```
 pub fn Await<T, Fut, FF, VF, V>(
-    cx: Scope,
-    /// A function that takes a [`Scope`] and returns the [`Future`](std::future::Future) that
+    /// A function that returns the [`Future`](std::future::Future) that
     /// will the component will `.await` before rendering.
     future: FF,
     /// If `true`, the component will use [`create_blocking_resource`], preventing
     /// the HTML stream from returning anything before `future` has resolved.
     #[prop(optional)]
     blocking: bool,
-    /// A function that takes a [`Scope`] and a reference to the resolved data from the `future`
+    /// A function that takes a reference to the resolved data from the `future`
     /// renders a view.
     ///
     /// ## Syntax
@@ -95,20 +94,21 @@ pub fn Await<T, Fut, FF, VF, V>(
 ) -> impl IntoView
 where
     Fut: std::future::Future<Output = T> + 'static,
-    FF: Fn(Scope) -> Fut + 'static,
+    FF: Fn() -> Fut + 'static,
     V: IntoView,
-    VF: Fn(Scope, &T) -> V + 'static,
+    VF: Fn(&T) -> V + 'static,
     T: Serializable + 'static,
 {
     let res = if blocking {
-        create_blocking_resource(cx, || (), move |_| future(cx))
+        create_blocking_resource(|| (), move |_| future())
     } else {
-        create_resource(cx, || (), move |_| future(cx))
+        create_resource(|| (), move |_| future())
     };
-    let view = store_value(cx, children);
-    view! { cx,
+    let view = store_value(children);
+
+    view! {
         <Suspense fallback=|| ()>
-            {move || res.with(cx, |data| view.with_value(|view| view(cx, data)))}
+            {move || res.with(|data| view.with_value(|view| view(data)))}
         </Suspense>
     }
 }

@@ -26,8 +26,8 @@ fn main() {
     mount_to_body(view_fn);
 }
 
-fn view_fn(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn view_fn() -> impl IntoView {
+    view! {
         <h2>"Passing Tests"</h2>
         <ul>
             <Test from=[1] to=[]/>
@@ -55,15 +55,12 @@ fn view_fn(cx: Scope) -> impl IntoView {
             <hr/>
             <Test from=[1, 4, 3, 2, 5] to=[1, 2, 3, 4, 5]/>
             <Test from=[4, 5, 3, 1, 2] to=[1, 2, 3, 4, 5]/>
-            <Test from=[0, 1, 2, 3] to=[1, 3]/> // issue #1274
-            <Test from=[] to=[3, 9, 17] then=vec![3, 5, 7, 9, 17, 23]/> // issue #1297
         </ul>
     }
 }
 
 #[component]
 fn Test<From, To>(
-    cx: Scope,
     from: From,
     to: To,
     #[prop(optional)] then: Option<Vec<usize>>,
@@ -75,7 +72,7 @@ where
     let from = from.into_iter().collect::<Vec<_>>();
     let to = to.into_iter().collect::<Vec<_>>();
 
-    let (list, set_list) = create_signal(cx, from.clone());
+    let (list, set_list) = create_signal(from.clone());
     request_animation_frame({
         let to = to.clone();
         let then = then.clone();
@@ -92,7 +89,7 @@ where
         }
     });
 
-    view! { cx,
+    view! {
         <li>
             "from: [" {move || {
                 from
@@ -115,8 +112,8 @@ where
             <For
                 each=list
                 key=|i| *i
-                view=|cx, i| {
-                    view! { cx, <span>{i} ", "</span> }
+                view=|i| {
+                    view! { <span>{i} ", "</span> }
                 }
             /> "]"
         </li>

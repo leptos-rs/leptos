@@ -4,11 +4,10 @@ use leptos::*;
 
 /// Creates a reactive location from the given path and state.
 pub fn create_location(
-    cx: Scope,
     path: ReadSignal<String>,
     state: ReadSignal<State>,
 ) -> Location {
-    let url = create_memo(cx, move |prev: Option<&Url>| {
+    let url = create_memo(move |prev: Option<&Url>| {
         path.with(|path| match Url::try_from(path.as_str()) {
             Ok(url) => url,
             Err(e) => {
@@ -18,12 +17,10 @@ pub fn create_location(
         })
     });
 
-    let pathname =
-        create_memo(cx, move |_| url.with(|url| url.pathname.clone()));
-    let search = create_memo(cx, move |_| url.with(|url| url.search.clone()));
-    let hash = create_memo(cx, move |_| url.with(|url| url.hash.clone()));
-    let query =
-        create_memo(cx, move |_| url.with(|url| url.search_params.clone()));
+    let pathname = create_memo(move |_| url.with(|url| url.pathname.clone()));
+    let search = create_memo(move |_| url.with(|url| url.search.clone()));
+    let hash = create_memo(move |_| url.with(|url| url.hash.clone()));
+    let query = create_memo(move |_| url.with(|url| url.search_params.clone()));
 
     Location {
         pathname,

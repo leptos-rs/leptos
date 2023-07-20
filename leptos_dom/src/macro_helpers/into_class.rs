@@ -1,5 +1,3 @@
-use leptos_reactive::Scope;
-
 /// Represents the different possible values a single class on an element could have,
 /// allowing you to do fine-grained updates to single items
 /// in [`Element.classList`](https://developer.mozilla.org/en-US/docs/Web/API/Element/classList).
@@ -11,18 +9,18 @@ pub enum Class {
     /// Whether the class is present.
     Value(bool),
     /// A (presumably reactive) function, which will be run inside an effect to toggle the class.
-    Fn(Scope, Box<dyn Fn() -> bool>),
+    Fn(Box<dyn Fn() -> bool>),
 }
 
 /// Converts some type into a [Class].
 pub trait IntoClass {
     /// Converts the object into a [Class].
-    fn into_class(self, cx: Scope) -> Class;
+    fn into_class(self) -> Class;
 }
 
 impl IntoClass for bool {
     #[inline(always)]
-    fn into_class(self, _cx: Scope) -> Class {
+    fn into_class(self) -> Class {
         Class::Value(self)
     }
 }
@@ -32,9 +30,9 @@ where
     T: Fn() -> bool + 'static,
 {
     #[inline(always)]
-    fn into_class(self, cx: Scope) -> Class {
+    fn into_class(self) -> Class {
         let modified_fn = Box::new(self);
-        Class::Fn(cx, modified_fn)
+        Class::Fn(modified_fn)
     }
 }
 
@@ -49,7 +47,7 @@ impl Class {
                     ""
                 }
             }
-            Class::Fn(_, f) => {
+            Class::Fn(f) => {
                 let value = f();
                 if value {
                     class_name
@@ -58,13 +56,6 @@ impl Class {
                 }
             }
         }
-    }
-}
-
-impl<T: IntoClass> IntoClass for (Scope, T) {
-    #[inline(always)]
-    fn into_class(self, _: Scope) -> Class {
-        self.1.into_class(self.0)
     }
 }
 
@@ -79,17 +70,14 @@ pub fn class_helper(
     name: Cow<'static, str>,
     value: Class,
 ) {
-    use crate::HydrationCtx;
     use leptos_reactive::create_render_effect;
 
     let class_list = el.class_list();
     match value {
-        Class::Fn(cx, f) => {
-            create_render_effect(cx, move |old| {
+        Class::Fn(f) => {
+            create_render_effect(move |old| {
                 let new = f();
-                if old.as_ref() != Some(&new)
-                    && (old.is_some() || new || HydrationCtx::is_hydrating())
-                {
+                if old.as_ref() != Some(&new) && (old.is_some() || new) {
                     class_expression(&class_list, &name, new, true)
                 }
                 new

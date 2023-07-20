@@ -1,11 +1,10 @@
 use leptos_dom::IntoView;
 use leptos_macro::component;
-use leptos_reactive::Scope;
 use std::hash::Hash;
 
 /// Iterates over children and displays them, keyed by the `key` function given.
 ///
-/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! { cx,  ... })...`,
+/// This is much more efficient than naively iterating over nodes with `.iter().map(|n| view! {   ... })...`,
 /// as it avoids re-creating DOM nodes that are not being changed.
 ///
 /// ```
@@ -18,11 +17,11 @@ use std::hash::Hash;
 /// }
 ///
 /// #[component]
-/// fn Counters(cx: Scope) -> impl IntoView {
-///   let (counters, set_counters) = create_signal::<Vec<Counter>>(cx, vec![]);
+/// fn Counters() -> impl IntoView {
+///   let (counters, set_counters) = create_signal::<Vec<Counter>>( vec![]);
 ///
 ///   view! {
-///     cx,
+///     
 ///     <div>
 ///       <For
 ///         // a function that returns the items we're iterating over; a signal is fine
@@ -30,9 +29,9 @@ use std::hash::Hash;
 ///         // a unique key for each item
 ///         key=|counter| counter.id
 ///         // renders each item to a view
-///         view=move |cx, counter: Counter| {
+///         view=move | counter: Counter| {
 ///           view! {
-///             cx,
+///             
 ///             <button>"Value: " {move || counter.count.get()}</button>
 ///           }
 ///         }
@@ -47,7 +46,6 @@ use std::hash::Hash;
 )]
 #[component(transparent)]
 pub fn For<IF, I, T, EF, N, KF, K>(
-    cx: Scope,
     /// Items over which the component should iterate.
     each: IF,
     /// A key function that will be applied to each item.
@@ -58,11 +56,11 @@ pub fn For<IF, I, T, EF, N, KF, K>(
 where
     IF: Fn() -> I + 'static,
     I: IntoIterator<Item = T>,
-    EF: Fn(Scope, T) -> N + 'static,
-    N: IntoView,
+    EF: Fn(T) -> N + 'static,
+    N: IntoView + 'static,
     KF: Fn(&T) -> K + 'static,
     K: Eq + Hash + 'static,
     T: 'static,
 {
-    leptos_dom::Each::new(each, key, view).into_view(cx)
+    leptos_dom::Each::new(each, key, view).into_view()
 }

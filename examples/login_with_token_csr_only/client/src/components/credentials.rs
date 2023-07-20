@@ -2,31 +2,30 @@ use leptos::{ev, *};
 
 #[component]
 pub fn CredentialsForm(
-    cx: Scope,
     title: &'static str,
     action_label: &'static str,
     action: Action<(String, String), ()>,
     error: Signal<Option<String>>,
     disabled: Signal<bool>,
 ) -> impl IntoView {
-    let (password, set_password) = create_signal(cx, String::new());
-    let (email, set_email) = create_signal(cx, String::new());
+    let (password, set_password) = create_signal(String::new());
+    let (email, set_email) = create_signal(String::new());
 
     let dispatch_action =
         move || action.dispatch((email.get(), password.get()));
 
-    let button_is_disabled = Signal::derive(cx, move || {
+    let button_is_disabled = Signal::derive(move || {
         disabled.get() || password.get().is_empty() || email.get().is_empty()
     });
 
-    view! { cx,
+    view! {
         <form on:submit=|ev| ev.prevent_default()>
             <p>{title}</p>
             {move || {
                 error
                     .get()
                     .map(|err| {
-                        view! { cx, <p style="color:red;">{err}</p> }
+                        view! { <p style="color:red;">{err}</p> }
                     })
             }}
             <input

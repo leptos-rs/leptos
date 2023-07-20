@@ -19,13 +19,13 @@ if #[cfg(feature = "ssr")] {
 
     use sqlx::SqlitePool;
 
-    pub fn pool(cx: Scope) -> Result<SqlitePool, ServerFnError> {
-       use_context::<SqlitePool>(cx)
+    pub fn pool() -> Result<SqlitePool, ServerFnError> {
+       use_context::<SqlitePool>()
             .ok_or_else(|| ServerFnError::ServerError("Pool missing.".into()))
     }
 
-    pub fn auth(cx: Scope) -> Result<AuthSession, ServerFnError> {
-        use_context::<AuthSession>(cx)
+    pub fn auth() -> Result<AuthSession, ServerFnError> {
+        use_context::<AuthSession>()
             .ok_or_else(|| ServerFnError::ServerError("Auth session missing.".into()))
     }
 
@@ -53,10 +53,10 @@ if #[cfg(feature = "ssr")] {
 }
 
 #[server(GetTodos, "/api")]
-pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
+pub async fn get_todos() -> Result<Vec<Todo>, ServerFnError> {
     use futures::TryStreamExt;
 
-    let pool = pool(cx)?;
+    let pool = pool()?;
 
     let mut todos = Vec::new();
     let mut rows =
@@ -82,9 +82,9 @@ pub async fn get_todos(cx: Scope) -> Result<Vec<Todo>, ServerFnError> {
 }
 
 #[server(AddTodo, "/api")]
-pub async fn add_todo(cx: Scope, title: String) -> Result<(), ServerFnError> {
-    let user = get_user(cx).await?;
-    let pool = pool(cx)?;
+pub async fn add_todo(title: String) -> Result<(), ServerFnError> {
+    let user = get_user().await?;
+    let pool = pool()?;
 
     let id = match user {
         Some(user) => user.id,
@@ -108,8 +108,8 @@ pub async fn add_todo(cx: Scope, title: String) -> Result<(), ServerFnError> {
 }
 
 #[server(DeleteTodo, "/api")]
-pub async fn delete_todo(cx: Scope, id: u16) -> Result<(), ServerFnError> {
-    let pool = pool(cx)?;
+pub async fn delete_todo(id: u16) -> Result<(), ServerFnError> {
+    let pool = pool()?;
 
     Ok(sqlx::query("DELETE FROM todos WHERE id = $1")
         .bind(id)
@@ -119,13 +119,12 @@ pub async fn delete_todo(cx: Scope, id: u16) -> Result<(), ServerFnError> {
 }
 
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let login = create_server_action::<Login>(cx);
-    let logout = create_server_action::<Logout>(cx);
-    let signup = create_server_action::<Signup>(cx);
+pub fn TodoApp() -> impl IntoView {
+    let login = create_server_action::<Login>();
+    let logout = create_server_action::<Logout>();
+    let signup = create_server_action::<Signup>();
 
     let user = create_resource(
-        cx,
         move || {
             (
                 login.version().get(),
@@ -133,36 +132,36 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                 logout.version().get(),
             )
         },
-        move |_| get_user(cx),
+        move |_| get_user(),
     );
-    provide_meta_context(cx);
+    provide_meta_context();
 
     view! {
-        cx,
+
         <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
         <Stylesheet id="leptos" href="/pkg/session_auth_axum.css"/>
         <Router>
             <header>
                 <A href="/"><h1>"My Tasks"</h1></A>
                 <Transition
-                    fallback=move || view! {cx, <span>"Loading..."</span>}
+                    fallback=move || view! {<span>"Loading..."</span>}
                 >
                 {move || {
-                    user.read(cx).map(|user| match user {
-                        Err(e) => view! {cx,
+                    user.read().map(|user| match user {
+                        Err(e) => view! {
                             <A href="/signup">"Signup"</A>", "
                             <A href="/login">"Login"</A>", "
                             <span>{format!("Login error: {}", e)}</span>
-                        }.into_view(cx),
-                        Ok(None) => view! {cx,
+                        }.into_view(),
+                        Ok(None) => view! {
                             <A href="/signup">"Signup"</A>", "
                             <A href="/login">"Login"</A>", "
                             <span>"Logged out."</span>
-                        }.into_view(cx),
-                        Ok(Some(user)) => view! {cx,
+                        }.into_view(),
+                        Ok(Some(user)) => view! {
                             <A href="/settings">"Settings"</A>", "
                             <span>{format!("Logged in as: {} ({})", user.username, user.id)}</span>
-                        }.into_view(cx)
+                        }.into_view()
                     })
                 }}
                 </Transition>
@@ -175,12 +174,12 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
                         cx,
                         <Signup action=signup/>
                     }/>
-                    <Route path="login" view=move |cx| view! {
-                        cx,
+                    <Route path="login" view=move || view! {
+
                         <Login action=login />
                     }/>
-                    <Route path="settings" view=move |cx| view! {
-                        cx,
+                    <Route path="settings" view=move || view! {
+
                         <h1>"Settings"</h1>
                         <Logout action=logout />
                     }/>
@@ -191,20 +190,19 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Todos(cx: Scope) -> impl IntoView {
-    let add_todo = create_server_multi_action::<AddTodo>(cx);
-    let delete_todo = create_server_action::<DeleteTodo>(cx);
+pub fn Todos() -> impl IntoView {
+    let add_todo = create_server_multi_action::<AddTodo>();
+    let delete_todo = create_server_action::<DeleteTodo>();
     let submissions = add_todo.submissions();
 
     // list of todos is loaded from the server in reaction to changes
     let todos = create_resource(
-        cx,
         move || (add_todo.version().get(), delete_todo.version().get()),
-        move |_| get_todos(cx),
+        move |_| get_todos(),
     );
 
     view! {
-        cx,
+
         <div>
             <MultiActionForm action=add_todo>
                 <label>
@@ -213,25 +211,25 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                 </label>
                 <input type="submit" value="Add"/>
             </MultiActionForm>
-            <Transition fallback=move || view! {cx, <p>"Loading..."</p> }>
-                <ErrorBoundary fallback=|cx, errors| view!{ cx, <ErrorTemplate errors=errors/>}>
+            <Transition fallback=move || view! {<p>"Loading..."</p> }>
+                <ErrorBoundary fallback=|errors| view!{ <ErrorTemplate errors=errors/>}>
                     {move || {
                         let existing_todos = {
                             move || {
-                                todos.read(cx)
+                                todos.read()
                                     .map(move |todos| match todos {
                                         Err(e) => {
-                                            view! { cx, <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view(cx)
+                                            view! { <pre class="error">"Server Error: " {e.to_string()}</pre>}.into_view()
                                         }
                                         Ok(todos) => {
                                             if todos.is_empty() {
-                                                view! { cx, <p>"No tasks were found."</p> }.into_view(cx)
+                                                view! { <p>"No tasks were found."</p> }.into_view()
                                             } else {
                                                 todos
                                                     .into_iter()
                                                     .map(move |todo| {
                                                         view! {
-                                                            cx,
+
                                                             <li>
                                                                 {todo.title}
                                                                 ": Created at "
@@ -247,7 +245,7 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                                                             </li>
                                                         }
                                                     })
-                                                    .collect_view(cx)
+                                                    .collect_view()
                                             }
                                         }
                                     })
@@ -262,15 +260,15 @@ pub fn Todos(cx: Scope) -> impl IntoView {
                             .filter(|submission| submission.pending().get())
                             .map(|submission| {
                                 view! {
-                                    cx,
+
                                     <li class="pending">{move || submission.input.get().map(|data| data.title) }</li>
                                 }
                             })
-                            .collect_view(cx)
+                            .collect_view()
                         };
 
                         view! {
-                            cx,
+
                             <ul>
                                 {existing_todos}
                                 {pending_todos}
@@ -286,11 +284,10 @@ pub fn Todos(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn Login(
-    cx: Scope,
     action: Action<Login, Result<(), ServerFnError>>,
 ) -> impl IntoView {
     view! {
-        cx,
+
         <ActionForm action=action>
             <h1>"Log In"</h1>
             <label>
@@ -315,11 +312,10 @@ pub fn Login(
 
 #[component]
 pub fn Signup(
-    cx: Scope,
     action: Action<Signup, Result<(), ServerFnError>>,
 ) -> impl IntoView {
     view! {
-        cx,
+
         <ActionForm action=action>
             <h1>"Sign Up"</h1>
             <label>
@@ -350,11 +346,10 @@ pub fn Signup(
 
 #[component]
 pub fn Logout(
-    cx: Scope,
     action: Action<Logout, Result<(), ServerFnError>>,
 ) -> impl IntoView {
     view! {
-        cx,
+
         <div id="loginbox">
             <ActionForm action=action>
                 <button type="submit" class="button">"Log Out"</button>

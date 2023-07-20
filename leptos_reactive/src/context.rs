@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::{runtime::with_runtime, Scope};
+use crate::{runtime::with_runtime, Runtime};
 use std::any::{Any, TypeId};
 
 /// Provides a context value of type `T` to the current reactive [`Scope`](crate::Scope)
@@ -49,17 +49,29 @@ use std::any::{Any, TypeId};
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn provide_context<T>(cx: Scope, value: T)
+#[track_caller]
+pub fn provide_context<T>(value: T)
 where
     T: Clone + 'static,
 {
     let id = value.type_id();
+    #[cfg(debug_assertions)]
+    let defined_at = std::panic::Location::caller();
 
-    _ = with_runtime(cx.runtime, |runtime| {
-        let mut contexts = runtime.scope_contexts.borrow_mut();
-        let context = contexts.entry(cx.id).unwrap().or_default();
-        context.insert(id, Box::new(value) as Box<dyn Any>);
-    });
+    with_runtime(Runtime::current(), |runtime| {
+        let mut contexts = runtime.contexts.borrow_mut();
+        let owner = runtime.owner.get();
+        if let Some(owner) = owner {
+            let context = contexts.entry(owner).unwrap().or_default();
+            context.insert(id, Box::new(value) as Box<dyn Any>);
+        } else {
+            crate::macros::debug_warn!(
+                "At {defined_at}, you are calling provide_context() outside \
+                 the reactive system.",
+            );
+        }
+    })
+    .expect("provide_context failed");
 }
 
 /// Extracts a context value of type `T` from the reactive system by traversing
@@ -111,35 +123,23 @@ where
     any(debug_assertions, feature = "ssr"),
     instrument(level = "info", skip_all,)
 )]
-pub fn use_context<T>(cx: Scope) -> Option<T>
+pub fn use_context<T>() -> Option<T>
 where
     T: Clone + 'static,
 {
-    let id = TypeId::of::<T>();
-    with_runtime(cx.runtime, |runtime| {
-        let local_value = {
-            let contexts = runtime.scope_contexts.borrow();
-            let context = contexts.get(cx.id);
-            context
-                .and_then(|context| {
-                    context.get(&id).and_then(|val| val.downcast_ref::<T>())
-                })
-                .cloned()
-        };
-        match local_value {
-            Some(val) => Some(val),
-            None => {
-                runtime
-                    .scope_parents
-                    .borrow()
-                    .get(cx.id)
-                    .and_then(|parent| {
-                        use_context::<T>(Scope {
-                            runtime: cx.runtime,
-                            id: *parent,
-                        })
-                    })
-            }
+    let ty = TypeId::of::<T>();
+
+    with_runtime(Runtime::current(), |runtime| {
+        let owner = runtime.owner.get();
+        if let Some(owner) = owner {
+            runtime.get_context(owner, ty)
+        } else {
+            crate::macros::debug_warn!(
+                "At {}, you are calling use_context() outside the reactive \
+                 system.",
+                std::panic::Location::caller()
+            );
+            None
         }
     })
     .ok()
@@ -192,11 +192,11 @@ where
 ///     todo!()
 /// }
 /// ```
-pub fn expect_context<T>(cx: Scope) -> T
+pub fn expect_context<T>() -> T
 where
     T: Clone + 'static,
 {
-    use_context(cx).unwrap_or_else(|| {
+    use_context().unwrap_or_else(|| {
         panic!(
             "context of type {:?} to be present",
             std::any::type_name::<T>()

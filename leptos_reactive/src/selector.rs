@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 use crate::{
-    create_isomorphic_effect, create_signal, ReadSignal, Scope, SignalUpdate,
-    WriteSignal,
+    create_isomorphic_effect, create_rw_signal, runtime::with_owner, Owner,
+    RwSignal, SignalUpdate, SignalWith,
 };
 use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
@@ -18,6 +18,7 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 /// # use std::rc::Rc;
 /// # use std::cell::RefCell;
 /// # create_scope(create_runtime(), |cx| {
+/// # create_root(cx, move |_| {
 /// let (a, set_a) = create_signal(cx, 0);
 /// let is_selected = create_selector(cx, move || a.get());
 /// let total_notifications = Rc::new(RefCell::new(0));
@@ -42,17 +43,17 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 /// set_a.set(4);
 /// assert_eq!(is_selected(5), false);
 ///  # })
+///  # })
 ///  # .dispose()
 /// ```
 #[inline(always)]
 pub fn create_selector<T>(
-    cx: Scope,
     source: impl Fn() -> T + Clone + 'static,
-) -> impl Fn(T) -> bool + Clone
+) -> Selector<T>
 where
     T: PartialEq + Eq + Clone + Hash + 'static,
 {
-    create_selector_with_fn(cx, source, PartialEq::eq)
+    create_selector_with_fn(source, PartialEq::eq)
 }
 
 /// Creates a conditional signal that only notifies subscribers when a change
@@ -62,22 +63,23 @@ where
 /// in certain situations (e.g., “set the class `selected` if `selected() == this_row_index`)
 /// because it reduces them from `O(n)` to `O(1)`.
 pub fn create_selector_with_fn<T>(
-    cx: Scope,
-    source: impl Fn() -> T + Clone + 'static,
+    source: impl Fn() -> T + 'static,
     f: impl Fn(&T, &T) -> bool + Clone + 'static,
-) -> impl Fn(T) -> bool + Clone
+) -> Selector<T>
 where
     T: PartialEq + Eq + Clone + Hash + 'static,
 {
     #[allow(clippy::type_complexity)]
-    let subs: Rc<
-        RefCell<HashMap<T, (ReadSignal<bool>, WriteSignal<bool>)>>,
-    > = Rc::new(RefCell::new(HashMap::new()));
+    let subs: Rc<RefCell<HashMap<T, RwSignal<bool>>>> =
+        Rc::new(RefCell::new(HashMap::new()));
     let v = Rc::new(RefCell::new(None));
+    let owner = Owner::current()
+        .expect("create_selector called outside the reactive system");
+    let f = Rc::new(f) as Rc<dyn Fn(&T, &T) -> bool>;
 
-    create_isomorphic_effect(cx, {
+    create_isomorphic_effect({
         let subs = Rc::clone(&subs);
-        let f = f.clone();
+        let f = Rc::clone(&f);
         let v = Rc::clone(&v);
         move |prev: Option<T>| {
             let next_value = source();
@@ -88,7 +90,7 @@ where
                     if f(&key, &next_value)
                         || (prev.is_some() && f(&key, prev.as_ref().unwrap()))
                     {
-                        signal.1.update(|n| *n = true);
+                        signal.update(|n| *n = true);
                     }
                 }
             }
@@ -96,12 +98,52 @@ where
         }
     });
 
-    move |key| {
-        let mut subs = subs.borrow_mut();
-        let (read, _) = subs
-            .entry(key.clone())
-            .or_insert_with(|| create_signal(cx, false));
+    Selector { subs, v, owner, f }
+}
+
+/// A conditional signal that only notifies subscribers when a change
+/// in the source signal’s value changes whether the given function is true.
+#[derive(Clone)]
+pub struct Selector<T>
+where
+    T: PartialEq + Eq + Clone + Hash + 'static,
+{
+    subs: Rc<RefCell<HashMap<T, RwSignal<bool>>>>,
+    v: Rc<RefCell<Option<T>>>,
+    owner: Owner,
+    #[allow(clippy::type_complexity)] // lol
+    f: Rc<dyn Fn(&T, &T) -> bool>,
+}
+
+impl<T> std::fmt::Debug for Selector<T>
+where
+    T: PartialEq + Eq + Clone + Hash + 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Selector").finish()
+    }
+}
+
+impl<T> Selector<T>
+where
+    T: PartialEq + Eq + Clone + Hash + 'static,
+{
+    /// Reactively checks whether the given key is selected.
+    pub fn selected(&self, key: T) -> bool {
+        let owner = self.owner;
+        let read = {
+            let mut subs = self.subs.borrow_mut();
+            *(subs.entry(key.clone()).or_insert_with(|| {
+                with_owner(owner, || create_rw_signal(false))
+            }))
+        };
         _ = read.try_with(|n| *n);
-        f(&key, v.borrow().as_ref().unwrap())
+        (self.f)(&key, self.v.borrow().as_ref().unwrap())
+    }
+
+    /// Removes the listener for the given key.
+    pub fn remove(&self, key: &T) {
+        let mut subs = self.subs.borrow_mut();
+        subs.remove(key);
     }
 }
