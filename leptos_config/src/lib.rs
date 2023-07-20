@@ -179,9 +179,9 @@ impl TryFrom<String> for Env {
 /// Loads [LeptosOptions] from a Cargo.toml text content with layered overrides.
 /// If an env var is specified, like `LEPTOS_ENV`, it will override a setting in the file.
 pub fn get_config_from_str(text: &str) -> Result<ConfFile, LeptosConfigError> {
-    let re: Regex = Regex::new(r#"(?m)^\[package.metadata.leptos\]"#).unwrap();
+    let re: Regex = Regex::new(r"(?m)^\[package.metadata.leptos\]").unwrap();
     let re_workspace: Regex =
-        Regex::new(r#"(?m)^\[\[workspace.metadata.leptos\]\]"#).unwrap();
+        Regex::new(r"(?m)^\[\[workspace.metadata.leptos\]\]").unwrap();
 
     let metadata_name;
     let start;

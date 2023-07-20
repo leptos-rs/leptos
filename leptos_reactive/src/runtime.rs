@@ -476,7 +476,7 @@ impl RuntimeId {
     }
 
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[inline(always)]
