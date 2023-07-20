@@ -27,12 +27,12 @@ pub fn RouterExample() -> impl IntoView {
                 <A href="redirect-home">"Redirect to Home"</A>
             </nav>
             <main>
-                <Routes
-                    /* outro="slideOut"
+                <AnimatedRoutes
+                    outro="slideOut"
                     intro="slideIn"
                     outro_back="slideOutBack"
-                    intro_back="slideInBack" */
-                >
+                    intro_back="slideInBack"
+                 >
                     <ContactRoutes/>
                     <Route
                         path="about"
@@ -46,7 +46,7 @@ pub fn RouterExample() -> impl IntoView {
                         path="redirect-home"
                         view=|| view! { <Redirect path="/"/> }
                     />
-                </Routes>
+                </AnimatedRoutes>
             </main>
         </Router>
     }
