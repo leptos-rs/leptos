@@ -11,10 +11,9 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// # use leptos_reactive::*;
 /// # use log;
 /// # create_scope(create_runtime(), |cx| {
-/// let (num, set_num) = create_signal(cx, 0);
+/// let (num, set_num) = create_signal(0);
 ///
 /// let stop = watch(
-///     cx,
 ///     move || num.get(),
 ///     move |num, prev_num, _| {
 ///         log::debug!("Number: {}; Prev: {:?}", num, prev_num);
@@ -36,11 +35,10 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// # use leptos_reactive::*;
 /// # use log;
 /// # create_scope(create_runtime(), |cx| {
-/// let (num, set_num) = create_signal(cx, 0);
-/// let (cb_num, set_cb_num) = create_signal(cx, 0);
+/// let (num, set_num) = create_signal(0);
+/// let (cb_num, set_cb_num) = create_signal(0);
 ///
 /// watch(
-///     cx,
 ///     move || num.get(),
 ///     move |num, _, _| {
 ///         log::debug!("Number: {}; Cb: {}", num, cb_num.get());
@@ -66,10 +64,9 @@ use crate::{with_runtime, Runtime, ScopeProperty};
 /// # use leptos_reactive::*;
 /// # use log;
 /// # create_scope(create_runtime(), |cx| {
-/// let (num, set_num) = create_signal(cx, 0);
+/// let (num, set_num) = create_signal(0);
 ///
 /// watch(
-///     cx,
 ///     move || num.get(),
 ///     move |num, prev_num, _| {
 ///         log::debug!("Number: {}; Prev: {:?}", num, prev_num);

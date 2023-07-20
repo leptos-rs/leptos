@@ -283,7 +283,7 @@ pub trait SignalDispose {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
 /// //    this can be `count()` on nightly
@@ -385,7 +385,7 @@ pub fn create_signal_from_stream<T>(
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
 /// assert_eq!(count.get(), 0);
@@ -521,7 +521,7 @@ impl<T> SignalWithUntracked<T> for ReadSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (name, set_name) = create_signal(cx, "Alice".to_string());
+/// let (name, set_name) = create_signal("Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
 /// let first_char = move || name.get().chars().next().unwrap();
@@ -593,7 +593,7 @@ impl<T> SignalWith<T> for ReadSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// assert_eq!(count.get(), 0);
 ///
@@ -800,7 +800,7 @@ impl<T> Hash for ReadSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// // ✅ calling the setter sets the value
 /// //    `set_count(1)` on nightly
@@ -917,7 +917,7 @@ impl<T> SignalUpdateUntracked<T> for WriteSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// // notifies subscribers
 /// set_count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
@@ -989,7 +989,7 @@ impl<T> SignalUpdate<T> for WriteSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let (count, set_count) = create_signal(cx, 0);
+/// let (count, set_count) = create_signal(0);
 ///
 /// // notifies subscribers
 /// set_count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
@@ -1095,7 +1095,7 @@ impl<T> Hash for WriteSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let count = create_rw_signal(cx, 0);
+/// let count = create_rw_signal(0);
 ///
 /// // ✅ set the value
 /// count.set(1);
@@ -1153,7 +1153,7 @@ pub fn create_rw_signal<T>(value: T) -> RwSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let count = create_rw_signal(cx, 0);
+/// let count = create_rw_signal(0);
 ///
 /// // ✅ set the value
 /// count.set(1);
@@ -1437,7 +1437,7 @@ impl<T> SignalUpdateUntracked<T> for RwSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let name = create_rw_signal(cx, "Alice".to_string());
+/// let name = create_rw_signal("Alice".to_string());
 ///
 /// // ❌ unnecessarily clones the string
 /// let first_char = move || name.get().chars().next().unwrap();
@@ -1510,7 +1510,7 @@ impl<T> SignalWith<T> for RwSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let count = create_rw_signal(cx, 0);
+/// let count = create_rw_signal(0);
 ///
 /// assert_eq!(count.get(), 0);
 ///
@@ -1583,7 +1583,7 @@ impl<T: Clone> SignalGet<T> for RwSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let count = create_rw_signal(cx, 0);
+/// let count = create_rw_signal(0);
 ///
 /// // notifies subscribers
 /// count.update(|n| *n = 1); // it's easier just to call set_count.set(1), though!
@@ -1659,7 +1659,7 @@ impl<T> SignalUpdate<T> for RwSignal<T> {
 /// ```
 /// # use leptos_reactive::*;
 /// # create_scope(create_runtime(), |cx| {
-/// let count = create_rw_signal(cx, 0);
+/// let count = create_rw_signal(0);
 ///
 /// assert_eq!(count.get(), 0);
 /// count.set(1);
@@ -1746,7 +1746,7 @@ impl<T> RwSignal<T> {
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
+    /// let count = create_rw_signal(0);
     /// let read_count = count.read_only();
     /// assert_eq!(count.get(), 0);
     /// assert_eq!(read_count.get(), 0);
@@ -1785,7 +1785,7 @@ impl<T> RwSignal<T> {
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
+    /// let count = create_rw_signal(0);
     /// let set_count = count.write_only();
     /// assert_eq!(count.get(), 0);
     /// set_count.set(1);
@@ -1819,7 +1819,7 @@ impl<T> RwSignal<T> {
     /// ```
     /// # use leptos_reactive::*;
     /// # create_scope(create_runtime(), |cx| {
-    /// let count = create_rw_signal(cx, 0);
+    /// let count = create_rw_signal(0);
     /// let (get_count, set_count) = count.split();
     /// assert_eq!(count.get(), 0);
     /// assert_eq!(get_count.get(), 0);
