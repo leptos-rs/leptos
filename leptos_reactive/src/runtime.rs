@@ -417,6 +417,8 @@ impl RuntimeId {
     pub fn dispose(self) {
         #[cfg(not(any(feature = "csr", feature = "hydrate")))]
         {
+            eprintln!("\n\ndisposing of {self:?}");
+
             let runtime = RUNTIMES.with(move |runtimes| runtimes.borrow_mut().remove(self))
                     .expect("Attempted to dispose of a reactive runtime that was not found. This suggests \
                     a possible memory leak. Please open an issue with details at https://github.com/leptos-rs/leptos");

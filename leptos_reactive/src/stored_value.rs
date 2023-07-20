@@ -137,6 +137,7 @@ impl<T> StoredValue<T> {
     /// Same as [`StoredValue::with_value`] but returns [`Some(O)]` only if
     /// the stored value has not yet been disposed. [`None`] otherwise.
     pub fn try_with_value<O>(&self, f: impl FnOnce(&T) -> O) -> Option<O> {
+        eprintln!("\n\nlooking in {:?}", self.runtime);
         with_runtime(self.runtime, |runtime| {
             let value = {
                 let values = runtime.stored_values.borrow();
@@ -293,6 +294,7 @@ pub fn store_value<T>(cx: Scope, value: T) -> StoredValue<T>
 where
     T: 'static,
 {
+    eprintln!("\nstoring in {:?}", cx.runtime);
     let id = with_runtime(cx.runtime, |runtime| {
         runtime
             .stored_values

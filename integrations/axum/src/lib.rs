@@ -605,6 +605,8 @@ where
             let res_options3 = default_res_options.clone();
             let local_pool = get_leptos_pool();
             let (tx, rx) = futures::channel::mpsc::channel(8);
+            let (complete_tx, complete_rx) =
+                futures::channel::oneshot::channel();
 
             let current_span = tracing::Span::current();
             local_pool.spawn_pinned(move || async move {
@@ -631,10 +633,14 @@ where
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
 
+                    complete_rx.await.expect("could not receive completion message");
+                    eprintln!("\n\n\n\nreceived completion message");
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
                     runtime.dispose();
             }.instrument(current_span));
 
-            generate_response(res_options3, rx)
+            generate_response(res_options3, rx, complete_tx)
         })
     }
 }
@@ -643,6 +649,7 @@ where
 async fn generate_response(
     res_options: ResponseOptions,
     rx: Receiver<String>,
+    complete_tx: futures::channel::oneshot::Sender<()>,
 ) -> Response<StreamBody<PinnedHtmlStream>> {
     let mut stream = Box::pin(rx.map(|html| Ok(Bytes::from(html))));
 
@@ -655,7 +662,13 @@ async fn generate_response(
 
     let complete_stream =
         futures::stream::iter([first_chunk.unwrap(), second_chunk.unwrap()])
-            .chain(stream);
+            .chain(stream)
+            .chain(futures::stream::once(async move {
+                complete_tx
+                    .send(())
+                    .expect("could not send completion message");
+                Ok(Bytes::from(String::new()))
+            }));
 
     let mut res = Response::new(StreamBody::new(
         Box::pin(complete_stream) as PinnedHtmlStream
@@ -770,6 +783,8 @@ where
                 let full_path = format!("http://leptos.dev{path}");
 
                 let (tx, rx) = futures::channel::mpsc::channel(8);
+                let (complete_tx, complete_rx) =
+                    futures::channel::oneshot::channel();
                 let local_pool = get_leptos_pool();
                 let current_span = tracing::Span::current();
                 local_pool.spawn_pinned(|| async move {
@@ -791,10 +806,14 @@ where
 
                     forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
 
+                    complete_rx.await.expect("could not receive completion message");
+
+                    eprintln!("\n\n\nreceived completion message");
+
                     runtime.dispose();
                 }.instrument(current_span));
 
-                generate_response(res_options3, rx).await
+                generate_response(res_options3, rx, complete_tx).await
             }
         })
     }

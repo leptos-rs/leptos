@@ -135,7 +135,9 @@ where
     /// The URL associated with the action (typically as part of a server function.)
     /// This enables integration with the `ActionForm` component in `leptos_router`.
     pub fn url(&self) -> Option<String> {
-        self.0.with_value(|a| a.url.as_ref().cloned())
+        eprintln!("self = {:?}", self.0);
+        //self.0.with_value(|a| a.url.as_ref().cloned())
+        None
     }
 
     /// Associates the URL of the given server function with this action.
