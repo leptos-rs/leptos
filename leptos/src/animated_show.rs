@@ -94,7 +94,7 @@ pub fn AnimatedShow(
 
             let h =
                 leptos_dom::helpers::set_timeout_with_handle(move || show.set(false), hide_delay)
-                    .expect("set timeout in ShowHide");
+                    .expect("set timeout in AnimatedShow");
             handle.set_value(Some(h));
         }
     });
