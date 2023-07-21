@@ -17,10 +17,9 @@ use leptos_reactive::{
 ///
 /// ```rust
 /// # use core::time::Duration;
-/// # use leptos_reactive::*;
-/// # use leptos_macro::*;
-/// # use leptos_dom::*; use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # use leptos::*;
+/// # #[component]
+/// # pub fn App(cx: Scope) -> impl IntoView {
 /// let show = create_rw_signal(cx, false);
 ///
 /// view! { cx,
@@ -32,16 +31,18 @@ use leptos_reactive::{
 ///         "Hover Me"
 ///     </div>
 ///
-///     <ShowHide
-///         when=show
-///         show_class="fade-in-1000"
-///         hide_class="fade-out-1000"
-///         hide_delay=Duration::from_millis(1000)
+///     <AnimatedShow
+///        when=show
+///        show_class="fade-in-1000"
+///        hide_class="fade-out-1000"
+///        hide_delay=Duration::from_millis(1000)
 ///     >
-///         "Here I Am!"
-///     </ShowHide>
+///        <div class="here-i-am">
+///            "Here I Am!"
+///        </div>
+///     </AnimatedShow>
 /// }
-/// # });
+/// # }
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
