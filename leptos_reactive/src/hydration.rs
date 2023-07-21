@@ -64,12 +64,6 @@ impl SharedContext {
         use crate::create_isomorphic_effect;
         use futures::StreamExt;
 
-        eprintln!(
-            "register_suspense with\nrt = \t{:?}\nowner = {:?}",
-            Runtime::current(),
-            crate::Owner::current()
-        );
-
         _ = with_runtime(|runtime| {
             let mut shared_context = runtime.shared_context.borrow_mut();
             let (tx1, mut rx1) = futures::channel::mpsc::unbounded();

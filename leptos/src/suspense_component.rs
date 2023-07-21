@@ -1,10 +1,10 @@
-use crate::ChildrenFn;
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
 use leptos_macro::component;
 use leptos_reactive::{
-    create_memo, provide_context, with_owner, Owner, SharedContext,
-    SignalGetUntracked, SuspenseContext,
+    create_memo, provide_context, SignalGetUntracked, SuspenseContext,
 };
+#[cfg(not(any(feature = "csr", feature = "hydrate")))]
+use leptos_reactive::{with_owner, Owner, SharedContext};
 use std::rc::Rc;
 
 /// If any [Resources](leptos_reactive::Resource) are read in the `children` of this
@@ -124,26 +124,20 @@ where
                     else {
                         HydrationCtx::continue_from(current_id);
 
-                        with_owner(owner, {
-                            let orig_children = Rc::clone(&orig_children);
-                            move || {
-                                SharedContext::register_suspense(
-                                    context,
-                                    &current_id.to_string(),
-                                    // out-of-order streaming
-                                    {
-                                        let orig_children =
-                                            Rc::clone(&orig_children);
+                        SharedContext::register_suspense(
+                            context,
+                            &current_id.to_string(),
+                            // out-of-order streaming
+                            {
+                                let orig_children = Rc::clone(&orig_children);
+                                move || {
+                                    with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
                                                 current_id,
                                             );
                                             DynChild::new({
                                                 move || {
-                                                    eprintln!(
-                                                        "\n\n**calling \
-                                                         orig_children again**"
-                                                    );
                                                     orig_children().into_view()
                                                 }
                                             })
@@ -151,11 +145,14 @@ where
                                             .render_to_string()
                                             .to_string()
                                         }
-                                    },
-                                    // in-order streaming
-                                    {
-                                        let orig_children =
-                                            Rc::clone(&orig_children);
+                                    })
+                                }
+                            },
+                            // in-order streaming
+                            {
+                                let orig_children = Rc::clone(&orig_children);
+                                move || {
+                                    with_owner(owner, {
                                         move || {
                                             HydrationCtx::continue_from(
                                                 current_id,
@@ -168,10 +165,10 @@ where
                                             .into_view()
                                             .into_stream_chunks()
                                         }
-                                    },
-                                );
-                            }
-                        });
+                                    })
+                                }
+                            },
+                        );
 
                         // return the fallback for now, wrapped in fragment identifier
                         fallback().into_view()
