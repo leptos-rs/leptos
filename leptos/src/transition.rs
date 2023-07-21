@@ -119,8 +119,7 @@ where
                     *held_suspense_context.borrow_mut() =
                         Some(suspense_context);
                 }
-                let suspense_context =
-                    held_suspense_context.borrow().clone().unwrap();
+                let suspense_context = held_suspense_context.borrow().unwrap();
 
                 if cfg!(feature = "hydrate")
                     || !first_run.get()
