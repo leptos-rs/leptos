@@ -1,8 +1,7 @@
 use crate::Show;
 use core::time::Duration;
 use leptos::component;
-use leptos_dom::helpers::{TimeoutHandle};
-use leptos_dom::{Fragment, IntoView};
+use leptos_dom::{helpers::TimeoutHandle, Fragment, IntoView};
 use leptos_macro::view;
 use leptos_reactive::{
     create_effect, on_cleanup, signal_prelude::*, store_value, Scope,
@@ -89,9 +88,11 @@ pub fn AnimatedShow(
         } else {
             cls.set(hide_class);
 
-            let h =
-                leptos_dom::helpers::set_timeout_with_handle(move || show.set(false), hide_delay)
-                    .expect("set timeout in AnimatedShow");
+            let h = leptos_dom::helpers::set_timeout_with_handle(
+                move || show.set(false),
+                hide_delay,
+            )
+            .expect("set timeout in AnimatedShow");
             handle.set_value(Some(h));
         }
     });
