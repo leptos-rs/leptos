@@ -15,7 +15,7 @@ pub fn App(cx: Scope) -> impl IntoView {
             "Hover Me"
         </div>
 
-        <ShowHide
+        <AnimatedShow
             when=show
             // optional CSS class which will be applied if `when == true`
             show_class="fade-in-1000"
@@ -29,6 +29,6 @@ pub fn App(cx: Scope) -> impl IntoView {
             <div class="here-i-am">
                 "Here I Am!"
             </div>
-        </ShowHide>
+        </AnimatedShow>
     }
 }

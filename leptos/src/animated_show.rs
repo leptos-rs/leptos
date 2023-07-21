@@ -48,7 +48,7 @@ use leptos_reactive::{
     tracing::instrument(level = "info", skip_all)
 )]
 #[component]
-pub fn ShowHide(
+pub fn AnimatedShow(
     /// The scope the component is running in
     cx: Scope,
     /// The components Show wraps
@@ -69,7 +69,6 @@ pub fn ShowHide(
     // marked with `_` to have a nice interface to the user and at the same time not having the
     // CI complain about the not used variable, since the timeout can only be set in a wasm32
     // context
-    let _delay: StoredValue<Duration> = store_value(cx, hide_delay);
     let cls = create_rw_signal(
         cx,
         if when.get_untracked() {
@@ -92,12 +91,10 @@ pub fn ShowHide(
         } else {
             cls.set(hide_class);
 
-            #[cfg(target_arch = "wasm32")] {
-                let h =
-                    leptos_dom::helpers::set_timeout_with_handle(move || show.set(false), _delay.get_value())
-                        .expect("set timeout in ShowHide");
-                handle.set_value(Some(h));
-            }
+            let h =
+                leptos_dom::helpers::set_timeout_with_handle(move || show.set(false), hide_delay)
+                    .expect("set timeout in ShowHide");
+            handle.set_value(Some(h));
         }
     });
 

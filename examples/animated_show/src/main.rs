@@ -1,5 +1,5 @@
 use leptos::*;
-use show_hide::App;
+use animated_show::App;
 
 pub fn main() {
     _ = console_log::init_with_level(log::Level::Debug);
