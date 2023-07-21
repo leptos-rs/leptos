@@ -101,5 +101,5 @@ pub fn expand_optionals(pattern: &str) -> Vec<Cow<str>> {
     }
 }
 
-const OPTIONAL: &str = r#"(/?:[^/]+)\?"#;
-const OPTIONAL_2: &str = r#"^(/:[^/]+)\?"#;
+const OPTIONAL: &str = r"(/?:[^/]+)\?";
+const OPTIONAL_2: &str = r"^(/:[^/]+)\?";

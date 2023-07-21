@@ -107,7 +107,7 @@ Open browser to [http://localhost:3000/](http://localhost:3000/).
 
 ### What’s up with the name?
 
-_Leptos_ (λεπτός) is an ancient Greek word meaning “thin, light, refine, fine-grained.” To me, a classicist and not a dog owner, it evokes the lightweight reactive system that powers the framework. I've since learned the same word is at the root of the medical term “leptospirosis,” a blood infection that affects humans and animals... My bad. No dogs were harmed in the creation of this framework.
+_Leptos_ (λεπτός) is an ancient Greek word meaning “thin, light, refined, fine-grained.” To me, a classicist and not a dog owner, it evokes the lightweight reactive system that powers the framework. I've since learned the same word is at the root of the medical term “leptospirosis,” a blood infection that affects humans and animals... My bad. No dogs were harmed in the creation of this framework.
 
 ### Is it production ready?
 

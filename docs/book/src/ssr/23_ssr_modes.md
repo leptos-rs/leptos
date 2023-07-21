@@ -64,7 +64,7 @@ If you’re using server-side rendering, the synchronous mode is almost never wh
 
 5. **Partially-blocked streaming**: “Partially-blocked” streaming is useful when you have multiple separate `<Suspense/>` components on the page. If one of them reads from one or more “blocking resources” (see below), the fallback will not be sent; rather, the server will wait until that `<Suspense/>` has resolved and then replace the fallback with the resolved fragment on the server, which means that it is included in the initial HTML response and appears even if JavaScript is disabled or not supported. Other `<Suspense/>` stream in out of order as usual.
 
-This is useful when you have multiple `<Suspense/>` on the page, and one is more important than the other: think of a blog post and comments, or product information and reviews. It is *not* useful if there’s only one `<Suspense/>`, or if every `<Suspense/>` reads from blocking resources. In those cases it is a slower form of `async` rendering.
+This is useful when you have multiple `<Suspense/>` on the page, and one is more important than the other: think of a blog post and comments, or product information and reviews. It is _not_ useful if there’s only one `<Suspense/>`, or if every `<Suspense/>` reads from blocking resources. In those cases it is a slower form of `async` rendering.
 
 - _Pros_: Works if JavaScript is disabled or not supported on the user’s device.
 - _Cons_
@@ -79,13 +79,13 @@ Because it offers the best blend of performance characteristics, Leptos defaults
 ```rust
 <Routes>
 	// We’ll load the home page with out-of-order streaming and <Suspense/>
-	<Route path="" view=|cx| view! { cx, <HomePage/> }/>
+	<Route path="" view=HomePage
 
 	// We'll load the posts with async rendering, so they can set
 	// the title and metadata *after* loading the data
 	<Route
 		path="/post/:id"
-		view=|cx| view! { cx, <Post/> }
+		view=Post
 		ssr=SsrMode::Async
 	/>
 </Routes>

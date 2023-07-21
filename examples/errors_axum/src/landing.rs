@@ -34,7 +34,7 @@ pub fn App(cx: Scope) -> impl IntoView {
             </header>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! { cx, <ExampleErrors/> }/>
+                    <Route path="" view=ExampleErrors/>
                 </Routes>
             </main>
         </Router>

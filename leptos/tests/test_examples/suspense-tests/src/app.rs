@@ -52,12 +52,12 @@ pub fn App(cx: Scope) -> impl IntoView {
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=|cx| view! { cx, <Nested/> }/>
-                        <Route path="inside" view=|cx| view! { cx, <NestedResourceInside/> }/>
-                        <Route path="single" view=|cx| view! { cx, <Single/> }/>
-                        <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
-                        <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
-                        <Route path="none" view=|cx| view! { cx, <None/> }/>
+                        <Route path="" view=Nested
+                        <Route path="inside" view=NestedResourceInside
+                        <Route path="single" view=Single
+                        <Route path="parallel" view=Parallel
+                        <Route path="inside-component" view=InsideComponent
+                        <Route path="none" view=None
                     </Route>
                     // in-order
                     <Route
@@ -69,12 +69,12 @@ pub fn App(cx: Scope) -> impl IntoView {
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=|cx| view! { cx, <Nested/> }/>
-                        <Route path="inside" view=|cx| view! { cx, <NestedResourceInside/> }/>
-                        <Route path="single" view=|cx| view! { cx, <Single/> }/>
-                        <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
-                        <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
-                        <Route path="none" view=|cx| view! { cx, <None/> }/>
+                        <Route path="" view=Nested
+                        <Route path="inside" view=NestedResourceInside
+                        <Route path="single" view=Single
+                        <Route path="parallel" view=Parallel
+                        <Route path="inside-component" view=InsideComponent
+                        <Route path="none" view=None
                     </Route>
                     // async
                     <Route
@@ -86,12 +86,12 @@ pub fn App(cx: Scope) -> impl IntoView {
                             <Outlet/>
                         }
                     >
-                        <Route path="" view=|cx| view! { cx, <Nested/> }/>
-                        <Route path="inside" view=|cx| view! { cx, <NestedResourceInside/> }/>
-                        <Route path="single" view=|cx| view! { cx, <Single/> }/>
-                        <Route path="parallel" view=|cx| view! { cx, <Parallel/> }/>
-                        <Route path="inside-component" view=|cx| view! { cx, <InsideComponent/> }/>
-                        <Route path="none" view=|cx| view! { cx, <None/> }/>
+                        <Route path="" view=Nested
+                        <Route path="inside" view=NestedResourceInside
+                        <Route path="single" view=Single
+                        <Route path="parallel" view=Parallel
+                        <Route path="inside-component" view=InsideComponent
+                        <Route path="none" view=None
                     </Route>
                 </Routes>
             </main>

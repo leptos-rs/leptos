@@ -56,23 +56,23 @@
 //!             // our root route: the contact list is always shown
 //!             <Route
 //!               path=""
-//!               view=move |cx| view! { cx,  <ContactList/> }
+//!               view=ContactList
 //!             >
 //!               // users like /gbj or /bob
 //!               <Route
 //!                 path=":id"
-//!                 view=move |cx| view! { cx,  <Contact/> }
+//!                 view=Contact
 //!               />
 //!               // a fallback if the /:id segment is missing from the URL
 //!               <Route
 //!                 path=""
-//!                 view=move |_| view! { cx,  <p class="contact">"Select a contact."</p> }
+//!                 view=move |_| view! { cx, <p class="contact">"Select a contact."</p> }
 //!               />
 //!             </Route>
 //!             // LR will automatically use this for /about, not the /:id match above
 //!             <Route
 //!               path="about"
-//!               view=move |cx| view! { cx,  <About/> }
+//!               view=About
 //!             />
 //!           </Routes>
 //!         </main>
