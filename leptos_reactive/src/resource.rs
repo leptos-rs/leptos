@@ -392,8 +392,9 @@ where
             context.pending_resources.remove(&id); // no longer pending
             r.resolved.set(true);
 
-            let res = T::de(&data)
-                .expect_throw("could not deserialize Resource JSON");
+            let res = T::de(&data).unwrap_or_else(|e| {
+                panic!("could not deserialize Resource JSON: {e:?}")
+            });
 
             r.set_value.update(|n| *n = Some(res));
             r.set_loading.update(|n| *n = false);
@@ -411,8 +412,9 @@ where
                 let set_value = r.set_value;
                 let set_loading = r.set_loading;
                 move |res: String| {
-                    let res = T::de(&res)
-                        .expect_throw("could not deserialize Resource JSON");
+                    let res = T::de(&res).unwrap_or_else(|e| {
+                        panic!("could not deserialize Resource JSON: {e:?}")
+                    });
                     resolved.set(true);
                     set_value.update(|n| *n = Some(res));
                     set_loading.update(|n| *n = false);
