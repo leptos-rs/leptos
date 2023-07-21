@@ -16,7 +16,7 @@ actix-web = { version = "4", optional = true, features = ["macros"] }
 console_log = "1"
 console_error_panic_hook = "0.1"
 cfg-if = "1"
-leptos = { path = "../../leptos", features = ["nightly"] }
+leptos = { path = "../../leptos", features = ["nightly", "islands"] }
 leptos_meta = { path = "../../meta", features = ["nightly"] }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 leptos_router = { path = "../../router", features = ["nightly"] }
@@ -40,6 +40,12 @@ ssr = [
 	"leptos_meta/ssr",
 	"leptos_router/ssr",
 ]
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
 
 [package.metadata.cargo-all-features]
 denylist = ["actix-files", "actix-web", "leptos_actix"]
@@ -88,3 +94,5 @@ lib-features = ["hydrate"]
 #
 # Optional. Defaults to false.
 lib-default-features = false
+
+lib-profile-release = "wasm-release"

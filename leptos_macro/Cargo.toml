@@ -41,6 +41,7 @@ hydrate = []
 ssr = ["server_fn_macro/ssr"]
 nightly = ["server_fn_macro/nightly"]
 tracing = []
+islands = []
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly", "tracing"]

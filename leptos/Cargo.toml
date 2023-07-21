@@ -32,12 +32,14 @@ csr = [
   "leptos_macro/csr",
   "leptos_reactive/csr",
   "leptos_server/csr",
+  "wasm-bindgen",
 ]
 hydrate = [
   "leptos_dom/hydrate",
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
+  "wasm-bindgen",
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]
@@ -60,6 +62,7 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 nonce = ["leptos_dom/nonce"]
+islands = ["leptos_dom/islands", "leptos_macro/islands"]
 
 [package.metadata.cargo-all-features]
 denylist = [

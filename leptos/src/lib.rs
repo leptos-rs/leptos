@@ -168,7 +168,7 @@ pub mod error {
 }
 #[cfg(not(any(target_arch = "wasm32", feature = "template_macro")))]
 pub use leptos_macro::view as template;
-pub use leptos_macro::{component, server, slot, view, Params};
+pub use leptos_macro::{component, island, server, slot, view, Params};
 pub use leptos_reactive::*;
 pub use leptos_server::{
     self, create_action, create_multi_action, create_server_action,
@@ -196,6 +196,13 @@ pub use text_prop::TextProp;
 #[doc(hidden)]
 pub use tracing;
 pub use transition::*;
+#[doc(hidden)]
+#[cfg(any(
+    feature = "csr",
+    feature = "hydrate",
+    feature = "template_macro"
+))]
+pub use wasm_bindgen; // used in islands
 extern crate self as leptos;
 
 /// The most common type for the `children` property on components,

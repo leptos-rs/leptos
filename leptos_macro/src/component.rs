@@ -15,6 +15,7 @@ use syn::{
 };
 pub struct Model {
     is_transparent: bool,
+    is_island: bool,
     docs: Docs,
     vis: Visibility,
     name: Ident,
@@ -65,6 +66,7 @@ impl Parse for Model {
 
         Ok(Self {
             is_transparent: false,
+            is_island: false,
             docs,
             vis: item.vis.clone(),
             name: convert_from_snake_case(&item.sig.ident),
@@ -104,6 +106,7 @@ impl ToTokens for Model {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
             is_transparent,
+            is_island,
             docs,
             vis,
             name,
@@ -111,6 +114,11 @@ impl ToTokens for Model {
             body,
             ret,
         } = self;
+
+        // used to *exclude* body of anything that's not an island from client bundle
+        let should_include_body = !cfg!(feature = "islands")
+            || *is_island
+            || !cfg!(any(feature = "csr", feature = "hydrate"));
 
         let no_props = props.is_empty();
 
@@ -247,6 +255,30 @@ impl ToTokens for Model {
             }
         };
 
+        let body = if should_include_body {
+            quote! {
+                #body
+                #destructure_props
+                #tracing_span_expr
+                #component
+            }
+        } else {
+            quote! {
+                _ = {
+                    #body
+                    #destructure_props
+                    #tracing_span_expr
+                    #component
+                }
+            }
+        };
+        let binding =
+            if *is_island && cfg!(any(feature = "csr", feature = "hydrate")) {
+                quote! { #[::leptos::wasm_bindgen::prelude::wasm_bindgen] }
+            } else {
+                quote! {}
+            };
+
         let output = quote! {
             #[doc = #builder_name_doc]
             #[doc = ""]
@@ -254,6 +286,7 @@ impl ToTokens for Model {
             #component_fn_prop_docs
             #[derive(::leptos::typed_builder::TypedBuilder)]
             #[builder(doc)]
+            #binding
             #vis struct #props_name #impl_generics #where_clause {
                 #prop_builder_fields
             }
@@ -280,12 +313,6 @@ impl ToTokens for Model {
                 // allowed for lifetimes that are needed for props struct
                 #[allow(clippy::needless_lifetimes)]
                 #body
-
-                #destructure_props
-
-                #tracing_span_expr
-
-                #component
             }
         };
 
@@ -297,6 +324,13 @@ impl Model {
     #[allow(clippy::wrong_self_convention)]
     pub fn is_transparent(mut self, is_transparent: bool) -> Self {
         self.is_transparent = is_transparent;
+
+        self
+    }
+
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_island(mut self) -> Self {
+        self.is_island = true;
 
         self
     }

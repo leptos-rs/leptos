@@ -632,6 +632,33 @@ pub fn component(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         .into()
 }
 
+/// TODO docs for islands
+#[proc_macro_error::proc_macro_error]
+#[proc_macro_attribute]
+pub fn island(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+    let is_transparent = if !args.is_empty() {
+        let transparent = parse_macro_input!(args as syn::Ident);
+
+        if transparent != "transparent" {
+            abort!(
+                transparent,
+                "only `transparent` is supported";
+                help = "try `#[island(transparent)]` or `#[island]`"
+            );
+        }
+
+        true
+    } else {
+        false
+    };
+
+    parse_macro_input!(s as component::Model)
+        .is_transparent(is_transparent)
+        .is_island()
+        .into_token_stream()
+        .into()
+}
+
 /// Annotates a struct so that it can be used with your Component as a `slot`.
 ///
 /// The `#[slot]` macro allows you to annotate plain Rust struct as component slots and use them

@@ -1,5 +1,5 @@
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
-use leptos_macro::component;
+use leptos_macro::island;
 use leptos_reactive::{
     create_memo, provide_context, SignalGetUntracked, SuspenseContext,
 };
@@ -54,7 +54,7 @@ use std::rc::Rc;
     any(debug_assertions, feature = "ssr"),
     tracing::instrument(level = "info", skip_all)
 )]
-#[component]
+#[island]
 pub fn Suspense<F, E, V>(
     /// Returns a fallback UI that will be shown while `async` [`Resource`](leptos_reactive::Resource)s are still loading.
     fallback: F,

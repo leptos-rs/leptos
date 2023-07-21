@@ -1,3 +1,5 @@
+#[cfg(feature = "islands")]
+use std::cell::Cell;
 use std::{cell::RefCell, fmt::Display};
 
 #[cfg(all(target_arch = "wasm32", feature = "hydrate"))]
@@ -172,5 +174,23 @@ impl HydrationCtx {
 
             format!("_{id}")
         }
+    }
+}
+
+#[cfg(feature = "islands")]
+thread_local! {
+  pub static IN_ISLAND: Cell<bool> = Cell::new(false);
+}
+
+#[cfg(feature = "islands")]
+impl HydrationCtx {
+    /// Whether the renderer is currently inside an interactive island.
+    pub fn in_island() -> bool {
+        IN_ISLAND.with(Cell::get)
+    }
+
+    /// Sets whether the renderer is currently inside an interactive island.
+    pub fn set_island() -> bool {
+        IN_ISLAND.with(Cell::get)
     }
 }
