@@ -46,7 +46,7 @@ impl ParamsMap {
     pub fn to_query_string(&self) -> String {
         use crate::history::url::escape;
         let mut buf = String::new();
-        if self.0.len() > 0 {
+        if !self.0.is_empty() {
             buf.push('?');
             for (k, v) in &self.0 {
                 buf.push_str(&escape(k));
