@@ -1,5 +1,5 @@
 use crate::{Method, SsrMode};
-use leptos::{leptos_dom::View, *};
+use leptos::leptos_dom::View;
 use std::rc::Rc;
 
 /// Defines a single route in a nested route tree. This is the return
