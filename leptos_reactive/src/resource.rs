@@ -393,7 +393,7 @@ where
             r.resolved.set(true);
 
             let res = T::de(&data).unwrap_or_else(|e| {
-                panic!("could not deserialize Resource JSON: {e:?}")
+                panic!("could not deserialize Resource JSON for {id:?}: {e:?}")
             });
 
             r.set_value.update(|n| *n = Some(res));
@@ -413,7 +413,10 @@ where
                 let set_loading = r.set_loading;
                 move |res: String| {
                     let res = T::de(&res).unwrap_or_else(|e| {
-                        panic!("could not deserialize Resource JSON: {e:?}")
+                        panic!(
+                            "could not deserialize Resource JSON for {id:?}: \
+                             {e:?}"
+                        )
                     });
                     resolved.set(true);
                     set_value.update(|n| *n = Some(res));
