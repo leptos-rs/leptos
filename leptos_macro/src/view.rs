@@ -1167,6 +1167,7 @@ fn element_to_tokens(
         };
         let ide_helper_close_tag = ide_helper_close_tag.into_iter();
         Some(quote! {
+            #[allow(unused_braces)]
             {
             #(#ide_helper_close_tag)*
             #name
