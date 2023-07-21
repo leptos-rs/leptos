@@ -48,7 +48,7 @@ echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
 
 [tasks.test-info]
 workspace = false
-description = "List example projects with CI tests runners"
+description = "report ci test runners for each example - Option [all]"
 script = '''
 BOLD="\e[1m"
 GREEN="\e[0;32m"
@@ -103,7 +103,11 @@ do
     test_runner=$test_runner"-L"
   fi
   
-  if [ ! -z $test_runner ]; then
+  if [ ! -z "$1" ]; then
+    # Show all examples
+    echo "$clean_name ${BOLD}${test_runner}${RESET}"
+  elif [ ! -z $test_runner ]; then
+    # Filter out examples that do not run tests in `ci`
     echo "$clean_name ${BOLD}${test_runner}${RESET}"
   fi
 
