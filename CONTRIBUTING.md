@@ -70,6 +70,25 @@ are a few guidelines that will make it a better experience for everyone:
   `cargo-make` and using `cargo make check && cargo make test && cargo make
 check-examples`.
 
+## Before Submitting a PR
+
+We have a fairly extensive CI setup that runs both lints (like `rustfmt` and `clippy`) 
+and tests on PRs. You can run most of these locally if you have `cargo-make` installed.
+
+If you added an example, make sure to add it to the list in `examples/Makefile.toml`.
+
+From the root directory of the repo, run 
+- `cargo +nightly fmt`
+- `cargo +nightly make check`
+- `cargo +nightly make test`
+- `cargo +nightly make check-examples`
+- `cargo +nightly make --profile=github-actions ci`
+
+If you modified an example:
+- `cd examples/your_example`
+- `cargo +nightly fmt -- --config-path ../..`
+- `cargo +nightly make --profile=github-actions verify-flow`
+
 ## Architecture
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md).
