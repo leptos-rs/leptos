@@ -45,3 +45,75 @@ grep -v gtk |
 jq -R -s -c 'split("\n")[:-1]')
 echo "CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = $examples"
 '''
+
+[tasks.test-info]
+workspace = false
+description = "report ci test runners for each example - Option [all]"
+script = '''
+BOLD="\e[1m"
+GREEN="\e[0;32m"
+ITALIC="\e[3m"
+YELLOW="\e[0;33m"
+RESET="\e[0m"
+
+echo
+echo "${YELLOW}CI test runners by example...${RESET}"
+echo
+
+examples=$(ls | 
+grep -v README.md | 
+grep -v Makefile.toml | 
+grep -v cargo-make | 
+grep -v gtk |
+sort -u | 
+awk '{print $0 ", "}')
+
+example_root_dir=$(pwd)
+
+for example_dir in $examples
+do
+  clean_name=$(echo $example_dir | sed 's%,%%')
+  cd $clean_name
+
+  c_tests=$(grep -rl --fixed-strings "#[test]" | wc -l)
+  rs_tests=$(grep -rl --fixed-strings "#[rstest]" | wc -l)
+  w_configs=$(grep -rl "\/wasm-test.toml\"" | wc -l)
+  pw_configs=$(grep -rl "\/playwright-test.toml\"" | wc -l)
+  cl_configs=$(grep -rl "\/cargo-leptos-test.toml\"" | wc -l)
+
+  test_runner=
+
+  if [ $c_tests -gt 0 ]; then
+    test_runner="-C"
+  fi
+
+  if [ $rs_tests -gt 0 ]; then
+    test_runner=$test_runner"-R"
+  fi
+
+  if [ $w_configs -gt 0 ]; then
+    test_runner=$test_runner"-W"
+  fi
+
+  if [ $pw_configs -gt 0 ]; then
+    test_runner=$test_runner"-P"
+  fi
+
+  if [ $cl_configs -gt 0 ]; then
+    test_runner=$test_runner"-L"
+  fi
+  
+  if [ ! -z "$1" ]; then
+    # Show all examples
+    echo "$clean_name ${BOLD}${test_runner}${RESET}"
+  elif [ ! -z $test_runner ]; then
+    # Filter out examples that do not run tests in `ci`
+    echo "$clean_name ${BOLD}${test_runner}${RESET}"
+  fi
+
+  cd $example_root_dir
+done
+echo
+echo "${ITALIC}Test Runners: C = Cargo Test, L = Cargo Leptos Test, P = Playwright Test, R = RS Test, W = WASM Test${RESET}"
+echo
+'''
