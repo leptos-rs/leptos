@@ -1,4 +1,5 @@
 extend = [
+    { path = "../cargo-make/compile.toml" },
     { path = "../cargo-make/clean.toml" },
     { path = "../cargo-make/lint.toml" },
     { path = "../cargo-make/node.toml" },
@@ -9,9 +10,6 @@ extend = [
 [tasks.ci]
 dependencies = ["prepare", "lint", "build", "test-flow", "integration-test"]
 
-[tasks.ci-clean]
-dependencies = ["ci", "clean"]
-
 [tasks.prepare]
 dependencies = ["setup-node"]
 
@@ -19,6 +17,17 @@ dependencies = ["setup-node"]
 dependencies = ["check-style"]
 
 [tasks.integration-test]
+
+# Support Local Runs
+
+[tasks.ci-clean]
+dependencies = ["ci", "clean"]
+
+[tasks.check-clean]
+dependencies = ["check", "clean"]
+
+[tasks.build-clean]
+dependencies = ["build", "clean"]
 
 # ALIASES
 

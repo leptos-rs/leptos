@@ -1,10 +1,5 @@
 extend = { path = "../cargo-make/main.toml" }
 
-[tasks.build]
-command = "cargo"
-args = ["+nightly", "build-all-features"]
-install_crate = "cargo-all-features"
-
 [tasks.check]
 clear = true
 dependencies = ["check-debug", "check-release"]
