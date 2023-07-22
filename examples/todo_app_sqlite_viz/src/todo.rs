@@ -104,10 +104,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             </header>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! {
-                        cx,
-                            <Todos/>
-                    }/> //Route
+                    <Route path="" view=Todos/> //Route
                 </Routes>
             </main>
         </Router>

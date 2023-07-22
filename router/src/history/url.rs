@@ -36,9 +36,8 @@ impl TryFrom<&str> for Url {
     type Error = String;
 
     fn try_from(url: &str) -> Result<Self, Self::Error> {
-        let fake_host = String::from("http://leptos");
-        let url =
-            web_sys::Url::new_with_base(url, &fake_host).map_js_error()?;
+        let fake_host = "http://leptos";
+        let url = web_sys::Url::new_with_base(url, fake_host).map_js_error()?;
         Ok(Self {
             origin: url.origin(),
             pathname: url.pathname(),

@@ -6,8 +6,8 @@ use crate::{
     serialization::Serializable,
     spawn::spawn_local,
     use_context, GlobalSuspenseContext, Memo, ReadSignal, Scope, ScopeProperty,
-    SignalGetUntracked, SignalSet, SignalUpdate, SignalWith, SuspenseContext,
-    WriteSignal,
+    SignalDispose, SignalGetUntracked, SignalSet, SignalUpdate, SignalWith,
+    SuspenseContext, WriteSignal,
 };
 use std::{
     any::Any,
@@ -237,7 +237,7 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
-        #[cfg(any(debug_assertions, features = "ssr"))]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         defined_at: std::panic::Location::caller(),
     }
 }
@@ -373,7 +373,7 @@ where
         id,
         source_ty: PhantomData,
         out_ty: PhantomData,
-        #[cfg(any(debug_assertions, features = "ssr"))]
+        #[cfg(any(debug_assertions, feature = "ssr"))]
         defined_at: std::panic::Location::caller(),
     }
 }
@@ -719,7 +719,7 @@ where
     pub(crate) id: ResourceId,
     pub(crate) source_ty: PhantomData<S>,
     pub(crate) out_ty: PhantomData<T>,
-    #[cfg(any(debug_assertions, features = "ssr"))]
+    #[cfg(any(debug_assertions, feature = "ssr"))]
     pub(crate) defined_at: &'static std::panic::Location<'static>,
 }
 
@@ -744,7 +744,7 @@ where
             id: self.id,
             source_ty: PhantomData,
             out_ty: PhantomData,
-            #[cfg(any(debug_assertions, features = "ssr"))]
+            #[cfg(any(debug_assertions, feature = "ssr"))]
             defined_at: self.defined_at,
         }
     }
@@ -1092,4 +1092,26 @@ thread_local! {
 #[doc(hidden)]
 pub fn suppress_resource_load(suppress: bool) {
     SUPPRESS_RESOURCE_LOAD.with(|w| w.set(suppress));
+}
+
+impl<S, T> SignalDispose for Resource<S, T>
+where
+    S: 'static,
+    T: 'static,
+{
+    #[track_caller]
+    fn dispose(self) {
+        let res = with_runtime(self.runtime, |runtime| {
+            let mut resources = runtime.resources.borrow_mut();
+            resources.remove(self.id)
+        });
+        if res.ok().flatten().is_none() {
+            crate::macros::debug_warn!(
+                "At {}, you are calling Resource::dispose() on a resource \
+                 that no longer exists, probably because its Scope has \
+                 already been disposed.",
+                std::panic::Location::caller()
+            );
+        }
+    }
 }

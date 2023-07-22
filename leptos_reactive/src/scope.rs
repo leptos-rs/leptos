@@ -37,7 +37,7 @@ pub fn create_scope(
 ///
 /// You usually don't need to call this manually.
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 pub fn raw_scope_and_disposer(runtime: RuntimeId) -> (Scope, ScopeDisposer) {
@@ -52,7 +52,7 @@ pub fn raw_scope_and_disposer(runtime: RuntimeId) -> (Scope, ScopeDisposer) {
 ///
 /// You usually don't need to call this manually.
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 pub fn run_scope<T>(
@@ -69,7 +69,7 @@ pub fn run_scope<T>(
 ///
 /// You usually don't need to call this manually.
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 pub fn run_scope_undisposed<T>(
@@ -128,7 +128,7 @@ impl Scope {
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[inline(always)]
@@ -147,7 +147,7 @@ impl Scope {
     /// dispose of them when they are no longer needed (e.g., a list item has been destroyed or the user
     /// has navigated away from the route.)
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[inline(always)]
@@ -203,7 +203,7 @@ impl Scope {
     /// # });
     /// ```
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[inline(always)]
@@ -229,7 +229,7 @@ impl Scope {
     /// 2. run all cleanup functions defined for this scope by [`on_cleanup`](crate::on_cleanup).
     /// 3. dispose of all signals, effects, and resources owned by this `Scope`.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn dispose(self) {
@@ -306,7 +306,7 @@ impl Scope {
         })
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn push_scope_property(&self, prop: ScopeProperty) {
@@ -322,7 +322,7 @@ impl Scope {
         })
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub(crate) fn remove_scope_property(&self, prop: ScopeProperty) {
@@ -343,7 +343,7 @@ impl Scope {
         })
     }
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     /// Returns the the parent Scope, if any.
@@ -361,7 +361,7 @@ impl Scope {
 }
 
 #[cfg_attr(
-    any(debug_assertions, features = "ssr"),
+    any(debug_assertions, feature = "ssr"),
     instrument(level = "trace", skip_all,)
 )]
 fn push_cleanup(cx: Scope, cleanup_fn: Box<dyn FnOnce()>) {
@@ -424,7 +424,7 @@ impl ScopeDisposer {
 impl Scope {
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn all_resources(&self) -> Vec<ResourceId> {
@@ -435,7 +435,7 @@ impl Scope {
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope that are
     /// pending from the server.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_resources(&self) -> Vec<ResourceId> {
@@ -445,7 +445,7 @@ impl Scope {
 
     /// Returns IDs for all [`Resource`](crate::Resource)s found on any scope.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn serialization_resolvers(
@@ -460,7 +460,7 @@ impl Scope {
     /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
     /// calling the `resolver` when its resources are all resolved.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn register_suspense(
@@ -517,7 +517,7 @@ impl Scope {
     /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn pending_fragments(&self) -> HashMap<String, FragmentData> {
@@ -530,7 +530,7 @@ impl Scope {
 
     /// A future that will resolve when all blocking fragments are ready.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn blocking_fragments_ready(self) -> PinnedFuture<()> {
@@ -557,7 +557,7 @@ impl Scope {
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     pub fn take_pending_fragment(&self, id: &str) -> Option<FragmentData> {
@@ -576,7 +576,7 @@ impl Scope {
     /// # Panics
     /// Panics if the runtime this scope belongs to has already been disposed.
     #[cfg_attr(
-        any(debug_assertions, features = "ssr"),
+        any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
     )]
     #[inline(always)]

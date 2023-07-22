@@ -104,7 +104,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             </header>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! { cx, <Todos/> }/>
+                    <Route path="" view=Todos/>
                 </Routes>
             </main>
         </Router>
@@ -126,10 +126,6 @@ pub fn Todos(cx: Scope) -> impl IntoView {
 
     view! {
         cx,
-        <form method="POST" action="/weird">
-            <input type="text" name="hi" value="John"/>
-            <input type="submit"/>
-        </form>
         <div>
             <MultiActionForm action=add_todo>
                 <label>

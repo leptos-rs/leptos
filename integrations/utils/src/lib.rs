@@ -52,7 +52,7 @@ pub fn html_parts(
     let pkg_path = &options.site_pkg_dir;
     let output_name = &options.output_name;
 
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to maintain compatibility with it's default options
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME at compile time
     // Otherwise we need to add _bg because wasm_pack always does.
     let mut wasm_output_name = output_name.clone();
@@ -60,7 +60,7 @@ pub fn html_parts(
         wasm_output_name.push_str("_bg");
     }
 
-    let leptos_autoreload = autoreload("".into(), options);
+    let leptos_autoreload = autoreload("", options);
 
     let html_metadata =
         meta.and_then(|mc| mc.html.as_string()).unwrap_or_default();
@@ -94,7 +94,7 @@ pub fn html_parts_separated(
         .map(|nonce| format!(" nonce=\"{nonce}\""))
         .unwrap_or_default();
 
-    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to mantain compatibility with it's default options
+    // Because wasm-pack adds _bg to the end of the WASM filename, and we want to maintain compatibility with it's default options
     // we add _bg to the wasm files if cargo-leptos doesn't set the env var LEPTOS_OUTPUT_NAME at compile time
     // Otherwise we need to add _bg because wasm_pack always does.
     let mut wasm_output_name = output_name.clone();

@@ -1,3 +1,4 @@
+#![allow(clippy::incorrect_clone_impl_on_copy_type)]
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 

@@ -170,7 +170,7 @@ pub fn TodoApp(cx: Scope) -> impl IntoView {
             <hr/>
             <main>
                 <Routes>
-                    <Route path="" view=|cx| view! { cx, <Todos/> }/> //Route
+                    <Route path="" view=Todos/> //Route
                     <Route path="signup" view=move |cx| view! {
                         cx,
                         <Signup action=signup/>

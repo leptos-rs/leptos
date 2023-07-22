@@ -24,7 +24,7 @@ use leptos_router::*;
 
 Routing behavior is provided by the [`<Router/>`](https://docs.rs/leptos_router/latest/leptos_router/fn.Router.html) component. This should usually be somewhere near the root of your application, the rest of the app.
 
-> You shouldn’t try to use multiple `<Router/>`s in your app. Remember that the router drives global state: if you have multiple routers, which ones decides what to do when the URL changes?
+> You shouldn’t try to use multiple `<Router/>`s in your app. Remember that the router drives global state: if you have multiple routers, which one decides what to do when the URL changes?
 
 Let’s start with a simple `<App/>` component using the router:
 
@@ -87,15 +87,17 @@ The `view` is a function that takes a `Scope` and returns a view.
 
 ```rust
 <Routes>
-  <Route path="/" view=|cx| view! { cx, <Home/> }/>
-  <Route path="/users" view=|cx| view! { cx, <Users/> }/>
-  <Route path="/users/:id" view=|cx| view! { cx, <UserProfile/> }/>
-  <Route path="/*any" view=|cx| view! { cx, <NotFound/> }/>
+  <Route path="/" view=Home/>
+  <Route path="/users" view=Users/>
+  <Route path="/users/:id" view=UserProfile/>
+  <Route path="/*any" view=NotFound/>
 </Routes>
 ```
 
-> The router scores each route to see how good a match it is, so you can define your routes in any order.
+> `view` takes a `Fn(Scope) -> impl IntoView`. If a component has no props, it is a function that takes `Scope` and returns `impl IntoView`, so it can be passed directly into the `view`. In this case, `view=Home` is just a shorthand for `|cx| view! { cx, <Home/> }`.
 
 Now if you navigate to `/` or to `/users` you’ll get the home page or the `<Users/>`. If you go to `/users/3` or `/blahblah` you’ll get a user profile or your 404 page (`<NotFound/>`). On every navigation, the router determines which `<Route/>` should be matched, and therefore what content should be displayed where the `<Routes/>` component is defined.
+
+Note that you can define your routes in any order. The router scores each route to see how good a match it is, rather than simply trying to match them top to bottom.
 
 Simple enough?

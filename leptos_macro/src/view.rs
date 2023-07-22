@@ -351,7 +351,10 @@ fn root_element_to_tokens_ssr(
             Ident::new("Custom", Span::call_site())
         } else {
             let camel_cased = camel_case_tag_name(
-                &tag_name.replace("svg::", "").replace("math::", ""),
+                tag_name
+                    .trim_start_matches("svg::")
+                    .trim_start_matches("math::")
+                    .trim_end_matches('_'),
             );
             Ident::new(&camel_cased, Span::call_site())
         };
@@ -517,6 +520,17 @@ fn element_to_tokens_ssr(
                                 &value.replace('{', "\\{").replace('}', "\\}"),
                             );
                         }
+                        Node::RawText(r) => {
+                            let value = r.to_string_best();
+                            let value = if is_script_or_style {
+                                value.into()
+                            } else {
+                                html_escape::encode_safe(&value)
+                            };
+                            template.push_str(
+                                &value.replace('{', "\\{").replace('}', "\\}"),
+                            );
+                        }
                         Node::Block(NodeBlock::ValidBlock(block)) => {
                             if let Some(value) =
                                 block_to_primitive_expression(block)
@@ -551,7 +565,7 @@ fn element_to_tokens_ssr(
             }
 
             template.push_str("</");
-            template.push_str(&node.name().to_string());
+            template.push_str(tag_name);
             template.push('>');
         }
     }
@@ -1841,11 +1855,7 @@ fn is_self_closing(node: &NodeElement) -> bool {
 fn camel_case_tag_name(tag_name: &str) -> String {
     let mut chars = tag_name.chars();
     let first = chars.next();
-    let underscore = if tag_name == "option" || tag_name == "use" {
-        "_"
-    } else {
-        ""
-    };
+    let underscore = if tag_name == "option" { "_" } else { "" };
     first
         .map(|f| f.to_ascii_uppercase())
         .into_iter()
