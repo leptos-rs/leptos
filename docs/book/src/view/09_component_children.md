@@ -115,11 +115,11 @@ Calling it like this will create a list:
 
 ```rust
 view! { cx,
-    <WrappedChildren>
+    <WrapsChildren>
         "A"
         "B"
         "C"
-    </WrappedChildren>
+    </WrapsChildren>
 }
 ```
 
