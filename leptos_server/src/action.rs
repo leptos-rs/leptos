@@ -187,7 +187,7 @@ where
     O: 'static,
 {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 

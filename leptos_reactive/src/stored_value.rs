@@ -33,11 +33,7 @@ where
 
 impl<T> Clone for StoredValue<T> {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: self.ty,
-        }
+        *self
     }
 }
 
