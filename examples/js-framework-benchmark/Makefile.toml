@@ -4,13 +4,15 @@ extend = [
 ]
 
 [tasks.build]
+toolchain = "nightly"
 command = "cargo"
-args = ["+nightly", "build-all-features", "--target", "wasm32-unknown-unknown"]
+args = ["build-all-features", "--target", "wasm32-unknown-unknown"]
 install_crate = "cargo-all-features"
 
 [tasks.check]
+toolchain = "nightly"
 command = "cargo"
-args = ["+nightly", "check-all-features", "--target", "wasm32-unknown-unknown"]
+args = ["check-all-features", "--target", "wasm32-unknown-unknown"]
 install_crate = "cargo-all-features"
 
 [tasks.pre-clippy]
