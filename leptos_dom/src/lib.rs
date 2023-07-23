@@ -871,13 +871,27 @@ where
 /// Runs the provided closure and mounts the result to the provided element.
 pub fn mount_to<F, N>(parent: web_sys::HtmlElement, f: F)
 where
+    F: FnOnce() -> N + 'static,
+    N: IntoView,
+{
+    mount_to_with_stop_hydrating(parent, true, f)
+}
+
+/// Runs the provided closure and mounts the result to the provided element.
+pub fn mount_to_with_stop_hydrating<F, N>(
+    parent: web_sys::HtmlElement,
+    stop_hydrating: bool,
+    f: F,
+) where
     F: Fn() -> N + 'static,
     N: IntoView,
 {
     cfg_if! {
       if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
             let node = f().into_view();
-            HydrationCtx::stop_hydrating();
+            if stop_hydrating {
+                HydrationCtx::stop_hydrating();
+            }
             parent.append_child(&node.get_mountable_node()).unwrap();
             std::mem::forget(node);
       } else {
@@ -935,6 +949,7 @@ pub fn hydrate_islands() {
         } else {
             crate::debug_warn!("could not find _LEPTOS_EXPORTS");
         }
+        HydrationCtx::stop_hydrating();
     }
     #[cfg(not(feature = "hydrate"))]
     {
