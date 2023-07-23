@@ -1,5 +1,6 @@
+#[cfg(any(feature = "hydrate", feature = "ssr"))]
+use crate::hydration::SharedContext;
 use crate::{
-    hydration::SharedContext,
     node::{
         Disposer, NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType,
     },
@@ -52,6 +53,7 @@ type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 // and other data included in the reactive system.
 #[derive(Default)]
 pub(crate) struct Runtime {
+    #[cfg(any(feature = "hydrate", feature = "ssr"))]
     pub shared_context: RefCell<SharedContext>,
     pub owner: Cell<Option<NodeId>>,
     pub observer: Cell<Option<NodeId>>,
