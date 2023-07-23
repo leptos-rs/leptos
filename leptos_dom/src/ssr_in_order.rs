@@ -252,7 +252,6 @@ impl View {
 
                 if cfg!(debug_assertions) {
                     chunks.push_back(StreamChunk::Sync(node.id.to_marker(
-                        #[cfg(debug_assertions)]
                         false,
                         #[cfg(debug_assertions)]
                         &name,
@@ -263,7 +262,6 @@ impl View {
                     child.into_stream_chunks_helper(chunks, dont_escape_text);
                 }
                 chunks.push_back(StreamChunk::Sync(node.id.to_marker(
-                    #[cfg(debug_assertions)]
                     true,
                     #[cfg(debug_assertions)]
                     &name,
@@ -376,7 +374,6 @@ impl View {
                         Box::new(move |chunks: &mut VecDeque<StreamChunk>| {
                             chunks.push_back(StreamChunk::Sync(
                                 u.id.to_marker(
-                                    #[cfg(debug_assertions)]
                                     true,
                                     #[cfg(debug_assertions)]
                                     "unit",
@@ -480,16 +477,13 @@ impl View {
                                             chunks,
                                             dont_escape_text,
                                         );
-                                        if !is_el {
-                                            chunks.push_back(
-                                                StreamChunk::Sync(
-                                                    id.to_marker(
-                                                        true,
-                                                        "each-item",
-                                                    ),
-                                                ),
-                                            );
-                                        }
+                                        chunks.push_back(StreamChunk::Sync(
+                                            id.to_marker(
+                                                true,
+                                                #[cfg(debug_assertions)]
+                                                "each-item",
+                                            ),
+                                        ));
                                     }
                                 },
                             )
@@ -507,7 +501,6 @@ impl View {
                     }
                     content(chunks);
                     chunks.push_back(StreamChunk::Sync(id.to_marker(
-                        #[cfg(debug_assertions)]
                         true,
                         #[cfg(debug_assertions)]
                         name,
