@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use crate::{with_runtime, Runtime, ScopeProperty};
 use std::{
     cell::RefCell,
