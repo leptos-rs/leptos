@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 /// The microtask is a short function which will run after the current task has
 /// completed its work and when there is no other code waiting to be run before
 /// control of the execution context is returned to the browser's event loop.
