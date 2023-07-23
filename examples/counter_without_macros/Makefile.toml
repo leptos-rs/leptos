@@ -4,11 +4,13 @@ extend = [
 ]
 
 [tasks.build]
+toolchain = "stable"
 command = "cargo"
-args = ["+stable", "build-all-features"]
+args = ["build-all-features"]
 install_crate = "cargo-all-features"
 
 [tasks.check]
+toolchain = "stable"
 command = "cargo"
-args = ["+stable", "check-all-features"]
+args = ["check-all-features"]
 install_crate = "cargo-all-features"
