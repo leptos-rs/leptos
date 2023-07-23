@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use crate::{
     hydration::SharedContext,
     node::{
@@ -950,7 +948,6 @@ impl RuntimeId {
 
         let effect_fn = {
             let prev_callback_value = Rc::clone(&prev_callback_value);
-
             move |did_run_before: Option<()>| {
                 let deps_value = deps();
 

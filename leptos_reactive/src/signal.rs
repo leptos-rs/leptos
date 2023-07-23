@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use crate::{
     console_warn, create_effect, diagnostics, diagnostics::*,
     macros::debug_warn, node::NodeId, on_cleanup, runtime::with_runtime,

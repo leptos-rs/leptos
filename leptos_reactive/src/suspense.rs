@@ -1,6 +1,5 @@
 //! Types that handle asynchronous data loading via `<Suspense/>`.
 
-#![forbid(unsafe_code)]
 use crate::{
     create_isomorphic_effect, create_rw_signal, create_signal, queue_microtask,
     signal::SignalGet, store_value, ReadSignal, RwSignal, SignalSet,
