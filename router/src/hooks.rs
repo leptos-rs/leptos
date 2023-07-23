@@ -26,8 +26,10 @@ use std::{borrow::Cow, rc::Rc, str::FromStr};
 /// pub fn SimpleQueryCounter(cx: Scope) -> impl IntoView {
 ///     let (count, set_count) = create_query_signal::<i32>(cx, "count");
 ///     let clear = move |_| set_count.set(None);
-///     let decrement = move |_| set_count.set(Some(count.get().unwrap_or(0) - 1));
-///     let increment = move |_| set_count.set(Some(count.get().unwrap_or(0) + 1));
+///     let decrement =
+///         move |_| set_count.set(Some(count.get().unwrap_or(0) - 1));
+///     let increment =
+///         move |_| set_count.set(Some(count.get().unwrap_or(0) + 1));
 ///
 ///     view! { cx,
 ///         <div>
