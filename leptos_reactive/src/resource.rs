@@ -378,7 +378,7 @@ where
     }
 }
 
-#[cfg(not(feature = "hydrate"))]
+#[cfg(not(all(feature = "hydrate", not(feature = "csr"))))]
 fn load_resource<S, T>(_cx: Scope, _id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Clone + 'static,
@@ -391,7 +391,7 @@ where
     });
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", not(feature = "csr")))]
 fn load_resource<S, T>(cx: Scope, id: ResourceId, r: Rc<ResourceState<S, T>>)
 where
     S: PartialEq + Clone + 'static,

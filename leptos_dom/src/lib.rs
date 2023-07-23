@@ -21,15 +21,9 @@ pub mod math;
 mod node_ref;
 /// Utilities for exporting nonces to be used for a Content Security Policy.
 pub mod nonce;
-#[cfg(any(
-    doc,
-    all(feature = "ssr", not(any(feature = "csr", feature = "hydrate")))
-))]
+#[cfg(not(feature = "csr"))]
 pub mod ssr;
-#[cfg(any(
-    doc,
-    all(feature = "ssr", not(any(feature = "csr", feature = "hydrate")))
-))]
+#[cfg(not(feature = "csr"))]
 pub mod ssr_in_order;
 pub mod svg;
 mod transparent;

@@ -234,6 +234,7 @@ impl View {
         self.into_stream_chunks_helper(cx, &mut chunks, false);
         chunks
     }
+
     #[tracing::instrument(level = "trace", skip_all)]
     fn into_stream_chunks_helper(
         self,

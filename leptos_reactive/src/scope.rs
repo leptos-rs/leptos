@@ -5,10 +5,10 @@ use crate::{
     runtime::{with_runtime, RuntimeId},
     PinnedFuture, ResourceId, StoredValueId,
 };
-#[cfg(any(feature = "hydrate", feature = "ssr"))]
+#[cfg(not(feature = "csr"))]
 use crate::{hydration::FragmentData, suspense::StreamChunk, SuspenseContext};
 use futures::stream::FuturesUnordered;
-#[cfg(any(feature = "hydrate", feature = "ssr"))]
+#[cfg(not(feature = "csr"))]
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 
@@ -458,7 +458,7 @@ impl Scope {
 
     /// Registers the given [`SuspenseContext`](crate::SuspenseContext) with the current scope,
     /// calling the `resolver` when its resources are all resolved.
-    #[cfg(any(feature = "hydrate", feature = "ssr"))]
+    #[cfg(not(feature = "csr"))]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -516,7 +516,7 @@ impl Scope {
     ///
     /// The keys are hydration IDs. Values are tuples of two pinned
     /// `Future`s that return content for out-of-order and in-order streaming, respectively.
-    #[cfg(any(feature = "hydrate", feature = "ssr"))]
+    #[cfg(not(feature = "csr"))]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -530,7 +530,7 @@ impl Scope {
     }
 
     /// A future that will resolve when all blocking fragments are ready.
-    #[cfg(any(feature = "hydrate", feature = "ssr"))]
+    #[cfg(not(feature = "csr"))]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)
@@ -558,7 +558,7 @@ impl Scope {
     ///
     /// Returns a tuple of two pinned `Future`s that return content for out-of-order
     /// and in-order streaming, respectively.
-    #[cfg(any(feature = "hydrate", feature = "ssr"))]
+    #[cfg(not(feature = "csr"))]
     #[cfg_attr(
         any(debug_assertions, feature = "ssr"),
         instrument(level = "trace", skip_all,)

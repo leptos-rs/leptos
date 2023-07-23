@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-#[cfg(any(feature = "hydrate", feature = "ssr"))]
+#[cfg(not(feature = "csr"))]
 use crate::hydration::SharedContext;
 use crate::{
     node::{NodeId, ReactiveNode, ReactiveNodeState, ReactiveNodeType},
@@ -45,7 +45,7 @@ type FxIndexSet<T> = IndexSet<T, BuildHasherDefault<FxHasher>>;
 // and other data included in the reactive system.
 #[derive(Default)]
 pub(crate) struct Runtime {
-    #[cfg(any(feature = "hydrate", feature = "ssr"))]
+    #[cfg(not(feature = "csr"))]
     pub shared_context: RefCell<SharedContext>,
     pub observer: Cell<Option<NodeId>>,
     pub scopes: RefCell<SlotMap<ScopeId, RefCell<Vec<ScopeProperty>>>>,
@@ -354,7 +354,7 @@ impl Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = f.debug_struct("Runtime");
 
-        #[cfg(any(feature = "hydrate", feature = "ssr"))]
+        #[cfg(not(feature = "csr"))]
         s.field("shared_context", &self.shared_context);
 
         s.field("observer", &self.observer)
