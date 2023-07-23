@@ -2059,11 +2059,11 @@ impl NodeId {
                         debug_warn!(
                             "[Signal::update] You’re trying to update a \
                              Signal<{}> (defined at {defined_at}) that has \
-                             already been disposed of. This is probably \
-                             either a logic error in a component that creates \
-                             and disposes of scopes. If it does cause cause \
-                             any issues, it is safe to ignore this warning, \
-                             which occurs only in debug mode.",
+                             already been disposed of. This is probably a \
+                             logic error in a component that creates and \
+                             disposes of scopes. If it does not cause any \
+                             issues, it is safe to ignore this warning, which \
+                             occurs only in debug mode.",
                             std::any::type_name::<T>()
                         );
                     }
@@ -2106,11 +2106,11 @@ impl NodeId {
                         debug_warn!(
                             "[Signal::update] You’re trying to update a \
                              Signal<{}> (defined at {defined_at}) that has \
-                             already been disposed of. This is probably \
-                             either a logic error in a component that creates \
-                             and disposes of scopes. If it does cause cause \
-                             any issues, it is safe to ignore this warning, \
-                             which occurs only in debug mode.",
+                             already been disposed of. This is probably a \
+                             logic error in a component that creates and \
+                             disposes of scopes. If it does not cause any \
+                             issues, it is safe to ignore this warning, which \
+                             occurs only in debug mode.",
                             std::any::type_name::<T>()
                         );
                     }
