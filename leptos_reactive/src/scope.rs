@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
+#[cfg(any(feature = "hydrate", feature = "ssr"))]
+use crate::hydration::FragmentData;
 use crate::{
     console_warn,
-    hydration::FragmentData,
     node::NodeId,
     runtime::{with_runtime, RuntimeId},
     suspense::StreamChunk,

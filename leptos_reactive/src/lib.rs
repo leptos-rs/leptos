@@ -80,6 +80,7 @@ mod context;
 #[macro_use]
 mod diagnostics;
 mod effect;
+#[cfg(any(feature = "hydrate", feature = "ssr"))]
 mod hydration;
 mod memo;
 mod node;
@@ -101,6 +102,7 @@ mod watch;
 pub use context::*;
 pub use diagnostics::SpecialNonReactiveZone;
 pub use effect::*;
+#[cfg(any(feature = "hydrate", feature = "ssr"))]
 pub use hydration::FragmentData;
 pub use memo::*;
 pub use resource::*;
