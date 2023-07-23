@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use crate::{
     node::{ReactiveNode, ReactiveNodeState, ReactiveNodeType},
     with_runtime, Runtime,
