@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use crate::{
     create_effect, on_cleanup, runtime::untrack, store_value, Memo, ReadSignal,
     RwSignal, SignalGet, SignalGetUntracked, SignalStream, SignalWith,

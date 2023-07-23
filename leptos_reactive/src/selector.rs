@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use crate::{
     create_isomorphic_effect, create_rw_signal, runtime::with_owner, Owner,
     RwSignal, SignalUpdate, SignalWith,
