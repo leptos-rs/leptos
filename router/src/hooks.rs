@@ -3,7 +3,82 @@ use crate::{
     RouteContext, RouterContext,
 };
 use leptos::{create_memo, signal_prelude::*, use_context, Memo, Scope};
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc, str::FromStr};
+
+/// Constructs a signal synchronized with a specific URL query parameter.
+///
+/// The function creates a bidirectional sync mechanism between the state encapsulated in a signal and a URL query parameter.
+/// This means that any change to the state will update the URL, and vice versa, making the function especially useful
+/// for maintaining state consistency across page reloads.
+///
+/// The `key` argument is the unique identifier for the query parameter to be synced with the state.
+/// It is important to note that only one state can be tied to a specific key at any given time.
+///
+/// The function operates with types that can be parsed from and formatted into strings, denoted by `T`.
+/// If the parsing fails for any reason, the function treats the value as `None`.
+/// The URL parameter can be cleared by setting the signal to `None`.
+///
+/// ```rust
+/// use leptos::*;
+/// use leptos_router::*;
+///
+/// #[component]
+/// pub fn SimpleQueryCounter(cx: Scope) -> impl IntoView {
+///     let (count, set_count) = create_query_signal::<i32>(cx, "count");
+///     let clear = move |_| set_count.set(None);
+///     let decrement =
+///         move |_| set_count.set(Some(count.get().unwrap_or(0) - 1));
+///     let increment =
+///         move |_| set_count.set(Some(count.get().unwrap_or(0) + 1));
+///
+///     view! { cx,
+///         <div>
+///             <button on:click=clear>"Clear"</button>
+///             <button on:click=decrement>"-1"</button>
+///             <span>"Value: " {move || count.get().unwrap_or(0)} "!"</span>
+///             <button on:click=increment>"+1"</button>
+///         </div>
+///     }
+/// }
+/// ```
+pub fn create_query_signal<T>(
+    cx: Scope,
+    key: impl Into<Cow<'static, str>>,
+) -> (Memo<Option<T>>, SignalSetter<Option<T>>)
+where
+    T: FromStr + ToString + PartialEq,
+{
+    let key = key.into();
+    let query_map = use_query_map(cx);
+    let navigate = use_navigate(cx);
+    let route = use_route(cx);
+
+    let get = create_memo(cx, {
+        let key = key.clone();
+        move |_| {
+            query_map
+                .with(|map| map.get(&key).and_then(|value| value.parse().ok()))
+        }
+    });
+
+    let set = SignalSetter::map(cx, move |value: Option<T>| {
+        let mut new_query_map = query_map.get();
+        match value {
+            Some(value) => {
+                new_query_map.insert(key.to_string(), value.to_string());
+            }
+            None => {
+                new_query_map.remove(&key);
+            }
+        }
+        let qs = new_query_map.to_query_string();
+        let path = route.path();
+        let new_url = format!("{path}{qs}");
+        let _ = navigate(&new_url, NavigateOptions::default());
+    });
+
+    (get, set)
+}
 
 /// Returns the current [RouterContext], containing information about the router's state.
 pub fn use_router(cx: Scope) -> RouterContext {

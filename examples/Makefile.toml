@@ -10,6 +10,7 @@ CARGO_MAKE_CRATE_WORKSPACE_MEMBERS = [
     "counter_isomorphic",
     "counters",
     "counters_stable",
+    "counter_url_query,
     "counter_without_macros",
     "error_boundary",
     "errors_axum",

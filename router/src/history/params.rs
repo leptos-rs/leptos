@@ -42,19 +42,21 @@ impl ParamsMap {
         self.0.remove(key)
     }
 
-    #[cfg(any(feature = "csr", feature = "hydrate", feature = "ssr"))]
     /// Converts the map to a query string.
     pub fn to_query_string(&self) -> String {
         use crate::history::url::escape;
-        let mut buf = String::from("?");
-        for (k, v) in &self.0 {
-            buf.push_str(&escape(k));
-            buf.push('=');
-            buf.push_str(&escape(v));
-            buf.push('&');
-        }
-        if buf.len() > 1 {
-            buf.pop();
+        let mut buf = String::new();
+        if !self.0.is_empty() {
+            buf.push('?');
+            for (k, v) in &self.0 {
+                buf.push_str(&escape(k));
+                buf.push('=');
+                buf.push_str(&escape(v));
+                buf.push('&');
+            }
+            if buf.len() > 1 {
+                buf.pop();
+            }
         }
         buf
     }
