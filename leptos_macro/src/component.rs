@@ -274,7 +274,8 @@ impl ToTokens for Model {
         };
         let binding =
             if *is_island && cfg!(any(feature = "csr", feature = "hydrate")) {
-                quote! { #[::leptos::wasm_bindgen::prelude::wasm_bindgen] }
+                quote! {}
+                //quote! { #[::leptos::wasm_bindgen::prelude::wasm_bindgen] }
             } else {
                 quote! {}
             };

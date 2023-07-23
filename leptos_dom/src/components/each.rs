@@ -55,7 +55,7 @@ pub struct EachRepr {
     pub(crate) children: Rc<RefCell<Vec<Option<EachItem>>>>,
     closing: Comment,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for EachRepr {
@@ -175,7 +175,7 @@ pub(crate) struct EachItem {
     pub(crate) child: View,
     closing: Option<Comment>,
     #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-    pub(crate) id: HydrationKey,
+    pub(crate) id: Option<HydrationKey>,
 }
 
 impl fmt::Debug for EachItem {

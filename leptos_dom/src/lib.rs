@@ -267,7 +267,7 @@ cfg_if! {
       is_void: bool,
       attrs: SmallVec<[(Cow<'static, str>, Cow<'static, str>); 4]>,
       children: ElementChildren,
-      id: HydrationKey,
+      id: Option<HydrationKey>,
       #[cfg(debug_assertions)]
       /// Optional marker for the view macro source, in debug mode.
       pub view_marker: Option<String>
@@ -405,7 +405,7 @@ impl Comment {
     #[inline]
     fn new(
         content: impl Into<Cow<'static, str>>,
-        id: &HydrationKey,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         Self::new_inner(content.into(), id, closing)
@@ -413,7 +413,7 @@ impl Comment {
 
     fn new_inner(
         content: Cow<'static, str>,
-        id: &HydrationKey,
+        id: &Option<HydrationKey>,
         closing: bool,
     ) -> Self {
         cfg_if! {
@@ -435,7 +435,8 @@ impl Comment {
                 node.set_text_content(Some(&format!(" {content} ")));
 
                 #[cfg(feature = "hydrate")]
-                if HydrationCtx::is_hydrating() {
+                if HydrationCtx::is_hydrating() && id.is_some() {
+                    let id = id.as_ref().unwrap();
                     let id = HydrationCtx::to_string(id, closing);
 
                     if let Some(marker) = hydration::get_marker(&id) {

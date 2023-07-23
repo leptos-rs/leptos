@@ -2,10 +2,11 @@ use crate::{
     runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
     SuspenseContext,
 };
-use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;
+#[cfg(feature = "islands")]
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet, VecDeque};
-
+#[doc(hidden)]
 /// Hydration data and other context that is shared between the server
 /// and the client.
 pub struct SharedContext {
@@ -194,42 +195,66 @@ impl Eq for SharedContext {}
 #[allow(clippy::derivable_impls)]
 impl Default for SharedContext {
     fn default() -> Self {
-        cfg_if! {
-            if #[cfg(all(feature = "hydrate", target_arch = "wasm32"))] {
-                let pending_resources = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
-                );
-                let pending_resources: HashSet<ResourceId> = pending_resources
-                    .map_err(|_| ())
-                    .and_then(|pr| serde_wasm_bindgen::from_value(pr).map_err(|_| ()))
+        #[cfg(feature = "hydrate")]
+        {
+            let pending_resources = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_PENDING_RESOURCES"),
+            );
+            let pending_resources: HashSet<ResourceId> = pending_resources
+                .map_err(|_| ())
+                .and_then(|pr| {
+                    serde_wasm_bindgen::from_value(pr).map_err(|_| ())
+                })
+                .unwrap_or_default();
+
+            let resolved_resources = js_sys::Reflect::get(
+                &web_sys::window().unwrap(),
+                &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
+            )
+            .unwrap_or(wasm_bindgen::JsValue::NULL);
+
+            let resolved_resources =
+                serde_wasm_bindgen::from_value(resolved_resources)
                     .unwrap_or_default();
 
-                let resolved_resources = js_sys::Reflect::get(
-                    &web_sys::window().unwrap(),
-                    &wasm_bindgen::JsValue::from_str("__LEPTOS_RESOLVED_RESOURCES"),
-                )
-                .unwrap_or(wasm_bindgen::JsValue::NULL);
-
-                let resolved_resources =
-                    serde_wasm_bindgen::from_value(resolved_resources).unwrap_or_default();
-
-                Self {
-                    pending_resources,
-                    resolved_resources,
-                    pending_fragments: Default::default(),
-                    #[cfg(feature = "islands")]
-                    no_hydrate: true
-                }
-            } else {
-                Self {
-                    pending_resources: Default::default(),
-                    resolved_resources: Default::default(),
-                    pending_fragments: Default::default(),
-                    #[cfg(feature = "islands")]
-                    no_hydrate: true
-                }
+            Self {
+                events: Default::default(),
+                pending_resources,
+                resolved_resources,
+                pending_fragments: Default::default(),
+                #[cfg(feature = "islands")]
+                no_hydrate: true,
             }
         }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            Self {
+                events: Default::default(),
+                pending_resources: Default::default(),
+                resolved_resources: Default::default(),
+                pending_fragments: Default::default(),
+                #[cfg(feature = "islands")]
+                no_hydrate: true,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "islands")]
+thread_local! {
+  pub static NO_HYDRATE: Cell<bool> = Cell::new(true);
+}
+
+#[cfg(feature = "islands")]
+impl SharedContext {
+    /// Whether the renderer should currently add hydration IDs.
+    pub fn no_hydrate() -> bool {
+        NO_HYDRATE.with(Cell::get)
+    }
+
+    /// Sets whether the renderer should not add hydration IDs.
+    pub fn set_no_hydrate(hydrate: bool) {
+        NO_HYDRATE.with(|cell| cell.set(hydrate));
     }
 }
