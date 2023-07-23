@@ -22,3 +22,4 @@ parking_lot = "0.12.1"
 
 [features]
 nonce = ["leptos/nonce"]
+islands = ["leptos_integration_utils/islands"]

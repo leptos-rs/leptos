@@ -25,3 +25,4 @@ once_cell = "1.17"
 
 [features]
 nonce = ["leptos/nonce"]
+islands = ["leptos_integration_utils/islands"]

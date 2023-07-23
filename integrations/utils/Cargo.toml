@@ -13,4 +13,7 @@ leptos = { workspace = true, features = ["ssr"] }
 leptos_hot_reload = { workspace = true }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
-tracing="0.1.37"
+tracing = "0.1.37"
+
+[features]
+islands = []

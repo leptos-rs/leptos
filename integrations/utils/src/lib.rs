@@ -72,6 +72,11 @@ pub fn html_parts_separated(
         .as_ref()
         .map(|meta| meta.dehydrate())
         .unwrap_or_default();
+    let import_callback = if cfg!(feature = "islands") {
+        r#"()=>{for(let e of document.querySelectorAll("leptos-island")){let l=e.dataset.component;mod["_island_"+l](e)}};"#
+    } else {
+        "() => mod.hydrate()"
+    };
     let head = format!(
         r#"<!DOCTYPE html>
             <html{html_metadata}>
@@ -84,8 +89,7 @@ pub fn html_parts_separated(
                     <script type="module"{nonce}>
                         import('/{pkg_path}/{output_name}.js')
                             .then(mod => {{
-                                window._LEPTOS_EXPORTS = mod;
-                                mod.default('/{pkg_path}/{wasm_output_name}.wasm').then(() => mod.hydrate());
+                                mod.default('/{pkg_path}/{wasm_output_name}.wasm').then({import_callback});
                             }});
                     </script>
                     {leptos_autoreload}
