@@ -1,7 +1,6 @@
-#![forbid(unsafe_code)]
 use crate::{
     runtime::PinnedFuture, suspense::StreamChunk, with_runtime, ResourceId,
-    Runtime, SuspenseContext,
+    SuspenseContext,
 };
 use cfg_if::cfg_if;
 use futures::stream::FuturesUnordered;

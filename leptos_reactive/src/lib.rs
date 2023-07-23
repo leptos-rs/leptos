@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 #![cfg_attr(feature = "nightly", feature(fn_traits))]
 #![cfg_attr(feature = "nightly", feature(unboxed_closures))]

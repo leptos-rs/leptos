@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use crate::runtime::with_runtime;
 use std::any::{Any, TypeId};
 

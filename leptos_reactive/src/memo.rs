@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 use crate::{
     create_effect, diagnostics::AccessDiagnostics, node::NodeId, on_cleanup,
     with_runtime, AnyComputation, Runtime, SignalDispose, SignalGet,
