@@ -152,7 +152,7 @@ pub use leptos_config::{self, get_configuration, LeptosOptions};
     any(feature = "csr", feature = "hydrate")
 )))]
 /// Utilities for server-side rendering HTML.
-#[cfg(any(doc, feature = "ssr"))]
+#[cfg(any(doc, not(feature = "csr")))]
 pub mod ssr {
     pub use leptos_dom::{ssr::*, ssr_in_order::*};
 }
