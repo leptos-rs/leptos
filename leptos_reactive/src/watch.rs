@@ -101,17 +101,16 @@ where
     let runtime = Runtime::current();
     let (e, stop) = runtime.watch(deps, callback, immediate);
     let prop = ScopeProperty::Effect(e);
-    let owner = with_runtime(|runtime| {
-        runtime.push_scope_property(prop);
-        runtime.owner.get()
-    })
-    .unwrap_or(None);
+    let owner = crate::Owner::current();
+    _ = with_runtime(|runtime| {
+        runtime.update_if_necessary(e);
+    });
 
     move || {
         stop();
         if let Some(owner) = owner {
             _ = with_runtime(|runtime| {
-                runtime.remove_scope_property(owner, prop)
+                runtime.remove_scope_property(owner.0, prop)
             });
         }
     }
