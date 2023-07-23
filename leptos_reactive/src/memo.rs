@@ -179,13 +179,7 @@ where
     T: 'static,
 {
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            ty: PhantomData,
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 

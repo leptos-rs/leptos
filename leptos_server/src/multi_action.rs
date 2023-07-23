@@ -77,7 +77,7 @@ where
     O: 'static,
 {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
@@ -178,12 +178,7 @@ where
 
 impl<I, O> Clone for Submission<I, O> {
     fn clone(&self) -> Self {
-        Self {
-            input: self.input,
-            value: self.value,
-            pending: self.pending,
-            canceled: self.canceled,
-        }
+        *self
     }
 }
 

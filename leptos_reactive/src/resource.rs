@@ -734,19 +734,8 @@ where
     S: 'static,
     T: 'static,
 {
-    #[cfg_attr(
-        any(debug_assertions, feature = "ssr"),
-        instrument(level = "trace", skip_all,)
-    )]
     fn clone(&self) -> Self {
-        Self {
-            runtime: self.runtime,
-            id: self.id,
-            source_ty: PhantomData,
-            out_ty: PhantomData,
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 

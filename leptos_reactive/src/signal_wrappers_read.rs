@@ -71,11 +71,7 @@ where
 
 impl<T> Clone for Signal<T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner,
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -436,13 +432,7 @@ where
 
 impl<T> Clone for SignalTypes<T> {
     fn clone(&self) -> Self {
-        match self {
-            Self::ReadSignal(arg0) => Self::ReadSignal(*arg0),
-            Self::Memo(arg0) => Self::Memo(*arg0),
-            Self::DerivedSignal(arg0, arg1) => {
-                Self::DerivedSignal(*arg0, *arg1)
-            }
-        }
+        *self
     }
 }
 

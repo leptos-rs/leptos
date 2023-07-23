@@ -63,11 +63,7 @@ where
 
 impl<T> Clone for SignalSetter<T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner,
-            #[cfg(any(debug_assertions, feature = "ssr"))]
-            defined_at: self.defined_at,
-        }
+        *self
     }
 }
 
@@ -231,11 +227,7 @@ where
 
 impl<T> Clone for SignalSetterTypes<T> {
     fn clone(&self) -> Self {
-        match self {
-            Self::Write(arg0) => Self::Write(*arg0),
-            Self::Mapped(cx, f) => Self::Mapped(*cx, *f),
-            Self::Default => Self::Default,
-        }
+        *self
     }
 }
 

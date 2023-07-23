@@ -147,7 +147,7 @@ impl<T: ElementDescriptor + 'static> NodeRef<T> {
 
 impl<T: ElementDescriptor> Clone for NodeRef<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
