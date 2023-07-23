@@ -1239,7 +1239,7 @@ fn attribute_to_tokens(
         };
         let undelegated_ident = match &node.key {
             NodeName::Punctuated(parts) => parts.last().and_then(|last| {
-                if last == "undelegated" {
+                if last.to_string() == "undelegated" {
                     Some(last)
                 } else {
                     None
@@ -1260,9 +1260,8 @@ fn attribute_to_tokens(
         let event_type = if is_custom {
             event_type
         } else if let Some(ev_name) = event_name_ident {
-            let span = ev_name.span();
-            quote_spanned! {
-                span => #ev_name
+            quote! {
+                #ev_name
             }
         } else {
             event_type
@@ -1270,9 +1269,8 @@ fn attribute_to_tokens(
 
         let event_type = if is_force_undelegated {
             let undelegated = if let Some(undelegated) = undelegated_ident {
-                let span = undelegated.span();
-                quote_spanned! {
-                    span => #undelegated
+                quote! {
+                    #undelegated
                 }
             } else {
                 quote! { undelegated }

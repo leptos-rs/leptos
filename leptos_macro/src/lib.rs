@@ -169,14 +169,26 @@ mod template;
 /// # });
 /// ```
 ///
-/// Class names can include dashes, but cannot (at the moment) include a dash-separated segment of only numbers.
+/// Class names can include dashes, and since leptos v0.5.0 can include a dash-separated segment of only numbers.
+/// ```rust
+/// # use leptos::*;
+/// # run_scope(create_runtime(), |cx| {
+/// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
+/// let (count, set_count) = create_signal(cx, 2);
+/// view! { cx, <div class:hidden-div-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
+/// # ;
+/// # }
+/// # });
+/// ```
+///
+/// Class names cannot include special symbols.
 /// ```rust,compile_fail
 /// # use leptos::*;
 /// # run_scope(create_runtime(), |cx| {
 /// # if !cfg!(any(feature = "csr", feature = "hydrate")) {
 /// let (count, set_count) = create_signal(cx, 2);
-/// // `hidden-div-25` is invalid at the moment
-/// view! { cx, <div class:hidden-div-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
+/// // class:hidden-[div]-25 is invalid attribute name
+/// view! { cx, <div class:hidden-[div]-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # ;
 /// # }
 /// # });
@@ -921,8 +933,8 @@ pub fn params_derive(
 }
 
 pub(crate) fn attribute_value(attr: &KeyedAttribute) -> &syn::Expr {
-    match &attr.possible_value {
-        Some(value) => &value.value,
+    match attr.value() {
+        Some(value) => value,
         None => abort!(attr.key, "attribute should have value"),
     }
 }
