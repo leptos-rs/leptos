@@ -15,6 +15,8 @@ pub struct SharedContext {
     pub resolved_resources: HashMap<ResourceId, String>,
     /// Suspended fragments that have not yet resolved.
     pub pending_fragments: HashMap<String, FragmentData>,
+    #[cfg(feature = "islands")]
+    pub no_hydrate: bool,
 }
 
 impl SharedContext {
@@ -216,12 +218,16 @@ impl Default for SharedContext {
                     pending_resources,
                     resolved_resources,
                     pending_fragments: Default::default(),
+                    #[cfg(feature = "islands")]
+                    no_hydrate: true
                 }
             } else {
                 Self {
                     pending_resources: Default::default(),
                     resolved_resources: Default::default(),
                     pending_fragments: Default::default(),
+                    #[cfg(feature = "islands")]
+                    no_hydrate: true
                 }
             }
         }

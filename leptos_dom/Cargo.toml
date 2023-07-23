@@ -171,7 +171,7 @@ hydrate = ["leptos_reactive/hydrate", "web"]
 ssr = ["leptos_reactive/ssr"]
 nightly = ["leptos_reactive/nightly"]
 nonce = ["dep:base64", "dep:getrandom", "dep:rand"]
-islands = []
+islands = ["leptos_reactive/islands"]
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]

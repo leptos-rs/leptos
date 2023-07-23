@@ -62,7 +62,11 @@ miniserde = ["leptos_reactive/miniserde"]
 rkyv = ["leptos_reactive/rkyv"]
 tracing = ["leptos_macro/tracing"]
 nonce = ["leptos_dom/nonce"]
-islands = ["leptos_dom/islands", "leptos_macro/islands"]
+islands = [
+  "leptos_dom/islands",
+  "leptos_macro/islands",
+  "leptos_reactive/islands",
+]
 
 [package.metadata.cargo-all-features]
 denylist = [

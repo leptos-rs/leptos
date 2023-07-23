@@ -72,6 +72,7 @@ serde = []
 serde-lite = ["dep:serde-lite"]
 miniserde = ["dep:miniserde"]
 rkyv = ["dep:rkyv", "dep:bytecheck"]
+islands = []
 
 [package.metadata.cargo-all-features]
 denylist = ["nightly"]
