@@ -76,7 +76,10 @@ where
         let current_id = current_id;
 
         let children = Rc::new(orig_children(cx).into_view(cx));
-        #[cfg(not(any(feature = "csr", feature = "hydrate")))]
+        #[cfg(all(
+            feature = "ssr",
+            not(any(feature = "csr", feature = "hydrate"))
+        ))]
         let orig_children = Rc::clone(&orig_children);
         move || {
             #[cfg(any(feature = "csr", feature = "hydrate"))]
@@ -108,6 +111,7 @@ where
                     else {
                         HydrationCtx::continue_from(current_id);
 
+                        #[cfg(feature = "ssr")]
                         cx.register_suspense(
                             context,
                             &current_id.to_string(),

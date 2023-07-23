@@ -352,12 +352,12 @@ impl Runtime {
 
 impl Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Runtime");
+        let mut s = f.debug_struct("Runtime");
 
         #[cfg(any(feature = "hydrate", feature = "ssr"))]
-        f.field("shared_context", &self.shared_context);
+        s.field("shared_context", &self.shared_context);
 
-        f.field("observer", &self.observer)
+        s.field("observer", &self.observer)
             .field("scopes", &self.scopes)
             .field("scope_parents", &self.scope_parents)
             .field("scope_children", &self.scope_children)
