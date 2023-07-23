@@ -1,11 +1,11 @@
 use crate::Suspense;
 use leptos_dom::IntoView;
-use leptos_macro::{island, view};
+use leptos_macro::{component, view};
 use leptos_reactive::{
     create_blocking_resource, create_resource, store_value, Serializable,
 };
 
-#[island]
+#[component]
 /// Allows you to inline the data loading for an `async` block or
 /// server function directly into your view. This is the equivalent of combining a
 /// [`create_resource`] that only loads once (i.e., with a source signal `|| ()`) with

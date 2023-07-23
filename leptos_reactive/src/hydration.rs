@@ -257,4 +257,14 @@ impl SharedContext {
     pub fn set_no_hydrate(hydrate: bool) {
         NO_HYDRATE.with(|cell| cell.set(hydrate));
     }
+
+    /// Turns on hydration for the duration of the function call
+    #[inline(always)]
+    pub fn with_hydration<T>(f: impl FnOnce() -> T) -> T {
+        let prev = SharedContext::no_hydrate();
+        SharedContext::set_no_hydrate(false);
+        let v = f();
+        SharedContext::set_no_hydrate(prev);
+        v
+    }
 }

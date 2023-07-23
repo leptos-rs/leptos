@@ -1140,7 +1140,6 @@ macro_rules! generate_html_tags {
         impl Default for [<$tag:camel $($trailing_)?>] {
           fn default() -> Self {
             let id = HydrationCtx::id();
-            eprintln!("id = {id:?}");
 
             #[cfg(all(target_arch = "wasm32", feature = "web"))]
             let element = create_leptos_element(

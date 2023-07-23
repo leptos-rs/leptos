@@ -10,6 +10,7 @@ readme = "../README.md"
 
 [dependencies]
 cfg-if = "1"
+const_format = "0.2"
 leptos_dom = { workspace = true }
 leptos_macro = { workspace = true }
 leptos_reactive = { workspace = true }
@@ -20,26 +21,29 @@ typed-builder = "0.14"
 server_fn = { workspace = true }
 web-sys = { version = "0.3.63", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+xxhash-rust = "0.8"
 
 [dev-dependencies]
 leptos = { path = "." }
 
 [features]
 default = ["serde"]
-template_macro = ["leptos_dom/web", "web-sys", "wasm-bindgen"]
+template_macro = ["leptos_dom/web", "dep:web-sys", "dep:wasm-bindgen"]
 csr = [
   "leptos_dom/csr",
   "leptos_macro/csr",
   "leptos_reactive/csr",
   "leptos_server/csr",
-  "wasm-bindgen",
+  "dep:wasm-bindgen",
+  "dep:web-sys",
 ]
 hydrate = [
   "leptos_dom/hydrate",
   "leptos_macro/hydrate",
   "leptos_reactive/hydrate",
   "leptos_server/hydrate",
-  "wasm-bindgen",
+  "dep:wasm-bindgen",
+  "dep:web-sys",
 ]
 default-tls = ["leptos_server/default-tls", "server_fn/default-tls"]
 rustls = ["leptos_server/rustls", "server_fn/rustls"]

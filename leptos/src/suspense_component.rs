@@ -1,5 +1,5 @@
 use leptos_dom::{DynChild, HydrationCtx, IntoView};
-use leptos_macro::island;
+use leptos_macro::component;
 use leptos_reactive::{
     create_memo, provide_context, SignalGetUntracked, SuspenseContext,
 };

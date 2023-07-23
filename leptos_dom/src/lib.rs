@@ -888,6 +888,63 @@ where
     }
 }
 
+/// Hydrates all Leptos islands found on the page.
+pub fn hydrate_islands() {
+    #[cfg(feature = "hydrate")]
+    {
+        use wasm_bindgen::JsValue;
+        use web_sys::HtmlElement;
+
+        let leptos_imports = js_sys::Reflect::get(
+            &window(),
+            &JsValue::from_str("_LEPTOS_EXPORTS"),
+        );
+        if let Ok(leptos_imports) = leptos_imports {
+            if let Ok(islands) = document().query_selector_all("leptos-island")
+            {
+                let i = islands.length();
+                for idx in 0..i {
+                    let island = islands
+                        .get(idx)
+                        .unwrap_throw()
+                        .unchecked_into::<HtmlElement>();
+                    let data = island.dataset();
+                    if let Some(id) = data.get("component") {
+                        let hydrate_fn = js_sys::Reflect::get(
+                            &leptos_imports,
+                            &JsValue::from_str(&format!("_island_{}", id)),
+                        );
+                        if let Ok(hydrate_fn) = hydrate_fn {
+                            let hydrated = js_sys::Function::call1(
+                                &hydrate_fn.unchecked_ref(),
+                                &js_sys::global(),
+                                &island,
+                            );
+                            if hydrated.is_err() {
+                                crate::debug_warn!("Failed to hydrate {}", id);
+                            }
+                        }
+                    }
+                }
+            } else {
+                crate::debug_warn!(
+                    "Failed to run document.querySelectorAll() in \
+                     hydrate_islands()"
+                );
+            }
+        } else {
+            crate::debug_warn!("could not find _LEPTOS_EXPORTS");
+        }
+    }
+    #[cfg(not(feature = "hydrate"))]
+    {
+        crate::warn!(
+            "`hydrate_islands` should only be called in the browser when \
+             using the `hydrate` feature."
+        );
+    }
+}
+
 thread_local! {
     pub(crate) static WINDOW: web_sys::Window = web_sys::window().unwrap_throw();
 

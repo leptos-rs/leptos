@@ -81,7 +81,13 @@ pub fn html_parts_separated(
                     {head}
                     <link rel="modulepreload" href="/{pkg_path}/{output_name}.js"{nonce}>
                     <link rel="preload" href="/{pkg_path}/{wasm_output_name}.wasm" as="fetch" type="application/wasm" crossorigin=""{nonce}>
-                    <script type="module"{nonce}>import init, {{ hydrate }} from '/{pkg_path}/{output_name}.js'; init('/{pkg_path}/{wasm_output_name}.wasm').then(hydrate);</script>
+                    <script type="module"{nonce}>
+                        import('/{pkg_path}/{output_name}.js')
+                            .then(mod => {{
+                                window._LEPTOS_EXPORTS = mod;
+                                mod.default('/{pkg_path}/{wasm_output_name}.wasm').then(() => mod.hydrate());
+                            }});
+                    </script>
                     {leptos_autoreload}
                     "#
     );
