@@ -9,7 +9,7 @@ Consider the following:
 ```rust
 pub fn LoggedIn<F, IV>(fallback: F, children: ChildrenFn) -> impl IntoView
 where
-    F: Fn(Scope) -> IV + 'static,
+    F: Fn() -> IV + 'static,
     IV: IntoView,
 {
     view! {
@@ -93,7 +93,7 @@ In this case, it’s really simple:
 ```rust
 pub fn LoggedIn<F, IV>(F, children: ChildrenFn) -> impl IntoView
 where
-    F: Fn(Scope) -> IV + 'static,
+    F: Fn() -> IV + 'static,
     IV: IntoView,
 {
     let fallback = store_value(fallback);

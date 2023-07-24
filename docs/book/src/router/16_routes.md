@@ -83,14 +83,14 @@ The `path` can include
 - dynamic, named parameters beginning with a colon (`/:id`),
 - and/or a wildcard beginning with an asterisk (`/user/*any`)
 
-The `view` is a function that takes a `Scope` and returns a view.
+The `view` is a function that returns a view. Any component with no props works here, as does a closure that returns some view.
 
 ```rust
 <Routes>
   <Route path="/" view=Home/>
   <Route path="/users" view=Users/>
   <Route path="/users/:id" view=UserProfile/>
-  <Route path="/*any" view=NotFound/>
+  <Route path="/*any" view=|| view! { <h1>"Not Found"</h1> }/>
 </Routes>
 ```
 
