@@ -113,7 +113,7 @@ You can go even deeper. Say you want to have tabs for each contact’s address, 
       <Route path="address" view=Address/>
       <Route path="messages" view=Messages/>
     </Route>
-    <Route path="" view=|cx| view! { cx,
+    <Route path="" view=|| view! {
       <p>"Select a contact to view more info."</p>
     }/>
   </Route>
@@ -135,15 +135,15 @@ That’s all! But it’s important to know and to remember, because it’s a com
 
 ```rust
 #[component]
-pub fn ContactList(cx: Scope) -> impl IntoView {
+pub fn ContactList() -> impl IntoView {
   let contacts = todo!();
 
-  view! { cx,
+  view! {
     <div style="display: flex">
       // the contact list
       <For each=contacts
         key=|contact| contact.id
-        view=|cx, contact| todo!()
+        view=|contact| todo!()
       >
       // the nested child, if any
       // don’t forget this!
@@ -179,8 +179,8 @@ use leptos::*;
 use leptos_router::*;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn App() -> impl IntoView {
+    view! {
         <Router>
             <h1>"Contact App"</h1>
             // this <nav> will show on every routes,
@@ -195,13 +195,14 @@ fn App(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     // / just has an un-nested "Home"
-                    <Route path="/" view=|cx| view! { cx,
+                    <Route path="/" view=|| view! {
                         <h3>"Home"</h3>
                     }/>
                     // /contacts has nested routes
                     <Route
                         path="/contacts"
                         view=ContactList
+                      >
                         // if no id specified, fall back
                         <Route path=":id" view=ContactInfo>
                             <Route path="" view=|cx| view! { cx,
@@ -209,14 +210,14 @@ fn App(cx: Scope) -> impl IntoView {
                                     "(Contact Info)"
                                 </div>
                             }/>
-                            <Route path="conversations" view=|cx| view! { cx,
+                            <Route path="conversations" view=|| view! {
                                 <div class="tab">
                                     "(Conversations)"
                                 </div>
                             }/>
                         </Route>
                         // if no id specified, fall back
-                        <Route path="" view=|cx| view! { cx,
+                        <Route path="" view=|| view! {
                             <div class="select-user">
                                 "Select a user to view contact info."
                             </div>
@@ -229,8 +230,8 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn ContactList(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn ContactList() -> impl IntoView {
+    view! {
         <div class="contact-list">
             // here's our contact list component itself
             <div class="contact-list-contacts">
@@ -249,9 +250,9 @@ fn ContactList(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn ContactInfo(cx: Scope) -> impl IntoView {
+fn ContactInfo() -> impl IntoView {
     // we can access the :id param reactively with `use_params_map`
-    let params = use_params_map(cx);
+    let params = use_params_map();
     let id = move || params.with(|params| params.get("id").cloned().unwrap_or_default());
 
     // imagine we're loading data from an API here
@@ -262,7 +263,7 @@ fn ContactInfo(cx: Scope) -> impl IntoView {
         _ => "User not found.",
     };
 
-    view! { cx,
+    view! {
         <div class="contact-info">
             <h4>{name}</h4>
             <div class="tabs">
@@ -278,7 +279,7 @@ fn ContactInfo(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```
