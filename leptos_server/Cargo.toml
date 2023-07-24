@@ -25,7 +25,7 @@ csr = ["leptos_reactive/csr"]
 default-tls = ["server_fn/default-tls"]
 hydrate = ["leptos_reactive/hydrate"]
 rustls = ["server_fn/rustls"]
-ssr = ["leptos_reactive/ssr", "server_fn/ssr"]
+ssr = ["leptos_reactive/ssr", "server_fn/ssr", "leptos/ssr"]
 nightly = ["leptos_reactive/nightly", "server_fn/nightly"]
 
 [package.metadata.cargo-all-features]

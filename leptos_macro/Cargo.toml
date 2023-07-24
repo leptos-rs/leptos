@@ -35,7 +35,6 @@ trybuild = "1"
 leptos = { path = "../leptos" }
 
 [features]
-default = []
 csr = []
 hydrate = []
 ssr = ["server_fn_macro/ssr"]
