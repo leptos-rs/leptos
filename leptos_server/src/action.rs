@@ -13,8 +13,7 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
 ///     // return a task id
@@ -54,8 +53,8 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 /// assert_eq!(pending.get(), false); // no longer pending
 /// assert_eq!(result_of_call.get(), Some(42));
 /// assert_eq!(version.get(), 1);
-/// # }
-/// # });
+/// # };
+/// # runtime.dispose();
 /// ```
 ///
 /// The input to the `async` function should always be a single value,
@@ -64,8 +63,7 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// // if there's a single argument, just use that
 /// let action1 = create_action(|input: &String| {
 ///     let input = input.clone();
@@ -77,7 +75,7 @@ use std::{cell::Cell, future::Future, pin::Pin, rc::Rc};
 ///
 /// // if there are multiple arguments, use a tuple
 /// let action3 = create_action(|input: &(usize, String)| async { todo!() });
-/// # });
+/// # runtime.dispose();
 /// ```
 pub struct Action<I, O>(StoredValue<ActionState<I, O>>)
 where
@@ -264,8 +262,7 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///     // do something...
 ///     // return a task id
@@ -306,7 +303,7 @@ where
 /// assert_eq!(result_of_call.get(), Some(42));
 /// assert_eq!(version.get(), 1);
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// The input to the `async` function should always be a single value,
@@ -315,8 +312,7 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// // if there's a single argument, just use that
 /// let action1 = create_action(|input: &String| {
 ///     let input = input.clone();
@@ -328,7 +324,7 @@ where
 ///
 /// // if there are multiple arguments, use a tuple
 /// let action3 = create_action(|input: &(usize, String)| async { todo!() });
-/// # });
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
@@ -372,9 +368,9 @@ where
 ///     todo!()
 /// }
 ///
-/// # run_scope(create_runtime(), |cx| {
-/// let my_server_action = create_server_action::<MyServerFn>(cx);
-/// # });
+/// # let runtime = create_runtime();
+/// let my_server_action = create_server_action::<MyServerFn>();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),

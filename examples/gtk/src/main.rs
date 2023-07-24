@@ -5,17 +5,15 @@ const APP_ID: &str = "dev.leptos.Counter";
 
 // Basic GTK app setup from https://gtk-rs.org/gtk4-rs/stable/latest/book/hello_world.html
 fn main() {
-    let _ = enter_new_runtime();
-    create_root(|_| {
-        // Create a new application
-        let app = Application::builder().application_id(APP_ID).build();
+    let _ = create_runtime();
+    // Create a new application
+    let app = Application::builder().application_id(APP_ID).build();
 
-        // Connect to "activate" signal of `app`
-        app.connect_activate(build_ui);
+    // Connect to "activate" signal of `app`
+    app.connect_activate(build_ui);
 
-        // Run the application
-        app.run();
-    });
+    // Run the application
+    app.run();
 }
 
 fn build_ui(app: &Application) {

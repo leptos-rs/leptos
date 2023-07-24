@@ -42,7 +42,7 @@
 //! }
 //!
 //! // call the function
-//! # run_scope(create_runtime(), |cx| {
+//! # let runtime = create_runtime();
 //! spawn_local(async {
 //!   let posts = read_posts(3, "my search".to_string()).await;
 //!   log::debug!("posts = {posts:#?}");

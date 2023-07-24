@@ -20,7 +20,7 @@ use std::rc::Rc;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # if false {
-/// # run_scope(create_runtime(), || {
+/// # let runtime = create_runtime();
 /// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> { Some(vec![]) }
 ///
 /// let (cat_count, set_cat_count) = create_signal::<u32>(1);
@@ -47,7 +47,7 @@ use std::rc::Rc;
 ///     </Suspense>
 ///   </div>
 /// };
-/// # });
+/// # runtime.dispose();
 /// # }
 /// ```
 #[cfg_attr(

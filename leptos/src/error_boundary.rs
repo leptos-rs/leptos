@@ -14,7 +14,7 @@ use leptos_reactive::{
 /// # use leptos_reactive::*;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (value, set_value) = create_signal(Ok(0));
 /// let on_input = move |ev| set_value.set(event_target_value(&ev).parse::<i32>());
 ///
