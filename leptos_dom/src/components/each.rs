@@ -462,17 +462,18 @@ where
                         );
                         #[cfg(feature = "debugger")]
                         {
-                            crate::debugger::remove_view_children(
-                                &component_id,
-                                false,
+                            crate::debugger::update_view(
+                                crate::debugger::ComponentMessage::CleanupChildren(component_id.clone()).into()
                             );
                             children_borrow.iter().for_each(|each_item| {
                                 if let Some(each_item) = each_item {
-                                    crate::debugger::insert_each_item(
-                                        &each_item.child,
-                                        each_item.id.to_string(),
-                                        component_id.clone(),
-                                        false,
+                                    crate::debugger::update_view(
+                                        crate::debugger::ComponentMessage::Create {
+                                            parent_id: component_id.clone(),
+                                            id: format!("{}", each_item.id),
+                                            name: "EachItem".to_string(),
+                                        }
+                                        .into(),
                                     );
                                 }
                             });
@@ -486,20 +487,27 @@ where
                 #[cfg(all(target_arch = "wasm32", feature = "web"))]
                 let fragment = crate::document().create_document_fragment();
 
-                #[cfg(feature = "debugger")]
-                crate::debugger::remove_view_children(&component_id, true);
                 for item in items_iter {
                     hashed_items.insert(key_fn(&item));
                     let (each_item, _) = cx.run_child_scope(|cx| {
                         EachItem::new(cx, each_fn(cx, item).into_view(cx))
                     });
                     #[cfg(feature = "debugger")]
-                    crate::debugger::insert_each_item(
-                        &each_item.child,
-                        each_item.id.to_string(),
-                        component_id.clone(),
-                        true,
-                    );
+                    {
+                        crate::debugger::update_view(
+                            crate::debugger::ComponentMessage::Create {
+                                parent_id: component_id.clone(),
+                                id: format!("{}", each_item.id),
+                                name: "EachItem".to_string(),
+                            }
+                            .into(),
+                        );
+                        crate::debugger::insert_view(
+                            &each_item.child,
+                            format!("{}", each_item.id),
+                        );
+                    }
+
                     #[cfg(all(target_arch = "wasm32", feature = "web"))]
                     {
                         _ = fragment
@@ -769,9 +777,11 @@ fn apply_diff<T, EF, V>(
     for DiffOpRemove { at } in &diff.removed {
         let item_to_remove = children[*at].take().unwrap();
         #[cfg(feature = "debugger")]
-        crate::debugger::remove_view_children(
-            &item_to_remove.id.to_string(),
-            true,
+        crate::debugger::update_view(
+            crate::debugger::ComponentMessage::DeepCleanupChildren(
+                item_to_remove.id.to_string(),
+            )
+            .into(),
         );
         item_to_remove.prepare_for_move();
     }
@@ -826,7 +836,7 @@ fn apply_diff<T, EF, V>(
         #[cfg(feature = "debugger")]
         crate::debugger::insert_view(
             &each_item.child,
-            each_item.id.to_string(),
+            format!("{}", each_item.id),
         );
 
         match mode {

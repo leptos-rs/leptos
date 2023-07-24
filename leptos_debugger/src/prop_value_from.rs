@@ -1,4 +1,4 @@
-use crate::{runtime::with_runtime, update_view, PropValue};
+use crate::{runtime::with_runtime, PropValue, SignalMessage};
 use leptos_reactive::{
     create_effect, ReadSignal, RwSignal, Scope, SignalWith, WriteSignal,
 };
@@ -132,13 +132,16 @@ primitive_to_static![
     std::fmt::Arguments<'_>,
 ];
 
-pub(crate) fn update_signal(key: u64, value: Option<PropValue>) {
+pub(crate) fn update_signal(id: u64, value: Option<PropValue>) {
     with_runtime(|runtime| {
-        if let Some(value) = value {
-            runtime.signals.borrow_mut().insert(key, value);
-        } else {
-            runtime.signals.borrow_mut().remove(&key);
+        let mut hook = runtime.hook.borrow_mut();
+        let hook = hook.as_deref_mut();
+        if let Some(hook) = hook {
+            if let Some(value) = value {
+                hook(SignalMessage::Update { id, value }.into());
+            } else {
+                hook(SignalMessage::Cleanup(id).into());
+            }
         }
     });
-    update_view()
 }

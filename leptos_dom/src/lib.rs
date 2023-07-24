@@ -10,6 +10,7 @@
 pub extern crate tracing;
 
 mod components;
+#[cfg(feature = "debugger")]
 mod debugger;
 mod events;
 pub mod helpers;
@@ -881,8 +882,11 @@ where
 
             #[cfg(feature = "debugger")]
             {
-                crate::debugger::insert_view(&node, String::from("0-0"));
-                leptos_debugger::create_root();
+                let id = HydrationCtx::id();
+                crate::debugger::insert_view(&node, format!("{}", id));
+                crate::debugger::update_view(crate::debugger::RootMessage::Create {
+                    id: format!("{}", id)
+                }.into());
             }
 
             HydrationCtx::stop_hydrating();
