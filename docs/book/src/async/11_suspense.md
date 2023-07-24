@@ -3,14 +3,14 @@
 In the previous chapter, we showed how you can create a simple loading screen to show some fallback while a resource is loading.
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
-let a = create_resource(cx, count, |count| async move { load_a(count).await });
+let (count, set_count) = create_signal(0);
+let a = create_resource(count, |count| async move { load_a(count).await });
 
-view! { cx,
+view! {
     <h1>"My Data"</h1>
-    {move || match once.read(cx) {
-        None => view! { cx, <p>"Loading..."</p> }.into_view(cx),
-        Some(data) => view! { cx, <ShowData data/> }.into_view(cx)
+    {move || match once.read() {
+        None => view! { <p>"Loading..."</p> }.into_view(),
+        Some(data) => view! { <ShowData data/> }.into_view()
     }}
 }
 ```
@@ -18,19 +18,19 @@ view! { cx,
 But what if we have two resources, and want to wait for both of them?
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
-let (count2, set_count2) = create_signal(cx, 0);
-let a = create_resource(cx, count, |count| async move { load_a(count).await });
-let b = create_resource(cx, count2, |count| async move { load_b(count).await });
+let (count, set_count) = create_signal(0);
+let (count2, set_count2) = create_signal(0);
+let a = create_resource(count, |count| async move { load_a(count).await });
+let b = create_resource(count2, |count| async move { load_b(count).await });
 
-view! { cx,
+view! {
     <h1>"My Data"</h1>
-    {move || match (a.read(cx), b.read(cx)) {
-        (Some(a), Some(b)) => view! { cx,
+    {move || match (a.read(), b.read()) {
+        (Some(a), Some(b)) => view! {
             <ShowA a/>
             <ShowA b/>
-        }.into_view(cx),
-        _ => view! { cx, <p>"Loading..."</p> }.into_view(cx)
+        }.into_view(),
+        _ => view! { <p>"Loading..."</p> }.into_view()
     }}
 }
 ```
@@ -40,26 +40,26 @@ That’s not _so_ bad, but it’s kind of annoying. What if we could invert the 
 The [`<Suspense/>`](https://docs.rs/leptos/latest/leptos/fn.Suspense.html) component lets us do exactly that. You give it a `fallback` prop and children, one or more of which usually involves reading from a resource. Reading from a resource “under” a `<Suspense/>` (i.e., in one of its children) registers that resource with the `<Suspense/>`. If it’s still waiting for resources to load, it shows the `fallback`. When they’ve all loaded, it shows the children.
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
-let (count2, set_count2) = create_signal(cx, 0);
-let a = create_resource(cx, count, |count| async move { load_a(count).await });
-let b = create_resource(cx, count2, |count| async move { load_b(count).await });
+let (count, set_count) = create_signal(0);
+let (count2, set_count2) = create_signal(0);
+let a = create_resource(count, |count| async move { load_a(count).await });
+let b = create_resource(count2, |count| async move { load_b(count).await });
 
-view! { cx,
+view! {
     <h1>"My Data"</h1>
     <Suspense
-        fallback=move || view! { cx, <p>"Loading..."</p> }
+        fallback=move || view! { <p>"Loading..."</p> }
     >
         <h2>"My Data"</h2>
         <h3>"A"</h3>
         {move || {
-            a.read(cx)
-                .map(|a| view! { cx, <ShowA a/> })
+            a.read()
+                .map(|a| view! { <ShowA a/> })
         }}
         <h3>"B"</h3>
         {move || {
-            b.read(cx)
-                .map(|b| view! { cx, <ShowB b/> })
+            b.read()
+                .map(|b| view! { <ShowB b/> })
         }}
     </Suspense>
 }
@@ -86,17 +86,17 @@ async fn important_api_call(name: String) -> String {
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (name, set_name) = create_signal(cx, "Bill".to_string());
+fn App() -> impl IntoView {
+    let (name, set_name) = create_signal("Bill".to_string());
 
     // this will reload every time `name` changes
     let async_data = create_resource(
-        cx,
+
         name,
         |name| async move { important_api_call(name).await },
     );
 
-    view! { cx,
+    view! {
         <input
             on:input=move |ev| {
                 set_name(event_target_value(&ev));
@@ -107,20 +107,20 @@ fn App(cx: Scope) -> impl IntoView {
         <Suspense
             // the fallback will show whenever a resource
             // read "under" the suspense is loading
-            fallback=move || view! { cx, <p>"Loading..."</p> }
+            fallback=move || view! { <p>"Loading..."</p> }
         >
             // the children will be rendered once initially,
             // and then whenever any resources has been resolved
             <p>
                 "Your shouting name is "
-                {move || async_data.read(cx)}
+                {move || async_data.read()}
             </p>
         </Suspense>
     }
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

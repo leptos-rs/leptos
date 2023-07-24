@@ -9,10 +9,10 @@ Hidden behind the whole reactive DOM renderer that we’ve seen so far is a func
 [`create_effect`](https://docs.rs/leptos_reactive/latest/leptos_reactive/fn.create_effect.html) takes a function as its argument. It immediately runs the function. If you access any reactive signal inside that function, it registers the fact that the effect depends on that signal with the reactive runtime. Whenever one of the signals that the effect depends on changes, the effect runs again.
 
 ```rust
-let (a, set_a) = create_signal(cx, 0);
-let (b, set_b) = create_signal(cx, 0);
+let (a, set_a) = create_signal(0);
+let (b, set_b) = create_signal(0);
 
-create_effect(cx, move |_| {
+create_effect(move |_| {
   // immediately prints "Value: 0" and subscribes to `a`
   log::debug!("Value: {}", a());
 });
@@ -42,15 +42,15 @@ While they’re not a “zero-cost abstraction” in the most technical sense—
 Imagine that I’m creating some kind of chat software, and I want people to be able to display their full name, or just their first name, and to notify the server whenever their name changes:
 
 ```rust
-let (first, set_first) = create_signal(cx, String::new());
-let (last, set_last) = create_signal(cx, String::new());
-let (use_last, set_use_last) = create_signal(cx, true);
+let (first, set_first) = create_signal(String::new());
+let (last, set_last) = create_signal(String::new());
+let (use_last, set_use_last) = create_signal(true);
 
 // this will add the name to the log
 // any time one of the source signals changes
-create_effect(cx, move |_| {
+create_effect(move |_| {
     log(
-        cx,
+
         if use_last() {
             format!("{} {}", first(), last())
         } else {
@@ -77,9 +77,9 @@ If you need to synchronize some reactive value with the non-reactive world outsi
 We’ve managed to get this far without mentioning effects because they’re built into the Leptos DOM renderer. We’ve seen that you can create a signal and pass it into the `view` macro, and it will update the relevant DOM node whenever the signal changes:
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 
-view! { cx,
+view! {
     <p>{count}</p>
 }
 ```
@@ -87,13 +87,13 @@ view! { cx,
 This works because the framework essentially creates an effect wrapping this update. You can imagine Leptos translating this view into something like this:
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 
 // create a DOM element
 let p = create_element("p");
 
 // create an effect to reactively update the text
-create_effect(cx, move |prev_value| {
+create_effect(move |prev_value| {
     // first, access the signal’s value and convert it to a string
     let text = count().to_string();
 
@@ -121,30 +121,30 @@ use leptos::html::Input;
 use leptos::*;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
+fn App() -> impl IntoView {
     // Just making a visible log here
     // You can ignore this...
-    let log = create_rw_signal::<Vec<String>>(cx, vec![]);
+    let log = create_rw_signal::<Vec<String>>(vec![]);
     let logged = move || log().join("\n");
-    provide_context(cx, log);
+    provide_context(log);
 
-    view! { cx,
+    view! {
         <CreateAnEffect/>
         <pre>{logged}</pre>
     }
 }
 
 #[component]
-fn CreateAnEffect(cx: Scope) -> impl IntoView {
-    let (first, set_first) = create_signal(cx, String::new());
-    let (last, set_last) = create_signal(cx, String::new());
-    let (use_last, set_use_last) = create_signal(cx, true);
+fn CreateAnEffect() -> impl IntoView {
+    let (first, set_first) = create_signal(String::new());
+    let (last, set_last) = create_signal(String::new());
+    let (use_last, set_use_last) = create_signal(true);
 
     // this will add the name to the log
     // any time one of the source signals changes
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         log(
-            cx,
+
             if use_last() {
                 format!("{}  {}", first(), last())
             } else {
@@ -153,7 +153,7 @@ fn CreateAnEffect(cx: Scope) -> impl IntoView {
         )
     });
 
-    view! { cx,
+    view! {
         <h1><code>"create_effect"</code> " Version"</h1>
         <form>
             <label>
@@ -179,14 +179,14 @@ fn CreateAnEffect(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn ManualVersion(cx: Scope) -> impl IntoView {
-    let first = create_node_ref::<Input>(cx);
-    let last = create_node_ref::<Input>(cx);
-    let use_last = create_node_ref::<Input>(cx);
+fn ManualVersion() -> impl IntoView {
+    let first = create_node_ref::<Input>();
+    let last = create_node_ref::<Input>();
+    let use_last = create_node_ref::<Input>();
 
     let mut prev_name = String::new();
     let on_change = move |_| {
-        log(cx, "      listener");
+        log("      listener");
         let first = first.get().unwrap();
         let last = last.get().unwrap();
         let use_last = use_last.get().unwrap();
@@ -197,12 +197,12 @@ fn ManualVersion(cx: Scope) -> impl IntoView {
         };
 
         if this_one != prev_name {
-            log(cx, &this_one);
+            log(&this_one);
             prev_name = this_one;
         }
     };
 
-    view! { cx,
+    view! {
         <h1>"Manual Version"</h1>
         <form on:change=on_change>
             <label>
@@ -229,12 +229,12 @@ fn ManualVersion(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn EffectVsDerivedSignal(cx: Scope) -> impl IntoView {
-    let (my_value, set_my_value) = create_signal(cx, String::new());
+fn EffectVsDerivedSignal() -> impl IntoView {
+    let (my_value, set_my_value) = create_signal(String::new());
     // Don't do this.
-    /*let (my_optional_value, set_optional_my_value) = create_signal(cx, Option::<String>::None);
+    /*let (my_optional_value, set_optional_my_value) = create_signal(Option::<String>::None);
 
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         if !my_value.get().is_empty() {
             set_optional_my_value(Some(my_value.get()));
         } else {
@@ -246,7 +246,7 @@ fn EffectVsDerivedSignal(cx: Scope) -> impl IntoView {
     let my_optional_value =
         move || (!my_value.with(String::is_empty)).then(|| Some(my_value.get()));
 
-    view! { cx,
+    view! {
         <input
             prop:value=my_value
             on:input= move |ev| set_my_value(event_target_value(&ev))
@@ -258,7 +258,7 @@ fn EffectVsDerivedSignal(cx: Scope) -> impl IntoView {
             <code>
                 <Show
                     when=move || my_optional_value().is_some()
-                    fallback=|cx| view! { cx, "None" }
+                    fallback=|| view! { "None" }
                 >
                     "Some(\"" {my_optional_value().unwrap()} "\")"
                 </Show>
@@ -270,7 +270,7 @@ fn EffectVsDerivedSignal(cx: Scope) -> impl IntoView {
 /*#[component]
 pub fn Show<F, W, IV>(
     /// The scope the component is running in
-    cx: Scope,
+
     /// The components Show wraps
     children: Box<dyn Fn(Scope) -> Fragment>,
     /// A closure that returns a bool that determines whether this thing runs
@@ -283,21 +283,21 @@ where
     F: Fn(Scope) -> IV + 'static,
     IV: IntoView,
 {
-    let memoized_when = create_memo(cx, move |_| when());
+    let memoized_when = create_memo(move |_| when());
 
     move || match memoized_when.get() {
-        true => children(cx).into_view(cx),
-        false => fallback(cx).into_view(cx),
+        true => children().into_view(),
+        false => fallback().into_view(),
     }
 }*/
 
-fn log(cx: Scope, msg: impl std::fmt::Display) {
-    let log = use_context::<RwSignal<Vec<String>>>(cx).unwrap();
+fn log(std::fmt::Display) {
+    let log = use_context::<RwSignal<Vec<String>>>().unwrap();
     log.update(|log| log.push(msg.to_string()));
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

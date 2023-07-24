@@ -14,8 +14,8 @@ For example, instead of embedding logic in a component directly like this:
 
 ```rust
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let (todos, set_todos) = create_signal(cx, vec![Todo { /* ... */ }]);
+pub fn TodoApp() -> impl IntoView {
+    let (todos, set_todos) = create_signal(vec![Todo { /* ... */ }]);
     // ⚠️ this is hard to test because it's embedded in the component
     let num_remaining = move || todos.with(|todos| {
         todos.iter().filter(|todo| !todo.completed).sum()
@@ -43,8 +43,8 @@ mod tests {
 }
 
 #[component]
-pub fn TodoApp(cx: Scope) -> impl IntoView {
-    let (todos, set_todos) = create_signal(cx, Todos(vec![Todo { /* ... */ }]));
+pub fn TodoApp() -> impl IntoView {
+    let (todos, set_todos) = create_signal(Todos(vec![Todo { /* ... */ }]));
     // ✅ this has a test associated with it
     let num_remaining = move || todos.with(Todos::num_remaining);
 }
@@ -105,7 +105,7 @@ fn clear() {
     // note that we start at the initial value of 10
     mount_to(
         test_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=10 step=1/> },
+        || view! { <SimpleCounter initial_value=10 step=1/> },
     );
 }
 ```
@@ -139,12 +139,12 @@ I like to test the whole view at once. We can do this by testing the element’s
 assert_eq!(
     div.outer_html(),
     // here we spawn a mini reactive system to render the test case
-    run_scope(create_runtime(), |cx| {
+    run_scope(create_runtime(), || {
         // it's as if we're creating it with a value of 0, right?
-        let (value, set_value) = create_signal(cx, 0);
+        let (value, set_value) = create_signal(0);
 
         // we can remove the event listeners because they're not rendered to HTML
-        view! { cx,
+        view! {
             <div>
                 <button>"Clear"</button>
                 <button>"-1"</button>
@@ -169,7 +169,7 @@ assert_eq!(test_wrapper.inner_html(), {
     let comparison_wrapper = document.create_element("section").unwrap();
     leptos::mount_to(
         comparison_wrapper.clone().unchecked_into(),
-        |cx| view! { cx, <SimpleCounter initial_value=0 step=1/>},
+        || view! { <SimpleCounter initial_value=0 step=1/>},
     );
     comparison_wrapper.inner_html()
 });

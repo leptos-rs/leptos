@@ -12,10 +12,10 @@ per click.
 You _could_ do this by just creating two `<progress>` elements:
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 let double_count = move || count() * 2;
 
-view! { cx,
+view! {
     <progress
         max="50"
         value=count
@@ -36,9 +36,9 @@ Instead, let’s create a `<ProgressBar/>` component.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope
+
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max="50"
             // hmm... where will we get this from?
@@ -64,10 +64,10 @@ In Leptos, you define props by giving additional arguments to the component func
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
+
     progress: ReadSignal<i32>
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max="50"
             // now this works
@@ -81,9 +81,9 @@ Now we can use our component in the main `<App/>` component’s view.
 
 ```rust
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
-    view! { cx,
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
+    view! {
         <button on:click=move |_| { set_count.update(|n| *n += 1); }>
             "Click me"
         </button>
@@ -118,14 +118,14 @@ argument to the component function with `#[prop(optional)]`.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
+
     // mark this prop optional
     // you can specify it or not when you use <ProgressBar/>
     #[prop(optional)]
     max: u16,
     progress: ReadSignal<i32>
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -149,12 +149,12 @@ with `#[prop(default = ...)`.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
+
     #[prop(default = 100)]
     max: u16,
     progress: ReadSignal<i32>
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -171,11 +171,11 @@ as the `progress` prop on another `<ProgressBar/>`.
 
 ```rust
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
     let double_count = move || count() * 2;
 
-    view! { cx,
+    view! {
         <button on:click=move |_| { set_count.update(|n| *n += 1); }>
             "Click me"
         </button>
@@ -199,7 +199,7 @@ implement the trait `Fn() -> i32`. So you could use a generic component:
 ```rust
 #[component]
 fn ProgressBar<F>(
-    cx: Scope,
+
     #[prop(default = 100)]
     max: u16,
     progress: F
@@ -207,7 +207,7 @@ fn ProgressBar<F>(
 where
     F: Fn() -> i32 + 'static,
 {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -255,14 +255,14 @@ reactive value.
 ```rust
 #[component]
 fn ProgressBar(
-    cx: Scope,
+
     #[prop(default = 100)]
     max: u16,
     #[prop(into)]
     progress: Signal<i32>
 ) -> impl IntoView
 {
-    view! { cx,
+    view! {
         <progress
             max=max
             value=progress
@@ -271,18 +271,18 @@ fn ProgressBar(
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
     let double_count = move || count() * 2;
 
-    view! { cx,
+    view! {
         <button on:click=move |_| { set_count.update(|n| *n += 1); }>
             "Click me"
         </button>
         // .into() converts `ReadSignal` to `Signal`
         <ProgressBar progress=count/>
         // use `Signal::derive()` to wrap a derived signal
-        <ProgressBar progress=Signal::derive(cx, double_count)/>
+        <ProgressBar progress=Signal::derive(double_count)/>
     }
 }
 ```
@@ -376,7 +376,7 @@ component function, and each one of the props:
 /// Shows progress toward a goal.
 #[component]
 fn ProgressBar(
-    cx: Scope,
+
     /// The maximum value of the progress bar.
     #[prop(default = 100)]
     max: u16,
@@ -416,7 +416,7 @@ use leptos::*;
 #[component]
 fn ProgressBar(
     // All components take a reactive `Scope` as the first argument
-    cx: Scope,
+
     // Marks this as an optional prop. It will default to the default
     // value of its type, i.e., 0.
     #[prop(default = 100)]
@@ -430,7 +430,7 @@ fn ProgressBar(
     /// How much progress should be displayed.
     progress: Signal<i32>,
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <progress
             max={max}
             value=progress
@@ -440,12 +440,12 @@ fn ProgressBar(
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
     let double_count = move || count() * 2;
 
-    view! { cx,
+    view! {
         <button
             on:click=move |_| {
                 set_count.update(|n| *n += 1);
@@ -463,12 +463,12 @@ fn App(cx: Scope) -> impl IntoView {
         <ProgressBar progress=count/>
         // Signal::derive creates a Signal wrapper from our derived signal
         // using double_count means it should move twice as fast
-        <ProgressBar max=50 progress=Signal::derive(cx, double_count)/>
+        <ProgressBar max=50 progress=Signal::derive(double_count)/>
     }
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 ```
 

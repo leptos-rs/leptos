@@ -6,7 +6,7 @@ application. It sometimes looks a little silly:
 
 ```rust
 // a signal holds a value, and can be updated
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 
 // a derived signal is a function that accesses other signals
 let double_count = move || count() * 2;
@@ -19,11 +19,11 @@ let text = move || if count_is_odd() {
 
 // an effect automatically tracks the signals it depends on
 // and reruns when they change
-create_effect(cx, move |_| {
+create_effect(move |_| {
     log!("text = {}", text());
 });
 
-view! { cx,
+view! {
     <p>{move || text().to_uppercase()}</p>
 }
 ```
@@ -53,12 +53,12 @@ Take our typical `<SimpleCounter/>` example in its simplest form:
 
 ```rust
 #[component]
-pub fn SimpleCounter(cx: Scope) -> impl IntoView {
-    let (value, set_value) = create_signal(cx, 0);
+pub fn SimpleCounter() -> impl IntoView {
+    let (value, set_value) = create_signal(0);
 
     let increment = move |_| set_value.update(|value| *value += 1);
 
-    view! { cx,
+    view! {
         <button on:click=increment>
             {value}
         </button>
