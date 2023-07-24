@@ -20,32 +20,19 @@ enum TagType {
     Math,
 }
 
+// Keep list alphabetized for binary search
 const TYPED_EVENTS: [&str; 126] = [
-    "afterprint",
-    "beforeprint",
-    "beforeunload",
-    "gamepadconnected",
-    "gamepaddisconnected",
-    "hashchange",
-    "languagechange",
-    "message",
-    "messageerror",
-    "offline",
-    "online",
-    "pagehide",
-    "pageshow",
-    "popstate",
-    "rejectionhandled",
-    "storage",
-    "unhandledrejection",
-    "unload",
+    "DOMContentLoaded",
     "abort",
+    "afterprint",
     "animationcancel",
     "animationend",
     "animationiteration",
     "animationstart",
     "auxclick",
     "beforeinput",
+    "beforeprint",
+    "beforeunload",
     "blur",
     "canplay",
     "canplaythrough",
@@ -56,8 +43,12 @@ const TYPED_EVENTS: [&str; 126] = [
     "compositionstart",
     "compositionupdate",
     "contextmenu",
+    "copy",
     "cuechange",
+    "cut",
     "dblclick",
+    "devicemotion",
+    "deviceorientation",
     "drag",
     "dragend",
     "dragenter",
@@ -73,17 +64,25 @@ const TYPED_EVENTS: [&str; 126] = [
     "focusin",
     "focusout",
     "formdata",
+    "fullscreenchange",
+    "fullscreenerror",
+    "gamepadconnected",
+    "gamepaddisconnected",
     "gotpointercapture",
+    "hashchange",
     "input",
     "invalid",
     "keydown",
     "keypress",
     "keyup",
+    "languagechange",
     "load",
     "loadeddata",
     "loadedmetadata",
     "loadstart",
     "lostpointercapture",
+    "message",
+    "messageerror",
     "mousedown",
     "mouseenter",
     "mouseleave",
@@ -91,6 +90,12 @@ const TYPED_EVENTS: [&str; 126] = [
     "mouseout",
     "mouseover",
     "mouseup",
+    "offline",
+    "online",
+    "orientationchange",
+    "pagehide",
+    "pageshow",
+    "paste",
     "pause",
     "play",
     "playing",
@@ -98,12 +103,17 @@ const TYPED_EVENTS: [&str; 126] = [
     "pointerdown",
     "pointerenter",
     "pointerleave",
+    "pointerlockchange",
+    "pointerlockerror",
     "pointermove",
     "pointerout",
     "pointerover",
     "pointerup",
+    "popstate",
     "progress",
     "ratechange",
+    "readystatechange",
+    "rejectionhandled",
     "reset",
     "resize",
     "scroll",
@@ -115,6 +125,7 @@ const TYPED_EVENTS: [&str; 126] = [
     "selectstart",
     "slotchange",
     "stalled",
+    "storage",
     "submit",
     "suspend",
     "timeupdate",
@@ -127,6 +138,9 @@ const TYPED_EVENTS: [&str; 126] = [
     "transitionend",
     "transitionrun",
     "transitionstart",
+    "unhandledrejection",
+    "unload",
+    "visibilitychange",
     "volumechange",
     "waiting",
     "webkitanimationend",
@@ -134,20 +148,9 @@ const TYPED_EVENTS: [&str; 126] = [
     "webkitanimationstart",
     "webkittransitionend",
     "wheel",
-    "DOMContentLoaded",
-    "devicemotion",
-    "deviceorientation",
-    "orientationchange",
-    "copy",
-    "cut",
-    "paste",
-    "fullscreenchange",
-    "fullscreenerror",
-    "pointerlockchange",
-    "pointerlockerror",
-    "readystatechange",
-    "visibilitychange",
 ];
+
+const CUSTOM_EVENT: &str = "Custom";
 
 pub(crate) fn render_view(
     cx: &Ident,
@@ -348,7 +351,7 @@ fn root_element_to_tokens_ssr(
         // We can use open_tag.span(), to provide simmilar(to name span) diagnostic
         // in case of expansion error, but it will also higlight "<" token.
         let typed_element_name = if is_custom_element {
-            Ident::new("Custom", Span::call_site())
+            Ident::new(CUSTOM_EVENT, Span::call_site())
         } else {
             let camel_cased = camel_case_tag_name(
                 tag_name
@@ -1378,12 +1381,10 @@ fn attribute_to_tokens(
 pub(crate) fn parse_event_name(name: &str) -> (TokenStream, bool, bool) {
     let (name, is_force_undelegated) = parse_event(name);
 
-    let event_type = TYPED_EVENTS
-        .iter()
-        .find(|e| **e == name)
-        .copied()
-        .unwrap_or("Custom");
-    let is_custom = event_type == "Custom";
+    let (event_type, is_custom) = TYPED_EVENTS
+        .binary_search(&name)
+        .map(|_| (name, false))
+        .unwrap_or((CUSTOM_EVENT, true));
 
     let Ok(event_type) = event_type.parse::<TokenStream>() else {
         abort!(event_type, "couldn't parse event name");
@@ -1741,10 +1742,9 @@ pub(crate) fn event_from_attribute_node(
     let (name, name_undelegated) = parse_event(&event_name);
 
     let event_type = TYPED_EVENTS
-        .iter()
-        .find(|e| **e == name)
-        .copied()
-        .unwrap_or("Custom");
+        .binary_search(&name)
+        .map(|_| (name))
+        .unwrap_or(CUSTOM_EVENT);
 
     let Ok(event_type) = event_type.parse::<TokenStream>() else {
         abort!(attr.key, "couldn't parse event name");
@@ -1831,23 +1831,13 @@ fn is_custom_element(tag: &str) -> bool {
 fn is_self_closing(node: &NodeElement) -> bool {
     // self-closing tags
     // https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
-    matches!(
-        node.name().to_string().as_str(),
-        "area"
-            | "base"
-            | "br"
-            | "col"
-            | "embed"
-            | "hr"
-            | "img"
-            | "input"
-            | "link"
-            | "meta"
-            | "param"
-            | "source"
-            | "track"
-            | "wbr"
-    )
+    // Keep list alphabetized for binary search
+    [
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+        "meta", "param", "source", "track", "wbr",
+    ]
+    .binary_search(&node.name().to_string().as_str())
+    .is_ok()
 }
 
 fn camel_case_tag_name(tag_name: &str) -> String {
@@ -1863,109 +1853,113 @@ fn camel_case_tag_name(tag_name: &str) -> String {
 }
 
 fn is_svg_element(tag: &str) -> bool {
-    matches!(
-        tag,
-        "animate"
-            | "animateMotion"
-            | "animateTransform"
-            | "circle"
-            | "clipPath"
-            | "defs"
-            | "desc"
-            | "discard"
-            | "ellipse"
-            | "feBlend"
-            | "feColorMatrix"
-            | "feComponentTransfer"
-            | "feComposite"
-            | "feConvolveMatrix"
-            | "feDiffuseLighting"
-            | "feDisplacementMap"
-            | "feDistantLight"
-            | "feDropShadow"
-            | "feFlood"
-            | "feFuncA"
-            | "feFuncB"
-            | "feFuncG"
-            | "feFuncR"
-            | "feGaussianBlur"
-            | "feImage"
-            | "feMerge"
-            | "feMergeNode"
-            | "feMorphology"
-            | "feOffset"
-            | "fePointLight"
-            | "feSpecularLighting"
-            | "feSpotLight"
-            | "feTile"
-            | "feTurbulence"
-            | "filter"
-            | "foreignObject"
-            | "g"
-            | "hatch"
-            | "hatchpath"
-            | "image"
-            | "line"
-            | "linearGradient"
-            | "marker"
-            | "mask"
-            | "metadata"
-            | "mpath"
-            | "path"
-            | "pattern"
-            | "polygon"
-            | "polyline"
-            | "radialGradient"
-            | "rect"
-            | "set"
-            | "stop"
-            | "svg"
-            | "switch"
-            | "symbol"
-            | "text"
-            | "textPath"
-            | "tspan"
-            | "use"
-            | "use_"
-            | "view"
-    )
+    // Keep list alphabetized for binary search
+    [
+        "animate",
+        "animateMotion",
+        "animateTransform",
+        "circle",
+        "clipPath",
+        "defs",
+        "desc",
+        "discard",
+        "ellipse",
+        "feBlend",
+        "feColorMatrix",
+        "feComponentTransfer",
+        "feComposite",
+        "feConvolveMatrix",
+        "feDiffuseLighting",
+        "feDisplacementMap",
+        "feDistantLight",
+        "feDropShadow",
+        "feFlood",
+        "feFuncA",
+        "feFuncB",
+        "feFuncG",
+        "feFuncR",
+        "feGaussianBlur",
+        "feImage",
+        "feMerge",
+        "feMergeNode",
+        "feMorphology",
+        "feOffset",
+        "fePointLight",
+        "feSpecularLighting",
+        "feSpotLight",
+        "feTile",
+        "feTurbulence",
+        "filter",
+        "foreignObject",
+        "g",
+        "hatch",
+        "hatchpath",
+        "image",
+        "line",
+        "linearGradient",
+        "marker",
+        "mask",
+        "metadata",
+        "mpath",
+        "path",
+        "pattern",
+        "polygon",
+        "polyline",
+        "radialGradient",
+        "rect",
+        "set",
+        "stop",
+        "svg",
+        "switch",
+        "symbol",
+        "text",
+        "textPath",
+        "tspan",
+        "use",
+        "use_",
+        "view",
+    ]
+    .binary_search(&tag)
+    .is_ok()
 }
 
 fn is_math_ml_element(tag: &str) -> bool {
-    matches!(
-        tag,
-        "math"
-            | "mi"
-            | "mn"
-            | "mo"
-            | "ms"
-            | "mspace"
-            | "mtext"
-            | "menclose"
-            | "merror"
-            | "mfenced"
-            | "mfrac"
-            | "mpadded"
-            | "mphantom"
-            | "mroot"
-            | "mrow"
-            | "msqrt"
-            | "mstyle"
-            | "mmultiscripts"
-            | "mover"
-            | "mprescripts"
-            | "msub"
-            | "msubsup"
-            | "msup"
-            | "munder"
-            | "munderover"
-            | "mtable"
-            | "mtd"
-            | "mtr"
-            | "maction"
-            | "annotation"
-            | "semantics"
-    )
+    // Keep list alphabetized for binary search
+    [
+        "annotation",
+        "maction",
+        "math",
+        "menclose",
+        "merror",
+        "mfenced",
+        "mfrac",
+        "mi",
+        "mmultiscripts",
+        "mn",
+        "mo",
+        "mover",
+        "mpadded",
+        "mphantom",
+        "mprescripts",
+        "mroot",
+        "mrow",
+        "ms",
+        "mspace",
+        "msqrt",
+        "mstyle",
+        "msub",
+        "msubsup",
+        "msup",
+        "mtable",
+        "mtd",
+        "mtext",
+        "mtr",
+        "munder",
+        "munderover",
+        "semantics",
+    ]
+    .binary_search(&tag)
+    .is_ok()
 }
 
 fn is_ambiguous_element(tag: &str) -> bool {
