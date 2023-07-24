@@ -10,39 +10,31 @@ use std::future::Future;
 /// to not use it to synchronise signals, as it can lead to
 /// race conditions or memory leaks.
 ///
-/// ❌❌❌
 /// ```
-/// use leptos::*;
+/// # use leptos::*;
+/// # #[cfg(not(any(feature = "csr", feature = "serde-lite", feature = "miniserde", feature = "rkyv")))]
+/// # {
 ///
-/// #[server(GetUser)]
-/// pub async fn get_user(user: String) -> Result<String, ServerFnError> {
+/// async fn get_user(user: String) -> Result<String, ServerFnError> {
 ///     Ok(format!("this user is {user}"))
 /// }
 ///
+/// // ❌❌❌
 /// #[component]
-/// pub fn User(cx: Scope) -> impl IntoView {
-///     let user = create_rw_signal(cx, String::new());
+/// fn UserBad(cx: Scope) -> impl IntoView {
+///     let signal = create_rw_signal(cx, String::new());
 ///
 ///     // DON'T
 ///     spawn_local(async move {
 ///         let user_res = get_user("user".into()).await.unwrap_or_default();
-///         user.set(user_res);
+///         signal.set(user_res);
 ///     });
-///     view!{cx, <p>"This will be empty(hopefully the client will render it) -> "{move || user.get()}</p>}
-/// }
-/// ```
-///
-/// ✅✅✅
-/// ```
-/// use leptos::*;
-///
-/// #[server(GetUser)]
-/// pub async fn get_user(user: String) -> Result<String, ServerFnError> {
-///     Ok(format!("this user is {user}"))
+///     view!{cx, <p>"This will be empty(hopefully the client will render it) -> "{move || signal.get()}</p>}
 /// }
 ///
+/// // ✅✅✅
 /// #[component]
-/// pub fn User(cx: Scope) -> impl IntoView {
+/// fn UserGood(cx: Scope) -> impl IntoView {
 ///     // new resource with no dependencies(it will only called once)
 ///     let user = create_resource(cx, || (), |_| async { get_user("john".into()).await });
 ///     view!{cx,
@@ -63,6 +55,7 @@ use std::future::Future;
 ///         </Suspense>
 ///     }
 /// }
+/// # }
 /// ```
 pub fn spawn_local<F>(fut: F)
 where
