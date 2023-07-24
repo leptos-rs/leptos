@@ -19,3 +19,4 @@ const_format = "0.2.30"
 
 [features]
 nightly = []
+ssr = []

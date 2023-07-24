@@ -46,6 +46,7 @@ ssr = [
   "leptos_macro/ssr",
   "leptos_reactive/ssr",
   "leptos_server/ssr",
+  "server_fn/ssr",
 ]
 nightly = [
   "leptos_dom/nightly",

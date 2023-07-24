@@ -217,6 +217,61 @@ pub fn server_macro_impl(
         .map(|(doc, span)| quote_spanned!(*span=> #[doc = #doc]))
         .collect::<TokenStream2>();
 
+    let inventory = if cfg!(feature = "ssr") {
+        quote! {
+            #server_fn_path::inventory::submit! {
+                #trait_obj_wrapper::from_generic_server_fn(#server_fn_path::ServerFnTraitObj::new(
+                    #struct_name::PREFIX,
+                    #struct_name::URL,
+                    #struct_name::ENCODING,
+                    <#struct_name as #server_fn_path::ServerFn<#server_ctx_path>>::call_from_bytes,
+                ))
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let call_fn = if cfg!(feature = "ssr") {
+        quote! {
+            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
+                let #struct_name { #(#field_names),* } = self;
+                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
+            }
+        }
+    } else {
+        quote! {
+            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
+                let #struct_name { #(#field_names_3),* } = self;
+                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_4),*).await })
+            }
+        }
+    };
+
+    let func = if cfg!(feature = "ssr") {
+        quote! {
+            #docs
+            #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
+                #block
+            }
+        }
+    } else {
+        quote! {
+            #docs
+            #[allow(unused_variables)]
+            #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
+                #server_fn_path::call_server_fn(
+                    &{
+                        let prefix = #struct_name::PREFIX.to_string();
+                        prefix + "/" + #struct_name::URL
+                    },
+                    #struct_name { #(#field_names_5),* },
+                    #encoding
+                ).await
+            }
+        }
+    };
+
     Ok(quote::quote! {
         #args_docs
         #docs
@@ -241,15 +296,7 @@ pub fn server_macro_impl(
             const ENCODING: #server_fn_path::Encoding = #encoding;
         }
 
-        #[cfg(feature = "ssr")]
-        #server_fn_path::inventory::submit! {
-            #trait_obj_wrapper::from_generic_server_fn(#server_fn_path::ServerFnTraitObj::new(
-                #struct_name::PREFIX,
-                #struct_name::URL,
-                #struct_name::ENCODING,
-                <#struct_name as #server_fn_path::ServerFn<#server_ctx_path>>::call_from_bytes,
-            ))
-        }
+        #inventory
 
         impl #server_fn_path::ServerFn<#server_ctx_path> for #struct_name {
             type Output = #output_ty;
@@ -266,38 +313,10 @@ pub fn server_macro_impl(
                 Self::ENCODING
             }
 
-            #[cfg(feature = "ssr")]
-            fn call_fn(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
-                let #struct_name { #(#field_names),* } = self;
-                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_2),*).await })
-            }
-
-            #[cfg(not(feature = "ssr"))]
-            fn call_fn_client(self, cx: #server_ctx_path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Self::Output, #server_fn_path::ServerFnError>>>> {
-                let #struct_name { #(#field_names_3),* } = self;
-                Box::pin(async move { #fn_name( #cx_fn_arg #(#field_names_4),*).await })
-            }
+            #call_fn
         }
 
-        #docs
-        #[cfg(feature = "ssr")]
-        #vis async fn #fn_name(#(#fn_args),*) #output_arrow #return_ty {
-            #block
-        }
-
-        #docs
-        #[cfg(not(feature = "ssr"))]
-        #[allow(unused_variables)]
-        #vis async fn #fn_name(#(#fn_args_2),*) #output_arrow #return_ty {
-            #server_fn_path::call_server_fn(
-                &{
-                    let prefix = #struct_name::PREFIX.to_string();
-                    prefix + "/" + #struct_name::URL
-                },
-                #struct_name { #(#field_names_5),* },
-                #encoding
-            ).await
-        }
+        #func
     })
 }
 
