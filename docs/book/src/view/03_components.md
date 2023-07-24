@@ -219,9 +219,25 @@ where
 This is a perfectly reasonable way to write this component: `progress` now takes
 any value that implements this `Fn()` trait.
 
-> Note that generic component props _cannot_ be specified inline (as `<F: Fn() -> i32>`)
-> or as `progress: impl Fn() -> i32 + 'static,`, in part because they’re actually used to generate
-> a `struct ProgressBarProps`, and struct fields cannot be `impl` types.
+This generic can also be specified inline:
+
+```rust
+#[component]
+fn ProgressBar<F: Fn() -> i32 + 'static>(
+    cx: Scope,
+    #[prop(default = 100)] max: u16,
+    progress: F,
+) -> impl IntoView {
+    view! { cx,
+        <progress
+            max=max
+            value=progress
+        />
+    }
+}
+```
+
+> Note that generic component props _can’t_ be specified with an `impl` yet (`progress: impl Fn() -> i32 + 'static,`), in part because they’re actually used to generate a `struct ProgressBarProps`, and struct fields cannot be `impl` types. The `#[component]` macro may be further improved in the future to allow inline `impl` generic props.
 
 ### `into` Props
 
@@ -270,6 +286,81 @@ fn App(cx: Scope) -> impl IntoView {
     }
 }
 ```
+
+### Optional Generic Props
+
+Note that you can’t specify optional generic props for a component. Let’s see what would happen if you try:
+
+```rust,compile_fail
+#[component]
+fn ProgressBar<F: Fn() -> i32 + 'static>(
+    cx: Scope,
+    #[prop(optional)] progress: Option<F>,
+) -> impl IntoView {
+    progress.map(|progress| {
+        view! { cx,
+            <progress
+                max=100
+                value=progress
+            />
+        }
+    })
+}
+
+#[component]
+pub fn App(cx: Scope) -> impl IntoView {
+    view! { cx,
+        <ProgressBar/>
+    }
+}
+```
+
+Rust helpfully gives the error
+
+```
+xx |         <ProgressBar/>
+   |          ^^^^^^^^^^^ cannot infer type of the type parameter `F` declared on the function `ProgressBar`
+   |
+help: consider specifying the generic argument
+   |
+xx |         <ProgressBar::<F>/>
+   |                     +++++
+```
+
+There are just two problems:
+
+1. Leptos’s view macro doesn’t support specifying a generic on a component with this turbofish syntax.
+2. Even if you could, specifying the correct type here is not possible; closures and functions in general are unnameable types. The compiler can display them with a shorthand, but you can’t specify them.
+
+However, you can get around this by providing a concrete type using `Box<dyn _>` or `&dyn _`:
+
+```rust
+#[component]
+fn ProgressBar(
+    cx: Scope,
+    #[prop(optional)] progress: Option<Box<dyn Fn() -> i32>>,
+) -> impl IntoView {
+    progress.map(|progress| {
+        view! { cx,
+            <progress
+                max=100
+                value=progress
+            />
+        }
+    })
+}
+
+#[component]
+pub fn App(cx: Scope) -> impl IntoView {
+    view! { cx,
+        <ProgressBar/>
+    }
+}
+```
+
+Because the Rust compiler now knows the concrete type of the prop, and therefore its size in memory even in the `None` case, this compiles fine.
+
+> In this particular case, `&dyn Fn() -> i32` will cause lifetime issues, but in other cases, it may be a possibility.
 
 ## Documenting Components
 
