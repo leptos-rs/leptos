@@ -57,7 +57,7 @@ pub fn App() -> impl IntoView {
 
 Clicking the button twice will cause a panic, because of the nested signal _read_. Calling the `update` function on `resources` immediately takes out a mutable borrow on `resources`, then updates the `resource` signal—which re-runs the effect that reads from the signals, which tries to immutably access `resources` and panics. It's the nested update here which causes a problem, because the inner update triggers and effect that tries to read both signals while the outer is still updating.
 
-You can fix this fairly easily by using the [`Scope::batch()`](https://docs.rs/leptos/latest/leptos/struct.Scope.html#method.batch) method:
+You can fix this fairly easily by using the [`batch()`](https://docs.rs/leptos/latest/leptos/fn.batch.html) method:
 
 ```rust
     let update = move |id: usize| {
