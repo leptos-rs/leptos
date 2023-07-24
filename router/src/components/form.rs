@@ -1,4 +1,4 @@
-use crate::{use_navigate, use_resolved_path, ToHref, Url};
+use crate::{use_navigate, use_resolved_path, NavigateOptions, ToHref, Url};
 use leptos::{html::form, *};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, rc::Rc};
@@ -54,6 +54,9 @@ pub fn Form<A>(
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<html::Form>>,
+    /// Sets whether the page should be scrolled to the top when the form is submitted.
+    #[prop(optional)]
+    noscroll: bool,
     /// Arbitrary attributes to add to the `<form>`
     #[prop(optional, into)]
     attributes: Option<MaybeSignal<AdditionalAttributes>>,
@@ -76,6 +79,7 @@ where
         class: Option<Attribute>,
         children: Children,
         node_ref: Option<NodeRef<html::Form>>,
+        noscroll: bool,
         attributes: Option<MaybeSignal<AdditionalAttributes>>,
     ) -> HtmlElement<html::Form> {
         let action_version = version;
@@ -85,6 +89,10 @@ where
                     return;
                 }
                 let navigate = use_navigate(cx);
+                let navigate_options = NavigateOptions {
+                    scroll: !noscroll,
+                    ..Default::default()
+                };
 
                 let (form, method, action, enctype) =
                     extract_form_attributes(&ev);
@@ -167,7 +175,7 @@ where
                                                                 },
                                                                 url.search,
                                                             ),
-                                                            Default::default(),
+                                                            navigate_options,
                                                         ) {
                                                             warn!("{}", e);
                                                         }
@@ -248,7 +256,7 @@ where
                                                                 },
                                                                 url.search,
                                                             ),
-                                                            Default::default(),
+                                                            navigate_options,
                                                         ) {
                                                             warn!("{}", e);
                                                         }
@@ -267,11 +275,8 @@ where
                 else {
                     let params =
                         params.to_string().as_string().unwrap_or_default();
-                    if navigate(
-                        &format!("{action}?{params}"),
-                        Default::default(),
-                    )
-                    .is_ok()
+                    if navigate(&format!("{action}?{params}"), navigate_options)
+                        .is_ok()
                     {
                         ev.prevent_default();
                         ev.stop_propagation();
@@ -318,6 +323,7 @@ where
         class,
         children,
         node_ref,
+        noscroll,
         attributes,
     )
 }
@@ -364,6 +370,9 @@ pub fn ActionForm<I, O>(
     /// A [`NodeRef`] in which the `<form>` element should be stored.
     #[prop(optional)]
     node_ref: Option<NodeRef<html::Form>>,
+    /// Sets whether the page should be scrolled to the top when navigating.
+    #[prop(optional)]
+    noscroll: bool,
     /// Arbitrary attributes to add to the `<form>`
     #[prop(optional, into)]
     attributes: Option<MaybeSignal<AdditionalAttributes>>,
@@ -513,6 +522,7 @@ where
         .on_error(on_error)
         .method("post")
         .class(class)
+        .noscroll(noscroll)
         .children(children)
         .build();
     props.error = error;
