@@ -115,7 +115,7 @@ impl std::fmt::Debug for MetaTagsContext {
 
 impl MetaTagsContext {
     /// Converts metadata tags into an HTML string.
-    #[cfg(any(feature = "ssr", docs))]
+    #[cfg(all(any(feature = "ssr", doc), not(feature = "csr")))]
     pub fn as_string(&self) -> String {
         self.els
             .borrow()
