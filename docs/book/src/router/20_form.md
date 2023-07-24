@@ -80,7 +80,7 @@ fn App(cx: Scope) -> impl IntoView {
             <h1><code>"<Form/>"</code></h1>
             <main>
                 <Routes>
-                    <Route path="" view=FormExample
+                    <Route path="" view=FormExample/>
                 </Routes>
             </main>
         </Router>

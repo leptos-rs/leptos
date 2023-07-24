@@ -38,9 +38,11 @@ struct ContactSearch {
 > Note: The `Params` derive macro is located at `leptos::Params`, and the `Params` trait is at `leptos_router::Params`. If you avoid using glob imports like `use leptos::*;`, make sure you’re importing the right one for the derive macro.
 >
 > If you are not using the `nightly` feature, you will get the error
+>
 > ```
 > no function or associated item named `into_param` found for struct `std::string::String` in the current scope
 > ```
+>
 > At the moment, supporting both `T: FromStr` and `Option<T>` for typed params requires a nightly feature. You can fix this by simply changing the struct to use `q: Option<String>` instead of `q: String`.
 
 Now we can use them in a component. Imagine a URL that has both params and a query, like `/contacts/:id?q=Search`.
@@ -115,8 +117,9 @@ fn App(cx: Scope) -> impl IntoView {
                     <Route
                         path="/contacts"
                         view=ContactList
+                    >
                         // if no id specified, fall back
-                        <Route path=":id" view=ContactInfo
+                        <Route path=":id" view=ContactInfo>
                             <Route path="" view=|cx| view! { cx,
                                 <div class="tab">
                                     "(Contact Info)"
