@@ -50,7 +50,7 @@ pub fn Register(api: UnauthorizedApi) -> impl IntoView {
     view! {
         <Show
             when=move || register_response.get().is_some()
-            fallback=move |_| {
+            fallback=move || {
                 view! {
                     <CredentialsForm
                         title="Please enter the desired credentials"

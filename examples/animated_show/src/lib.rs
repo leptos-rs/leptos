@@ -2,7 +2,7 @@ use core::time::Duration;
 use leptos::*;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     let show = create_rw_signal(false);
 
     // the CSS classes in this example are just written directly inside the `index.html`
