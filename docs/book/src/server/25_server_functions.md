@@ -113,7 +113,7 @@ Server functions are a cool technology, but it’s very important to remember. *
 
 So far, everything I’ve said is actually framework agnostic. (And in fact, the Leptos server function crate has been integrated into Dioxus as well!) Server functions are simply a way of defining a function-like RPC call that leans on Web standards like HTTP requests and URL encoding.
 
-But in a way, they also provide the last missing primitive in our story so far. Because a server function is just a plain Rust async function, it integrates perfectly with the async Leptos primitives we discussed [earlier](../async/README.md). So you can easily integrate your server functions with the rest of your applications:
+But in a way, they also provide the last missing primitive in our story so far. Because a server function is just a plain Rust async function, it integrates perfectly with the async Leptos primitives we discussed [earlier](https://leptos-rs.github.io/leptos/async/index.html). So you can easily integrate your server functions with the rest of your applications:
 
 - Create **resources** that call the server function to load data from the server
 - Read these resources under `<Suspense/>` or `<Transition/>` to enable streaming SSR and fallback states while data loads.

@@ -6,9 +6,9 @@ The server functions we looked at in the last chapter showed how to run code on 
 
 We call Leptos a “full-stack” framework, but “full-stack” is always a misnomer (after all, it never means everything from the browser to your power company.) For us, “full stack” means that your Leptos app can run in the browser, and can run on the server, and can integrate the two, drawing together the unique features available in each; as we’ve seen in the book so far, a button click on the browser can drive a database read on the server, both written in the same Rust module. But Leptos itself doesn’t provide the server (or the database, or the operating system, or the firmware, or the electrical cables...)
 
-Instead, Leptos provides integrations for the two most popular Rust web server frameworks, Actix Web ([`leptos_actix`](https://docs.rs/leptos_actix/latest/leptos_actix/)) and Axum ([`leptos_axum`](https://docs.rs/leptos_actix/latest/leptos_axum/)). We’ve built integrations with each server’s router so that you can simply plug your Leptos app into an existing server with `.leptos_routes()`, and easily handle server function calls.
+Instead, Leptos provides integrations for the two most popular Rust web server frameworks, Actix Web ([`leptos_actix`](https://docs.rs/leptos_actix/latest/leptos_actix/)) and Axum ([`leptos_axum`](https://docs.rs/leptos_axum/latest/leptos_axum/)). We’ve built integrations with each server’s router so that you can simply plug your Leptos app into an existing server with `.leptos_routes()`, and easily handle server function calls.
 
-> If haven’t seen our [Actix](https://github.com/leptos-rs/start) and [Axum](https://github.com/leptos-rs/start-axum) templates, now’s a good time to check them out.
+> If you haven’t seen our [Actix](https://github.com/leptos-rs/start) and [Axum](https://github.com/leptos-rs/start-axum) templates, now’s a good time to check them out.
 
 ## Using Extractors
 
@@ -43,7 +43,7 @@ pub async fn actix_extract(cx: Scope) -> Result<String, ServerFnError> {
 
 ## Axum Extractors
 
-The syntax for the `leptos_axum::extract` function is very similar. (**Note**: This is available on the git main branch, but has not been released as of writing.) Note that Axum extractors return a `Result`, so you’ll need to add something to handle the error case.
+The syntax for the [`leptos_axum::extract`](https://docs.rs/leptos_axum/latest/leptos_axum/fn.extract.html) function is very similar. (**Note**: This is available on the git main branch, but has not been released as of writing.) Note that Axum extractors return a `Result`, so you’ll need to add something to handle the error case.
 
 ```rust
 #[server(AxumExtract, "/api")]

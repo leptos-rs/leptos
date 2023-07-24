@@ -8,7 +8,12 @@ If you’ve ever listened to streaming music or watched a video online, I’m su
 
 Let me say a little more about what I mean.
 
-Leptos supports all four different of these different ways to render HTML that includes asynchronous data.
+Leptos supports all four different modes of rendering HTML that includes asynchronous data:
+
+1. [Synchronous Rendering](#synchronous-rendering)
+1. [Async Rendering](#async-rendering)
+1. [In-Order streaming](#in-order-streaming)
+1. [Out-of-Order Streaming](#out-of-order-streaming)
 
 ## Synchronous Rendering
 
