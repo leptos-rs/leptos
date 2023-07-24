@@ -628,7 +628,7 @@ where
                         replace_blocks
                     );
 
-                    forward_stream(&options, res_options2, bundle, runtime, tx).await;
+                    forward_stream(&options, res_options2, bundle, tx).await;
 
                     runtime.dispose();
             }.instrument(current_span));
