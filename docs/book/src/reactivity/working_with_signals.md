@@ -14,7 +14,7 @@ There are four basic signal operations:
 Calling a `ReadSignal` as a function is syntax sugar for `.get()`. Calling a `WriteSignal` as a function is syntax sugar for `.set()`. So
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 set_count(1);
 log!(count());
 ```
@@ -22,7 +22,7 @@ log!(count());
 is the same as
 
 ```rust
-let (count, set_count) = create_signal(cx, 0);
+let (count, set_count) = create_signal(0);
 set_count.set(1);
 log!(count.get());
 ```
@@ -36,7 +36,7 @@ However, there are some very good use cases for `.with()` and `.update()`.
 For example, consider a signal that holds a `Vec<String>`.
 
 ```rust
-let (names, set_names) = create_signal(cx, Vec::new());
+let (names, set_names) = create_signal(Vec::new());
 if names().is_empty() {
 	set_names(vec!["Alice".to_string()]);
 }
@@ -47,7 +47,7 @@ In terms of logic, this is simple enough, but it’s hiding some significant ine
 Likewise, `set_names` replaces the value with a whole new `Vec<_>`. This is fine, but we might as well just mutate the original `Vec<_>` in place.
 
 ```rust
-let (names, set_names) = create_signal(cx, Vec::new());
+let (names, set_names) = create_signal(Vec::new());
 if names.with(|names| names.is_empty()) {
 	set_names.update(|names| names.push("Alice".to_string()));
 }
@@ -70,33 +70,39 @@ After all, `.with()` simply takes a function that takes the value by reference. 
 Often people ask about situations in which some signal needs to change based on some other signal’s value. There are three good ways to do this, and one that’s less than ideal but okay under controlled circumstances.
 
 ### Good Options
+
 **1) B is a function of A.** Create a signal for A and a derived signal or memo for B.
 
 ```rust
-let (count, set_count) = create_signal(cx, 1);
+let (count, set_count) = create_signal(1);
 let derived_signal_double_count = move || count() * 2;
-let memoized_double_count = create_memo(cx, move |_| count() * 2);
+let memoized_double_count = create_memo(move |_| count() * 2);
 ```
+
 > For guidance on whether to use a derived signal or a memo, see the docs for [`create_memo`](https://docs.rs/leptos/latest/leptos/fn.create_memo.html)
-> 
-**2) C is a function of A and some other thing B.** Create signals for A and B and a derived signal or memo for C.
+>
+> **2) C is a function of A and some other thing B.** Create signals for A and B and a derived signal or memo for C.
 
 ```rust
-let (first_name, set_first_name) = create_signal(cx, "Bridget".to_string());
-let (last_name, set_last_name) = create_signal(cx, "Jones".to_string());
+let (first_name, set_first_name) = create_signal("Bridget".to_string());
+let (last_name, set_last_name) = create_signal("Jones".to_string());
 let full_name = move || format!("{} {}", first_name(), last_name());
 ```
+
 **3) A and B are independent signals, but sometimes updated at the same time.** When you make the call to update A, make a separate call to update B.
+
 ```rust
-let (age, set_age) = create_signal(cx, 32);
-let (favorite_number, set_favorite_number) = create_signal(cx, 42);
+let (age, set_age) = create_signal(32);
+let (favorite_number, set_favorite_number) = create_signal(42);
 // use this to handle a click on a `Clear` button
 let clear_handler = move |_| {
   set_age(0);
   set_favorite_number(0);
 };
 ```
+
 ### If you really must...
+
 **4) Create an effect to write to B whenever A changes.** This is officially discouraged, for several reasons:
 a) It will always be less efficient, as it means every time A updates you do two full trips through the reactive process. (You set A, which causes the effect to run, as well as any other effects that depend on A. Then you set B, which causes any effects that depend on B to run.)
 b) It increases your chances of accidentally creating things like infinite loops or over-re-running effects. This is the kind of ping-ponging, reactive spaghetti code that was common in the early 2010s and that we try to avoid with things like read-write segregation and discouraging writing to signals from effects.
