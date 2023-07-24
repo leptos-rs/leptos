@@ -272,7 +272,7 @@ pub fn Show<F, W, IV>(
     /// The scope the component is running in
 
     /// The components Show wraps
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: Box<dyn Fn() -> Fragment>,
     /// A closure that returns a bool that determines whether this thing runs
     when: W,
     /// A closure that returns what gets rendered if the when statement is false
@@ -280,7 +280,7 @@ pub fn Show<F, W, IV>(
 ) -> impl IntoView
 where
     W: Fn() -> bool + 'static,
-    F: Fn(Scope) -> IV + 'static,
+    F: Fn() -> IV + 'static,
     IV: IntoView,
 {
     let memoized_when = create_memo(move |_| when());

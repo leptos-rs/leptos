@@ -30,10 +30,7 @@ To create a resource that simply runs once, you can pass a non-reactive, empty s
 let once = create_resource(|| (), |_| async move { load_data().await });
 ```
 
-To access the value you can use `.read()` or `.with(|data| /* */)`. These work just like `.get()` and `.with()` on a signal—`read` clones the value and returns it, `with` applies a closure to it—but with two differences
-
-1. For any `Resource<_, T>`, they always return `Option<T>`, not `T`: because it’s always possible that your resource is still loading.
-2. They take a `Scope` argument. You’ll see why in the next chapter, on `<Suspense/>`.
+To access the value you can use `.read()` or `.with(|data| /* */)`. These work just like `.get()` and `.with()` on a signal—`read` clones the value and returns it, `with` applies a closure to it—but for any `Resource<_, T>`, they always return `Option<T>`, not `T`: because it’s always possible that your resource is still loading.
 
 So, you can show the current state of a resource in your view:
 
