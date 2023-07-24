@@ -1,18 +1,18 @@
 use cfg_if::cfg_if;
 use leptos::*;
-#[cfg(feature = "ssr")]
+#[cfg(all(feature = "ssr", not(feature = "csr")))]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<html>`.
 #[derive(Clone, Default)]
 pub struct HtmlContext {
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", not(feature = "csr")))]
     lang: Rc<RefCell<Option<TextProp>>>,
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", not(feature = "csr")))]
     dir: Rc<RefCell<Option<TextProp>>>,
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", not(feature = "csr")))]
     class: Rc<RefCell<Option<TextProp>>>,
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", not(feature = "csr")))]
     attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
@@ -151,7 +151,7 @@ pub fn Html(
                     });
                 }
             }
-        } else if #[cfg(feature = "ssr")] {
+        } else if #[cfg(all(feature = "ssr", not(feature = "csr")))] {
             let meta = crate::use_head(cx);
             *meta.html.lang.borrow_mut() = lang;
             *meta.html.dir.borrow_mut() = dir;

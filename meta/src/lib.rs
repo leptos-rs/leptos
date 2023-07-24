@@ -231,7 +231,7 @@ impl MetaContext {
         Default::default()
     }
 
-    #[cfg(feature = "ssr")]
+    #[cfg(all(any(doc, feature = "ssr"), not(feature = "csr")))]
     /// Converts the existing metadata tags into HTML that can be injected into the document head.
     ///
     /// This should be called *after* the app’s component tree has been rendered into HTML, so that
@@ -284,7 +284,7 @@ impl MetaContext {
 /// Extracts the metadata that should be used to close the `<head>` tag
 /// and open the `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
-#[cfg(feature = "ssr")]
+#[cfg(all(any(doc, feature = "ssr"), not(feature = "csr")))]
 pub fn generate_head_metadata(cx: Scope) -> String {
     let (head, body) = generate_head_metadata_separated(cx);
     format!("{head}</head><{body}>")
@@ -293,7 +293,7 @@ pub fn generate_head_metadata(cx: Scope) -> String {
 /// Extracts the metadata that should be inserted at the beginning of the `<head>` tag
 /// and on the opening `<body>` tag. This is a helper function used in implementing
 /// server-side HTML rendering across crates.
-#[cfg(feature = "ssr")]
+#[cfg(all(any(doc, feature = "ssr"), not(feature = "csr")))]
 pub fn generate_head_metadata_separated(cx: Scope) -> (String, String) {
     let meta = use_context::<MetaContext>(cx);
     let head = meta

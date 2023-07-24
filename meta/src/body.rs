@@ -1,14 +1,14 @@
 use cfg_if::cfg_if;
 use leptos::*;
-#[cfg(feature = "ssr")]
+#[cfg(all(feature = "ssr", not(feature = "csr")))]
 use std::{cell::RefCell, rc::Rc};
 
 /// Contains the current metadata for the document's `<body>`.
 #[derive(Clone, Default)]
 pub struct BodyContext {
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", not(feature = "csr")))]
     class: Rc<RefCell<Option<TextProp>>>,
-    #[cfg(feature = "ssr")]
+    #[cfg(all(feature = "ssr", not(feature = "csr")))]
     attributes: Rc<RefCell<Option<MaybeSignal<AdditionalAttributes>>>>,
 }
 
