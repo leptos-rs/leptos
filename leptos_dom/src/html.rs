@@ -433,7 +433,7 @@ impl<El: ElementDescriptor + 'static> HtmlElement<El> {
               element: AnyElement {
                 name: element.name(),
                 is_void: element.is_void(),
-                id: element.hydration_id().clone()
+                id: *element.hydration_id()
               },
               #[cfg(debug_assertions)]
               view_marker
@@ -1056,7 +1056,7 @@ impl<El: ElementDescriptor> IntoView for HtmlElement<El> {
                 ..
             } = self;
 
-            let id = element.hydration_id().clone();
+            let id = *element.hydration_id();
 
             let mut element = Element::new(element);
             let children = children;
