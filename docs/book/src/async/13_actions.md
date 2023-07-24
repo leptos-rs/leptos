@@ -16,7 +16,7 @@ async fn add_todo_request(new_title: &str) -> Uuid {
 }
 ```
 
-`create_action` takes a reactive `Scope` and an `async` function that takes a reference to a single argument, which you could think of as its “input type.”
+`create_action` takes an `async` function that takes a reference to a single argument, which you could think of as its “input type.”
 
 > The input is always a single type. If you want to pass in multiple arguments, you can do it with a struct or tuple.
 >
