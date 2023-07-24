@@ -29,17 +29,17 @@ it in the child. This lets you manipulate the state of the parent from the child
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (toggled, set_toggled) = create_signal(cx, false);
-    view! { cx,
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
         <p>"Toggled? " {toggled}</p>
         <ButtonA setter=set_toggled/>
     }
 }
 
 #[component]
-pub fn ButtonA(cx: Scope, setter: WriteSignal<bool>) -> impl IntoView {
-    view! { cx,
+pub fn ButtonA(setter: WriteSignal<bool>) -> impl IntoView {
+    view! {
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -62,9 +62,9 @@ Another approach would be to pass a callback to the child: say, `on_click`.
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (toggled, set_toggled) = create_signal(cx, false);
-    view! { cx,
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
         <p>"Toggled? " {toggled}</p>
         <ButtonB on_click=move |_| set_toggled.update(|value| *value = !*value)/>
     }
@@ -73,13 +73,13 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 #[component]
 pub fn ButtonB<F>(
-    cx: Scope,
+
     on_click: F,
 ) -> impl IntoView
 where
     F: Fn(MouseEvent) + 'static,
 {
-    view! { cx,
+    view! {
         <button on:click=on_click>
             "Toggle"
         </button>
@@ -105,9 +105,9 @@ in your `view` macro in `<App/>`.
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (toggled, set_toggled) = create_signal(cx, false);
-    view! { cx,
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
         <p>"Toggled? " {toggled}</p>
         // note the on:click instead of on_click
         // this is the same syntax as an HTML element event listener
@@ -117,8 +117,8 @@ pub fn App(cx: Scope) -> impl IntoView {
 
 
 #[component]
-pub fn ButtonC<F>(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub fn ButtonC<F>() -> impl IntoView {
+    view! {
         <button>"Toggle"</button>
     }
 }
@@ -141,17 +141,17 @@ tree:
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (toggled, set_toggled) = create_signal(cx, false);
-    view! { cx,
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
         <p>"Toggled? " {toggled}</p>
         <Layout/>
     }
 }
 
 #[component]
-pub fn Layout(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub fn Layout() -> impl IntoView {
+    view! {
         <header>
             <h1>"My Page"</h1>
         </header>
@@ -162,8 +162,8 @@ pub fn Layout(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn Content(cx: Scope) -> impl IntoView {
-    view! { cx,
+pub fn Content() -> impl IntoView {
+    view! {
         <div class="content">
             <ButtonD/>
         </div>
@@ -171,7 +171,7 @@ pub fn Content(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn ButtonD<F>(cx: Scope) -> impl IntoView {
+pub fn ButtonD<F>() -> impl IntoView {
     todo!()
 }
 ```
@@ -182,17 +182,17 @@ pass your `WriteSignal` to its props. You could do what’s sometimes called
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (toggled, set_toggled) = create_signal(cx, false);
-    view! { cx,
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
+    view! {
         <p>"Toggled? " {toggled}</p>
         <Layout set_toggled/>
     }
 }
 
 #[component]
-pub fn Layout(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
-    view! { cx,
+pub fn Layout(d: WriteSignal<bool>) -> impl IntoView {
+    view! {
         <header>
             <h1>"My Page"</h1>
         </header>
@@ -203,8 +203,8 @@ pub fn Layout(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn Content(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
-    view! { cx,
+pub fn Content(d: WriteSignal<bool>) -> impl IntoView {
+    view! {
         <div class="content">
             <ButtonD set_toggled/>
         </div>
@@ -212,7 +212,7 @@ pub fn Content(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn ButtonD<F>(cx: Scope, set_toggled: WriteSignal<bool>) -> impl IntoView {
+pub fn ButtonD<F>(d: WriteSignal<bool>) -> impl IntoView {
     todo!()
 }
 ```
@@ -237,13 +237,13 @@ unnecessary prop drilling.
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (toggled, set_toggled) = create_signal(cx, false);
+pub fn App() -> impl IntoView {
+    let (toggled, set_toggled) = create_signal(false);
 
     // share `set_toggled` with all children of this component
-    provide_context(cx, set_toggled);
+    provide_context(set_toggled);
 
-    view! { cx,
+    view! {
         <p>"Toggled? " {toggled}</p>
         <Layout/>
     }
@@ -252,14 +252,14 @@ pub fn App(cx: Scope) -> impl IntoView {
 // <Layout/> and <Content/> omitted
 
 #[component]
-pub fn ButtonD(cx: Scope) -> impl IntoView {
+pub fn ButtonD() -> impl IntoView {
     // use_context searches up the context tree, hoping to
     // find a `WriteSignal<bool>`
     // in this case, I .expect() because I know I provided it
-    let setter = use_context::<WriteSignal<bool>>(cx)
+    let setter = use_context::<WriteSignal<bool>>()
         .expect("to have found the setter provided");
 
-    view! { cx,
+    view! {
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -308,20 +308,20 @@ use leptos::{ev::MouseEvent, *};
 struct SmallcapsContext(WriteSignal<bool>);
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // just some signals to toggle three classes on our <p>
-    let (red, set_red) = create_signal(cx, false);
-    let (right, set_right) = create_signal(cx, false);
-    let (italics, set_italics) = create_signal(cx, false);
-    let (smallcaps, set_smallcaps) = create_signal(cx, false);
+    let (red, set_red) = create_signal(false);
+    let (right, set_right) = create_signal(false);
+    let (italics, set_italics) = create_signal(false);
+    let (smallcaps, set_smallcaps) = create_signal(false);
 
     // the newtype pattern isn't *necessary* here but is a good practice
     // it avoids confusion with other possible future `WriteSignal<bool>` contexts
     // and makes it easier to refer to it in ButtonC
-    provide_context(cx, SmallcapsContext(set_smallcaps));
+    provide_context(SmallcapsContext(set_smallcaps));
 
     view! {
-        cx,
+
         <main>
             <p
                 // class: attributes take F: Fn() => bool, and these signals all implement Fn()
@@ -353,12 +353,12 @@ pub fn App(cx: Scope) -> impl IntoView {
 /// Button A receives a signal setter and updates the signal itself
 #[component]
 pub fn ButtonA(
-    cx: Scope,
+
     /// Signal that will be toggled when the button is clicked.
     setter: WriteSignal<bool>,
 ) -> impl IntoView {
     view! {
-        cx,
+
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -370,7 +370,7 @@ pub fn ButtonA(
 /// Button B receives a closure
 #[component]
 pub fn ButtonB<F>(
-    cx: Scope,
+
     /// Callback that will be invoked when the button is clicked.
     on_click: F,
 ) -> impl IntoView
@@ -378,7 +378,7 @@ where
     F: Fn(MouseEvent) + 'static,
 {
     view! {
-        cx,
+
         <button
             on:click=on_click
         >
@@ -402,9 +402,9 @@ where
 /// Button C is a dummy: it renders a button but doesn't handle
 /// its click. Instead, the parent component adds an event listener.
 #[component]
-pub fn ButtonC(cx: Scope) -> impl IntoView {
+pub fn ButtonC() -> impl IntoView {
     view! {
-        cx,
+
         <button>
             "Toggle Italics"
         </button>
@@ -414,11 +414,11 @@ pub fn ButtonC(cx: Scope) -> impl IntoView {
 /// Button D is very similar to Button A, but instead of passing the setter as a prop
 /// we get it from the context
 #[component]
-pub fn ButtonD(cx: Scope) -> impl IntoView {
-    let setter = use_context::<SmallcapsContext>(cx).unwrap().0;
+pub fn ButtonD() -> impl IntoView {
+    let setter = use_context::<SmallcapsContext>().unwrap().0;
 
     view! {
-        cx,
+
         <button
             on:click=move |_| setter.update(|value| *value = !*value)
         >
@@ -428,7 +428,7 @@ pub fn ButtonD(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

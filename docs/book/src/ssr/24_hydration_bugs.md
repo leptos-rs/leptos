@@ -8,7 +8,7 @@ Put a log somewhere in your root component. (I usually call mine `<App/>`, but a
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
 	leptos::log!("where do I run?");
 	// ... whatever
 }
@@ -57,15 +57,15 @@ One way to create a bug is by creating a mismatch between the HTML that’s sent
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     let data = if cfg!(target_arch = "wasm32") {
         vec![0, 1, 2]
     } else {
         vec![]
     };
     data.into_iter()
-        .map(|value| view! { cx, <span>{value}</span> })
-        .collect_view(cx)
+        .map(|value| view! { <span>{value}</span> })
+        .collect_view()
 }
 ```
 
@@ -93,20 +93,20 @@ This is a slightly more common way to create a client/server mismatch: updating 
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
-    let (loaded, set_loaded) = create_signal(cx, false);
+pub fn App() -> impl IntoView {
+    let (loaded, set_loaded) = create_signal(false);
 
     // create_effect only runs on the client
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         // do something like reading from localStorage
         set_loaded(true);
     });
 
     move || {
         if loaded() {
-            view! { cx, <p>"Hello, world!"</p> }.into_any()
+            view! { <p>"Hello, world!"</p> }.into_any()
         } else {
-            view! { cx, <div class="loading">"Loading..."</div> }.into_any()
+            view! { <div class="loading">"Loading..."</div> }.into_any()
         }
     }
 }
@@ -129,7 +129,7 @@ The problem here is that `create_effect` runs **immediately** and **synchronousl
 You can simply tell the effect to wait a tick before updating the signal, by using something like `request_animation_frame`, which will set a short timeout and then update the signal before the next frame.
 
 ```rust
-create_effect(cx, move |_| {
+create_effect(move |_| {
     // do something like reading from localStorage
     request_animation_frame(move || set_loaded(true));
 });
@@ -163,7 +163,7 @@ For example, say that I want to store something in the browser’s `localStorage
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     use gloo_storage::Storage;
 	let storage = gloo_storage::LocalStorage::raw();
 	leptos::log!("{storage:?}");
@@ -176,9 +176,9 @@ But if I wrap it in an effect...
 
 ```rust
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     use gloo_storage::Storage;
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         let storage = gloo_storage::LocalStorage::raw();
 		leptos::log!("{storage:?}");
     });
