@@ -94,7 +94,7 @@ impl ResponseOptions {
 /// Provides an easy way to redirect the user from within a server function. Mimicking the Remix `redirect()`,
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
-pub fn redirect(cx: leptos::Scope, path: &str) {
+pub fn redirect(path: &str) {
     if let Some(response_options) = use_context::<ResponseOptions>(cx) {
         response_options.set_status(StatusCode::FOUND);
         response_options.insert_header(
@@ -175,14 +175,14 @@ pub async fn handle_server_fns(req: Request) -> Result<Response> {
 /// - [ResponseOptions]
 pub async fn handle_server_fns_with_context(
     req: Request,
-    additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
+    additional_context: impl Fn() + Clone + Send + 'static,
 ) -> Result<Response> {
     handle_server_fns_inner(req, additional_context).await
 }
 
 async fn handle_server_fns_inner(
     req: Request,
-    additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
+    additional_context: impl Fn() + Clone + Send + 'static,
 ) -> Result<Response> {
     let fn_name = req.params::<String>()?;
     let headers = req.headers().clone();
@@ -198,16 +198,15 @@ async fn handle_server_fns_inner(
                             server_fn_by_path(fn_name.as_str())
                         {
                             let runtime = create_runtime();
-                            let (cx, disposer) =
-                                raw_scope_and_disposer(runtime);
+                            let (disposer) = raw_scope_and_disposer(runtime);
 
                             additional_context(cx);
 
                             let req_parts = generate_request_parts(req).await;
                             // Add this so we can get details about the Request
-                            provide_context(cx, req_parts.clone());
+                            provide_context(req_parts.clone());
                             // Add this so that we can set headers and status of the response
-                            provide_context(cx, ResponseOptions::default());
+                            provide_context(ResponseOptions::default());
 
                             let data = match &server_fn.encoding() {
                                 Encoding::Url | Encoding::Cbor => {
@@ -216,7 +215,7 @@ async fn handle_server_fns_inner(
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            let res = match server_fn.call(cx, data).await {
+                            let res = match server_fn.call(data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
@@ -352,8 +351,8 @@ async fn handle_server_fns_inner(
 /// use viz::{Router, ServiceMaker};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -368,7 +367,7 @@ async fn handle_server_fns_inner(
 ///         "*",
 ///         leptos_viz::render_app_to_stream(
 ///             leptos_options,
-///             |cx| view! { cx, <MyApp/> },
+///             || view! { <MyApp/> },
 ///         ),
 ///     );
 ///
@@ -390,7 +389,7 @@ async fn handle_server_fns_inner(
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -422,8 +421,8 @@ where
 /// use viz::{Router, ServiceMaker};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -438,7 +437,7 @@ where
 ///         "*",
 ///         leptos_viz::render_app_to_stream_in_order(
 ///             leptos_options,
-///             |cx| view! { cx, <MyApp/> },
+///             || view! { <MyApp/> },
 ///         ),
 ///     );
 ///
@@ -460,7 +459,7 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_in_order<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -484,10 +483,10 @@ where
 ///     let id = req.params::<String>()?;
 ///     let options = &*req.state::<Arc<LeptosOptions>>().ok_or(Error::Responder(Response::text("missing state type LeptosOptions")))?;
 ///     let handler = leptos_viz::render_app_to_stream_with_context(options.clone(),
-///     move |cx| {
-///         provide_context(cx, id.clone());
+///     move || {
+///         provide_context(id.clone());
 ///     },
-///     |cx| view! { cx, <TodoApp/> }
+///     || view! { <TodoApp/> }
 /// );
 ///     handler(req).await
 /// }
@@ -502,8 +501,8 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_with_context<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -543,8 +542,8 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_with_context_and_replace_blocks<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + Clone + Send + 'static,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
     replace_blocks: bool,
 ) -> impl Fn(
     Request,
@@ -589,8 +588,8 @@ where
                                             let app = {
                                                 let full_path = full_path.clone();
                                                 let req_parts = generate_request_parts(req).await;
-                                                move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                move || {
+                                                    provide_contexts(full_path, req_parts, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -598,7 +597,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
                                                     app,
-                                                    |cx| generate_head_metadata_separated(cx).1.into(),
+                                                    || generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                     replace_blocks
                                                 );
@@ -651,32 +650,31 @@ async fn forward_stream(
     res_options2: ResponseOptions,
     bundle: impl Stream<Item = String> + 'static,
     runtime: RuntimeId,
-    scope: ScopeId,
     mut tx: Sender<String>,
 ) {
-    let cx = Scope { runtime, id: scope };
-    let (head, tail) = html_parts_separated(
-        cx,
-        options,
-        use_context::<MetaContext>(cx).as_ref(),
-    );
+    let mut shell = Box::pin(bundle);
+    let first_app_chunk = shell.next().await.unwrap_or_default();
+
+    let (head, tail) =
+        html_parts_separated(options, use_context::<MetaContext>().as_ref());
 
     _ = tx.send(head).await;
-    let mut shell = Box::pin(bundle);
+
+    _ = tx.send(first_app_chunk).await;
+
     while let Some(fragment) = shell.next().await {
         _ = tx.send(fragment).await;
     }
+
     _ = tx.send(tail.to_string()).await;
 
     // Extract the value of ResponseOptions from here
-    let res_options = use_context::<ResponseOptions>(cx).unwrap();
+    let res_options = use_context::<ResponseOptions>().unwrap();
 
     let new_res_parts = res_options.0.read().clone();
 
     let mut writable = res_options2.0.write();
     *writable = new_res_parts;
-
-    runtime.dispose();
 
     tx.close_channel();
 }
@@ -694,10 +692,10 @@ async fn forward_stream(
 ///     let id = req.params::<String>()?;
 ///     let options = &*req.state::<Arc<LeptosOptions>>().ok_or(StateError::new::<Arc<LeptosOptions>>())?;
 ///     let handler = leptos_viz::render_app_to_stream_in_order_with_context(options.clone(),
-///     move |cx| {
-///         provide_context(cx, id.clone());
+///     move || {
+///         provide_context(id.clone());
 ///     },
-///     |cx| view! { cx, <TodoApp/> }
+///     || view! { <TodoApp/> }
 /// );
 ///     handler(req).await
 /// }
@@ -712,8 +710,8 @@ async fn forward_stream(
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_to_stream_in_order_with_context<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -757,8 +755,8 @@ where
                                             let app = {
                                                 let full_path = full_path.clone();
                                                 let req_parts = generate_request_parts(req).await;
-                                                move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                move || {
+                                                    provide_contexts(full_path, req_parts, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -766,7 +764,7 @@ where
                                             let (bundle, runtime, scope) =
                                                 leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |cx| generate_head_metadata_separated(cx).1.into(),
+                                                    || generate_head_metadata_separated(cx).1.into(),
                                                     add_context,
                                                 );
 
@@ -785,17 +783,16 @@ where
 }
 
 fn provide_contexts(
-    cx: Scope,
     path: String,
     req_parts: RequestParts,
     default_res_options: ResponseOptions,
 ) {
     let integration = ServerIntegration { path };
-    provide_context(cx, RouterIntegrationContext::new(integration));
-    provide_context(cx, MetaContext::new());
-    provide_context(cx, req_parts);
-    provide_context(cx, default_res_options);
-    provide_server_redirect(cx, move |path| redirect(cx, path));
+    provide_context(RouterIntegrationContext::new(integration));
+    provide_context(MetaContext::new());
+    provide_context(req_parts);
+    provide_context(default_res_options);
+    provide_server_redirect(move |path| redirect(path));
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce(cx);
 }
@@ -818,8 +815,8 @@ fn provide_contexts(
 /// use viz::{Router, ServiceMaker};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -832,10 +829,7 @@ fn provide_contexts(
 ///     // build our application with a route
 ///     let app = Router::new().any(
 ///         "*",
-///         leptos_viz::render_app_async(
-///             leptos_options,
-///             |cx| view! { cx, <MyApp/> },
-///         ),
+///         leptos_viz::render_app_async(leptos_options, || view! { <MyApp/> }),
 ///     );
 ///
 ///     // run our app with hyper
@@ -856,7 +850,7 @@ fn provide_contexts(
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_async<IV>(
     options: LeptosOptions,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -881,10 +875,10 @@ where
 ///     let id = req.params::<String>()?;
 ///     let options = &*req.state::<Arc<LeptosOptions>>().ok_or(StateError::new::<Arc<LeptosOptions>>())?;
 ///     let handler = leptos_viz::render_app_async_with_context(options.clone(),
-///     move |cx| {
-///         provide_context(cx, id.clone());
+///     move || {
+///         provide_context(id.clone());
 ///     },
-///     |cx| view! { cx, <TodoApp/> }
+///     || view! { <TodoApp/> }
 /// );
 ///     handler(req).await.into_response()
 /// }
@@ -899,8 +893,8 @@ where
 /// - [RouterIntegrationContext](leptos_router::RouterIntegrationContext)
 pub fn render_app_async_with_context<IV>(
     options: LeptosOptions,
-    additional_context: impl Fn(leptos::Scope) + 'static + Clone + Send,
-    app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + 'static,
+    additional_context: impl Fn() + 'static + Clone + Send,
+    app_fn: impl Fn() -> IV + Clone + Send + 'static,
 ) -> impl Fn(
     Request,
 ) -> Pin<Box<dyn Future<Output = Result<Response>> + Send + 'static>>
@@ -944,8 +938,8 @@ where
                                             let app = {
                                                 let full_path = full_path.clone();
                                                 let req_parts = generate_request_parts(req).await;
-                                                move |cx| {
-                                                    provide_contexts(cx, full_path, req_parts, default_res_options);
+                                                move || {
+                                                    provide_contexts(full_path, req_parts, default_res_options);
                                                     app_fn(cx).into_view(cx)
                                                 }
                                             };
@@ -958,9 +952,8 @@ where
                                                 );
 
                                             // Extract the value of ResponseOptions from here
-                                            let cx = leptos::Scope { runtime, id: scope };
                                             let res_options =
-                                                use_context::<ResponseOptions>(cx).unwrap();
+                                                use_context::<ResponseOptions>().unwrap();
 
                                             let html = build_async_response(stream, &options, runtime, scope).await;
 
@@ -999,7 +992,7 @@ where
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list<IV>(
-    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    app_fn: impl FnOnce() -> IV + 'static,
 ) -> Vec<RouteListing>
 where
     IV: IntoView + 'static,
@@ -1011,7 +1004,7 @@ where
 /// create routes in Viz's Router without having to use wildcard matching or fallbacks. Takes in your root app Element
 /// as an argument so it can walk you app tree. This version is tailored to generate Viz compatible paths.
 pub async fn generate_route_list_with_exclusions<IV>(
-    app_fn: impl FnOnce(Scope) -> IV + 'static,
+    app_fn: impl FnOnce() -> IV + 'static,
     excluded_routes: Option<Vec<String>>,
 ) -> Vec<RouteListing>
 where
@@ -1077,7 +1070,7 @@ pub trait LeptosRoutes {
         self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1086,8 +1079,8 @@ pub trait LeptosRoutes {
         self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
-        additional_context: impl Fn(leptos::Scope) + Clone + Send + Sync + 'static,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
+        additional_context: impl Fn() + Clone + Send + Sync + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static;
@@ -1108,7 +1101,7 @@ impl LeptosRoutes for Router {
         self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
@@ -1120,8 +1113,8 @@ impl LeptosRoutes for Router {
         self,
         options: LeptosOptions,
         paths: Vec<RouteListing>,
-        additional_context: impl Fn(leptos::Scope) + Clone + Send + Sync + 'static,
-        app_fn: impl Fn(leptos::Scope) -> IV + Clone + Send + Sync + 'static,
+        additional_context: impl Fn() + Clone + Send + Sync + 'static,
+        app_fn: impl Fn() -> IV + Clone + Send + Sync + 'static,
     ) -> Self
     where
         IV: IntoView + 'static,
