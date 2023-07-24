@@ -213,11 +213,11 @@ impl ToTokens for Model {
                                 stringify!(#name),
                                 move |cx| {
                                     #tracing_guard_expr
-        
+
                                     #body_name(cx, #prop_names)
                                 }
                             );
-        
+
                             ::leptos::leptos_debugger::update_props(&format!("{}", comp.id()), __debugger_props__);
                             comp
                         }
@@ -227,7 +227,7 @@ impl ToTokens for Model {
                                 stringify!(#name),
                                 move |cx| {
                                     #tracing_guard_expr
-        
+
                                     #body_name(cx, #prop_names)
                                 }
                             )
@@ -275,7 +275,7 @@ impl ToTokens for Model {
                         let #props_name {
                             #prop_names
                         } = props;
-        
+
                         let __debugger_props__ = vec![#debugger_props];
                     }
                 } else {
