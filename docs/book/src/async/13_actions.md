@@ -22,16 +22,16 @@ async fn add_todo_request(new_title: &str) -> Uuid {
 >
 > ```rust
 > // if there's a single argument, just use that
-> let action1 = create_action(cx, |input: &String| {
+> let action1 = create_action(|input: &String| {
 >    let input = input.clone();
 >    async move { todo!() }
 > });
 >
 > // if there are no arguments, use the unit type `()`
-> let action2 = create_action(cx, |input: &()| async { todo!() });
+> let action2 = create_action(|input: &()| async { todo!() });
 >
 > // if there are multiple arguments, use a tuple
-> let action3 = create_action(cx,
+> let action3 = create_action(
 >   |input: &(usize, String)| async { todo!() }
 > );
 > ```
@@ -41,7 +41,7 @@ async fn add_todo_request(new_title: &str) -> Uuid {
 So in this case, all we need to do to create an action is
 
 ```rust
-let add_todo_action = create_action(cx, |input: &String| {
+let add_todo_action = create_action(|input: &String| {
     let input = input.to_owned();
     async move { add_todo_request(&input).await }
 });
@@ -66,9 +66,9 @@ let todo_id = add_todo_action.value(); // RwSignal<Option<Uuid>>
 This makes it easy to track the current state of your request, show a loading indicator, or do “optimistic UI” based on the assumption that the submission will succeed.
 
 ```rust
-let input_ref = create_node_ref::<Input>(cx);
+let input_ref = create_node_ref::<Input>();
 
-view! { cx,
+view! {
     <form
         on:submit=move |ev| {
             ev.prevent_default(); // don't reload the page...
@@ -116,10 +116,10 @@ async fn add_todo(text: &str) -> Uuid {
 }
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
+fn App() -> impl IntoView {
     // an action takes an async function with single argument
     // it can be a simple type, a struct, or ()
-    let add_todo = create_action(cx, |input: &String| {
+    let add_todo = create_action(|input: &String| {
         // the input is a reference, but we need the Future to own it
         // this is important: we need to clone and move into the Future
         // so it has a 'static lifetime
@@ -133,9 +133,9 @@ fn App(cx: Scope) -> impl IntoView {
     let pending = add_todo.pending();
     let todo_id = add_todo.value();
 
-    let input_ref = create_node_ref::<Input>(cx);
+    let input_ref = create_node_ref::<Input>();
 
-    view! { cx,
+    view! {
         <form
             on:submit=move |ev| {
                 ev.prevent_default(); // don't reload the page...
@@ -168,7 +168,7 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 ```
 
