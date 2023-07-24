@@ -50,8 +50,8 @@ Now we can use them in a component. Imagine a URL that has both params and a que
 The typed versions return `Memo<Result<T, _>>`. It’s a Memo so it reacts to changes in the URL. It’s a `Result` because the params or query need to be parsed from the URL, and may or may not be valid.
 
 ```rust
-let params = use_params::<ContactParams>(cx);
-let query = use_query::<ContactSearch>(cx);
+let params = use_params::<ContactParams>();
+let query = use_query::<ContactSearch>();
 
 // id: || -> usize
 let id = move || {
@@ -66,8 +66,8 @@ let id = move || {
 The untyped versions return `Memo<ParamsMap>`. Again, it’s memo to react to changes in the URL. [`ParamsMap`](https://docs.rs/leptos_router/0.2.3/leptos_router/struct.ParamsMap.html) behaves a lot like any other map type, with a `.get()` method that returns `Option<&String>`.
 
 ```rust
-let params = use_params_map(cx);
-let query = use_query_map(cx);
+let params = use_params_map();
+let query = use_query_map();
 
 // id: || -> Option<String>
 let id = move || {
@@ -94,8 +94,8 @@ use leptos::*;
 use leptos_router::*;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn App() -> impl IntoView {
+    view! {
         <Router>
             <h1>"Contact App"</h1>
             // this <nav> will show on every routes,
@@ -110,7 +110,7 @@ fn App(cx: Scope) -> impl IntoView {
             <main>
                 <Routes>
                     // / just has an un-nested "Home"
-                    <Route path="/" view=|cx| view! { cx,
+                    <Route path="/" view=|| view! {
                         <h3>"Home"</h3>
                     }/>
                     // /contacts has nested routes
@@ -125,14 +125,14 @@ fn App(cx: Scope) -> impl IntoView {
                                     "(Contact Info)"
                                 </div>
                             }/>
-                            <Route path="conversations" view=|cx| view! { cx,
+                            <Route path="conversations" view=|| view! {
                                 <div class="tab">
                                     "(Conversations)"
                                 </div>
                             }/>
                         </Route>
                         // if no id specified, fall back
-                        <Route path="" view=|cx| view! { cx,
+                        <Route path="" view=|| view! {
                             <div class="select-user">
                                 "Select a user to view contact info."
                             </div>
@@ -145,8 +145,8 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn ContactList(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn ContactList() -> impl IntoView {
+    view! {
         <div class="contact-list">
             // here's our contact list component itself
             <div class="contact-list-contacts">
@@ -165,9 +165,9 @@ fn ContactList(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn ContactInfo(cx: Scope) -> impl IntoView {
+fn ContactInfo() -> impl IntoView {
     // we can access the :id param reactively with `use_params_map`
-    let params = use_params_map(cx);
+    let params = use_params_map();
     let id = move || params.with(|params| params.get("id").cloned().unwrap_or_default());
 
     // imagine we're loading data from an API here
@@ -178,7 +178,7 @@ fn ContactInfo(cx: Scope) -> impl IntoView {
         _ => "User not found.",
     };
 
-    view! { cx,
+    view! {
         <div class="contact-info">
             <h4>{name}</h4>
             <div class="tabs">
@@ -194,7 +194,7 @@ fn ContactInfo(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

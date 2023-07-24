@@ -27,6 +27,7 @@ cargo add leptos --features=csr,nightly
 ```
 
 Or you can leave off `nighly` if you're using stable Rust
+
 ```bash
 cargo add leptos --features=csr
 ```
@@ -64,7 +65,7 @@ And add a simple “Hello, world!” to your `main.rs`
 use leptos::*;
 
 fn main() {
-    mount_to_body(|cx| view! { cx,  <p>"Hello, world!"</p> })
+    mount_to_body(|| view! {  <p>"Hello, world!"</p> })
 }
 ```
 
