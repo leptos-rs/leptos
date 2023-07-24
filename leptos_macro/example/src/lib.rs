@@ -2,7 +2,6 @@ use leptos::*;
 
 #[component]
 pub fn TestComponent(
-    _cx: Scope,
     /// Rust code
     /// ```
     /// assert_eq!("hello", stringify!(hello));
@@ -28,6 +27,7 @@ pub fn TestComponent(
     /// # use example::TestComponent;
     /// <TestComponent key="hello"/>
     #[prop(optional)]
+    another: usize,
     another: usize,
     /// rust unclosed
     /// ```view

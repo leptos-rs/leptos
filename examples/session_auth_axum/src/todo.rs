@@ -170,8 +170,7 @@ pub fn TodoApp() -> impl IntoView {
             <main>
                 <Routes>
                     <Route path="" view=Todos/> //Route
-                    <Route path="signup" view=move |cx| view! {
-                        cx,
+                    <Route path="signup" view=move || view! {
                         <Signup action=signup/>
                     }/>
                     <Route path="login" view=move || view! {

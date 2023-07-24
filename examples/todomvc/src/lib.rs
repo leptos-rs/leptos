@@ -96,6 +96,12 @@ impl Todos {
     }
 }
 
+impl Default for Todos {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Todo {
     pub id: Uuid,
