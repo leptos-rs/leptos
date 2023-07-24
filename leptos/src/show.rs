@@ -26,7 +26,8 @@ use leptos_reactive::{create_memo, signal_prelude::*};
 ///     "Small number!"
 ///   </Show>
 /// }
-/// # });
+/// # ;
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
