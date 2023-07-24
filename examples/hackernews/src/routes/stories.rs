@@ -69,8 +69,8 @@ pub fn Stories() -> impl IntoView {
                     fallback=move || view! {  <p>"Loading..."</p> }
                 >
                     <span class="page-link"
-                        class:disabled=move || hide_more_link()
-                        aria-hidden=move || hide_more_link()
+                        class:disabled=hide_more_link
+                        aria-hidden=hide_more_link
                     >
                         <a href=move || format!("/{}?page={}", story_type(), page() + 1)
                             aria-label="Next Page"
