@@ -1,11 +1,10 @@
-use crate::Show;
+use crate::{ChildrenFn, Show};
 use core::time::Duration;
 use leptos::component;
-use leptos_dom::{helpers::TimeoutHandle, Fragment, IntoView};
+use leptos_dom::{helpers::TimeoutHandle, IntoView};
 use leptos_macro::view;
 use leptos_reactive::{
-    create_effect, on_cleanup, signal_prelude::*, store_value, Scope,
-    StoredValue,
+    create_effect, on_cleanup, signal_prelude::*, store_value, StoredValue,
 };
 
 /// A component that will show its children when the `when` condition is `true`.
@@ -19,9 +18,9 @@ use leptos_reactive::{
 /// # use leptos::*;
 /// # #[component]
 /// # pub fn App(cx: Scope) -> impl IntoView {
-/// let show = create_rw_signal(cx, false);
+/// let show = create_rw_signal(false);
 ///
-/// view! { cx,
+/// view! {
 ///     <div
 ///         class="hover-me"
 ///         on:mouseenter=move |_| show.set(true)
@@ -49,10 +48,8 @@ use leptos_reactive::{
 )]
 #[component]
 pub fn AnimatedShow(
-    /// The scope the component is running in
-    cx: Scope,
     /// The components Show wraps
-    children: Box<dyn Fn(Scope) -> Fragment>,
+    children: ChildrenFn,
     /// If the component should show or not
     #[prop(into)]
     when: MaybeSignal<bool>,
@@ -65,18 +62,15 @@ pub fn AnimatedShow(
     /// The timeout after which the component will be unmounted if `when == false`
     hide_delay: Duration,
 ) -> impl IntoView {
-    let handle: StoredValue<Option<TimeoutHandle>> = store_value(cx, None);
-    let cls = create_rw_signal(
-        cx,
-        if when.get_untracked() {
-            show_class
-        } else {
-            hide_class
-        },
-    );
-    let show = create_rw_signal(cx, when.get_untracked());
+    let handle: StoredValue<Option<TimeoutHandle>> = store_value(None);
+    let cls = create_rw_signal(if when.get_untracked() {
+        show_class
+    } else {
+        hide_class
+    });
+    let show = create_rw_signal(when.get_untracked());
 
-    create_effect(cx, move |_| {
+    create_effect(move |_| {
         if when.get() {
             // clear any possibly active timer
             if let Some(h) = handle.get_value() {
@@ -97,15 +91,15 @@ pub fn AnimatedShow(
         }
     });
 
-    on_cleanup(cx, move || {
+    on_cleanup(move || {
         if let Some(h) = handle.get_value() {
             h.clear();
         }
     });
 
-    view! { cx,
-        <Show when=move || show.get() fallback=|_| ()>
-            <div class=move || cls.get()>{children(cx)}</div>
+    view! {
+        <Show when=move || show.get() fallback=|| ()>
+            <div class=move || cls.get()>{children()}</div>
         </Show>
     }
 }
