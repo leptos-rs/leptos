@@ -95,7 +95,7 @@ impl ResponseOptions {
 /// it sets a StatusCode of 302 and a LOCATION header with the provided value.
 /// If looking to redirect from the client, `leptos_router::use_navigate()` should be used instead
 pub fn redirect(path: &str) {
-    if let Some(response_options) = use_context::<ResponseOptions>(cx) {
+    if let Some(response_options) = use_context::<ResponseOptions>() {
         response_options.set_status(StatusCode::FOUND);
         response_options.insert_header(
             header::LOCATION,
@@ -156,7 +156,7 @@ pub async fn generate_request_parts(req: Request) -> RequestParts {
 /// - [RequestParts]
 /// - [ResponseOptions]
 pub async fn handle_server_fns(req: Request) -> Result<Response> {
-    handle_server_fns_inner(req, |_| {}).await
+    handle_server_fns_inner(req, || {}).await
 }
 
 /// A Viz handlers to listens for a request with Leptos server function arguments in the body,
@@ -198,9 +198,8 @@ async fn handle_server_fns_inner(
                             server_fn_by_path(fn_name.as_str())
                         {
                             let runtime = create_runtime();
-                            let (disposer) = raw_scope_and_disposer(runtime);
 
-                            additional_context(cx);
+                            additional_context();
 
                             let req_parts = generate_request_parts(req).await;
                             // Add this so we can get details about the Request
@@ -215,11 +214,11 @@ async fn handle_server_fns_inner(
                                 Encoding::GetJSON | Encoding::GetCBOR => &query,
                             };
 
-                            let res = match server_fn.call(data).await {
+                            let res = match server_fn.call((), data).await {
                                 Ok(serialized) => {
                                     // If ResponseOptions are set, add the headers and status to the request
                                     let res_options =
-                                        use_context::<ResponseOptions>(cx);
+                                        use_context::<ResponseOptions>();
 
                                     // if this is Accept: application/json then send a serialized JSON response
                                     let accept_header = headers
@@ -301,8 +300,6 @@ async fn handle_server_fns_inner(
                                             .unwrap_or_else(|_| e.to_string()),
                                     )),
                             };
-                            // clean up the scope
-                            disposer.dispose();
                             runtime.dispose();
                             res
                         } else {
@@ -399,7 +396,7 @@ pub fn render_app_to_stream<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_with_context(options, |_| {}, app_fn)
+    render_app_to_stream_with_context(options, || {}, app_fn)
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
@@ -469,7 +466,7 @@ pub fn render_app_to_stream_in_order<IV>(
 where
     IV: IntoView,
 {
-    render_app_to_stream_in_order_with_context(options, |_| {}, app_fn)
+    render_app_to_stream_in_order_with_context(options, || {}, app_fn)
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
@@ -590,19 +587,19 @@ where
                                                 let req_parts = generate_request_parts(req).await;
                                                 move || {
                                                     provide_contexts(full_path, req_parts, default_res_options);
-                                                    app_fn(cx).into_view(cx)
+                                                    app_fn().into_view()
                                                 }
                                             };
 
-                                            let (bundle, runtime, scope) =
+                                            let (bundle, runtime) =
                                                 leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
                                                     app,
-                                                    || generate_head_metadata_separated(cx).1.into(),
+                                                    || generate_head_metadata_separated().1.into(),
                                                     add_context,
                                                     replace_blocks
                                                 );
 
-                                                forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
+                                                forward_stream(&options, res_options2, bundle, runtime, tx).await;
                                         })
                                         .await;
                                 }
@@ -757,18 +754,18 @@ where
                                                 let req_parts = generate_request_parts(req).await;
                                                 move || {
                                                     provide_contexts(full_path, req_parts, default_res_options);
-                                                    app_fn(cx).into_view(cx)
+                                                    app_fn().into_view()
                                                 }
                                             };
 
-                                            let (bundle, runtime, scope) =
+                                            let (bundle, runtime) =
                                                 leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
                                                     app,
-                                                    || generate_head_metadata_separated(cx).1.into(),
+                                                    || generate_head_metadata_separated().1.into(),
                                                     add_context,
                                                 );
 
-                                            forward_stream(&options, res_options2, bundle, runtime, scope, tx).await;
+                                            forward_stream(&options, res_options2, bundle, runtime, tx).await;
                                         })
                                         .await;
                                 }
@@ -794,7 +791,7 @@ fn provide_contexts(
     provide_context(default_res_options);
     provide_server_redirect(move |path| redirect(path));
     #[cfg(feature = "nonce")]
-    leptos::nonce::provide_nonce(cx);
+    leptos::nonce::provide_nonce();
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
@@ -860,7 +857,7 @@ pub fn render_app_async<IV>(
 where
     IV: IntoView,
 {
-    render_app_async_with_context(options, |_| {}, app_fn)
+    render_app_async_with_context(options, || {}, app_fn)
 }
 
 /// Returns a Viz [Handler](viz::Handler) that listens for a `GET` request and tries
@@ -940,14 +937,14 @@ where
                                                 let req_parts = generate_request_parts(req).await;
                                                 move || {
                                                     provide_contexts(full_path, req_parts, default_res_options);
-                                                    app_fn(cx).into_view(cx)
+                                                    app_fn().into_view()
                                                 }
                                             };
 
-                                            let (stream, runtime, scope) =
+                                            let (stream, runtime) =
                                                 render_to_stream_with_prefix_undisposed_with_context(
                                                     app,
-                                                    |_| "".into(),
+                                                    || "".into(),
                                                     add_context,
                                                 );
 
@@ -955,7 +952,7 @@ where
                                             let res_options =
                                                 use_context::<ResponseOptions>().unwrap();
 
-                                            let html = build_async_response(stream, &options, runtime, scope).await;
+                                            let html = build_async_response(stream, &options, runtime).await;
 
                                             let new_res_parts = res_options.0.read().clone();
 
@@ -1106,7 +1103,7 @@ impl LeptosRoutes for Router {
     where
         IV: IntoView + 'static,
     {
-        self.leptos_routes_with_context(options, paths, |_| {}, app_fn)
+        self.leptos_routes_with_context(options, paths, || {}, app_fn)
     }
 
     fn leptos_routes_with_context<IV>(

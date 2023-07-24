@@ -187,7 +187,6 @@ impl RouterContext {
             let inner = Rc::clone(&inner);
             move |ev| inner.clone().handle_anchor_click(ev)
         });
-        // TODO on_cleanup remove event listener
 
         Self { inner }
     }
