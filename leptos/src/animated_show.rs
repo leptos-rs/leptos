@@ -17,7 +17,7 @@ use leptos_reactive::{
 /// # use core::time::Duration;
 /// # use leptos::*;
 /// # #[component]
-/// # pub fn App(cx: Scope) -> impl IntoView {
+/// # pub fn App() -> impl IntoView {
 /// let show = create_rw_signal(false);
 ///
 /// view! {
