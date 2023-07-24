@@ -365,7 +365,7 @@ impl Element {
               is_void: el.is_void(),
               attrs: Default::default(),
               children: Default::default(),
-              id: el.hydration_id().clone(),
+              id: *el.hydration_id(),
               #[cfg(debug_assertions)]
               view_marker: None
             }
