@@ -1,7 +1,4 @@
-use crate::{
-    node::{ReactiveNode, ReactiveNodeState, ReactiveNodeType},
-    with_runtime, Runtime,
-};
+use crate::{with_runtime, Runtime};
 use cfg_if::cfg_if;
 use std::{any::Any, cell::RefCell, marker::PhantomData, rc::Rc};
 
@@ -127,50 +124,6 @@ where
     _ = with_runtime(|runtime| {
         runtime.update_if_necessary(e);
     });
-}
-
-/// Creates a reactive root. This creates an anchoring "root node"
-/// that begins the whole tree of reactive ownership. Unlike effects, the root
-/// does not re-run in response to changes. It simply exists to be the
-/// ultimate ancestor of every node in the reactive graph.
-#[cfg_attr(
-    any(debug_assertions, feature="ssr"),
-    instrument(
-        level = "trace",
-        skip_all,
-        fields(
-            ty = %std::any::type_name::<T>()
-        )
-    )
-)]
-#[track_caller]
-#[inline(always)]
-pub fn create_root<T>(f: impl Fn(Option<T>) -> T + 'static)
-where
-    T: 'static,
-{
-    #[cfg(debug_assertions)]
-    let defined_at = std::panic::Location::caller();
-
-    with_runtime(|runtime| {
-        let id = runtime.nodes.borrow_mut().insert(ReactiveNode {
-            value: Some(Rc::new(RefCell::new(None::<T>))),
-            state: ReactiveNodeState::Dirty,
-            node_type: ReactiveNodeType::Effect {
-                f: Rc::new(Effect {
-                    f,
-                    ty: PhantomData,
-                    #[cfg(debug_assertions)]
-                    defined_at,
-                }),
-            },
-        });
-        // root is the owner, but it's not a reactive observer
-        runtime.owner.set(Some(id));
-        runtime.observer.set(None);
-        runtime.update_if_necessary(id);
-    })
-    .expect("tried to create a root in a runtime that has been disposed")
 }
 
 #[doc(hidden)]

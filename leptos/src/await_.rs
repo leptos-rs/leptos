@@ -18,7 +18,7 @@ use leptos_reactive::{
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
 /// # if false {
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// async fn fetch_monkeys(monkey: i32) -> i32 {
 ///     // do some expensive work
 ///     3
@@ -33,7 +33,7 @@ use leptos_reactive::{
 ///     </Await>
 /// }
 /// # ;
-/// # });
+/// # runtime.dispose();
 /// # }
 /// ```
 pub fn Await<T, Fut, FF, VF, V>(
@@ -54,7 +54,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     /// ```rust
     /// # use leptos::*;
     /// # if false {
-    /// # run_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// # async fn fetch_monkeys(monkey: i32) -> i32 {
     /// #    3
     /// # }
@@ -74,7 +74,7 @@ pub fn Await<T, Fut, FF, VF, V>(
     ///  ```rust
     /// # use leptos::*;
     /// # if false {
-    /// # run_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     /// # async fn fetch_monkeys(monkey: i32) -> i32 {
     /// #    3
     /// # }
