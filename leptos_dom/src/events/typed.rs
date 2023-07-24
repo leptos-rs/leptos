@@ -103,7 +103,7 @@ impl<E: FromWasmAbi> Custom<E> {
     ///
     /// ```rust
     /// # use leptos::*;
-    /// # run_scope(create_runtime(), || {
+    /// # let runtime = create_runtime();
     /// # let canvas_ref: NodeRef<html::Canvas> = create_node_ref();
     /// let mut non_passive_wheel = ev::Custom::<ev::WheelEvent>::new("wheel");
     /// # if false {
@@ -115,7 +115,7 @@ impl<E: FromWasmAbi> Custom<E> {
     ///         // Handle _event
     ///     });
     /// });
-    /// # });
+    /// # runtime.dispose();
     /// ```
     ///
     /// [`AddEventListenerOptions`]: web_sys::AddEventListenerOptions

@@ -242,7 +242,7 @@ impl MetaContext {
     /// use leptos_meta::*;
     ///
     /// # #[cfg(not(any(feature = "csr", feature = "hydrate")))] {
-    /// run_scope(create_runtime(), |cx| {
+    /// # let runtime = create_runtime();
     ///   provide_meta_context();
     ///
     ///   let app = view! {
@@ -258,8 +258,8 @@ impl MetaContext {
     ///      !app.into_view().render_to_string().contains("my title")
     ///   );
     ///   // `MetaContext::dehydrate()` gives you HTML that should be in the `<head>`
-    ///   assert!(use_head().dehydrate().contains("<title>my title</title>"))
-    /// });
+    ///   assert!(use_head().dehydrate().contains("<title>my title</title>"));
+    /// # runtime.dispose();
     /// # }
     /// ```
     pub fn dehydrate(&self) -> String {
