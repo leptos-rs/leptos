@@ -415,8 +415,6 @@ use leptos::*;
 /// Shows progress toward a goal.
 #[component]
 fn ProgressBar(
-    // All components take a reactive `Scope` as the first argument
-
     // Marks this as an optional prop. It will default to the default
     // value of its type, i.e., 0.
     #[prop(default = 100)]

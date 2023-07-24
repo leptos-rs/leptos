@@ -70,7 +70,7 @@ where
 
 `render_prop` and `children` are both functions, so we can call them to generate
 the appropriate views. `children`, in particular, is an alias for
-`Box<dyn FnOnce(Scope) -> Fragment>`. (Aren't you glad we named it `Children` instead?)
+`Box<dyn FnOnce() -> Fragment>`. (Aren't you glad we named it `Children` instead?)
 
 > If you need a `Fn` or `FnMut` here because you need to call `children` more than once,
 > we also provide `ChildrenFn` and `ChildrenMut` aliases.
@@ -184,7 +184,7 @@ pub fn TakesChildren<F, IV>(
     /// converted into a View (type IV)
     render_prop: F,
     /// `children` takes the `Children` type
-    /// this is an alias for `Box<dyn FnOnce(Scope) -> Fragment>`
+    /// this is an alias for `Box<dyn FnOnce() -> Fragment>`
     /// ... aren't you glad we named it `Children` instead?
     children: Children,
 ) -> impl IntoView
