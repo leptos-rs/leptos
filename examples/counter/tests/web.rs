@@ -32,11 +32,12 @@ fn clear() {
 
     // now let's test the <div> against the expected value
     // we can do this by testing its `outerHTML`
+    let runtime = create_runtime();
     assert_eq!(
         div.outer_html(),
         // here we spawn a mini reactive system, just to render the
         // test case
-        run_scope(create_runtime(), || {
+        {
             // it's as if we're creating it with a value of 0, right?
             let (value, _set_value) = create_signal(0);
 
@@ -52,7 +53,7 @@ fn clear() {
             // the view returned an HtmlElement<Div>, which is a smart pointer for
             // a DOM element. So we can still just call .outer_html()
             .outer_html()
-        })
+        }
     );
 
     // There's actually an easier way to do this...
@@ -65,6 +66,8 @@ fn clear() {
         );
         comparison_wrapper.inner_html()
     });
+
+    runtime.dispose();
 }
 
 #[wasm_bindgen_test]
@@ -118,10 +121,12 @@ fn inc() {
 
     assert_eq!(text.text_content(), Some("Value: 0!".to_string()));
 
+    let runtime = create_runtime();
+
     // Or you can test against a sample view!
     assert_eq!(
         div.outer_html(),
-        run_scope(create_runtime(), || {
+        {
             let (value, _) = create_signal(0);
             view! {
                 <div>
@@ -132,14 +137,14 @@ fn inc() {
                 </div>
             }
         }
-        .outer_html())
+        .outer_html()
     );
 
     inc.click();
 
     assert_eq!(
         div.outer_html(),
-        run_scope(create_runtime(), || {
+        {
             // because we've clicked, it's as if the signal is starting at 1
             let (value, _) = create_signal(1);
             view! {
@@ -151,6 +156,8 @@ fn inc() {
                 </div>
             }
         }
-        .outer_html())
+        .outer_html()
     );
+
+    runtime.dispose();
 }

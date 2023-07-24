@@ -15,7 +15,7 @@ use leptos_reactive::{create_memo, signal_prelude::*};
 /// # use leptos_reactive::*;
 /// # use leptos_macro::*;
 /// # use leptos_dom::*; use leptos::*;
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// let (value, set_value) = create_signal(0);
 ///
 /// view! {

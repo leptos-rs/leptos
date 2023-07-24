@@ -24,7 +24,7 @@ use std::{
 /// # use leptos_dom::*;
 /// # use leptos::*;
 /// # if false {
-/// # run_scope(create_runtime(), |cx| {
+/// # let runtime = create_runtime();
 /// async fn fetch_cats(how_many: u32) -> Option<Vec<String>> {
 ///     Some(vec![])
 /// }
@@ -58,7 +58,7 @@ use std::{
 ///     </Transition>
 ///   </div>
 /// };
-/// # });
+/// # runtime.dispose();
 /// # }
 /// ```
 #[cfg_attr(

@@ -3,7 +3,7 @@ use leptos::*;
 
 #[component]
 pub fn App(cx: Scope) -> impl IntoView {
-    let show = create_rw_signal(cx, false);
+    let show = create_rw_signal(false);
 
     // the CSS classes in this example are just written directly inside the `index.html`
     view! { cx,

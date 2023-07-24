@@ -154,15 +154,15 @@ pub fn use_resolved_path(
 /// wrap it in [`request_animation_frame`](leptos::request_animation_frame)
 /// to delay it until that routing process is complete.
 /// ```rust
-/// # use leptos::{request_animation_frame,create_scope,create_runtime};
-/// # create_scope(create_runtime(), || {
+/// # use leptos::{request_animation_frame, create_runtime};
+/// # let runtime = create_runtime();
 /// # if false { // can't actually navigate, no <Router/>
 /// let navigate = leptos_router::use_navigate();
 /// request_animation_frame(move || {
 ///     _ = navigate("/", Default::default());
 /// });
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 pub fn use_navigate(
 ) -> impl Fn(&str, NavigateOptions) -> Result<(), NavigationError> {
