@@ -20,6 +20,18 @@ cwd = "examples"
 command = "cargo"
 args = ["make", "ci-clean"]
 
+[tasks.check-examples]
+workspace = false
+cwd = "examples"
+command = "cargo"
+args = ["make", "check-clean"]
+
+[tasks.build-examples]
+workspace = false
+cwd = "examples"
+command = "cargo"
+args = ["make", "build-clean"]
+
 [tasks.clean-examples]
 workspace = false
 cwd = "examples"
