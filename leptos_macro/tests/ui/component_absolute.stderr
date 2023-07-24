@@ -1,15 +1,7 @@
-error: this method requires a `Scope` parameter
- --> tests/ui/component_absolute.rs:2:1
-  |
-2 | fn missing_scope() {}
-  | ^^^^^^^^^^^^^^^^^^
-  |
-  = help: try `fn missing_scope(cx: Scope, /* ... */)`
-
 error: return type is incorrect
  --> tests/ui/component_absolute.rs:5:1
   |
-5 | fn missing_return_type(cx: ::leptos::Scope) {
+5 | fn missing_return_type() {
   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = help: return signature must be `-> impl IntoView`
