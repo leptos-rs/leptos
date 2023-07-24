@@ -38,7 +38,7 @@ special knowledge.
 For example, let’s start with a simple signal and derived signal:
 
 ```rust
-let (value, set_value) = create_signal(cx, 0);
+let (value, set_value) = create_signal(0);
 let is_odd = move || value() & 1 == 1;
 ```
 
@@ -54,7 +54,7 @@ Let’s say I want to render some text if the number is odd, and some other text
 if it’s even. Well, how about this?
 
 ```rust
-view! { cx,
+view! {
     <p>
     {move || if is_odd() {
         "Odd"
@@ -81,7 +81,7 @@ let message = move || {
     }
 };
 
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -90,7 +90,7 @@ This works fine. We can make it a little shorter if we’d like, using `bool::th
 
 ```rust
 let message = move || is_odd().then(|| "Ding ding ding!");
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -112,7 +112,7 @@ let message = move || {
         _ => "Even"
     }
 };
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -131,7 +131,7 @@ above, where the value switches from even to odd on every change, this is fine.
 But consider the following example:
 
 ```rust
-let (value, set_value) = create_signal(cx, 0);
+let (value, set_value) = create_signal(0);
 
 let message = move || if value() > 5 {
     "Big"
@@ -139,7 +139,7 @@ let message = move || if value() > 5 {
     "Small"
 };
 
-view! { cx,
+view! {
     <p>{message}</p>
 }
 ```
@@ -194,12 +194,12 @@ the answer. You pass it a `when` condition function, a `fallback` to be shown if
 the `when` function returns `false`, and children to be rendered if `when` is `true`.
 
 ```rust
-let (value, set_value) = create_signal(cx, 0);
+let (value, set_value) = create_signal(0);
 
-view! { cx,
+view! {
   <Show
     when=move || { value() > 5 }
-    fallback=|cx| view! { cx, <Small/> }
+    fallback=|| view! { <Small/> }
   >
     <Big/>
   </Show>
@@ -227,19 +227,19 @@ can be a little annoying if you’re returning different HTML elements from
 different branches of a conditional:
 
 ```rust,compile_error
-view! { cx,
+view! {
     <main>
         {move || match is_odd() {
             true if value() == 1 => {
                 // returns HtmlElement<Pre>
-                view! { cx, <pre>"One"</pre> }
+                view! { <pre>"One"</pre> }
             },
             false if value() == 2 => {
                 // returns HtmlElement<P>
-                view! { cx, <p>"Two"</p> }
+                view! { <p>"Two"</p> }
             }
             // returns HtmlElement<Textarea>
-            _ => view! { cx, <textarea>{value()}</textarea> }
+            _ => view! { <textarea>{value()}</textarea> }
         }}
     </main>
 }
@@ -259,24 +259,24 @@ to get yourself out of this situation:
 1. If you have multiple `HtmlElement` types, convert them to `HtmlElement<AnyElement>`
    with [`.into_any()`](https://docs.rs/leptos/latest/leptos/struct.HtmlElement.html#method.into_any)
 2. If you have a variety of view types that are not all `HtmlElement`, convert them to
-   `View`s with [`.into_view(cx)`](https://docs.rs/leptos/latest/leptos/trait.IntoView.html#tymethod.into_view).
+   `View`s with [`.into_view()`](https://docs.rs/leptos/latest/leptos/trait.IntoView.html#tymethod.into_view).
 
 Here’s the same example, with the conversion added:
 
 ```rust,compile_error
-view! { cx,
+view! {
     <main>
         {move || match is_odd() {
             true if value() == 1 => {
                 // returns HtmlElement<Pre>
-                view! { cx, <pre>"One"</pre> }.into_any()
+                view! { <pre>"One"</pre> }.into_any()
             },
             false if value() == 2 => {
                 // returns HtmlElement<P>
-                view! { cx, <p>"Two"</p> }.into_any()
+                view! { <p>"Two"</p> }.into_any()
             }
             // returns HtmlElement<Textarea>
-            _ => view! { cx, <textarea>{value()}</textarea> }.into_any()
+            _ => view! { <textarea>{value()}</textarea> }.into_any()
         }}
     </main>
 }
@@ -293,12 +293,12 @@ view! { cx,
 use leptos::*;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    let (value, set_value) = create_signal(cx, 0);
+fn App() -> impl IntoView {
+    let (value, set_value) = create_signal(0);
     let is_odd = move || value() & 1 == 1;
     let odd_text = move || if is_odd() { Some("How odd!") } else { None };
 
-    view! { cx,
+    view! {
         <h1>"Control Flow"</h1>
 
         // Simple UI to update and show a value
@@ -345,37 +345,37 @@ fn App(cx: Scope) -> impl IntoView {
         //    needed. This makes it more efficient in many cases
         //    than a {move || if ...} block
         <Show when=is_odd
-            fallback=|cx| view! { cx, <p>"Even steven"</p> }
+            fallback=|| view! { <p>"Even steven"</p> }
         >
             <p>"Oddment"</p>
         </Show>
 
         // d. Because `bool::then()` converts a `bool` to
         //    `Option`, you can use it to create a show/hide toggled
-        {move || is_odd().then(|| view! { cx, <p>"Oddity!"</p> })}
+        {move || is_odd().then(|| view! { <p>"Oddity!"</p> })}
 
         <h2>"Converting between Types"</h2>
         // e. Note: if branches return different types,
         //    you can convert between them with
         //    `.into_any()` (for different HTML element types)
-        //    or `.into_view(cx)` (for all view types)
+        //    or `.into_view()` (for all view types)
         {move || match is_odd() {
             true if value() == 1 => {
                 // <pre> returns HtmlElement<Pre>
-                view! { cx, <pre>"One"</pre> }.into_any()
+                view! { <pre>"One"</pre> }.into_any()
             },
             false if value() == 2 => {
                 // <p> returns HtmlElement<P>
                 // so we convert into a more generic type
-                view! { cx, <p>"Two"</p> }.into_any()
+                view! { <p>"Two"</p> }.into_any()
             }
-            _ => view! { cx, <textarea>{value()}</textarea> }.into_any()
+            _ => view! { <textarea>{value()}</textarea> }.into_any()
         }}
     }
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

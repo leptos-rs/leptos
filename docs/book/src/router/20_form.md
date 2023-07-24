@@ -24,15 +24,15 @@ async fn fetch_results() {
 }
 
 #[component]
-pub fn FormExample(cx: Scope) -> impl IntoView {
+pub fn FormExample() -> impl IntoView {
     // reactive access to URL query strings
-    let query = use_query_map(cx);
+    let query = use_query_map();
 	// search stored as ?q=
     let search = move || query().get("q").cloned().unwrap_or_default();
 	// a resource driven by the search string
-	let search_results = create_resource(cx, search, fetch_results);
+	let search_results = create_resource(search, fetch_results);
 
-	view! { cx,
+	view! {
 		<Form method="GET" action="">
 			<input type="search" name="search" value=search/>
 			<input type="submit"/>
@@ -51,7 +51,7 @@ This is a great pattern. The data flow is extremely clear: all data flows from t
 We can actually take it a step further and do something kind of clever:
 
 ```rust
-view! { cx,
+view! {
 	<Form method="GET" action="">
 		<input type="search" name="search" value=search
 			oninput="this.form.requestSubmit()"
@@ -74,8 +74,8 @@ use leptos::*;
 use leptos_router::*;
 
 #[component]
-fn App(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn App() -> impl IntoView {
+    view! {
         <Router>
             <h1><code>"<Form/>"</code></h1>
             <main>
@@ -88,14 +88,14 @@ fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-pub fn FormExample(cx: Scope) -> impl IntoView {
+pub fn FormExample() -> impl IntoView {
     // reactive access to URL query
-    let query = use_query_map(cx);
+    let query = use_query_map();
     let name = move || query().get("name").cloned().unwrap_or_default();
     let number = move || query().get("number").cloned().unwrap_or_default();
     let select = move || query().get("select").cloned().unwrap_or_default();
 
-    view! { cx,
+    view! {
         // read out the URL query strings
         <table>
             <tr>
@@ -172,7 +172,7 @@ pub fn FormExample(cx: Scope) -> impl IntoView {
 }
 
 fn main() {
-    leptos::mount_to_body(|cx| view! { cx, <App/> })
+    leptos::mount_to_body(|| view! { <App/> })
 }
 
 ```

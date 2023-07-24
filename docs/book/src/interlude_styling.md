@@ -14,10 +14,10 @@ This allows you to write components like this:
 
 ```rust
 #[component]
-fn Home(cx: Scope) -> impl IntoView {
-    let (count, set_count) = create_signal(cx, 0);
+fn Home() -> impl IntoView {
+    let (count, set_count) = create_signal(0);
 
-    view! { cx,
+    view! {
         <main class="my-0 mx-auto max-w-3xl text-center">
             <h2 class="p-6 text-4xl">"Welcome to Leptos with Tailwind"</h2>
             <p class="px-10 pb-10 text-left">"Tailwind will scan your Rust files for Tailwind class names and compile them into a CSS file."</p>
@@ -48,7 +48,7 @@ This allows you to write components like this:
 use stylers::style;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     let styler_class = style! { "App",
         #two{
             color: blue;
@@ -74,7 +74,7 @@ pub fn App(cx: Scope) -> impl IntoView {
         }
     };
 
-    view! { cx, class = styler_class,
+    view! { class = styler_class,
         <div class="one">
             <h1 id="two">"Hello"</h1>
             <h2>"World"</h2>
@@ -93,7 +93,7 @@ pub fn App(cx: Scope) -> impl IntoView {
 use styled::style;
 
 #[component]
-pub fn MyComponent(cx: Scope) -> impl IntoView {
+pub fn MyComponent() -> impl IntoView {
     let styles = style!(
       div {
         background-color: red;
@@ -101,7 +101,7 @@ pub fn MyComponent(cx: Scope) -> impl IntoView {
       }
     );
 
-    styled::view! { cx, styles,
+    styled::view! { styles,
         <div>"This text should be red with white text."</div>
     }
 }

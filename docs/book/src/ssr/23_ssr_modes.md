@@ -84,7 +84,7 @@ Because it offers the best blend of performance characteristics, Leptos defaults
 ```rust
 <Routes>
 	// We’ll load the home page with out-of-order streaming and <Suspense/>
-	<Route path="" view=HomePage
+	<Route path="" view=HomePage/>
 
 	// We'll load the posts with async rendering, so they can set
 	// the title and metadata *after* loading the data
@@ -110,14 +110,14 @@ With blocking resources, I can do something like this:
 
 ```rust
 #[component]
-pub fn BlogPost(cx: Scope) -> impl IntoView {
-	let post_data = create_blocking_resource(cx, /* load blog post */);
-	let comment_data = create_resource(cx, /* load blog post */);
-	view! { cx,
+pub fn BlogPost() -> impl IntoView {
+	let post_data = create_blocking_resource(/* load blog post */);
+	let comment_data = create_resource(/* load blog post */);
+	view! {
 		<Suspense fallback=|| ()>
 			{move || {
-				post_data.with(cx, |data| {
-					view! { cx,
+				post_data.with(|data| {
+					view! {
 						<Title text=data.title/>
 						<Meta name="description" content=data.excerpt/>
 						<article>

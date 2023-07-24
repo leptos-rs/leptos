@@ -23,12 +23,12 @@ The [`extract` function in `leptos_actix`](https://docs.rs/leptos_actix/latest/l
 ```rust
 
 #[server(ActixExtract, "/api")]
-pub async fn actix_extract(cx: Scope) -> Result<String, ServerFnError> {
+pub async fn actix_extract() -> Result<String, ServerFnError> {
 	use leptos_actix::extract;
     use actix_web::dev::ConnectionInfo;
     use actix_web::web::{Data, Query};
 
-    extract(cx,
+    extract(
         |search: Query<Search>, connection: ConnectionInfo| async move {
             format!(
                 "search = {}\nconnection = {:?}",
@@ -47,11 +47,11 @@ The syntax for the [`leptos_axum::extract`](https://docs.rs/leptos_axum/latest/l
 
 ```rust
 #[server(AxumExtract, "/api")]
-pub async fn axum_extract(cx: Scope) -> Result<String, ServerFnError> {
+pub async fn axum_extract() -> Result<String, ServerFnError> {
     use axum::{extract::Query, http::Method};
     use leptos_axum::extract;
 
-    extract(cx, |method: Method, res: Query<MyQuery>| async move {
+    extract(|method: Method, res: Query<MyQuery>| async move {
             format!("{method:?} and {}", res.q)
         },
     )
