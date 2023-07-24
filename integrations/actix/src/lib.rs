@@ -326,8 +326,8 @@ pub fn handle_server_fns_with_context(
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -345,7 +345,7 @@ pub fn handle_server_fns_with_context(
 ///                 "/{tail:.*}",
 ///                 leptos_actix::render_app_to_stream(
 ///                     leptos_options.to_owned(),
-///                     |cx| view! { cx, <MyApp/> },
+///                     || view! { <MyApp/> },
 ///                     Method::Get,
 ///                 ),
 ///             )
@@ -395,8 +395,8 @@ where
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -414,7 +414,7 @@ where
 ///                 "/{tail:.*}",
 ///                 leptos_actix::render_app_to_stream_in_order(
 ///                     leptos_options.to_owned(),
-///                     |cx| view! { cx, <MyApp/> },
+///                     || view! { <MyApp/> },
 ///                     Method::Get,
 ///                 ),
 ///             )
@@ -462,8 +462,8 @@ where
 /// use std::{env, net::SocketAddr};
 ///
 /// #[component]
-/// fn MyApp(cx: Scope) -> impl IntoView {
-///     view! { cx, <main>"Hello, world!"</main> }
+/// fn MyApp() -> impl IntoView {
+///     view! { <main>"Hello, world!"</main> }
 /// }
 ///
 /// # if false { // don't actually try to run a server in a doctest...
@@ -481,7 +481,7 @@ where
 ///                 "/{tail:.*}",
 ///                 leptos_actix::render_app_async(
 ///                     leptos_options.to_owned(),
-///                     |cx| view! { cx, <MyApp/> },
+///                     || view! { <MyApp/> },
 ///                     Method::Get,
 ///                 ),
 ///             )
@@ -815,8 +815,7 @@ async fn build_stream_response(
             .chain(stream)
             .chain(
                 futures::stream::once(async move {
-                    eprintln!("\n\n[DISPOSING RUNTIME]\n\n");
-                    //runtime.dispose(); // TODO
+                    runtime.dispose();
                     tail.to_string()
                 })
                 .map(|html| Ok(web::Bytes::from(html)) as Result<web::Bytes>),
@@ -1061,7 +1060,7 @@ where
 /// }
 ///
 /// #[server(ExtractoServerFn, "/api")]
-/// pub async fn extractor_server_fn(cx: Scope) -> Result<String, ServerFnError> {
+/// pub async fn extractor_server_fn() -> Result<String, ServerFnError> {
 ///     use actix_web::dev::ConnectionInfo;
 ///     use actix_web::web::{Data, Query};
 ///
