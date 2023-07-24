@@ -122,8 +122,7 @@ pub fn Body(
             *meta.body.class.borrow_mut() = class;
             *meta.body.attributes.borrow_mut() = attributes;
         } else {
-            _ = cx;
-            _ = class;
+                        _ = class;
             _ = attributes;
 
             #[cfg(debug_assertions)]
