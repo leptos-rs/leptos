@@ -18,8 +18,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///   // do something...
 ///   // return a task id
@@ -36,7 +35,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// add_todo.dispatch("Profit!!!".to_string());
 /// # }
 ///
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// The input to the `async` function should always be a single value,
@@ -45,8 +44,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// // if there's a single argument, just use that
 /// let action1 = create_multi_action(|input: &String| {
 ///     let input = input.clone();
@@ -59,7 +57,7 @@ use std::{future::Future, pin::Pin, rc::Rc};
 /// // if there are multiple arguments, use a tuple
 /// let action3 =
 ///     create_multi_action(|input: &(usize, String)| async { todo!() });
-/// # });
+/// # runtime.dispose();
 /// ```
 pub struct MultiAction<I, O>(StoredValue<MultiActionState<I, O>>)
 where
@@ -256,8 +254,7 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// async fn send_new_todo_to_api(task: String) -> usize {
 ///   // do something...
 ///   // return a task id
@@ -275,7 +272,7 @@ where
 ///
 /// assert_eq!(add_todo.submissions().get().len(), 3);
 /// # }
-/// # });
+/// # runtime.dispose();
 /// ```
 ///
 /// The input to the `async` function should always be a single value,
@@ -284,8 +281,7 @@ where
 ///
 /// ```rust
 /// # use leptos::*;
-/// # let runtime = enter_new_runtime();
-/// # create_root(|_| {
+/// # let runtime = create_runtime();
 /// // if there's a single argument, just use that
 /// let action1 = create_multi_action(|input: &String| {
 ///     let input = input.clone();
@@ -298,7 +294,7 @@ where
 /// // if there are multiple arguments, use a tuple
 /// let action3 =
 ///     create_multi_action(|input: &(usize, String)| async { todo!() });
-/// # });
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),
@@ -336,9 +332,9 @@ where
 ///     todo!()
 /// }
 ///
-/// # run_scope(create_runtime(), |cx| {
-/// let my_server_multi_action = create_server_multi_action::<MyServerFn>(cx);
-/// # });
+/// # let runtime = create_runtime();
+/// let my_server_multi_action = create_server_multi_action::<MyServerFn>();
+/// # runtime.dispose();
 /// ```
 #[cfg_attr(
     any(debug_assertions, feature = "ssr"),

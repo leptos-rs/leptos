@@ -146,12 +146,12 @@ impl History for BrowserIntegration {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(create_runtime(), || {
+/// # let runtime = create_runtime();
 /// let integration = ServerIntegration {
 ///     path: "http://leptos.rs/".to_string(),
 /// };
 /// provide_context(RouterIntegrationContext::new(integration));
-/// # });
+/// # runtime.dispose();
 /// ```
 #[derive(Clone)]
 pub struct RouterIntegrationContext(pub Rc<dyn History>);
@@ -183,13 +183,13 @@ impl History for RouterIntegrationContext {
 /// ```
 /// # use leptos_router::*;
 /// # use leptos::*;
-/// # run_scope(create_runtime(), || {
+/// # let runtime = create_runtime();
 /// let integration = ServerIntegration {
 ///     // Swap out with your URL if integrating manually.
 ///     path: "http://leptos.rs/".to_string(),
 /// };
 /// provide_context(RouterIntegrationContext::new(integration));
-/// # });
+/// # runtime.dispose();
 /// ```
 #[derive(Clone, Debug)]
 pub struct ServerIntegration {

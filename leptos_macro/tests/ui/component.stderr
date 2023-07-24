@@ -1,53 +1,81 @@
-error: this method requires a `Scope` parameter
+error: expected parameter name, found `,`
+  --> tests/ui/component.rs:16:5
+   |
+16 |     ,
+   |     ^ expected parameter name
+
+error: expected parameter name, found `,`
+  --> tests/ui/component.rs:24:5
+   |
+24 |     ,
+   |     ^ expected parameter name
+
+error: expected parameter name, found `,`
+  --> tests/ui/component.rs:32:5
+   |
+32 |     ,
+   |     ^ expected parameter name
+
+error: expected parameter name, found `,`
+  --> tests/ui/component.rs:40:5
+   |
+40 |     ,
+   |     ^ expected parameter name
+
+error: expected parameter name, found `,`
+  --> tests/ui/component.rs:48:5
+   |
+48 |     ,
+   |     ^ expected parameter name
+
+error: return type is incorrect
  --> tests/ui/component.rs:4:1
   |
 4 | fn missing_scope() {}
   | ^^^^^^^^^^^^^^^^^^
   |
-  = help: try `fn missing_scope(cx: Scope, /* ... */)`
+  = help: return signature must be `-> impl IntoView`
 
 error: return type is incorrect
  --> tests/ui/component.rs:7:1
   |
-7 | fn missing_return_type(cx: Scope) {
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 | fn missing_return_type() {}
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = help: return signature must be `-> impl IntoView`
 
 error: supported fields are `optional`, `optional_no_strip`, `strip_option`, `default` and `into`
-  --> tests/ui/component.rs:12:42
+  --> tests/ui/component.rs:10:31
    |
-12 | fn unknown_prop_option(cx: Scope, #[prop(hello)] test: bool) -> impl IntoView {
-   |                                          ^^^^^
+10 | fn unknown_prop_option(#[prop(hello)] test: bool) -> impl IntoView {
+   |                               ^^^^^
 
-error: `optional` conflicts with mutually exclusive `optional_no_strip`
-  --> tests/ui/component.rs:20:12
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:16:5
    |
-20 |     #[prop(optional, optional_no_strip)] conflicting: bool,
-   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16 |     ,
+   |     ^
 
-error: `optional` conflicts with mutually exclusive `strip_option`
-  --> tests/ui/component.rs:29:12
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:24:5
    |
-29 |     #[prop(optional, strip_option)] conflicting: bool,
-   |            ^^^^^^^^^^^^^^^^^^^^^^
+24 |     ,
+   |     ^
 
-error: `optional_no_strip` conflicts with mutually exclusive `strip_option`
-  --> tests/ui/component.rs:38:12
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:32:5
    |
-38 |     #[prop(optional_no_strip, strip_option)] conflicting: bool,
-   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 |     ,
+   |     ^
 
-error: unexpected end of input, expected assignment `=`
-  --> tests/ui/component.rs:47:19
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:40:5
    |
-47 |     #[prop(default)] default: bool,
-   |                   ^
+40 |     ,
+   |     ^
 
-error: unexpected end of input, expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
-
-       = help: try `#[prop(default=5 * 10)]`
-  --> tests/ui/component.rs:56:22
+error: expected one of: identifier, `::`, `<`, `_`, literal, `const`, `ref`, `mut`, `&`, parentheses, square brackets, `..`, `const`
+  --> tests/ui/component.rs:48:5
    |
-56 |     #[prop(default= |)] default: bool,
-   |                      ^
+48 |     ,
+   |     ^

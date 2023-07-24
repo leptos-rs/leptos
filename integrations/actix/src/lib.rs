@@ -722,7 +722,7 @@ fn provide_contexts(req: &HttpRequest, res_options: ResponseOptions) {
     provide_context(MetaContext::new());
     provide_context(res_options);
     provide_context(req.clone());
-    provide_server_redirect(move |path| redirect(path));
+    provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }

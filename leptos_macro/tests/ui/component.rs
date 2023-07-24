@@ -4,16 +4,16 @@ use leptos::*;
 fn missing_scope() {}
 
 #[component]
-fn missing_return_type(cx: Scope) {}
+fn missing_return_type() {}
 
 #[component]
-fn unknown_prop_option(cx: Scope, #[prop(hello)] test: bool) -> impl IntoView {
+fn unknown_prop_option(#[prop(hello)] test: bool) -> impl IntoView {
     _ = test;
 }
 
 #[component]
 fn optional_and_optional_no_strip(
-    cx: Scope,
+    ,
     #[prop(optional, optional_no_strip)] conflicting: bool,
 ) -> impl IntoView {
     _ = conflicting;
@@ -21,7 +21,7 @@ fn optional_and_optional_no_strip(
 
 #[component]
 fn optional_and_strip_option(
-    cx: Scope,
+    ,
     #[prop(optional, strip_option)] conflicting: bool,
 ) -> impl IntoView {
     _ = conflicting;
@@ -29,7 +29,7 @@ fn optional_and_strip_option(
 
 #[component]
 fn optional_no_strip_and_strip_option(
-    cx: Scope,
+    ,
     #[prop(optional_no_strip, strip_option)] conflicting: bool,
 ) -> impl IntoView {
     _ = conflicting;
@@ -37,7 +37,7 @@ fn optional_no_strip_and_strip_option(
 
 #[component]
 fn default_without_value(
-    cx: Scope,
+    ,
     #[prop(default)] default: bool,
 ) -> impl IntoView {
     _ = default;
@@ -45,7 +45,7 @@ fn default_without_value(
 
 #[component]
 fn default_with_invalid_value(
-    cx: Scope,
+    ,
     #[prop(default= |)] default: bool,
 ) -> impl IntoView {
     _ = default;
