@@ -599,7 +599,9 @@ where
                                                     replace_blocks
                                                 );
 
-                                                forward_stream(&options, res_options2, bundle, runtime, tx).await;
+                                                forward_stream(&options, res_options2, bundle, tx).await;
+
+                                                runtime.dispose();
                                         })
                                         .await;
                                 }
@@ -646,7 +648,6 @@ async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
     bundle: impl Stream<Item = String> + 'static,
-    runtime: RuntimeId,
     mut tx: Sender<String>,
 ) {
     let mut shell = Box::pin(bundle);
@@ -765,7 +766,8 @@ where
                                                     add_context,
                                                 );
 
-                                            forward_stream(&options, res_options2, bundle, runtime, tx).await;
+                                            forward_stream(&options, res_options2, bundle, tx).await;
+                                            runtime.dispose();
                                         })
                                         .await;
                                 }
@@ -789,7 +791,7 @@ fn provide_contexts(
     provide_context(MetaContext::new());
     provide_context(req_parts);
     provide_context(default_res_options);
-    provide_server_redirect(move |path| redirect(path));
+    provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }

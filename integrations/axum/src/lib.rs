@@ -674,7 +674,6 @@ async fn forward_stream(
     options: &LeptosOptions,
     res_options2: ResponseOptions,
     bundle: impl Stream<Item = String> + 'static,
-    runtime: RuntimeId,
     mut tx: Sender<String>,
 ) {
     let mut shell = Box::pin(bundle);
@@ -787,7 +786,7 @@ where
                             add_context,
                         );
 
-                    forward_stream(&options, res_options2, bundle, runtime, tx).await;
+                    forward_stream(&options, res_options2, bundle, tx).await;
 
                     runtime.dispose();
                 }.instrument(current_span));
